@@ -1,0 +1,106 @@
+import {
+  pgTable, uuid, text, timestamp, boolean, pgEnum, jsonb, index,
+} from "drizzle-orm/pg-core";
+import { org, brand } from "./org";
+import { appUser } from "./users";
+
+export const canalEnum = pgEnum("canal_tipo", [
+  "whatsapp", "instagram", "facebook", "email", "mercadolivre",
+  "shopee", "tiktokshop", "olist", "manual",
+]);
+
+export const finalidadeEnum = pgEnum("finalidade_consentimento", [
+  "marketing", "avaliacao", "suporte", "cobranca",
+]);
+
+export const statusConsentimentoEnum = pgEnum("status_consentimento", [
+  "ativo", "revogado",
+]);
+
+export const cliente = pgTable("cliente", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  nome: text("nome").notNull(),
+  email: text("email"),
+  telefone: text("telefone"),
+  cpfCnpj: text("cpf_cnpj"),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_cliente_org").on(t.orgId),
+  index("idx_cliente_email").on(t.email),
+  index("idx_cliente_telefone").on(t.telefone),
+  index("idx_cliente_cpf").on(t.cpfCnpj),
+]);
+
+export const clienteIdentidade = pgTable("cliente_identidade", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clienteId: uuid("cliente_id").notNull().references(() => cliente.id),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  canal: canalEnum("canal").notNull(),
+  externalId: text("external_id").notNull(),
+  meta: jsonb("meta"),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_identidade_cliente").on(t.clienteId),
+  index("idx_identidade_external").on(t.canal, t.externalId),
+]);
+
+export const consentimento = pgTable("consentimento", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clienteId: uuid("cliente_id").notNull().references(() => cliente.id),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  brandId: uuid("brand_id").notNull().references(() => brand.id),
+  finalidade: finalidadeEnum("finalidade").notNull(),
+  canal: canalEnum("canal").notNull(),
+  status: statusConsentimentoEnum("status").notNull().default("ativo"),
+  origem: text("origem").notNull(),
+  prova: text("prova"),
+  revokedAt: timestamp("revogado_em", { withTimezone: true }),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_consentimento_cliente").on(t.clienteId),
+  index("idx_consentimento_brand").on(t.brandId),
+]);
+
+export const tag = pgTable("tag", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  nome: text("nome").notNull(),
+  cor: text("cor"),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const clienteTag = pgTable("cliente_tag", {
+  clienteId: uuid("cliente_id").notNull().references(() => cliente.id),
+  tagId: uuid("tag_id").notNull().references(() => tag.id),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_cliente_tag").on(t.clienteId),
+]);
+
+export const segmento = pgTable("segmento", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  nome: text("nome").notNull(),
+  filtros: jsonb("filtros").notNull(),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const interacao = pgTable("interacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clienteId: uuid("cliente_id").notNull().references(() => cliente.id),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  brandId: uuid("brand_id").references(() => brand.id),
+  tipo: text("tipo").notNull(),
+  canal: canalEnum("canal"),
+  resumo: text("resumo"),
+  meta: jsonb("meta"),
+  autorId: uuid("autor_id").references(() => appUser.id),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_interacao_cliente").on(t.clienteId),
+  index("idx_interacao_criado").on(t.createdAt),
+]);

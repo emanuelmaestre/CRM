@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+/* ── Sinal Duplo Design System ── */
+:root {
+  /* Neutros - Tema Vitrine (claro) */
+  --background: #F7F7F8;
+  --foreground: #15171C;
+  --card: #FFFFFF;
+  --card-foreground: #15171C;
+  --popover: #FFFFFF;
+  --popover-foreground: #15171C;
+  --muted: #E6E7EA;
+  --muted-foreground: #5A5F6A;
+  --border: #E6E7EA;
+  --input: #E6E7EA;
+  --ring: #E3131B;
+
+  /* Primária (ação neutra) */
+  --primary: #15171C;
+  --primary-foreground: #F2F3F5;
+
+  /* Secundária */
+  --secondary: #E6E7EA;
+  --secondary-foreground: #15171C;
+
+  /* Marcas */
+  --karzi: #E3131B;
+  --karzi-accent: #FFC400;
+  --wuwu: #9B30D9;
+  --gradient-signature: linear-gradient(135deg, #E3131B 0%, #9B30D9 100%);
+
+  /* Semânticas */
+  --success: #1F8A4C;
+  --warning: #B57A00;
+  --destructive: #C21820;
+  --info: #2563EB;
+
+  /* Fontes */
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-sora);
+
+  /* Radius */
+  --radius: 0.75rem;
+  --radius-card: 1.25rem;
+}
+
+.dark {
+  /* Neutros - Tema Cabine (escuro) */
+  --background: #0E0F13;
+  --foreground: #F2F3F5;
+  --card: #16181E;
+  --card-foreground: #F2F3F5;
+  --popover: #1C1F27;
+  --popover-foreground: #F2F3F5;
+  --muted: #262A33;
+  --muted-foreground: #9AA0AC;
+  --border: #262A33;
+  --input: #262A33;
+  --ring: #E3131B;
+  --primary: #F2F3F5;
+  --primary-foreground: #15171C;
+  --secondary: #262A33;
+  --secondary-foreground: #F2F3F5;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-inter);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-sora), system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
