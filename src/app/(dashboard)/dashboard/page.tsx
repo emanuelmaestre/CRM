@@ -444,16 +444,8 @@ export default function DashboardPage() {
       initial="hidden"
       animate="show"
     >
-      {/* Header */}
-      <motion.div variants={fadeUp} className="mb-5">
-        <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-          {dashboardConfig.header.title}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{dashboardConfig.header.description}</p>
-      </motion.div>
-
-      {/* Layout 62 / 38 */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-5">
+      {/* Layout 62 / 38 — título vive dentro do hero card, igual ao TWISTY */}
+      <div className="grid grid-cols-1 xl:grid-cols-[62%_1fr] gap-5">
 
         {/* LEFT */}
         <div className="flex flex-col gap-5">
