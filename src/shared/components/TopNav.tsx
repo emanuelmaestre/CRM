@@ -43,16 +43,16 @@ export function TopNav() {
 
   return (
     <motion.header
-      initial={{ y: -56, opacity: 0 }}
+      initial={{ y: -8, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+      transition={{ duration: 0.28, ease: [0, 0, 0.2, 1] }}
       className="fixed top-0 inset-x-0 z-30 h-14 bg-card/90 backdrop-blur-md border-b border-border flex items-center px-4 sm:px-6 gap-4"
     >
       {/* Logo */}
       <Link href={navigationConfig.homeHref} className="flex items-center gap-2 shrink-0 group">
         <motion.span
-          whileHover={{ scale: 1.05 }}
-          transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          whileHover={{ scale: 1.03 }}
+          transition={{ type: "spring", stiffness: 380, damping: 32 }}
           className="text-lg font-bold tracking-tight leading-none"
           style={{
             fontFamily: "var(--font-sora)",
@@ -82,7 +82,7 @@ export function TopNav() {
               key={item.href}
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 + 0.15, duration: 0.25 }}
+              transition={{ delay: i * 0.03 + 0.1, duration: 0.2, ease: [0, 0, 0.2, 1] }}
             >
               <Link
                 href={item.href}
@@ -104,7 +104,7 @@ export function TopNav() {
                   <motion.span
                     layoutId="nav-active"
                     className="absolute bottom-0 inset-x-0 h-[2px] bg-foreground"
-                    transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
                   />
                 )}
               </Link>
@@ -117,9 +117,9 @@ export function TopNav() {
       <div className="ml-auto flex items-center gap-1.5">
         {/* Search */}
         <motion.div
-          initial={{ opacity: 0, x: 10 }}
+          initial={{ opacity: 0, x: 4 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4, duration: 0.25 }}
+          transition={{ delay: 0.18, duration: 0.2, ease: [0, 0, 0.2, 1] }}
           className="hidden lg:flex items-center gap-2 h-8 px-3 rounded-lg bg-muted text-muted-foreground text-sm cursor-pointer hover:bg-muted/80 transition-colors group"
         >
           <SearchIcon size={13} strokeWidth={2} className="group-hover:scale-110 transition-transform" />
@@ -129,8 +129,8 @@ export function TopNav() {
 
         {/* Bell */}
         <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.96 }}
           onClick={() => setBell(b => !b)}
           className="hidden md:flex relative w-8 h-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
@@ -148,7 +148,7 @@ export function TopNav() {
         </motion.button>
 
         {/* Settings */}
-        <motion.div whileHover={{ rotate: 45 }} transition={{ type: "spring", stiffness: 300 }}>
+        <motion.div whileHover={{ scale: 1.05 }} transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}>
           <Link
             href={navigationConfig.utilities.settings.href}
             className={cn(
@@ -167,8 +167,8 @@ export function TopNav() {
         {/* Avatar */}
         <motion.button
           onClick={handleLogout}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           title={navigationConfig.utilities.logout.label}
           className="flex items-center gap-2 h-8 pl-1 pr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >

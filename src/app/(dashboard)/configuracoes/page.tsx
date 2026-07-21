@@ -11,12 +11,12 @@ const ExternalIcon = getIcon(settingsConfig.openAction.icon);
 
 const stagger = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
+  show: { transition: { staggerChildren: 0.04 } },
 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] } },
+  hidden: { opacity: 0, y: 5, scale: 0.97 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.24, ease: [0, 0, 0.2, 1] as [number,number,number,number] } },
 };
 
 function Card({ title, icon: Icon, children }: {
@@ -25,7 +25,7 @@ function Card({ title, icon: Icon, children }: {
   return (
     <motion.div
       variants={fadeUp}
-      whileHover={{ y: -2, boxShadow: "0 8px 28px rgba(14,15,19,.1)" }}
+      whileHover={{ y: -1, boxShadow: "0 6px 24px rgba(14,15,19,.09)" }}
       transition={{ duration: 0.18 }}
       className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
     >
@@ -59,8 +59,7 @@ function StatusBadge({ connected }: { connected: boolean }) {
       connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
     }`}>
       {connected
-        ? <><motion.span animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 2, repeat: Infinity }}
-            className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C]" /> {settingsConfig.status.active}</>
+        ? <><span className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C] inline-block" /> {settingsConfig.status.active}</>
         : <><PendingIcon size={11} strokeWidth={2} /> {settingsConfig.status.pending}</>
       }
     </span>
@@ -72,7 +71,7 @@ function IntegrationRow({ name, description, href, color, connected = false }: {
 }) {
   return (
     <motion.div
-      whileHover={{ x: 2 }}
+      whileHover={{ x: 1 }}
       className="flex justify-between items-center py-3 border-b border-border last:border-0"
     >
       <div>
@@ -123,11 +122,7 @@ export default function ConfiguracoesPage() {
                 <p className="text-xs text-muted-foreground mt-0.5">{settingsConfig.users.role}</p>
               </div>
               <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-[#1F8A4C]/10 text-[#1F8A4C]">
-                <motion.span
-                  animate={{ scale: [1, 1.4, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C]"
-                />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C] inline-block" />
                 {settingsConfig.status.active}
               </span>
             </div>

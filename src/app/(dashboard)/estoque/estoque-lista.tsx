@@ -141,7 +141,7 @@ export function EstoqueLista() {
                         key={p.id}
                         initial={{ opacity: 0, x: -6 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05, duration: 0.25 }}
+                        transition={{ delay: i * 0.03, duration: 0.22, ease: [0, 0, 0.2, 1] }}
                         whileHover={{ backgroundColor: "rgba(0,0,0,0.018)" }}
                         className="border-b border-border last:border-0"
                       >
@@ -160,13 +160,11 @@ export function EstoqueLista() {
                             {saldo}
                           </span>
                           {alerta && (
-                            <motion.span
-                              animate={{ opacity: [1, 0.4, 1] }}
-                              transition={{ duration: 1.5, repeat: Infinity }}
+                            <span
                               className="ml-1.5 text-[10px] text-[#C21820]"
                             >
                               {copy.minimumIndicator}
-                            </motion.span>
+                            </span>
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-right text-muted-foreground hidden md:table-cell">

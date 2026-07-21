@@ -34,18 +34,14 @@ export function EmptyState({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+      initial={{ opacity: 0, y: 4, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
       className={cn("flex flex-col items-center justify-center py-14 px-4 text-center", className)}
     >
-      <motion.div
-        animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-        className="mb-4 flex items-center justify-center w-14 h-14 rounded-2xl bg-muted text-muted-foreground"
-      >
+      <div className="mb-4 flex items-center justify-center w-14 h-14 rounded-2xl bg-muted text-muted-foreground">
         <Icon size={24} strokeWidth={1.5} />
-      </motion.div>
+      </div>
       <p className="text-sm font-semibold text-foreground mb-1">{title}</p>
       {description && (
         <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">{description}</p>

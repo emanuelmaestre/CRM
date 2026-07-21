@@ -11,12 +11,12 @@ import { getIcon } from "@/shared/config/icon-registry";
 /* ── Stagger container ─────────────────────────────────────────── */
 const stagger = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
+  show: { transition: { staggerChildren: 0.04 } },
 };
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 14 },
-  show:   { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] } },
+  hidden: { opacity: 0, y: 6, scale: 0.97 },
+  show:   { opacity: 1, y: 0, scale: 1, transition: { duration: 0.24, ease: [0, 0, 0.2, 1] as [number,number,number,number] } },
 };
 
 const REVENUE_BARS = dashboardConfig.revenue.bars;
@@ -36,8 +36,8 @@ function Card({ children, className = "", glow, style }: {
   return (
     <motion.div
       variants={fadeUp}
-      whileHover={{ y: -2, boxShadow: "0 12px 32px rgba(14,15,19,.12)" }}
-      transition={{ duration: 0.18 }}
+      whileHover={{ y: -1, boxShadow: "0 6px 24px rgba(14,15,19,.09)" }}
+      transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
       className={`rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden relative ${className}`}
       style={style}
     >
@@ -145,7 +145,7 @@ function RevenueTracker() {
         <div className="flex items-start justify-between mb-1">
           <div className="flex items-center gap-3">
             <motion.div
-              whileHover={{ rotate: 10, scale: 1.1 }}
+              whileHover={{ rotate: 5, scale: 1.06 }}
               className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center text-muted-foreground"
             >
               <RevenueIcon size={17} strokeWidth={1.75} />
@@ -183,7 +183,7 @@ function RevenueTracker() {
                   <motion.span
                     layoutId="day-active"
                     className="absolute inset-0 bg-foreground rounded-full"
-                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
                   />
                 )}
               </AnimatePresence>
@@ -235,7 +235,7 @@ function RecentClients() {
               key={c.name}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 + 0.2 }}
+              transition={{ delay: i * 0.04 + 0.08, duration: 0.22, ease: [0, 0, 0.2, 1] }}
               whileHover={{ x: 2 }}
               className="flex items-center gap-3 cursor-pointer"
             >
@@ -267,7 +267,7 @@ function ConnectCta() {
     <Card className="p-5 flex flex-col justify-between" style={{ background: "var(--foreground)" }}>
       {/* Ambient glow */}
       <div
-        className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 pointer-events-none animate-spin-slow"
+        className="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 pointer-events-none"
         style={{ background: "var(--gradient-signature)", filter: "blur(20px)" }}
       />
       <div className="relative z-10">
@@ -311,7 +311,7 @@ function KpiCard({ label, value, sub, icon: Icon, accent }: {
         <div className="flex items-center justify-between mb-3">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
           <motion.div
-            whileHover={{ rotate: 12, scale: 1.15 }}
+            whileHover={{ rotate: 6, scale: 1.08 }}
             className="w-7 h-7 rounded-lg flex items-center justify-center"
             style={{ background: accent + "18", color: accent }}
           >
@@ -419,7 +419,7 @@ function Channels() {
               </div>
               {c.connected && (
                 <>
-                  <span className="absolute inset-0 rounded-lg bg-[#1F8A4C]/20 animate-ping" />
+                  <span className="absolute inset-0 rounded-lg bg-[#1F8A4C]/15" />
                 </>
               )}
             </div>

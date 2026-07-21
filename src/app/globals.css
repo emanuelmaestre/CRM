@@ -97,20 +97,15 @@ h1, h2, h3, h4 {
   font-family: var(--font-sora), system-ui, sans-serif;
 }
 
-/* ── Keyframes globais ── */
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50%       { transform: translateY(-6px); }
-}
-
-@keyframes pulse-ring {
-  0%   { transform: scale(1);   opacity: 0.6; }
-  100% { transform: scale(1.8); opacity: 0; }
-}
-
+/* ── Keyframes globais (Apple motion — apenas os necessários) ── */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)  scale(1); }
 }
 
 @keyframes bar-grow {
@@ -118,55 +113,23 @@ h1, h2, h3, h4 {
   to   { transform: scaleY(1); transform-origin: bottom; }
 }
 
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes count-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes gradient-x {
-  0%, 100% { background-position: 0% 50%; }
-  50%       { background-position: 100% 50%; }
-}
-
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-@keyframes dot-bounce {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-4px); }
-}
-
 /* ── Utility classes ── */
-.animate-float      { animation: float 3.5s ease-in-out infinite; }
-.animate-fade-up    { animation: fade-up 0.35s cubic-bezier(0.4,0,0.2,1) both; }
-.animate-bar-grow   { animation: bar-grow 0.6s cubic-bezier(0.4,0,0.2,1) both; }
-.animate-gradient-x {
-  background-size: 200% 200%;
-  animation: gradient-x 4s ease infinite;
-}
-.animate-pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
-.animate-spin-slow  { animation: spin-slow 8s linear infinite; }
+.animate-fade-up  { animation: fade-up 0.24s cubic-bezier(0,0,0.2,1) both; }
+.animate-bar-grow { animation: bar-grow 0.5s cubic-bezier(0,0,0.2,1) both; }
 
 .card-hover {
-  transition: transform 0.18s cubic-bezier(0.4,0,0.2,1),
-              box-shadow 0.18s cubic-bezier(0.4,0,0.2,1);
+  transition: transform 0.2s cubic-bezier(0,0,0.2,1),
+              box-shadow 0.2s cubic-bezier(0,0,0.2,1);
 }
 .card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(14,15,19,.11);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(14,15,19,.10);
 }
 
 .shimmer {
   background: linear-gradient(90deg, var(--muted) 25%, color-mix(in srgb, var(--muted) 60%, white) 50%, var(--muted) 75%);
   background-size: 400px 100%;
-  animation: shimmer 1.5s infinite linear;
+  animation: shimmer 1.4s infinite linear;
 }
 
 @media (prefers-reduced-motion: reduce) {

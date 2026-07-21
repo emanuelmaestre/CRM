@@ -130,9 +130,9 @@ export function VendasFunil() {
                         <motion.div
                           key={op.id}
                           layout
-                          initial={{ opacity: 0, scale: 0.96 }}
+                          initial={{ opacity: 0, scale: 0.98 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          whileHover={{ y: -2, boxShadow: "0 6px 20px rgba(14,15,19,.1)" }}
+                          whileHover={{ y: -1, boxShadow: "0 4px 16px rgba(14,15,19,.09)" }}
                           draggable
                           onDragStartCapture={(e: React.DragEvent<HTMLDivElement>) => {
                             e.dataTransfer.setData("opId", op.id);

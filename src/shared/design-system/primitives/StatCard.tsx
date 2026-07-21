@@ -16,8 +16,8 @@ interface StatCardProps {
 export function StatCard({ label, value, sub, trend, icon: Icon, className }: StatCardProps) {
   return (
     <motion.div
-      whileHover={{ y: -2, boxShadow: "0 8px 30px rgba(14,15,19,.11)" }}
-      transition={{ duration: 0.18 }}
+      whileHover={{ y: -1, boxShadow: "0 6px 24px rgba(14,15,19,.09)" }}
+      transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
       className={cn(
         "rounded-[1.25rem] bg-card p-5 shadow-[0_2px_16px_rgba(14,15,19,.07)]",
         className
@@ -27,7 +27,7 @@ export function StatCard({ label, value, sub, trend, icon: Icon, className }: St
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{label}</p>
         {Icon && (
           <motion.div
-            whileHover={{ rotate: 12, scale: 1.15 }}
+            whileHover={{ rotate: 6, scale: 1.08 }}
             className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center text-muted-foreground"
           >
             <Icon size={15} strokeWidth={1.75} />

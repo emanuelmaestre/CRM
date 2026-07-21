@@ -27,14 +27,14 @@ export function BottomNav() {
                 <motion.span
                   layoutId="bottom-active"
                   className="absolute inset-x-1 inset-y-1 rounded-xl bg-muted"
-                  transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
                 />
               )}
             </AnimatePresence>
 
             <motion.span
-              animate={{ scale: active ? 1.1 : 1, y: active ? -1 : 0 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              animate={{ scale: active ? 1.06 : 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 32 }}
               className={cn("relative z-10", active ? "text-foreground" : "text-muted-foreground")}
             >
               <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />

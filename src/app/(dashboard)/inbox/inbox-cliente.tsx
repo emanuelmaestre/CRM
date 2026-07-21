@@ -79,8 +79,6 @@ export function InboxCliente() {
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-10 text-center"
       >
         <motion.div
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
           className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground mx-auto mb-4"
         >
           <MessageSquare size={24} strokeWidth={1.5} />
@@ -160,13 +158,11 @@ export function InboxCliente() {
               exit={{ opacity: 0 }}
               className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground"
             >
-              <motion.div
-                animate={{ y: [0, -5, 0] }}
-                transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              <div
                 className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center"
               >
                 <MessageSquare size={20} strokeWidth={1.5} />
-              </motion.div>
+              </div>
               <span className="mt-1">{copy.selectConversation}</span>
             </motion.div>
           ) : loadingMsgs ? (
@@ -202,7 +198,7 @@ export function InboxCliente() {
                       key={m.id}
                       initial={{ opacity: 0, y: 8, scale: 0.97 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ delay: i * 0.03, duration: 0.2 }}
+                      transition={{ delay: i * 0.02, duration: 0.2, ease: [0, 0, 0.2, 1] }}
                       className={`max-w-[70%] rounded-[0.75rem] px-3 py-2 text-sm ${
                         m.direcao === "saida"
                           ? "ml-auto text-white shadow-[0_2px_12px_rgba(227,19,27,.25)]"

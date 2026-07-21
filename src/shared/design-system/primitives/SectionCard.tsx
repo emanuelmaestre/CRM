@@ -14,10 +14,10 @@ interface SectionCardProps {
 export function SectionCard({ title, description, actions, children, className }: SectionCardProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-      whileHover={{ y: -1, boxShadow: "0 8px 28px rgba(14,15,19,.1)" }}
+      initial={{ opacity: 0, y: 4, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+      whileHover={{ y: -1, boxShadow: "0 6px 24px rgba(14,15,19,.09)" }}
       className={cn(
         "rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]",
         className
