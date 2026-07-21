@@ -13,6 +13,11 @@ import { A4_syncSaldo } from "@/modules/jobs/A4-sync-saldo";
 import { A7_encalhe } from "@/modules/jobs/A7-encalhe";
 import { A12_conversaParada } from "@/modules/jobs/A12-conversa-parada";
 import { A13_scoresCliente } from "@/modules/jobs/A13-scores-cliente";
+import { A17_documentosAutomaticos } from "@/modules/jobs/A17-documentos-automaticos";
+import { A19_notificacoesInternas } from "@/modules/jobs/A19-notificacoes-internas";
+import { A20_backupVerificacao } from "@/modules/jobs/A20-backup-verificacao";
+import { A21_guardaConsumoIA } from "@/modules/jobs/A21-guarda-consumo-ia";
+import { A22_lgpdRetencao } from "@/modules/jobs/A22-lgpd-retencao";
 import { A14_scoresProduto } from "@/modules/jobs/A14-scores-produto";
 import { A15_insightsFunil } from "@/modules/jobs/A15-insights-funil";
 import { A16_sugestoesCampanha } from "@/modules/jobs/A16-sugestoes-campanha";
@@ -37,6 +42,11 @@ export const { GET, POST, PUT } = serve({
     A14_scoresProduto,
     A15_insightsFunil,
     A16_sugestoesCampanha,
+    A17_documentosAutomaticos,
     A18_saudeConectores,
+    A19_notificacoesInternas,
+    A20_backupVerificacao,
+    A21_guardaConsumoIA,
+    A22_lgpdRetencao,
   ],
 });
