@@ -1,6 +1,8 @@
 import { LoginForm } from "./login-form";
+import appConfig from "@/config/app.json";
+import pagesConfig from "@/config/pages.json";
 
-export const metadata = { title: "Entrar" };
+export const metadata = { title: pagesConfig.login.title };
 
 export default function LoginPage() {
   return (
@@ -13,10 +15,10 @@ export default function LoginPage() {
             style={{ fontFamily: "var(--font-sora)" }}
           >
             <span style={{ background: "var(--gradient-signature)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              CRM
+              {appConfig.name}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">KARZI · WUWU</p>
+          <p className="text-sm text-muted-foreground mt-1">{pagesConfig.login.subtitle}</p>
         </div>
         <LoginForm />
       </div>

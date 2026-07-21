@@ -10,8 +10,9 @@ import {
   inputClass,
 } from "@/shared/design-system/primitives/WizardLayout";
 import { actionCriarCliente } from "../actions";
+import wizardsConfig from "@/config/wizards.json";
 
-const STEPS = ["Dados pessoais", "Contato", "Revisar"];
+const copy = wizardsConfig.cliente;
 
 type FormData = {
   nome: string;
@@ -34,14 +35,14 @@ export default function NovoClienteWizard() {
 
   function validateStep0() {
     const e: Partial<FormData> = {};
-    if (!data.nome.trim() || data.nome.trim().length < 2) e.nome = "Nome deve ter ao menos 2 caracteres";
+    if (!data.nome.trim() || data.nome.trim().length < 2) e.nome = copy.messages.nameInvalid;
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   function validateStep1() {
     const e: Partial<FormData> = {};
-    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = "E-mail inválido";
+    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = copy.messages.emailInvalid;
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -65,41 +66,41 @@ export default function NovoClienteWizard() {
     startTransition(async () => {
       try {
         await actionCriarCliente(fd);
-        toast.success("Cliente criado com sucesso!");
-        router.push("/clientes");
+        toast.success(copy.messages.success);
+        router.push(copy.cancelHref);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro ao criar cliente.");
+        toast.error(err instanceof Error ? err.message : copy.messages.error);
       }
     });
   }
 
   return (
     <WizardLayout
-      title="Novo cliente"
-      steps={STEPS}
+      title={copy.title}
+      steps={copy.steps}
       currentStep={step}
       onBack={step > 0 ? () => setStep((s) => s - 1) : undefined}
-      cancelHref="/clientes"
+      cancelHref={copy.cancelHref}
     >
       {step === 0 && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Dados pessoais</h2>
-            <p className="text-sm text-muted-foreground mt-1">Informações principais do cliente</p>
+            <h2 className="text-2xl font-bold text-foreground">{copy.sections[0].title}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{copy.sections[0].description}</p>
           </div>
-          <WizardField label="Nome completo" required error={errors.nome}>
+          <WizardField label={copy.fields.nome.label} required error={errors.nome}>
             <input
               className={inputClass}
-              placeholder="Ex: Maria da Silva"
+              placeholder={copy.fields.nome.placeholder}
               value={data.nome}
               onChange={(e) => set("nome", e.target.value)}
               autoFocus
             />
           </WizardField>
-          <WizardField label="CPF / CNPJ">
+          <WizardField label={copy.fields.cpfCnpj.label}>
             <input
               className={inputClass}
-              placeholder="000.000.000-00 ou 00.000.000/0001-00"
+              placeholder={copy.fields.cpfCnpj.placeholder}
               value={data.cpfCnpj}
               onChange={(e) => set("cpfCnpj", e.target.value)}
             />
@@ -111,23 +112,23 @@ export default function NovoClienteWizard() {
       {step === 1 && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Contato</h2>
-            <p className="text-sm text-muted-foreground mt-1">Como entrar em contato com {data.nome || "o cliente"}</p>
+            <h2 className="text-2xl font-bold text-foreground">{copy.sections[1].title}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{copy.sections[1].description}</p>
           </div>
-          <WizardField label="E-mail" error={errors.email}>
+          <WizardField label={copy.fields.email.label} error={errors.email}>
             <input
               className={inputClass}
               type="email"
-              placeholder="cliente@exemplo.com"
+              placeholder={copy.fields.email.placeholder}
               value={data.email}
               onChange={(e) => set("email", e.target.value)}
               autoFocus
             />
           </WizardField>
-          <WizardField label="WhatsApp">
+          <WizardField label={copy.fields.telefone.label}>
             <input
               className={inputClass}
-              placeholder="(11) 99999-9999"
+              placeholder={copy.fields.telefone.placeholder}
               value={data.telefone}
               onChange={(e) => set("telefone", e.target.value)}
             />
@@ -139,16 +140,16 @@ export default function NovoClienteWizard() {
       {step === 2 && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Confirmar cadastro</h2>
-            <p className="text-sm text-muted-foreground mt-1">Revise os dados antes de salvar</p>
+            <h2 className="text-2xl font-bold text-foreground">{copy.sections[2].title}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{copy.sections[2].description}</p>
           </div>
 
           <div className="rounded-[1.25rem] border border-border bg-card divide-y divide-border overflow-hidden">
             {[
-              { label: "Nome", value: data.nome },
-              { label: "CPF / CNPJ", value: data.cpfCnpj || "—" },
-              { label: "E-mail", value: data.email || "—" },
-              { label: "WhatsApp", value: data.telefone || "—" },
+              { label: copy.reviewLabels.nome, value: data.nome },
+              { label: copy.reviewLabels.cpfCnpj, value: data.cpfCnpj || "—" },
+              { label: copy.reviewLabels.email, value: data.email || "—" },
+              { label: copy.reviewLabels.telefone, value: data.telefone || "—" },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between px-5 py-4">
                 <span className="text-sm text-muted-foreground">{label}</span>
@@ -162,7 +163,7 @@ export default function NovoClienteWizard() {
             isLast
             onSubmit={submit}
             isPending={pending}
-            submitLabel="Criar cliente"
+            submitLabel={copy.actions.submit}
           />
         </div>
       )}

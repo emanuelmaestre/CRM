@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
-import {
-  ShoppingBag, DollarSign, Users, AlertTriangle,
-  TrendingUp, ArrowRight, Wifi, WifiOff, Zap,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { BrandChip } from "@/shared/design-system/primitives/BrandChip";
+import brandsConfig from "@/config/brands.json";
+import dashboardConfig from "@/config/dashboard.json";
+import { getIcon } from "@/shared/config/icon-registry";
 
 /* ── Stagger container ─────────────────────────────────────────── */
 const stagger = {
@@ -19,9 +19,15 @@ const fadeUp = {
   show:   { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.4, 0, 0.2, 1] as [number,number,number,number] } },
 };
 
-const REVENUE_BARS = [38, 55, 42, 70, 52, 88, 65, 58, 80, 48, 72, 60, 90, 68];
+const REVENUE_BARS = dashboardConfig.revenue.bars;
 const MAX_REVENUE_BAR = Math.max(...REVENUE_BARS);
 const PEAK_REVENUE_BAR_INDEX = REVENUE_BARS.indexOf(MAX_REVENUE_BAR);
+const RevenueIcon = getIcon(dashboardConfig.revenue.icon);
+const CtaIcon = getIcon(dashboardConfig.connectCta.icon);
+const OrderIcon = getIcon(dashboardConfig.recentOrders.icon);
+const ConnectedIcon = getIcon(dashboardConfig.channels.connectedIcon);
+const DisconnectedIcon = getIcon(dashboardConfig.channels.disconnectedIcon);
+const KPI_CONFIG = dashboardConfig.kpis.map((kpi) => ({ ...kpi, icon: getIcon(kpi.icon) }));
 
 /* ── Card base ─────────────────────────────────────────────────── */
 function Card({ children, className = "", glow, style }: {
@@ -94,7 +100,7 @@ function RevenueChart() {
 
         // Tooltip on peak
         if (isPeak && ease > 0.85) {
-          const label  = "R$ —";
+          const label  = dashboardConfig.revenue.peakLabel;
           const tw     = ctx.measureText(label).width;
           const tx     = x + bw / 2 - tw / 2 - 10;
           const ty     = y - 30;
@@ -131,7 +137,6 @@ function RevenueChart() {
 
 /* ── Hero: Revenue Tracker ─────────────────────────────────────── */
 function RevenueTracker() {
-  const days = ["D","S","T","Q","Q","S","S"];
   const [active, setActive] = useState(1);
 
   return (
@@ -143,10 +148,10 @@ function RevenueTracker() {
               whileHover={{ rotate: 10, scale: 1.1 }}
               className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center text-muted-foreground"
             >
-              <TrendingUp size={17} strokeWidth={1.75} />
+              <RevenueIcon size={17} strokeWidth={1.75} />
             </motion.div>
             <h2 className="text-[22px] font-bold text-foreground leading-tight" style={{ fontFamily: "var(--font-sora)" }}>
-              Receita Consolidada
+              {dashboardConfig.revenue.title}
             </h2>
           </div>
           <motion.div
@@ -154,18 +159,18 @@ function RevenueTracker() {
             whileTap={{ scale: 0.97 }}
             className="flex items-center gap-1.5 bg-muted rounded-full px-3 py-1.5 text-xs font-medium text-foreground cursor-pointer select-none"
           >
-            Mês <span className="opacity-40 ml-0.5">▾</span>
+            {dashboardConfig.revenue.period} <span className="opacity-40 ml-0.5">▾</span>
           </motion.div>
         </div>
         <p className="text-sm text-muted-foreground ml-12 mb-5">
-          Acompanhe a evolução da receita e o detalhamento por canal e marca
+          {dashboardConfig.revenue.description}
         </p>
 
         <RevenueChart />
 
         {/* Day pills */}
         <div className="flex gap-1.5 mt-4 mb-5">
-          {days.map((d, i) => (
+          {dashboardConfig.revenue.days.map((d, i) => (
             <motion.button
               key={i}
               onClick={() => setActive(i)}
@@ -197,10 +202,10 @@ function RevenueTracker() {
             animate={{ opacity: 1, y: 0 }}
             className="text-[36px] font-bold text-foreground leading-none tabular-nums"
           >
-            —
+            {dashboardConfig.revenue.value}
           </motion.span>
           <span className="text-sm text-muted-foreground pb-1 max-w-[200px] leading-tight">
-            Integração pendente — conecte os canais para dados reais
+            {dashboardConfig.revenue.pendingText}
           </span>
         </div>
       </div>
@@ -210,26 +215,21 @@ function RevenueTracker() {
 
 /* ── Recent clients ────────────────────────────────────────────── */
 function RecentClients() {
-  const clients = [
-    { name: "Ana Beatriz Silva", role: "WhatsApp · Shopee", brand: "karzi" as const },
-    { name: "Lucas Mendes",      role: "Instagram · TikTok", brand: "wuwu"  as const },
-  ];
-
   return (
     <Card>
       <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
-        <span className="text-sm font-bold text-foreground">Clientes recentes</span>
+        <span className="text-sm font-bold text-foreground">{dashboardConfig.recentClients.title}</span>
         <motion.a
-          href="/clientes"
+          href={dashboardConfig.recentClients.href}
           whileHover={{ x: 2 }}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
         >
-          Ver todos <ArrowRight size={11} />
+          {dashboardConfig.recentClients.action} <ArrowRight size={11} />
         </motion.a>
       </div>
       <div className="p-5 space-y-3">
-        {clients.map((c, i) => {
-          const color = c.brand === "karzi" ? "#E3131B" : "#9B30D9";
+        {dashboardConfig.recentClients.items.map((c, i) => {
+          const color = brandsConfig[c.brand as keyof typeof brandsConfig].color;
           return (
             <motion.div
               key={c.name}
@@ -249,13 +249,13 @@ function RecentClients() {
                 <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
                 <p className="text-xs text-muted-foreground">{c.role}</p>
               </div>
-              <BrandChip brand={c.brand} />
+              <BrandChip brand={c.brand as "karzi" | "wuwu"} />
             </motion.div>
           );
         })}
       </div>
       <div className="px-5 py-3 border-t border-border">
-        <p className="text-[11px] text-muted-foreground text-center">Dados simulados</p>
+        <p className="text-[11px] text-muted-foreground text-center">{dashboardConfig.recentClients.footer}</p>
       </div>
     </Card>
   );
@@ -272,26 +272,26 @@ function ConnectCta() {
       />
       <div className="relative z-10">
         <div className="flex items-center gap-1.5 mb-3">
-          <Zap size={13} strokeWidth={2.5} style={{ color: "var(--karzi-accent)" }} />
+          <CtaIcon size={13} strokeWidth={2.5} style={{ color: "var(--karzi-accent)" }} />
           <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "var(--karzi-accent)" }}>
-            Ação necessária
+            {dashboardConfig.connectCta.eyebrow}
           </span>
         </div>
         <p className="text-base font-bold leading-snug mb-1.5" style={{ color: "var(--background)" }}>
-          Conecte seus canais
+          {dashboardConfig.connectCta.title}
         </p>
         <p className="text-xs leading-relaxed" style={{ color: "var(--background)", opacity: 0.6 }}>
-          Ative WhatsApp, Shopee e TikTok para dados em tempo real
+          {dashboardConfig.connectCta.description}
         </p>
       </div>
       <motion.a
-        href="/configuracoes"
+        href={dashboardConfig.connectCta.href}
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         className="relative z-10 mt-5 flex items-center justify-between rounded-xl px-4 py-3 text-sm font-medium"
         style={{ background: "rgba(255,255,255,0.12)", color: "var(--background)" }}
       >
-        Configurar agora
+        {dashboardConfig.connectCta.action}
         <motion.span whileHover={{ x: 3 }} transition={{ type: "spring", stiffness: 400 }}>
           <ArrowRight size={15} strokeWidth={2} />
         </motion.span>
@@ -334,35 +334,22 @@ function KpiCard({ label, value, sub, icon: Icon, accent }: {
 
 /* ── Recent orders ─────────────────────────────────────────────── */
 function RecentOrders() {
-  const orders = [
-    { id: "#0042", client: "Ana Beatriz",   brand: "karzi" as const, status: "Pago",      value: "R$ 189,90" },
-    { id: "#0041", client: "Lucas Mendes",  brand: "wuwu"  as const, status: "Pendente",  value: "R$ 320,00" },
-    { id: "#0040", client: "Carla Souza",   brand: "karzi" as const, status: "Pago",      value: "R$ 99,90"  },
-    { id: "#0039", client: "Pedro Alves",   brand: "wuwu"  as const, status: "Cancelado", value: "R$ 450,00" },
-    { id: "#0038", client: "Fernanda Lima", brand: "karzi" as const, status: "Pago",      value: "R$ 210,00" },
-  ];
-
-  const statusStyle: Record<string, string> = {
-    "Pago":      "bg-[#1F8A4C]/10 text-[#1F8A4C]",
-    "Pendente":  "bg-[#B57A00]/10 text-[#B57A00]",
-    "Cancelado": "bg-[#C21820]/10 text-[#C21820]",
-  };
 
   return (
     <Card>
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-        <span className="text-sm font-bold text-foreground">Pedidos recentes</span>
+        <span className="text-sm font-bold text-foreground">{dashboardConfig.recentOrders.title}</span>
         <motion.a
-          href="/vendas"
+          href={dashboardConfig.recentOrders.href}
           whileHover={{ x: 2 }}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
         >
-          Ver todos <ArrowRight size={11} />
+          {dashboardConfig.recentOrders.action} <ArrowRight size={11} />
         </motion.a>
       </div>
       <div>
-        {orders.map((o, i) => {
-          const color = o.brand === "karzi" ? "#E3131B" : "#9B30D9";
+        {dashboardConfig.recentOrders.items.map((o, i) => {
+          const color = brandsConfig[o.brand as keyof typeof brandsConfig].color;
           return (
             <motion.div
               key={o.id}
@@ -376,7 +363,7 @@ function RecentOrders() {
                 className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
                 style={{ background: color + "15", color }}
               >
-                <ShoppingBag size={14} strokeWidth={1.75} />
+                <OrderIcon size={14} strokeWidth={1.75} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground">{o.client}</p>
@@ -384,7 +371,7 @@ function RecentOrders() {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-semibold tabular-nums text-foreground">{o.value}</p>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusStyle[o.status]}`}>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${dashboardConfig.recentOrders.statusStyles[o.status as keyof typeof dashboardConfig.recentOrders.statusStyles]}`}>
                   {o.status}
                 </span>
               </div>
@@ -393,7 +380,7 @@ function RecentOrders() {
         })}
       </div>
       <div className="px-5 py-3 border-t border-border">
-        <p className="text-[11px] text-muted-foreground text-center">Dados simulados — integração pendente</p>
+        <p className="text-[11px] text-muted-foreground text-center">{dashboardConfig.recentOrders.footer}</p>
       </div>
     </Card>
   );
@@ -401,27 +388,21 @@ function RecentOrders() {
 
 /* ── Channels ──────────────────────────────────────────────────── */
 function Channels() {
-  const channels = [
-    { name: "WhatsApp (Z-API)", connected: false },
-    { name: "Shopee",           connected: false },
-    { name: "TikTok Shop",      connected: false },
-    { name: "Instagram",        connected: false },
-  ];
 
   return (
     <Card>
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-        <span className="text-sm font-bold text-foreground">Canais</span>
+        <span className="text-sm font-bold text-foreground">{dashboardConfig.channels.title}</span>
         <motion.a
-          href="/configuracoes"
+          href={dashboardConfig.channels.href}
           whileHover={{ x: 2 }}
           className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
         >
-          Configurar <ArrowRight size={11} />
+          {dashboardConfig.channels.action} <ArrowRight size={11} />
         </motion.a>
       </div>
       <div className="p-4 space-y-2">
-        {channels.map((c, i) => (
+        {dashboardConfig.channels.items.map((c, i) => (
           <motion.div
             key={c.name}
             initial={{ opacity: 0, x: 8 }}
@@ -434,7 +415,7 @@ function Channels() {
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                 c.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
               }`}>
-                {c.connected ? <Wifi size={13} strokeWidth={2} /> : <WifiOff size={13} strokeWidth={1.75} />}
+                {c.connected ? <ConnectedIcon size={13} strokeWidth={2} /> : <DisconnectedIcon size={13} strokeWidth={1.75} />}
               </div>
               {c.connected && (
                 <>
@@ -446,7 +427,7 @@ function Channels() {
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
               c.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
             }`}>
-              {c.connected ? "Ativo" : "Pendente"}
+              {c.connected ? dashboardConfig.channels.connectedLabel : dashboardConfig.channels.disconnectedLabel}
             </span>
           </motion.div>
         ))}
@@ -466,9 +447,9 @@ export default function DashboardPage() {
       {/* Header */}
       <motion.div variants={fadeUp} className="mb-5">
         <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-          Painel
+          {dashboardConfig.header.title}
         </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">Visão geral da operação — KARZI &amp; WUWU</p>
+        <p className="text-sm text-muted-foreground mt-0.5">{dashboardConfig.header.description}</p>
       </motion.div>
 
       {/* Layout 62 / 38 */}
@@ -487,10 +468,9 @@ export default function DashboardPage() {
         {/* RIGHT */}
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-4">
-            <KpiCard label="Pedidos hoje"   value="—" sub="Aguardando integração" icon={ShoppingBag}   accent="#E3131B" />
-            <KpiCard label="Receita"        value="—" sub="Aguardando integração" icon={DollarSign}    accent="#9B30D9" />
-            <KpiCard label="Clientes"       value="—" sub="Base importada"        icon={Users}         accent="#2563EB" />
-            <KpiCard label="SKUs em alerta" value="—" sub="Estoque mínimo"        icon={AlertTriangle} accent="#B57A00" />
+            {KPI_CONFIG.map((kpi) => (
+              <KpiCard key={kpi.label} {...kpi} />
+            ))}
           </div>
 
           <RecentOrders />

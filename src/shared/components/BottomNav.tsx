@@ -3,26 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  LayoutDashboard, Users, Package, ShoppingCart, MessageSquare,
-} from "lucide-react";
 import { cn } from "@/shared/design-system/cn";
-
-const items = [
-  { href: "/dashboard", label: "Painel",    icon: LayoutDashboard },
-  { href: "/clientes",  label: "Clientes",  icon: Users },
-  { href: "/estoque",   label: "Estoque",   icon: Package },
-  { href: "/vendas",    label: "Vendas",    icon: ShoppingCart },
-  { href: "/inbox",     label: "Mensagens", icon: MessageSquare },
-];
+import { getIcon } from "@/shared/config/icon-registry";
+import navigationConfig from "@/config/navigation.json";
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
     <div className="flex items-center justify-around px-2 py-1">
-      {items.map((item) => {
+      {navigationConfig.items.filter((item) => item.mobile).map((item) => {
         const active = pathname === item.href || pathname.startsWith(item.href + "/");
+        const Icon = getIcon(item.icon);
         return (
           <Link
             key={item.href}
@@ -45,7 +37,7 @@ export function BottomNav() {
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
               className={cn("relative z-10", active ? "text-foreground" : "text-muted-foreground")}
             >
-              <item.icon size={20} strokeWidth={active ? 2.25 : 1.75} />
+              <Icon size={20} strokeWidth={active ? 2.25 : 1.75} />
             </motion.span>
 
             <span className={cn(

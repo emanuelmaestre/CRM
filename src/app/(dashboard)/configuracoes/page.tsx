@@ -3,10 +3,11 @@
 import { motion } from "framer-motion";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
-import {
-  Building2, Plug, Users, Cpu, HeartPulse, Brain,
-  CheckCircle2, Clock, ExternalLink,
-} from "lucide-react";
+import { getIcon } from "@/shared/config/icon-registry";
+import settingsConfig from "@/config/settings.json";
+
+const PendingIcon = getIcon(settingsConfig.status.pendingIcon);
+const ExternalIcon = getIcon(settingsConfig.openAction.icon);
 
 const stagger = {
   hidden: {},
@@ -59,8 +60,8 @@ function StatusBadge({ connected }: { connected: boolean }) {
     }`}>
       {connected
         ? <><motion.span animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 2, repeat: Infinity }}
-            className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C]" /> Ativo</>
-        : <><Clock size={11} strokeWidth={2} /> Pendente</>
+            className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C]" /> {settingsConfig.status.active}</>
+        : <><PendingIcon size={11} strokeWidth={2} /> {settingsConfig.status.pending}</>
       }
     </span>
   );
@@ -89,7 +90,7 @@ function IntegrationRow({ name, description, href, color, connected = false }: {
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold text-white shadow-sm"
             style={{ background: color ?? "var(--foreground)" }}
           >
-            Abrir <ExternalLink size={10} strokeWidth={2.5} />
+            {settingsConfig.openAction.label} <ExternalIcon size={10} strokeWidth={2.5} />
           </motion.a>
         ) : (
           <StatusBadge connected={connected} />
@@ -103,24 +104,23 @@ export default function ConfiguracoesPage() {
   return (
     <div>
       <PageHeader
-        title="Configurações"
-        description="Organização, integrações, usuários, sistema e saúde"
+        title={settingsConfig.header.title}
+        description={settingsConfig.header.description}
       />
 
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
 
         {/* Linha 1 */}
         <div className="grid md:grid-cols-2 gap-5">
-          <Card title="Organização" icon={Building2}>
-            <Row label="Marcas ativas" value="KARZI, WUWU" />
-            <Row label="Plano" value="Acelera" />
+          <Card title={settingsConfig.organization.title} icon={getIcon(settingsConfig.organization.icon)}>
+            {settingsConfig.organization.rows.map((row) => <Row key={row.label} {...row} />)}
           </Card>
 
-          <Card title="Usuários" icon={Users}>
+          <Card title={settingsConfig.users.title} icon={getIcon(settingsConfig.users.icon)}>
             <div className="flex items-center justify-between py-2">
               <div>
-                <p className="text-sm font-medium text-foreground">admin@crm.com.br</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Administrador</p>
+                <p className="text-sm font-medium text-foreground">{settingsConfig.users.email}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{settingsConfig.users.role}</p>
               </div>
               <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-[#1F8A4C]/10 text-[#1F8A4C]">
                 <motion.span
@@ -128,86 +128,46 @@ export default function ConfiguracoesPage() {
                   transition={{ duration: 2, repeat: Infinity }}
                   className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C]"
                 />
-                Ativo
+                {settingsConfig.status.active}
               </span>
             </div>
           </Card>
         </div>
 
         {/* Integrações */}
-        <Card title="Integrações" icon={Plug}>
-          <IntegrationRow name="WhatsApp (Z-API)" connected={false} />
-          <IntegrationRow
-            name="Shopee" description="Seller Centre Brasil"
-            href="https://seller.shopee.com.br" color="#EE4D2D"
-          />
-          <IntegrationRow
-            name="Mercado Livre" description="Gerencie anúncios e vendas"
-            href="https://www.mercadolivre.com.br/vendas" color="#FFE600"
-          />
-          <IntegrationRow
-            name="TikTok Shop" description="Seller Center"
-            href="https://seller-br.tiktok.com" color="#010101"
-          />
-          <IntegrationRow name="Inngest" connected={false} />
-          <IntegrationRow name="OpenAI" connected={false} />
+        <Card title={settingsConfig.integrations.title} icon={getIcon(settingsConfig.integrations.icon)}>
+          {settingsConfig.integrations.items.map((integration) => (
+            <IntegrationRow key={integration.name} {...integration} />
+          ))}
         </Card>
 
         {/* Sistema */}
-        <Card title="Sistema" icon={Cpu}>
-          <Row label="Versão" value="LEO v1.0" />
-          <Row label="Ambiente" value="Desenvolvimento" />
+        <Card title={settingsConfig.system.title} icon={getIcon(settingsConfig.system.icon)}>
+          {settingsConfig.system.rows.map((row) => <Row key={row.label} {...row} />)}
         </Card>
 
-        {/* Saúde */}
-        <div>
-          <motion.h2
-            variants={fadeUp}
-            className="flex items-center gap-2 text-[15px] font-bold text-foreground mb-4"
-          >
-            <HeartPulse size={16} strokeWidth={1.75} className="text-muted-foreground" />
-            Saúde do Sistema
-          </motion.h2>
-          <div className="grid md:grid-cols-2 gap-5">
-            <Card title="Conectores" icon={Plug}>
-              <EmptyState illustration="generic" title="Sem conectores configurados"
-                description="Configure as contas dos canais para monitorar a saúde aqui." />
-            </Card>
-            <Card title="Fila de jobs" icon={Cpu}>
-              <EmptyState illustration="generic" title="Nenhum job em execução"
-                description="Jobs ativos e falhas aparecem aqui em tempo real." />
-            </Card>
-            <Card title="Dead-letter (falhas definitivas)" icon={CheckCircle2}>
-              <EmptyState illustration="alerts" title="Nenhuma falha definitiva"
-                description="Jobs que esgotaram tentativas aparecem aqui para reprocessamento." />
-            </Card>
-            <Card title="Backups" icon={HeartPulse}>
-              <EmptyState illustration="generic" title="Aguardando primeiro backup"
-                description="Backups diários automáticos. O último é exibido aqui." />
-            </Card>
-          </div>
-        </div>
-
-        {/* Inteligência */}
-        <div>
-          <motion.h2
-            variants={fadeUp}
-            className="flex items-center gap-2 text-[15px] font-bold text-foreground mb-4"
-          >
-            <Brain size={16} strokeWidth={1.75} className="text-muted-foreground" />
-            Inteligência
-          </motion.h2>
-          <div className="grid md:grid-cols-2 gap-5">
-            <Card title="Consumo de IA" icon={Brain}>
-              <EmptyState illustration="reports" title="Sem dados de consumo"
-                description="O consumo de tokens aparece aqui conforme a IA é utilizada." />
-            </Card>
-            <Card title="Insights do funil" icon={Brain}>
-              <EmptyState illustration="funnel" title="Nenhum insight gerado"
-                description="Insights semanais serão exibidos aqui após a integração de dados." />
-            </Card>
-          </div>
-        </div>
+        {settingsConfig.groups.map((group) => {
+          const GroupIcon = getIcon(group.icon);
+          return (
+            <div key={group.title}>
+              <motion.h2 variants={fadeUp} className="flex items-center gap-2 text-[15px] font-bold text-foreground mb-4">
+                <GroupIcon size={16} strokeWidth={1.75} className="text-muted-foreground" />
+                {group.title}
+              </motion.h2>
+              <div className="grid md:grid-cols-2 gap-5">
+                {group.cards.map((card) => (
+                  <Card key={card.title} title={card.title} icon={getIcon(card.icon)}>
+                    <EmptyState
+                      illustration={card.illustration as React.ComponentProps<typeof EmptyState>["illustration"]}
+                      title={card.emptyTitle}
+                      description={card.description}
+                    />
+                  </Card>
+                ))}
+              </div>
+            </div>
+          );
+        })}
 
       </motion.div>
     </div>

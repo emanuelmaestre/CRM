@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ArrowLeft, X } from "lucide-react";
+import appConfig from "@/config/app.json";
 
 interface WizardLayoutProps {
   title: string;
@@ -43,13 +44,13 @@ export function WizardLayout({
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft size={16} />
-          {onBack ? "Voltar" : "Cancelar"}
+          {onBack ? appConfig.wizard.back : appConfig.wizard.cancel}
         </button>
 
         <div className="text-center">
           <p className="text-sm font-semibold text-foreground">{title}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Etapa {currentStep + 1} de {steps.length} — {steps[currentStep]}
+            {appConfig.wizard.step} {currentStep + 1} {appConfig.wizard.of} {steps.length} — {steps[currentStep]}
           </p>
         </div>
 
@@ -110,8 +111,8 @@ export function WizardActions({
   onSubmit,
   isLast = false,
   isPending = false,
-  nextLabel = "Próximo",
-  submitLabel = "Confirmar e salvar",
+  nextLabel = appConfig.wizard.next,
+  submitLabel = appConfig.wizard.submit,
 }: {
   onBack?: () => void;
   onNext?: () => void;
@@ -129,7 +130,7 @@ export function WizardActions({
           onClick={onBack}
           className="h-12 px-6 rounded-[0.75rem] border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
         >
-          ← Voltar
+          ← {appConfig.wizard.back}
         </button>
       )}
       <button
@@ -139,7 +140,7 @@ export function WizardActions({
         className="flex-1 h-12 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60 transition-opacity"
         style={{ background: "var(--gradient-signature)" }}
       >
-        {isPending ? "Salvando…" : isLast ? submitLabel : `${nextLabel} →`}
+        {isPending ? appConfig.wizard.saving : isLast ? submitLabel : `${nextLabel} →`}
       </button>
     </div>
   );

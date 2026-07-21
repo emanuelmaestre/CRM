@@ -4,21 +4,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  LayoutDashboard, Users, Package, ShoppingCart,
-  MessageSquare, BarChart2, Settings, LogOut, Bell, Search,
-} from "lucide-react";
 import { cn } from "@/shared/design-system/cn";
 import { createClient } from "@/shared/lib/supabase/client";
+import { getIcon } from "@/shared/config/icon-registry";
+import appConfig from "@/config/app.json";
+import brandsConfig from "@/config/brands.json";
+import navigationConfig from "@/config/navigation.json";
 
-const navItems = [
-  { href: "/dashboard",  label: "Painel",     icon: LayoutDashboard },
-  { href: "/clientes",   label: "Clientes",   icon: Users },
-  { href: "/estoque",    label: "Estoque",    icon: Package },
-  { href: "/vendas",     label: "Vendas",     icon: ShoppingCart },
-  { href: "/inbox",      label: "Mensagens",  icon: MessageSquare },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart2 },
-];
+const SearchIcon = getIcon(navigationConfig.utilities.search.icon);
+const BellIcon = getIcon(navigationConfig.utilities.notifications.icon);
+const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
+const LogoutIcon = getIcon(navigationConfig.utilities.logout.icon);
 
 export function TopNav() {
   const pathname = usePathname();
@@ -53,7 +49,7 @@ export function TopNav() {
       className="fixed top-0 inset-x-0 z-30 h-14 bg-card/90 backdrop-blur-md border-b border-border flex items-center px-4 sm:px-6 gap-4"
     >
       {/* Logo */}
-      <Link href="/dashboard" className="flex items-center gap-2 shrink-0 group">
+      <Link href={navigationConfig.homeHref} className="flex items-center gap-2 shrink-0 group">
         <motion.span
           whileHover={{ scale: 1.05 }}
           transition={{ type: "spring", stiffness: 400, damping: 20 }}
@@ -65,18 +61,22 @@ export function TopNav() {
             WebkitTextFillColor: "transparent",
           }}
         >
-          CRM
+          {appConfig.name}
         </motion.span>
         <div className="flex gap-1.5">
-          <span className="text-[9px] font-bold uppercase tracking-widest text-foreground/50">KARZI</span>
-          <span className="text-[9px] font-bold uppercase tracking-widest text-foreground/50">WUWU</span>
+          {appConfig.brandOrder.map((brand) => (
+            <span key={brand} className="text-[9px] font-bold uppercase tracking-widest text-foreground/50">
+              {brandsConfig[brand as keyof typeof brandsConfig].label}
+            </span>
+          ))}
         </div>
       </Link>
 
       {/* Nav links */}
       <nav className="hidden md:flex items-center gap-0 flex-1">
-        {navItems.map((item, i) => {
+        {navigationConfig.items.map((item, i) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const Icon = getIcon(item.icon);
           return (
             <motion.div
               key={item.href}
@@ -95,7 +95,7 @@ export function TopNav() {
                   animate={{ opacity: active ? 1 : 0.7 }}
                   whileHover={{ opacity: 1 }}
                 >
-                  <item.icon size={14} strokeWidth={active ? 2.25 : 1.75} />
+                  <Icon size={14} strokeWidth={active ? 2.25 : 1.75} />
                 </motion.span>
                 {item.label}
 
@@ -122,9 +122,9 @@ export function TopNav() {
           transition={{ delay: 0.4, duration: 0.25 }}
           className="hidden lg:flex items-center gap-2 h-8 px-3 rounded-lg bg-muted text-muted-foreground text-sm cursor-pointer hover:bg-muted/80 transition-colors group"
         >
-          <Search size={13} strokeWidth={2} className="group-hover:scale-110 transition-transform" />
-          <span className="text-xs">Buscar…</span>
-          <kbd className="ml-1 text-[10px] bg-card border border-border rounded px-1 py-0.5 leading-none">⌘K</kbd>
+          <SearchIcon size={13} strokeWidth={2} className="group-hover:scale-110 transition-transform" />
+          <span className="text-xs">{navigationConfig.utilities.search.label}</span>
+          <kbd className="ml-1 text-[10px] bg-card border border-border rounded px-1 py-0.5 leading-none">{navigationConfig.utilities.search.shortcut}</kbd>
         </motion.div>
 
         {/* Bell */}
@@ -134,7 +134,7 @@ export function TopNav() {
           onClick={() => setBell(b => !b)}
           className="hidden md:flex relative w-8 h-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
-          <Bell size={15} strokeWidth={1.75} />
+          <BellIcon size={15} strokeWidth={1.75} />
           <AnimatePresence>
             {bell && (
               <motion.span
@@ -150,15 +150,15 @@ export function TopNav() {
         {/* Settings */}
         <motion.div whileHover={{ rotate: 45 }} transition={{ type: "spring", stiffness: 300 }}>
           <Link
-            href="/configuracoes"
+            href={navigationConfig.utilities.settings.href}
             className={cn(
               "hidden md:flex w-8 h-8 items-center justify-center rounded-lg transition-colors",
-              pathname === "/configuracoes"
+              pathname === navigationConfig.utilities.settings.href
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            <Settings size={15} strokeWidth={1.75} />
+            <SettingsIcon size={15} strokeWidth={1.75} />
           </Link>
         </motion.div>
 
@@ -169,7 +169,7 @@ export function TopNav() {
           onClick={handleLogout}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          title="Sair"
+          title={navigationConfig.utilities.logout.label}
           className="flex items-center gap-2 h-8 pl-1 pr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <div className="relative">
@@ -182,7 +182,7 @@ export function TopNav() {
             {/* Status online */}
             <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#1F8A4C] border-2 border-card" />
           </div>
-          <LogOut size={13} strokeWidth={1.75} className="hidden md:block" />
+          <LogoutIcon size={13} strokeWidth={1.75} className="hidden md:block" />
         </motion.button>
       </div>
     </motion.header>

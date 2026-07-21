@@ -1,0 +1,17 @@
+{
+  "homeHref": "/dashboard",
+  "items": [
+    { "id": "dashboard", "href": "/dashboard", "label": "Painel", "icon": "LayoutDashboard", "mobile": true },
+    { "id": "clientes", "href": "/clientes", "label": "Clientes", "icon": "Users", "mobile": true },
+    { "id": "estoque", "href": "/estoque", "label": "Estoque", "icon": "Package", "mobile": true },
+    { "id": "vendas", "href": "/vendas", "label": "Vendas", "icon": "ShoppingCart", "mobile": true },
+    { "id": "inbox", "href": "/inbox", "label": "Mensagens", "icon": "MessageSquare", "mobile": true },
+    { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "mobile": false }
+  ],
+  "utilities": {
+    "search": { "label": "Buscar…", "shortcut": "⌘K", "icon": "Search" },
+    "notifications": { "label": "Notificações", "icon": "Bell" },
+    "settings": { "href": "/configuracoes", "label": "Configurações", "icon": "Settings" },
+    "logout": { "label": "Sair", "icon": "LogOut" }
+  }
+}

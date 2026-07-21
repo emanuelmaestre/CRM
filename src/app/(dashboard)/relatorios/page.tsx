@@ -1,14 +1,15 @@
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { RelatoriosCliente } from "./relatorios-cliente";
+import pagesConfig from "@/config/pages.json";
 
-export const metadata = { title: "Relatórios" };
+export const metadata = { title: pagesConfig.relatorios.metadataTitle };
 
 export default function RelatoriosPage() {
   return (
     <div>
       <PageHeader
-        title="Relatórios"
-        description="Vendas por canal, sugestões de campanha e painel executivo"
+        title={pagesConfig.relatorios.title}
+        description={pagesConfig.relatorios.description}
       />
       <RelatoriosCliente />
     </div>

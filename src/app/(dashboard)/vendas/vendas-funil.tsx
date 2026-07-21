@@ -6,16 +6,19 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { actionListarFunil, actionMoverOportunidade } from "./actions";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import brandsConfig from "@/config/brands.json";
+import pagesConfig from "@/config/pages.json";
 
 type Etapa = { id: string; nome: string; ordem: number; cor: string | null };
 type Oportunidade = { id: string; titulo: string; etapaId: string; brandId: string; valor: string | null };
 
 const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
 const BRAND_WUWU = process.env.NEXT_PUBLIC_BRAND_ID_WUWU ?? "";
+const copy = pagesConfig.vendas;
 
 function brandLabel(brandId: string) {
-  if (brandId === BRAND_KARZI) return { label: "KARZI", color: "var(--karzi)" };
-  if (brandId === BRAND_WUWU) return { label: "WUWU", color: "var(--wuwu)" };
+  if (brandId === BRAND_KARZI) return { label: brandsConfig.karzi.label, color: brandsConfig.karzi.color };
+  if (brandId === BRAND_WUWU) return { label: brandsConfig.wuwu.label, color: brandsConfig.wuwu.color };
   return { label: "—", color: "var(--muted-foreground)" };
 }
 
@@ -35,7 +38,7 @@ export function VendasFunil() {
         setEtapas(res.etapas as Etapa[]);
         setOportunidades(res.oportunidades as Oportunidade[]);
       } catch {
-        toast.error("Erro ao carregar funil.");
+        toast.error(copy.messages.loadError);
       } finally {
         setLoading(false);
       }
@@ -49,7 +52,7 @@ export function VendasFunil() {
       await actionMoverOportunidade(opId, novaEtapaId);
       setOportunidades((prev) => prev.map((o) => o.id === opId ? { ...o, etapaId: novaEtapaId } : o));
     } catch {
-      toast.error("Erro ao mover oportunidade.");
+      toast.error(copy.messages.moveError);
     }
   }
 
@@ -63,9 +66,9 @@ export function VendasFunil() {
       >
         <div>
           <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-            Vendas
+            {copy.title}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Funil, pedidos, tarefas e agenda comercial</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{copy.description}</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.03 }}
@@ -74,18 +77,18 @@ export function VendasFunil() {
           className="h-10 px-4 rounded-[0.75rem] text-sm font-semibold text-white shadow-[0_4px_14px_rgba(227,19,27,.3)]"
           style={{ background: "var(--gradient-signature)" }}
         >
-          + Nova oportunidade
+          {copy.newAction}
         </motion.button>
       </motion.div>
 
       {loading ? (
-        <div className="text-center text-sm text-muted-foreground py-12">Carregando funil…</div>
+        <div className="text-center text-sm text-muted-foreground py-12">{copy.loading}</div>
       ) : etapas.length === 0 ? (
         <div className="rounded-[1.25rem] border border-border bg-card">
           <EmptyState
             illustration="funnel"
-            title="Funil vazio"
-            description="Configure as etapas do funil e comece a registrar oportunidades."
+            title={copy.empty.title}
+            description={copy.empty.description}
           />
         </div>
       ) : (
@@ -119,7 +122,7 @@ export function VendasFunil() {
                 {/* Cards */}
                 <div className="p-3 space-y-2 min-h-[120px]">
                   {ops.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">Arraste oportunidades aqui</p>
+                    <p className="text-xs text-muted-foreground text-center py-4">{copy.dropHint}</p>
                   ) : (
                     ops.map((op) => {
                       const brand = brandLabel(op.brandId);

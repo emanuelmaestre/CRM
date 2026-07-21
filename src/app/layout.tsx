@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Sora } from "next/font/google";
 import { ThemeProvider } from "@/shared/lib/theme-provider";
+import appConfig from "@/config/app.json";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -17,10 +18,10 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: { default: "CRM — KARZI & WUWU", template: "%s | CRM" },
-  description: "Central de clientes, estoque e vendas — KARZI & WUWU",
+  title: { default: appConfig.fullName, template: appConfig.metadata.titleTemplate },
+  description: appConfig.description,
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "CRM" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: appConfig.metadata.appleWebAppTitle },
 };
 
 export const viewport: Viewport = {
@@ -34,7 +35,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
+    <html lang={appConfig.locale} className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}

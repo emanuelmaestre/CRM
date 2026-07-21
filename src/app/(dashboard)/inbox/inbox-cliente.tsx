@@ -5,20 +5,12 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, Loader2 } from "lucide-react";
 import { actionListarConversas, actionListarMensagens } from "./actions";
+import pagesConfig from "@/config/pages.json";
 
 type Conversa = Awaited<ReturnType<typeof actionListarConversas>>[number];
 type Mensagem = Awaited<ReturnType<typeof actionListarMensagens>>[number];
 
-const STATUS_LABEL: Record<string, string> = {
-  nova: "Nova", em_atendimento: "Em atendimento",
-  aguardando_cliente: "Aguardando", resolvida: "Resolvida", arquivada: "Arquivada",
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  nova: "#E3131B", em_atendimento: "#9B30D9",
-  aguardando_cliente: "#F59E0B", resolvida: "#10B981",
-  arquivada: "var(--muted-foreground)",
-};
+const copy = pagesConfig.inbox;
 
 function formatarData(iso: Date | string): string {
   const d    = new Date(iso);
@@ -43,7 +35,7 @@ export function InboxCliente() {
       try {
         setConversas(await actionListarConversas());
       } catch {
-        toast.error("Erro ao carregar conversas.");
+        toast.error(copy.messages.conversationsError);
       } finally {
         setLoading(false);
       }
@@ -59,7 +51,7 @@ export function InboxCliente() {
       try {
         setMensagens(await actionListarMensagens(c.id));
       } catch {
-        toast.error("Erro ao carregar mensagens.");
+        toast.error(copy.messages.messagesError);
       } finally {
         setLoadingMsgs(false);
       }
@@ -74,7 +66,7 @@ export function InboxCliente() {
         className="flex items-center justify-center gap-2 py-24 text-sm text-muted-foreground"
       >
         <Loader2 size={16} className="animate-spin" />
-        Carregando conversas…
+        {copy.loadingConversations}
       </motion.div>
     );
   }
@@ -93,10 +85,10 @@ export function InboxCliente() {
         >
           <MessageSquare size={24} strokeWidth={1.5} />
         </motion.div>
-        <p className="text-sm font-semibold text-foreground mb-1">Nenhuma conversa ainda</p>
+        <p className="text-sm font-semibold text-foreground mb-1">{copy.empty.title}</p>
         <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-          As mensagens chegam aqui assim que os conectores forem ativados em{" "}
-          <span className="font-medium text-foreground">Configurações → Integrações</span>.
+          {copy.empty.description}{" "}
+          <span className="font-medium text-foreground">{copy.empty.destination}</span>.
         </p>
       </motion.div>
     );
@@ -140,9 +132,12 @@ export function InboxCliente() {
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span
                   className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
-                  style={{ background: STATUS_COLOR[c.status] + "20", color: STATUS_COLOR[c.status] }}
+                  style={{
+                    background: (copy.status[c.status as keyof typeof copy.status]?.color ?? "var(--muted-foreground)") + "20",
+                    color: copy.status[c.status as keyof typeof copy.status]?.color ?? "var(--muted-foreground)",
+                  }}
                 >
-                  {STATUS_LABEL[c.status] ?? c.status}
+                  {copy.status[c.status as keyof typeof copy.status]?.label ?? c.status}
                 </span>
                 <span className="text-[10px] text-muted-foreground flex-shrink-0">
                   {formatarData(c.updatedAt)}
@@ -172,7 +167,7 @@ export function InboxCliente() {
               >
                 <MessageSquare size={20} strokeWidth={1.5} />
               </motion.div>
-              <span className="mt-1">Selecione uma conversa</span>
+              <span className="mt-1">{copy.selectConversation}</span>
             </motion.div>
           ) : loadingMsgs ? (
             <motion.div
@@ -183,7 +178,7 @@ export function InboxCliente() {
               className="flex-1 flex items-center justify-center gap-2 text-sm text-muted-foreground"
             >
               <Loader2 size={16} className="animate-spin" />
-              Carregando mensagens…
+              {copy.loadingMessages}
             </motion.div>
           ) : (
             <motion.div
@@ -200,7 +195,7 @@ export function InboxCliente() {
               </div>
               <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-2">
                 {mensagens.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center">Sem mensagens ainda.</p>
+                  <p className="text-xs text-muted-foreground text-center">{copy.noMessages}</p>
                 ) : (
                   [...mensagens].reverse().map((m, i) => (
                     <motion.div

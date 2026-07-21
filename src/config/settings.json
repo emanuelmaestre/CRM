@@ -1,0 +1,40 @@
+{
+  "header": { "title": "Configurações", "description": "Organização, integrações, usuários, sistema e saúde" },
+  "status": { "active": "Ativo", "pending": "Pendente", "pendingIcon": "Clock" },
+  "openAction": { "label": "Abrir", "icon": "ExternalLink" },
+  "organization": { "title": "Organização", "icon": "Building2", "rows": [{ "label": "Marcas ativas", "value": "KARZI, WUWU" }, { "label": "Plano", "value": "Acelera" }] },
+  "users": { "title": "Usuários", "icon": "Users", "email": "admin@crm.com.br", "role": "Administrador" },
+  "integrations": {
+    "title": "Integrações",
+    "icon": "Plug",
+    "items": [
+      { "name": "WhatsApp (Z-API)", "connected": false },
+      { "name": "Shopee", "description": "Seller Centre Brasil", "href": "https://seller.shopee.com.br", "color": "#EE4D2D" },
+      { "name": "Mercado Livre", "description": "Gerencie anúncios e vendas", "href": "https://www.mercadolivre.com.br/vendas", "color": "#FFE600" },
+      { "name": "TikTok Shop", "description": "Seller Center", "href": "https://seller-br.tiktok.com", "color": "#010101" },
+      { "name": "Inngest", "connected": false },
+      { "name": "OpenAI", "connected": false }
+    ]
+  },
+  "system": { "title": "Sistema", "icon": "Cpu", "rows": [{ "label": "Versão", "value": "LEO v1.0" }, { "label": "Ambiente", "value": "Desenvolvimento" }] },
+  "groups": [
+    {
+      "title": "Saúde do Sistema",
+      "icon": "HeartPulse",
+      "cards": [
+        { "title": "Conectores", "icon": "Plug", "illustration": "generic", "emptyTitle": "Sem conectores configurados", "description": "Configure as contas dos canais para monitorar a saúde aqui." },
+        { "title": "Fila de jobs", "icon": "Cpu", "illustration": "generic", "emptyTitle": "Nenhum job em execução", "description": "Jobs ativos e falhas aparecem aqui em tempo real." },
+        { "title": "Dead-letter (falhas definitivas)", "icon": "CheckCircle2", "illustration": "alerts", "emptyTitle": "Nenhuma falha definitiva", "description": "Jobs que esgotaram tentativas aparecem aqui para reprocessamento." },
+        { "title": "Backups", "icon": "HeartPulse", "illustration": "generic", "emptyTitle": "Aguardando primeiro backup", "description": "Backups diários automáticos. O último é exibido aqui." }
+      ]
+    },
+    {
+      "title": "Inteligência",
+      "icon": "Brain",
+      "cards": [
+        { "title": "Consumo de IA", "icon": "Brain", "illustration": "reports", "emptyTitle": "Sem dados de consumo", "description": "O consumo de tokens aparece aqui conforme a IA é utilizada." },
+        { "title": "Insights do funil", "icon": "Brain", "illustration": "funnel", "emptyTitle": "Nenhum insight gerado", "description": "Insights semanais serão exibidos aqui após a integração de dados." }
+      ]
+    }
+  ]
+}

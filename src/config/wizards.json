@@ -1,0 +1,61 @@
+{
+  "cliente": {
+    "title": "Novo cliente",
+    "cancelHref": "/clientes",
+    "steps": ["Dados pessoais", "Contato", "Revisar"],
+    "sections": [
+      { "title": "Dados pessoais", "description": "Informações principais do cliente" },
+      { "title": "Contato", "description": "Como entrar em contato com o cliente" },
+      { "title": "Confirmar cadastro", "description": "Revise os dados antes de salvar" }
+    ],
+    "fields": {
+      "nome": { "label": "Nome completo", "placeholder": "Ex: Maria da Silva" },
+      "cpfCnpj": { "label": "CPF / CNPJ", "placeholder": "000.000.000-00 ou 00.000.000/0001-00" },
+      "email": { "label": "E-mail", "placeholder": "cliente@exemplo.com" },
+      "telefone": { "label": "WhatsApp", "placeholder": "(11) 99999-9999" }
+    },
+    "reviewLabels": { "nome": "Nome", "cpfCnpj": "CPF / CNPJ", "email": "E-mail", "telefone": "WhatsApp" },
+    "actions": { "submit": "Cadastrar cliente", "submitting": "Cadastrando…" },
+    "messages": { "nameInvalid": "Nome deve ter ao menos 2 caracteres", "emailInvalid": "E-mail inválido", "success": "Cliente criado com sucesso!", "error": "Erro ao criar cliente." }
+  },
+  "produto": {
+    "title": "Novo produto",
+    "cancelHref": "/estoque",
+    "steps": ["Produto", "Preço e estoque", "Confirmar"],
+    "sections": [
+      { "title": "Dados do produto", "description": "Identidade do produto no estoque" },
+      { "title": "Preço e estoque", "description": "Valores e controle de estoque mínimo" },
+      { "title": "Confirmar produto", "description": "Revise os dados antes de salvar" }
+    ],
+    "fields": {
+      "brandId": { "label": "Marca", "placeholder": "Selecione a marca" },
+      "nome": { "label": "Nome do produto", "placeholder": "Ex: Caixa Organizadora 40L" },
+      "sku": { "label": "SKU", "placeholder": "Ex: KZ-001" },
+      "preco": { "label": "Preço de venda", "placeholder": "0,00" },
+      "custo": { "label": "Custo", "placeholder": "0,00" },
+      "estoqueMinimo": { "label": "Estoque mínimo", "placeholder": "0" }
+    },
+    "reviewLabels": { "brandId": "Marca", "nome": "Nome", "sku": "SKU", "preco": "Preço", "custo": "Custo", "estoqueMinimo": "Estoque mínimo" },
+    "actions": { "submit": "Cadastrar produto", "submitting": "Cadastrando…" },
+    "messages": { "nameRequired": "Nome é obrigatório", "skuRequired": "SKU é obrigatório", "brandRequired": "Selecione a marca", "priceInvalid": "Preço deve ser maior que zero", "success": "Produto criado com sucesso!", "error": "Erro ao criar produto." }
+  },
+  "oportunidade": {
+    "title": "Nova oportunidade",
+    "cancelHref": "/vendas",
+    "steps": ["Oportunidade", "Funil e valor", "Confirmar"],
+    "sections": [
+      { "title": "Dados da oportunidade", "description": "Descreva o negócio que está sendo acompanhado" },
+      { "title": "Funil e valor", "description": "Em qual etapa está e qual o valor estimado" },
+      { "title": "Confirmar oportunidade", "description": "Revise os dados antes de salvar" }
+    ],
+    "fields": {
+      "titulo": { "label": "Título", "placeholder": "Ex: Pedido atacado 50 caixas — Mercado" },
+      "brandId": { "label": "Marca", "placeholder": "Selecione a marca" },
+      "etapaId": { "label": "Etapa do funil", "placeholder": "Selecione a etapa" },
+      "valor": { "label": "Valor estimado", "placeholder": "0,00" }
+    },
+    "reviewLabels": { "titulo": "Título", "brandId": "Marca", "etapaId": "Etapa", "valor": "Valor estimado" },
+    "actions": { "submit": "Criar oportunidade", "submitting": "Criando…" },
+    "messages": { "titleRequired": "Título é obrigatório", "brandRequired": "Selecione a marca", "stageRequired": "Selecione a etapa do funil", "success": "Oportunidade criada!", "error": "Erro ao criar oportunidade.", "stagesError": "Erro ao carregar etapas do funil." }
+  }
+}

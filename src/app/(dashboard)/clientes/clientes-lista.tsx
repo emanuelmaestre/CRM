@@ -7,6 +7,9 @@ import { motion } from "framer-motion";
 import { actionListarClientes, actionArquivarCliente } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import pagesConfig from "@/config/pages.json";
+
+const copy = pagesConfig.clientes;
 
 type Cliente = {
   id: string;
@@ -33,7 +36,7 @@ export function ClientesLista() {
         setClientes(res.data as Cliente[]);
         setTotal(res.total);
       } catch {
-        toast.error("Erro ao carregar clientes.");
+        toast.error(copy.messages.loadError);
       } finally {
         setLoading(false);
       }
@@ -48,13 +51,13 @@ export function ClientesLista() {
   }
 
   async function handleArquivar(id: string, nome: string) {
-    if (!confirm(`Arquivar "${nome}"?`)) return;
+    if (!confirm(copy.actions.archiveConfirm.replace("{name}", nome))) return;
     try {
       await actionArquivarCliente(id);
-      toast.success("Cliente arquivado.");
+      toast.success(copy.messages.archiveSuccess);
       carregar(busca || undefined);
     } catch {
-      toast.error("Erro ao arquivar cliente.");
+      toast.error(copy.messages.archiveError);
     }
   }
 
@@ -68,15 +71,15 @@ export function ClientesLista() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
       >
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Clientes 360°</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Base unificada por organização — motor de identidade ativo</p>
+          <h1 className="text-2xl font-bold text-foreground">{copy.title}</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{copy.description}</p>
         </div>
         <button
           onClick={() => router.push("/clientes/novo")}
           className="h-10 px-4 rounded-[0.75rem] text-sm font-semibold text-white shadow-[0_4px_14px_rgba(227,19,27,.3)]"
           style={{ background: "var(--gradient-signature)" }}
         >
-          + Novo cliente
+          {copy.newAction}
         </button>
       </motion.div>
 
@@ -85,7 +88,7 @@ export function ClientesLista() {
         <input
           value={busca}
           onChange={handleBusca}
-          placeholder="Buscar por nome, e-mail ou telefone…"
+          placeholder={copy.searchPlaceholder}
           className="w-full sm:w-80 h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
@@ -98,7 +101,7 @@ export function ClientesLista() {
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">Base de clientes</p>
+          <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
           <span className="text-xs text-muted-foreground">{total} {total === 1 ? "cliente" : "clientes"}</span>
         </div>
 
@@ -109,8 +112,8 @@ export function ClientesLista() {
         ) : clientes.length === 0 ? (
           <EmptyState
             illustration="clients"
-            title={busca ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado"}
-            description={busca ? "Tente outro termo de busca." : "Importe sua base ou adicione o primeiro cliente manualmente."}
+            title={busca ? copy.empty.searchTitle : copy.empty.title}
+            description={busca ? copy.empty.searchDescription : copy.empty.description}
             action={
               !busca ? (
                 <button
@@ -118,7 +121,7 @@ export function ClientesLista() {
                   className="h-10 px-5 rounded-[0.75rem] text-sm font-semibold text-white"
                   style={{ background: "var(--gradient-signature)" }}
                 >
-                  + Novo cliente
+                  {copy.newAction}
                 </button>
               ) : undefined
             }
@@ -128,9 +131,9 @@ export function ClientesLista() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">Nome</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">E-mail</th>
-                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">WhatsApp</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">{copy.columns[0]}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">{copy.columns[1]}</th>
+                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">{copy.columns[2]}</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
@@ -152,7 +155,7 @@ export function ClientesLista() {
                         onClick={() => handleArquivar(c.id, c.nome)}
                         className="text-xs text-muted-foreground hover:text-destructive transition-colors"
                       >
-                        Arquivar
+                        {copy.actions.archive}
                       </button>
                     </td>
                   </motion.tr>

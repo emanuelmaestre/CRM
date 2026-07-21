@@ -11,6 +11,7 @@ import {
   actionRejeitarSugestao,
   actionGerarDocumentoExecutivo,
 } from "./actions";
+import reportsConfig from "@/config/reports.json";
 
 type RelatorioVendas = Awaited<ReturnType<typeof actionRelatorioVendas>>;
 type Sugestao = Awaited<ReturnType<typeof actionListarSugestoes>>[number];
@@ -18,42 +19,30 @@ type Insight = Awaited<ReturnType<typeof actionListarInsights>>[number];
 type ConsumoIA = Awaited<ReturnType<typeof actionConsumIA>>;
 type DocExecutivo = Awaited<ReturnType<typeof actionGerarDocumentoExecutivo>>;
 
-const CANAL_LABEL: Record<string, string> = {
-  shopee: "Shopee",
-  mercadolivre: "Mercado Livre",
-  tiktokshop: "TikTok Shop",
-  whatsapp: "WhatsApp",
-  manual: "Manual",
-};
-
-const STATUS_SUGESTAO: Record<string, { label: string; color: string }> = {
-  sugerida: { label: "Aguardando", color: "#F59E0B" },
-  aprovada: { label: "Aprovada", color: "#10B981" },
-  rejeitada: { label: "Rejeitada", color: "#6B7280" },
-  disparada: { label: "Disparada", color: "#9B30D9" },
-};
+const CANAL_LABEL: Record<string, string> = reportsConfig.channels;
+const STATUS_SUGESTAO: Record<string, { label: string; color: string }> = reportsConfig.suggestionStatus;
 
 function formatarBRL(valor: string | number | null | undefined): string {
   const n = parseFloat(String(valor ?? 0));
-  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  return n.toLocaleString(reportsConfig.locale, { style: "currency", currency: reportsConfig.currency });
 }
 
 async function exportarXLSX(dados: RelatorioVendas, totalReceita: number) {
   const { utils, writeFile } = await import("xlsx");
   const linhas = [
-    ["Canal", "Pedidos", "Receita (R$)", "% do Total"],
+    [reportsConfig.exports.columns[0], reportsConfig.exports.columns[1], reportsConfig.exports.xlsxRevenueColumn, reportsConfig.exports.columns[3]],
     ...dados.porCanal.map((r) => {
       const receita = parseFloat(String(r.receita ?? 0));
       const pct = totalReceita > 0 ? ((receita / totalReceita) * 100).toFixed(1) : "0.0";
       return [CANAL_LABEL[r.canal] ?? r.canal, Number(r.total), receita, pct + "%"];
     }),
     [],
-    ["Total", dados.porCanal.reduce((s, r) => s + Number(r.total), 0), totalReceita, "100%"],
+    [reportsConfig.exports.totalLabel, dados.porCanal.reduce((s, r) => s + Number(r.total), 0), totalReceita, "100%"],
   ];
   const ws = utils.aoa_to_sheet(linhas);
   const wb = utils.book_new();
-  utils.book_append_sheet(wb, ws, "Vendas por Canal");
-  writeFile(wb, `vendas-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  utils.book_append_sheet(wb, ws, reportsConfig.exports.sheetName);
+  writeFile(wb, `${reportsConfig.exports.filePrefix}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 async function exportarPDF(dados: RelatorioVendas, totalReceita: number, totalPedidos: number) {
@@ -61,26 +50,26 @@ async function exportarPDF(dados: RelatorioVendas, totalReceita: number, totalPe
   const { default: autoTable } = await import("jspdf-autotable");
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const hoje = new Date().toLocaleDateString("pt-BR");
+  const hoje = new Date().toLocaleDateString(reportsConfig.locale);
 
   doc.setFontSize(18);
   doc.setTextColor(40);
-  doc.text("Relatório de Vendas — Plast Leo", 14, 20);
+  doc.text(reportsConfig.exports.title, 14, 20);
 
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text(`Período: últimos 30 dias  |  Gerado em: ${hoje}`, 14, 28);
+  doc.text(`${reportsConfig.exports.period}  |  ${reportsConfig.exports.generatedAt}: ${hoje}`, 14, 28);
 
   // KPIs
   doc.setFontSize(12);
   doc.setTextColor(40);
-  doc.text(`Receita Total: ${formatarBRL(totalReceita)}`, 14, 40);
-  doc.text(`Total de Pedidos: ${totalPedidos}`, 14, 47);
-  doc.text(`Canais Ativos: ${dados.porCanal.length}`, 14, 54);
+  doc.text(`${reportsConfig.exports.kpis[0]}: ${formatarBRL(totalReceita)}`, 14, 40);
+  doc.text(`${reportsConfig.exports.kpis[1]}: ${totalPedidos}`, 14, 47);
+  doc.text(`${reportsConfig.exports.kpis[2]}: ${dados.porCanal.length}`, 14, 54);
 
   autoTable(doc, {
     startY: 62,
-    head: [["Canal", "Pedidos", "Receita", "% do Total"]],
+    head: [reportsConfig.exports.columns],
     body: dados.porCanal.map((r) => {
       const receita = parseFloat(String(r.receita ?? 0));
       const pct = totalReceita > 0 ? ((receita / totalReceita) * 100).toFixed(1) + "%" : "0%";
@@ -90,12 +79,12 @@ async function exportarPDF(dados: RelatorioVendas, totalReceita: number, totalPe
     headStyles: { fillColor: [155, 48, 217] },
   });
 
-  doc.save(`vendas-${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`${reportsConfig.exports.filePrefix}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 function exportarCSV(dados: RelatorioVendas) {
   const linhas = [
-    ["Canal", "Pedidos", "Receita"],
+    reportsConfig.exports.columns.slice(0, 3),
     ...dados.porCanal.map((r) => [CANAL_LABEL[r.canal] ?? r.canal, String(r.total), String(r.receita ?? 0)]),
   ];
   const csv = linhas.map((l) => l.join(",")).join("\n");
@@ -103,7 +92,7 @@ function exportarCSV(dados: RelatorioVendas) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `vendas-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `${reportsConfig.exports.filePrefix}-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -133,7 +122,7 @@ export function RelatoriosCliente() {
         setInsights(i);
         setConsumoIA(c);
       } catch {
-        toast.error("Erro ao carregar relatórios.");
+        toast.error(reportsConfig.messages.loadError);
       } finally {
         setLoading(false);
       }
@@ -145,20 +134,20 @@ export function RelatoriosCliente() {
   async function aprovar(id: string) {
     try {
       await actionAprovarSugestao(id);
-      toast.success("Sugestão aprovada.");
+      toast.success(reportsConfig.messages.approveSuccess);
       carregar();
     } catch {
-      toast.error("Erro ao aprovar sugestão.");
+      toast.error(reportsConfig.messages.approveError);
     }
   }
 
   async function rejeitar(id: string) {
     try {
-      await actionRejeitarSugestao(id, "Rejeitado pelo operador");
-      toast.success("Sugestão rejeitada.");
+      await actionRejeitarSugestao(id, reportsConfig.suggestions.rejectionReason);
+      toast.success(reportsConfig.messages.rejectSuccess);
       carregar();
     } catch {
-      toast.error("Erro ao rejeitar sugestão.");
+      toast.error(reportsConfig.messages.rejectError);
     }
   }
 
@@ -168,9 +157,9 @@ export function RelatoriosCliente() {
     try {
       const doc = await actionGerarDocumentoExecutivo();
       setDocExecutivo(doc);
-      toast.success("Documento executivo gerado!");
+      toast.success(reportsConfig.messages.documentSuccess);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Erro ao gerar documento.";
+      const msg = e instanceof Error ? e.message : reportsConfig.messages.documentError;
       toast.error(msg);
     } finally {
       setGerandoDoc(false);
@@ -178,7 +167,7 @@ export function RelatoriosCliente() {
   }
 
   if (loading) {
-    return <div className="py-12 text-center text-sm text-muted-foreground">Carregando relatórios…</div>;
+    return <div className="py-12 text-center text-sm text-muted-foreground">{reportsConfig.messages.loading}</div>;
   }
 
   const totalReceita = vendas?.porCanal.reduce((s, r) => s + parseFloat(String(r.receita ?? 0)), 0) ?? 0;
@@ -189,10 +178,10 @@ export function RelatoriosCliente() {
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Receita (30 dias)", valor: formatarBRL(totalReceita) },
-          { label: "Pedidos (30 dias)", valor: String(totalPedidos) },
-          { label: "Canais ativos", valor: String(vendas?.porCanal.length ?? 0) },
-          { label: "Consumo IA (mês)", valor: consumoIA ? `${consumoIA.percentual}% — $${consumoIA.consumoAtualUsd.toFixed(3)}` : "—" },
+          { label: reportsConfig.kpis[0], valor: formatarBRL(totalReceita) },
+          { label: reportsConfig.kpis[1], valor: String(totalPedidos) },
+          { label: reportsConfig.kpis[2], valor: String(vendas?.porCanal.length ?? 0) },
+          { label: reportsConfig.kpis[3], valor: consumoIA ? `${consumoIA.percentual}% — $${consumoIA.consumoAtualUsd.toFixed(3)}` : "—" },
         ].map((k) => (
           <div key={k.label} className="rounded-[1.25rem] border border-border bg-card p-4">
             <p className="text-xs text-muted-foreground">{k.label}</p>
@@ -212,8 +201,8 @@ export function RelatoriosCliente() {
       <div className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <p className="text-sm font-semibold text-foreground">Vendas por canal</p>
-            <p className="text-xs text-muted-foreground">Últimos 30 dias</p>
+            <p className="text-sm font-semibold text-foreground">{reportsConfig.sales.title}</p>
+            <p className="text-xs text-muted-foreground">{reportsConfig.sales.period}</p>
           </div>
           {vendas && vendas.porCanal.length > 0 && (
             <div className="flex gap-2 flex-wrap">
@@ -241,24 +230,23 @@ export function RelatoriosCliente() {
                 className="text-xs px-3 py-1.5 rounded-[0.5rem] text-white font-medium disabled:opacity-50 transition-opacity"
                 style={{ background: "var(--gradient-signature)" }}
               >
-                {gerandoDoc ? "Gerando…" : "Documento Executivo IA"}
+                {gerandoDoc ? reportsConfig.executiveDocument.generating : reportsConfig.executiveDocument.action}
               </button>
             </div>
           )}
         </div>
         {!vendas || vendas.porCanal.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
-            Nenhum pedido registrado ainda.
+            {reportsConfig.sales.empty}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground">Canal</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground">Pedidos</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground">Receita</th>
-                  <th className="text-right px-5 py-3 text-xs font-medium text-muted-foreground">% do total</th>
+                  {reportsConfig.exports.columns.map((column, index) => (
+                    <th key={column} className={`${index === 0 ? "text-left" : "text-right"} px-5 py-3 text-xs font-medium text-muted-foreground`}>{column}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -285,13 +273,13 @@ export function RelatoriosCliente() {
         <div className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <p className="text-sm font-semibold text-foreground">{docExecutivo.titulo}</p>
-            <p className="text-xs text-muted-foreground">Gerado agora pela IA — última atualização dos dados</p>
+            <p className="text-xs text-muted-foreground">{reportsConfig.executiveDocument.generatedCaption}</p>
           </div>
           <div className="px-5 py-4 space-y-4">
             <p className="text-sm text-foreground leading-relaxed">{docExecutivo.resumo}</p>
             {docExecutivo.destaques.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-foreground mb-1">Destaques</p>
+                <p className="text-xs font-semibold text-foreground mb-1">{reportsConfig.executiveDocument.sections.highlights}</p>
                 <ul className="space-y-1">
                   {docExecutivo.destaques.map((d, i) => (
                     <li key={i} className="text-xs text-foreground flex gap-2"><span className="text-emerald-500">✓</span>{d}</li>
@@ -301,7 +289,7 @@ export function RelatoriosCliente() {
             )}
             {docExecutivo.alertas.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-foreground mb-1">Alertas</p>
+                <p className="text-xs font-semibold text-foreground mb-1">{reportsConfig.executiveDocument.sections.alerts}</p>
                 <ul className="space-y-1">
                   {docExecutivo.alertas.map((a, i) => (
                     <li key={i} className="text-xs text-foreground flex gap-2"><span className="text-amber-500">⚠</span>{a}</li>
@@ -311,7 +299,7 @@ export function RelatoriosCliente() {
             )}
             {docExecutivo.recomendacoes.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-foreground mb-1">Recomendações</p>
+                <p className="text-xs font-semibold text-foreground mb-1">{reportsConfig.executiveDocument.sections.recommendations}</p>
                 <ul className="space-y-1">
                   {docExecutivo.recomendacoes.map((r, i) => (
                     <li key={i} className="text-xs text-foreground flex gap-2"><span className="text-purple-500">→</span>{r}</li>
@@ -320,7 +308,7 @@ export function RelatoriosCliente() {
               </div>
             )}
             <p className="text-[10px] text-muted-foreground">
-              ⚠️ Resultado gerado por IA probabilística. Valide com a equipe antes de tomar decisões.
+              {reportsConfig.executiveDocument.disclaimer}
             </p>
           </div>
         </div>
@@ -330,8 +318,8 @@ export function RelatoriosCliente() {
       {insights.length > 0 && (
         <div className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
-            <p className="text-sm font-semibold text-foreground">Insights de funil</p>
-            <p className="text-xs text-muted-foreground">Análises geradas automaticamente pela IA</p>
+            <p className="text-sm font-semibold text-foreground">{reportsConfig.insights.title}</p>
+            <p className="text-xs text-muted-foreground">{reportsConfig.insights.description}</p>
           </div>
           <div className="divide-y divide-border">
             {insights.map((ins) => (
@@ -339,7 +327,7 @@ export function RelatoriosCliente() {
                 <p className="text-sm font-semibold text-foreground">{ins.titulo}</p>
                 <p className="text-xs text-foreground mt-1 leading-relaxed">{ins.conteudo}</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  Confiança: {ins.confianca ? `${Math.round(parseFloat(String(ins.confianca)) * 100)}%` : "—"}
+                  {reportsConfig.insights.confidence}: {ins.confianca ? `${Math.round(parseFloat(String(ins.confianca)) * 100)}%` : "—"}
                 </p>
               </div>
             ))}
@@ -350,12 +338,12 @@ export function RelatoriosCliente() {
       {/* Sugestões de campanha */}
       <div className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
-          <p className="text-sm font-semibold text-foreground">Sugestões de campanha</p>
-          <p className="text-xs text-muted-foreground">Geradas pela IA com base em scores de churn (fórmula RFM v2)</p>
+          <p className="text-sm font-semibold text-foreground">{reportsConfig.suggestions.title}</p>
+          <p className="text-xs text-muted-foreground">{reportsConfig.suggestions.description}</p>
         </div>
         {sugestoes.length === 0 ? (
           <div className="p-8 text-center text-sm text-muted-foreground">
-            Nenhuma sugestão gerada ainda. A IA roda toda segunda-feira às 08:00.
+            {reportsConfig.suggestions.empty}
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -384,13 +372,13 @@ export function RelatoriosCliente() {
                           className="text-xs px-3 py-1.5 rounded-[0.5rem] text-white font-medium"
                           style={{ background: "var(--gradient-signature)" }}
                         >
-                          Aprovar
+                          {reportsConfig.suggestions.approve}
                         </button>
                         <button
                           onClick={() => rejeitar(s.id)}
                           className="text-xs px-3 py-1.5 rounded-[0.5rem] border border-border hover:bg-muted transition-colors"
                         >
-                          Rejeitar
+                          {reportsConfig.suggestions.reject}
                         </button>
                       </div>
                     )}

@@ -8,6 +8,8 @@ import { MovimentoModal } from "./movimento-modal";
 import { actionListarProdutos } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import brandsConfig from "@/config/brands.json";
+import pagesConfig from "@/config/pages.json";
 
 type Produto = {
   id: string; sku: string; nome: string; preco: string;
@@ -16,10 +18,11 @@ type Produto = {
 
 const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
 const BRAND_WUWU  = process.env.NEXT_PUBLIC_BRAND_ID_WUWU  ?? "";
+const copy = pagesConfig.estoque;
 
 function brandLabel(brandId: string) {
-  if (brandId === BRAND_KARZI) return { label: "KARZI", color: "var(--karzi)" };
-  if (brandId === BRAND_WUWU)  return { label: "WUWU",  color: "var(--wuwu)"  };
+  if (brandId === BRAND_KARZI) return { label: brandsConfig.karzi.label, color: brandsConfig.karzi.color };
+  if (brandId === BRAND_WUWU)  return { label: brandsConfig.wuwu.label, color: brandsConfig.wuwu.color };
   return { label: brandId, color: "var(--muted-foreground)" };
 }
 
@@ -38,7 +41,7 @@ export function EstoqueLista() {
         setProdutos(res.data as Produto[]);
         setTotal(res.total);
       } catch {
-        toast.error("Erro ao carregar produtos.");
+        toast.error(copy.messages.loadError);
       } finally {
         setLoading(false);
       }
@@ -57,9 +60,9 @@ export function EstoqueLista() {
       >
         <div>
           <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-            Estoque
+            {copy.title}
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Livro-razão imutável — saldo único por SKU</p>
+          <p className="text-sm text-muted-foreground mt-0.5">{copy.description}</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.03 }}
@@ -68,7 +71,7 @@ export function EstoqueLista() {
           className="h-10 px-4 rounded-[0.75rem] text-sm font-semibold text-white shadow-[0_4px_14px_rgba(227,19,27,.3)]"
           style={{ background: "var(--gradient-signature)" }}
         >
-          + Novo produto
+          {copy.newAction}
         </motion.button>
       </motion.div>
 
@@ -79,7 +82,7 @@ export function EstoqueLista() {
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">Produtos e saldos</p>
+          <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
           <motion.span
             key={total}
             initial={{ opacity: 0, scale: 0.9 }}
@@ -99,8 +102,8 @@ export function EstoqueLista() {
             <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <EmptyState
                 illustration="products"
-                title="Nenhum produto cadastrado"
-                description="Cadastre produtos para começar a controlar o estoque."
+                title={copy.empty.title}
+                description={copy.empty.description}
                 action={
                   <motion.button
                     whileHover={{ scale: 1.03 }}
@@ -109,7 +112,7 @@ export function EstoqueLista() {
                     className="h-10 px-5 rounded-[0.75rem] text-sm font-semibold text-white"
                     style={{ background: "var(--gradient-signature)" }}
                   >
-                    + Novo produto
+                    {copy.newAction}
                   </motion.button>
                 }
               />
@@ -119,7 +122,7 @@ export function EstoqueLista() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    {["SKU", "Produto", "Marca", "Saldo", "Preço", ""].map((h, i) => (
+                    {copy.columns.map((h, i) => (
                       <th key={i} className={`text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide ${
                         i === 2 ? "hidden sm:table-cell" : i === 4 ? "hidden md:table-cell text-right" : i === 3 ? "text-right" : ""
                       }`}>
@@ -162,7 +165,7 @@ export function EstoqueLista() {
                               transition={{ duration: 1.5, repeat: Infinity }}
                               className="ml-1.5 text-[10px] text-[#C21820]"
                             >
-                              ▼ mín
+                              {copy.minimumIndicator}
                             </motion.span>
                           )}
                         </td>

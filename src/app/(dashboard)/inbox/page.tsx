@@ -1,14 +1,15 @@
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { InboxCliente } from "./inbox-cliente";
+import pagesConfig from "@/config/pages.json";
 
-export const metadata = { title: "Mensagens" };
+export const metadata = { title: pagesConfig.inbox.metadataTitle };
 
 export default function InboxPage() {
   return (
     <div>
       <PageHeader
-        title="Mensagens"
-        description="Conversas unificadas — WhatsApp, Shopee, Mercado Livre e TikTok Shop"
+        title={pagesConfig.inbox.title}
+        description={pagesConfig.inbox.description}
       />
       <InboxCliente />
     </div>
