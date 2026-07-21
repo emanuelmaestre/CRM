@@ -11,8 +11,8 @@
   },
   "clientes": {
     "metadataTitle": "Clientes",
-    "title": "Clientes 360°",
-    "description": "Base unificada por organização — motor de identidade ativo",
+    "title": "Clientes",
+    "description": "Gerencie todos os seus clientes em um só lugar",
     "newAction": "+ Novo cliente",
     "searchPlaceholder": "Buscar por nome, e-mail ou telefone…",
     "sectionTitle": "Base de clientes",
@@ -33,7 +33,7 @@
   "estoque": {
     "metadataTitle": "Estoque",
     "title": "Estoque",
-    "description": "Livro-razão imutável — saldo único por SKU",
+    "description": "Controle de produtos e saldos por marca",
     "newAction": "+ Novo produto",
     "sectionTitle": "Produtos e saldos",
     "columns": ["SKU", "Produto", "Marca", "Saldo", "Preço", ""],
@@ -57,7 +57,7 @@
   "vendas": {
     "metadataTitle": "Vendas",
     "title": "Vendas",
-    "description": "Funil, pedidos, tarefas e agenda comercial",
+    "description": "Funil de vendas e oportunidades",
     "newAction": "+ Nova oportunidade",
     "loading": "Carregando funil…",
     "empty": { "title": "Funil vazio", "description": "Configure as etapas do funil e comece a registrar oportunidades." },
@@ -67,7 +67,7 @@
   "inbox": {
     "metadataTitle": "Mensagens",
     "title": "Mensagens",
-    "description": "Conversas unificadas — WhatsApp, Shopee, Mercado Livre e TikTok Shop",
+    "description": "Conversas unificadas de WhatsApp, Shopee, Mercado Livre e TikTok Shop",
     "status": {
       "nova": { "label": "Nova", "color": "#E3131B" },
       "em_atendimento": { "label": "Em atendimento", "color": "#9B30D9" },
@@ -80,7 +80,7 @@
     "empty": {
       "title": "Nenhuma conversa ainda",
       "description": "As mensagens chegam aqui assim que os conectores forem ativados em",
-      "destination": "Configurações → Integrações"
+      "destination": "Configurações"
     },
     "selectConversation": "Selecione uma conversa",
     "noMessages": "Sem mensagens ainda.",

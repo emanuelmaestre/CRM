@@ -1,5 +1,5 @@
 {
-  "header": { "title": "Painel", "description": "Visão geral da operação — KARZI & WUWU" },
+  "header": { "title": "Painel", "description": "Visão geral da operação" },
   "revenue": {
     "icon": "TrendingUp",
     "title": "Receita Consolidada",
@@ -9,7 +9,7 @@
     "days": ["D", "S", "T", "Q", "Q", "S", "S"],
     "value": "—",
     "peakLabel": "R$ —",
-    "pendingText": "Integração pendente — conecte os canais para dados reais"
+    "pendingText": "Conecte os canais para ver os dados reais"
   },
   "recentClients": {
     "title": "Clientes recentes",
@@ -40,7 +40,7 @@
     "href": "/vendas",
     "action": "Ver todos",
     "icon": "ShoppingBag",
-    "footer": "Dados simulados — integração pendente",
+    "footer": "Dados simulados",
     "statusStyles": {
       "Pago": "bg-[#1F8A4C]/10 text-[#1F8A4C]",
       "Pendente": "bg-[#B57A00]/10 text-[#B57A00]",

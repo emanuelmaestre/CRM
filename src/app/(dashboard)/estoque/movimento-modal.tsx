@@ -55,7 +55,7 @@ export function MovimentoModal({ produtoId, produtoNome, saldoAtual, onSuccess }
             </div>
 
             <p className="text-sm text-muted-foreground mb-4">
-              <strong className="text-foreground">{produtoNome}</strong> — {copy.balancePrefix}: <strong className="text-foreground">{saldoAtual}</strong>
+              <strong className="text-foreground">{produtoNome}</strong> · {copy.balancePrefix}: <strong className="text-foreground">{saldoAtual}</strong>
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">

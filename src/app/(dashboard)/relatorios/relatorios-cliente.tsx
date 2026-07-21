@@ -181,9 +181,9 @@ export function RelatoriosCliente() {
           { label: reportsConfig.kpis[0], valor: formatarBRL(totalReceita) },
           { label: reportsConfig.kpis[1], valor: String(totalPedidos) },
           { label: reportsConfig.kpis[2], valor: String(vendas?.porCanal.length ?? 0) },
-          { label: reportsConfig.kpis[3], valor: consumoIA ? `${consumoIA.percentual}% — $${consumoIA.consumoAtualUsd.toFixed(3)}` : "—" },
+          { label: reportsConfig.kpis[3], valor: consumoIA ? `${consumoIA.percentual}% · $${consumoIA.consumoAtualUsd.toFixed(3)}` : "—" },
         ].map((k) => (
-          <div key={k.label} className="rounded-[1.25rem] border border-border bg-card p-4">
+          <div key={k.label} className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-4">
             <p className="text-xs text-muted-foreground">{k.label}</p>
             <p className="text-xl font-bold text-foreground mt-1">{k.valor}</p>
           </div>
@@ -198,7 +198,7 @@ export function RelatoriosCliente() {
       )}
 
       {/* Vendas por canal */}
-      <div className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
+      <div className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="text-sm font-semibold text-foreground">{reportsConfig.sales.title}</p>
@@ -270,7 +270,7 @@ export function RelatoriosCliente() {
 
       {/* Documento Executivo IA */}
       {docExecutivo && (
-        <div className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
+        <div className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <p className="text-sm font-semibold text-foreground">{docExecutivo.titulo}</p>
             <p className="text-xs text-muted-foreground">{reportsConfig.executiveDocument.generatedCaption}</p>
@@ -316,7 +316,7 @@ export function RelatoriosCliente() {
 
       {/* Insights IA */}
       {insights.length > 0 && (
-        <div className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
+        <div className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <p className="text-sm font-semibold text-foreground">{reportsConfig.insights.title}</p>
             <p className="text-xs text-muted-foreground">{reportsConfig.insights.description}</p>
@@ -336,7 +336,7 @@ export function RelatoriosCliente() {
       )}
 
       {/* Sugestões de campanha */}
-      <div className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
+      <div className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden">
         <div className="px-5 py-4 border-b border-border">
           <p className="text-sm font-semibold text-foreground">{reportsConfig.suggestions.title}</p>
           <p className="text-xs text-muted-foreground">{reportsConfig.suggestions.description}</p>

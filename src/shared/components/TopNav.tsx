@@ -151,7 +151,6 @@ export function TopNav() {
           </Link>
         </motion.div>
 
-        <div className="hidden md:block w-px h-5 bg-border mx-0.5" />
 
         {/* Avatar */}
         <motion.button

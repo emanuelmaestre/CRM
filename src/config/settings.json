@@ -1,5 +1,5 @@
 {
-  "header": { "title": "Configurações", "description": "Organização, integrações, usuários, sistema e saúde" },
+  "header": { "title": "Configurações", "description": "Organização, integrações, usuários e sistema" },
   "status": { "active": "Ativo", "pending": "Pendente", "pendingIcon": "Clock" },
   "openAction": { "label": "Abrir", "icon": "ExternalLink" },
   "organization": { "title": "Organização", "icon": "Building2", "rows": [{ "label": "Marcas ativas", "value": "KARZI, WUWU" }, { "label": "Plano", "value": "Acelera" }] },
@@ -23,8 +23,8 @@
       "icon": "HeartPulse",
       "cards": [
         { "title": "Conectores", "icon": "Plug", "illustration": "generic", "emptyTitle": "Sem conectores configurados", "description": "Configure as contas dos canais para monitorar a saúde aqui." },
-        { "title": "Fila de jobs", "icon": "Cpu", "illustration": "generic", "emptyTitle": "Nenhum job em execução", "description": "Jobs ativos e falhas aparecem aqui em tempo real." },
-        { "title": "Dead-letter (falhas definitivas)", "icon": "CheckCircle2", "illustration": "alerts", "emptyTitle": "Nenhuma falha definitiva", "description": "Jobs que esgotaram tentativas aparecem aqui para reprocessamento." },
+        { "title": "Fila de tarefas", "icon": "Cpu", "illustration": "generic", "emptyTitle": "Nenhuma tarefa em execução", "description": "Tarefas ativas e falhas aparecem aqui em tempo real." },
+        { "title": "Falhas definitivas", "icon": "CheckCircle2", "illustration": "alerts", "emptyTitle": "Nenhuma falha registrada", "description": "Tarefas que esgotaram as tentativas aparecem aqui para reprocessamento." },
         { "title": "Backups", "icon": "HeartPulse", "illustration": "generic", "emptyTitle": "Aguardando primeiro backup", "description": "Backups diários automáticos. O último é exibido aqui." }
       ]
     },
