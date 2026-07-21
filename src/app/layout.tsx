@@ -17,10 +17,10 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: { default: "LEO — CRM Plast Leo", template: "%s | LEO" },
+  title: { default: "CRM — KARZI & WUWU", template: "%s | CRM" },
   description: "Central de clientes, estoque e vendas — KARZI & WUWU",
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "LEO" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "CRM" },
 };
 
 export const viewport: Viewport = {
