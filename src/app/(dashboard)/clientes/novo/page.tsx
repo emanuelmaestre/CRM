@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { CheckCircle2, XCircle } from "lucide-react";
 import {
   WizardLayout,
   WizardActions,
@@ -20,6 +21,64 @@ type FormData = {
   email: string;
   telefone: string;
 };
+
+function isEmailValid(v: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+}
+
+function isPhoneValid(v: string) {
+  const d = v.replace(/\D/g, "");
+  return d.length >= 10 && d.length <= 13;
+}
+
+type FieldStatus = "empty" | "valid" | "invalid";
+
+function FieldIndicator({ status }: { status: FieldStatus }) {
+  if (status === "empty") return null;
+  if (status === "valid")
+    return <CheckCircle2 size={16} strokeWidth={2} className="text-[#1F8A4C]" />;
+  return <XCircle size={16} strokeWidth={2} className="text-[#C21820]" />;
+}
+
+function ValidatedInput({
+  type = "text",
+  placeholder,
+  value,
+  onChange,
+  validate,
+  autoFocus,
+}: {
+  type?: string;
+  placeholder?: string;
+  value: string;
+  onChange: (v: string) => void;
+  validate: (v: string) => boolean;
+  autoFocus?: boolean;
+}) {
+  const status: FieldStatus = !value ? "empty" : validate(value) ? "valid" : "invalid";
+  const borderColor =
+    status === "valid"
+      ? "ring-2 ring-[#1F8A4C]/40 border-[#1F8A4C]/40"
+      : status === "invalid"
+      ? "ring-2 ring-[#C21820]/40 border-[#C21820]/40"
+      : "";
+
+  return (
+    <div className="relative flex items-center">
+      <input
+        type={type}
+        className={`${inputClass} pr-10 ${borderColor}`}
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoFocus={autoFocus}
+      />
+      <span className="absolute right-3 pointer-events-none">
+        <FieldIndicator status={status} />
+      </span>
+    </div>
+  );
+}
 
 export default function NovoClienteWizard() {
   const router = useRouter();
@@ -42,7 +101,8 @@ export default function NovoClienteWizard() {
 
   function validateStep1() {
     const e: Partial<FormData> = {};
-    if (data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = copy.messages.emailInvalid;
+    if (data.email && !isEmailValid(data.email)) e.email = copy.messages.emailInvalid;
+    if (data.telefone && !isPhoneValid(data.telefone)) e.telefone = "Número inválido. Informe DDD + número (ex: 16994578922).";
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -116,21 +176,21 @@ export default function NovoClienteWizard() {
             <p className="text-sm text-muted-foreground mt-1">{copy.sections[1].description}</p>
           </div>
           <WizardField label={copy.fields.email.label} error={errors.email}>
-            <input
-              className={inputClass}
+            <ValidatedInput
               type="email"
               placeholder={copy.fields.email.placeholder}
               value={data.email}
-              onChange={(e) => set("email", e.target.value)}
+              onChange={(v) => set("email", v)}
+              validate={isEmailValid}
               autoFocus
             />
           </WizardField>
-          <WizardField label={copy.fields.telefone.label}>
-            <input
-              className={inputClass}
+          <WizardField label={copy.fields.telefone.label} error={errors.telefone}>
+            <ValidatedInput
               placeholder={copy.fields.telefone.placeholder}
               value={data.telefone}
-              onChange={(e) => set("telefone", e.target.value)}
+              onChange={(v) => set("telefone", v)}
+              validate={isPhoneValid}
             />
           </WizardField>
           <WizardActions onBack={() => setStep(0)} onNext={nextStep} />
