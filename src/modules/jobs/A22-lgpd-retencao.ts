@@ -75,7 +75,7 @@ export const A22_lgpdRetencao = inngest.createFunction(
     if (anonimizados.length > 0) {
       await step.run("emitir-evento-retencao", () =>
         emitirEvento({
-          tipo: "importacao.concluida",
+          tipo: "lgpd.anonimizacao_concluida",
           orgId,
           entidade: "org",
           entidadeId: orgId,

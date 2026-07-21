@@ -1,6 +1,6 @@
 import { eq, and, gte, sum, desc } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { llmRun, sugestaoCampanha, insight, scoreCliente, documentoGerado } from "@/shared/lib/db/schema";
+import { llmRun, sugestaoCampanha, insight, scoreCliente } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import {
   MODELOS, calcularCusto,
@@ -161,14 +161,15 @@ Sugira uma campanha de reativação concisa e objetiva.`;
       ],
     });
 
-    const parsed = SugestaoCampanhaOutputSchema.safeParse(JSON.parse(conteudo));
-    if (!parsed.success) {
-      const parsed2 = SugestaoCampanhaOutputSchema.safeParse(JSON.parse(conteudo));
-      if (!parsed2.success) throw new Error("Saída da IA inválida após tentativa de reparo.");
-      output = parsed2.data;
-    } else {
-      output = parsed.data;
+    let jsonBruto: unknown;
+    try {
+      jsonBruto = JSON.parse(conteudo);
+    } catch {
+      throw new Error("Saída da IA não é JSON válido.");
     }
+    const parsed = SugestaoCampanhaOutputSchema.safeParse(jsonBruto);
+    if (!parsed.success) throw new Error(`Saída da IA inválida: ${parsed.error.message}`);
+    output = parsed.data;
   } catch (err) {
     console.error("[ai.service] gerarSugestoesCampanha:", err);
     return;
@@ -324,31 +325,6 @@ Gere um relatório executivo com destaques positivos, alertas e recomendações 
   const parsed = DocumentoExecutivoOutputSchema.safeParse(JSON.parse(conteudo));
   if (!parsed.success) throw new Error("Saída do documento executivo inválida.");
   const output = parsed.data;
-
-  const conteudoTexto = [
-    `# ${output.titulo}`,
-    "",
-    output.resumo,
-    "",
-    "## Destaques",
-    ...output.destaques.map((d) => `- ${d}`),
-    "",
-    "## Alertas",
-    ...output.alertas.map((a) => `- ${a}`),
-    "",
-    "## Recomendações",
-    ...output.recomendacoes.map((r) => `- ${r}`),
-  ].join("\n");
-
-  await db.insert(documentoGerado).values({
-    orgId,
-    tipo: "relatorio_executivo",
-    nomeArquivo: `relatorio-executivo-${new Date().toISOString().slice(0, 10)}.md`,
-    // Persiste o conteúdo Markdown em dadosOrigem até Supabase Storage ser configurado
-    dadosOrigem: { ...dados, conteudoMarkdown: conteudoTexto } as unknown as Record<string, unknown>,
-    geradoPorId,
-    storageUrl: null,
-  });
 
   return output;
 }

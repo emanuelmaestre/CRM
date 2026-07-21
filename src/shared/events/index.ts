@@ -14,6 +14,7 @@ export type DomainEventType =
   | "pedido.cancelado"
   | "pedido.devolvido"
   | "estoque.baixa_automatica"
+  | "estoque.saldo_atualizado"
   | "estoque.minimo_atingido"
   | "estoque.parado_detectado"
   | "estoque.divergencia_detectada"
@@ -36,6 +37,8 @@ export type DomainEventType =
   | "canal.desconectado"
   | "importacao.concluida"
   | "importacao.com_erros"
+  | "notificacao.interna"
+  | "lgpd.anonimizacao_concluida"
   | "backup.executado"
   | "backup.falhou";
 
@@ -62,6 +65,7 @@ const INNGEST_EVENT_MAP: Partial<Record<DomainEventType, string>> = {
   "pedido.entregue":                  "pedido/entregue",
   "pedido.cancelado":                 "pedido/cancelado",
   "estoque.baixa_automatica":         "estoque/baixa-automatica",
+  "estoque.saldo_atualizado":         "estoque/saldo.atualizado",
   "cliente.consentimento_revogado":   "cliente/consentimento-revogado",
 };
 

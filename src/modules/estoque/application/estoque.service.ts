@@ -80,7 +80,7 @@ export async function registrarMovimento(
         .then((rows) => rows[0]);
 
       if (existente) {
-        return { movimento: existente, novoSaldo: saldoRow.saldo, idempotente: true, evento: null };
+        return { movimento: existente, novoSaldo: saldoRow.saldo, idempotente: true, eventoBaixa: null, eventoSaldo: null };
       }
     }
 
@@ -108,7 +108,7 @@ export async function registrarMovimento(
         eq(estoqueSaldo.produtoId, input.produtoId),
       ));
 
-    const evento = input.tipo === "saida"
+    const eventoBaixa = input.tipo === "saida"
       ? await persistirEvento({
           tipo: "estoque.baixa_automatica",
           orgId: ctx.orgId,
@@ -118,10 +118,20 @@ export async function registrarMovimento(
         }, tx)
       : null;
 
-    return { movimento, novoSaldo, idempotente: false, evento };
+    // Emitido para qualquer tipo de movimento — permite A4 sincronizar o saldo nos canais.
+    const eventoSaldo = await persistirEvento({
+      tipo: "estoque.saldo_atualizado",
+      orgId: ctx.orgId,
+      entidade: "estoque_saldo",
+      entidadeId: input.produtoId,
+      payload: { produtoId: input.produtoId, novoSaldo, tipoMovimento: input.tipo },
+    }, tx);
+
+    return { movimento, novoSaldo, idempotente: false, eventoBaixa, eventoSaldo };
   });
 
-  if (resultado.evento) await despacharEvento(resultado.evento);
+  if (resultado.eventoBaixa) await despacharEvento(resultado.eventoBaixa);
+  if (resultado.eventoSaldo) await despacharEvento(resultado.eventoSaldo);
 
   return {
     movimento: resultado.movimento,

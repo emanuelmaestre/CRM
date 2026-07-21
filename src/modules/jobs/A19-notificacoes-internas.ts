@@ -52,7 +52,7 @@ export const A19_notificacoesInternas = inngest.createFunction(
       const venceHoje = t.vencimentoEm && new Date(t.vencimentoEm) <= fimDia;
       await step.run(`notif-tarefa-${t.id}`, () =>
         emitirEvento({
-          tipo: "pedido.recebido",
+          tipo: "notificacao.interna",
           orgId,
           entidade: "tarefa",
           entidadeId: t.id,
@@ -70,7 +70,7 @@ export const A19_notificacoesInternas = inngest.createFunction(
     for (const c of aniversariantes) {
       await step.run(`notif-aniv-${c.id}`, () =>
         emitirEvento({
-          tipo: "pedido.recebido",
+          tipo: "notificacao.interna",
           orgId,
           entidade: "cliente",
           entidadeId: c.id,

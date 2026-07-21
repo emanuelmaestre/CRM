@@ -1,7 +1,7 @@
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { produto, estoqueSaldo, estoqueMovimento } from "@/shared/lib/db/schema";
-import { and, eq, lt, sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { emitirEvento } from "@/shared/events";
 
@@ -26,7 +26,7 @@ export const A7_encalhe = inngest.createFunction(
         .where(and(
           eq(produto.orgId, orgId),
           eq(produto.ativo, true),
-          lt(estoqueSaldo.saldo, sql`0`),
+          gt(estoqueSaldo.saldo, sql`0`),
         ))
     );
 
