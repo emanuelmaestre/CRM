@@ -42,6 +42,9 @@ function resolverConta(instanceId: string) {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const assinatura = req.headers.get("x-api-token");
+  if (!assinatura) {
+    return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
+  }
 
   let body: unknown;
   try {
@@ -54,16 +57,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
   }
 
+  const identificacao = z.object({ instanceId: z.string().min(1) }).safeParse(body);
+  if (!identificacao.success) {
+    return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
+  }
+
+  const configuracao = resolverConta(identificacao.data.instanceId);
+  if (!configuracao || !compararSegredo(assinatura, configuracao.webhookToken)) {
+    return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
+  }
+
   const resultado = ZApiWebhookSchema.safeParse(body);
   if (!resultado.success) {
     return NextResponse.json({ error: "Schema inválido", detalhes: resultado.error.flatten() }, { status: 422 });
   }
-
   const dados = resultado.data;
-  const configuracao = resolverConta(dados.instanceId);
-  if (!assinatura || !configuracao || !compararSegredo(assinatura, configuracao.webhookToken)) {
-    return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
-  }
 
   try {
     const conta = await db.select({ id: channelAccount.id }).from(channelAccount).where(and(
