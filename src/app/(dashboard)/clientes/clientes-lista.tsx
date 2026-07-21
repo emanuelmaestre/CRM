@@ -25,8 +25,8 @@ export function ClientesLista() {
   const [, startTransition] = useTransition();
 
   const carregar = useCallback((q?: string) => {
-    setLoading(true);
     startTransition(async () => {
+      setLoading(true);
       try {
         const res = await actionListarClientes(q);
         setClientes(res.data as Cliente[]);

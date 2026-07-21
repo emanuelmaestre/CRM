@@ -27,8 +27,8 @@ export function VendasFunil() {
   const [, startTransition] = useTransition();
 
   const carregar = useCallback(() => {
-    setLoading(true);
     startTransition(async () => {
+      setLoading(true);
       try {
         const res = await actionListarFunil();
         setEtapas(res.etapas as Etapa[]);
