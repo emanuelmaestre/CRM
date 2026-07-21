@@ -1,5 +1,4 @@
 import { test, expect } from "@playwright/test";
-import path from "path";
 
 /**
  * Fluxo E2E: importação de clientes CSV → prévia → confirmar importação

@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 import { actionListarFunil, actionMoverOportunidade } from "./actions";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 
@@ -54,19 +55,28 @@ export function VendasFunil() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
+      >
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Vendas</h1>
+          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
+            Vendas
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">Funil, pedidos, tarefas e agenda comercial</p>
         </div>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           onClick={() => router.push("/vendas/nova")}
-          className="h-10 px-4 rounded-[0.75rem] text-sm font-semibold text-white"
+          className="h-10 px-4 rounded-[0.75rem] text-sm font-semibold text-white shadow-[0_4px_14px_rgba(227,19,27,.3)]"
           style={{ background: "var(--gradient-signature)" }}
         >
           + Nova oportunidade
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {loading ? (
         <div className="text-center text-sm text-muted-foreground py-12">Carregando funil…</div>
@@ -86,7 +96,7 @@ export function VendasFunil() {
             return (
               <div
                 key={etapa.id}
-                className="flex-shrink-0 w-64 rounded-[1.25rem] border border-border bg-card"
+                className="flex-shrink-0 w-64 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -114,11 +124,17 @@ export function VendasFunil() {
                     ops.map((op) => {
                       const brand = brandLabel(op.brandId);
                       return (
-                        <div
+                        <motion.div
                           key={op.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.96 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          whileHover={{ y: -2, boxShadow: "0 6px 20px rgba(14,15,19,.1)" }}
                           draggable
-                          onDragStart={(e) => e.dataTransfer.setData("opId", op.id)}
-                          className="rounded-[0.75rem] border border-border bg-background p-3 cursor-grab hover:shadow-[0_4px_20px_rgba(14,15,19,.08)] transition-shadow"
+                          onDragStartCapture={(e: React.DragEvent<HTMLDivElement>) => {
+                            e.dataTransfer.setData("opId", op.id);
+                          }}
+                          className="rounded-[0.75rem] bg-background border border-border p-3 cursor-grab"
                         >
                           <p className="text-sm font-medium text-foreground leading-tight">{op.titulo}</p>
                           <div className="flex items-center justify-between mt-2">
@@ -134,7 +150,7 @@ export function VendasFunil() {
                               </span>
                             )}
                           </div>
-                        </div>
+                        </motion.div>
                       );
                     })
                   )}

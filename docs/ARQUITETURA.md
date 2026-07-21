@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  Next.js 15 App Router (Vercel)                         │
+│  Next.js 16.2 App Router (Vercel)                       │
 │  ┌─────────┐  ┌──────────┐  ┌────────────────────────┐ │
 │  │  Pages  │  │ API Route│  │  Inngest Functions     │ │
 │  │  /app   │  │  /api    │  │  A2-A18 (durable jobs) │ │

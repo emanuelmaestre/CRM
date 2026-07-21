@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import {
   scoreCliente, scoreProduto, pedido, pedidoItem,
@@ -102,22 +102,36 @@ export async function recalcularScoreProduto(orgId: string, produtoId: string): 
 
   if (!produtoRow || !saldoRow) return;
 
-  const ultimaVenda = await db
-    .select({ data: pedido.createdAt })
-    .from(pedido)
-    .innerJoin(pedidoItem, eq(pedidoItem.pedidoId, pedido.id))
-    .where(and(eq(pedidoItem.produtoId, produtoId), eq(pedido.status, "concluido")))
-    .orderBy(desc(pedido.createdAt))
-    .limit(1)
-    .then((r) => r[0]?.data ?? null);
+  const trintaDiasAtras = new Date(Date.now() - 30 * 86_400_000);
 
-  const diasSemVenda = ultimaVenda
-    ? Math.floor((Date.now() - ultimaVenda.getTime()) / 86_400_000)
+  const [ultimaVendaRow, giroRow] = await Promise.all([
+    db
+      .select({ data: pedido.createdAt })
+      .from(pedido)
+      .innerJoin(pedidoItem, eq(pedidoItem.pedidoId, pedido.id))
+      .where(and(eq(pedidoItem.produtoId, produtoId), eq(pedido.status, "concluido")))
+      .orderBy(desc(pedido.createdAt))
+      .limit(1)
+      .then((r) => r[0]?.data ?? null),
+    db
+      .select({ totalVendido: sql<number>`coalesce(sum(${pedidoItem.quantidade}), 0)` })
+      .from(pedidoItem)
+      .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
+      .where(and(
+        eq(pedidoItem.produtoId, produtoId),
+        eq(pedido.status, "concluido"),
+        gte(pedido.createdAt, trintaDiasAtras),
+      ))
+      .then((r) => Number(r[0]?.totalVendido ?? 0)),
+  ]);
+
+  const diasSemVenda = ultimaVendaRow
+    ? Math.floor((Date.now() - ultimaVendaRow.getTime()) / 86_400_000)
     : 999;
 
   const resultado = calcularScoreProduto({
     diasSemVenda,
-    giroMensalMedio: 0,
+    giroMensalMedio: giroRow,
     saldoAtual: saldoRow.saldo,
     custoUnitario: parseFloat(produtoRow.custo ?? "0"),
   });

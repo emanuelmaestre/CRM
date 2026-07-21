@@ -3,7 +3,7 @@
 /* ── Sinal Duplo Design System ── */
 :root {
   /* Neutros - Tema Vitrine (claro) */
-  --background: #F7F7F8;
+  --background: #ECEEF5;
   --foreground: #15171C;
   --card: #FFFFFF;
   --card-foreground: #15171C;
@@ -11,7 +11,7 @@
   --popover-foreground: #15171C;
   --muted: #E6E7EA;
   --muted-foreground: #5A5F6A;
-  --border: #E6E7EA;
+  --border: #E2E4EC;
   --input: #E6E7EA;
   --ring: #E3131B;
 
@@ -36,7 +36,7 @@
   --info: #2563EB;
 
   /* Fontes */
-  --font-sans: var(--font-inter);
+  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sora);
 
   /* Radius */
@@ -95,6 +95,78 @@ body {
 
 h1, h2, h3, h4 {
   font-family: var(--font-sora), system-ui, sans-serif;
+}
+
+/* ── Keyframes globais ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes bar-grow {
+  from { transform: scaleY(0); transform-origin: bottom; }
+  to   { transform: scaleY(1); transform-origin: bottom; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes count-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50%       { background-position: 100% 50%; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes dot-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+
+/* ── Utility classes ── */
+.animate-float      { animation: float 3.5s ease-in-out infinite; }
+.animate-fade-up    { animation: fade-up 0.35s cubic-bezier(0.4,0,0.2,1) both; }
+.animate-bar-grow   { animation: bar-grow 0.6s cubic-bezier(0.4,0,0.2,1) both; }
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 4s ease infinite;
+}
+.animate-pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
+.animate-spin-slow  { animation: spin-slow 8s linear infinite; }
+
+.card-hover {
+  transition: transform 0.18s cubic-bezier(0.4,0,0.2,1),
+              box-shadow 0.18s cubic-bezier(0.4,0,0.2,1);
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(14,15,19,.11);
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--muted) 25%, color-mix(in srgb, var(--muted) 60%, white) 50%, var(--muted) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.5s infinite linear;
 }
 
 @media (prefers-reduced-motion: reduce) {

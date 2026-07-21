@@ -2,7 +2,7 @@
 
 ## O que é este projeto
 CRM single-tenant multi-marca para Plast Leo (KARZI #E3131B + WUWU #9B30D9).
-Stack: Next.js 15 App Router · TypeScript strict · Drizzle ORM · Supabase · Inngest · Z-API.
+Stack: Next.js 16.2 App Router · React 19.2 · TypeScript strict · Drizzle ORM · Supabase · Inngest · Z-API.
 
 ## Estrutura de módulos
 ```

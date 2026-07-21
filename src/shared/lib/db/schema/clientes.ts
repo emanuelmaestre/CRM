@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, boolean, pgEnum, jsonb, index,
+  pgTable, uuid, text, timestamp, date, pgEnum, jsonb, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { org, brand } from "./org";
 import { appUser } from "./users";
@@ -24,6 +24,7 @@ export const cliente = pgTable("cliente", {
   email: text("email"),
   telefone: text("telefone"),
   cpfCnpj: text("cpf_cnpj"),
+  dataNascimento: date("data_nascimento"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
@@ -45,6 +46,7 @@ export const clienteIdentidade = pgTable("cliente_identidade", {
 }, (t) => [
   index("idx_identidade_cliente").on(t.clienteId),
   index("idx_identidade_external").on(t.canal, t.externalId),
+  uniqueIndex("uq_identidade_org_canal_external").on(t.orgId, t.canal, t.externalId),
 ]);
 
 export const consentimento = pgTable("consentimento", {

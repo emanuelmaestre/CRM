@@ -1,11 +1,11 @@
-import { eq, and, gte, sum } from "drizzle-orm";
+import { eq, and, gte, sum, desc } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { llmRun, sugestaoCampanha, insight, scoreCliente } from "@/shared/lib/db/schema";
+import { llmRun, sugestaoCampanha, insight, scoreCliente, documentoGerado } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import {
   MODELOS, calcularCusto,
-  SugestaoCampanhaOutputSchema, InsightOutputSchema,
-  type SugestaoCampanhaOutput, type InsightOutput,
+  SugestaoCampanhaOutputSchema, InsightOutputSchema, DocumentoExecutivoOutputSchema,
+  type SugestaoCampanhaOutput, type InsightOutput, type DocumentoExecutivoOutput,
 } from "../domain/guardrails";
 import { startOfMonth } from "date-fns";
 
@@ -281,6 +281,85 @@ export async function listarSugestoes(orgId: string, status?: string) {
   const conditions = [eq(sugestaoCampanha.orgId, orgId)];
   if (status) conditions.push(eq(sugestaoCampanha.status, status));
   return db.select().from(sugestaoCampanha).where(and(...conditions));
+}
+
+export async function gerarDocumentoExecutivo(
+  orgId: string,
+  dados: {
+    receitaTotal: number;
+    totalPedidos: number;
+    canaisAtivos: number;
+    clientesEmRisco: number;
+    sugestoesPendentes: number;
+    periodo: string;
+  },
+  geradoPorId?: string,
+): Promise<DocumentoExecutivoOutput> {
+  const promptVersion = "documento-executivo-v1";
+  const sistemaPrompt = `Você é um consultor de CRM sênior gerando um relatório executivo em português brasileiro.
+Analise os KPIs fornecidos e produza um documento executivo conciso.
+Responda SOMENTE em JSON com: titulo, resumo, destaques (array de strings), alertas (array de strings), recomendacoes (array de strings).
+Seja objetivo, use números reais dos dados, evite jargão excessivo.`;
+
+  const userPrompt = `KPIs do período ${dados.periodo}:
+- Receita total: R$ ${dados.receitaTotal.toFixed(2)}
+- Total de pedidos: ${dados.totalPedidos}
+- Canais ativos: ${dados.canaisAtivos}
+- Clientes em risco de churn (score ≥ 60): ${dados.clientesEmRisco}
+- Sugestões de campanha pendentes: ${dados.sugestoesPendentes}
+
+Gere um relatório executivo com destaques positivos, alertas e recomendações de ação.`;
+
+  const { conteudo } = await chamarOpenAI({
+    orgId,
+    modelo: MODELOS.insight,
+    finalidade: "documento_executivo",
+    promptVersion,
+    mensagens: [
+      { role: "system", content: sistemaPrompt },
+      { role: "user", content: userPrompt },
+    ],
+  });
+
+  const parsed = DocumentoExecutivoOutputSchema.safeParse(JSON.parse(conteudo));
+  if (!parsed.success) throw new Error("Saída do documento executivo inválida.");
+  const output = parsed.data;
+
+  const conteudoTexto = [
+    `# ${output.titulo}`,
+    "",
+    output.resumo,
+    "",
+    "## Destaques",
+    ...output.destaques.map((d) => `- ${d}`),
+    "",
+    "## Alertas",
+    ...output.alertas.map((a) => `- ${a}`),
+    "",
+    "## Recomendações",
+    ...output.recomendacoes.map((r) => `- ${r}`),
+  ].join("\n");
+
+  await db.insert(documentoGerado).values({
+    orgId,
+    tipo: "relatorio_executivo",
+    nomeArquivo: `relatorio-executivo-${new Date().toISOString().slice(0, 10)}.md`,
+    // Persiste o conteúdo Markdown em dadosOrigem até Supabase Storage ser configurado
+    dadosOrigem: { ...dados, conteudoMarkdown: conteudoTexto } as unknown as Record<string, unknown>,
+    geradoPorId,
+    storageUrl: null,
+  });
+
+  return output;
+}
+
+export async function listarInsights(orgId: string, limite = 5) {
+  return db
+    .select()
+    .from(insight)
+    .where(eq(insight.orgId, orgId))
+    .orderBy(desc(insight.createdAt))
+    .limit(limite);
 }
 
 export async function consultarConsumoIA(orgId: string) {

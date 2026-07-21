@@ -38,6 +38,13 @@ function checkPerfil(perfil: Perfil, allowed: Perfil[] = ["admin", "gestor", "ve
   }
 }
 
+export function assertPerfil(
+  ctx: Pick<CrudContext, "perfil">,
+  allowed: Perfil[],
+): void {
+  checkPerfil(ctx.perfil, allowed);
+}
+
 async function registrarAuditoria(opts: {
   orgId: string;
   userId?: string;

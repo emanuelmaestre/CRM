@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 
 const ShopeeWebhookSchema = z.object({
   code: z.number(),
@@ -16,7 +17,7 @@ const ShopeeWebhookSchema = z.object({
 
 function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
   const partnerKey = process.env.SHOPEE_PARTNER_KEY;
-  if (!partnerKey) return true;
+  if (!partnerKey) return false; // bloqueia se chave não configurada
 
   const assinatura = req.headers.get("authorization") ?? "";
   const url = req.nextUrl.toString();
@@ -53,11 +54,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, ignorado: true, code });
   }
 
-  const orgId = process.env.DEFAULT_ORG_ID ?? "";
-  const brandId = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
-
   try {
-    const { pedidoId, novo } = await ingerirPedido(orgId, brandId, {
+    const conta = await resolverContaWebhookMarketplace("shopee", String(resultado.data.shop_id));
+    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, {
       providerOrderId: data.ordersn,
       canal: "shopee",
       clienteExternalId: data.buyer_username ?? data.ordersn,

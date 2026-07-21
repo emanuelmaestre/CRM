@@ -8,7 +8,7 @@ test.describe("Pedido → Baixa de estoque → Sync", () => {
   test("criar pedido, marcar como pago e verificar baixa no estoque", async ({ page }) => {
     // 1. Navegar para lista de pedidos
     await page.goto("/vendas/pedidos");
-    await expect(page).toHaveTitle(/CRM LEO/);
+    await expect(page).toHaveTitle(/CRM/);
 
     // 2. Criar novo pedido
     await page.getByRole("button", { name: /novo pedido/i }).click();

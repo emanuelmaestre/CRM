@@ -7,7 +7,7 @@ import { dispararRegua } from "@/modules/reguas/application/reguas.service";
 export const A8_reguaAvaliacao = inngest.createFunction(
   { id: "A8-regua-avaliacao", name: "A8 — Régua de avaliação pós-entrega", triggers: [{ event: "pedido/entregue" }] },
   async ({ event, step }) => {
-    const { pedidoId, orgId, brandId } = event.data as { pedidoId: string; orgId: string; brandId: string };
+    const { entityId: pedidoId, orgId, brandId } = event.data as { entityId: string; orgId: string; brandId: string };
 
     const pedidoRow = await step.run("buscar-pedido", () =>
       db.select().from(pedido).where(eq(pedido.id, pedidoId)).then((r) => r[0])

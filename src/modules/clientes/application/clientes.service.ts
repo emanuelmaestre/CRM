@@ -1,5 +1,4 @@
 import { eq, and, or, isNull, ilike } from "drizzle-orm";
-import { z } from "zod";
 import { createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { cliente, consentimento } from "@/shared/lib/db/schema";

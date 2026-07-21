@@ -1,6 +1,7 @@
 import {
-  pgTable, uuid, text, timestamp, boolean, pgEnum, jsonb, index,
+  pgTable, uuid, text, timestamp, boolean, pgEnum, jsonb, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { org, brand } from "./org";
 import { cliente } from "./clientes";
 import { channelAccount } from "./canais";
@@ -30,6 +31,9 @@ export const conversa = pgTable("conversa", {
   index("idx_conversa_brand").on(t.brandId),
   index("idx_conversa_cliente").on(t.clienteId),
   index("idx_conversa_status").on(t.status),
+  uniqueIndex("uq_conversa_conta_external")
+    .on(t.orgId, t.channelAccountId, t.externalId)
+    .where(sql`${t.externalId} is not null`),
 ]);
 
 export const mensagem = pgTable("mensagem", {
@@ -48,4 +52,7 @@ export const mensagem = pgTable("mensagem", {
   index("idx_mensagem_conversa").on(t.conversaId),
   index("idx_mensagem_provider").on(t.providerMessageId),
   index("idx_mensagem_criado").on(t.createdAt),
+  uniqueIndex("uq_mensagem_org_provider")
+    .on(t.orgId, t.providerMessageId)
+    .where(sql`${t.providerMessageId} is not null`),
 ]);

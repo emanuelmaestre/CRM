@@ -11,6 +11,7 @@ const LinhaClienteSchema = z.object({
   email: z.string().email().optional(),
   telefone: z.string().optional(),
   cpf_cnpj: z.string().optional(),
+  data_nascimento: z.iso.date().optional(),
 });
 
 export type LinhaCliente = z.infer<typeof LinhaClienteSchema>;
@@ -73,6 +74,7 @@ export async function processarImportacaoClientes(
         email: validos[i].email,
         telefone: validos[i].telefone,
         cpfCnpj: validos[i].cpf_cnpj,
+        dataNascimento: validos[i].data_nascimento,
       });
       aceitos++;
     } catch (err) {

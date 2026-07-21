@@ -7,7 +7,7 @@ import { registrarMovimento } from "@/modules/estoque/application/estoque.servic
 export const A2_baixaEstoque = inngest.createFunction(
   { id: "A2-baixa-estoque", name: "A2 — Baixa automática de estoque no pedido.pago", triggers: [{ event: "pedido/pago" }] },
   async ({ event, step }) => {
-    const { pedidoId, orgId } = event.data as { pedidoId: string; orgId: string };
+    const { entityId: pedidoId, orgId } = event.data as { entityId: string; orgId: string };
 
     const itens = await step.run("buscar-itens", () =>
       db.select().from(pedidoItem).where(eq(pedidoItem.pedidoId, pedidoId))

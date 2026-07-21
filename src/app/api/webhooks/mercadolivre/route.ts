@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 
 const MLNotificationSchema = z.object({
   resource: z.string(),
@@ -22,7 +23,9 @@ async function buscarPedidoML(orderId: string, accessToken: string) {
     id: number;
     status: string;
     total_amount: number;
+    shipping?: { cost?: number };
     buyer: { id: number; nickname: string; email?: string };
+    order_items: { item: { seller_sku?: string }; quantity: number; unit_price: number }[];
     date_created: string;
   }>;
 }
@@ -49,14 +52,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const orderId = resource.split("/orders/")[1];
   if (!orderId) return NextResponse.json({ ok: true, ignorado: true });
 
-  const orgId = process.env.DEFAULT_ORG_ID ?? "";
-  const brandId = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
-  const accessToken = process.env.ML_ACCESS_TOKEN_KARZI ?? "";
-
   try {
+    const conta = await resolverContaWebhookMarketplace("mercadolivre", String(resultado.data.user_id));
+    const accessToken = process.env[`ML_ACCESS_TOKEN_${conta.brandSlug.toUpperCase()}`];
+    if (!accessToken) throw new Error(`Token Mercado Livre não configurado para ${conta.brandSlug}.`);
     const pedidoML = await buscarPedidoML(orderId, accessToken);
 
-    const { pedidoId, novo } = await ingerirPedido(orgId, brandId, {
+    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, {
       providerOrderId: String(pedidoML.id),
       canal: "mercadolivre",
       clienteExternalId: String(pedidoML.buyer.id),
@@ -64,7 +66,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       clienteEmail: pedidoML.buyer.email,
       status: pedidoML.status,
       total: String(pedidoML.total_amount),
-      itens: [],
+      frete: pedidoML.shipping?.cost !== undefined ? String(pedidoML.shipping.cost) : undefined,
+      itens: pedidoML.order_items.map((item) => ({
+        skuExterno: item.item.seller_sku ?? "",
+        quantidade: item.quantity,
+        precoUnitario: String(item.unit_price),
+      })),
       criadoEm: new Date(pedidoML.date_created),
     });
 

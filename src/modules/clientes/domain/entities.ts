@@ -7,6 +7,7 @@ export const ClienteSchema = z.object({
   email: z.string().email("E-mail inválido").nullish(),
   telefone: z.string().regex(/^\+[1-9]\d{7,14}$/, "Telefone deve estar no formato E.164 (+5511999999999)").nullish(),
   cpfCnpj: z.string().nullish(),
+  dataNascimento: z.iso.date().nullish(),
   deletedAt: z.date().nullish(),
   createdAt: z.date(),
   updatedAt: z.date(),
@@ -14,7 +15,7 @@ export const ClienteSchema = z.object({
 
 export const CreateClienteSchema = ClienteSchema.omit({
   id: true, orgId: true, deletedAt: true, createdAt: true, updatedAt: true,
-}).partial({ email: true, telefone: true, cpfCnpj: true });
+}).partial({ email: true, telefone: true, cpfCnpj: true, dataNascimento: true });
 
 export const UpdateClienteSchema = CreateClienteSchema.partial();
 

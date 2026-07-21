@@ -1,9 +1,19 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { regua, reguaExecucao, templateMensagem } from "@/shared/lib/db/schema";
+import { brand, regua, reguaExecucao, templateMensagem, clienteIdentidade, cliente } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { avaliarGates, type GateInput } from "../domain/gates";
+import { criarZApiProvider } from "@/modules/canais/infrastructure/zapi.provider";
 import { format } from "date-fns";
+
+function renderizarTemplate(conteudo: string, variaveis: Record<string, string>): string {
+  return conteudo.replace(/\{\{(\w+)\}\}/g, (_, chave) => variaveis[chave] ?? `{{${chave}}}`);
+}
+
+function finalidadeDoGatilho(gatilho: string): GateInput["finalidade"] {
+  if (gatilho === "pedido_entregue") return "avaliacao";
+  return "marketing";
+}
 
 export async function dispararRegua(input: {
   orgId: string;
@@ -23,6 +33,10 @@ export async function dispararRegua(input: {
     return { status: "bloqueada", motivoBloqueio: "Régua inativa ou não encontrada" };
   }
 
+  if (reguaRow.brandId !== input.brandId) {
+    return { status: "bloqueada", motivoBloqueio: "Régua não pertence à marca informada", gateBloqueado: "gate_3" };
+  }
+
   const dataRef = format(input.gatilhoData, "yyyy-MM-dd");
   const idempotencyKey = `${input.reguaId}:${input.clienteId}:${reguaRow.gatilho}:${dataRef}`;
 
@@ -30,7 +44,7 @@ export async function dispararRegua(input: {
     orgId: input.orgId,
     clienteId: input.clienteId,
     brandId: input.brandId,
-    finalidade: "marketing",
+    finalidade: finalidadeDoGatilho(reguaRow.gatilho),
     canal: reguaRow.canal,
     canalOrigem: input.canalOrigem,
     idempotencyKey,
@@ -40,7 +54,11 @@ export async function dispararRegua(input: {
   const gateResult = await avaliarGates(gateInput);
 
   if (!gateResult.aprovado) {
-    await db.insert(reguaExecucao).values({
+    if (gateResult.gateBloqueado === "gate_4") {
+      return { status: "duplicada", motivoBloqueio: gateResult.motivo, gateBloqueado: gateResult.gateBloqueado };
+    }
+
+    const [execucaoBloqueada] = await db.insert(reguaExecucao).values({
       orgId: input.orgId,
       reguaId: input.reguaId,
       clienteId: input.clienteId,
@@ -48,14 +66,14 @@ export async function dispararRegua(input: {
       status: "bloqueada",
       gateBloqueado: gateResult.gateBloqueado,
       motivoBloqueio: gateResult.motivo,
-    });
+    }).returning({ id: reguaExecucao.id });
 
     await emitirEvento({
       tipo: "regua.bloqueada",
       orgId: input.orgId,
       brandId: input.brandId,
       entidade: "regua_execucao",
-      entidadeId: idempotencyKey,
+      entidadeId: execucaoBloqueada.id,
       payload: { reguaId: input.reguaId, clienteId: input.clienteId, gate: gateResult.gateBloqueado, motivo: gateResult.motivo },
     });
 
@@ -71,16 +89,100 @@ export async function dispararRegua(input: {
     agendadaEm: new Date(),
   }).returning();
 
-  await emitirEvento({
-    tipo: "regua.disparada",
-    orgId: input.orgId,
-    brandId: input.brandId,
-    entidade: "regua_execucao",
-    entidadeId: execucao.id,
-    payload: { reguaId: input.reguaId, clienteId: input.clienteId, canal: reguaRow.canal },
-  });
+  // --- Envio real da mensagem ---
+  try {
+    const [template, clienteRow] = await Promise.all([
+      reguaRow.templateId
+        ? db.select().from(templateMensagem).where(and(
+            eq(templateMensagem.id, reguaRow.templateId),
+            eq(templateMensagem.orgId, input.orgId),
+            eq(templateMensagem.brandId, input.brandId),
+            eq(templateMensagem.canal, reguaRow.canal),
+          )).then((r) => r[0])
+        : Promise.resolve(null),
+      db.select().from(cliente).where(and(
+        eq(cliente.id, input.clienteId),
+        eq(cliente.orgId, input.orgId),
+      )).then((r) => r[0]),
+    ]);
 
-  return { status: "agendada" };
+    if (!template) throw new Error("Template não encontrado ou não configurado na régua.");
+
+    // Buscar contato do canal configurado na régua
+    const identidade = await db
+      .select()
+      .from(clienteIdentidade)
+      .where(and(
+        eq(clienteIdentidade.clienteId, input.clienteId),
+        eq(clienteIdentidade.orgId, input.orgId),
+        eq(clienteIdentidade.canal, reguaRow.canal as "whatsapp"),
+      ))
+      .then((r) => r[0]);
+
+    const para = identidade?.externalId ?? clienteRow?.telefone;
+    if (!para) throw new Error(`Sem contato disponível no canal ${reguaRow.canal} para este cliente.`);
+
+    const variaveis: Record<string, string> = {
+      nome: clienteRow?.nome ?? "",
+      canal: reguaRow.canal,
+      ...(typeof template.variaveis === "object" && template.variaveis !== null ? template.variaveis as Record<string, string> : {}),
+    };
+    const conteudoFinal = renderizarTemplate(template.conteudo, variaveis);
+
+    // Somente WhatsApp (Z-API) implementado; outros canais de mensageria a adicionar
+    if (reguaRow.canal === "whatsapp") {
+      if (process.env.EXTERNAL_SENDS_ENABLED !== "true") {
+        throw new Error("Envios externos desabilitados até a liberação de go-live.");
+      }
+
+      const marca = await db.select({ slug: brand.slug }).from(brand).where(and(
+        eq(brand.id, input.brandId),
+        eq(brand.orgId, input.orgId),
+        eq(brand.active, true),
+      )).then((rows) => rows[0]);
+      if (!marca || (marca.slug !== "karzi" && marca.slug !== "wuwu")) {
+        throw new Error("Marca ativa não encontrada ou sem provider configurado.");
+      }
+
+      const provider = criarZApiProvider(marca.slug);
+      await provider.enviarMensagem({ para, conteudo: conteudoFinal });
+    } else {
+      throw new Error(`Canal ${reguaRow.canal} sem provider de envio configurado.`);
+    }
+
+    await db.update(reguaExecucao)
+      .set({ status: "enviada", enviadaEm: new Date(), updatedAt: new Date() })
+      .where(eq(reguaExecucao.id, execucao.id));
+
+    await emitirEvento({
+      tipo: "regua.disparada",
+      orgId: input.orgId,
+      brandId: input.brandId,
+      entidade: "regua_execucao",
+      entidadeId: execucao.id,
+      payload: { reguaId: input.reguaId, clienteId: input.clienteId, canal: reguaRow.canal },
+    });
+
+    return { status: "enviada" };
+
+  } catch (err) {
+    const motivo = err instanceof Error ? err.message : String(err);
+
+    await db.update(reguaExecucao)
+      .set({ status: "bloqueada", motivoBloqueio: `Falha no envio: ${motivo}`, updatedAt: new Date() })
+      .where(eq(reguaExecucao.id, execucao.id));
+
+    await emitirEvento({
+      tipo: "regua.falha_definitiva",
+      orgId: input.orgId,
+      brandId: input.brandId,
+      entidade: "regua_execucao",
+      entidadeId: execucao.id,
+      payload: { reguaId: input.reguaId, clienteId: input.clienteId, motivo },
+    });
+
+    return { status: "falha", motivoBloqueio: motivo };
+  }
 }
 
 export async function cancelarExecucoesCliente(orgId: string, clienteId: string): Promise<void> {
@@ -91,7 +193,7 @@ export async function cancelarExecucoesCliente(orgId: string, clienteId: string)
       and(
         eq(reguaExecucao.orgId, orgId),
         eq(reguaExecucao.clienteId, clienteId),
-        eq(reguaExecucao.status, "agendada")
+        inArray(reguaExecucao.status, ["elegivel", "gates_aprovados", "agendada"])
       )
     );
 }

@@ -1,5 +1,6 @@
-import { db } from "@/shared/lib/db";
+import { db, type DB } from "@/shared/lib/db";
 import { eventoDominio } from "@/shared/lib/db/schema";
+import { inngest } from "@/shared/lib/inngest/client";
 
 export type DomainEventType =
   | "cliente.criado"
@@ -48,8 +49,27 @@ export interface DomainEvent {
   payload: Record<string, unknown>;
 }
 
-export async function emitirEvento(event: DomainEvent): Promise<void> {
-  await db.insert(eventoDominio).values({
+export interface PersistedDomainEvent extends DomainEvent {
+  eventId: string;
+}
+
+type EventStore = Pick<DB, "insert">;
+
+// Mapa de eventos de domínio (ponto) para eventos Inngest (barra).
+// Apenas os eventos que têm jobs Inngest listeners precisam constar aqui.
+const INNGEST_EVENT_MAP: Partial<Record<DomainEventType, string>> = {
+  "pedido.pago":                      "pedido/pago",
+  "pedido.entregue":                  "pedido/entregue",
+  "pedido.cancelado":                 "pedido/cancelado",
+  "estoque.baixa_automatica":         "estoque/baixa-automatica",
+  "cliente.consentimento_revogado":   "cliente/consentimento-revogado",
+};
+
+export async function persistirEvento(
+  event: DomainEvent,
+  store: EventStore = db,
+): Promise<PersistedDomainEvent> {
+  const [persisted] = await store.insert(eventoDominio).values({
     tipo: event.tipo,
     orgId: event.orgId,
     brandId: event.brandId,
@@ -57,5 +77,31 @@ export async function emitirEvento(event: DomainEvent): Promise<void> {
     entidadeId: event.entidadeId,
     causationId: event.causationId,
     payload: event.payload,
-  });
+  }).returning({ eventId: eventoDominio.id });
+
+  return { ...event, eventId: persisted.eventId };
+}
+
+export async function despacharEvento(event: PersistedDomainEvent): Promise<void> {
+  const inngestName = INNGEST_EVENT_MAP[event.tipo];
+  if (inngestName) {
+    await inngest.send({
+      name: inngestName,
+      data: {
+        ...event.payload,
+        eventId: event.eventId,
+        orgId: event.orgId,
+        brandId: event.brandId,
+        entityType: event.entidade,
+        entityId: event.entidadeId,
+        // Compatibilidade durante a migração dos consumidores antigos.
+        entidadeId: event.entidadeId,
+      },
+    });
+  }
+}
+
+export async function emitirEvento(event: DomainEvent): Promise<void> {
+  const persisted = await persistirEvento(event);
+  await despacharEvento(persisted);
 }

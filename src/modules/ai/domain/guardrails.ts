@@ -36,6 +36,16 @@ export const InsightOutputSchema = z.object({
 export type SugestaoCampanhaOutput = z.infer<typeof SugestaoCampanhaOutputSchema>;
 export type InsightOutput = z.infer<typeof InsightOutputSchema>;
 
+export const DocumentoExecutivoOutputSchema = z.object({
+  titulo: z.string().min(5).max(150),
+  resumo: z.string().min(50).max(3000),
+  destaques: z.array(z.string()).min(1).max(10),
+  alertas: z.array(z.string()).min(0).max(10),
+  recomendacoes: z.array(z.string()).min(1).max(10),
+});
+
+export type DocumentoExecutivoOutput = z.infer<typeof DocumentoExecutivoOutputSchema>;
+
 export const AVISO_PROBABILISTICO =
   "⚠️ Este resultado é gerado por IA probabilística (Cláusula 11.3). " +
   "Decisões de desconto e campanha devem ser validadas pela equipe Plast Leo.";

@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 
 const TikTokWebhookSchema = z.object({
   type: z.number(),
@@ -18,7 +19,7 @@ const TikTokWebhookSchema = z.object({
 
 function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
   const appSecret = process.env.TIKTOK_APP_SECRET;
-  if (!appSecret) return true;
+  if (!appSecret) return false; // bloqueia se chave não configurada
 
   const assinatura = req.headers.get("x-tts-signature") ?? "";
   const esperado = crypto
@@ -56,11 +57,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, ignorado: true, type });
   }
 
-  const orgId = process.env.DEFAULT_ORG_ID ?? "";
-  const brandId = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
-
   try {
-    const { pedidoId, novo } = await ingerirPedido(orgId, brandId, {
+    const conta = await resolverContaWebhookMarketplace("tiktokshop", resultado.data.shop_id);
+    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, {
       providerOrderId: data.order_id,
       canal: "tiktokshop",
       clienteExternalId: data.buyer_uid ?? data.order_id,

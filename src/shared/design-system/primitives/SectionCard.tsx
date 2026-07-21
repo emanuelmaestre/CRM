@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { cn } from "../cn";
 
 interface SectionCardProps {
@@ -12,10 +13,16 @@ interface SectionCardProps {
 
 export function SectionCard({ title, description, actions, children, className }: SectionCardProps) {
   return (
-    <div className={cn(
-      "rounded-[1.25rem] border border-border bg-card shadow-[0_4px_20px_rgba(14,15,19,.06)]",
-      className
-    )}>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+      whileHover={{ y: -1, boxShadow: "0 8px 28px rgba(14,15,19,.1)" }}
+      className={cn(
+        "rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]",
+        className
+      )}
+    >
       {(title || actions) && (
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
@@ -26,6 +33,6 @@ export function SectionCard({ title, description, actions, children, className }
         </div>
       )}
       <div className="p-6">{children}</div>
-    </div>
+    </motion.div>
   );
 }

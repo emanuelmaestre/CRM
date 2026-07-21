@@ -1,6 +1,7 @@
 import {
-  pgTable, uuid, text, timestamp, numeric, integer, boolean, pgEnum, index,
+  pgTable, uuid, text, timestamp, numeric, integer, boolean, pgEnum, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { org, brand } from "./org";
 
 export const movimentoTipoEnum = pgEnum("movimento_tipo", [
@@ -48,4 +49,7 @@ export const estoqueMovimento = pgTable("estoque_movimento", {
 }, (t) => [
   index("idx_movimento_produto").on(t.produtoId),
   index("idx_movimento_criado").on(t.createdAt),
+  uniqueIndex("uq_movimento_referencia")
+    .on(t.orgId, t.produtoId, t.referenciaTipo, t.referenciaId)
+    .where(sql`${t.referenciaTipo} is not null and ${t.referenciaId} is not null`),
 ]);
