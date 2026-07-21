@@ -115,17 +115,6 @@ export function TopNav() {
 
       {/* Right */}
       <div className="ml-auto flex items-center gap-1.5">
-        {/* Search */}
-        <motion.div
-          initial={{ opacity: 0, x: 4 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.18, duration: 0.2, ease: [0, 0, 0.2, 1] }}
-          className="hidden lg:flex items-center gap-2 h-8 px-3 rounded-lg bg-muted text-muted-foreground text-sm cursor-pointer hover:bg-muted/80 transition-colors group"
-        >
-          <SearchIcon size={13} strokeWidth={2} className="group-hover:scale-110 transition-transform" />
-          <span className="text-xs">{navigationConfig.utilities.search.label}</span>
-          <kbd className="ml-1 text-[10px] bg-card border border-border rounded px-1 py-0.5 leading-none">{navigationConfig.utilities.search.shortcut}</kbd>
-        </motion.div>
 
         {/* Bell */}
         <motion.button
