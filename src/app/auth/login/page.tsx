@@ -13,10 +13,10 @@ export default function LoginPage() {
             style={{ fontFamily: "var(--font-sora)" }}
           >
             <span style={{ background: "var(--gradient-signature)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              LEO
+              CRM
             </span>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">CRM Plast Leo</p>
+          <p className="text-sm text-muted-foreground mt-1">KARZI · WUWU</p>
         </div>
         <LoginForm />
       </div>

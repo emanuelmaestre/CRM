@@ -12,8 +12,8 @@ export async function verificarSaudeConectores(orgId: string): Promise<void> {
   for (const conta of contas) {
     try {
       const statusAnterior = conta.status;
-      let novoStatus: "conectado" | "degradado" | "desconectado" = "conectado";
-      let ultimoErro: string | null = null;
+      const novoStatus: "conectado" | "degradado" | "desconectado" = "conectado";
+      const ultimoErro: string | null = null;
 
       // Verificação real acontece quando o provider concreto é instanciado.
       // Aqui apenas atualizamos o timestamp e status com base em resposta da porta.

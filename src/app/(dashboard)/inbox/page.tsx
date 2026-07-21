@@ -1,22 +1,21 @@
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 
-export const metadata = { title: "Inbox" };
+export const metadata = { title: "Mensagens" };
 
 const canais = [
   { nome: "WhatsApp KARZI", descricao: "Z-API · instância KARZI", icone: "💬", marca: "KARZI", cor: "var(--karzi)" },
   { nome: "WhatsApp WUWU", descricao: "Z-API · instância WUWU", icone: "💬", marca: "WUWU", cor: "var(--wuwu)" },
-  { nome: "Instagram KARZI", descricao: "Meta Graph API", icone: "📸", marca: "KARZI", cor: "var(--karzi)" },
-  { nome: "Instagram WUWU", descricao: "Meta Graph API", icone: "📸", marca: "WUWU", cor: "var(--wuwu)" },
-  { nome: "Facebook KARZI", descricao: "Meta Graph API", icone: "💙", marca: "KARZI", cor: "var(--karzi)" },
-  { nome: "Facebook WUWU", descricao: "Meta Graph API", icone: "💙", marca: "WUWU", cor: "var(--wuwu)" },
+  { nome: "Shopee", descricao: "Chat da loja · pedidos e pós-venda", icone: "🛍️", marca: "—", cor: "var(--muted-foreground)" },
+  { nome: "Mercado Livre", descricao: "Perguntas e mensagens pós-venda", icone: "🛒", marca: "—", cor: "var(--muted-foreground)" },
+  { nome: "TikTok Shop", descricao: "Mensagens da loja", icone: "🎵", marca: "—", cor: "var(--muted-foreground)" },
 ];
 
 export default function InboxPage() {
   return (
     <div>
       <PageHeader
-        title="Inbox"
-        description="Conversas unificadas por marca — WhatsApp · Instagram · Facebook"
+        title="Mensagens"
+        description="Conversas unificadas — WhatsApp e marketplaces"
       />
 
       {/* Banner de fase */}

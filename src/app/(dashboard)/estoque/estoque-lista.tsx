@@ -35,8 +35,8 @@ export function EstoqueLista() {
   const [, startTransition] = useTransition();
 
   const carregar = useCallback(() => {
-    setLoading(true);
     startTransition(async () => {
+      setLoading(true);
       try {
         const res = await actionListarProdutos();
         setProdutos(res.data as Produto[]);
