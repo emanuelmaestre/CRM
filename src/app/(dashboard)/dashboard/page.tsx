@@ -466,7 +466,6 @@ export default function DashboardPage() {
           </div>
 
           <RecentOrders />
-          <Channels />
         </div>
       </div>
     </motion.div>
