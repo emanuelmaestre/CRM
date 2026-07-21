@@ -39,6 +39,43 @@
     "actions": { "submit": "Cadastrar produto", "submitting": "Cadastrando…" },
     "messages": { "nameRequired": "Nome é obrigatório", "skuRequired": "SKU é obrigatório", "brandRequired": "Selecione a marca", "priceInvalid": "Preço deve ser maior que zero", "success": "Produto criado com sucesso!", "error": "Erro ao criar produto." }
   },
+  "importacao": {
+    "title": "Importar clientes",
+    "cancelHref": "/clientes",
+    "steps": ["Arquivo", "Prévia", "Confirmar"],
+    "sections": [
+      { "title": "Selecione o arquivo", "description": "CSV ou planilha com colunas: nome, email, telefone, cpf_cnpj" },
+      { "title": "Pré-visualização", "description": "Verifique o que será importado antes de confirmar" },
+      { "title": "Confirmar importação", "description": "Revise o resumo e confirme para importar os dados" }
+    ],
+    "columns": {
+      "required": ["nome"],
+      "optional": ["email", "telefone", "cpf_cnpj", "data_nascimento"],
+      "template": "nome,email,telefone,cpf_cnpj,data_nascimento"
+    },
+    "hints": {
+      "upload": "Arraste um arquivo CSV ou clique para selecionar. Colunas aceitas: nome (obrigatório), email, telefone, cpf_cnpj, data_nascimento.",
+      "preview": "Os registros com erro não serão importados. Corrija o arquivo e reimporte se necessário.",
+      "confirm": "Esta ação não pode ser desfeita. Os registros rejeitados não serão importados."
+    },
+    "labels": {
+      "dropzone": "Arraste o arquivo aqui ou clique para selecionar",
+      "or": "ou",
+      "templateDownload": "Baixar planilha modelo",
+      "accepted": "Aceitos",
+      "rejected": "Rejeitados",
+      "total": "Total de linhas",
+      "errorsTitle": "Linhas com erro",
+      "line": "Linha",
+      "reason": "Motivo",
+      "noErrors": "Nenhum erro encontrado — todos os registros serão importados.",
+      "submit": "Importar agora",
+      "submitting": "Importando…",
+      "successTitle": "Importação concluída",
+      "successDescription": "Os clientes foram adicionados à base.",
+      "errorMessage": "Erro ao processar o arquivo."
+    }
+  },
   "oportunidade": {
     "title": "Nova oportunidade",
     "cancelHref": "/vendas",

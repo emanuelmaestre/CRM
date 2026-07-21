@@ -57,7 +57,7 @@ export const A12_conversaParada = inngest.createFunction(
           payload: {
             responsavelId: conv.responsavelId,
             horasSemResposta: HORAS_SEM_RESPOSTA,
-            ultimaAtualizacao: conv.updatedAt?.toISOString(),
+            ultimaAtualizacao: String(conv.updatedAt ?? ""),
           },
         })
       );
