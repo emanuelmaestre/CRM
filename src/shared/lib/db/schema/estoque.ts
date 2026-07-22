@@ -25,6 +25,8 @@ export const produto = pgTable("produto", {
 }, (t) => [
   index("idx_produto_org_brand").on(t.orgId, t.brandId),
   index("idx_produto_sku").on(t.orgId, t.sku),
+  uniqueIndex("uq_produto_org_sku_active").on(t.orgId, t.sku)
+    .where(sql`${t.deletedAt} is null`),
 ]);
 
 export const estoqueSaldo = pgTable("estoque_saldo", {

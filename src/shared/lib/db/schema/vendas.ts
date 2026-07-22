@@ -57,7 +57,9 @@ export const funilEtapa = pgTable("funil_etapa", {
   nome: text("nome").notNull(),
   ordem: integer("ordem").notNull(),
   cor: text("cor"),
-});
+}, (t) => [
+  uniqueIndex("uq_funil_etapa_org_ordem").on(t.orgId, t.ordem),
+]);
 
 export const oportunidade = pgTable("oportunidade", {
   id: uuid("id").primaryKey().defaultRandom(),

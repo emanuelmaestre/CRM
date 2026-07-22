@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validarMovimento, calcularNovoSaldo } from "@/modules/estoque/domain/entities";
+import { validarMovimento, calcularNovoSaldo, CreateProdutoSchema } from "@/modules/estoque/domain/entities";
 
 describe("Livro-razão de estoque (Invariante nº 6)", () => {
   it("entrada aumenta saldo", () => {
@@ -24,5 +24,21 @@ describe("Livro-razão de estoque (Invariante nº 6)", () => {
 
   it("rejeita quantidade zero", () => {
     expect(() => validarMovimento(10, "saida", 0)).toThrow("maior que zero");
+  });
+
+  it("normaliza SKU e moeda na entrada do catálogo", () => {
+    const produto = CreateProdutoSchema.parse({
+      brandId: "10000000-0000-4000-8000-000000000001",
+      sku: " kz-001 ", nome: "Produto teste", preco: "19,90", ativo: true,
+    });
+    expect(produto.sku).toBe("KZ-001");
+    expect(produto.preco).toBe("19.90");
+  });
+
+  it("rejeita preço zerado", () => {
+    expect(() => CreateProdutoSchema.parse({
+      brandId: "10000000-0000-4000-8000-000000000001",
+      sku: "KZ-002", nome: "Produto teste", preco: "0", ativo: true,
+    })).toThrow("Preço deve ser maior que zero");
   });
 });

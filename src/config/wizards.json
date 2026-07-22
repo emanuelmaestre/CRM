@@ -89,10 +89,12 @@
       "titulo": { "label": "Título", "placeholder": "Ex: Pedido atacado 50 caixas — Mercado" },
       "brandId": { "label": "Marca", "placeholder": "Selecione a marca" },
       "etapaId": { "label": "Etapa do funil", "placeholder": "Selecione a etapa" },
-      "valor": { "label": "Valor estimado", "placeholder": "0,00" }
+      "valor": { "label": "Valor estimado", "placeholder": "0,00" },
+      "clienteId": { "label": "Cliente", "placeholder": "Sem cliente vinculado" },
+      "responsavelId": { "label": "Responsável", "placeholder": "Usar usuário atual" }
     },
-    "reviewLabels": { "titulo": "Título", "brandId": "Marca", "etapaId": "Etapa", "valor": "Valor estimado" },
+    "reviewLabels": { "titulo": "Título", "brandId": "Marca", "etapaId": "Etapa", "valor": "Valor estimado", "clienteId": "Cliente", "responsavelId": "Responsável" },
     "actions": { "submit": "Criar oportunidade", "submitting": "Criando…" },
-    "messages": { "titleRequired": "Título é obrigatório", "brandRequired": "Selecione a marca", "stageRequired": "Selecione a etapa do funil", "success": "Oportunidade criada!", "error": "Erro ao criar oportunidade.", "stagesError": "Erro ao carregar etapas do funil." }
+    "messages": { "titleRequired": "Título é obrigatório", "brandRequired": "Selecione a marca", "stageRequired": "Selecione a etapa do funil", "success": "Oportunidade criada!", "error": "Erro ao criar oportunidade.", "stagesError": "Erro ao carregar etapas do funil.", "referencesError": "Erro ao carregar clientes, marcas e responsáveis." }
   }
 }

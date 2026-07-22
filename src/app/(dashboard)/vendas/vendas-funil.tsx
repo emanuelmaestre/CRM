@@ -4,13 +4,19 @@ import { useState, useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { actionListarFunil, actionMoverOportunidade } from "./actions";
+import { Trash2 } from "lucide-react";
+import {
+  actionCriarEtapasPadrao, actionExcluirOportunidade, actionListarFunil, actionMoverOportunidade,
+} from "./actions";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import brandsConfig from "@/config/brands.json";
 import pagesConfig from "@/config/pages.json";
 
 type Etapa = { id: string; nome: string; ordem: number; cor: string | null };
-type Oportunidade = { id: string; titulo: string; etapaId: string; brandId: string; valor: string | null };
+type Oportunidade = {
+  id: string; titulo: string; etapaId: string; brandId: string; valor: string | null;
+  clienteNome: string | null; responsavelNome: string | null;
+};
 
 const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
 const BRAND_WUWU = process.env.NEXT_PUBLIC_BRAND_ID_WUWU ?? "";
@@ -28,6 +34,8 @@ export function VendasFunil() {
   const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [oportunidades, setOportunidades] = useState<Oportunidade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [canConfigure, setCanConfigure] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
   const [, startTransition] = useTransition();
 
   const carregar = useCallback(() => {
@@ -37,6 +45,8 @@ export function VendasFunil() {
         const res = await actionListarFunil();
         setEtapas(res.etapas as Etapa[]);
         setOportunidades(res.oportunidades as Oportunidade[]);
+        setCanConfigure(res.permissions.canConfigure);
+        setCanDelete(res.permissions.canDelete);
       } catch {
         toast.error(copy.messages.loadError);
       } finally {
@@ -53,6 +63,27 @@ export function VendasFunil() {
       setOportunidades((prev) => prev.map((o) => o.id === opId ? { ...o, etapaId: novaEtapaId } : o));
     } catch {
       toast.error(copy.messages.moveError);
+    }
+  }
+
+  async function configurarFunil() {
+    try {
+      await actionCriarEtapasPadrao();
+      toast.success(copy.messages.setupSuccess);
+      carregar();
+    } catch {
+      toast.error(copy.messages.setupError);
+    }
+  }
+
+  async function excluir(opId: string, titulo: string) {
+    if (!confirm(copy.actions.deleteConfirm.replace("{title}", titulo))) return;
+    try {
+      await actionExcluirOportunidade(opId);
+      setOportunidades((current) => current.filter((item) => item.id !== opId));
+      toast.success(copy.messages.deleteSuccess);
+    } catch {
+      toast.error(copy.messages.deleteError);
     }
   }
 
@@ -89,6 +120,7 @@ export function VendasFunil() {
             illustration="funnel"
             title={copy.empty.title}
             description={copy.empty.description}
+            action={canConfigure ? <button type="button" onClick={configurarFunil} className="min-h-11 px-5 rounded-xl text-sm font-semibold text-white" style={{ background: "var(--gradient-signature)" }}>{copy.actions.setup}</button> : undefined}
           />
         </div>
       ) : (
@@ -99,7 +131,7 @@ export function VendasFunil() {
             return (
               <div
                 key={etapa.id}
-                className="flex-shrink-0 w-64 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
+                className="flex-shrink-0 w-[85vw] sm:w-72 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -134,12 +166,14 @@ export function VendasFunil() {
                           animate={{ opacity: 1, scale: 1 }}
                           whileHover={{ y: -1, boxShadow: "0 4px 16px rgba(14,15,19,.09)" }}
                           draggable
+                          data-testid={`oportunidade-${op.id}`}
                           onDragStartCapture={(e: React.DragEvent<HTMLDivElement>) => {
                             e.dataTransfer.setData("opId", op.id);
                           }}
                           className="rounded-[0.75rem] bg-background border border-border p-3 cursor-grab"
                         >
                           <p className="text-sm font-medium text-foreground leading-tight">{op.titulo}</p>
+                          {(op.clienteNome || op.responsavelNome) && <p className="text-xs text-muted-foreground mt-1">{op.clienteNome ?? copy.noClient}{op.responsavelNome ? ` · ${op.responsavelNome}` : ""}</p>}
                           <div className="flex items-center justify-between mt-2">
                             <span
                               className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
@@ -152,6 +186,19 @@ export function VendasFunil() {
                                 R$ {Number(op.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                               </span>
                             )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-3 pt-2 border-t border-border">
+                            <label className="sr-only" htmlFor={`move-${op.id}`}>{copy.actions.move}</label>
+                            <select
+                              id={`move-${op.id}`}
+                              data-testid={`move-${op.id}`}
+                              value={op.etapaId}
+                              onChange={(event) => mover(op.id, event.target.value)}
+                              className="min-h-11 flex-1 rounded-lg border border-border bg-background px-2 text-xs"
+                            >
+                              {etapas.map((option) => <option key={option.id} value={option.id}>{option.nome}</option>)}
+                            </select>
+                            {canDelete && <button type="button" onClick={() => excluir(op.id, op.titulo)} title={copy.actions.delete} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"><Trash2 size={15} /></button>}
                           </div>
                         </motion.div>
                       );

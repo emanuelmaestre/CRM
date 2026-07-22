@@ -26,11 +26,31 @@
       "searchTitle": "Nenhum cliente encontrado",
       "searchDescription": "Tente outro termo de busca."
     },
-    "actions": { "archive": "Arquivar", "archiveConfirm": "Arquivar \"{name}\"?" },
+    "actions": { "view": "Ver ficha", "archive": "Arquivar", "archiveConfirm": "Arquivar \"{name}\"?" },
     "messages": {
       "loadError": "Erro ao carregar clientes.",
       "archiveSuccess": "Cliente arquivado.",
       "archiveError": "Erro ao arquivar cliente."
+    },
+    "detail": {
+      "emptyValue": "Não informado",
+      "timelineTitle": "Timeline unificada",
+      "timelineEmpty": "Nenhuma interação ou pedido registrado.",
+      "tasksTitle": "Tarefas e lembretes",
+      "tasksEmpty": "Nenhuma tarefa vinculada.",
+      "consentsTitle": "Consentimentos",
+      "consentsEmpty": "Nenhum consentimento registrado.",
+      "orderPrefix": "Pedido",
+      "fields": { "name": "Nome", "document": "CPF / CNPJ", "email": "E-mail", "phone": "WhatsApp" },
+      "metrics": { "orders": "Pedidos", "tasks": "Tarefas" },
+      "actions": { "back": "Voltar aos clientes", "edit": "Editar", "cancel": "Cancelar edição", "save": "Salvar alterações", "saving": "Salvando…", "archive": "Arquivar" },
+      "messages": {
+        "updateSuccess": "Cliente atualizado.",
+        "updateError": "Erro ao atualizar cliente.",
+        "archiveConfirm": "Arquivar \"{name}\"?",
+        "archiveSuccess": "Cliente arquivado.",
+        "archiveError": "Erro ao arquivar cliente."
+      }
     }
   },
   "estoque": {
@@ -38,11 +58,14 @@
     "title": "Estoque",
     "description": "Controle de produtos e saldos por marca",
     "newAction": "+ Novo produto",
+    "searchPlaceholder": "Buscar por SKU ou produto…",
+    "allBrands": "Todas as marcas",
     "sectionTitle": "Produtos e saldos",
     "columns": ["SKU", "Produto", "Marca", "Saldo", "Preço", ""],
     "loading": "Carregando produtos…",
     "empty": { "title": "Nenhum produto cadastrado", "description": "Adicione o primeiro produto para começar a controlar o estoque." },
     "messages": { "loadError": "Erro ao carregar produtos." },
+    "mobile": { "balance": "Saldo", "price": "Preço", "channels": "Canais" },
     "minimumIndicator": "▼ mín",
     "movement": {
       "button": "+ Movimento",
@@ -65,7 +88,21 @@
     "loading": "Carregando funil…",
     "empty": { "title": "Funil vazio", "description": "Configure as etapas do funil e comece a registrar oportunidades." },
     "dropHint": "Arraste oportunidades aqui",
-    "messages": { "loadError": "Erro ao carregar funil.", "moveError": "Erro ao mover oportunidade." }
+    "noClient": "Sem cliente",
+    "actions": {
+      "setup": "Criar funil padrão",
+      "move": "Mover oportunidade",
+      "delete": "Excluir oportunidade",
+      "deleteConfirm": "Excluir \"{title}\"?"
+    },
+    "messages": {
+      "loadError": "Erro ao carregar funil.",
+      "moveError": "Erro ao mover oportunidade.",
+      "setupSuccess": "Funil padrão criado.",
+      "setupError": "Erro ao criar o funil padrão.",
+      "deleteSuccess": "Oportunidade excluída.",
+      "deleteError": "Erro ao excluir oportunidade."
+    }
   },
   "inbox": {
     "metadataTitle": "Mensagens",

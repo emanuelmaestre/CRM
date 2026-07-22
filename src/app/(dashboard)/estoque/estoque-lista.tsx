@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useTransition } from "react";
+import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,25 +33,36 @@ export function EstoqueLista() {
   const [produtos, setProdutos]   = useState<Produto[]>([]);
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
+  const [busca, setBusca]         = useState("");
+  const [brandId, setBrandId]     = useState("");
+  const [canManage, setCanManage] = useState(false);
+  const requestId = useRef(0);
   const [, startTransition]       = useTransition();
   const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
 
-  const carregar = useCallback(() => {
+  const carregar = useCallback((marca?: string, termo?: string) => {
+    const currentRequest = ++requestId.current;
     startTransition(async () => {
       setLoading(true);
       try {
-        const res = await actionListarProdutos();
+        const res = await actionListarProdutos(marca || undefined, termo || undefined);
+        if (currentRequest !== requestId.current) return;
         setProdutos(res.data as Produto[]);
         setTotal(res.total);
+        setCanManage(res.permissions.canManage);
       } catch {
+        if (currentRequest !== requestId.current) return;
         toast.error(copy.messages.loadError);
       } finally {
-        setLoading(false);
+        if (currentRequest === requestId.current) setLoading(false);
       }
     });
   }, []);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    const timer = setTimeout(() => carregar(brandId, busca), busca ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [brandId, busca, carregar]);
 
   return (
     <div>
@@ -67,7 +78,7 @@ export function EstoqueLista() {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{copy.description}</p>
         </div>
-        <motion.button
+        {canManage && <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => router.push("/estoque/novo")}
@@ -75,8 +86,17 @@ export function EstoqueLista() {
           style={{ background: "var(--gradient-signature)" }}
         >
           {copy.newAction}
-        </motion.button>
+        </motion.button>}
       </motion.div>
+
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] mb-4">
+        <input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder={copy.searchPlaceholder} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
+        <select value={brandId} onChange={(event) => setBrandId(event.target.value)} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm">
+          <option value="">{copy.allBrands}</option>
+          <option value={BRAND_KARZI}>{brandsConfig.karzi.label}</option>
+          <option value={BRAND_WUWU}>{brandsConfig.wuwu.label}</option>
+        </select>
+      </div>
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -108,6 +128,7 @@ export function EstoqueLista() {
                 title={copy.empty.title}
                 description={copy.empty.description}
                 action={
+                  canManage ? (
                   <motion.button
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
@@ -117,11 +138,33 @@ export function EstoqueLista() {
                   >
                     {copy.newAction}
                   </motion.button>
+                  ) : undefined
                 }
               />
             </motion.div>
           ) : (
-            <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="overflow-x-auto">
+            <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div className="md:hidden divide-y divide-border" data-testid="estoque-cards">
+                {produtos.map((p) => {
+                  const brand = brandLabel(p.brandId);
+                  const saldo = p.saldo ?? 0;
+                  const alerta = saldo <= p.estoqueMinimo;
+                  return (
+                    <article key={p.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div><p className="font-semibold text-foreground">{p.nome}</p><p className="font-mono text-xs text-muted-foreground mt-1">{p.sku}</p></div>
+                        <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${brand.color}20`, color: brand.color }}>{brand.label}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div><p className="text-xs text-muted-foreground">{copy.mobile.balance}</p><p data-testid={`saldo-${p.sku}`} className={alerta ? "font-bold text-destructive" : "font-bold"}>{saldo}{alerta ? ` ${copy.minimumIndicator}` : ""}</p></div>
+                        <div><p className="text-xs text-muted-foreground">{copy.mobile.price}</p><p className="font-semibold">R$ {Number(p.preco).toFixed(2)}</p></div>
+                      </div>
+                      {canManage && <div className="flex min-h-11 items-center justify-end gap-2"><button type="button" onClick={() => setCanalProduto({ id: p.id, nome: p.nome })} className="min-h-11 px-3 inline-flex items-center gap-2 text-sm text-muted-foreground"><Link2 size={15} /> {copy.mobile.channels}</button><MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={saldo} onSuccess={() => carregar(brandId, busca)} /></div>}
+                    </article>
+                  );
+                })}
+              </div>
+              <div className="hidden md:block overflow-x-auto" data-testid="estoque-table">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
@@ -159,7 +202,7 @@ export function EstoqueLista() {
                           </span>
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          <span className={alerta ? "text-[#C21820] font-semibold" : "text-foreground font-semibold"}>
+                          <span data-testid={`saldo-${p.sku}`} className={alerta ? "text-[#C21820] font-semibold" : "text-foreground font-semibold"}>
                             {saldo}
                           </span>
                           {alerta && (
@@ -174,7 +217,7 @@ export function EstoqueLista() {
                           R$ {Number(p.preco).toFixed(2)}
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
+                          {canManage && <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
                               className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -186,15 +229,16 @@ export function EstoqueLista() {
                               produtoId={p.id}
                               produtoNome={p.nome}
                               saldoAtual={saldo}
-                              onSuccess={carregar}
+                              onSuccess={() => carregar(brandId, busca)}
                             />
-                          </div>
+                          </div>}
                         </td>
                       </motion.tr>
                     );
                   })}
                 </tbody>
               </table>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

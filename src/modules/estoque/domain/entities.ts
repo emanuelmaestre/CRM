@@ -1,13 +1,16 @@
 import { z } from "zod";
 
+const MoneySchema = z.string().trim().regex(/^\d+(?:[.,]\d{1,2})?$/, "Valor monetário inválido")
+  .transform((value) => value.replace(",", "."));
+
 export const ProdutoSchema = z.object({
   id: z.string().uuid(),
   orgId: z.string().uuid(),
   brandId: z.string().uuid(),
-  sku: z.string().min(1),
-  nome: z.string().min(1),
-  custo: z.string().nullable(),
-  preco: z.string(),
+  sku: z.string().trim().min(1).max(80).transform((value) => value.toUpperCase()),
+  nome: z.string().trim().min(2).max(160),
+  custo: MoneySchema.nullable(),
+  preco: MoneySchema.refine((value) => Number(value) > 0, "Preço deve ser maior que zero"),
   estoqueMinimo: z.number().int().min(0),
   ativo: z.boolean(),
   deletedAt: z.date().nullable(),

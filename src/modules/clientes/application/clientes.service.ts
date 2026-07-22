@@ -1,14 +1,17 @@
-import { eq, and, or, isNull, ilike } from "drizzle-orm";
+import { eq, and, or, isNull, ilike, ne, desc } from "drizzle-orm";
+import { z } from "zod";
 import { createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
-import { cliente, consentimento } from "@/shared/lib/db/schema";
+import {
+  brand, cliente, clienteTag, consentimento, interacao, pedido, tag, tarefa,
+} from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import {
   CreateClienteSchema, UpdateClienteSchema,
   type CreateClienteDTO, type UpdateClienteDTO,
 } from "../domain/entities";
 import {
-  normalizarTelefone, normalizarEmail,
+  normalizarTelefone, normalizarEmail, normalizarCpfCnpj,
   calcularScoreDeduplicacao, classificarDeduplicacao,
 } from "../domain/identity";
 
@@ -25,10 +28,12 @@ const crudCliente = createCrudFactory({
 });
 
 export async function criarCliente(ctx: CrudContext, input: CreateClienteDTO) {
-  const data = CreateClienteSchema.parse(input);
-
-  if (data.telefone) data.telefone = normalizarTelefone(data.telefone);
-  if (data.email) data.email = normalizarEmail(data.email);
+  const data = CreateClienteSchema.parse({
+    ...input,
+    telefone: input.telefone ? normalizarTelefone(input.telefone) : input.telefone,
+    email: input.email ? normalizarEmail(input.email) : input.email,
+    cpfCnpj: input.cpfCnpj ? normalizarCpfCnpj(input.cpfCnpj) : input.cpfCnpj,
+  });
 
   const dedup = await verificarDeduplicacao(ctx.orgId, {
     telefone: data.telefone,
@@ -57,6 +62,44 @@ export async function buscarClientePorId(ctx: CrudContext, id: string) {
   return crudCliente.getById(ctx, id);
 }
 
+export async function buscarCliente360(ctx: CrudContext, id: string) {
+  const clienteAtual = await crudCliente.getById(ctx, id) as typeof cliente.$inferSelect | null;
+  if (!clienteAtual) throw new Error("Cliente não encontrado.");
+
+  const [interacoes, pedidos, tarefasCliente, consentimentos, tagsCliente] = await Promise.all([
+    ctx.db
+      .select()
+      .from(interacao)
+      .where(and(eq(interacao.orgId, ctx.orgId), eq(interacao.clienteId, id)))
+      .orderBy(desc(interacao.createdAt))
+      .limit(50),
+    ctx.db
+      .select()
+      .from(pedido)
+      .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id)))
+      .orderBy(desc(pedido.createdAt))
+      .limit(50),
+    ctx.db
+      .select()
+      .from(tarefa)
+      .where(and(eq(tarefa.orgId, ctx.orgId), eq(tarefa.clienteId, id)))
+      .orderBy(desc(tarefa.createdAt))
+      .limit(50),
+    ctx.db
+      .select()
+      .from(consentimento)
+      .where(and(eq(consentimento.orgId, ctx.orgId), eq(consentimento.clienteId, id)))
+      .orderBy(desc(consentimento.createdAt)),
+    ctx.db
+      .select({ id: tag.id, nome: tag.nome, cor: tag.cor })
+      .from(clienteTag)
+      .innerJoin(tag, eq(tag.id, clienteTag.tagId))
+      .where(and(eq(tag.orgId, ctx.orgId), eq(clienteTag.clienteId, id))),
+  ]);
+
+  return { cliente: clienteAtual, interacoes, pedidos, tarefas: tarefasCliente, consentimentos, tags: tagsCliente };
+}
+
 export async function listarClientes(
   ctx: CrudContext,
   opts: { busca?: string; limit?: number; offset?: number } = {}
@@ -81,9 +124,22 @@ export async function listarClientes(
 }
 
 export async function atualizarCliente(ctx: CrudContext, id: string, input: UpdateClienteDTO) {
-  const data = UpdateClienteSchema.parse(input);
-  if (data.telefone) data.telefone = normalizarTelefone(data.telefone);
-  if (data.email) data.email = normalizarEmail(data.email);
+  const data = UpdateClienteSchema.parse({
+    ...input,
+    telefone: input.telefone ? normalizarTelefone(input.telefone) : input.telefone,
+    email: input.email ? normalizarEmail(input.email) : input.email,
+    cpfCnpj: input.cpfCnpj ? normalizarCpfCnpj(input.cpfCnpj) : input.cpfCnpj,
+  });
+
+  const dedup = await verificarDeduplicacao(ctx.orgId, {
+    telefone: data.telefone,
+    email: data.email,
+    cpfCnpj: data.cpfCnpj,
+  }, id);
+  if (dedup.tipo === "exato") {
+    throw new Error(`Cliente duplicado detectado: ID ${dedup.clienteIdExistente}`);
+  }
+
   return crudCliente.update(ctx, id, data);
 }
 
@@ -93,7 +149,8 @@ export async function arquivarCliente(ctx: CrudContext, id: string) {
 
 async function verificarDeduplicacao(
   orgId: string,
-  chaves: { telefone?: string | null; email?: string | null; cpfCnpj?: string | null }
+  chaves: { telefone?: string | null; email?: string | null; cpfCnpj?: string | null },
+  ignorarClienteId?: string,
 ) {
   const conditions = [];
   if (chaves.telefone) conditions.push(eq(cliente.telefone, chaves.telefone));
@@ -102,10 +159,13 @@ async function verificarDeduplicacao(
 
   if (conditions.length === 0) return { tipo: "novo" as const };
 
+  const escopo = [eq(cliente.orgId, orgId), isNull(cliente.deletedAt), or(...conditions)!];
+  if (ignorarClienteId) escopo.push(ne(cliente.id, ignorarClienteId));
+
   const candidatos = await db
     .select()
     .from(cliente)
-    .where(and(eq(cliente.orgId, orgId), isNull(cliente.deletedAt), or(...conditions)));
+    .where(and(...escopo));
 
   if (candidatos.length === 0) return { tipo: "novo" as const };
 
@@ -138,27 +198,46 @@ export async function registrarConsentimento(
     prova?: string;
   }
 ) {
+  const inputSchema = z.object({
+    clienteId: z.string().uuid(),
+    brandId: z.string().uuid(),
+    finalidade: z.enum(["marketing", "avaliacao", "suporte", "cobranca"]),
+    canal: z.enum(["whatsapp", "instagram", "facebook", "email", "mercadolivre", "shopee", "tiktokshop", "olist", "manual"]),
+    origem: z.string().trim().min(1).max(120),
+    prova: z.string().trim().max(500).optional(),
+  }).parse(input);
+
+  const [clienteValido, marcaValida] = await Promise.all([
+    ctx.db.select({ id: cliente.id }).from(cliente).where(and(
+      eq(cliente.id, inputSchema.clienteId), eq(cliente.orgId, ctx.orgId), isNull(cliente.deletedAt),
+    )).then((rows) => rows[0]),
+    ctx.db.select({ id: brand.id }).from(brand).where(and(
+      eq(brand.id, inputSchema.brandId), eq(brand.orgId, ctx.orgId), eq(brand.active, true),
+    )).then((rows) => rows[0]),
+  ]);
+  if (!clienteValido || !marcaValida) throw new Error("Cliente ou marca não pertence à organização.");
+
   const [novo] = await db
     .insert(consentimento)
     .values({
-      clienteId: input.clienteId,
+      clienteId: inputSchema.clienteId,
       orgId: ctx.orgId,
-      brandId: input.brandId,
-      finalidade: input.finalidade,
-      canal: input.canal as never,
+      brandId: inputSchema.brandId,
+      finalidade: inputSchema.finalidade,
+      canal: inputSchema.canal,
       status: "ativo",
-      origem: input.origem,
-      prova: input.prova,
+      origem: inputSchema.origem,
+      prova: inputSchema.prova,
     })
     .returning();
 
   await emitirEvento({
     tipo: "cliente.consentimento_registrado",
     orgId: ctx.orgId,
-    brandId: input.brandId,
+    brandId: inputSchema.brandId,
     entidade: "consentimento",
     entidadeId: novo.id,
-    payload: { clienteId: input.clienteId, finalidade: input.finalidade, canal: input.canal },
+    payload: { clienteId: inputSchema.clienteId, finalidade: inputSchema.finalidade, canal: inputSchema.canal },
   });
 
   return novo;
@@ -170,6 +249,8 @@ export async function revogarConsentimento(ctx: CrudContext, consentimentoId: st
     .set({ status: "revogado", revokedAt: new Date() })
     .where(and(eq(consentimento.id, consentimentoId), eq(consentimento.orgId, ctx.orgId)))
     .returning();
+
+  if (!atualizado) throw new Error("Consentimento não encontrado.");
 
   await emitirEvento({
     tipo: "cliente.consentimento_revogado",

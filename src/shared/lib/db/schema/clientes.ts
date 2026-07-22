@@ -1,6 +1,7 @@
 import {
   pgTable, uuid, text, timestamp, date, pgEnum, jsonb, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { org, brand } from "./org";
 import { appUser } from "./users";
 
@@ -33,6 +34,12 @@ export const cliente = pgTable("cliente", {
   index("idx_cliente_email").on(t.email),
   index("idx_cliente_telefone").on(t.telefone),
   index("idx_cliente_cpf").on(t.cpfCnpj),
+  uniqueIndex("uq_cliente_org_email_active").on(t.orgId, t.email)
+    .where(sql`${t.email} is not null and ${t.deletedAt} is null`),
+  uniqueIndex("uq_cliente_org_telefone_active").on(t.orgId, t.telefone)
+    .where(sql`${t.telefone} is not null and ${t.deletedAt} is null`),
+  uniqueIndex("uq_cliente_org_cpf_active").on(t.orgId, t.cpfCnpj)
+    .where(sql`${t.cpfCnpj} is not null and ${t.deletedAt} is null`),
 ]);
 
 export const clienteIdentidade = pgTable("cliente_identidade", {

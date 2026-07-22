@@ -1,4 +1,10 @@
 import { z } from "zod";
+import { validarCpfCnpj } from "./identity";
+
+const CpfCnpjSchema = z.string().trim().refine(
+  validarCpfCnpj,
+  "CPF/CNPJ inválido",
+);
 
 export const ClienteSchema = z.object({
   id: z.string().uuid(),
@@ -6,7 +12,7 @@ export const ClienteSchema = z.object({
   nome: z.string().min(2, "Nome deve ter ao menos 2 caracteres"),
   email: z.string().email("E-mail inválido").nullish(),
   telefone: z.string().regex(/^\+[1-9]\d{7,14}$/, "Telefone deve estar no formato E.164 (+5511999999999)").nullish(),
-  cpfCnpj: z.string().nullish(),
+  cpfCnpj: CpfCnpjSchema.nullish(),
   dataNascimento: z.iso.date().nullish(),
   deletedAt: z.date().nullish(),
   createdAt: z.date(),

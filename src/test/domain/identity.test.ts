@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   normalizarTelefone,
   normalizarEmail,
+  normalizarCpfCnpj,
+  validarCpfCnpj,
   calcularScoreDeduplicacao,
   classificarDeduplicacao,
 } from "@/modules/clientes/domain/identity";
@@ -18,12 +20,26 @@ describe("Motor de identidade — deduplicação", () => {
     expect(normalizarEmail("  usuario@dominio.com.br  ")).toBe("usuario@dominio.com.br");
   });
 
+  it("normaliza e valida CPF/CNPJ antes da deduplicação", () => {
+    expect(normalizarCpfCnpj("529.982.247-25")).toBe("52998224725");
+    expect(validarCpfCnpj("529.982.247-25")).toBe(true);
+    expect(validarCpfCnpj("11.222.333/0001-81")).toBe(true);
+    expect(validarCpfCnpj("111.111.111-11")).toBe(false);
+  });
+
   it("score 100 para CPF/CNPJ idêntico", () => {
     const score = calcularScoreDeduplicacao(
       { cpfCnpj: "12345678900" },
       { cpfCnpj: "12345678900" }
     );
     expect(score).toBe(100);
+  });
+
+  it("deduplica documento mesmo com máscaras diferentes", () => {
+    expect(calcularScoreDeduplicacao(
+      { cpfCnpj: "529.982.247-25" },
+      { cpfCnpj: "52998224725" },
+    )).toBe(100);
   });
 
   it("score 80 para e-mail idêntico", () => {

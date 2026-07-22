@@ -6,7 +6,7 @@ import { criarProduto, listarProdutos, registrarMovimento } from "@/modules/esto
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { produtoCanal, channelAccount } from "@/shared/lib/db/schema";
+import { produto, produtoCanal, channelAccount } from "@/shared/lib/db/schema";
 import { assertPerfil } from "@/shared/lib/crud-factory";
 
 const BrandIdSchema = z.string().uuid();
@@ -32,19 +32,21 @@ export async function actionCriarProduto(formData: FormData) {
   return result;
 }
 
-export async function actionListarProdutos(brandId?: string) {
+export async function actionListarProdutos(brandId?: string, busca?: string) {
   const ctx = await getCrudContext();
   const brandIdValidado = brandId ? BrandIdSchema.parse(brandId) : undefined;
-  const result = await listarProdutos(ctx, { brandId: brandIdValidado, limit: 50 });
+  const result = await listarProdutos(ctx, { brandId: brandIdValidado, busca: busca?.trim(), limit: 50 });
+  const permissions = { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" };
 
-  if (ctx.perfil !== "vendedor") return result;
+  if (ctx.perfil !== "vendedor") return { ...result, permissions };
 
   return {
     ...result,
+    permissions,
     data: result.data.map((produto) => {
-      const produtoSeguro = { ...produto };
-      delete produtoSeguro.custo;
-      return produtoSeguro;
+      return Object.fromEntries(
+        Object.entries(produto).filter(([field]) => field !== "custo"),
+      );
     }),
   };
 }
@@ -67,7 +69,11 @@ export async function actionListarContasCanal() {
 export async function actionListarMapeamentosCanal(produtoId: string) {
   const ctx = await getCrudContext();
   assertPerfil(ctx, ["admin", "gestor"]);
-  z.string().uuid().parse(produtoId);
+  const id = z.string().uuid().parse(produtoId);
+  const produtoValido = await db.select({ id: produto.id }).from(produto).where(and(
+    eq(produto.id, id), eq(produto.orgId, ctx.orgId),
+  )).then((rows) => rows[0]);
+  if (!produtoValido) throw new Error("Produto não encontrado.");
   return db
     .select({
       id: produtoCanal.id,
@@ -79,13 +85,25 @@ export async function actionListarMapeamentosCanal(produtoId: string) {
     })
     .from(produtoCanal)
     .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
-    .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.produtoId, produtoId)));
+    .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.produtoId, id)));
 }
 
 export async function actionSalvarMapeamentoCanal(produtoId: string, channelAccountId: string, externalListingId: string) {
   const ctx = await getCrudContext();
   assertPerfil(ctx, ["admin", "gestor"]);
   const input = MapeamentoCanalSchema.parse({ produtoId, channelAccountId, externalListingId });
+
+  const [produtoValido, contaValida] = await Promise.all([
+    db.select({ id: produto.id, brandId: produto.brandId }).from(produto).where(and(
+      eq(produto.id, input.produtoId), eq(produto.orgId, ctx.orgId),
+    )).then((rows) => rows[0]),
+    db.select({ id: channelAccount.id, brandId: channelAccount.brandId }).from(channelAccount).where(and(
+      eq(channelAccount.id, input.channelAccountId), eq(channelAccount.orgId, ctx.orgId),
+    )).then((rows) => rows[0]),
+  ]);
+  if (!produtoValido || !contaValida || produtoValido.brandId !== contaValida.brandId) {
+    throw new Error("Produto e canal devem pertencer à mesma marca da organização.");
+  }
 
   await db
     .insert(produtoCanal)

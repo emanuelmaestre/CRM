@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import postgres from "postgres";
 import {
   assertSyntheticSeedTarget,
@@ -158,6 +159,42 @@ try {
   for (const balance of balances) {
     assert.equal(balance.saldo, expectedBalances.get(balance.produto_id));
   }
+
+  await assert.rejects(
+    sql`insert into public.cliente (id, org_id, nome, email)
+        values (${randomUUID()}, ${catalog.organization.id}, 'Duplicado sintético', ${catalog.clients[0].email})`,
+    (error) => error?.code === "23505",
+    "O banco deve impedir cliente ativo com e-mail duplicado no mesmo tenant.",
+  );
+
+  await assert.rejects(
+    sql`insert into public.produto (id, org_id, brand_id, sku, nome, preco)
+        values (${randomUUID()}, ${catalog.organization.id}, ${catalog.brands[0].id},
+                ${catalog.products[0].sku}, 'SKU duplicado', '10.00')`,
+    (error) => error?.code === "23505",
+    "O banco deve impedir SKU ativo duplicado no mesmo tenant.",
+  );
+
+  await assert.rejects(
+    sql`insert into public.produto (id, org_id, brand_id, sku, nome, preco)
+        values (${randomUUID()}, ${catalog.organization.id}, ${catalog.brands[0].id},
+                ${`ZERO-${randomUUID()}`}, 'Preço inválido', '0.00')`,
+    (error) => error?.code === "23514",
+    "O banco deve impedir produto com preço zerado.",
+  );
+
+  const foreignOrgId = randomUUID();
+  const foreignStageId = randomUUID();
+  await assert.rejects(
+    sql.begin(async (tx) => {
+      await tx`insert into public.org (id, name, cnpj) values (${foreignOrgId}, 'Tenant externo', ${`test-${foreignOrgId}`})`;
+      await tx`insert into public.funil_etapa (id, org_id, nome, ordem) values (${foreignStageId}, ${foreignOrgId}, 'Etapa externa', 1)`;
+      await tx`insert into public.oportunidade (id, org_id, brand_id, etapa_id, titulo)
+               values (${randomUUID()}, ${foreignOrgId}, ${catalog.brands[0].id}, ${foreignStageId}, 'Referência cruzada')`;
+    }),
+    (error) => error?.code === "23503",
+    "O banco deve impedir oportunidade ligada a marca de outro tenant.",
+  );
 
   console.log(
     `Seed sintético validado: ${tableExpectations.length + 2} conjuntos, ` +

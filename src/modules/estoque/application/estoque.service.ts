@@ -1,42 +1,86 @@
-import { and, eq } from "drizzle-orm";
-import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
-import { db } from "@/shared/lib/db";
-import { produto, estoqueSaldo, estoqueMovimento } from "@/shared/lib/db/schema";
+import { and, count, eq, ilike, isNull, SQL, sql } from "drizzle-orm";
+import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
+import { auditLog, brand, produto, estoqueSaldo, estoqueMovimento } from "@/shared/lib/db/schema";
 import { despacharEvento, persistirEvento } from "@/shared/events";
 import { validarMovimento, calcularNovoSaldo, type MovimentoTipo, CreateProdutoSchema } from "../domain/entities";
 
-const crudProduto = createCrudFactory({
-  table: produto,
-  entityName: "produto",
-  softDelete: true,
-  allowedPerfis: {
-    create: ["admin", "gestor"],
-    update: ["admin", "gestor"],
-    delete: ["admin"],
-    read: ["admin", "gestor", "vendedor"],
-  },
-});
-
 export async function criarProduto(ctx: CrudContext, input: unknown) {
   const data = CreateProdutoSchema.parse(input);
-  const novo = await crudProduto.create(ctx, data as Record<string, unknown>);
+  assertPerfil(ctx, ["admin", "gestor"]);
 
-  await db.insert(estoqueSaldo).values({
-    orgId: ctx.orgId,
-    produtoId: (novo as { id: string }).id,
-    saldo: 0,
+  const marcaValida = await ctx.db
+    .select({ id: brand.id })
+    .from(brand)
+    .where(and(eq(brand.id, data.brandId), eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
+    .then((rows) => rows[0]);
+  if (!marcaValida) throw new Error("Marca não pertence à organização.");
+
+  const novo = await ctx.db.transaction(async (tx) => {
+    const [created] = await tx.insert(produto).values({ ...data, orgId: ctx.orgId }).returning();
+    await tx.insert(estoqueSaldo).values({ orgId: ctx.orgId, produtoId: created.id, saldo: 0 });
+    await tx.insert(auditLog).values({
+      orgId: ctx.orgId,
+      brandId: created.brandId,
+      autorId: ctx.userId,
+      autorTipo: ctx.userId ? "usuario" : "sistema",
+      entidade: "produto",
+      entidadeId: created.id,
+      acao: "create",
+      depois: created,
+    });
+    await persistirEvento({
+      tipo: "produto.criado",
+      orgId: ctx.orgId,
+      brandId: created.brandId,
+      entidade: "produto",
+      entidadeId: created.id,
+      payload: { sku: created.sku, nome: created.nome },
+    }, tx);
+    return created;
   });
 
   return novo;
 }
 
-export async function listarProdutos(ctx: CrudContext, opts: { brandId?: string; limit?: number; offset?: number } = {}) {
-  const filters = [];
-  if (opts.brandId) {
-    const { eq: eqFn } = await import("drizzle-orm");
-    filters.push(eqFn(produto.brandId, opts.brandId));
-  }
-  return crudProduto.list(ctx, { filters, limit: opts.limit, offset: opts.offset });
+export async function listarProdutos(
+  ctx: CrudContext,
+  opts: { brandId?: string; busca?: string; limit?: number; offset?: number } = {},
+) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+  const { limit = 50, offset = 0 } = opts;
+  const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
+  if (opts.brandId) filters.push(eq(produto.brandId, opts.brandId));
+  if (opts.busca) filters.push(ilike(sql`${produto.sku} || ' ' || ${produto.nome}`, `%${opts.busca}%`));
+
+  const [rows, totalRows] = await Promise.all([
+    ctx.db
+      .select({
+        id: produto.id,
+        orgId: produto.orgId,
+        brandId: produto.brandId,
+        sku: produto.sku,
+        nome: produto.nome,
+        custo: produto.custo,
+        preco: produto.preco,
+        estoqueMinimo: produto.estoqueMinimo,
+        ativo: produto.ativo,
+        createdAt: produto.createdAt,
+        updatedAt: produto.updatedAt,
+        saldo: sql<number>`coalesce(${estoqueSaldo.saldo}, 0)`,
+      })
+      .from(produto)
+      .leftJoin(estoqueSaldo, and(
+        eq(estoqueSaldo.produtoId, produto.id),
+        eq(estoqueSaldo.orgId, ctx.orgId),
+      ))
+      .where(and(...filters))
+      .orderBy(produto.nome)
+      .limit(limit)
+      .offset(offset),
+    ctx.db.select({ total: count() }).from(produto).where(and(...filters)),
+  ]);
+
+  return { data: rows, total: totalRows[0]?.total ?? 0, limit, offset };
 }
 
 export async function registrarMovimento(
@@ -53,6 +97,13 @@ export async function registrarMovimento(
   assertPerfil(ctx, ["admin", "gestor"]);
 
   const resultado = await ctx.db.transaction(async (tx) => {
+    const produtoRow = await tx
+      .select({ id: produto.id, brandId: produto.brandId, estoqueMinimo: produto.estoqueMinimo })
+      .from(produto)
+      .where(and(eq(produto.orgId, ctx.orgId), eq(produto.id, input.produtoId), isNull(produto.deletedAt)))
+      .then((rows) => rows[0]);
+    if (!produtoRow) throw new Error("Produto não encontrado.");
+
     const saldoRow = await tx
       .select()
       .from(estoqueSaldo)
@@ -80,7 +131,10 @@ export async function registrarMovimento(
         .then((rows) => rows[0]);
 
       if (existente) {
-        return { movimento: existente, novoSaldo: saldoRow.saldo, idempotente: true, eventoBaixa: null, eventoSaldo: null };
+        return {
+          movimento: existente, novoSaldo: saldoRow.saldo, idempotente: true,
+          eventoBaixa: null, eventoSaldo: null, eventoMinimo: null,
+        };
       }
     }
 
@@ -127,11 +181,23 @@ export async function registrarMovimento(
       payload: { produtoId: input.produtoId, novoSaldo, tipoMovimento: input.tipo },
     }, tx);
 
-    return { movimento, novoSaldo, idempotente: false, eventoBaixa, eventoSaldo };
+    const eventoMinimo = saldoRow.saldo > produtoRow.estoqueMinimo && novoSaldo <= produtoRow.estoqueMinimo
+      ? await persistirEvento({
+          tipo: "estoque.minimo_atingido",
+          orgId: ctx.orgId,
+          brandId: produtoRow.brandId,
+          entidade: "produto",
+          entidadeId: produtoRow.id,
+          payload: { produtoId: produtoRow.id, estoqueMinimo: produtoRow.estoqueMinimo, novoSaldo },
+        }, tx)
+      : null;
+
+    return { movimento, novoSaldo, idempotente: false, eventoBaixa, eventoSaldo, eventoMinimo };
   });
 
   if (resultado.eventoBaixa) await despacharEvento(resultado.eventoBaixa);
   if (resultado.eventoSaldo) await despacharEvento(resultado.eventoSaldo);
+  if (resultado.eventoMinimo) await despacharEvento(resultado.eventoMinimo);
 
   return {
     movimento: resultado.movimento,
