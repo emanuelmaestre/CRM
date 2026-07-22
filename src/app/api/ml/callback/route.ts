@@ -72,6 +72,29 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const tokens: MLTokenResponse = await tokenRes.json();
 
+  // Isolamento de marca (PRD §Fase 4): o OAuth usa a sessão do ML aberta no
+  // navegador, então conectar a WUWU logado como KARZI gravaria o token da
+  // conta errada. Recusa quando o vendedor autorizado não é o da marca.
+  const sellerEsperado = process.env[`ML_SELLER_ID_${brand.toUpperCase()}`];
+  if (!sellerEsperado) {
+    console.warn(
+      `[ml/callback] ML_SELLER_ID_${brand.toUpperCase()} não configurado — ` +
+      `token aceito sem validar a marca (seller ${tokens.user_id}).`
+    );
+  } else if (String(tokens.user_id) !== sellerEsperado) {
+    console.error(
+      `[ml/callback] conta errada para ${brand}: esperado ${sellerEsperado}, ` +
+      `autorizado ${tokens.user_id}`
+    );
+    const detalhe = encodeURIComponent(
+      `Você autorizou a conta ${tokens.user_id}, mas ${brand.toUpperCase()} espera a ${sellerEsperado}. ` +
+      `Saia da conta atual no Mercado Livre e entre com a conta correta.`
+    );
+    return NextResponse.redirect(
+      `${appUrl}/configuracoes?ml_error=conta_incorreta&ml_detail=${detalhe}`
+    );
+  }
+
   const orgId   = process.env.DEFAULT_ORG_ID!;
   const brandId = brand === "karzi"
     ? process.env.NEXT_PUBLIC_BRAND_ID_KARZI!

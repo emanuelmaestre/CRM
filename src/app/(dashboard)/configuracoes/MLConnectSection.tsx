@@ -49,6 +49,7 @@ export function MLConnectSection() {
         db_failed:           "Erro ao salvar o token. Contate o suporte.",
         missing_params:      "Parâmetros ausentes no retorno do ML.",
         invalid_brand:       "Marca inválida no retorno do ML.",
+        conta_incorreta:     "Conta do Mercado Livre não corresponde a esta marca.",
       };
       // O ML devolve o motivo real em ml_detail; sem ele o erro é indiagnosticável.
       const detail = searchParams.get("ml_detail");
