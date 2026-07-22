@@ -116,7 +116,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const resultado = TikTokWebhookSchema.safeParse(body);
   if (!resultado.success) {
-    return NextResponse.json({ error: "Schema inválido" }, { status: 422 });
+    console.error("[webhook/tiktokshop] schema inválido", JSON.stringify(body), resultado.error.issues);
+    // Retorna 200 para o TikTok não retentar; loga para diagnóstico.
+    return NextResponse.json({ ok: true, ignorado: true, motivo: "schema_invalido" });
   }
 
   const { type, data, shop_id } = resultado.data;
