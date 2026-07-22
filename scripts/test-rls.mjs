@@ -63,6 +63,11 @@ async function createFixtures(tx) {
   const orgB = randomUUID();
   const tagA = randomUUID();
   const tagB = randomUUID();
+  const adminA = randomUUID();
+  const gestorA = randomUUID();
+  const vendedorA = randomUUID();
+  const inativoA = randomUUID();
+  const vendedorB = randomUUID();
 
   await tx`
     insert into public.org (id, name, cnpj)
@@ -78,7 +83,17 @@ async function createFixtures(tx) {
       (${tagB}, ${orgB}, 'RLS Tag B')
   `;
 
-  return { orgA, orgB, tagA, tagB };
+  await tx`
+    insert into public.app_user (id, org_id, email, nome, perfil, ativo)
+    values
+      (${adminA}, ${orgA}, ${`admin-${adminA}@rls.test`}, 'RLS Admin A', 'admin', true),
+      (${gestorA}, ${orgA}, ${`gestor-${gestorA}@rls.test`}, 'RLS Gestor A', 'gestor', true),
+      (${vendedorA}, ${orgA}, ${`vendedor-${vendedorA}@rls.test`}, 'RLS Vendedor A', 'vendedor', true),
+      (${inativoA}, ${orgA}, ${`inativo-${inativoA}@rls.test`}, 'RLS Inativo A', 'vendedor', false),
+      (${vendedorB}, ${orgB}, ${`vendedor-${vendedorB}@rls.test`}, 'RLS Vendedor B', 'vendedor', true)
+  `;
+
+  return { orgA, orgB, tagA, tagB, adminA, gestorA, vendedorA, inativoA, vendedorB };
 }
 
 async function createRelationalFixtures(tx) {
@@ -112,10 +127,10 @@ async function createRelationalFixtures(tx) {
       (${clientB}, ${fixtures.orgB}, 'RLS Cliente B')
   `;
   await tx`
-    insert into public.produto (id, org_id, brand_id, sku, nome, preco)
+    insert into public.produto (id, org_id, brand_id, sku, nome, custo, preco)
     values
-      (${productA}, ${fixtures.orgA}, ${brandA}, ${`RLS-A-${randomUUID()}`}, 'RLS Produto A', 1),
-      (${productB}, ${fixtures.orgB}, ${brandB}, ${`RLS-B-${randomUUID()}`}, 'RLS Produto B', 1)
+      (${productA}, ${fixtures.orgA}, ${brandA}, ${`RLS-A-${randomUUID()}`}, 'RLS Produto A', 0.40, 1),
+      (${productB}, ${fixtures.orgB}, ${brandB}, ${`RLS-B-${randomUUID()}`}, 'RLS Produto B', 0.50, 1)
   `;
   await tx`
     insert into public.pedido (id, org_id, brand_id, cliente_id, canal, total)
@@ -136,10 +151,13 @@ async function createRelationalFixtures(tx) {
   };
 }
 
-async function assumeRole(tx, role, orgId) {
+async function assumeRole(tx, role, orgId, userId) {
   await tx.unsafe(`set local role ${role}`);
   if (orgId) {
     await tx`select set_config('app.current_org_id', ${orgId}, true)`;
+  }
+  if (userId) {
+    await tx`select set_config('request.jwt.claim.sub', ${userId}, true)`;
   }
 }
 
@@ -217,6 +235,42 @@ async function testMetadata() {
   );
 }
 
+async function testProfileMetadata() {
+  const activePolicies = await sql`
+    select count(*)::int as total
+    from pg_policies
+    where schemaname = 'public'
+      and policyname like 'rls_active_profile_%'
+      and permissive = 'RESTRICTIVE'
+  `;
+  const sensitivePolicies = await sql`
+    select count(*)::int as total
+    from pg_policies
+    where schemaname = 'public'
+      and policyname like 'rls_profile_%'
+      and permissive = 'RESTRICTIVE'
+  `;
+  const costPrivilege = await sql`
+    select has_column_privilege('authenticated', 'public.produto', 'custo', 'SELECT') as allowed
+  `;
+  const functions = await sql`
+    select count(*)::int as total
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('current_app_user_id', 'current_app_profile', 'listar_produtos_financeiros')
+  `;
+
+  assert(activePolicies[0].total >= PHASE_A_TABLES.length, "Policies de identidade ativa incompletas.");
+  assert(sensitivePolicies[0].total >= 10, "Policies restritivas por perfil incompletas.");
+  assert(costPrivilege[0].allowed === false, "authenticated ainda possui SELECT direto em produto.custo.");
+  assert(functions[0].total === 3, "Funções auxiliares de RLS ausentes.");
+  record(
+    "metadados RLS por perfil",
+    `${activePolicies[0].total} policies de identidade; ${sensitivePolicies[0].total} policies por perfil; custo revogado`,
+  );
+}
+
 async function testDefaultDeny() {
   await testWithRollback("default deny sem tenant", async (tx) => {
     await createFixtures(tx);
@@ -228,10 +282,20 @@ async function testDefaultDeny() {
   });
 }
 
+async function testInactiveUserDenied() {
+  await testWithRollback("usuário inativo sem acesso", async (tx) => {
+    const fixtures = await createFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.inativoA);
+    const visible = await tx`select id from public.tag`;
+    assert(visible.length === 0, "Usuário inativo visualizou dados da organização.");
+    record("usuário inativo sem acesso", "0 linhas visíveis");
+  });
+}
+
 async function testReadIsolation() {
   await testWithRollback("isolamento de leitura", async (tx) => {
     const fixtures = await createFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
 
     const orgs = await tx`select id from public.org order by id`;
     const tags = await tx`select id, org_id from public.tag order by id`;
@@ -245,7 +309,7 @@ async function testReadIsolation() {
 async function testOwnTenantWrites() {
   await testWithRollback("escrita no próprio tenant", async (tx) => {
     const fixtures = await createFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
 
     const inserted = await tx`
       insert into public.tag (org_id, nome)
@@ -273,7 +337,7 @@ async function testOwnTenantWrites() {
 async function testForeignRowsInvisibleToMutations() {
   await testWithRollback("mutações não enxergam outro tenant", async (tx) => {
     const fixtures = await createFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
 
     const updated = await tx`
       update public.tag set nome = 'RLS Foreign Update'
@@ -295,7 +359,7 @@ async function testForeignRowsInvisibleToMutations() {
 async function testForeignInsertDenied() {
   await expectPolicyDenied("INSERT cruzado", async (tx) => {
     const fixtures = await createFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     await tx`
       insert into public.tag (org_id, nome)
       values (${fixtures.orgB}, 'RLS Foreign Insert')
@@ -306,7 +370,7 @@ async function testForeignInsertDenied() {
 async function testTenantMoveDenied() {
   await expectPolicyDenied("UPDATE movendo linha para outro tenant", async (tx) => {
     const fixtures = await createFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     await tx`
       update public.tag
       set org_id = ${fixtures.orgB}
@@ -327,7 +391,7 @@ async function testAuditIsAppendOnlyForApplicationRole() {
       )
     `;
 
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     const visible = await tx`select id from public.audit_log where id = ${auditId}`;
     const updated = await tx`
       update public.audit_log set acao = 'alterado'
@@ -350,7 +414,7 @@ async function testAuditIsAppendOnlyForApplicationRole() {
 async function testAuditInsertDenied() {
   await expectPolicyDenied("INSERT direto em auditoria", async (tx) => {
     const fixtures = await createFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     await tx`
       insert into public.audit_log (
         org_id, entidade, entidade_id, acao
@@ -364,7 +428,7 @@ async function testAuditInsertDenied() {
 async function testCrossTenantClientTagDenied() {
   await expectPolicyDenied("cliente_tag entre tenants", async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     await tx`
       insert into public.cliente_tag (cliente_id, tag_id)
       values (${fixtures.clientA}, ${fixtures.tagB})
@@ -375,7 +439,7 @@ async function testCrossTenantClientTagDenied() {
 async function testCrossTenantOrderItemDenied() {
   await expectPolicyDenied("pedido_item entre tenants", async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     await tx`
       insert into public.pedido_item (pedido_id, produto_id, quantidade, preco_unitario)
       values (${fixtures.orderA}, ${fixtures.productB}, 1, 1)
@@ -386,7 +450,7 @@ async function testCrossTenantOrderItemDenied() {
 async function testCrossTenantStockMovementDenied() {
   await expectPolicyDenied("estoque_movimento com produto de outro tenant", async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     await tx`
       insert into public.estoque_movimento (org_id, produto_id, tipo, quantidade)
       values (${fixtures.orgA}, ${fixtures.productB}, 'entrada', 1)
@@ -397,7 +461,7 @@ async function testCrossTenantStockMovementDenied() {
 async function testCrossTenantProductChannelDenied() {
   await expectPolicyDenied("produto_canal entre tenants", async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     await tx`
       insert into public.produto_canal (
         org_id, produto_id, channel_account_id, external_listing_id
@@ -408,9 +472,147 @@ async function testCrossTenantProductChannelDenied() {
   });
 }
 
+async function testProfileUserVisibility() {
+  await testWithRollback("visibilidade de usuários por perfil", async (tx) => {
+    const fixtures = await createFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
+
+    const visible = await tx`select id, perfil from public.app_user order by id`;
+    assert(visible.length === 1, `Vendedor visualizou ${visible.length} usuários.`);
+    assert(visible[0].id === fixtures.vendedorA, "Vendedor visualizou outro usuário.");
+    record("visibilidade de usuários por perfil", "vendedor vê somente o próprio cadastro");
+  });
+
+  await testWithRollback("gestor consulta equipe", async (tx) => {
+    const fixtures = await createFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
+
+    const visible = await tx`select id from public.app_user`;
+    assert(visible.length === 4, `Gestor visualizou ${visible.length} de 4 usuários da equipe.`);
+    record("gestor consulta equipe", "4 usuários da própria organização visíveis");
+  });
+}
+
+async function testOnlyAdminManagesUsers() {
+  await testWithRollback("gestor não administra usuários", async (tx) => {
+    const fixtures = await createFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
+
+    const updated = await tx`
+      update public.app_user
+      set perfil = 'gestor'
+      where id = ${fixtures.vendedorA}
+      returning id
+    `;
+    assert(updated.length === 0, "Gestor alterou o perfil de um usuário.");
+    record("gestor não administra usuários", "UPDATE afetou 0 linhas");
+  });
+
+  await testWithRollback("admin administra usuários", async (tx) => {
+    const fixtures = await createFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
+
+    const updated = await tx`
+      update public.app_user
+      set perfil = 'gestor'
+      where id = ${fixtures.vendedorA}
+      returning id
+    `;
+    assert(updated.length === 1, "Admin não conseguiu alterar o perfil de um usuário.");
+    record("admin administra usuários", "UPDATE de perfil permitido");
+  });
+}
+
+async function testOnlyAdminManagesOrganization() {
+  await testWithRollback("vendedor não altera organização", async (tx) => {
+    const fixtures = await createFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
+
+    const updated = await tx`
+      update public.org
+      set name = 'Alteração indevida'
+      where id = ${fixtures.orgA}
+      returning id
+    `;
+    assert(updated.length === 0, "Vendedor alterou a organização.");
+    record("vendedor não altera organização", "UPDATE afetou 0 linhas");
+  });
+
+  await testWithRollback("admin altera organização", async (tx) => {
+    const fixtures = await createFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
+
+    const updated = await tx`
+      update public.org
+      set name = 'RLS Organização Atualizada'
+      where id = ${fixtures.orgA}
+      returning id
+    `;
+    assert(updated.length === 1, "Admin não conseguiu alterar a organização.");
+    record("admin altera organização", "UPDATE permitido no próprio tenant");
+  });
+}
+
+async function testProductCostConfidentiality() {
+  await testWithRollback("vendedor consulta produto sem custo", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
+
+    const visible = await tx`select id, sku, nome, preco from public.produto`;
+    assert(visible.length === 1 && visible[0].id === fixtures.productA, "Produto do tenant não ficou visível.");
+    const financial = await tx`select * from public.listar_produtos_financeiros()`;
+    assert(financial.length === 0, "Função financeira expôs custo ao vendedor.");
+    record("vendedor consulta produto sem custo", "catálogo visível; função financeira retornou 0 linhas");
+  });
+
+  await expectPolicyDenied("vendedor não lê produto.custo", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
+    await tx`select custo from public.produto where id = ${fixtures.productA}`;
+  });
+
+  await testWithRollback("gestor consulta custo por acesso controlado", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
+
+    const financial = await tx`select * from public.listar_produtos_financeiros()`;
+    assert(financial.length === 1, "Gestor não recebeu o produto financeiro do tenant.");
+    assert(
+      financial[0].id === fixtures.productA && Number(financial[0].custo) === 0.4,
+      "Custo incorreto ou tenant cruzado.",
+    );
+    record("gestor consulta custo por acesso controlado", "1 produto financeiro da própria organização");
+  });
+}
+
+async function testStockMutationByProfile() {
+  await expectPolicyDenied("vendedor não movimenta estoque", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
+    await tx`
+      insert into public.estoque_movimento (org_id, produto_id, tipo, quantidade)
+      values (${fixtures.orgA}, ${fixtures.productA}, 'entrada', 1)
+    `;
+  });
+
+  await testWithRollback("gestor movimenta estoque", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
+    const inserted = await tx`
+      insert into public.estoque_movimento (org_id, produto_id, tipo, quantidade)
+      values (${fixtures.orgA}, ${fixtures.productA}, 'entrada', 1)
+      returning id
+    `;
+    assert(inserted.length === 1, "Gestor não conseguiu movimentar estoque.");
+    record("gestor movimenta estoque", "INSERT permitido no próprio tenant");
+  });
+}
+
 try {
   await testMetadata();
+  await testProfileMetadata();
   await testDefaultDeny();
+  await testInactiveUserDenied();
   await testReadIsolation();
   await testOwnTenantWrites();
   await testForeignRowsInvisibleToMutations();
@@ -422,6 +624,11 @@ try {
   await testCrossTenantOrderItemDenied();
   await testCrossTenantStockMovementDenied();
   await testCrossTenantProductChannelDenied();
+  await testProfileUserVisibility();
+  await testOnlyAdminManagesUsers();
+  await testOnlyAdminManagesOrganization();
+  await testProductCostConfidentiality();
+  await testStockMutationByProfile();
 
   const failed = results.filter((result) => result.status === "failed");
   console.log(JSON.stringify({ status: failed.length === 0 ? "passed" : "failed", tests: results }, null, 2));

@@ -54,6 +54,18 @@ try {
       GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
       GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO service_role;
       GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO service_role;
+
+      -- produto.custo nunca é concedido diretamente a authenticated. Gestor e
+      -- admin usam listar_produtos_financeiros(), que valida o perfil no banco.
+      REVOKE SELECT ON TABLE public.produto FROM authenticated;
+      GRANT SELECT (
+        id, org_id, brand_id, sku, nome, preco, estoque_minimo, ativo,
+        deleted_at, criado_em, atualizado_em
+      ) ON TABLE public.produto TO authenticated;
+
+      GRANT EXECUTE ON FUNCTION public.current_app_user_id() TO authenticated, service_role;
+      GRANT EXECUTE ON FUNCTION public.current_app_profile() TO authenticated, service_role;
+      GRANT EXECUTE ON FUNCTION public.listar_produtos_financeiros() TO authenticated, service_role;
     `);
 
     console.log("Privilégios das roles de teste aplicados.");
