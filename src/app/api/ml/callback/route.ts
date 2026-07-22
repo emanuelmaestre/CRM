@@ -65,7 +65,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!tokenRes.ok) {
     const body = await tokenRes.text();
     console.error("[ml/callback] token exchange failed", tokenRes.status, body);
-    return NextResponse.redirect(`${appUrl}/configuracoes?ml_error=token_exchange_failed`);
+    return NextResponse.redirect(
+      `${appUrl}/configuracoes?ml_error=token_exchange_failed&ml_detail=${encodeURIComponent(body.slice(0, 200))}`
+    );
   }
 
   const tokens: MLTokenResponse = await tokenRes.json();
