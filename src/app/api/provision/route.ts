@@ -3,10 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 import { db } from "@/shared/lib/db";
 import { org, brand, appUser } from "@/shared/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { verificarRateLimit } from "@/shared/lib/rate-limit";
 
 const SECRET = process.env.PROVISION_SECRET;
 
 export async function POST(req: NextRequest) {
+  const bloqueio = await verificarRateLimit(req, "provision");
+  if (bloqueio) return bloqueio;
+
   const token = req.headers.get("x-provision-secret");
   if (!SECRET || token !== SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

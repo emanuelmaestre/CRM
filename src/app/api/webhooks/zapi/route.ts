@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 import { db } from "@/shared/lib/db";
 import { channelAccount } from "@/shared/lib/db/schema";
+import { verificarRateLimit } from "@/shared/lib/rate-limit";
 
 const ZApiWebhookSchema = z.object({
   instanceId: z.string(),
@@ -41,6 +42,9 @@ function resolverConta(instanceId: string) {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const bloqueio = await verificarRateLimit(req, "webhook");
+  if (bloqueio) return bloqueio;
+
   const assinatura = req.headers.get("x-api-token");
   if (!assinatura) {
     return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });

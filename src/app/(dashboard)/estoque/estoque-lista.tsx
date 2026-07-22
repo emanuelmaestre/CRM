@@ -4,7 +4,9 @@ import { useState, useCallback, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link2 } from "lucide-react";
 import { MovimentoModal } from "./movimento-modal";
+import { CanalModal } from "./canal-modal";
 import { actionListarProdutos } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -32,6 +34,7 @@ export function EstoqueLista() {
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
   const [, startTransition]       = useTransition();
+  const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
 
   const carregar = useCallback(() => {
     startTransition(async () => {
@@ -171,12 +174,21 @@ export function EstoqueLista() {
                           R$ {Number(p.preco).toFixed(2)}
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          <MovimentoModal
-                            produtoId={p.id}
-                            produtoNome={p.nome}
-                            saldoAtual={saldo}
-                            onSuccess={carregar}
-                          />
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title="Mapear canais de venda"
+                            >
+                              <Link2 size={15} />
+                            </button>
+                            <MovimentoModal
+                              produtoId={p.id}
+                              produtoNome={p.nome}
+                              saldoAtual={saldo}
+                              onSuccess={carregar}
+                            />
+                          </div>
                         </td>
                       </motion.tr>
                     );
@@ -187,6 +199,13 @@ export function EstoqueLista() {
           )}
         </AnimatePresence>
       </motion.div>
+      {canalProduto && (
+        <CanalModal
+          produtoId={canalProduto.id}
+          produtoNome={canalProduto.nome}
+          onClose={() => setCanalProduto(null)}
+        />
+      )}
     </div>
   );
 }

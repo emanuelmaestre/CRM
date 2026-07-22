@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
+import { verificarRateLimit } from "@/shared/lib/rate-limit";
 
 const TikTokWebhookSchema = z.object({
   type: z.number(),
@@ -94,6 +95,9 @@ async function buscarDetalheTikTok(
 const ORDER_EVENTS = new Set([1, 2, 3, 4, 34]);
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const bloqueio = await verificarRateLimit(req, "webhook");
+  if (bloqueio) return bloqueio;
+
   const rawBody = await req.text();
 
   if (!verificarAssinatura(req, rawBody)) {

@@ -1,0 +1,221 @@
+"use client";
+
+import { useState, useEffect, useTransition, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
+import { X, Plus, Trash2, Link2 } from "lucide-react";
+import {
+  actionListarContasCanal,
+  actionListarMapeamentosCanal,
+  actionSalvarMapeamentoCanal,
+  actionRemoverMapeamentoCanal,
+} from "./actions";
+import { inputClass, selectClass } from "@/shared/design-system/primitives/WizardLayout";
+
+type ContaCanal = { id: string; tipo: string; nome: string; status: string; brandId: string };
+type Mapeamento = { id: string; channelAccountId: string; externalListingId: string; ativo: boolean; contaTipo: string; contaNome: string };
+
+const ICONE_CANAL: Record<string, string> = {
+  mercadolivre: "🛒",
+  shopee:       "🧡",
+  tiktokshop:   "🎵",
+  olist:        "📦",
+};
+
+interface Props {
+  produtoId: string;
+  produtoNome: string;
+  onClose: () => void;
+}
+
+export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
+  const [contas, setContas]           = useState<ContaCanal[]>([]);
+  const [mapeamentos, setMapeamentos] = useState<Mapeamento[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [novaContaId, setNovaContaId] = useState("");
+  const [novoListingId, setNovoListingId] = useState("");
+  const [, startTransition]           = useTransition();
+
+  const carregar = useCallback(() => {
+    setLoading(true);
+    Promise.all([
+      actionListarContasCanal(),
+      actionListarMapeamentosCanal(produtoId),
+    ]).then(([c, m]) => {
+      setContas(c as ContaCanal[]);
+      setMapeamentos(m as Mapeamento[]);
+    }).catch(() => toast.error("Erro ao carregar mapeamentos."))
+      .finally(() => setLoading(false));
+  }, [produtoId]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  function salvar() {
+    if (!novaContaId) { toast.error("Selecione uma conta de canal."); return; }
+    if (!novoListingId.trim()) { toast.error("Informe o ID do anúncio no canal."); return; }
+
+    startTransition(async () => {
+      try {
+        await actionSalvarMapeamentoCanal(produtoId, novaContaId, novoListingId.trim());
+        toast.success("Mapeamento salvo.");
+        setNovaContaId("");
+        setNovoListingId("");
+        carregar();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erro ao salvar mapeamento.");
+      }
+    });
+  }
+
+  function remover(id: string) {
+    startTransition(async () => {
+      try {
+        await actionRemoverMapeamentoCanal(id);
+        toast.success("Mapeamento removido.");
+        carregar();
+      } catch {
+        toast.error("Erro ao remover mapeamento.");
+      }
+    });
+  }
+
+  const contasDisponiveis = contas.filter(
+    (c) => !mapeamentos.some((m) => m.channelAccountId === c.id && m.ativo),
+  );
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        style={{ background: "rgba(14,15,19,0.6)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 32, scale: 0.97 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 24, scale: 0.97 }}
+          transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+          className="w-full max-w-lg bg-card rounded-[1.25rem] shadow-[0_8px_40px_rgba(14,15,19,.18)] overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-[0.5rem] flex items-center justify-center text-base"
+                   style={{ background: "var(--gradient-signature)" }}>
+                <Link2 size={15} color="white" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground leading-tight">Canais do produto</p>
+                <p className="text-xs text-muted-foreground">{produtoNome}</p>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-5 space-y-5">
+
+            {/* Mapeamentos existentes */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                Mapeamentos ativos
+              </p>
+              {loading ? (
+                <div className="space-y-2">
+                  {[1,2].map(i => (
+                    <div key={i} className="h-12 rounded-[0.75rem] bg-muted animate-pulse" />
+                  ))}
+                </div>
+              ) : mapeamentos.filter(m => m.ativo).length === 0 ? (
+                <div className="rounded-[0.75rem] border border-dashed border-border py-6 text-center">
+                  <p className="text-sm text-muted-foreground">Nenhum canal mapeado ainda.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Adicione abaixo para sincronizar o estoque.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {mapeamentos.filter(m => m.ativo).map((m) => (
+                    <motion.div
+                      key={m.id}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex items-center gap-3 px-4 py-3 rounded-[0.75rem] bg-muted/50 border border-border"
+                    >
+                      <span className="text-lg">{ICONE_CANAL[m.contaTipo] ?? "🔗"}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{m.contaNome}</p>
+                        <p className="text-xs text-muted-foreground font-mono truncate">{m.externalListingId}</p>
+                      </div>
+                      <button
+                        onClick={() => remover(m.id)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-[#C21820] hover:bg-[#C2182014] transition-colors"
+                        title="Remover mapeamento"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Adicionar novo */}
+            {contasDisponiveis.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+                  Adicionar canal
+                </p>
+                <div className="space-y-3">
+                  <select
+                    className={selectClass}
+                    value={novaContaId}
+                    onChange={(e) => setNovaContaId(e.target.value)}
+                  >
+                    <option value="">Selecione a conta de canal…</option>
+                    {contasDisponiveis.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {ICONE_CANAL[c.tipo] ?? "🔗"} {c.nome} ({c.tipo})
+                        {c.status !== "conectado" ? " — desconectado" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className={inputClass}
+                    placeholder="ID do anúncio no canal (listingId)"
+                    value={novoListingId}
+                    onChange={(e) => setNovoListingId(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && salvar()}
+                  />
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={salvar}
+                    className="w-full h-10 flex items-center justify-center gap-2 rounded-[0.75rem] text-sm font-semibold text-white"
+                    style={{ background: "var(--gradient-signature)" }}
+                  >
+                    <Plus size={15} />
+                    Salvar mapeamento
+                  </motion.button>
+                </div>
+              </div>
+            )}
+
+            {contasDisponiveis.length === 0 && !loading && (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                Todos os canais disponíveis já estão mapeados para este produto.
+              </p>
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
