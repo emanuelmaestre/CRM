@@ -39,29 +39,62 @@ export class ShopeeProvider implements ChannelProvider {
     const timeFrom = Math.floor(desde.getTime() / 1000);
     const timeTo = Math.floor(Date.now() / 1000);
 
-    const res = await fetch(this.url("/order/get_order_list", {
+    const listRes = await fetch(this.url("/order/get_order_list", {
       time_range_field: "create_time",
       time_from: timeFrom,
       time_to: timeTo,
       page_size: 50,
-      response_optional_fields: "buyer_user_id,buyer_username,total_amount",
+      response_optional_fields: "buyer_username,total_amount",
     }), { signal: AbortSignal.timeout(10000) });
 
-    if (!res.ok) throw new Error(`Shopee HTTP ${res.status}`);
-    const data = await res.json() as {
+    if (!listRes.ok) throw new Error(`Shopee HTTP ${listRes.status} em get_order_list`);
+    const listData = await listRes.json() as {
       response?: { order_list?: { order_sn: string; order_status: string; total_amount: number; buyer_username: string; create_time: number }[] };
     };
 
-    return (data.response?.order_list ?? []).map((o) => ({
-      providerOrderId: o.order_sn,
-      canal: "shopee",
-      clienteExternalId: o.buyer_username,
-      clienteNome: o.buyer_username,
-      status: o.order_status.toLowerCase(),
-      total: String(o.total_amount),
-      itens: [],
-      criadoEm: new Date(o.create_time * 1000),
-    }));
+    const orders = listData.response?.order_list ?? [];
+    if (orders.length === 0) return [];
+
+    // Busca detalhes (itens de linha) em lote — máx 50 por chamada
+    const sns = orders.map((o) => o.order_sn).join(",");
+    const detailRes = await fetch(this.url("/order/get_order_detail", {
+      order_sn_list: sns,
+      response_optional_fields: "item_list,recipient_address,buyer_user_id",
+    }), { signal: AbortSignal.timeout(15000) });
+
+    type ShopeeItem = { item_sku: string; model_quantity_purchased: number; model_discounted_price: number };
+    type ShopeeDetail = {
+      order_sn: string;
+      recipient_address?: { name: string; phone?: string };
+      item_list?: ShopeeItem[];
+    };
+
+    const detailMap = new Map<string, ShopeeDetail>();
+    if (detailRes.ok) {
+      const detailData = await detailRes.json() as { response?: { order_list?: ShopeeDetail[] } };
+      for (const d of detailData.response?.order_list ?? []) {
+        detailMap.set(d.order_sn, d);
+      }
+    }
+
+    return orders.map((o) => {
+      const detail = detailMap.get(o.order_sn);
+      return {
+        providerOrderId: o.order_sn,
+        canal: "shopee",
+        clienteExternalId: o.buyer_username,
+        clienteNome: detail?.recipient_address?.name ?? o.buyer_username,
+        clienteTelefone: detail?.recipient_address?.phone,
+        status: o.order_status.toLowerCase(),
+        total: String(o.total_amount),
+        itens: (detail?.item_list ?? []).map((i) => ({
+          skuExterno: i.item_sku,
+          quantidade: i.model_quantity_purchased,
+          precoUnitario: String(i.model_discounted_price),
+        })),
+        criadoEm: new Date(o.create_time * 1000),
+      };
+    });
   }
 
   async sincronizarEstoque(skuExterno: string, saldo: number): Promise<void> {

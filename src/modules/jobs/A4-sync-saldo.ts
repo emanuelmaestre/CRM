@@ -1,11 +1,12 @@
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
-import { produto, estoqueSaldo } from "@/shared/lib/db/schema";
+import { produto, estoqueSaldo, produtoCanal } from "@/shared/lib/db/schema";
 import { channelAccount } from "@/shared/lib/db/schema/canais";
 import { and, eq } from "drizzle-orm";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
+import { criarOlistProvider } from "@/modules/canais/infrastructure/olist.provider";
 import { emitirEvento } from "@/shared/events";
 import type { ChannelProvider } from "@/modules/canais/domain/ports";
 
@@ -17,6 +18,7 @@ function resolverChannelProvider(tipo: string, brandSlug: BrandSlug): ChannelPro
       case "mercadolivre": return criarMLProvider(brandSlug);
       case "shopee":       return criarShopeeProvider(brandSlug);
       case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
+      case "olist":        return criarOlistProvider(brandSlug);
       default:             return null;
     }
   } catch {
@@ -50,44 +52,68 @@ export const A4_syncSaldo = inngest.createFunction(
       return [s, p] as const;
     });
 
-    if (!saldoRow || !produtoRow) return { sincronizados: 0, motivo: "produto-ou-saldo-nao-encontrado" };
+    if (!saldoRow || !produtoRow) {
+      return { sincronizados: 0, motivo: "produto-ou-saldo-nao-encontrado" };
+    }
 
-    const contas = await step.run("buscar-contas-canal", () =>
+    // Busca mapeamentos produto → anúncio por canal (produto_canal).
+    // Só sincroniza canais com mapeamento explícito para garantir o listingId correto.
+    const mapeamentos = await step.run("buscar-mapeamentos-canal", () =>
       db
-        .select()
-        .from(channelAccount)
-        .where(and(eq(channelAccount.orgId, orgId), eq(channelAccount.brandId, produtoRow.brandId), eq(channelAccount.status, "conectado")))
+        .select({
+          produtoCanalId: produtoCanal.id,
+          channelAccountId: produtoCanal.channelAccountId,
+          externalListingId: produtoCanal.externalListingId,
+          contaTipo: channelAccount.tipo,
+          contaMeta: channelAccount.meta,
+          contaStatus: channelAccount.status,
+          contaBrandId: channelAccount.brandId,
+        })
+        .from(produtoCanal)
+        .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
+        .where(and(
+          eq(produtoCanal.orgId, orgId),
+          eq(produtoCanal.produtoId, produtoId),
+          eq(produtoCanal.ativo, true),
+          eq(channelAccount.status, "conectado"),
+        ))
     );
 
-    const resultados: { conta: string; ok: boolean; erro?: string }[] = [];
+    const resultados: { conta: string; listingId: string; ok: boolean; erro?: string }[] = [];
 
-    for (const conta of contas) {
-      const brandSlug = (conta.meta as Record<string, string> | null)?.brandSlug as BrandSlug ?? "karzi";
-      const provider = resolverChannelProvider(conta.tipo, brandSlug);
+    for (const m of mapeamentos) {
+      const brandSlug = (m.contaMeta as Record<string, string> | null)?.brandSlug as BrandSlug ?? "karzi";
+      const provider = resolverChannelProvider(m.contaTipo, brandSlug);
 
-      if (!provider || !("sincronizarEstoque" in provider)) {
-        resultados.push({ conta: conta.id, ok: false, erro: "provider sem suporte a sync" });
+      if (!provider) {
+        resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: false, erro: "provider nao suportado" });
         continue;
       }
 
-      await step.run(`sync-${conta.id}`, async () => {
+      await step.run(`sync-${m.channelAccountId}`, async () => {
         try {
-          await (provider as ChannelProvider).sincronizarEstoque(produtoRow.sku, saldoRow.saldo);
-          resultados.push({ conta: conta.id, ok: true });
+          await provider.sincronizarEstoque(m.externalListingId, saldoRow.saldo);
+          resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: true });
         } catch (err) {
-          resultados.push({ conta: conta.id, ok: false, erro: String(err) });
+          resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: false, erro: String(err) });
           await emitirEvento({
             tipo: "canal.degradado",
             orgId,
-            brandId: conta.brandId,
+            brandId: m.contaBrandId,
             entidade: "channel_account",
-            entidadeId: conta.id,
+            entidadeId: m.channelAccountId,
             payload: { motivo: "falha-sync-estoque", erro: String(err) },
           });
         }
       });
     }
 
-    return { produtoId, saldo: saldoRow.saldo, sincronizados: resultados.filter((r) => r.ok).length, resultados };
+    return {
+      produtoId,
+      saldo: saldoRow.saldo,
+      mapeamentos: mapeamentos.length,
+      sincronizados: resultados.filter((r) => r.ok).length,
+      resultados,
+    };
   }
 );
