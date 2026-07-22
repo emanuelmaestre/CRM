@@ -111,6 +111,5 @@ export async function actionGerarDocumentoExecutivo() {
       sugestoesPendentes: sugestoes.length,
       periodo: "últimos 30 dias",
     },
-    ctx.userId ?? undefined,
   );
 }

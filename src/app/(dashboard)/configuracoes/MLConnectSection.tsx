@@ -5,13 +5,35 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import settingsConfig from "@/config/settings.json";
 
 type Status = { karzi: boolean; wuwu: boolean } | null;
+type BrandSlug = keyof NonNullable<Status>;
+type Feedback = { type: "success" | "error"; brand?: string; msg: string; detail?: string };
 
-const BRANDS: { slug: "karzi" | "wuwu"; label: string }[] = [
-  { slug: "karzi", label: "KARZI" },
-  { slug: "wuwu",  label: "WUWU"  },
-];
+const mlConfig = settingsConfig.mercadoLivre;
+
+function getInitialFeedback(searchParams: { get(name: string): string | null }): Feedback | null {
+  const connected = searchParams.get("ml_connected");
+  const error = searchParams.get("ml_error");
+
+  if (connected) {
+    return {
+      type: "success",
+      brand: connected,
+      msg: mlConfig.feedback.success.replace("{brand}", connected.toUpperCase()),
+    };
+  }
+
+  if (!error) return null;
+
+  const errors = mlConfig.feedback.errors as Record<string, string>;
+  return {
+    type: "error",
+    msg: errors[error] ?? `Erro: ${error}`,
+    detail: searchParams.get("ml_detail") ?? undefined,
+  };
+}
 
 export function MLConnectSection() {
   const searchParams = useSearchParams();
@@ -20,10 +42,9 @@ export function MLConnectSection() {
 
   const [status,    setStatus]    = useState<Status>(null);
   const [loading,   setLoading]   = useState(true);
-  const [feedback,  setFeedback]  = useState<{ type: "success" | "error"; brand?: string; msg: string; detail?: string } | null>(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(() => getInitialFeedback(searchParams));
 
   const fetchStatus = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await fetch("/api/ml/status");
       if (res.ok) setStatus(await res.json());
@@ -34,34 +55,12 @@ export function MLConnectSection() {
 
   useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
-  // Lê feedback de redirect OAuth
+  // Remove os parâmetros do retorno OAuth depois de derivar o feedback inicial.
   useEffect(() => {
     const connected = searchParams.get("ml_connected");
     const error     = searchParams.get("ml_error");
 
-    if (connected) {
-      setFeedback({ type: "success", brand: connected, msg: `Mercado Livre (${connected.toUpperCase()}) conectado com sucesso!` });
-      fetchStatus();
-    } else if (error) {
-      const msgs: Record<string, string> = {
-        state_mismatch:      "Falha de segurança (state inválido). Tente novamente.",
-        token_exchange_failed: "Erro ao trocar o código por token. Tente novamente.",
-        db_failed:           "Erro ao salvar o token. Contate o suporte.",
-        missing_params:      "Parâmetros ausentes no retorno do ML.",
-        invalid_brand:       "Marca inválida no retorno do ML.",
-        conta_incorreta:     "Conta do Mercado Livre não corresponde a esta marca.",
-      };
-      // O ML devolve o motivo real em ml_detail; sem ele o erro é indiagnosticável.
-      const detail = searchParams.get("ml_detail");
-      setFeedback({
-        type: "error",
-        msg: msgs[error] ?? `Erro: ${error}`,
-        detail: detail ?? undefined,
-      });
-    }
-
     if (connected || error) {
-      // Remove os query params sem recarregar
       const params = new URLSearchParams(searchParams.toString());
       params.delete("ml_connected");
       params.delete("ml_error");
@@ -69,7 +68,7 @@ export function MLConnectSection() {
       const qs = params.toString();
       router.replace(pathname + (qs ? `?${qs}` : ""));
     }
-  }, [searchParams, router, pathname, fetchStatus]);
+  }, [searchParams, router, pathname]);
 
   return (
     <div className="space-y-3">
@@ -97,14 +96,15 @@ export function MLConnectSection() {
           <button
             onClick={() => setFeedback(null)}
             className="ml-auto text-current opacity-60 hover:opacity-100"
-            aria-label="Fechar"
+            aria-label={mlConfig.labels.closeFeedback}
           >
             ×
           </button>
         </motion.div>
       )}
 
-      {BRANDS.map(({ slug, label }) => {
+      {mlConfig.brands.map(({ slug: rawSlug, label }) => {
+        const slug = rawSlug as BrandSlug;
         const connected = status?.[slug] ?? false;
         return (
           <div
@@ -116,7 +116,7 @@ export function MLConnectSection() {
               <div>
                 <p className="text-sm font-medium text-foreground">{label}</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {loading ? "Verificando…" : connected ? "Token ativo" : "Não conectado"}
+                  {loading ? mlConfig.labels.loading : connected ? mlConfig.labels.connected : mlConfig.labels.disconnected}
                 </p>
               </div>
             </div>
@@ -124,8 +124,11 @@ export function MLConnectSection() {
             <div className="flex items-center gap-2">
               {!loading && connected && (
                 <button
-                  onClick={fetchStatus}
-                  title="Atualizar status"
+                  onClick={() => {
+                    setLoading(true);
+                    void fetchStatus();
+                  }}
+                  title={mlConfig.labels.refresh}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <RefreshCw size={13} strokeWidth={2} />
@@ -142,7 +145,7 @@ export function MLConnectSection() {
                   color:      connected ? "var(--muted-foreground)" : "#1a1a00",
                 }}
               >
-                {connected ? "Reconectar" : "Conectar"}
+                {connected ? mlConfig.labels.reconnect : mlConfig.labels.connect}
                 <ExternalLink size={10} strokeWidth={2.5} />
               </motion.a>
 
@@ -152,8 +155,8 @@ export function MLConnectSection() {
                   : "bg-muted text-muted-foreground"
               }`}>
                 {connected
-                  ? <><span className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C] inline-block" /> Ativo</>
-                  : "Pendente"
+                  ? <><span className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C] inline-block" /> {mlConfig.labels.active}</>
+                  : mlConfig.labels.pending
                 }
               </span>
             </div>

@@ -60,7 +60,7 @@ export async function verificarRateLimit(
   if (!limiter) return null; // no-op sem Upstash
 
   const id = getIdentifier(req);
-  const { success, limit, remaining, reset } = await limiter.limit(id);
+  const { success, limit, reset } = await limiter.limit(id);
 
   if (!success) {
     return NextResponse.json(

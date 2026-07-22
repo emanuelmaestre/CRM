@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { WizardLayout, WizardActions } from "@/shared/design-system/primitives/WizardLayout";
@@ -60,12 +60,12 @@ function StepUpload({
     reader.readAsText(file, "UTF-8");
   }
 
-  const onDrop = useCallback((e: React.DragEvent) => {
+  function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) processarArquivo(file);
-  }, []);
+  }
 
   function downloadModelo() {
     const blob = new Blob([cfg.columns.template + "\n"], { type: "text/csv" });

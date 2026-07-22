@@ -16,6 +16,35 @@
       { "name": "OpenAI", "connected": false }
     ]
   },
+  "mercadoLivre": {
+    "title": "Mercado Livre",
+    "brands": [
+      { "slug": "karzi", "label": "KARZI" },
+      { "slug": "wuwu", "label": "WUWU" }
+    ],
+    "labels": {
+      "loading": "Verificando…",
+      "connected": "Token ativo",
+      "disconnected": "Não conectado",
+      "refresh": "Atualizar status",
+      "connect": "Conectar",
+      "reconnect": "Reconectar",
+      "active": "Ativo",
+      "pending": "Pendente",
+      "closeFeedback": "Fechar"
+    },
+    "feedback": {
+      "success": "Mercado Livre ({brand}) conectado com sucesso!",
+      "errors": {
+        "state_mismatch": "Falha de segurança (state inválido). Tente novamente.",
+        "token_exchange_failed": "Erro ao trocar o código por token. Tente novamente.",
+        "db_failed": "Erro ao salvar o token. Contate o suporte.",
+        "missing_params": "Parâmetros ausentes no retorno do ML.",
+        "invalid_brand": "Marca inválida no retorno do ML.",
+        "conta_incorreta": "Conta do Mercado Livre não corresponde a esta marca."
+      }
+    }
+  },
   "system": { "title": "Sistema", "icon": "Cpu", "rows": [{ "label": "Versão", "value": "LEO v1.0" }, { "label": "Ambiente", "value": "Desenvolvimento" }] },
   "groups": [
     {

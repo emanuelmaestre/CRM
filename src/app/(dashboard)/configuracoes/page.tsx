@@ -10,9 +10,6 @@ import { MLConnectSection } from "./MLConnectSection";
 import settingsConfig from "@/config/settings.json";
 import dashboardConfig from "@/config/dashboard.json";
 
-const ConnectedIcon = getIcon(dashboardConfig.channels.connectedIcon);
-const DisconnectedIcon = getIcon(dashboardConfig.channels.disconnectedIcon);
-
 const PendingIcon = getIcon(settingsConfig.status.pendingIcon);
 const ExternalIcon = getIcon(settingsConfig.openAction.icon);
 
@@ -154,7 +151,7 @@ export default function ConfiguracoesPage() {
         </Card>
 
         {/* Mercado Livre OAuth */}
-        <Card title="Mercado Livre" icon={getIcon("ShoppingBag")}>
+        <Card title={settingsConfig.mercadoLivre.title} icon={getIcon("ShoppingBag")}>
           <Suspense fallback={<p className="text-sm text-muted-foreground py-2">Carregando…</p>}>
             <MLConnectSection />
           </Suspense>
@@ -163,7 +160,7 @@ export default function ConfiguracoesPage() {
         {/* Integrações */}
         <Card title={settingsConfig.integrations.title} icon={getIcon(settingsConfig.integrations.icon)}>
           {settingsConfig.integrations.items
-            .filter((i) => i.name !== "Mercado Livre")
+            .filter((i) => i.name !== settingsConfig.mercadoLivre.title)
             .map((integration) => (
               <IntegrationRow key={integration.name} {...integration} />
             ))}

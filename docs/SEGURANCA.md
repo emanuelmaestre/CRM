@@ -12,6 +12,10 @@
 Todas as tabelas têm RLS habilitado no Supabase.
 Policy base: `org_id = current_setting('app.current_org_id')::uuid`
 
+Teste de integração: `npm run test:rls`. A suíte usa a role `authenticated`, cria dois tenants
+sintéticos dentro de transações revertidas e valida default deny, isolamento de leitura,
+`INSERT`/`UPDATE`/`DELETE`, bloqueio de mudança de tenant e proteção do `audit_log`.
+
 ### Perfis de usuário
 | Perfil | Acesso |
 |--------|--------|

@@ -294,7 +294,6 @@ export async function gerarDocumentoExecutivo(
     sugestoesPendentes: number;
     periodo: string;
   },
-  geradoPorId?: string,
 ): Promise<DocumentoExecutivoOutput> {
   const promptVersion = "documento-executivo-v1";
   const sistemaPrompt = `Você é um consultor de CRM sênior gerando um relatório executivo em português brasileiro.

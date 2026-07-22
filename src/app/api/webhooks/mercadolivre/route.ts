@@ -79,7 +79,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const conta = await resolverContaWebhookMarketplace("mercadolivre", String(resultado.data.user_id));
 
     // Busca token no banco (OAuth) com fallback para env var legada
-    let accessToken: string | undefined;
     const { data: tokenRow } = await supabase
       .from("canal_tokens")
       .select("access_token")
@@ -88,7 +87,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq("canal", "mercadolivre")
       .maybeSingle();
 
-    accessToken = tokenRow?.access_token ?? process.env[`ML_ACCESS_TOKEN_${conta.brandSlug.toUpperCase()}`];
+    const accessToken = tokenRow?.access_token ?? process.env[`ML_ACCESS_TOKEN_${conta.brandSlug.toUpperCase()}`];
     if (!accessToken) throw new Error(`Token Mercado Livre não configurado para ${conta.brandSlug}.`);
     const pedidoML = await buscarPedidoML(orderId, accessToken);
 

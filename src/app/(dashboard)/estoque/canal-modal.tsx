@@ -16,6 +16,12 @@ import { inputClass, selectClass } from "@/shared/design-system/primitives/Wizar
 type ContaCanal = { id: string; tipo: string; nome: string; status: string; brandId: string };
 type Mapeamento = { id: string; channelAccountId: string; externalListingId: string; ativo: boolean; contaTipo: string; contaNome: string };
 
+async function buscarMapeamentos(produtoId: string) {
+  return Promise.all([
+    actionListarContasCanal(),
+    actionListarMapeamentosCanal(produtoId),
+  ]);
+}
 
 interface Props {
   produtoId: string;
@@ -33,17 +39,33 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
 
   const carregar = useCallback(() => {
     setLoading(true);
-    Promise.all([
-      actionListarContasCanal(),
-      actionListarMapeamentosCanal(produtoId),
-    ]).then(([c, m]) => {
+    buscarMapeamentos(produtoId).then(([c, m]) => {
       setContas(c as ContaCanal[]);
       setMapeamentos(m as Mapeamento[]);
     }).catch(() => toast.error("Erro ao carregar mapeamentos."))
       .finally(() => setLoading(false));
   }, [produtoId]);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    let ativo = true;
+
+    void buscarMapeamentos(produtoId)
+      .then(([c, m]) => {
+        if (!ativo) return;
+        setContas(c as ContaCanal[]);
+        setMapeamentos(m as Mapeamento[]);
+      })
+      .catch(() => {
+        if (ativo) toast.error("Erro ao carregar mapeamentos.");
+      })
+      .finally(() => {
+        if (ativo) setLoading(false);
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, [produtoId]);
 
   function salvar() {
     if (!novaContaId) { toast.error("Selecione uma conta de canal."); return; }

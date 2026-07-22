@@ -158,7 +158,6 @@ export async function gerarDocumento(
     conteudo = await gerarDocumentoExecutivo(
       ctx.orgId,
       { ...solicitacao.dadosKpis, periodo: solicitacao.periodo },
-      ctx.userId ?? undefined,
     );
   } else {
     conteudo = { tipo: solicitacao.tipo, periodo: solicitacao.periodo, geradoEm: new Date().toISOString() };

@@ -41,6 +41,12 @@ jobs:
       - name: Unit tests
         run: npm run test
 
+      - name: Migration metadata check
+        run: npm run db:check
+
+      - name: RLS integration tests
+        run: npm run test:rls
+
   build:
     name: Build check
     runs-on: ubuntu-latest
@@ -69,3 +75,41 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  e2e-phase-a:
+    name: E2E Fase A · 4 breakpoints
+    runs-on: ubuntu-latest
+    needs: ci
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DEFAULT_ORG_ID: ${{ secrets.DEFAULT_ORG_ID }}
+      NEXT_PUBLIC_BRAND_ID_KARZI: ${{ secrets.NEXT_PUBLIC_BRAND_ID_KARZI }}
+      NEXT_PUBLIC_BRAND_ID_WUWU: ${{ secrets.NEXT_PUBLIC_BRAND_ID_WUWU }}
+      E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate authenticated responsive navigation
+        run: npm run test:e2e:phase-a

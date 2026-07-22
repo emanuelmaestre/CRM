@@ -47,4 +47,12 @@ describe("contratos JSON da interface", () => {
       expect(wizard.cancelHref).toMatch(/^\//);
     }
   });
+
+  it("mantém o conector Mercado Livre dirigido pela configuração JSON", () => {
+    expect(settingsConfig.mercadoLivre.brands.map((brand) => brand.slug)).toEqual(
+      appConfig.brandOrder,
+    );
+    expect(settingsConfig.mercadoLivre.feedback.success).toContain("{brand}");
+    expect(Object.keys(settingsConfig.mercadoLivre.feedback.errors)).toContain("token_exchange_failed");
+  });
 });

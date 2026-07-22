@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { BrandChip } from "@/shared/design-system/primitives/BrandChip";
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import brandsConfig from "@/config/brands.json";
 import dashboardConfig from "@/config/dashboard.json";
 import { getIcon } from "@/shared/config/icon-registry";
@@ -26,8 +25,6 @@ const PEAK_REVENUE_BAR_INDEX = REVENUE_BARS.indexOf(MAX_REVENUE_BAR);
 const RevenueIcon = getIcon(dashboardConfig.revenue.icon);
 const CtaIcon = getIcon(dashboardConfig.connectCta.icon);
 const OrderIcon = getIcon(dashboardConfig.recentOrders.icon);
-const ConnectedIcon = getIcon(dashboardConfig.channels.connectedIcon);
-const DisconnectedIcon = getIcon(dashboardConfig.channels.disconnectedIcon);
 const KPI_CONFIG = dashboardConfig.kpis.map((kpi) => ({ ...kpi, icon: getIcon(kpi.icon) }));
 
 /* ── Card base ─────────────────────────────────────────────────── */
@@ -388,44 +385,6 @@ function RecentOrders() {
 }
 
 /* ── Channels ──────────────────────────────────────────────────── */
-function Channels() {
-
-  return (
-    <Card>
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-        <span className="text-sm font-bold text-foreground">{dashboardConfig.channels.title}</span>
-        <motion.a
-          href={dashboardConfig.channels.href}
-          whileHover={{ x: 2 }}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-        >
-          {dashboardConfig.channels.action} <ArrowRight size={11} />
-        </motion.a>
-      </div>
-      <div className="p-4 space-y-1">
-        {dashboardConfig.channels.items.map((c, i) => (
-          <motion.div
-            key={c.name}
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.07 + 0.2 }}
-            whileHover={{ x: 2 }}
-            className="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors"
-          >
-            <ChannelLogo canal={c.name} size="md" variant="logo" />
-            <span className="text-sm text-foreground flex-1">{c.name}</span>
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-              c.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
-            }`}>
-              {c.connected ? dashboardConfig.channels.connectedLabel : dashboardConfig.channels.disconnectedLabel}
-            </span>
-          </motion.div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
 /* ── Page ──────────────────────────────────────────────────────── */
 export default function DashboardPage() {
   return (

@@ -9,7 +9,6 @@ import { createClient } from "@/shared/lib/supabase/client";
 import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
 
-const SearchIcon = getIcon(navigationConfig.utilities.search.icon);
 const BellIcon = getIcon(navigationConfig.utilities.notifications.icon);
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
 const LogoutIcon = getIcon(navigationConfig.utilities.logout.icon);
