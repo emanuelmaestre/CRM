@@ -50,6 +50,13 @@
       "when": 1784750000000,
       "tag": "0006_rls_relational_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784753000000,
+      "tag": "0007_rls_new_tables",
+      "breakpoints": true
     }
   ]
 }

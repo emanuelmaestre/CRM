@@ -30,6 +30,7 @@ const PHASE_A_TABLES = [
   "segmento",
   "interacao",
   "produto",
+  "produto_canal",
   "estoque_movimento",
   "estoque_saldo",
   "pedido",
@@ -88,6 +89,8 @@ async function createRelationalFixtures(tx) {
   const clientB = randomUUID();
   const productA = randomUUID();
   const productB = randomUUID();
+  const channelA = randomUUID();
+  const channelB = randomUUID();
   const orderA = randomUUID();
 
   await tx`
@@ -95,6 +98,12 @@ async function createRelationalFixtures(tx) {
     values
       (${brandA}, ${fixtures.orgA}, 'RLS Brand A', ${`rls-a-${randomUUID()}`}),
       (${brandB}, ${fixtures.orgB}, 'RLS Brand B', ${`rls-b-${randomUUID()}`})
+  `;
+  await tx`
+    insert into public.channel_account (id, org_id, brand_id, tipo, nome, vault_key)
+    values
+      (${channelA}, ${fixtures.orgA}, ${brandA}, 'mercadolivre', 'RLS Canal A', ${`rls-a-${randomUUID()}`}),
+      (${channelB}, ${fixtures.orgB}, ${brandB}, 'mercadolivre', 'RLS Canal B', ${`rls-b-${randomUUID()}`})
   `;
   await tx`
     insert into public.cliente (id, org_id, nome)
@@ -121,6 +130,8 @@ async function createRelationalFixtures(tx) {
     clientB,
     productA,
     productB,
+    channelA,
+    channelB,
     orderA,
   };
 }
@@ -176,6 +187,7 @@ async function testMetadata() {
     select
       c.relname as table_name,
       c.relrowsecurity as rls_enabled,
+      c.relforcerowsecurity as rls_forced,
       count(p.policyname)::int as policy_count
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
@@ -190,10 +202,12 @@ async function testMetadata() {
 
   const byName = new Map(tables.map((table) => [table.table_name, table]));
   const disabled = tables.filter((table) => !table.rls_enabled).map((table) => table.table_name);
+  const notForced = tables.filter((table) => !table.rls_forced).map((table) => table.table_name);
   const withoutPolicies = tables.filter((table) => table.policy_count === 0).map((table) => table.table_name);
   const missingPhaseATables = PHASE_A_TABLES.filter((table) => !byName.has(table));
 
   assert(disabled.length === 0, `Tabelas sem RLS: ${disabled.join(", ")}`);
+  assert(notForced.length === 0, `Tabelas sem FORCE RLS: ${notForced.join(", ")}`);
   assert(withoutPolicies.length === 0, `Tabelas sem policies: ${withoutPolicies.join(", ")}`);
   assert(missingPhaseATables.length === 0, `Tabelas da Fase A ausentes: ${missingPhaseATables.join(", ")}`);
 
@@ -380,6 +394,20 @@ async function testCrossTenantStockMovementDenied() {
   });
 }
 
+async function testCrossTenantProductChannelDenied() {
+  await expectPolicyDenied("produto_canal entre tenants", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await tx`
+      insert into public.produto_canal (
+        org_id, produto_id, channel_account_id, external_listing_id
+      ) values (
+        ${fixtures.orgA}, ${fixtures.productA}, ${fixtures.channelB}, ${`rls-${randomUUID()}`}
+      )
+    `;
+  });
+}
+
 try {
   await testMetadata();
   await testDefaultDeny();
@@ -393,6 +421,7 @@ try {
   await testCrossTenantClientTagDenied();
   await testCrossTenantOrderItemDenied();
   await testCrossTenantStockMovementDenied();
+  await testCrossTenantProductChannelDenied();
 
   const failed = results.filter((result) => result.status === "failed");
   console.log(JSON.stringify({ status: failed.length === 0 ? "passed" : "failed", tests: results }, null, 2));
