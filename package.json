@@ -17,6 +17,7 @@
     "db:check": "drizzle-kit check",
     "db:ci:bootstrap": "node scripts/setup-ci-database.mjs bootstrap",
     "db:ci:grants": "node scripts/setup-ci-database.mjs grants",
+    "db:ci:seed-e2e": "node scripts/seed-ci-e2e.mjs",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
   },
