@@ -60,5 +60,17 @@ Framer Motion para:
 
 ## Responsividade
 
-Mobile-first. Breakpoints Tailwind padrão.
+Mobile-first. A implementação pode usar os breakpoints do Tailwind, mas o aceite de cada tela
+deve ser executado nos quatro viewports oficiais do PRD:
+
+| Projeto de teste | Viewport | Cenário de referência |
+|---|---:|---|
+| `mobile-360` | 360 × 640 | celular compacto |
+| `tablet-768` | 768 × 1024 | tablet em retrato |
+| `notebook-1024` | 1024 × 768 | tablet em paisagem / notebook |
+| `wide-1920` | 1920 × 1080 | desktop amplo |
+
+O portão responsivo roda no CI com Playwright autenticado por meio de
+`npm run test:e2e:phase-a`. Todas as rotas da Fase A devem carregar sem overflow horizontal,
+overlay de erro ou perda da navegação principal nos quatro projetos.
 PWA instalável: `public/manifest.json` com ícones 192×512.

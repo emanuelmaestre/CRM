@@ -941,7 +941,7 @@ de estado; todos os fluxos E2E listados verdes antes de cada go-live de fase.
 - [ ] logs estruturados; falha aparece no painel
 - [ ] teste (unidade p/ regra crítica; E2E p/ fluxo de dinheiro/mensagem)
 - [ ] UI com estados de loading/vazio/erro/sem-permissão
-- [ ] responsivo verificado em 360 / 768 / 1024 / 1920 px
+- [x] responsivo verificado em 360 / 768 / 1024 / 1920 px
 - [ ] motion conforme §14.5 e desligável por `prefers-reduced-motion`
 - [ ] revisado (agente revisor + humano); typecheck e lint verdes
 
