@@ -1,3 +1,4 @@
+import { createClient } from "@supabase/supabase-js";
 import type { ChannelProvider, PedidoNormalizado, SaudeConector } from "../domain/ports";
 
 interface MLCredentials {
@@ -81,12 +82,29 @@ export class MercadoLivreProvider implements ChannelProvider {
   }
 }
 
-export function criarMLProvider(brandSlug: "karzi" | "wuwu"): MercadoLivreProvider {
+// Lê o token do banco (canal_tokens) com fallback para variável de ambiente legada
+export async function criarMLProvider(brandSlug: "karzi" | "wuwu"): Promise<MercadoLivreProvider> {
   const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
-  const clientId = process.env.ML_CLIENT_ID;
-  const clientSecret = process.env.ML_CLIENT_SECRET;
-  const accessToken = process.env[`ML_ACCESS_TOKEN_${upper}`];
-  const refreshToken = process.env[`ML_REFRESH_TOKEN_${upper}`] ?? "";
+  const clientId     = process.env.ML_CLIENT_ID!;
+  const clientSecret = process.env.ML_CLIENT_SECRET!;
+  const orgId        = process.env.DEFAULT_ORG_ID!;
+  const brandId      = process.env[`NEXT_PUBLIC_BRAND_ID_${upper}`]!;
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { data } = await supabase
+    .from("canal_tokens")
+    .select("access_token, refresh_token")
+    .eq("org_id", orgId)
+    .eq("brand_id", brandId)
+    .eq("canal", "mercadolivre")
+    .maybeSingle();
+
+  const accessToken  = data?.access_token  ?? process.env[`ML_ACCESS_TOKEN_${upper}`];
+  const refreshToken = data?.refresh_token ?? process.env[`ML_REFRESH_TOKEN_${upper}`] ?? "";
 
   if (!clientId || !clientSecret || !accessToken) {
     throw new Error(`Credenciais Mercado Livre não configuradas para ${upper}.`);

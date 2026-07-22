@@ -18,6 +18,7 @@ import { A19_notificacoesInternas } from "@/modules/jobs/A19-notificacoes-intern
 import { A20_backupVerificacao } from "@/modules/jobs/A20-backup-verificacao";
 import { A21_guardaConsumoIA } from "@/modules/jobs/A21-guarda-consumo-ia";
 import { A22_lgpdRetencao } from "@/modules/jobs/A22-lgpd-retencao";
+import { A23_refreshMLTokens } from "@/modules/jobs/A23-refresh-ml-tokens";
 import { A14_scoresProduto } from "@/modules/jobs/A14-scores-produto";
 import { A15_insightsFunil } from "@/modules/jobs/A15-insights-funil";
 import { A16_sugestoesCampanha } from "@/modules/jobs/A16-sugestoes-campanha";
@@ -48,5 +49,6 @@ export const { GET, POST, PUT } = serve({
     A20_backupVerificacao,
     A21_guardaConsumoIA,
     A22_lgpdRetencao,
+    A23_refreshMLTokens,
   ],
 });

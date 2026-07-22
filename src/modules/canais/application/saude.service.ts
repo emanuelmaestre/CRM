@@ -10,12 +10,12 @@ import type { ChannelProvider, MessagingProvider } from "../domain/ports";
 
 type BrandSlug = "karzi" | "wuwu";
 
-function resolverProvider(tipo: string, brandSlug: BrandSlug): ChannelProvider | MessagingProvider | null {
+async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<ChannelProvider | MessagingProvider | null> {
   try {
     switch (tipo) {
       case "whatsapp":     return criarZApiProvider(brandSlug);
       case "shopee":       return criarShopeeProvider(brandSlug);
-      case "mercadolivre": return criarMLProvider(brandSlug);
+      case "mercadolivre": return await criarMLProvider(brandSlug);
       case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
       default:             return null;
     }
@@ -38,7 +38,7 @@ export async function verificarSaudeConectores(orgId: string): Promise<void> {
 
     try {
       const brandSlug = (conta.meta as Record<string, string> | null)?.brandSlug as BrandSlug | undefined;
-      const provider = resolverProvider(conta.tipo, brandSlug ?? "karzi");
+      const provider = await resolverProvider(conta.tipo, brandSlug ?? "karzi");
 
       if (!provider) {
         novoStatus = "degradado";

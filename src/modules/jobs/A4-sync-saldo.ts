@@ -12,10 +12,10 @@ import type { ChannelProvider } from "@/modules/canais/domain/ports";
 
 type BrandSlug = "karzi" | "wuwu";
 
-function resolverChannelProvider(tipo: string, brandSlug: BrandSlug): ChannelProvider | null {
+async function resolverChannelProvider(tipo: string, brandSlug: BrandSlug): Promise<ChannelProvider | null> {
   try {
     switch (tipo) {
-      case "mercadolivre": return criarMLProvider(brandSlug);
+      case "mercadolivre": return await criarMLProvider(brandSlug);
       case "shopee":       return criarShopeeProvider(brandSlug);
       case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
       case "olist":        return criarOlistProvider(brandSlug);
@@ -83,7 +83,7 @@ export const A4_syncSaldo = inngest.createFunction(
 
     for (const m of mapeamentos) {
       const brandSlug = (m.contaMeta as Record<string, string> | null)?.brandSlug as BrandSlug ?? "karzi";
-      const provider = resolverChannelProvider(m.contaTipo, brandSlug);
+      const provider = await resolverChannelProvider(m.contaTipo, brandSlug);
 
       if (!provider) {
         resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: false, erro: "provider nao suportado" });

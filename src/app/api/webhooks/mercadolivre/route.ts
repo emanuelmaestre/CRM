@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
+import { validarAssinaturaML } from "@/shared/lib/ml-signature";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const MLNotificationSchema = z.object({
   resource: z.string(),
@@ -35,6 +42,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const bloqueio = await verificarRateLimit(req, "webhook");
   if (bloqueio) return bloqueio;
 
+  const secret = process.env.ML_CLIENT_SECRET;
+  if (secret) {
+    const valido = validarAssinaturaML(
+      req.headers.get("x-signature"),
+      req.headers.get("x-request-id"),
+      secret,
+    );
+    if (!valido) {
+      return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
+    }
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -58,7 +77,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const conta = await resolverContaWebhookMarketplace("mercadolivre", String(resultado.data.user_id));
-    const accessToken = process.env[`ML_ACCESS_TOKEN_${conta.brandSlug.toUpperCase()}`];
+
+    // Busca token no banco (OAuth) com fallback para env var legada
+    let accessToken: string | undefined;
+    const { data: tokenRow } = await supabase
+      .from("canal_tokens")
+      .select("access_token")
+      .eq("org_id", process.env.DEFAULT_ORG_ID!)
+      .eq("brand_id", conta.brandId)
+      .eq("canal", "mercadolivre")
+      .maybeSingle();
+
+    accessToken = tokenRow?.access_token ?? process.env[`ML_ACCESS_TOKEN_${conta.brandSlug.toUpperCase()}`];
     if (!accessToken) throw new Error(`Token Mercado Livre não configurado para ${conta.brandSlug}.`);
     const pedidoML = await buscarPedidoML(orderId, accessToken);
 
