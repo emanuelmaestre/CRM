@@ -83,10 +83,10 @@ const CHANNELS: Record<string, ChannelConfig> = {
 };
 
 const LOGO_HEIGHT: Record<Size, number> = {
-  xs: 12,
-  sm: 16,
-  md: 20,
-  lg: 26,
+  xs: 14,
+  sm: 20,
+  md: 28,
+  lg: 36,
 };
 
 const PILL_H: Record<Size, string> = {
