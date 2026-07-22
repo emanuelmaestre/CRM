@@ -6,16 +6,10 @@ import { resolverContaWebhookMarketplace } from "@/modules/canais/application/we
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 
 const TikTokWebhookSchema = z.object({
-  type: z.number(),
-  shop_id: z.string(),
-  data: z.object({
-    order_id: z.string().optional(),
-    order_status: z.string().optional(),
-    buyer_uid: z.string().optional(),
-    total_amount: z.string().optional(),
-    create_time: z.number().optional(),
-  }),
-  timestamp: z.number(),
+  type:      z.number(),
+  shop_id:   z.string().optional().default(""),
+  data:      z.record(z.unknown()).optional().default({}),
+  timestamp: z.number().optional(),
 });
 
 function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
