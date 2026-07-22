@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { getIcon } from "@/shared/config/icon-registry";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import settingsConfig from "@/config/settings.json";
 import dashboardConfig from "@/config/dashboard.json";
 
@@ -137,13 +138,7 @@ export default function ConfiguracoesPage() {
         <Card title={dashboardConfig.channels.title} icon={getIcon(dashboardConfig.channels.connectedIcon)}>
           {dashboardConfig.channels.items.map((c) => (
             <div key={c.name} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                c.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
-              }`}>
-                {c.connected
-                  ? <ConnectedIcon size={13} strokeWidth={2} />
-                  : <DisconnectedIcon size={13} strokeWidth={1.75} />}
-              </div>
+              <ChannelLogo canal={c.name} size="sm" variant="badge" />
               <span className="text-sm text-foreground flex-1">{c.name}</span>
               <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
                 c.connected

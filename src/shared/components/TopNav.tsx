@@ -7,8 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/shared/design-system/cn";
 import { createClient } from "@/shared/lib/supabase/client";
 import { getIcon } from "@/shared/config/icon-registry";
-import appConfig from "@/config/app.json";
-import brandsConfig from "@/config/brands.json";
 import navigationConfig from "@/config/navigation.json";
 
 const SearchIcon = getIcon(navigationConfig.utilities.search.icon);
@@ -49,27 +47,19 @@ export function TopNav() {
       className="fixed top-0 inset-x-0 z-30 h-14 bg-card/90 backdrop-blur-md border-b border-border flex items-center px-4 sm:px-6 gap-4"
     >
       {/* Logo */}
-      <Link href={navigationConfig.homeHref} className="flex items-center gap-2 shrink-0 group">
+      <Link href={navigationConfig.homeHref} className="flex items-center shrink-0 group" aria-label="Início">
         <motion.span
           whileHover={{ scale: 1.03 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
-          className="text-lg font-bold tracking-tight leading-none"
-          style={{
-            fontFamily: "var(--font-sora)",
-            background: "var(--gradient-signature)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
+          className="flex items-center bg-white/95 dark:bg-white/92 rounded-lg px-2.5 py-1 shadow-[0_1px_4px_rgba(0,0,0,.08)] border border-black/[.04]"
         >
-          {appConfig.name}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logos/uncao.svg"
+            alt="KARZI | WUWU"
+            style={{ height: 26, width: "auto", display: "block", objectFit: "contain" }}
+          />
         </motion.span>
-        <div className="flex gap-1.5">
-          {appConfig.brandOrder.map((brand) => (
-            <span key={brand} className="text-[9px] font-bold uppercase tracking-widest text-foreground/50">
-              {brandsConfig[brand as keyof typeof brandsConfig].label}
-            </span>
-          ))}
-        </div>
       </Link>
 
       {/* Nav links */}

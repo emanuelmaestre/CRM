@@ -65,8 +65,7 @@
     "items": [
       { "name": "WhatsApp (Z-API)", "connected": false },
       { "name": "Shopee", "connected": false },
-      { "name": "TikTok Shop", "connected": false },
-      { "name": "Instagram", "connected": false }
+      { "name": "TikTok Shop", "connected": false }
     ]
   }
 }

@@ -53,7 +53,7 @@ const CHANNELS: Record<string, ChannelConfig> = {
   },
   whatsapp: {
     label: "WhatsApp",
-    logo: null,
+    logo: "/logos/whatsapp.svg",
     fallback: "WA",
     accent: "#25D366",
   },
