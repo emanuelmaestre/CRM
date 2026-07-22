@@ -69,6 +69,9 @@ jobs:
       - name: Grant application role privileges
         run: npm run db:ci:grants
 
+      - name: Synthetic seed integrity and idempotency
+        run: npm run test:seed-synthetic
+
       - name: RLS integration tests
         run: npm run test:rls
 
@@ -175,6 +178,7 @@ jobs:
           npm run db:ci:bootstrap
           npm run db:migrate
           npm run db:ci:grants
+          npm run db:seed:synthetic
           npm run db:ci:seed-e2e
 
       - name: Build
