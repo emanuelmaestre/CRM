@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   description: appConfig.description,
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "default", title: appConfig.metadata.appleWebAppTitle },
+  other: {
+    "tiktok-developers-site-verification": "ptbw0AK1yP4OTOYbtaTkuwMBl3ChdjhS",
+  },
 };
 
 export const viewport: Viewport = {
