@@ -510,12 +510,7 @@ async function applyCatalog(tx, catalog, anchor) {
         (${item.id}, ${orgId}, ${brands.get(item.brand).id}, ${users.get(item.author).id},
          'usuario_sintetico', ${item.entity}, ${entityIds.get(item.entityRef)}, ${item.action},
          null, ${tx.json(item.after)}, null, ${atOffset(anchor, -item.daysAgo)})
-      on conflict (id) do update set
-        org_id = excluded.org_id, brand_id = excluded.brand_id, autor_id = excluded.autor_id,
-        autor_tipo = excluded.autor_tipo, entidade = excluded.entidade,
-        entidade_id = excluded.entidade_id, acao = excluded.acao,
-        antes = excluded.antes, depois = excluded.depois, ip = null,
-        criado_em = excluded.criado_em
+      on conflict (id) do nothing
     `;
   }
 }

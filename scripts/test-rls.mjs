@@ -200,6 +200,26 @@ async function expectPolicyDenied(name, test) {
   record(name, `bloqueada pelo Postgres (${code ?? "policy error"})`);
 }
 
+async function expectDatabaseDenied(name, expectedCodes, test) {
+  let caught;
+  try {
+    await sql.begin(async (tx) => {
+      await test(tx);
+      throw new PolicyUnexpectedlyAllowed();
+    });
+  } catch (error) {
+    caught = error;
+  }
+  if (caught instanceof PolicyUnexpectedlyAllowed) {
+    recordFailure(name, "operação inválida permitida pelo banco");
+    return;
+  }
+  const code = caught?.code;
+  const message = caught instanceof Error ? caught.message : String(caught);
+  assert(expectedCodes.includes(code), `${name}: falhou por motivo inesperado (${code ?? "sem código"}: ${message}).`);
+  record(name, `bloqueada pela integridade do Postgres (${code})`);
+}
+
 async function testMetadata() {
   const tables = await sql`
     select
@@ -608,6 +628,95 @@ async function testStockMutationByProfile() {
   });
 }
 
+async function testTaskAgendaOwnershipByProfile() {
+  await testWithRollback("vendedor vê somente tarefas e agenda próprias", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    const ownTask = randomUUID();
+    const teamTask = randomUUID();
+    const ownEvent = randomUUID();
+    const teamEvent = randomUUID();
+    await tx`
+      insert into public.tarefa (id, org_id, cliente_id, responsavel_id, titulo)
+      values
+        (${ownTask}, ${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorA}, 'Tarefa própria'),
+        (${teamTask}, ${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Tarefa da equipe')
+    `;
+    await tx`
+      insert into public.evento_agenda (id, org_id, cliente_id, responsavel_id, titulo, inicio)
+      values
+        (${ownEvent}, ${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorA}, 'Evento próprio', now()),
+        (${teamEvent}, ${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Evento da equipe', now())
+    `;
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
+    const tasks = await tx`select id from public.tarefa order by id`;
+    const events = await tx`select id from public.evento_agenda order by id`;
+    assert(tasks.length === 1 && tasks[0].id === ownTask, "Vendedor visualizou tarefa de outro responsável.");
+    assert(events.length === 1 && events[0].id === ownEvent, "Vendedor visualizou evento de outro responsável.");
+    record("vendedor vê somente tarefas e agenda próprias", "1 tarefa e 1 evento do próprio responsável");
+  });
+
+  await testWithRollback("gestor vê tarefas e agenda da equipe", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await tx`
+      insert into public.tarefa (org_id, cliente_id, responsavel_id, titulo)
+      values
+        (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorA}, 'Tarefa do vendedor'),
+        (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Tarefa do gestor')
+    `;
+    await tx`
+      insert into public.evento_agenda (org_id, cliente_id, responsavel_id, titulo, inicio)
+      values
+        (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorA}, 'Evento do vendedor', now()),
+        (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Evento do gestor', now())
+    `;
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
+    const tasks = await tx`select id from public.tarefa`;
+    const events = await tx`select id from public.evento_agenda`;
+    assert(tasks.length === 2 && events.length === 2, "Gestor não visualizou a operação da equipe.");
+    record("gestor vê tarefas e agenda da equipe", "2 tarefas e 2 eventos visíveis");
+  });
+
+  await expectPolicyDenied("vendedor não atribui tarefa a outro responsável", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
+    await tx`
+      insert into public.tarefa (org_id, cliente_id, responsavel_id, titulo)
+      values (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Atribuição indevida')
+    `;
+  });
+}
+
+async function testTaskAgendaCrossTenantDenied() {
+  await expectDatabaseDenied("tarefa não referencia cliente de outro tenant", ["23503"], async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
+    await tx`
+      insert into public.tarefa (org_id, cliente_id, responsavel_id, titulo)
+      values (${fixtures.orgA}, ${fixtures.clientB}, ${fixtures.adminA}, 'Referência cruzada')
+    `;
+  });
+  await expectDatabaseDenied("agenda não referencia responsável de outro tenant", ["23503"], async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
+    await tx`
+      insert into public.evento_agenda (org_id, cliente_id, responsavel_id, titulo, inicio)
+      values (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorB}, 'Referência cruzada', now())
+    `;
+  });
+}
+
+async function testAuditImmutableForBackend() {
+  await expectDatabaseDenied("auditoria imutável para backend", ["P0001"], async (tx) => {
+    const fixtures = await createFixtures(tx);
+    const auditId = randomUUID();
+    await tx`
+      insert into public.audit_log (id, org_id, autor_id, entidade, entidade_id, acao)
+      values (${auditId}, ${fixtures.orgA}, ${fixtures.adminA}, 'rls_test', ${fixtures.tagA}, 'original')
+    `;
+    await tx`update public.audit_log set acao = 'reescrito' where id = ${auditId}`;
+  });
+}
+
 try {
   await testMetadata();
   await testProfileMetadata();
@@ -629,6 +738,9 @@ try {
   await testOnlyAdminManagesOrganization();
   await testProductCostConfidentiality();
   await testStockMutationByProfile();
+  await testTaskAgendaOwnershipByProfile();
+  await testTaskAgendaCrossTenantDenied();
+  await testAuditImmutableForBackend();
 
   const failed = results.filter((result) => result.status === "failed");
   console.log(JSON.stringify({ status: failed.length === 0 ? "passed" : "failed", tests: results }, null, 2));

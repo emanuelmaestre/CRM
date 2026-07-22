@@ -92,6 +92,7 @@ export const tarefa = pgTable("tarefa", {
   index("idx_tarefa_org").on(t.orgId),
   index("idx_tarefa_responsavel").on(t.responsavelId),
   index("idx_tarefa_vencimento").on(t.vencimentoEm),
+  index("idx_tarefa_status").on(t.status),
 ]);
 
 export const eventoAgenda = pgTable("evento_agenda", {
@@ -106,4 +107,5 @@ export const eventoAgenda = pgTable("evento_agenda", {
 }, (t) => [
   index("idx_evento_agenda_org").on(t.orgId),
   index("idx_evento_agenda_inicio").on(t.inicio),
+  index("idx_evento_agenda_responsavel").on(t.responsavelId),
 ]);

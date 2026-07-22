@@ -20,6 +20,8 @@ export const auditLog = pgTable("audit_log", {
   index("idx_audit_org").on(t.orgId),
   index("idx_audit_entidade").on(t.entidade, t.entidadeId),
   index("idx_audit_criado").on(t.createdAt),
+  index("idx_audit_autor").on(t.autorId),
+  index("idx_audit_acao").on(t.acao),
 ]);
 
 export const eventoDominio = pgTable("evento_dominio", {

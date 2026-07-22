@@ -15,6 +15,7 @@
   },
   "routes": [
     { "prefix": "/admin", "profiles": ["admin"] },
+    { "prefix": "/auditoria", "profiles": ["admin"] },
     { "prefix": "/configuracoes", "profiles": ["admin"] },
     { "prefix": "/relatorios", "profiles": ["admin", "gestor"] },
     { "prefix": "/importacao", "profiles": ["admin", "gestor"] },

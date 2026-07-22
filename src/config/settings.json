@@ -58,6 +58,13 @@
     }
   },
   "system": { "title": "Sistema", "icon": "Cpu", "rows": [{ "label": "Versão", "value": "LEO v1.0" }, { "label": "Ambiente", "value": "Desenvolvimento" }] },
+  "audit": {
+    "title": "Trilha de auditoria",
+    "icon": "ShieldCheck",
+    "description": "Consulte quem fez cada alteração, quando e por qual origem.",
+    "href": "/auditoria",
+    "action": "Abrir auditoria"
+  },
   "groups": [
     {
       "title": "Saúde do Sistema",

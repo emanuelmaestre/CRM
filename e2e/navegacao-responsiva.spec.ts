@@ -9,6 +9,9 @@ const paginas = [
   { rota: "/clientes", titulo: "Clientes" },
   { rota: "/estoque", titulo: "Estoque" },
   { rota: "/vendas", titulo: "Vendas" },
+  { rota: "/tarefas", titulo: "Tarefas" },
+  { rota: "/agenda", titulo: "Agenda" },
+  { rota: "/auditoria", titulo: "Auditoria" },
   { rota: "/relatorios", titulo: "Relatórios" },
   { rota: "/configuracoes", titulo: "Configurações" },
 ];

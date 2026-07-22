@@ -31,6 +31,7 @@ describe("contratos JSON da interface", () => {
       settingsConfig.users.icon,
       settingsConfig.integrations.icon,
       settingsConfig.system.icon,
+      settingsConfig.audit.icon,
       settingsConfig.status.pendingIcon,
       settingsConfig.openAction.icon,
       ...settingsConfig.groups.flatMap((group) => [group.icon, ...group.cards.map((card) => card.icon)]),
@@ -46,6 +47,12 @@ describe("contratos JSON da interface", () => {
       expect(wizard.sections).toHaveLength(wizard.steps.length);
       expect(wizard.cancelHref).toMatch(/^\//);
     }
+  });
+
+  it("mantém funil, tarefas e agenda na operação comercial", async () => {
+    const pagesConfig = await import("@/config/pages.json");
+    expect(pagesConfig.default.vendas.tabs.map((tab) => tab.href)).toEqual(["/vendas", "/tarefas", "/agenda"]);
+    expect(pagesConfig.default.auditoria.origins).toHaveProperty("sistema");
   });
 
   it("mantém o conector Mercado Livre dirigido pela configuração JSON", () => {

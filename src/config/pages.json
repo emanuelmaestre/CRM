@@ -84,6 +84,11 @@
     "metadataTitle": "Vendas",
     "title": "Vendas",
     "description": "Funil de vendas e oportunidades",
+    "tabs": [
+      { "id": "funil", "href": "/vendas", "label": "Funil" },
+      { "id": "tarefas", "href": "/tarefas", "label": "Tarefas" },
+      { "id": "agenda", "href": "/agenda", "label": "Agenda" }
+    ],
     "newAction": "+ Nova oportunidade",
     "loading": "Carregando funil…",
     "empty": { "title": "Funil vazio", "description": "Configure as etapas do funil e comece a registrar oportunidades." },
@@ -103,6 +108,75 @@
       "deleteSuccess": "Oportunidade excluída.",
       "deleteError": "Erro ao excluir oportunidade."
     }
+  },
+  "tarefas": {
+    "metadataTitle": "Tarefas",
+    "title": "Tarefas",
+    "description": "Acompanhamentos, lembretes e pendências comerciais",
+    "newAction": "+ Nova tarefa",
+    "loading": "Carregando tarefas…",
+    "searchPlaceholder": "Buscar por título ou descrição…",
+    "allStatuses": "Todos os status",
+    "allOwners": "Toda a equipe",
+    "empty": { "title": "Nenhuma tarefa encontrada", "description": "Crie uma tarefa ou ajuste os filtros da lista." },
+    "fields": {
+      "title": "Título",
+      "description": "Descrição",
+      "client": "Cliente",
+      "owner": "Responsável",
+      "dueAt": "Vencimento",
+      "optional": "Opcional"
+    },
+    "status": {
+      "pendente": "Pendente",
+      "em_andamento": "Em andamento",
+      "concluida": "Concluída",
+      "cancelada": "Cancelada"
+    },
+    "labels": { "overdue": "Atrasada", "noDueDate": "Sem vencimento", "noClient": "Sem cliente" },
+    "actions": { "save": "Criar tarefa", "saving": "Criando…", "cancel": "Cancelar", "cancelTask": "Cancelar tarefa" },
+    "messages": {
+      "loadError": "Erro ao carregar tarefas.",
+      "createSuccess": "Tarefa criada.",
+      "createError": "Erro ao criar tarefa.",
+      "statusSuccess": "Status atualizado.",
+      "statusError": "Erro ao atualizar status."
+    }
+  },
+  "agenda": {
+    "metadataTitle": "Agenda",
+    "title": "Agenda",
+    "description": "Compromissos e lembretes comerciais da equipe",
+    "newAction": "+ Novo evento",
+    "loading": "Carregando agenda…",
+    "allOwners": "Toda a equipe",
+    "empty": { "title": "Nenhum evento no período", "description": "Crie um compromisso ou amplie o intervalo exibido." },
+    "fields": { "title": "Título", "client": "Cliente", "owner": "Responsável", "start": "Início", "end": "Fim", "optional": "Opcional" },
+    "labels": { "noClient": "Sem cliente", "until": "até" },
+    "actions": { "save": "Criar evento", "saving": "Criando…", "cancel": "Cancelar", "delete": "Excluir", "deleteConfirm": "Excluir \"{title}\"?" },
+    "messages": {
+      "loadError": "Erro ao carregar a agenda.",
+      "createSuccess": "Evento criado.",
+      "createError": "Erro ao criar evento.",
+      "deleteSuccess": "Evento excluído.",
+      "deleteError": "Erro ao excluir evento."
+    }
+  },
+  "auditoria": {
+    "metadataTitle": "Auditoria",
+    "title": "Trilha de auditoria",
+    "description": "Histórico imutável de ações manuais, jobs, IA e webhooks",
+    "loading": "Carregando auditoria…",
+    "searchPlaceholder": "Buscar por entidade, ação ou autor…",
+    "allEntities": "Todas as entidades",
+    "allOrigins": "Todas as origens",
+    "entities": ["cliente", "produto", "estoque_movimento", "oportunidade", "funil_etapa", "tarefa", "evento_agenda", "app_user"],
+    "empty": { "title": "Nenhum evento de auditoria", "description": "Ajuste os filtros para consultar outro período." },
+    "columns": ["Quando", "Autor / origem", "Entidade", "Ação", "Marca", "Detalhes"],
+    "origins": { "usuario": "Manual", "usuario_sintetico": "Seed sintético", "sistema": "Sistema", "job": "Job", "ia": "IA", "webhook": "Webhook" },
+    "labels": { "system": "Sistema", "before": "Antes", "after": "Depois", "details": "Ver alterações", "page": "Página {current} de {total}" },
+    "actions": { "previous": "Anterior", "next": "Próxima" },
+    "messages": { "loadError": "Erro ao carregar a trilha de auditoria." }
   },
   "inbox": {
     "metadataTitle": "Mensagens",

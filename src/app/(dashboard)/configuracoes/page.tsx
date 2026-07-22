@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
@@ -226,6 +227,19 @@ export default function ConfiguracoesPage() {
         {/* Sistema */}
         <Card title={settingsConfig.system.title} icon={getIcon(settingsConfig.system.icon)}>
           {settingsConfig.system.rows.map((row) => <Row key={row.label} {...row} />)}
+        </Card>
+
+        <Card title={settingsConfig.audit.title} icon={getIcon(settingsConfig.audit.icon)}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">{settingsConfig.audit.description}</p>
+            <Link
+              href={settingsConfig.audit.href}
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white"
+              style={{ background: "var(--gradient-signature)" }}
+            >
+              {settingsConfig.audit.action}
+            </Link>
+          </div>
         </Card>
 
         {settingsConfig.groups.map((group) => {
