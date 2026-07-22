@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/shared/lib/db";
 import { channelAccount } from "@/shared/lib/db/schema";
 
-type Marketplace = "mercadolivre" | "shopee" | "tiktokshop";
+type Marketplace = "mercadolivre" | "shopee" | "tiktokshop" | "olist";
 type BrandSlug = "karzi" | "wuwu";
 
 const AccountConfigSchema = z.object({
@@ -17,6 +17,7 @@ const EXTERNAL_ID_ENV: Record<Marketplace, string> = {
   mercadolivre: "ML_SELLER_ID",
   shopee: "SHOPEE_SHOP_ID",
   tiktokshop: "TIKTOK_SHOP_ID",
+  olist: "OLIST_SHOP_ID",
 };
 
 export async function resolverContaWebhookMarketplace(

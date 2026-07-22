@@ -19,7 +19,7 @@ const TikTokWebhookSchema = z.object({
 
 function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
   const appSecret = process.env.TIKTOK_APP_SECRET;
-  if (!appSecret) return false; // bloqueia se chave não configurada
+  if (!appSecret) return false;
 
   const assinatura = req.headers.get("x-tts-signature") ?? "";
   const esperado = crypto
@@ -30,6 +30,67 @@ function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
   return assinatura === esperado;
 }
 
+async function buscarDetalheTikTok(
+  orderId: string,
+  appKey: string,
+  appSecret: string,
+  accessToken: string,
+  shopId: string,
+): Promise<{
+  nomeCliente: string;
+  total: string;
+  itens: { skuExterno: string; quantidade: number; precoUnitario: string }[];
+}> {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const path = "/order/202309/orders";
+
+  const baseParams: Record<string, string> = {
+    app_key: appKey,
+    shop_id: shopId,
+    timestamp: String(timestamp),
+    access_token: accessToken,
+    ids: orderId,
+  };
+
+  const sortedParams = Object.keys(baseParams)
+    .filter((k) => k !== "sign" && k !== "access_token")
+    .sort()
+    .map((k) => `${k}${baseParams[k]}`)
+    .join("");
+
+  const signBase = `${appSecret}${path}${sortedParams}${timestamp}`;
+  const sign = crypto.createHmac("sha256", appSecret).update(signBase).digest("hex");
+
+  const qs = new URLSearchParams({ ...baseParams, sign });
+  const res = await fetch(`https://open-api.tiktokglobalshop.com${path}?${qs}`, {
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!res.ok) throw new Error(`TikTok detail HTTP ${res.status}`);
+
+  type TikTokItem = { seller_sku: string; quantity: number; sale_price: string };
+  type TikTokOrder = {
+    id: string;
+    payment_info?: { total_amount: string };
+    recipient_address?: { name: string };
+    line_items?: TikTokItem[];
+  };
+
+  const data = await res.json() as { data?: { orders?: TikTokOrder[] } };
+  const order = data.data?.orders?.[0];
+
+  return {
+    nomeCliente: order?.recipient_address?.name ?? `Comprador TikTok`,
+    total: order?.payment_info?.total_amount ?? "0",
+    itens: (order?.line_items ?? []).map((i) => ({
+      skuExterno: i.seller_sku,
+      quantidade: i.quantity,
+      precoUnitario: i.sale_price,
+    })),
+  };
+}
+
+// Tipos de evento de pedido: 1=criado, 2=atualizado, 3=cancelado, 4=enviado, 34=entregue
 const ORDER_EVENTS = new Set([1, 2, 3, 4, 34]);
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -59,14 +120,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   try {
     const conta = await resolverContaWebhookMarketplace("tiktokshop", resultado.data.shop_id);
+
+    const upper = conta.brandSlug.toUpperCase() as "KARZI" | "WUWU";
+    const appKey = process.env.TIKTOK_APP_KEY ?? "";
+    const appSecret = process.env.TIKTOK_APP_SECRET ?? "";
+    const accessToken = process.env[`TIKTOK_ACCESS_TOKEN_${upper}`] ?? "";
+    const shopId = process.env[`TIKTOK_SHOP_ID_${upper}`] ?? "";
+
+    const detalhe = await buscarDetalheTikTok(data.order_id, appKey, appSecret, accessToken, shopId);
+
     const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, {
       providerOrderId: data.order_id,
       canal: "tiktokshop",
       clienteExternalId: data.buyer_uid ?? data.order_id,
-      clienteNome: `Comprador TikTok ${data.buyer_uid ?? ""}`.trim(),
+      clienteNome: detalhe.nomeCliente,
       status: data.order_status?.toLowerCase() ?? "criado",
-      total: data.total_amount ?? "0",
-      itens: [],
+      total: detalhe.total,
+      itens: detalhe.itens,
       criadoEm: data.create_time ? new Date(data.create_time * 1000) : new Date(),
     });
 

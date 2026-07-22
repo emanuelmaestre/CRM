@@ -9,11 +9,11 @@ import { pedido, pedidoItem } from "@/shared/lib/db/schema/vendas";
 import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
 import type { PedidoNormalizado } from "../domain/ports";
 
-type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop";
+type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop" | "olist";
 
 function toCanal(canal: string): CanalSuportado {
-  if (canal === "shopee" || canal === "mercadolivre" || canal === "tiktokshop") return canal;
-  throw new Error(`Canal de pedido nÃ£o suportado: ${canal}.`);
+  if (canal === "shopee" || canal === "mercadolivre" || canal === "tiktokshop" || canal === "olist") return canal;
+  throw new Error(`Canal de pedido não suportado: ${canal}.`);
 }
 
 const PedidoIngestaoSchema = z.object({
