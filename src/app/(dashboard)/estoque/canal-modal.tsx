@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { X, Plus, Trash2, Link2 } from "lucide-react";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import {
   actionListarContasCanal,
   actionListarMapeamentosCanal,
@@ -15,12 +16,6 @@ import { inputClass, selectClass } from "@/shared/design-system/primitives/Wizar
 type ContaCanal = { id: string; tipo: string; nome: string; status: string; brandId: string };
 type Mapeamento = { id: string; channelAccountId: string; externalListingId: string; ativo: boolean; contaTipo: string; contaNome: string };
 
-const ICONE_CANAL: Record<string, string> = {
-  mercadolivre: "🛒",
-  shopee:       "🧡",
-  tiktokshop:   "🎵",
-  olist:        "📦",
-};
 
 interface Props {
   produtoId: string;
@@ -149,7 +144,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                       animate={{ opacity: 1, x: 0 }}
                       className="flex items-center gap-3 px-4 py-3 rounded-[0.75rem] bg-muted/50 border border-border"
                     >
-                      <span className="text-lg">{ICONE_CANAL[m.contaTipo] ?? "🔗"}</span>
+                      <ChannelLogo canal={m.contaTipo} size="sm" variant="badge" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{m.contaNome}</p>
                         <p className="text-xs text-muted-foreground font-mono truncate">{m.externalListingId}</p>
@@ -182,7 +177,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                     <option value="">Selecione a conta de canal…</option>
                     {contasDisponiveis.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {ICONE_CANAL[c.tipo] ?? "🔗"} {c.nome} ({c.tipo})
+                        {c.nome} ({c.tipo})
                         {c.status !== "conectado" ? " — desconectado" : ""}
                       </option>
                     ))}

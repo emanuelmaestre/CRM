@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { BrandChip } from "@/shared/design-system/primitives/BrandChip";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import brandsConfig from "@/config/brands.json";
 import dashboardConfig from "@/config/dashboard.json";
 import { getIcon } from "@/shared/config/icon-registry";
@@ -401,7 +402,7 @@ function Channels() {
           {dashboardConfig.channels.action} <ArrowRight size={11} />
         </motion.a>
       </div>
-      <div className="p-4 space-y-2">
+      <div className="p-4 space-y-1">
         {dashboardConfig.channels.items.map((c, i) => (
           <motion.div
             key={c.name}
@@ -409,20 +410,9 @@ function Channels() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.07 + 0.2 }}
             whileHover={{ x: 2 }}
-            className="flex items-center gap-3 px-1 py-2 cursor-pointer"
+            className="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors"
           >
-            <div className="relative">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
-                c.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
-              }`}>
-                {c.connected ? <ConnectedIcon size={13} strokeWidth={2} /> : <DisconnectedIcon size={13} strokeWidth={1.75} />}
-              </div>
-              {c.connected && (
-                <>
-                  <span className="absolute inset-0 rounded-lg bg-[#1F8A4C]/15" />
-                </>
-              )}
-            </div>
+            <ChannelLogo canal={c.name} size="sm" variant="badge" />
             <span className="text-sm text-foreground flex-1">{c.name}</span>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
               c.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"

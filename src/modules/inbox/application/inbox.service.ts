@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, getTableColumns } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { channelAccount, conversa, mensagem } from "@/shared/lib/db/schema";
 import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
@@ -135,8 +135,14 @@ export async function listarConversas(orgId: string, opts: { brandId?: string; s
   if (opts.status) conditions.push(eq(conversa.status, opts.status as never));
 
   return db
-    .select()
+    .select({
+      ...getTableColumns(conversa),
+      canalTipo: channelAccount.tipo,
+      brandSlug: brand.slug,
+    })
     .from(conversa)
+    .leftJoin(channelAccount, eq(conversa.channelAccountId, channelAccount.id))
+    .leftJoin(brand, eq(conversa.brandId, brand.id))
     .where(and(...conditions))
     .orderBy(desc(conversa.updatedAt))
     .limit(opts.limit ?? 50);
