@@ -20,7 +20,7 @@ export function MLConnectSection() {
 
   const [status,    setStatus]    = useState<Status>(null);
   const [loading,   setLoading]   = useState(true);
-  const [feedback,  setFeedback]  = useState<{ type: "success" | "error"; brand?: string; msg: string } | null>(null);
+  const [feedback,  setFeedback]  = useState<{ type: "success" | "error"; brand?: string; msg: string; detail?: string } | null>(null);
 
   const fetchStatus = useCallback(async () => {
     setLoading(true);
@@ -50,7 +50,13 @@ export function MLConnectSection() {
         missing_params:      "Parâmetros ausentes no retorno do ML.",
         invalid_brand:       "Marca inválida no retorno do ML.",
       };
-      setFeedback({ type: "error", msg: msgs[error] ?? `Erro: ${error}` });
+      // O ML devolve o motivo real em ml_detail; sem ele o erro é indiagnosticável.
+      const detail = searchParams.get("ml_detail");
+      setFeedback({
+        type: "error",
+        msg: msgs[error] ?? `Erro: ${error}`,
+        detail: detail ?? undefined,
+      });
     }
 
     if (connected || error) {
@@ -58,6 +64,7 @@ export function MLConnectSection() {
       const params = new URLSearchParams(searchParams.toString());
       params.delete("ml_connected");
       params.delete("ml_error");
+      params.delete("ml_detail");
       const qs = params.toString();
       router.replace(pathname + (qs ? `?${qs}` : ""));
     }
@@ -78,7 +85,14 @@ export function MLConnectSection() {
           <span className="mt-0.5">
             {feedback.type === "success" ? "✓" : "✕"}
           </span>
-          <span>{feedback.msg}</span>
+          <span className="min-w-0">
+            {feedback.msg}
+            {feedback.detail && (
+              <code className="mt-1.5 block break-all rounded-md bg-black/5 px-2 py-1 font-mono text-[11px] font-normal opacity-90">
+                {feedback.detail}
+              </code>
+            )}
+          </span>
           <button
             onClick={() => setFeedback(null)}
             className="ml-auto text-current opacity-60 hover:opacity-100"
