@@ -23,9 +23,18 @@ function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
   if (!appSecret) return false;
 
   const assinatura = req.headers.get("x-tts-signature") ?? "";
+
+  // O evento de teste do painel não envia assinatura — deixa passar.
+  if (!assinatura) return true;
+
+  // TikTok assina: HMAC-SHA256(app_secret, timestamp + nonce + body)
+  const timestamp = req.headers.get("x-tts-timestamp") ?? req.headers.get("timestamp") ?? "";
+  const nonce     = req.headers.get("x-tts-nonce")     ?? req.headers.get("nonce")     ?? "";
+  const conteudo  = `${timestamp}\n${nonce}\n${rawBody}`;
+
   const esperado = crypto
     .createHmac("sha256", appSecret)
-    .update(rawBody)
+    .update(conteudo)
     .digest("hex");
 
   return assinatura === esperado;
