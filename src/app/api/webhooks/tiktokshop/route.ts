@@ -8,7 +8,7 @@ import { verificarRateLimit } from "@/shared/lib/rate-limit";
 const TikTokWebhookSchema = z.object({
   type:      z.number(),
   shop_id:   z.string().optional().default(""),
-  data:      z.record(z.unknown()).optional().default({}),
+  data:      z.record(z.string(), z.unknown()).optional().default({}),
   timestamp: z.number().optional(),
 });
 
@@ -119,32 +119,40 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Schema inválido" }, { status: 422 });
   }
 
-  const { type, data } = resultado.data;
+  const { type, data, shop_id } = resultado.data;
 
-  if (!ORDER_EVENTS.has(type) || !data.order_id) {
+  // Extrai campos do data com cast seguro
+  const d = data as {
+    order_id?: string;
+    order_status?: string;
+    buyer_uid?: string;
+    create_time?: number;
+  };
+
+  if (!ORDER_EVENTS.has(type) || !d.order_id) {
     return NextResponse.json({ ok: true, ignorado: true, type });
   }
 
   try {
-    const conta = await resolverContaWebhookMarketplace("tiktokshop", resultado.data.shop_id);
+    const conta = await resolverContaWebhookMarketplace("tiktokshop", shop_id);
 
     const upper = conta.brandSlug.toUpperCase() as "KARZI" | "WUWU";
-    const appKey = process.env.TIKTOK_APP_KEY ?? "";
-    const appSecret = process.env.TIKTOK_APP_SECRET ?? "";
+    const appKey     = process.env.TIKTOK_APP_KEY ?? "";
+    const appSecret  = process.env.TIKTOK_APP_SECRET ?? "";
     const accessToken = process.env[`TIKTOK_ACCESS_TOKEN_${upper}`] ?? "";
-    const shopId = process.env[`TIKTOK_SHOP_ID_${upper}`] ?? "";
+    const shopId     = process.env[`TIKTOK_SHOP_ID_${upper}`] ?? "";
 
-    const detalhe = await buscarDetalheTikTok(data.order_id, appKey, appSecret, accessToken, shopId);
+    const detalhe = await buscarDetalheTikTok(d.order_id, appKey, appSecret, accessToken, shopId);
 
     const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, {
-      providerOrderId: data.order_id,
+      providerOrderId: d.order_id,
       canal: "tiktokshop",
-      clienteExternalId: data.buyer_uid ?? data.order_id,
+      clienteExternalId: d.buyer_uid ?? d.order_id,
       clienteNome: detalhe.nomeCliente,
-      status: data.order_status?.toLowerCase() ?? "criado",
+      status: d.order_status?.toLowerCase() ?? "criado",
       total: detalhe.total,
       itens: detalhe.itens,
-      criadoEm: data.create_time ? new Date(data.create_time * 1000) : new Date(),
+      criadoEm: d.create_time ? new Date(d.create_time * 1000) : new Date(),
     });
 
     return NextResponse.json({ ok: true, pedidoId, novo });
