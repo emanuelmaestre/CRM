@@ -144,7 +144,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                       animate={{ opacity: 1, x: 0 }}
                       className="flex items-center gap-3 px-4 py-3 rounded-[0.75rem] bg-muted/50 border border-border"
                     >
-                      <ChannelLogo canal={m.contaTipo} size="sm" variant="badge" />
+                      <ChannelLogo canal={m.contaTipo} size="sm" variant="logo" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{m.contaNome}</p>
                         <p className="text-xs text-muted-foreground font-mono truncate">{m.externalListingId}</p>

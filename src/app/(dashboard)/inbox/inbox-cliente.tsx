@@ -352,7 +352,7 @@ export function InboxCliente() {
                       {formatarContato(selecionada.externalId)}
                     </p>
                     {selecionada.canalTipo && (
-                      <ChannelLogo canal={selecionada.canalTipo} size="xs" variant="badge" />
+                      <ChannelLogo canal={selecionada.canalTipo} size="xs" variant="logo" />
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">

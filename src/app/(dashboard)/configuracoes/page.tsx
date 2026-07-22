@@ -138,7 +138,7 @@ export default function ConfiguracoesPage() {
         <Card title={dashboardConfig.channels.title} icon={getIcon(dashboardConfig.channels.connectedIcon)}>
           {dashboardConfig.channels.items.map((c) => (
             <div key={c.name} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
-              <ChannelLogo canal={c.name} size="sm" variant="badge" />
+              <ChannelLogo canal={c.name} size="sm" variant="logo" />
               <span className="text-sm text-foreground flex-1">{c.name}</span>
               <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
                 c.connected

@@ -51,7 +51,7 @@ export function TopNav() {
         <motion.span
           whileHover={{ scale: 1.03 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
-          className="flex items-center bg-white/95 dark:bg-white/92 rounded-lg px-2.5 py-1 shadow-[0_1px_4px_rgba(0,0,0,.08)] border border-black/[.04]"
+          className="flex items-center"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
