@@ -64,6 +64,7 @@
     "disconnectedIcon": "WifiOff",
     "items": [
       { "name": "WhatsApp (Z-API)", "connected": false },
+      { "name": "Mercado Livre", "connected": false },
       { "name": "Shopee", "connected": false },
       { "name": "TikTok Shop", "connected": false }
     ]

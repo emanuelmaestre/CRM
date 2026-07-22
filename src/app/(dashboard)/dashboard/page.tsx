@@ -412,7 +412,7 @@ function Channels() {
             whileHover={{ x: 2 }}
             className="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer hover:bg-muted/50 transition-colors"
           >
-            <ChannelLogo canal={c.name} size="sm" variant="badge" />
+            <ChannelLogo canal={c.name} size="md" variant="logo" />
             <span className="text-sm text-foreground flex-1">{c.name}</span>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
               c.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
