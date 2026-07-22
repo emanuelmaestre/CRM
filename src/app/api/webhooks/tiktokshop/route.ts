@@ -6,10 +6,13 @@ import { resolverContaWebhookMarketplace } from "@/modules/canais/application/we
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 
 const TikTokWebhookSchema = z.object({
-  type:      z.number(),
-  shop_id:   z.string().optional().default(""),
-  data:      z.record(z.string(), z.unknown()).optional().default({}),
-  timestamp: z.number().optional(),
+  event:       z.string(),
+  client_key:  z.string().optional(),
+  create_time: z.number().optional(),
+  // Campos presentes em eventos de pedido real
+  shop_id:     z.string().optional().default(""),
+  type:        z.number().optional(),
+  data:        z.record(z.string(), z.unknown()).optional().default({}),
 });
 
 function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
@@ -121,7 +124,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, ignorado: true, motivo: "schema_invalido" });
   }
 
-  const { type, data, shop_id } = resultado.data;
+  const { event, type, data, shop_id } = resultado.data;
+
+  // Evento de ping/teste — responde 200 sem processar
+  if (event === "tiktok.ping" || !type || !ORDER_EVENTS.has(type)) {
+    return NextResponse.json({ ok: true, ignorado: true, event });
+  }
 
   // Extrai campos do data com cast seguro
   const d = data as {
@@ -131,8 +139,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     create_time?: number;
   };
 
-  if (!ORDER_EVENTS.has(type) || !d.order_id) {
-    return NextResponse.json({ ok: true, ignorado: true, type });
+  if (!d.order_id) {
+    return NextResponse.json({ ok: true, ignorado: true, motivo: "sem_order_id" });
   }
 
   try {
