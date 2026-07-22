@@ -8,6 +8,34 @@
       "when": 1784580436365,
       "tag": "0000_silky_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784656800000,
+      "tag": "0001_initial_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784660400000,
+      "tag": "0002_integrity_and_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784665528500,
+      "tag": "0003_schema_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784678483969,
+      "tag": "0004_whole_madame_hydra",
+      "breakpoints": true
     }
   ]
 }

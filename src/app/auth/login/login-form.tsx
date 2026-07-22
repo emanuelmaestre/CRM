@@ -4,6 +4,9 @@ import { useState } from "react";
 import { createClient } from "@/shared/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import pagesConfig from "@/config/pages.json";
+
+const copy = pagesConfig.login;
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -21,7 +24,7 @@ export function LoginForm() {
       router.push("/dashboard");
       router.refresh();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Erro ao entrar";
+      const message = err instanceof Error ? err.message : copy.errors.generic;
       toast.error(message);
     } finally {
       setLoading(false);
@@ -32,7 +35,7 @@ export function LoginForm() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
-          E-mail
+          {copy.fields.email.label}
         </label>
         <input
           id="email"
@@ -42,12 +45,12 @@ export function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full h-11 rounded-[0.75rem] border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          placeholder="voce@plastleo.com.br"
+          placeholder={copy.fields.email.placeholder}
         />
       </div>
       <div>
         <label htmlFor="senha" className="block text-sm font-medium text-foreground mb-1">
-          Senha
+          {copy.fields.password.label}
         </label>
         <input
           id="senha"
@@ -57,7 +60,7 @@ export function LoginForm() {
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
           className="w-full h-11 rounded-[0.75rem] border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          placeholder="••••••••"
+          placeholder={copy.fields.password.placeholder}
         />
       </div>
       <button
@@ -66,7 +69,7 @@ export function LoginForm() {
         className="w-full h-11 rounded-[0.75rem] font-semibold text-sm text-white disabled:opacity-60"
         style={{ background: "var(--gradient-signature)" }}
       >
-        {loading ? "Entrando…" : "Entrar"}
+        {loading ? copy.actions.submitting : copy.actions.submit}
       </button>
     </form>
   );

@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 // Proxy mínimo: apenas passa a requisição adiante.
 // Auth é verificada nos layouts server-side via supabase.auth.getUser().
-export function proxy(_request: NextRequest) {
+export function proxy() {
   return NextResponse.next();
 }
 

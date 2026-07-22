@@ -7,7 +7,7 @@ import { registrarMovimento } from "@/modules/estoque/application/estoque.servic
 export const A3_estornoEstoque = inngest.createFunction(
   { id: "A3-estorno-estoque", name: "A3 — Estorno de estoque no pedido.cancelado", triggers: [{ event: "pedido/cancelado" }] },
   async ({ event, step }) => {
-    const { pedidoId, orgId, statusAnterior } = event.data as { pedidoId: string; orgId: string; statusAnterior: string };
+    const { entityId: pedidoId, orgId, statusAnterior } = event.data as { entityId: string; orgId: string; statusAnterior: string };
 
     if (!["pago", "separado"].includes(statusAnterior)) {
       return { pedidoId, estornado: false, motivo: "Estoque nunca foi baixado neste status" };

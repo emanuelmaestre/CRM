@@ -1,0 +1,20 @@
+{
+  "name": "CRM",
+  "fullName": "CRM — KARZI & WUWU",
+  "description": "CRM operacional para KARZI e WUWU",
+  "locale": "pt-BR",
+  "metadata": {
+    "titleTemplate": "%s | CRM",
+    "appleWebAppTitle": "CRM"
+  },
+  "brandOrder": ["karzi", "wuwu"],
+  "wizard": {
+    "back": "Voltar",
+    "cancel": "Cancelar",
+    "step": "Etapa",
+    "of": "de",
+    "next": "Próximo",
+    "submit": "Confirmar e salvar",
+    "saving": "Salvando…"
+  }
+}

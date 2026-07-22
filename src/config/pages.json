@@ -1,0 +1,91 @@
+{
+  "login": {
+    "title": "Entrar",
+    "subtitle": "KARZI · WUWU",
+    "fields": {
+      "email": { "label": "E-mail", "placeholder": "voce@plastleo.com.br" },
+      "password": { "label": "Senha", "placeholder": "••••••••" }
+    },
+    "actions": { "submit": "Entrar", "submitting": "Entrando…" },
+    "errors": { "generic": "Erro ao entrar" }
+  },
+  "clientes": {
+    "metadataTitle": "Clientes",
+    "title": "Clientes",
+    "description": "Gerencie todos os seus clientes em um só lugar",
+    "newAction": "+ Novo cliente",
+    "searchPlaceholder": "Buscar por nome, e-mail ou telefone…",
+    "sectionTitle": "Base de clientes",
+    "columns": ["Nome", "E-mail", "WhatsApp", ""],
+    "empty": {
+      "title": "Nenhum cliente cadastrado",
+      "description": "Importe sua base ou adicione o primeiro cliente manualmente.",
+      "searchTitle": "Nenhum cliente encontrado",
+      "searchDescription": "Tente outro termo de busca."
+    },
+    "actions": { "archive": "Arquivar", "archiveConfirm": "Arquivar \"{name}\"?" },
+    "messages": {
+      "loadError": "Erro ao carregar clientes.",
+      "archiveSuccess": "Cliente arquivado.",
+      "archiveError": "Erro ao arquivar cliente."
+    }
+  },
+  "estoque": {
+    "metadataTitle": "Estoque",
+    "title": "Estoque",
+    "description": "Controle de produtos e saldos por marca",
+    "newAction": "+ Novo produto",
+    "sectionTitle": "Produtos e saldos",
+    "columns": ["SKU", "Produto", "Marca", "Saldo", "Preço", ""],
+    "loading": "Carregando produtos…",
+    "empty": { "title": "Nenhum produto cadastrado", "description": "Adicione o primeiro produto para começar a controlar o estoque." },
+    "messages": { "loadError": "Erro ao carregar produtos." },
+    "minimumIndicator": "▼ mín",
+    "movement": {
+      "button": "+ Movimento",
+      "title": "Registrar movimento",
+      "balancePrefix": "saldo atual",
+      "fields": { "type": "Tipo", "quantity": "Quantidade", "note": "Observação", "notePlaceholder": "Opcional" },
+      "types": { "entrada": "Entrada (compra/recebimento)", "saida": "Saída (venda/perda)", "ajuste": "Ajuste (inventário)" },
+      "cancel": "Cancelar",
+      "submit": "Registrar",
+      "submitting": "Registrando…",
+      "success": "Movimento registrado!",
+      "error": "Erro ao registrar movimento."
+    }
+  },
+  "vendas": {
+    "metadataTitle": "Vendas",
+    "title": "Vendas",
+    "description": "Funil de vendas e oportunidades",
+    "newAction": "+ Nova oportunidade",
+    "loading": "Carregando funil…",
+    "empty": { "title": "Funil vazio", "description": "Configure as etapas do funil e comece a registrar oportunidades." },
+    "dropHint": "Arraste oportunidades aqui",
+    "messages": { "loadError": "Erro ao carregar funil.", "moveError": "Erro ao mover oportunidade." }
+  },
+  "inbox": {
+    "metadataTitle": "Mensagens",
+    "title": "Mensagens",
+    "description": "Conversas unificadas de WhatsApp, Shopee, Mercado Livre e TikTok Shop",
+    "status": {
+      "nova": { "label": "Nova", "color": "#E3131B" },
+      "em_atendimento": { "label": "Em atendimento", "color": "#9B30D9" },
+      "aguardando_cliente": { "label": "Aguardando", "color": "#F59E0B" },
+      "resolvida": { "label": "Resolvida", "color": "#10B981" },
+      "arquivada": { "label": "Arquivada", "color": "var(--muted-foreground)" }
+    },
+    "loadingConversations": "Carregando conversas…",
+    "loadingMessages": "Carregando mensagens…",
+    "empty": {
+      "title": "Nenhuma conversa ainda",
+      "description": "As mensagens chegam aqui assim que os conectores forem ativados em",
+      "destination": "Configurações"
+    },
+    "selectConversation": "Selecione uma conversa",
+    "noMessages": "Sem mensagens ainda.",
+    "messages": { "conversationsError": "Erro ao carregar conversas.", "messagesError": "Erro ao carregar mensagens." }
+  },
+  "relatorios": { "metadataTitle": "Relatórios", "title": "Relatórios", "description": "Vendas por canal, sugestões de campanha e painel executivo" },
+  "configuracoes": { "metadataTitle": "Configurações" }
+}

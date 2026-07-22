@@ -1,0 +1,71 @@
+{
+  "header": { "title": "Painel", "description": "Visão geral da operação" },
+  "revenue": {
+    "icon": "TrendingUp",
+    "title": "Receita Consolidada",
+    "description": "Acompanhe a evolução da receita e o detalhamento por canal e marca",
+    "period": "Mês",
+    "bars": [38, 55, 42, 70, 52, 88, 65, 58, 80, 48, 72, 60, 90, 68],
+    "days": ["D", "S", "T", "Q", "Q", "S", "S"],
+    "value": "—",
+    "peakLabel": "R$ —",
+    "pendingText": "Conecte os canais para ver os dados reais"
+  },
+  "recentClients": {
+    "title": "Clientes recentes",
+    "href": "/clientes",
+    "action": "Ver todos",
+    "footer": "Dados simulados",
+    "items": [
+      { "name": "Ana Beatriz Silva", "role": "WhatsApp · Shopee", "brand": "karzi" },
+      { "name": "Lucas Mendes", "role": "Instagram · TikTok", "brand": "wuwu" }
+    ]
+  },
+  "connectCta": {
+    "icon": "Zap",
+    "eyebrow": "Ação necessária",
+    "title": "Conecte seus canais",
+    "description": "Ative WhatsApp, Shopee e TikTok para dados em tempo real",
+    "href": "/configuracoes",
+    "action": "Configurar agora"
+  },
+  "kpis": [
+    { "label": "Pedidos hoje", "value": "—", "sub": "Aguardando integração", "icon": "ShoppingBag", "accent": "#E3131B" },
+    { "label": "Receita", "value": "—", "sub": "Aguardando integração", "icon": "DollarSign", "accent": "#9B30D9" },
+    { "label": "Clientes", "value": "—", "sub": "Base importada", "icon": "Users", "accent": "#2563EB" },
+    { "label": "SKUs em alerta", "value": "—", "sub": "Estoque mínimo", "icon": "AlertTriangle", "accent": "#B57A00" }
+  ],
+  "recentOrders": {
+    "title": "Pedidos recentes",
+    "href": "/vendas",
+    "action": "Ver todos",
+    "icon": "ShoppingBag",
+    "footer": "Dados simulados",
+    "statusStyles": {
+      "Pago": "bg-[#1F8A4C]/10 text-[#1F8A4C]",
+      "Pendente": "bg-[#B57A00]/10 text-[#B57A00]",
+      "Cancelado": "bg-[#C21820]/10 text-[#C21820]"
+    },
+    "items": [
+      { "id": "#0042", "client": "Ana Beatriz", "brand": "karzi", "status": "Pago", "value": "R$ 189,90" },
+      { "id": "#0041", "client": "Lucas Mendes", "brand": "wuwu", "status": "Pendente", "value": "R$ 320,00" },
+      { "id": "#0040", "client": "Carla Souza", "brand": "karzi", "status": "Pago", "value": "R$ 99,90" },
+      { "id": "#0039", "client": "Pedro Alves", "brand": "wuwu", "status": "Cancelado", "value": "R$ 450,00" },
+      { "id": "#0038", "client": "Fernanda Lima", "brand": "karzi", "status": "Pago", "value": "R$ 210,00" }
+    ]
+  },
+  "channels": {
+    "title": "Canais",
+    "href": "/configuracoes",
+    "action": "Configurar",
+    "connectedLabel": "Ativo",
+    "disconnectedLabel": "Pendente",
+    "connectedIcon": "Wifi",
+    "disconnectedIcon": "WifiOff",
+    "items": [
+      { "name": "WhatsApp (Z-API)", "connected": false },
+      { "name": "Shopee", "connected": false },
+      { "name": "TikTok Shop", "connected": false }
+    ]
+  }
+}

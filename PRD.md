@@ -13,7 +13,7 @@
 | **Base contratual** | Contrato de 17/07/2026 + Anexo I (Plano Acelera) |
 | **Prazo estimado** | 8 semanas a partir do recebimento de acessos e dados |
 | **Garantia** | 90 dias a partir do go-live |
-| **Status** | Pré-desenvolvimento — aguardando kickoff da Fase 1 |
+| **Status** | Em desenvolvimento — saneamento técnico e implantação faseada em andamento |
 
 > **Como ler este documento:** ele usa termos técnicos porque é a fonte da verdade da engenharia,
 > mas todo termo difícil vem acompanhado de um balão 💡 explicando em palavras simples.
@@ -830,8 +830,8 @@ Tokens em `shared/design-system/tokens.ts` + primitivas (`PageHeader`, `StatCard
 
 ## 15. Plano de Implantação em 3 Fases (Claude Code)
 
-> **Planejamento apenas** — não executar agora. Este é o roteiro de como o sistema será construído
-> aqui no Claude Code quando o desenvolvimento for autorizado. As 3 fases de implantação são a
+> **Execução autorizada em 21/07/2026.** Este é o roteiro oficial de construção e saneamento do
+> sistema. As 3 fases de implantação são a
 > visão de *engenharia*; elas se encaixam nas 5 fases *contratuais* da §16.
 
 ### Fase A — Fundação e Núcleo (≈ semanas 1–3 · cobre Fases contratuais 1–2)

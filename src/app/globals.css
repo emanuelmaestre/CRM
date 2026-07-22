@@ -3,7 +3,7 @@
 /* ── Sinal Duplo Design System ── */
 :root {
   /* Neutros - Tema Vitrine (claro) */
-  --background: #F7F7F8;
+  --background: #ECEEF5;
   --foreground: #15171C;
   --card: #FFFFFF;
   --card-foreground: #15171C;
@@ -11,7 +11,7 @@
   --popover-foreground: #15171C;
   --muted: #E6E7EA;
   --muted-foreground: #5A5F6A;
-  --border: #E6E7EA;
+  --border: #E2E4EC;
   --input: #E6E7EA;
   --ring: #E3131B;
 
@@ -36,7 +36,7 @@
   --info: #2563EB;
 
   /* Fontes */
-  --font-sans: var(--font-inter);
+  --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sora);
 
   /* Radius */
@@ -95,6 +95,41 @@ body {
 
 h1, h2, h3, h4 {
   font-family: var(--font-sora), system-ui, sans-serif;
+}
+
+/* ── Keyframes globais (Apple motion — apenas os necessários) ── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)  scale(1); }
+}
+
+@keyframes bar-grow {
+  from { transform: scaleY(0); transform-origin: bottom; }
+  to   { transform: scaleY(1); transform-origin: bottom; }
+}
+
+/* ── Utility classes ── */
+.animate-fade-up  { animation: fade-up 0.24s cubic-bezier(0,0,0.2,1) both; }
+.animate-bar-grow { animation: bar-grow 0.5s cubic-bezier(0,0,0.2,1) both; }
+
+.card-hover {
+  transition: transform 0.2s cubic-bezier(0,0,0.2,1),
+              box-shadow 0.2s cubic-bezier(0,0,0.2,1);
+}
+.card-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(14,15,19,.10);
+}
+
+.shimmer {
+  background: linear-gradient(90deg, var(--muted) 25%, color-mix(in srgb, var(--muted) 60%, white) 50%, var(--muted) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s infinite linear;
 }
 
 @media (prefers-reduced-motion: reduce) {

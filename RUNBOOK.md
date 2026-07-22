@@ -1,138 +1,246 @@
-# RUNBOOK — CRM LEO
+# RUNBOOK — CRM Plast Leo · Operação
 
-## Deploy
+> Estado: **pré-go-live** · nenhum disparo externo habilitado até os gates de segurança, isolamento de marca e idempotência ficarem verdes.
 
-### Pré-requisitos
-- Node.js 20+, npm 10+
-- Supabase project configurado
-- Inngest account (dashboard.inngest.com)
-- Z-API instâncias ativas para KARZI e WUWU
+---
 
-### Variáveis de ambiente obrigatórias
-```env
-DATABASE_URL=postgresql://...        # Supabase connection string
-NEXT_PUBLIC_SUPABASE_URL=https://...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-INNGEST_SIGNING_KEY=signkey-prod-...
-INNGEST_EVENT_KEY=...
-OPENAI_API_KEY=sk-...
-DEFAULT_ORG_ID=uuid-da-org
-ZAPI_INSTANCE_KARZI=...
-ZAPI_TOKEN_KARZI=...
-ZAPI_INSTANCE_WUWU=...
-ZAPI_TOKEN_WUWU=...
-ZAPI_WEBHOOK_TOKEN=...              # Valida x-api-token no webhook
-UPSTASH_REDIS_REST_URL=...
-UPSTASH_REDIS_REST_TOKEN=...
-```
+## 1. Variáveis de ambiente
 
-### Deploy Vercel
+| Variável | Onde configurar | Observação |
+|---|---|---|
+| `DATABASE_URL` | Vercel → Settings → Env Vars | `postgres://user:pass@host/db` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Vercel | `https://xxx.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Vercel | `eyJ...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Vercel (secret) | `eyJ...` |
+| `OPENAI_API_KEY` | Vercel (secret) | `sk-...` |
+| `INNGEST_EVENT_KEY` | Vercel | `inngest_...` |
+| `INNGEST_SIGNING_KEY` | Vercel (secret) | `signkey-...` |
+| `UPSTASH_REDIS_REST_URL` | Vercel | `https://...upstash.io` |
+| `UPSTASH_REDIS_REST_TOKEN` | Vercel (secret) | `AX...` |
+| `DEFAULT_ORG_ID` | Vercel (secret) | UUID da org Plast Leo |
+| `BRAND_ID_KARZI` | Vercel (secret) | UUID da brand KARZI |
+| `BRAND_ID_WUWU` | Vercel (secret) | UUID da brand WUWU |
+| `PROVISION_SECRET` | Vercel (secret) | Token de bootstrap inicial |
+| `E2E_USER_EMAIL` | CI secrets | E-mail do usuário de teste |
+| `E2E_USER_PASSWORD` | CI secrets | Senha do usuário de teste |
+
+---
+
+## 2. Primeiro boot — provisionamento
+
+Execute **uma única vez** após o primeiro deploy:
+
 ```bash
-vercel deploy --prod
+curl -X POST https://<domínio>/api/provision \
+  -H "x-provision-secret: $PROVISION_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "emanuelmaestre1@gmail.com"}'
 ```
 
-### Após deploy
-1. Verificar webhook Z-API aponta para `https://<domínio>/api/webhooks/zapi`
-2. Registrar funções Inngest: `https://<domínio>/api/inngest`
-3. Testar saúde: `GET /api/health`
+Isso cria: org Plast Leo · brands KARZI e WUWU · usuário admin.
 
 ---
 
-## Backup e Restore
+## 3. Migração de banco
 
-### Backup automático
-Supabase faz backup diário (Point-in-Time Recovery disponível no plano Pro).
-
-### Backup manual
 ```bash
-supabase db dump --db-url $DATABASE_URL -f backup-$(date +%Y%m%d).sql
+# Gerar e aplicar migrações (rodar localmente com DATABASE_URL apontando para prod)
+npx drizzle-kit generate
+npx drizzle-kit migrate
 ```
 
-### Restore
+Verificar após migração:
+- `score_cliente` — coluna `versao_formula` default `v1`
+- `documento_gerado` — criada na Fase B
+- `llm_run`, `insight`, `sugestao_campanha` — existem desde Fase B
+- `consentimento` — presente em schema clientes
+
+---
+
+## 4. Deploy
+
 ```bash
-psql $DATABASE_URL < backup-YYYYMMDD.sql
+# Via Vercel CLI
+vercel --prod
+
+# Ou via GitHub push para main (CI/CD automático)
+git push origin main
 ```
 
-### Dados críticos para preservar
-- Tabela `estoque_movimento` — livro-razão imutável, base de auditoria
-- Tabela `audit_log` — trilha de auditoria compliance
-- Tabela `consentimento` — LGPD, não pode ser perdida
+---
+
+## 5. Catálogo de automações A1–A22
+
+| ID | Nome | Gatilho | Cadência |
+|---|---|---|---|
+| A1 | Ingestão de pedidos | `canal/pedido.recebido` | Por evento |
+| A2 | Baixa de estoque | `pedido.confirmado` | Por evento |
+| A3 | Estorno de estoque | `pedido.cancelado` | Por evento |
+| A4 | Sync de saldo nos canais | `estoque/saldo.atualizado` | Por evento |
+| A5 | Reconciliação de saldo | Cron | Diária 01h |
+| A6 | Alerta de estoque mínimo | `estoque/saldo.atualizado` | Por evento |
+| A7 | Detecção de encalhe | Cron | Diária 02h |
+| A8 | Régua de avaliação | `pedido.entregue` | Por evento |
+| A9 | Régua de aniversário | Cron | Diária 09h |
+| A10 | Régua de reativação | Cron | Semanal seg 10h |
+| A11 | Cancelar opt-out | `cliente.optout_solicitado` | Por evento |
+| A12 | Conversa parada >24h | Cron | De hora em hora |
+| A13 | Scores RFM + churn cliente | Cron | Diária 03h |
+| A14 | Scores de produto | Cron | Diária 04h |
+| A15 | Insights de funil (IA) | Cron | Semanal dom 05h |
+| A16 | Sugestões de campanha (IA) | Cron | Semanal dom 06h |
+| A17 | Documentos executivos (IA) | `ia/documento.solicitado` | Por evento |
+| A18 | Saúde dos conectores | Cron | A cada 15 min |
+| A19 | Notificações internas | Cron | Diária 08h |
+| A20 | Verificação de backup | Cron | Diária 04h |
+| A21 | Monitoramento consumo IA | Cron | A cada 6h |
+| A22 | Retenção LGPD (anonimização) | Cron | Mensal dia 1, 03h |
+
+Para disparar um job manualmente (staging ou diagnóstico):
+```
+Inngest Cloud → Functions → <nome> → Send Event → preencher payload
+```
 
 ---
 
-## Incidentes
+## 6. Checklist pós-deploy
 
-### WhatsApp parou de receber mensagens
-1. Verificar `GET /api/health` → campo `canais`
-2. Checar Z-API dashboard: instância conectada?
-3. Se desconectada: reconectar via QR code no Z-API dashboard
-4. Validar webhook: curl `POST /api/webhooks/zapi` com payload de teste
-5. Ver logs Inngest: jobs A18 (saúde-conectores) registram histórico
+### Básico
+- [ ] `https://<domínio>/` → redireciona para login
+- [ ] Login com usuário Plast Leo → dashboard carrega
+- [ ] Sidebar visível em mobile (375 px) e desktop (1280 px)
+- [ ] PWA: "Adicionar à tela inicial" disponível no Chrome mobile
 
-### Scores não estão atualizando
-1. Verificar Inngest dashboard → funções A13, A14 rodando às 2h
-2. Checar `job_run` no DB: `SELECT * FROM job_run WHERE nome LIKE 'A13%' ORDER BY created_at DESC LIMIT 5`
-3. Se falhar: disparar manualmente via Inngest dashboard → "Invoke"
+### Módulos
+- [ ] `/clientes` — lista, criar, editar cliente; validação CPF/CNPJ funciona
+- [ ] `/vendas/pedidos` — criar pedido, confirmar pagamento, ver KPIs
+- [ ] `/estoque/produtos` — saldo atualizado após pedido pago
+- [ ] `/inbox` — abas Conversas e Perguntas carregam
 
-### IA não gera insights
-1. Consultar consumo: `SELECT SUM(custo_usd) FROM llm_run WHERE created_at > NOW() - INTERVAL '30 days'`
-2. Se próximo de $20: budget cortou automaticamente — reset manual no início do mês
-3. Checar `OPENAI_API_KEY` válida
+### Relatórios e IA
+- [ ] `/relatorios` — KPIs carregam, tabela de canais visível
+- [ ] Botões CSV / XLSX / PDF aparecem e baixam arquivo correto
+- [ ] "Documento Executivo IA" gera resumo (requer `OPENAI_API_KEY`)
+- [ ] KPI "Consumo IA (mês)" mostra percentual correto
 
-### Mensagem duplicada enviada
-- Sistema usa `idempotency_key` e `provider_message_id` — duplicatas são bloqueadas
-- Investigar: `SELECT * FROM regua_execucao WHERE idempotency_key = '...'`
-- Se regra disparou mais de uma vez: verificar Gate 4 no código `src/modules/reguas/domain/gates.ts`
+### Inngest
+- [ ] Dashboard Inngest → todas as 22 funções visíveis
+- [ ] A18 (saúde conectores) rodando; nenhum canal marcado `degradado`
+- [ ] A13 (scores) executou pelo menos uma vez; `score_cliente` tem linhas
 
-### Estoque negativo detectado
-- Cron A5 roda às 3h e emite evento `estoque.divergencia_detectada`
-- Verificar `evento_dominio` no DB pelo tipo acima
-- Investigar movimentos: `SELECT * FROM estoque_movimento WHERE produto_id = '...' ORDER BY created_at`
-- Nunca corrigir saldo diretamente — inserir movimento de ajuste com `tipo = 'ajuste'`
-
----
-
-## Rotinas Operacionais
-
-### Diário (automático via Inngest)
-| Horário | Job | Ação |
-|---------|-----|------|
-| 02:00 | A13, A14 | Recalcula scores RFM de clientes e encalhe de produtos |
-| 03:00 | A5 | Reconciliação de saldo (detecta negativos) |
-| 09:00 | A9 | Dispara régua de aniversário |
-| 10:00 seg-sex | A10 | Dispara régua de reativação (churn ≥ 70) |
-| */15min | A18 | Health-check conectores Z-API |
-
-### Semanal (automático via Inngest)
-| Horário | Job | Ação |
-|---------|-----|------|
-| segunda 07:00 | A15 | Insight executivo do funil (IA) |
-| segunda 08:00 | A16 | Sugestões de campanha (IA, requer aprovação humana) |
-
-### Mensal (manual)
-1. Revisar consumo IA: dashboard Inngest + tabela `llm_run`
-2. Aprovar/rejeitar sugestões de campanha pendentes: tabela `sugestao_campanha`
-3. Verificar advisors Supabase: checar índices faltantes ou queries lentas
-4. Revisar clientes sem opt-in expirados (`consentimento.validade_ate < NOW()`)
+### E2E
+```bash
+E2E_BASE_URL=https://<domínio> \
+E2E_USER_EMAIL=... \
+E2E_USER_PASSWORD=... \
+npx playwright test
+```
+- [ ] Todos os testes passam nos 4 viewports
 
 ---
 
-## Migração de Fornecedor
+## 7. Backup e restore
 
-### Trocar Z-API por outro provider WhatsApp
-1. Criar novo provider em `src/modules/canais/infrastructure/<novo>.provider.ts` implementando `MessagingProvider`
-2. Atualizar `criarZApiProvider()` → `criarProvider()` em `saude.service.ts`
-3. Atualizar variáveis de ambiente
-4. Testar com conta de sandbox antes de migrar produção
+### Política
+| Métrica | Alvo |
+|---|---|
+| RPO (perda máxima de dados) | 24 h |
+| RTO (tempo máximo de restauração) | 4 h |
 
-### Trocar OpenAI por outro LLM
-1. `src/modules/ai/application/ai.service.ts` — atualizar cliente e modelo
-2. `src/modules/ai/domain/guardrails.ts` — atualizar `MODELOS` e cálculo de custo
-3. Manter validação Zod nos outputs (obrigatório para confiabilidade)
+### Como funciona
+- Supabase gerencia backups diários automáticos (Point-in-Time Recovery nos planos Pro+).
+- O job A20 roda às 04h, verifica conectividade e emite `backup.executado` ou `backup.falhou` no log de auditoria.
+- Se `backup.falhou` aparecer dois dias seguidos → abrir incidente P1.
 
-### Migrar de Supabase
-1. `supabase db dump` completo
-2. Ajustar `DATABASE_URL` para nova instância
-3. Recriar RLS policies (arquivo `supabase/migrations/`)
-4. Recriar triggers `set_updated_at`
+### Restore (Supabase Dashboard)
+1. Supabase → Project → Settings → Backups
+2. Selecionar ponto de restauração (≤ RPO 24 h)
+3. Clicar "Restore" → aguardar 15–30 min
+4. Após restore, reexecutar `npx drizzle-kit migrate` se houver migrações novas
+5. Verificar checklist §6 completo antes de liberar tráfego
+
+---
+
+## 8. Resposta a incidentes
+
+### Classificação
+| Prioridade | Critério | SLA de resposta |
+|---|---|---|
+| P1 — Crítico | Sistema inacessível ou dados corrompidos | 30 min |
+| P2 — Alto | Módulo principal indisponível (pedidos, estoque) | 2 h |
+| P3 — Médio | Funcionalidade secundária degradada | 8 h |
+| P4 — Baixo | Cosmético ou melhoria | Próximo sprint |
+
+### Procedimento (4 passos)
+1. **Detectar** — alertas via Inngest, Vercel Logs, ou relato de usuário. Registrar hora e sintoma.
+2. **Isolar** — identificar componente afetado (API, job, banco, canal externo). Verificar `/admin/saude`.
+3. **Conter** — desabilitar canal afetado (`canal.degradado`) se necessário; `vercel rollback` se o deploy causou a falha.
+4. **Resolver e documentar** — aplicar fix, reexecutar checklist §6, registrar causa raiz e ação corretiva.
+
+### Rollback rápido
+```bash
+vercel rollback
+```
+Banco: nenhuma migração destrutiva foi aplicada; rollback de schema é seguro com `drizzle-kit migrate` no commit anterior.
+
+---
+
+## 9. Rotinas operacionais
+
+### Diária (responsável: Emanuel)
+- [ ] Verificar `/admin/saude` — todos os conectores verdes
+- [ ] Revisar inbox — responder conversas paradas (A12 alerta após 24 h)
+- [ ] Checar KPI "Consumo IA (mês)" em `/relatorios` — se > 80 %, investigar
+
+### Semanal (toda segunda-feira)
+- [ ] Revisar sugestões de campanha (A16) em `/relatorios` — aprovar ou descartar
+- [ ] Verificar scores de churn — clientes com `risco_churn >= 70` → ação manual
+- [ ] Checar log de auditoria por eventos `backup.falhou` ou `canal.degradado`
+
+### Mensal (primeiro dia útil)
+- [ ] Confirmar que A22 (LGPD) rodou — ver `importacao.concluida` com `tipo: lgpd_anonimizacao` no log
+- [ ] Revisar insights de funil (A15) — repassar ao time comercial
+- [ ] Verificar consumo OpenAI — ajustar orçamento em `ai.service` se necessário
+- [ ] Exportar relatório mensal em XLSX para arquivo
+
+---
+
+## 10. Monitoramento
+
+| O quê | Onde |
+|---|---|
+| Erros de runtime | Vercel → Functions → Logs |
+| Consumo OpenAI | KPI "Consumo IA (mês)" em `/relatorios` |
+| Jobs Inngest | app.inngest.com → Functions |
+| Saúde dos conectores | `/admin/saude` |
+| Alertas de churn | Eventos `score.churn_alterado` no log de auditoria |
+| Backup | Eventos `backup.executado` / `backup.falhou` no log |
+| LGPD | Eventos `importacao.concluida (tipo: lgpd_anonimizacao)` mensais |
+
+---
+
+## 11. Treinamento Plast Leo (roteiro 30 min)
+
+1. **Login e navegação** (5 min) — sidebar, marcas KARZI / WUWU
+2. **Cadastro de clientes** (5 min) — criar cliente, validar CPF/CNPJ, adicionar canal WhatsApp
+3. **Pedidos e estoque** (5 min) — criar pedido, confirmar, ver baixa de estoque
+4. **Relatórios** (10 min):
+   - KPIs e filtros
+   - Export CSV / XLSX / PDF
+   - "Documento Executivo IA" — quando usar
+   - Sugestões de campanha — **aprovação obrigatória antes do disparo**
+5. **Perguntas** (5 min)
+
+---
+
+## 12. Rollout Fase D (futuro)
+
+Itens fora do escopo contratual atual (Plano Acelera):
+- Integração Shopify / WooCommerce
+- Multi-tenant (múltiplos clientes além de Plast Leo)
+- App mobile nativo (React Native)
+- BI avançado com drill-down por SKU
+
+---
+
+*Última atualização: 2026-07-21 · Fases A + B + C implementadas.*

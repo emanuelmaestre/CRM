@@ -1,146 +1,192 @@
-import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
-import { SectionCard } from "@/shared/design-system/primitives/SectionCard";
-import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+"use client";
 
-export const metadata = { title: "Configurações" };
+import { motion } from "framer-motion";
+import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
+import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { getIcon } from "@/shared/config/icon-registry";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import settingsConfig from "@/config/settings.json";
+import dashboardConfig from "@/config/dashboard.json";
+
+const ConnectedIcon = getIcon(dashboardConfig.channels.connectedIcon);
+const DisconnectedIcon = getIcon(dashboardConfig.channels.disconnectedIcon);
+
+const PendingIcon = getIcon(settingsConfig.status.pendingIcon);
+const ExternalIcon = getIcon(settingsConfig.openAction.icon);
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.04 } },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 5, scale: 0.97 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.24, ease: [0, 0, 0.2, 1] as [number,number,number,number] } },
+};
+
+function Card({ title, icon: Icon, children }: {
+  title: string; icon: React.ElementType; children: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      variants={fadeUp}
+      whileHover={{ y: -1, boxShadow: "0 6px 24px rgba(14,15,19,.09)" }}
+      transition={{ duration: 0.18 }}
+      className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
+    >
+      <div className="flex items-center gap-2.5 px-6 py-4 border-b border-border">
+        <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
+          <Icon size={14} strokeWidth={1.75} />
+        </div>
+        <h2 className="text-[15px] font-bold text-foreground">{title}</h2>
+      </div>
+      <div className="p-6">{children}</div>
+    </motion.div>
+  );
+}
+
+function Row({ label, value, accent }: { label: string; value?: string; accent?: string }) {
+  return (
+    <div className="flex justify-between items-center py-2.5 border-b border-border last:border-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      {value && (
+        <span className="text-sm font-medium text-foreground" style={accent ? { color: accent } : undefined}>
+          {value}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ connected }: { connected: boolean }) {
+  return (
+    <span className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+      connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
+    }`}>
+      {connected
+        ? <><span className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C] inline-block" /> {settingsConfig.status.active}</>
+        : <><PendingIcon size={11} strokeWidth={2} /> {settingsConfig.status.pending}</>
+      }
+    </span>
+  );
+}
+
+function IntegrationRow({ name, description, href, color, connected = false }: {
+  name: string; description?: string; href?: string; color?: string; connected?: boolean;
+}) {
+  return (
+    <motion.div
+      whileHover={{ x: 1 }}
+      className="flex justify-between items-center py-3 border-b border-border last:border-0"
+    >
+      <div>
+        <p className="text-sm font-medium text-foreground">{name}</p>
+        {description && <p className="text-[11px] text-muted-foreground mt-0.5">{description}</p>}
+      </div>
+      <div className="ml-3 flex-shrink-0 flex items-center gap-2">
+        {href ? (
+          <motion.a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold text-white shadow-sm"
+            style={{ background: color ?? "var(--foreground)" }}
+          >
+            {settingsConfig.openAction.label} <ExternalIcon size={10} strokeWidth={2.5} />
+          </motion.a>
+        ) : (
+          <StatusBadge connected={connected} />
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 export default function ConfiguracoesPage() {
   return (
     <div>
       <PageHeader
-        title="Configurações"
-        description="Organização, integrações, usuários, sistema e saúde"
+        title={settingsConfig.header.title}
+        description={settingsConfig.header.description}
       />
 
-      {/* Organização e Integrações */}
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
-        <SectionCard title="Organização">
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <div className="flex justify-between py-2 border-b border-border">
-              <span>Marcas ativas</span>
-              <span className="font-medium text-foreground">KARZI, WUWU</span>
-            </div>
-            <div className="flex justify-between py-2">
-              <span>Plano</span>
-              <span className="font-medium text-foreground">Acelera</span>
-            </div>
-          </div>
-        </SectionCard>
+      <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
 
-        <SectionCard title="Integrações">
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <div className="flex justify-between items-center py-2 border-b border-border">
-              <span>WhatsApp (Z-API)</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Pendente</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-border">
-              <span>Shopee</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Pendente</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-border">
-              <span>Mercado Livre</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Pendente</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-border">
-              <span>TikTok Shop</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Pendente</span>
-            </div>
-            <div className="flex justify-between items-center py-2 border-b border-border">
-              <span>Inngest</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Pendente</span>
-            </div>
-            <div className="flex justify-between items-center py-2">
-              <span>OpenAI</span>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">Pendente</span>
-            </div>
-          </div>
-        </SectionCard>
+        {/* Linha 1 */}
+        <div className="grid md:grid-cols-2 gap-5">
+          <Card title={settingsConfig.organization.title} icon={getIcon(settingsConfig.organization.icon)}>
+            {settingsConfig.organization.rows.map((row) => <Row key={row.label} {...row} />)}
+          </Card>
 
-        <SectionCard title="Usuários">
-          <div className="text-sm text-muted-foreground py-2">
-            <div className="flex justify-between items-center">
+          <Card title={settingsConfig.users.title} icon={getIcon(settingsConfig.users.icon)}>
+            <div className="flex items-center justify-between py-2">
               <div>
-                <p className="font-medium text-foreground">admin@crm.com.br</p>
-                <p className="text-xs mt-0.5">Administrador</p>
+                <p className="text-sm font-medium text-foreground">{settingsConfig.users.email}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{settingsConfig.users.role}</p>
               </div>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-[#1F8A4C]/10 text-[#1F8A4C]">Ativo</span>
+              <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-[#1F8A4C]/10 text-[#1F8A4C]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C] inline-block" />
+                {settingsConfig.status.active}
+              </span>
             </div>
-          </div>
-        </SectionCard>
+          </Card>
+        </div>
 
-        <SectionCard title="Sistema">
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <div className="flex justify-between py-2 border-b border-border">
-              <span>Versão</span>
-              <span className="font-medium text-foreground">LEO v1.0</span>
+        {/* Canais */}
+        <Card title={dashboardConfig.channels.title} icon={getIcon(dashboardConfig.channels.connectedIcon)}>
+          {dashboardConfig.channels.items.map((c) => (
+            <div key={c.name} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
+              <ChannelLogo canal={c.name} size="sm" variant="badge" />
+              <span className="text-sm text-foreground flex-1">{c.name}</span>
+              <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                c.connected
+                  ? "bg-[#1F8A4C]/10 text-[#1F8A4C]"
+                  : "bg-muted text-muted-foreground"
+              }`}>
+                {c.connected ? dashboardConfig.channels.connectedLabel : dashboardConfig.channels.disconnectedLabel}
+              </span>
             </div>
-            <div className="flex justify-between py-2">
-              <span>Ambiente</span>
-              <span className="font-medium text-foreground">Desenvolvimento</span>
+          ))}
+        </Card>
+
+        {/* Integrações */}
+        <Card title={settingsConfig.integrations.title} icon={getIcon(settingsConfig.integrations.icon)}>
+          {settingsConfig.integrations.items.map((integration) => (
+            <IntegrationRow key={integration.name} {...integration} />
+          ))}
+        </Card>
+
+        {/* Sistema */}
+        <Card title={settingsConfig.system.title} icon={getIcon(settingsConfig.system.icon)}>
+          {settingsConfig.system.rows.map((row) => <Row key={row.label} {...row} />)}
+        </Card>
+
+        {settingsConfig.groups.map((group) => {
+          const GroupIcon = getIcon(group.icon);
+          return (
+            <div key={group.title}>
+              <motion.h2 variants={fadeUp} className="flex items-center gap-2 text-[15px] font-bold text-foreground mb-4">
+                <GroupIcon size={16} strokeWidth={1.75} className="text-muted-foreground" />
+                {group.title}
+              </motion.h2>
+              <div className="grid md:grid-cols-2 gap-5">
+                {group.cards.map((card) => (
+                  <Card key={card.title} title={card.title} icon={getIcon(card.icon)}>
+                    <EmptyState
+                      illustration={card.illustration as React.ComponentProps<typeof EmptyState>["illustration"]}
+                      title={card.emptyTitle}
+                      description={card.description}
+                    />
+                  </Card>
+                ))}
+              </div>
             </div>
-          </div>
-        </SectionCard>
-      </div>
+          );
+        })}
 
-      {/* Saúde do Sistema */}
-      <h2 className="text-[15px] font-bold text-foreground mb-4">Saúde do Sistema</h2>
-
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
-        <SectionCard title="Conectores">
-          <EmptyState
-            illustration="generic"
-            title="Sem conectores configurados"
-            description="Configure as contas dos canais para monitorar a saúde aqui."
-          />
-        </SectionCard>
-
-        <SectionCard title="Fila de jobs">
-          <EmptyState
-            illustration="generic"
-            title="Nenhum job em execução"
-            description="Jobs ativos e falhas aparecem aqui em tempo real."
-          />
-        </SectionCard>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-4 mb-4">
-        <SectionCard title="Dead-letter (falhas definitivas)">
-          <EmptyState
-            illustration="alerts"
-            title="Nenhuma falha definitiva"
-            description="Jobs que esgotaram tentativas aparecem aqui para reprocessamento."
-          />
-        </SectionCard>
-
-        <SectionCard title="Backups">
-          <EmptyState
-            illustration="generic"
-            title="Aguardando primeiro backup"
-            description="Backups diários automáticos. O último é exibido aqui."
-          />
-        </SectionCard>
-      </div>
-
-      {/* Inteligência */}
-      <h2 className="text-[15px] font-bold text-foreground mb-4">Inteligência</h2>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <SectionCard title="Consumo de IA">
-          <EmptyState
-            illustration="reports"
-            title="Sem dados de consumo"
-            description="O consumo de tokens aparece aqui conforme a IA é utilizada."
-          />
-        </SectionCard>
-
-        <SectionCard title="Insights do funil">
-          <EmptyState
-            illustration="funnel"
-            title="Nenhum insight gerado"
-            description="Insights semanais serão exibidos aqui após a integração de dados."
-          />
-        </SectionCard>
-      </div>
+      </motion.div>
     </div>
   );
 }

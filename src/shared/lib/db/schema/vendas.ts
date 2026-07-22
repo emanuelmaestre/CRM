@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, numeric, integer, pgEnum, index, check,
+  pgTable, uuid, text, timestamp, numeric, integer, pgEnum, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { org, brand } from "./org";
@@ -36,6 +36,9 @@ export const pedido = pgTable("pedido", {
   index("idx_pedido_brand").on(t.brandId),
   index("idx_pedido_status").on(t.status),
   index("idx_pedido_provider").on(t.providerOrderId),
+  uniqueIndex("uq_pedido_org_canal_provider")
+    .on(t.orgId, t.canal, t.providerOrderId)
+    .where(sql`${t.providerOrderId} is not null`),
 ]);
 
 export const pedidoItem = pgTable("pedido_item", {

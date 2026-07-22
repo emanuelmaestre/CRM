@@ -55,7 +55,8 @@ export async function avaliarGates(input: GateInput): Promise<GateResult> {
       and(
         eq(templateMensagem.id, input.templateId),
         eq(templateMensagem.brandId, input.brandId),
-        eq(templateMensagem.orgId, input.orgId)
+        eq(templateMensagem.orgId, input.orgId),
+        eq(templateMensagem.canal, input.canal),
       )
     )
     .then((r) => r[0]);
@@ -72,7 +73,10 @@ export async function avaliarGates(input: GateInput): Promise<GateResult> {
   const execucaoExistente = await db
     .select()
     .from(reguaExecucao)
-    .where(eq(reguaExecucao.idempotencyKey, input.idempotencyKey))
+    .where(and(
+      eq(reguaExecucao.orgId, input.orgId),
+      eq(reguaExecucao.idempotencyKey, input.idempotencyKey),
+    ))
     .then((r) => r[0]);
 
   if (execucaoExistente) {

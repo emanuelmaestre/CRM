@@ -1,8 +1,8 @@
-import { eq, and, isNull } from "drizzle-orm";
-import { createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
+import { and, eq } from "drizzle-orm";
+import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { produto, estoqueSaldo, estoqueMovimento } from "@/shared/lib/db/schema";
-import { emitirEvento } from "@/shared/events";
+import { despacharEvento, persistirEvento } from "@/shared/events";
 import { validarMovimento, calcularNovoSaldo, type MovimentoTipo, CreateProdutoSchema } from "../domain/entities";
 
 const crudProduto = createCrudFactory({
@@ -50,61 +50,100 @@ export async function registrarMovimento(
     observacao?: string;
   }
 ) {
-  const saldoRow = await db
-    .select()
-    .from(estoqueSaldo)
-    .where(eq(estoqueSaldo.produtoId, input.produtoId))
-    .then((r) => r[0]);
+  assertPerfil(ctx, ["admin", "gestor"]);
 
-  if (!saldoRow) throw new Error("Produto sem saldo cadastrado.");
+  const resultado = await ctx.db.transaction(async (tx) => {
+    const saldoRow = await tx
+      .select()
+      .from(estoqueSaldo)
+      .where(and(
+        eq(estoqueSaldo.orgId, ctx.orgId),
+        eq(estoqueSaldo.produtoId, input.produtoId),
+      ))
+      .for("update")
+      .then((rows) => rows[0]);
 
-  validarMovimento(saldoRow.saldo, input.tipo, input.quantidade);
-  const novoSaldo = calcularNovoSaldo(saldoRow.saldo, input.tipo, input.quantidade);
+    if (!saldoRow) throw new Error("Produto sem saldo cadastrado.");
 
-  const [movimento] = await db
-    .insert(estoqueMovimento)
-    .values({
+    // O lock do saldo serializa consumidores concorrentes do mesmo produto.
+    // A checagem após o lock enxerga o movimento confirmado pelo primeiro job.
+    if (input.referenciaId && input.referenciaTipo) {
+      const existente = await tx
+        .select()
+        .from(estoqueMovimento)
+        .where(and(
+          eq(estoqueMovimento.orgId, ctx.orgId),
+          eq(estoqueMovimento.produtoId, input.produtoId),
+          eq(estoqueMovimento.referenciaId, input.referenciaId),
+          eq(estoqueMovimento.referenciaTipo, input.referenciaTipo),
+        ))
+        .then((rows) => rows[0]);
+
+      if (existente) {
+        return { movimento: existente, novoSaldo: saldoRow.saldo, idempotente: true, eventoBaixa: null, eventoSaldo: null };
+      }
+    }
+
+    validarMovimento(saldoRow.saldo, input.tipo, input.quantidade);
+    const novoSaldo = calcularNovoSaldo(saldoRow.saldo, input.tipo, input.quantidade);
+
+    const [movimento] = await tx
+      .insert(estoqueMovimento)
+      .values({
+        orgId: ctx.orgId,
+        produtoId: input.produtoId,
+        tipo: input.tipo,
+        quantidade: input.quantidade,
+        referenciaId: input.referenciaId,
+        referenciaTipo: input.referenciaTipo,
+        observacao: input.observacao,
+      })
+      .returning();
+
+    await tx
+      .update(estoqueSaldo)
+      .set({ saldo: novoSaldo, updatedAt: new Date() })
+      .where(and(
+        eq(estoqueSaldo.orgId, ctx.orgId),
+        eq(estoqueSaldo.produtoId, input.produtoId),
+      ));
+
+    const eventoBaixa = input.tipo === "saida"
+      ? await persistirEvento({
+          tipo: "estoque.baixa_automatica",
+          orgId: ctx.orgId,
+          entidade: "estoque_movimento",
+          entidadeId: movimento.id,
+          payload: { produtoId: input.produtoId, tipo: input.tipo, quantidade: input.quantidade, novoSaldo },
+        }, tx)
+      : null;
+
+    // Emitido para qualquer tipo de movimento — permite A4 sincronizar o saldo nos canais.
+    const eventoSaldo = await persistirEvento({
+      tipo: "estoque.saldo_atualizado",
       orgId: ctx.orgId,
-      produtoId: input.produtoId,
-      tipo: input.tipo,
-      quantidade: input.quantidade,
-      referenciaId: input.referenciaId,
-      referenciaTipo: input.referenciaTipo,
-      observacao: input.observacao,
-    })
-    .returning();
+      entidade: "estoque_saldo",
+      entidadeId: input.produtoId,
+      payload: { produtoId: input.produtoId, novoSaldo, tipoMovimento: input.tipo },
+    }, tx);
 
-  await db
-    .update(estoqueSaldo)
-    .set({ saldo: novoSaldo, updatedAt: new Date() })
-    .where(eq(estoqueSaldo.produtoId, input.produtoId));
-
-  await emitirEvento({
-    tipo: "estoque.baixa_automatica",
-    orgId: ctx.orgId,
-    entidade: "estoque_movimento",
-    entidadeId: movimento.id,
-    payload: { produtoId: input.produtoId, tipo: input.tipo, quantidade: input.quantidade, novoSaldo },
+    return { movimento, novoSaldo, idempotente: false, eventoBaixa, eventoSaldo };
   });
 
-  const produtoRow = await db.select().from(produto).where(eq(produto.id, input.produtoId)).then((r) => r[0]);
-  if (produtoRow && novoSaldo <= produtoRow.estoqueMinimo) {
-    await emitirEvento({
-      tipo: "estoque.minimo_atingido",
-      orgId: ctx.orgId,
-      entidade: "produto",
-      entidadeId: input.produtoId,
-      payload: { sku: produtoRow.sku, saldoAtual: novoSaldo, minimo: produtoRow.estoqueMinimo },
-    });
-  }
+  if (resultado.eventoBaixa) await despacharEvento(resultado.eventoBaixa);
+  if (resultado.eventoSaldo) await despacharEvento(resultado.eventoSaldo);
 
-  return { movimento, novoSaldo };
+  return {
+    movimento: resultado.movimento,
+    novoSaldo: resultado.novoSaldo,
+    idempotente: resultado.idempotente,
+  };
 }
 
 export async function consultarSaldo(ctx: CrudContext, produtoId: string) {
-  return db
+  return ctx.db
     .select()
     .from(estoqueSaldo)
-    .where(eq(estoqueSaldo.produtoId, produtoId))
+    .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, produtoId)))
     .then((r) => r[0] ?? null);
 }

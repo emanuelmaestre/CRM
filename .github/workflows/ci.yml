@@ -47,8 +47,10 @@ jobs:
     needs: ci
 
     env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      DEFAULT_ORG_ID: ${{ secrets.DEFAULT_ORG_ID }}
       NEXT_PUBLIC_BRAND_ID_KARZI: ${{ secrets.NEXT_PUBLIC_BRAND_ID_KARZI }}
       NEXT_PUBLIC_BRAND_ID_WUWU: ${{ secrets.NEXT_PUBLIC_BRAND_ID_WUWU }}
 

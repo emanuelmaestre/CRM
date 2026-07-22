@@ -1,10 +1,9 @@
 import { eq, and } from "drizzle-orm";
-import { createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
+import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { pedido, pedidoItem } from "@/shared/lib/db/schema";
-import { emitirEvento } from "@/shared/events";
-import { registrarMovimento } from "@/modules/estoque/application/estoque.service";
-import { validarTransicaoPedido, podeCancelar, type PedidoStatus } from "../domain/state-machine";
+import { despacharEvento, emitirEvento, persistirEvento } from "@/shared/events";
+import { validarTransicaoPedido, type PedidoStatus } from "../domain/state-machine";
 
 const crudPedido = createCrudFactory({
   table: pedido,
@@ -65,6 +64,8 @@ export async function avancarStatusPedido(
   novoStatus: PedidoStatus,
   motivo?: string
 ) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+
   const rows = await db.select().from(pedido)
     .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, ctx.orgId)));
   const atual = rows[0];
@@ -72,47 +73,34 @@ export async function avancarStatusPedido(
 
   validarTransicaoPedido(atual.status as PedidoStatus, novoStatus);
 
-  await db.update(pedido)
-    .set({ status: novoStatus, updatedAt: new Date(), ...(motivo ? { canceladoMotivo: motivo } : {}) })
-    .where(eq(pedido.id, pedidoId));
-
   const tipoEvento = `pedido.${novoStatus}` as `pedido.${PedidoStatus}`;
-  await emitirEvento({
-    tipo: tipoEvento as never,
-    orgId: ctx.orgId,
-    brandId: atual.brandId,
-    entidade: "pedido",
-    entidadeId: pedidoId,
-    payload: { status: novoStatus, motivo },
+  const evento = await db.transaction(async (tx) => {
+    const [atualizado] = await tx.update(pedido)
+      .set({ status: novoStatus, updatedAt: new Date(), ...(motivo ? { canceladoMotivo: motivo } : {}) })
+      .where(and(
+        eq(pedido.id, pedidoId),
+        eq(pedido.orgId, ctx.orgId),
+        eq(pedido.status, atual.status),
+      ))
+      .returning({ id: pedido.id });
+
+    if (!atualizado) {
+      throw new Error("O pedido foi alterado por outra operaÃ§Ã£o. Atualize a tela e tente novamente.");
+    }
+
+    return persistirEvento({
+      tipo: tipoEvento as never,
+      orgId: ctx.orgId,
+      brandId: atual.brandId,
+      entidade: "pedido",
+      entidadeId: pedidoId,
+      payload: { status: novoStatus, statusAnterior: atual.status, motivo },
+    }, tx);
   });
 
-  if (novoStatus === "pago") {
-    const itens = await db.select().from(pedidoItem).where(eq(pedidoItem.pedidoId, pedidoId));
-    for (const item of itens) {
-      await registrarMovimento(ctx, {
-        produtoId: item.produtoId,
-        tipo: "saida",
-        quantidade: item.quantidade,
-        referenciaId: pedidoId,
-        referenciaTipo: "pedido",
-      });
-    }
-  }
-
-  if (novoStatus === "cancelado") {
-    const itens = await db.select().from(pedidoItem).where(eq(pedidoItem.pedidoId, pedidoId));
-    if (["pago", "separado"].includes(atual.status)) {
-      for (const item of itens) {
-        await registrarMovimento(ctx, {
-          produtoId: item.produtoId,
-          tipo: "estorno",
-          quantidade: item.quantidade,
-          referenciaId: pedidoId,
-          referenciaTipo: "pedido_cancelado",
-        });
-      }
-    }
-  }
+  // A baixa/estorno pertence aos jobs A2/A3. O evento jÃ¡ estÃ¡ persistido
+  // quando o envio ocorre, evitando status alterado sem trilha de domÃ­nio.
+  await despacharEvento(evento);
 
   return { pedidoId, statusAnterior: atual.status, novoStatus };
 }

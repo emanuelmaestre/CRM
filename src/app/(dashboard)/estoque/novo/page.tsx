@@ -11,8 +11,10 @@ import {
   selectClass,
 } from "@/shared/design-system/primitives/WizardLayout";
 import { actionCriarProduto } from "../actions";
+import brandsConfig from "@/config/brands.json";
+import wizardsConfig from "@/config/wizards.json";
 
-const STEPS = ["Produto", "Preço e estoque", "Confirmar"];
+const copy = wizardsConfig.produto;
 
 const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
 const BRAND_WUWU = process.env.NEXT_PUBLIC_BRAND_ID_WUWU ?? "";
@@ -42,16 +44,16 @@ export default function NovoProdutoWizard() {
 
   function validateStep0() {
     const e: Partial<FormData> = {};
-    if (!data.nome.trim()) e.nome = "Nome é obrigatório";
-    if (!data.sku.trim()) e.sku = "SKU é obrigatório";
-    if (!data.brandId) e.brandId = "Selecione a marca";
+    if (!data.nome.trim()) e.nome = copy.messages.nameRequired;
+    if (!data.sku.trim()) e.sku = copy.messages.skuRequired;
+    if (!data.brandId) e.brandId = copy.messages.brandRequired;
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   function validateStep1() {
     const e: Partial<FormData> = {};
-    if (!data.preco || Number(data.preco) <= 0) e.preco = "Preço deve ser maior que zero";
+    if (!data.preco || Number(data.preco) <= 0) e.preco = copy.messages.priceInvalid;
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -74,50 +76,50 @@ export default function NovoProdutoWizard() {
     startTransition(async () => {
       try {
         await actionCriarProduto(fd);
-        toast.success("Produto criado com sucesso!");
-        router.push("/estoque");
+        toast.success(copy.messages.success);
+        router.push(copy.cancelHref);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro ao criar produto.");
+        toast.error(err instanceof Error ? err.message : copy.messages.error);
       }
     });
   }
 
-  const brandLabel = data.brandId === BRAND_KARZI ? "KARZI" : data.brandId === BRAND_WUWU ? "WUWU" : "—";
+  const brandLabel = data.brandId === BRAND_KARZI ? brandsConfig.karzi.label : data.brandId === BRAND_WUWU ? brandsConfig.wuwu.label : "—";
 
   return (
     <WizardLayout
-      title="Novo produto"
-      steps={STEPS}
+      title={copy.title}
+      steps={copy.steps}
       currentStep={step}
       onBack={step > 0 ? () => setStep((s) => s - 1) : undefined}
-      cancelHref="/estoque"
+      cancelHref={copy.cancelHref}
     >
       {step === 0 && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Dados do produto</h2>
-            <p className="text-sm text-muted-foreground mt-1">Identidade do produto no estoque</p>
+            <h2 className="text-2xl font-bold text-foreground">{copy.sections[0].title}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{copy.sections[0].description}</p>
           </div>
-          <WizardField label="Marca" required error={errors.brandId}>
+          <WizardField label={copy.fields.brandId.label} required error={errors.brandId}>
             <select className={selectClass} value={data.brandId} onChange={(e) => set("brandId", e.target.value)}>
-              <option value="">Selecione a marca</option>
-              <option value={BRAND_KARZI}>KARZI</option>
-              <option value={BRAND_WUWU}>WUWU</option>
+              <option value="">{copy.fields.brandId.placeholder}</option>
+              <option value={BRAND_KARZI}>{brandsConfig.karzi.label}</option>
+              <option value={BRAND_WUWU}>{brandsConfig.wuwu.label}</option>
             </select>
           </WizardField>
-          <WizardField label="Nome do produto" required error={errors.nome}>
+          <WizardField label={copy.fields.nome.label} required error={errors.nome}>
             <input
               className={inputClass}
-              placeholder="Ex: Caixa Organizadora 40L"
+              placeholder={copy.fields.nome.placeholder}
               value={data.nome}
               onChange={(e) => set("nome", e.target.value)}
               autoFocus
             />
           </WizardField>
-          <WizardField label="SKU" required error={errors.sku}>
+          <WizardField label={copy.fields.sku.label} required error={errors.sku}>
             <input
               className={inputClass}
-              placeholder="Ex: KZ-001"
+              placeholder={copy.fields.sku.placeholder}
               value={data.sku}
               onChange={(e) => set("sku", e.target.value)}
             />
@@ -129,33 +131,33 @@ export default function NovoProdutoWizard() {
       {step === 1 && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Preço e estoque</h2>
-            <p className="text-sm text-muted-foreground mt-1">Valores e controle de estoque mínimo</p>
+            <h2 className="text-2xl font-bold text-foreground">{copy.sections[1].title}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{copy.sections[1].description}</p>
           </div>
-          <WizardField label="Preço de venda (R$)" required error={errors.preco}>
+          <WizardField label={`${copy.fields.preco.label} (R$)`} required error={errors.preco}>
             <input
               className={inputClass}
               type="number"
               step="0.01"
               min="0"
-              placeholder="0,00"
+              placeholder={copy.fields.preco.placeholder}
               value={data.preco}
               onChange={(e) => set("preco", e.target.value)}
               autoFocus
             />
           </WizardField>
-          <WizardField label="Custo (R$)">
+          <WizardField label={`${copy.fields.custo.label} (R$)`}>
             <input
               className={inputClass}
               type="number"
               step="0.01"
               min="0"
-              placeholder="0,00"
+              placeholder={copy.fields.custo.placeholder}
               value={data.custo}
               onChange={(e) => set("custo", e.target.value)}
             />
           </WizardField>
-          <WizardField label="Estoque mínimo (unidades)">
+          <WizardField label={`${copy.fields.estoqueMinimo.label} (unidades)`}>
             <input
               className={inputClass}
               type="number"
@@ -171,18 +173,18 @@ export default function NovoProdutoWizard() {
       {step === 2 && (
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Confirmar produto</h2>
-            <p className="text-sm text-muted-foreground mt-1">Revise os dados antes de salvar</p>
+            <h2 className="text-2xl font-bold text-foreground">{copy.sections[2].title}</h2>
+            <p className="text-sm text-muted-foreground mt-1">{copy.sections[2].description}</p>
           </div>
 
           <div className="rounded-[1.25rem] border border-border bg-card divide-y divide-border overflow-hidden">
             {[
-              { label: "Marca", value: brandLabel },
-              { label: "Nome", value: data.nome },
-              { label: "SKU", value: data.sku.toUpperCase() },
-              { label: "Preço", value: data.preco ? `R$ ${Number(data.preco).toFixed(2)}` : "—" },
-              { label: "Custo", value: data.custo ? `R$ ${Number(data.custo).toFixed(2)}` : "—" },
-              { label: "Estoque mínimo", value: `${data.estoqueMinimo} un.` },
+              { label: copy.reviewLabels.brandId, value: brandLabel },
+              { label: copy.reviewLabels.nome, value: data.nome },
+              { label: copy.reviewLabels.sku, value: data.sku.toUpperCase() },
+              { label: copy.reviewLabels.preco, value: data.preco ? `R$ ${Number(data.preco).toFixed(2)}` : "—" },
+              { label: copy.reviewLabels.custo, value: data.custo ? `R$ ${Number(data.custo).toFixed(2)}` : "—" },
+              { label: copy.reviewLabels.estoqueMinimo, value: `${data.estoqueMinimo} un.` },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between px-5 py-4">
                 <span className="text-sm text-muted-foreground">{label}</span>
@@ -196,7 +198,7 @@ export default function NovoProdutoWizard() {
             isLast
             onSubmit={submit}
             isPending={pending}
-            submitLabel="Criar produto"
+            submitLabel={copy.actions.submit}
           />
         </div>
       )}

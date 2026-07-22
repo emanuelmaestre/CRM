@@ -47,7 +47,7 @@ describe("Scoring RFM — fórmulas auditáveis (Camada A, sem IA)", () => {
 
   it("versão da fórmula está presente na saída", () => {
     const r = calcularScoreCliente({ diasDesdeUltimaCompra: 30, totalCompras: 3, valorTotalGasto: 300, intervalMedioEntrCompras: null });
-    expect(r.versaoFormula).toBe("v1");
+    expect(r.versaoFormula).toBe("v2");
   });
 });
 

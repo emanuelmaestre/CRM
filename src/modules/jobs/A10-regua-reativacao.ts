@@ -35,7 +35,7 @@ export const A10_reguaReativacao = inngest.createFunction(
             gatilhoData: new Date(),
           })
         );
-        if (resultado.status === "agendada") disparos++;
+        if (resultado.status === "enviada") disparos++;
       }
     }
 
