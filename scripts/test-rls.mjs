@@ -196,7 +196,7 @@ async function testMetadata() {
       and p.tablename = c.relname
     where n.nspname = 'public'
       and c.relkind = 'r'
-    group by c.relname, c.relrowsecurity
+    group by c.relname, c.relrowsecurity, c.relforcerowsecurity
     order by c.relname
   `;
 
