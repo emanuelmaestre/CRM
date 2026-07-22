@@ -19,13 +19,15 @@ export function LoginForm() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: senha,
+      });
       if (error) throw error;
-      router.push("/dashboard");
+      router.replace("/dashboard");
       router.refresh();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : copy.errors.generic;
-      toast.error(message);
+    } catch {
+      toast.error(copy.errors.invalidCredentials);
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "crypto";
+import { authorizeRoute } from "@/shared/lib/auth/session";
 
 // Gera code_verifier + code_challenge para PKCE (S256)
 function gerarPkce() {
@@ -9,6 +10,9 @@ function gerarPkce() {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  const auth = await authorizeRoute(["admin"]);
+  if (!auth.ok) return auth.response;
+
   const brand = req.nextUrl.searchParams.get("brand");
   if (brand !== "karzi" && brand !== "wuwu") {
     return NextResponse.json({ error: "brand deve ser 'karzi' ou 'wuwu'" }, { status: 400 });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { authorizeRoute } from "@/shared/lib/auth/session";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,9 @@ const supabase = createClient(
 );
 
 export async function GET(): Promise<NextResponse> {
+  const auth = await authorizeRoute(["admin"]);
+  if (!auth.ok) return auth.response;
+
   const orgId    = process.env.DEFAULT_ORG_ID!;
   const karziId  = process.env.NEXT_PUBLIC_BRAND_ID_KARZI!;
   const wuwuId   = process.env.NEXT_PUBLIC_BRAND_ID_WUWU!;

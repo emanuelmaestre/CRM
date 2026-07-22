@@ -4,7 +4,7 @@ import { db } from "@/shared/lib/db";
 import { importLote } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { criarCliente } from "@/modules/clientes/application/clientes.service";
-import type { CrudContext } from "@/shared/lib/crud-factory";
+import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 
 const LinhaClienteSchema = z.object({
   nome: z.string().min(2),
@@ -30,6 +30,8 @@ export async function processarImportacaoClientes(
   linhas: unknown[],
   opts: { preview?: boolean } = {}
 ): Promise<ResultadoImportacao> {
+  assertPerfil(ctx, ["admin", "gestor"]);
+
   const erros: { linha: number; motivo: string }[] = [];
   const validos: LinhaCliente[] = [];
 

@@ -6,13 +6,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/shared/design-system/cn";
 import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
+import type { Perfil } from "@/shared/lib/auth/authorization";
 
-export function BottomNav() {
+export function BottomNav({ perfil }: { perfil: Perfil }) {
   const pathname = usePathname();
 
   return (
     <div className="flex items-center justify-around px-2 py-1">
-      {navigationConfig.items.filter((item) => item.mobile).map((item) => {
+      {navigationConfig.items.filter((item) => item.mobile && item.profiles.includes(perfil)).map((item) => {
         const active = pathname === item.href || pathname.startsWith(item.href + "/");
         const Icon = getIcon(item.icon);
         return (

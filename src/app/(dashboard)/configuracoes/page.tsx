@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -9,9 +9,15 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { MLConnectSection } from "./MLConnectSection";
 import settingsConfig from "@/config/settings.json";
 import dashboardConfig from "@/config/dashboard.json";
+import permissionsConfig from "@/config/permissions.json";
+import { actionAtualizarUsuario, actionListarUsuarios } from "./actions";
+import type { Perfil } from "@/shared/lib/auth/authorization";
+import { toast } from "sonner";
 
 const PendingIcon = getIcon(settingsConfig.status.pendingIcon);
 const ExternalIcon = getIcon(settingsConfig.openAction.icon);
+
+type UsuarioResumo = Awaited<ReturnType<typeof actionListarUsuarios>>[number];
 
 const stagger = {
   hidden: {},
@@ -104,6 +110,30 @@ function IntegrationRow({ name, description, href, color, connected = false }: {
 }
 
 export default function ConfiguracoesPage() {
+  const [usuarios, setUsuarios] = useState<UsuarioResumo[]>([]);
+  const [carregandoUsuarios, setCarregandoUsuarios] = useState(true);
+  const [alterandoUsuario, setAlterandoUsuario] = useState<string | null>(null);
+
+  useEffect(() => {
+    actionListarUsuarios()
+      .then(setUsuarios)
+      .catch(() => toast.error(settingsConfig.users.messages.loadError))
+      .finally(() => setCarregandoUsuarios(false));
+  }, []);
+
+  async function alterarUsuario(usuario: UsuarioResumo, perfil: Perfil, ativo: boolean) {
+    setAlterandoUsuario(usuario.id);
+    try {
+      const atualizado = await actionAtualizarUsuario({ userId: usuario.id, perfil, ativo });
+      setUsuarios((atuais) => atuais.map((item) => item.id === atualizado.id ? atualizado : item));
+      toast.success(settingsConfig.users.messages.updateSuccess);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : settingsConfig.users.messages.updateError);
+    } finally {
+      setAlterandoUsuario(null);
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -120,15 +150,42 @@ export default function ConfiguracoesPage() {
           </Card>
 
           <Card title={settingsConfig.users.title} icon={getIcon(settingsConfig.users.icon)}>
-            <div className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-sm font-medium text-foreground">{settingsConfig.users.email}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{settingsConfig.users.role}</p>
-              </div>
-              <span className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-[#1F8A4C]/10 text-[#1F8A4C]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C] inline-block" />
-                {settingsConfig.status.active}
-              </span>
+            {carregandoUsuarios && <p className="text-sm text-muted-foreground">{settingsConfig.users.loading}</p>}
+            {!carregandoUsuarios && usuarios.length === 0 && (
+              <p className="text-sm text-muted-foreground">{settingsConfig.users.empty}</p>
+            )}
+            <div className="divide-y divide-border">
+              {usuarios.map((usuario) => (
+                <div key={usuario.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{usuario.nome}</p>
+                    <p className="truncate text-xs text-muted-foreground">{usuario.email}</p>
+                  </div>
+                  <select
+                    aria-label={`Perfil de ${usuario.nome}`}
+                    value={usuario.perfil}
+                    disabled={alterandoUsuario === usuario.id}
+                    onChange={(event) => alterarUsuario(usuario, event.target.value as Perfil, usuario.ativo)}
+                    className="h-9 rounded-lg border border-border bg-card px-2 text-xs text-foreground"
+                  >
+                    {Object.entries(permissionsConfig.profiles).map(([perfil, dados]) => (
+                      <option key={perfil} value={perfil}>{dados.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={alterandoUsuario === usuario.id}
+                    onClick={() => alterarUsuario(usuario, usuario.perfil, !usuario.ativo)}
+                    className={`h-9 rounded-lg px-3 text-xs font-semibold disabled:opacity-50 ${
+                      usuario.ativo
+                        ? "bg-[#1F8A4C]/10 text-[#1F8A4C]"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {usuario.ativo ? settingsConfig.users.deactivate : settingsConfig.users.activate}
+                  </button>
+                </div>
+              ))}
             </div>
           </Card>
         </div>

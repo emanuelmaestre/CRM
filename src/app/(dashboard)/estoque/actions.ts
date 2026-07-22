@@ -7,6 +7,7 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { produtoCanal, channelAccount } from "@/shared/lib/db/schema";
+import { assertPerfil } from "@/shared/lib/crud-factory";
 
 const BrandIdSchema = z.string().uuid();
 const MovimentoSchema = z.object({
@@ -56,6 +57,7 @@ const MapeamentoCanalSchema = z.object({
 
 export async function actionListarContasCanal() {
   const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
   return db
     .select({ id: channelAccount.id, tipo: channelAccount.tipo, nome: channelAccount.nome, status: channelAccount.status, brandId: channelAccount.brandId })
     .from(channelAccount)
@@ -64,6 +66,7 @@ export async function actionListarContasCanal() {
 
 export async function actionListarMapeamentosCanal(produtoId: string) {
   const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
   z.string().uuid().parse(produtoId);
   return db
     .select({
@@ -81,6 +84,7 @@ export async function actionListarMapeamentosCanal(produtoId: string) {
 
 export async function actionSalvarMapeamentoCanal(produtoId: string, channelAccountId: string, externalListingId: string) {
   const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
   const input = MapeamentoCanalSchema.parse({ produtoId, channelAccountId, externalListingId });
 
   await db
@@ -96,6 +100,7 @@ export async function actionSalvarMapeamentoCanal(produtoId: string, channelAcco
 
 export async function actionRemoverMapeamentoCanal(mapeamentoId: string) {
   const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
   z.string().uuid().parse(mapeamentoId);
   await db
     .update(produtoCanal)

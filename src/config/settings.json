@@ -3,7 +3,19 @@
   "status": { "active": "Ativo", "pending": "Pendente", "pendingIcon": "Clock" },
   "openAction": { "label": "Abrir", "icon": "ExternalLink" },
   "organization": { "title": "Organização", "icon": "Building2", "rows": [{ "label": "Marcas ativas", "value": "KARZI, WUWU" }, { "label": "Plano", "value": "Acelera" }] },
-  "users": { "title": "Usuários", "icon": "Users", "email": "admin@crm.com.br", "role": "Administrador" },
+  "users": {
+    "title": "Usuários e perfis",
+    "icon": "Users",
+    "loading": "Carregando usuários…",
+    "empty": "Nenhum usuário provisionado.",
+    "activate": "Ativar",
+    "deactivate": "Desativar",
+    "messages": {
+      "loadError": "Não foi possível carregar os usuários.",
+      "updateSuccess": "Perfil atualizado.",
+      "updateError": "Não foi possível atualizar o perfil."
+    }
+  },
   "integrations": {
     "title": "Integrações",
     "icon": "Plug",

@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:phase-a": "playwright test e2e/navegacao-responsiva.spec.ts",
+    "test:e2e:phase-a": "playwright test e2e/navegacao-responsiva.spec.ts e2e/auth-perfis.spec.ts",
     "test:rls": "node scripts/test-rls.mjs",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",

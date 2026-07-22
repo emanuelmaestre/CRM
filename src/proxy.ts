@@ -1,13 +1,12 @@
-import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { updateSession } from "@/shared/lib/supabase/middleware";
 
-// Proxy mínimo: apenas passa a requisição adiante.
-// Auth é verificada nos layouts server-side via supabase.auth.getUser().
-export function proxy() {
-  return NextResponse.next();
+export function proxy(request: NextRequest) {
+  return updateSession(request);
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js|woff|woff2)$).*)",
   ],
 };

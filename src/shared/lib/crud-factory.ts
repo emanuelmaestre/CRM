@@ -1,8 +1,9 @@
 import { eq, and, isNull, desc, SQL, count } from "drizzle-orm";
 import { db } from "./db";
 import { auditLog } from "./db/schema";
+import type { Perfil } from "./auth/authorization";
 
-export type Perfil = "admin" | "gestor" | "vendedor";
+export type { Perfil } from "./auth/authorization";
 
 export interface CrudContext {
   db: typeof db;

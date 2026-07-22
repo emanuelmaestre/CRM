@@ -7,7 +7,10 @@
       "password": { "label": "Senha", "placeholder": "••••••••" }
     },
     "actions": { "submit": "Entrar", "submitting": "Entrando…" },
-    "errors": { "generic": "Erro ao entrar" }
+    "errors": {
+      "generic": "Erro ao entrar",
+      "invalidCredentials": "E-mail ou senha inválidos."
+    }
   },
   "clientes": {
     "metadataTitle": "Clientes",

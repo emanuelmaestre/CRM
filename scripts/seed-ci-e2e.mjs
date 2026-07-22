@@ -60,12 +60,12 @@ try {
 
     await tx`
       insert into public.app_user (id, org_id, email, nome, perfil, ativo)
-      values (${data.user.id}, ${orgId}, ${email}, 'Usuário E2E CI', 'admin', 'true')
+      values (${data.user.id}, ${orgId}, ${email}, 'Usuário E2E CI', 'admin', true)
       on conflict (id) do update set
         org_id = excluded.org_id,
         email = excluded.email,
         perfil = 'admin',
-        ativo = 'true'
+        ativo = true
     `;
   });
 

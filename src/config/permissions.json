@@ -1,0 +1,33 @@
+{
+  "profiles": {
+    "admin": {
+      "label": "Administrador",
+      "description": "Acesso total, usuários, integrações, auditoria e saúde do sistema."
+    },
+    "gestor": {
+      "label": "Gestor",
+      "description": "Operação comercial, estoque, importações e relatórios, sem administrar usuários."
+    },
+    "vendedor": {
+      "label": "Vendedor",
+      "description": "Clientes, atendimento, vendas e consulta de estoque sem custo ou margem."
+    }
+  },
+  "routes": [
+    { "prefix": "/admin", "profiles": ["admin"] },
+    { "prefix": "/configuracoes", "profiles": ["admin"] },
+    { "prefix": "/relatorios", "profiles": ["admin", "gestor"] },
+    { "prefix": "/importacao", "profiles": ["admin", "gestor"] },
+    { "prefix": "/estoque/novo", "profiles": ["admin", "gestor"] }
+  ],
+  "messages": {
+    "notProvisionedTitle": "Acesso ainda não provisionado",
+    "notProvisionedDescription": "Sua conta foi autenticada, mas ainda não pertence a esta organização. Solicite o provisionamento ao administrador.",
+    "inactiveTitle": "Usuário desativado",
+    "inactiveDescription": "Seu acesso foi desativado. Fale com um administrador da organização.",
+    "forbiddenTitle": "Sem permissão para esta área",
+    "forbiddenDescription": "Seu perfil não possui acesso a esta página. Se isso não estiver correto, fale com um administrador.",
+    "backToDashboard": "Voltar ao painel",
+    "signOut": "Sair da conta"
+  }
+}

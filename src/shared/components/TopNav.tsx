@@ -2,34 +2,26 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/shared/design-system/cn";
 import { createClient } from "@/shared/lib/supabase/client";
 import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
+import { nomePerfil, type Perfil } from "@/shared/lib/auth/authorization";
 
 const BellIcon = getIcon(navigationConfig.utilities.notifications.icon);
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
 const LogoutIcon = getIcon(navigationConfig.utilities.logout.icon);
 
-export function TopNav() {
+export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; email: string }) {
   const pathname = usePathname();
   const router   = useRouter();
-  const [initials, setInitials] = useState("?");
   const [bell, setBell] = useState(false);
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      const email = data.user?.email ?? "";
-      const name  = data.user?.user_metadata?.full_name ?? email;
-      setInitials(
-        name.split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase() ?? "").join("") ||
-        email[0]?.toUpperCase() || "?"
-      );
-    });
-  }, []);
+  const initials = nome.split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("")
+    || email[0]?.toUpperCase()
+    || "?";
+  const items = navigationConfig.items.filter((item) => item.profiles.includes(perfil));
 
   async function handleLogout() {
     const supabase = createClient();
@@ -63,7 +55,7 @@ export function TopNav() {
 
       {/* Nav links */}
       <nav className="hidden md:flex items-center gap-0 flex-1">
-        {navigationConfig.items.map((item, i) => {
+        {items.map((item, i) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = getIcon(item.icon);
           return (
@@ -126,19 +118,22 @@ export function TopNav() {
         </motion.button>
 
         {/* Settings */}
-        <motion.div whileHover={{ scale: 1.05 }} transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}>
-          <Link
-            href={navigationConfig.utilities.settings.href}
-            className={cn(
-              "hidden md:flex w-8 h-8 items-center justify-center rounded-lg transition-colors",
-              pathname === navigationConfig.utilities.settings.href
-                ? "bg-muted text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-          >
-            <SettingsIcon size={15} strokeWidth={1.75} />
-          </Link>
-        </motion.div>
+        {navigationConfig.utilities.settings.profiles.includes(perfil) && (
+          <motion.div whileHover={{ scale: 1.05 }} transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}>
+            <Link
+              href={navigationConfig.utilities.settings.href}
+              aria-label={navigationConfig.utilities.settings.label}
+              className={cn(
+                "hidden md:flex w-8 h-8 items-center justify-center rounded-lg transition-colors",
+                pathname === navigationConfig.utilities.settings.href
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <SettingsIcon size={15} strokeWidth={1.75} />
+            </Link>
+          </motion.div>
+        )}
 
 
         {/* Avatar */}
@@ -146,7 +141,7 @@ export function TopNav() {
           onClick={handleLogout}
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
-          title={navigationConfig.utilities.logout.label}
+          title={`${nome} · ${nomePerfil(perfil)} · ${navigationConfig.utilities.logout.label}`}
           className="flex items-center gap-2 h-8 pl-1 pr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
           <div className="relative">
