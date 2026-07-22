@@ -53,6 +53,10 @@ function record(name, evidence) {
   results.push({ name, status: "passed", evidence });
 }
 
+function recordFailure(name, evidence) {
+  results.push({ name, status: "failed", evidence });
+}
+
 async function createFixtures(tx) {
   const orgA = randomUUID();
   const orgB = randomUUID();
@@ -74,6 +78,51 @@ async function createFixtures(tx) {
   `;
 
   return { orgA, orgB, tagA, tagB };
+}
+
+async function createRelationalFixtures(tx) {
+  const fixtures = await createFixtures(tx);
+  const brandA = randomUUID();
+  const brandB = randomUUID();
+  const clientA = randomUUID();
+  const clientB = randomUUID();
+  const productA = randomUUID();
+  const productB = randomUUID();
+  const orderA = randomUUID();
+
+  await tx`
+    insert into public.brand (id, org_id, name, slug)
+    values
+      (${brandA}, ${fixtures.orgA}, 'RLS Brand A', ${`rls-a-${randomUUID()}`}),
+      (${brandB}, ${fixtures.orgB}, 'RLS Brand B', ${`rls-b-${randomUUID()}`})
+  `;
+  await tx`
+    insert into public.cliente (id, org_id, nome)
+    values
+      (${clientA}, ${fixtures.orgA}, 'RLS Cliente A'),
+      (${clientB}, ${fixtures.orgB}, 'RLS Cliente B')
+  `;
+  await tx`
+    insert into public.produto (id, org_id, brand_id, sku, nome, preco)
+    values
+      (${productA}, ${fixtures.orgA}, ${brandA}, ${`RLS-A-${randomUUID()}`}, 'RLS Produto A', 1),
+      (${productB}, ${fixtures.orgB}, ${brandB}, ${`RLS-B-${randomUUID()}`}, 'RLS Produto B', 1)
+  `;
+  await tx`
+    insert into public.pedido (id, org_id, brand_id, cliente_id, canal, total)
+    values (${orderA}, ${fixtures.orgA}, ${brandA}, ${clientA}, 'manual', 1)
+  `;
+
+  return {
+    ...fixtures,
+    brandA,
+    brandB,
+    clientA,
+    clientB,
+    productA,
+    productB,
+    orderA,
+  };
 }
 
 async function assumeRole(tx, role, orgId) {
@@ -108,7 +157,8 @@ async function expectPolicyDenied(name, test) {
   }
 
   if (caught instanceof PolicyUnexpectedlyAllowed) {
-    throw new Error(`${name}: a operação cruzada foi permitida pela RLS.`);
+    recordFailure(name, "operação cruzada permitida pela RLS");
+    return;
   }
 
   const code = caught?.code;
@@ -297,6 +347,39 @@ async function testAuditInsertDenied() {
   });
 }
 
+async function testCrossTenantClientTagDenied() {
+  await expectPolicyDenied("cliente_tag entre tenants", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await tx`
+      insert into public.cliente_tag (cliente_id, tag_id)
+      values (${fixtures.clientA}, ${fixtures.tagB})
+    `;
+  });
+}
+
+async function testCrossTenantOrderItemDenied() {
+  await expectPolicyDenied("pedido_item entre tenants", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await tx`
+      insert into public.pedido_item (pedido_id, produto_id, quantidade, preco_unitario)
+      values (${fixtures.orderA}, ${fixtures.productB}, 1, 1)
+    `;
+  });
+}
+
+async function testCrossTenantStockMovementDenied() {
+  await expectPolicyDenied("estoque_movimento com produto de outro tenant", async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA);
+    await tx`
+      insert into public.estoque_movimento (org_id, produto_id, tipo, quantidade)
+      values (${fixtures.orgA}, ${fixtures.productB}, 'entrada', 1)
+    `;
+  });
+}
+
 try {
   await testMetadata();
   await testDefaultDeny();
@@ -307,8 +390,13 @@ try {
   await testTenantMoveDenied();
   await testAuditIsAppendOnlyForApplicationRole();
   await testAuditInsertDenied();
+  await testCrossTenantClientTagDenied();
+  await testCrossTenantOrderItemDenied();
+  await testCrossTenantStockMovementDenied();
 
-  console.log(JSON.stringify({ status: "passed", tests: results }, null, 2));
+  const failed = results.filter((result) => result.status === "failed");
+  console.log(JSON.stringify({ status: failed.length === 0 ? "passed" : "failed", tests: results }, null, 2));
+  if (failed.length > 0) process.exitCode = 1;
 } finally {
   await sql.end({ timeout: 2 });
 }
