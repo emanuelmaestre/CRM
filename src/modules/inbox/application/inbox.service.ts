@@ -3,6 +3,8 @@ import { db } from "@/shared/lib/db";
 import { channelAccount, conversa, mensagem } from "@/shared/lib/db/schema";
 import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
 import { validarTransicaoConversa, reabrirSeNecessario, type ConversaStatus } from "../domain/state-machine";
+import { criarZApiProvider } from "@/modules/canais/infrastructure/zapi.provider";
+import { brand } from "@/shared/lib/db/schema";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 
 function isUniqueViolation(error: unknown): boolean {
@@ -146,4 +148,53 @@ export async function listarMensagens(orgId: string, conversaId: string) {
     .from(mensagem)
     .where(and(eq(mensagem.conversaId, conversaId), eq(mensagem.orgId, orgId)))
     .orderBy(desc(mensagem.createdAt));
+}
+
+export async function enviarMensagem(
+  ctx: CrudContext,
+  conversaId: string,
+  conteudo: string
+): Promise<{ mensagemId: string }> {
+  const conversaRow = await db
+    .select()
+    .from(conversa)
+    .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)))
+    .then((r) => r[0]);
+  if (!conversaRow) throw new Error("Conversa não encontrada.");
+
+  const brandRow = await db
+    .select({ slug: brand.slug })
+    .from(brand)
+    .where(eq(brand.id, conversaRow.brandId))
+    .then((r) => r[0]);
+  if (!brandRow) throw new Error("Marca não encontrada.");
+
+  const slug = brandRow.slug as "karzi" | "wuwu";
+  const provider = criarZApiProvider(slug);
+
+  const telefone = conversaRow.externalId ?? "";
+  if (!telefone) throw new Error("Conversa sem telefone de destino.");
+
+  const { providerMessageId } = await provider.enviarMensagem({ para: telefone, conteudo });
+
+  const [novaMensagem] = await db
+    .insert(mensagem)
+    .values({
+      conversaId,
+      orgId: ctx.orgId,
+      direcao: "saida",
+      tipo: "texto",
+      conteudo,
+      providerMessageId,
+    })
+    .returning();
+
+  if (conversaRow.status === "nova" || conversaRow.status === "aguardando_cliente") {
+    await db
+      .update(conversa)
+      .set({ status: "em_atendimento", updatedAt: new Date() })
+      .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)));
+  }
+
+  return { mensagemId: novaMensagem.id };
 }
