@@ -36,6 +36,20 @@
       "when": 1784678483969,
       "tag": "0004_whole_madame_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784742000000,
+      "tag": "0005_canal_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784750000000,
+      "tag": "0006_rls_relational_integrity",
+      "breakpoints": true
     }
   ]
 }

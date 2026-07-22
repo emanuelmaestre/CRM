@@ -8,14 +8,29 @@ on:
 
 jobs:
   ci:
-    name: Typecheck · Lint · Tests
+    name: Types · Lint · Tests · Migrations
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: crm_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/crm_ci
       NEXT_PUBLIC_BRAND_ID_KARZI: ${{ secrets.NEXT_PUBLIC_BRAND_ID_KARZI }}
       NEXT_PUBLIC_BRAND_ID_WUWU: ${{ secrets.NEXT_PUBLIC_BRAND_ID_WUWU }}
 
@@ -43,6 +58,15 @@ jobs:
 
       - name: Migration metadata check
         run: npm run db:check
+
+      - name: Prepare Supabase-compatible database roles
+        run: npm run db:ci:bootstrap
+
+      - name: Apply migrations to clean database
+        run: npm run db:migrate
+
+      - name: Grant application role privileges
+        run: npm run db:ci:grants
 
       - name: RLS integration tests
         run: npm run test:rls
