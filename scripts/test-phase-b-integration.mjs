@@ -59,10 +59,20 @@ try {
         'uq_pedido_org_account_provider',
         'uq_pedido_org_canal_provider_legacy',
         'uq_mensagem_org_provider',
-        'uq_movimento_referencia'
+        'uq_movimento_referencia',
+        'idx_pedido_recebido',
+        'idx_evento_dominio_pendente'
       )
   `;
-  assert.equal(indexes.length, 4, "Os quatro índices de idempotência da Fase B devem existir.");
+  assert.equal(indexes.length, 6, "Os índices de idempotência, SLA e recuperação da Fase B devem existir.");
+
+  const [deliveryColumns] = await sql`
+    select count(*)::int as total
+    from information_schema.columns
+    where table_schema = 'public' and table_name = 'pedido'
+      and column_name = 'recebido_em'
+  `;
+  assert.equal(deliveryColumns.total, 1, "Pedido deve registrar o instante de recebimento para medir o SLA.");
 
   const [reguaColumns] = await sql`
     select count(*)::int as total
@@ -201,6 +211,8 @@ try {
       duplicateMessagesAfter50ConcurrentAttempts: messageCount.total,
       stockMovementsAfter50ConcurrentAttempts: movimentos.flat().length,
       automationLimitsPresent: true,
+      deliverySlaTracePresent: true,
+      eventOutboxRecoveryIndexPresent: true,
     },
   }, null, 2));
 } finally {

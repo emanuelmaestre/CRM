@@ -1,24 +1,34 @@
 {
   "phase": "B",
   "name": "Operação Conectada",
-  "updatedAt": "2026-07-22",
+  "updatedAt": "2026-07-23",
   "status": "ready_for_external_homologation",
-  "summary": "Implementação, provas locais e migration do banco alvo concluídas; aceite contratual depende da homologação com canais e credenciais reais.",
+  "summary": "Código, contratos, recuperação de eventos e migration 0013 validados. O aceite final permanece bloqueado por credenciais, contas e provas reais inexistentes no ambiente publicado.",
   "criteria": [
     {
       "id": "connectors",
       "status": "verified_locally",
-      "evidence": "Providers Mercado Livre, Shopee, TikTok Shop v202309 e Olist com timeouts, erros HTTP/API, retries e health-check."
+      "evidence": "Providers Mercado Livre, Shopee, TikTok Shop v202309 e Olist Partner API possuem testes contratuais, timeouts, validação de respostas e health-check."
+    },
+    {
+      "id": "webhooks",
+      "status": "verified_locally",
+      "evidence": "Webhooks limitam payload a 1 MB, validam schemas e assinaturas disponíveis; Olist aceita o payload oficial por resource e valida os dados consultando a API autenticada."
     },
     {
       "id": "order_ingestion_sla",
       "status": "external_validation_pending",
-      "evidence": "Webhooks idempotentes e polling de contingência a cada 4 minutos implementados; falta cronometrar um pedido real por canal."
+      "evidence": "pedido.recebido_em mede a latência, o polling A24 roda a cada 4 minutos e o outbox recupera publicações com eventId estável; falta pedido real por canal em até 5 minutos."
     },
     {
       "id": "stock_sync_reconciliation",
       "status": "external_validation_pending",
-      "evidence": "Baixa idempotente, sync com retry e reconciliação local × remoto implementados; TikTok exige listing, SKU e warehouse mapeados; falta homologação real."
+      "evidence": "Baixa idempotente, resolução de externalSkuId, sync com retry, evento estoque.sincronizado e reconciliação local/remota estão implementados; falta prova real nos quatro canais."
+    },
+    {
+      "id": "order_status_reconciliation",
+      "status": "verified_locally",
+      "evidence": "Atualizações repetidas agora reconciliam o status, emitem eventos de pagamento/entrega/cancelamento/devolução e ignoram regressões fora de ordem."
     },
     {
       "id": "automation_six_gates",
@@ -28,50 +38,64 @@
     {
       "id": "message_deduplication",
       "status": "verified_locally",
-      "evidence": "50 inserções concorrentes resultaram em exatamente 1 mensagem; fixtures de marketplace removidas da produção."
+      "evidence": "50 inserções concorrentes resultaram em exatamente 1 mensagem."
     },
     {
       "id": "unified_inbox",
       "status": "external_validation_pending",
-      "evidence": "Persistência unificada aceita contas de canal e bloqueia outbound sem provider oficial; eventos reais de perguntas/chat dos marketplaces ainda precisam de habilitação e homologação por plataforma."
+      "evidence": "Mercado Livre questions/messages e TikTok tipos 14/33 alimentam o inbox unificado; faltam credenciais, eventos reais e homologação de capacidades oficiais por marketplace."
     },
     {
-      "id": "import_preview",
-      "status": "verified_locally",
-      "evidence": "Rota /importacao e seletores E2E corrigidos; prévia válida e rejeição de CSV inválido cobertas no CI autenticado."
-    },
-    {
-      "id": "health_panel",
-      "status": "verified_locally",
-      "evidence": "Painel lista conectores, falhas e execuções; jobs A18 e A24 registram início, sucesso e falha."
+      "id": "health_and_jobs",
+      "status": "external_validation_pending",
+      "evidence": "A18 e A24 registram execução e A24 falha explicitamente sem contas ou com falhas parciais; /api/inngest publicado retorna erro porque INNGEST_SIGNING_KEY não está configurada."
     },
     {
       "id": "target_database",
       "status": "verified",
-      "evidence": "Migration 0012 aprovada em PostgreSQL limpo e aplicada ao Supabase alvo; cinco colunas, quatro constraints e três índices verificados."
+      "evidence": "Migration 0013 aplicada ao banco alvo; coluna recebido_em e índices de SLA/outbox confirmados pelos testes integrados."
     }
   ],
   "validation": {
     "typecheck": "passed",
     "lint": "passed",
-    "unitTests": "99 passed",
+    "unitTests": "118 passed",
     "gateIntegrationTests": "6 passed",
     "rlsIntegrationTests": "32 passed",
-    "concurrency": {
+    "phaseBIntegration": {
+      "status": "passed",
       "messageAttempts": 50,
       "persistedMessages": 1,
       "stockAttempts": 50,
-      "persistedStockMovements": 1
+      "persistedStockMovements": 1,
+      "deliverySlaTracePresent": true,
+      "eventOutboxRecoveryIndexPresent": true
     },
+    "migrationCheck": "passed",
     "build": "passed",
-    "browser": "login redirect rendered; no Next.js error overlay"
+    "productionReadiness": "blocked"
+  },
+  "productionSnapshot": {
+    "checkedAt": "2026-07-23T07:33:32.611Z",
+    "marketplaceAccounts": 2,
+    "connectedAccounts": 0,
+    "inngestJobsObserved": 0,
+    "externalSendsEnabled": false,
+    "notes": [
+      "Mercado Livre/KARZI e Shopee/WUWU estão desconectados.",
+      "TikTok Shop e Olist não possuem channel_account.",
+      "Tokens OAuth do Mercado Livre estão expirados.",
+      "INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY estão ausentes.",
+      "Não existe prova de pedido, baixa, sincronização e inbox reais por canal."
+    ]
   },
   "externalBlockers": [
-    "Conectar e autorizar contas reais de Mercado Livre, Shopee, TikTok Shop e Olist por marca.",
-    "Configurar TIKTOK_SHOP_CIPHER, externalSkuId e externalWarehouseId nos produtos TikTok.",
-    "Configurar Inngest no ambiente publicado e comprovar o polling de 4 minutos.",
-    "Executar um pedido real por canal e registrar latência, baixa e saldo remoto.",
-    "Homologar eventos oficiais de perguntas/chat de cada marketplace.",
+    "Configurar INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY no ambiente Production e sincronizar /api/inngest no Inngest.",
+    "Renovar os tokens OAuth do Mercado Livre e conectar as contas reais.",
+    "Configurar credenciais e conectar Shopee, TikTok Shop e Olist por marca.",
+    "Cadastrar externalAccountId e mapeamentos produto/listing/SKU/warehouse de cada conta.",
+    "Executar um pedido real por canal e comprovar latência de até 5 minutos, baixa e evento estoque.sincronizado.",
+    "Receber e comprovar ao menos uma mensagem real suportada por marketplace no inbox.",
     "Manter EXTERNAL_SENDS_ENABLED=false até o aceite final."
   ]
 }

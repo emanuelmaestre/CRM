@@ -1,3 +1,4 @@
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, type DB } from "@/shared/lib/db";
 import { eventoDominio } from "@/shared/lib/db/schema";
 import { inngest } from "@/shared/lib/inngest/client";
@@ -27,6 +28,7 @@ export type DomainEventType =
   | "pedido.devolvido"
   | "estoque.baixa_automatica"
   | "estoque.saldo_atualizado"
+  | "estoque.sincronizado"
   | "estoque.minimo_atingido"
   | "estoque.parado_detectado"
   | "estoque.divergencia_detectada"
@@ -102,6 +104,7 @@ export async function despacharEvento(event: PersistedDomainEvent): Promise<void
   const inngestName = INNGEST_EVENT_MAP[event.tipo];
   if (inngestName) {
     await inngest.send({
+      id: event.eventId,
       name: inngestName,
       data: {
         ...event.payload,
@@ -114,7 +117,58 @@ export async function despacharEvento(event: PersistedDomainEvent): Promise<void
         entidadeId: event.entidadeId,
       },
     });
+    await db
+      .update(eventoDominio)
+      .set({ processado: "true" })
+      .where(and(
+        eq(eventoDominio.id, event.eventId),
+        eq(eventoDominio.orgId, event.orgId),
+      ));
   }
+}
+
+/**
+ * Recupera eventos persistidos cuja primeira publicação ao Inngest falhou.
+ * O eventId é enviado como id do evento, portanto reenvios são deduplicados
+ * pelo Inngest e permanecem seguros mesmo com execuções concorrentes.
+ */
+export async function despacharEventosPendentes(
+  orgId: string,
+  limit = 100,
+): Promise<{ encontrados: number; despachados: number; falhas: number }> {
+  const tipos = Object.keys(INNGEST_EVENT_MAP) as DomainEventType[];
+  const pendentes = await db
+    .select()
+    .from(eventoDominio)
+    .where(and(
+      eq(eventoDominio.orgId, orgId),
+      eq(eventoDominio.processado, "false"),
+      inArray(eventoDominio.tipo, tipos),
+    ))
+    .orderBy(asc(eventoDominio.createdAt))
+    .limit(limit);
+
+  let despachados = 0;
+  let falhas = 0;
+  for (const pendente of pendentes) {
+    try {
+      await despacharEvento({
+        eventId: pendente.id,
+        tipo: pendente.tipo as DomainEventType,
+        orgId: pendente.orgId,
+        brandId: pendente.brandId ?? undefined,
+        entidade: pendente.entidade,
+        entidadeId: pendente.entidadeId,
+        causationId: pendente.causationId ?? undefined,
+        payload: pendente.payload as Record<string, unknown>,
+      });
+      despachados++;
+    } catch {
+      falhas++;
+    }
+  }
+
+  return { encontrados: pendentes.length, despachados, falhas };
 }
 
 export async function emitirEvento(event: DomainEvent): Promise<void> {

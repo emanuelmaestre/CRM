@@ -23,16 +23,28 @@ function makeLimiter(requests: number, window: Parameters<typeof Ratelimit.slidi
 }
 
 // Limites por tipo de rota (configurados conforme PRD §12.1)
-const limiters = {
+const limiterConfig = {
   // Webhooks: marketplaces podem enviar rajadas; limite generoso por IP
-  webhook: makeLimiter(200, "1 m"),
+  webhook: [200, "1 m"],
   // Rotas de autenticação: proteção contra força bruta
-  auth: makeLimiter(10, "1 m"),
+  auth: [10, "1 m"],
   // Rota de provisão (admin): praticamente um one-shot
-  provision: makeLimiter(5, "1 h"),
-} as const;
+  provision: [5, "1 h"],
+} as const satisfies Record<string, readonly [
+  number,
+  Parameters<typeof Ratelimit.slidingWindow>[1],
+]>;
 
-type LimiterType = keyof typeof limiters;
+type LimiterType = keyof typeof limiterConfig;
+const limiterCache = new Map<LimiterType, Ratelimit | null>();
+
+function getLimiter(tipo: LimiterType): Ratelimit | null {
+  if (!limiterCache.has(tipo)) {
+    const [requests, window] = limiterConfig[tipo];
+    limiterCache.set(tipo, makeLimiter(requests, window));
+  }
+  return limiterCache.get(tipo) ?? null;
+}
 
 function getIdentifier(req: NextRequest): string {
   return (
@@ -56,7 +68,7 @@ export async function verificarRateLimit(
   req: NextRequest,
   tipo: LimiterType,
 ): Promise<NextResponse | null> {
-  const limiter = limiters[tipo];
+  const limiter = getLimiter(tipo);
   if (!limiter) return null; // no-op sem Upstash
 
   const id = getIdentifier(req);

@@ -30,6 +30,7 @@ export const pedido = pgTable("pedido", {
   frete: numeric("frete", { precision: 12, scale: 2 }).default("0"),
   desconto: numeric("desconto", { precision: 12, scale: 2 }).default("0"),
   canceladoMotivo: text("cancelado_motivo"),
+  receivedAt: timestamp("recebido_em", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -39,6 +40,7 @@ export const pedido = pgTable("pedido", {
   index("idx_pedido_channel_account").on(t.channelAccountId),
   index("idx_pedido_status").on(t.status),
   index("idx_pedido_provider").on(t.providerOrderId),
+  index("idx_pedido_recebido").on(t.receivedAt),
   uniqueIndex("uq_pedido_org_account_provider")
     .on(t.orgId, t.channelAccountId, t.providerOrderId)
     .where(sql`${t.channelAccountId} is not null and ${t.providerOrderId} is not null`),

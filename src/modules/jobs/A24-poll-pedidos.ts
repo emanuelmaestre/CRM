@@ -3,7 +3,7 @@ import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
-import { emitirEvento } from "@/shared/events";
+import { despacharEventosPendentes, emitirEvento } from "@/shared/events";
 import { inngest } from "@/shared/lib/inngest/client";
 import { finalizarJob, iniciarJob } from "./job-monitor";
 
@@ -23,6 +23,13 @@ export const A24_pollPedidos = inngest.createFunction(
     }));
 
     try {
+      const outbox = await step.run("recuperar-eventos-pendentes", () =>
+        despacharEventosPendentes(orgId),
+      );
+      if (outbox.falhas > 0) {
+        throw new Error(`Falha ao publicar ${outbox.falhas} evento(s) pendente(s) no Inngest.`);
+      }
+
       const contas = await step.run("buscar-contas-conectadas", () =>
         db
           .select({
@@ -74,12 +81,19 @@ export const A24_pollPedidos = inngest.createFunction(
       }
 
       const resumo = {
+        outbox,
         contas: resultados.length,
         encontrados: resultados.reduce((total, item) => total + item.encontrados, 0),
         novos: resultados.reduce((total, item) => total + item.novos, 0),
         falhas: resultados.filter((item) => item.erro).length,
         resultados,
       };
+      if (contas.length === 0) {
+        throw new Error("A24 sem contas de marketplace conectadas para o polling de contingência.");
+      }
+      if (resumo.falhas > 0) {
+        throw new Error(`A24 falhou em ${resumo.falhas} de ${resumo.contas} conta(s) conectada(s).`);
+      }
       await step.run("registrar-sucesso", () => finalizarJob(jobId));
       return resumo;
     } catch (error) {

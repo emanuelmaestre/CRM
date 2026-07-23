@@ -10,52 +10,51 @@ interface MLCredentials {
 
 export class MercadoLivreProvider implements ChannelProvider {
   private readonly baseUrl = "https://api.mercadolibre.com";
-  private creds: MLCredentials;
 
-  constructor(creds: MLCredentials) {
-    this.creds = creds;
-  }
+  constructor(private readonly creds: MLCredentials) {}
 
   private async get<T>(path: string): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       headers: { Authorization: `Bearer ${this.creds.accessToken}` },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) throw new Error(`MercadoLivre HTTP ${res.status} em ${path}`);
+    if (!res.ok) throw new Error(`Mercado Livre HTTP ${res.status} em ${path}`);
     return res.json() as Promise<T>;
   }
 
   async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
     const me = await this.get<{ id: string }>("/users/me");
-    const sellerId = me.id;
-
     const data = await this.get<{
-      results: {
+      results?: Array<{
         id: number;
         status: string;
         total_amount: number;
-        shipping?: { cost: number };
+        shipping?: { cost?: number };
         buyer: { id: number; nickname: string; email?: string };
-        order_items: { item: { seller_sku?: string }; quantity: number; unit_price: number }[];
+        order_items: Array<{
+          item: { seller_sku?: string };
+          quantity: number;
+          unit_price: number;
+        }>;
         date_created: string;
-      }[];
-    }>(`/orders/search?seller=${sellerId}&order.date_created.from=${desde.toISOString()}&limit=50`);
+      }>;
+    }>(`/orders/search?seller=${me.id}&order.date_created.from=${encodeURIComponent(desde.toISOString())}&limit=50`);
 
-    return (data.results ?? []).map((o) => ({
-      providerOrderId: String(o.id),
+    return (data.results ?? []).map((order) => ({
+      providerOrderId: String(order.id),
       canal: "mercadolivre",
-      clienteExternalId: String(o.buyer.id),
-      clienteNome: o.buyer.nickname,
-      clienteEmail: o.buyer.email,
-      status: o.status,
-      total: String(o.total_amount),
-      frete: o.shipping?.cost ? String(o.shipping.cost) : undefined,
-      itens: o.order_items.map((i) => ({
-        skuExterno: i.item.seller_sku ?? "",
-        quantidade: i.quantity,
-        precoUnitario: String(i.unit_price),
+      clienteExternalId: String(order.buyer.id),
+      clienteNome: order.buyer.nickname,
+      clienteEmail: order.buyer.email,
+      status: order.status,
+      total: String(order.total_amount),
+      frete: order.shipping?.cost === undefined ? undefined : String(order.shipping.cost),
+      itens: order.order_items.map((item) => ({
+        skuExterno: item.item.seller_sku ?? "",
+        quantidade: item.quantity,
+        precoUnitario: String(item.unit_price),
       })),
-      criadoEm: new Date(o.date_created),
+      criadoEm: new Date(order.date_created),
     }));
   }
 
@@ -67,17 +66,17 @@ export class MercadoLivreProvider implements ChannelProvider {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ available_quantity: saldo }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) {
-      throw new Error(`MercadoLivre sync estoque HTTP ${res.status} para anúncio ${referencia.listingId}`);
+      throw new Error(`Mercado Livre sync estoque HTTP ${res.status} para anúncio ${referencia.listingId}`);
     }
   }
 
   async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
     const item = await this.get<{ available_quantity: number }>(`/items/${referencia.listingId}`);
     if (!Number.isInteger(item.available_quantity) || item.available_quantity < 0) {
-      throw new Error(`MercadoLivre retornou saldo inválido para anúncio ${referencia.listingId}.`);
+      throw new Error(`Mercado Livre retornou saldo inválido para anúncio ${referencia.listingId}.`);
     }
     return item.available_quantity;
   }
@@ -87,39 +86,59 @@ export class MercadoLivreProvider implements ChannelProvider {
     try {
       await this.get("/users/me");
       return { status: "ok", latenciaMs: Date.now() - inicio, mensagem: "Conectado", verificadoEm: new Date() };
-    } catch (err) {
-      return { status: "erro", latenciaMs: Date.now() - inicio, mensagem: String(err), verificadoEm: new Date() };
+    } catch (error) {
+      return { status: "erro", latenciaMs: Date.now() - inicio, mensagem: String(error), verificadoEm: new Date() };
     }
   }
 }
 
-// Lê o token do banco (canal_tokens) com fallback para variável de ambiente legada
-export async function criarMLProvider(brandSlug: "karzi" | "wuwu"): Promise<MercadoLivreProvider> {
+export async function obterTokenMercadoLivre(brandSlug: "karzi" | "wuwu"): Promise<{
+  accessToken: string;
+  refreshToken: string;
+}> {
   const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
-  const clientId     = process.env.ML_CLIENT_ID!;
-  const clientSecret = process.env.ML_CLIENT_SECRET!;
-  const orgId        = process.env.DEFAULT_ORG_ID!;
-  const brandId      = process.env[`NEXT_PUBLIC_BRAND_ID_${upper}`]!;
+  const orgId = process.env.DEFAULT_ORG_ID;
+  const brandId = process.env[`NEXT_PUBLIC_BRAND_ID_${upper}`];
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-
-  const { data } = await supabase
-    .from("canal_tokens")
-    .select("access_token, refresh_token")
-    .eq("org_id", orgId)
-    .eq("brand_id", brandId)
-    .eq("canal", "mercadolivre")
-    .maybeSingle();
-
-  const accessToken  = data?.access_token  ?? process.env[`ML_ACCESS_TOKEN_${upper}`];
-  const refreshToken = data?.refresh_token ?? process.env[`ML_REFRESH_TOKEN_${upper}`] ?? "";
-
-  if (!clientId || !clientSecret || !accessToken) {
-    throw new Error(`Credenciais Mercado Livre não configuradas para ${upper}.`);
+  let tokenRow: { access_token?: string; refresh_token?: string; expires_at?: string } | null = null;
+  if (orgId && brandId && supabaseUrl && serviceRoleKey) {
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const result = await supabase
+      .from("canal_tokens")
+      .select("access_token, refresh_token, expires_at")
+      .eq("org_id", orgId)
+      .eq("brand_id", brandId)
+      .eq("canal", "mercadolivre")
+      .maybeSingle();
+    tokenRow = result.data;
   }
 
+  const tokenBancoExpirado = tokenRow?.expires_at
+    ? new Date(tokenRow.expires_at).getTime() <= Date.now() + 60_000
+    : false;
+  const accessToken = tokenBancoExpirado
+    ? process.env[`ML_ACCESS_TOKEN_${upper}`]
+    : tokenRow?.access_token ?? process.env[`ML_ACCESS_TOKEN_${upper}`];
+  const refreshToken = tokenRow?.refresh_token ?? process.env[`ML_REFRESH_TOKEN_${upper}`] ?? "";
+
+  if (!accessToken) {
+    const motivo = tokenBancoExpirado ? "token OAuth expirado" : "token ausente";
+    throw new Error(`Credencial Mercado Livre indisponível para ${upper}: ${motivo}.`);
+  }
+
+  return { accessToken, refreshToken };
+}
+
+export async function criarMLProvider(brandSlug: "karzi" | "wuwu"): Promise<MercadoLivreProvider> {
+  const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
+  const clientId = process.env.ML_CLIENT_ID;
+  const clientSecret = process.env.ML_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    throw new Error(`Client ID/secret Mercado Livre não configurados para ${upper}.`);
+  }
+
+  const { accessToken, refreshToken } = await obterTokenMercadoLivre(brandSlug);
   return new MercadoLivreProvider({ clientId, clientSecret, accessToken, refreshToken });
 }

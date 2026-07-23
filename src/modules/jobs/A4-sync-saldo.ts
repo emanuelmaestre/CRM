@@ -63,13 +63,21 @@ export const A4_syncSaldo = inngest.createFunction(
           eq(produtoCanal.orgId, orgId),
           eq(produtoCanal.produtoId, produtoId),
           eq(produtoCanal.ativo, true),
-          eq(channelAccount.status, "conectado"),
         ))
     );
 
     const resultados: { conta: string; listingId: string; ok: boolean; erro?: string }[] = [];
 
     for (const m of mapeamentos) {
+      if (m.contaStatus !== "conectado") {
+        resultados.push({
+          conta: m.channelAccountId,
+          listingId: m.externalListingId,
+          ok: false,
+          erro: `conta-${m.contaStatus}`,
+        });
+        continue;
+      }
       const brandSlug = m.brandSlug || (m.contaMeta as Record<string, string> | null)?.brandSlug;
       let provider = null;
       try {
@@ -94,6 +102,19 @@ export const A4_syncSaldo = inngest.createFunction(
             }, saldoRow.saldo),
             { tentativas: 3, atrasoInicialMs: 250 },
           );
+          await emitirEvento({
+            tipo: "estoque.sincronizado",
+            orgId,
+            brandId: m.contaBrandId,
+            entidade: "produto_canal",
+            entidadeId: m.produtoCanalId,
+            payload: {
+              produtoId,
+              channelAccountId: m.channelAccountId,
+              listingId: m.externalListingId,
+              saldo: saldoRow.saldo,
+            },
+          });
           resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: true });
         } catch (err) {
           resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: false, erro: String(err) });
@@ -109,12 +130,17 @@ export const A4_syncSaldo = inngest.createFunction(
       });
     }
 
-    return {
+    const resumo = {
       produtoId,
       saldo: saldoRow.saldo,
       mapeamentos: mapeamentos.length,
       sincronizados: resultados.filter((r) => r.ok).length,
       resultados,
     };
+    const falhas = resultados.filter((resultado) => !resultado.ok);
+    if (falhas.length > 0) {
+      throw new Error(`A4 não sincronizou ${falhas.length} de ${resultados.length} mapeamento(s) de estoque.`);
+    }
+    return resumo;
   }
 );

@@ -17,6 +17,7 @@
     "test:rls": "node scripts/test-rls.mjs",
     "test:phase-b:integration": "node scripts/test-phase-b-integration.mjs",
     "test:phase-b:gates": "vitest run --config vitest.integration.config.ts",
+    "test:phase-b:production": "node scripts/verify-phase-b-production.mjs",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:ci:bootstrap": "node scripts/setup-ci-database.mjs bootstrap",

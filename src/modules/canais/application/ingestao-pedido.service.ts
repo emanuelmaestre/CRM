@@ -1,14 +1,21 @@
 "use server";
 
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/shared/lib/db";
 import { cliente, clienteIdentidade } from "@/shared/lib/db/schema/clientes";
 import { channelAccount } from "@/shared/lib/db/schema/canais";
-import { produto } from "@/shared/lib/db/schema/estoque";
+import { produto, produtoCanal } from "@/shared/lib/db/schema/estoque";
 import { pedido, pedidoItem } from "@/shared/lib/db/schema/vendas";
-import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
+import {
+  despacharEvento,
+  despacharEventosPendentes,
+  persistirEvento,
+  type DomainEventType,
+  type PersistedDomainEvent,
+} from "@/shared/events";
 import type { PedidoNormalizado } from "../domain/ports";
+import { deveAplicarStatusMarketplace, mapearStatusPedido } from "../domain/order-status";
 
 type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop" | "olist";
 
@@ -50,7 +57,10 @@ export async function ingerirPedido(
     ))
     .then((r) => r[0]);
 
-  if (existente) return { pedidoId: existente.id, novo: false };
+  if (existente) {
+    await reconciliarStatusPedido(orgId, brandId, existente.id, p.status);
+    return { pedidoId: existente.id, novo: false };
+  }
 
   let persistido: { pedidoId: string; eventos: PersistedDomainEvent[]; novo: boolean };
 
@@ -84,14 +94,29 @@ export async function ingerirPedido(
 
     const skus = [...new Set(p.itens.map((item) => item.skuExterno))];
     const produtos = await tx
-      .select({ id: produto.id, sku: produto.sku })
-      .from(produto)
+      .select({
+        id: produto.id,
+        sku: produto.sku,
+        externalSkuId: produtoCanal.externalSkuId,
+      })
+      .from(produtoCanal)
+      .innerJoin(produto, and(
+        eq(produto.id, produtoCanal.produtoId),
+        eq(produto.orgId, produtoCanal.orgId),
+      ))
       .where(and(
+        eq(produtoCanal.orgId, orgId),
+        eq(produtoCanal.channelAccountId, channelAccountId),
+        eq(produtoCanal.ativo, true),
         eq(produto.orgId, orgId),
         eq(produto.brandId, brandId),
-        inArray(produto.sku, skus),
+        isNull(produto.deletedAt),
       ));
-    const produtoPorSku = new Map(produtos.map((item) => [item.sku, item.id]));
+    const produtoPorSku = new Map<string, string>();
+    for (const item of produtos) {
+      produtoPorSku.set(item.sku, item.id);
+      if (item.externalSkuId) produtoPorSku.set(item.externalSkuId, item.id);
+    }
     const skusAusentes = skus.filter((sku) => !produtoPorSku.has(sku));
     if (skusAusentes.length > 0) {
       throw new Error(`Pedido nÃ£o importado: SKUs sem produto na marca: ${skusAusentes.join(", ")}.`);
@@ -125,7 +150,7 @@ export async function ingerirPedido(
       });
     }
 
-    const status = mapearStatus(p.status);
+    const status = mapearStatusPedido(p.status);
     const [novoPedido] = await tx
       .insert(pedido)
       .values({
@@ -196,12 +221,16 @@ export async function ingerirPedido(
       ))
       .then((rows) => rows[0]);
     if (!concorrente) throw error;
+    await reconciliarStatusPedido(orgId, brandId, concorrente.id, p.status);
     return { pedidoId: concorrente.id, novo: false };
   }
 
   const { pedidoId, eventos, novo } = persistido;
 
-  if (!novo) return { pedidoId, novo: false };
+  if (!novo) {
+    await reconciliarStatusPedido(orgId, brandId, pedidoId, p.status);
+    return { pedidoId, novo: false };
+  }
 
   for (const evento of eventos) await despacharEvento(evento);
 
@@ -215,20 +244,74 @@ function isPedidoDuplicado(error: unknown): boolean {
   return candidate.code === "23505" && constraint === "uq_pedido_org_account_provider";
 }
 
-function mapearStatus(statusExterno: string): "criado" | "pago" | "separado" | "enviado" | "entregue" | "concluido" | "cancelado" | "devolvido" {
-  const mapa: Record<string, "criado" | "pago" | "separado" | "enviado" | "entregue" | "concluido" | "cancelado" | "devolvido"> = {
-    unpaid: "criado",
-    to_pay: "criado",
-    paid: "pago",
-    ready_to_ship: "separado",
-    shipped: "enviado",
-    in_cancel: "cancelado",
-    cancelled: "cancelado",
-    completed: "concluido",
-    returned: "devolvido",
-    payment_pending: "criado",
-    payment_done: "pago",
-    delivered: "entregue",
-  };
-  return mapa[statusExterno] ?? "criado";
+async function reconciliarStatusPedido(
+  orgId: string,
+  brandId: string,
+  pedidoId: string,
+  statusExterno: string,
+): Promise<void> {
+  const novoStatus = mapearStatusPedido(statusExterno);
+  const resultado = await db.transaction(async (tx) => {
+    const atual = await tx
+      .select({ status: pedido.status, brandId: pedido.brandId })
+      .from(pedido)
+      .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)))
+      .for("update")
+      .then((rows) => rows[0]);
+    if (
+      !atual
+      || atual.brandId !== brandId
+      || !deveAplicarStatusMarketplace(atual.status, novoStatus)
+    ) {
+      return [] as PersistedDomainEvent[];
+    }
+
+    await tx
+      .update(pedido)
+      .set({ status: novoStatus, updatedAt: new Date() })
+      .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)));
+
+    const eventos: PersistedDomainEvent[] = [];
+    const statusPagos = ["pago", "separado", "enviado", "entregue", "concluido"];
+    if (statusPagos.includes(novoStatus) && !statusPagos.includes(atual.status)) {
+      eventos.push(await persistirEvento({
+        tipo: "pedido.pago",
+        orgId,
+        brandId,
+        entidade: "pedido",
+        entidadeId: pedidoId,
+        payload: { status: "pago", statusAnterior: atual.status, origemStatus: novoStatus },
+      }, tx));
+    }
+
+    const eventoPorStatus: Partial<Record<typeof novoStatus, DomainEventType>> = {
+      enviado: "pedido.enviado",
+      entregue: "pedido.entregue",
+      concluido: "pedido.entregue",
+      cancelado: "pedido.cancelado",
+      devolvido: "pedido.devolvido",
+    };
+    const tipoEvento = eventoPorStatus[novoStatus];
+    if (tipoEvento) {
+      eventos.push(await persistirEvento({
+        tipo: tipoEvento,
+        orgId,
+        brandId,
+        entidade: "pedido",
+        entidadeId: pedidoId,
+        payload: { status: novoStatus, statusAnterior: atual.status, origemStatus: statusExterno },
+      }, tx));
+    }
+    return eventos;
+  });
+
+  for (const evento of resultado) await despacharEvento(evento);
+  if (resultado.length === 0) {
+    // Uma repetição também atua como recuperação do outbox caso a primeira
+    // publicação tenha falhado depois do commit do pedido.
+    const recuperacao = await despacharEventosPendentes(orgId, 100);
+    if (recuperacao.falhas > 0) {
+      throw new Error(`Falha ao republicar ${recuperacao.falhas} evento(s) pendente(s) do pedido.`);
+    }
+  }
 }

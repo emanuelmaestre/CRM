@@ -1,7 +1,7 @@
 import { and, count, eq, ilike, isNull, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { auditLog, brand, produto, estoqueSaldo, estoqueMovimento } from "@/shared/lib/db/schema";
-import { despacharEvento, persistirEvento } from "@/shared/events";
+import { despacharEvento, despacharEventosPendentes, persistirEvento } from "@/shared/events";
 import { validarMovimento, calcularNovoSaldo, type MovimentoTipo, CreateProdutoSchema } from "../domain/entities";
 
 export async function criarProduto(ctx: CrudContext, input: unknown) {
@@ -218,6 +218,12 @@ export async function registrarMovimento(
   if (resultado.eventoBaixa) await despacharEvento(resultado.eventoBaixa);
   if (resultado.eventoSaldo) await despacharEvento(resultado.eventoSaldo);
   if (resultado.eventoMinimo) await despacharEvento(resultado.eventoMinimo);
+  if (resultado.idempotente) {
+    const recuperacao = await despacharEventosPendentes(ctx.orgId, 100);
+    if (recuperacao.falhas > 0) {
+      throw new Error(`Falha ao republicar ${recuperacao.falhas} evento(s) pendente(s) de estoque.`);
+    }
+  }
 
   return {
     movimento: resultado.movimento,

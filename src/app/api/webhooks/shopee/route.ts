@@ -5,6 +5,8 @@ import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.serv
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 
+const MAX_WEBHOOK_BYTES = 1_048_576;
+
 const ShopeeWebhookSchema = z.object({
   code: z.number(),
   data: z.object({
@@ -91,7 +93,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const bloqueio = await verificarRateLimit(req, "webhook");
   if (bloqueio) return bloqueio;
 
+  const contentLength = Number(req.headers.get("content-length") ?? "0");
+  if (contentLength > MAX_WEBHOOK_BYTES) {
+    return NextResponse.json({ error: "Payload excede 1 MB" }, { status: 413 });
+  }
   const rawBody = await req.text();
+  if (Buffer.byteLength(rawBody, "utf8") > MAX_WEBHOOK_BYTES) {
+    return NextResponse.json({ error: "Payload excede 1 MB" }, { status: 413 });
+  }
 
   if (!verificarAssinatura(req, rawBody)) {
     return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
@@ -111,8 +120,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const { code, data } = resultado.data;
 
-  // code 3 = novo pedido; code 4 = atualização de status
-  if (code !== 3 && code !== 4) {
+  // code 3 = atualização de status do pedido. Outros códigos possuem schemas
+  // distintos e não podem alterar pedidos com payload parcial.
+  if (code !== 3) {
     return NextResponse.json({ ok: true, ignorado: true, code });
   }
 

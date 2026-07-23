@@ -129,11 +129,15 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
       }
     }
 
-    return {
+    const resumo = {
       verificados: resultados.filter((item) => item.saldoCanal !== undefined).length,
       divergencias: resultados.filter((item) => item.divergente).length,
       falhas: resultados.filter((item) => item.erro).length,
       resultados,
     };
+    if (resumo.falhas > 0) {
+      throw new Error(`A5 falhou ao consultar ${resumo.falhas} mapeamento(s) de estoque.`);
+    }
+    return resumo;
   },
 );
