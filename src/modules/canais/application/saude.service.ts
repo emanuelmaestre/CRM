@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { channelAccount } from "@/shared/lib/db/schema";
+import { channelAccount, eventoDominio, jobRun } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { criarZApiProvider } from "../infrastructure/zapi.provider";
 import { criarShopeeProvider } from "../infrastructure/shopee.provider";
@@ -83,4 +83,113 @@ export async function listarSaudeConectores(orgId: string) {
     .select()
     .from(channelAccount)
     .where(eq(channelAccount.orgId, orgId));
+}
+
+const EVENTOS_DE_FALHA = [
+  "backup.falhou",
+  "canal.degradado",
+  "canal.desconectado",
+  "importacao.com_erros",
+  "mensagem.falhou",
+  "regua.falha_definitiva",
+] as const;
+
+export interface PainelSaudeData {
+  conectores: Array<{
+    id: string;
+    tipo: string;
+    status: string;
+    ultimaVerificacao: string | null;
+    ultimoErro: string | null;
+  }>;
+  jobs: Array<{
+    id: string;
+    nome: string;
+    status: string;
+    tentativa: string;
+    erro: string | null;
+    iniciadoEm: string;
+    finalizadoEm: string | null;
+  }>;
+  falhas: Array<{
+    id: string;
+    origem: "job" | "evento";
+    tipo: string;
+    mensagem: string;
+    createdAt: string;
+  }>;
+}
+
+export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> {
+  const [contas, execucoes, jobsComFalha, eventosComFalha] = await Promise.all([
+    db.select({
+      id: channelAccount.id,
+      tipo: channelAccount.tipo,
+      status: channelAccount.status,
+      ultimaVerificacao: channelAccount.ultimaVerificacao,
+      ultimoErro: channelAccount.ultimoErro,
+    }).from(channelAccount).where(eq(channelAccount.orgId, orgId)).orderBy(channelAccount.tipo),
+    db.select({
+      id: jobRun.id,
+      nome: jobRun.nome,
+      status: jobRun.status,
+      tentativa: jobRun.tentativa,
+      erro: jobRun.erro,
+      iniciadoEm: jobRun.iniciadoEm,
+      finalizadoEm: jobRun.finalizadoEm,
+    }).from(jobRun).where(eq(jobRun.orgId, orgId)).orderBy(desc(jobRun.iniciadoEm)).limit(20),
+    db.select({
+      id: jobRun.id,
+      nome: jobRun.nome,
+      status: jobRun.status,
+      erro: jobRun.erro,
+      createdAt: jobRun.finalizadoEm,
+      iniciadoEm: jobRun.iniciadoEm,
+    }).from(jobRun).where(and(
+      eq(jobRun.orgId, orgId),
+      or(eq(jobRun.status, "falhou"), eq(jobRun.status, "erro"), isNotNull(jobRun.erro)),
+    )).orderBy(desc(jobRun.iniciadoEm)).limit(20),
+    db.select({
+      id: eventoDominio.id,
+      tipo: eventoDominio.tipo,
+      payload: eventoDominio.payload,
+      createdAt: eventoDominio.createdAt,
+    }).from(eventoDominio).where(and(
+      eq(eventoDominio.orgId, orgId),
+      inArray(eventoDominio.tipo, [...EVENTOS_DE_FALHA]),
+    )).orderBy(desc(eventoDominio.createdAt)).limit(20),
+  ]);
+
+  const falhas: PainelSaudeData["falhas"] = [
+    ...jobsComFalha.map((item) => ({
+      id: item.id,
+      origem: "job" as const,
+      tipo: item.nome,
+      mensagem: item.erro ?? `Execução encerrada com status ${item.status}.`,
+      createdAt: (item.createdAt ?? item.iniciadoEm).toISOString(),
+    })),
+    ...eventosComFalha.map((item) => {
+      const payload = item.payload as Record<string, unknown>;
+      return {
+        id: item.id,
+        origem: "evento" as const,
+        tipo: item.tipo,
+        mensagem: String(payload.ultimoErro ?? payload.erro ?? payload.mensagem ?? "Falha operacional registrada."),
+        createdAt: item.createdAt.toISOString(),
+      };
+    }),
+  ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20);
+
+  return {
+    conectores: contas.map((item) => ({
+      ...item,
+      ultimaVerificacao: item.ultimaVerificacao?.toISOString() ?? null,
+    })),
+    jobs: execucoes.map((item) => ({
+      ...item,
+      iniciadoEm: item.iniciadoEm.toISOString(),
+      finalizadoEm: item.finalizadoEm?.toISOString() ?? null,
+    })),
+    falhas,
+  };
 }

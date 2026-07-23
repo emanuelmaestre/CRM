@@ -154,6 +154,17 @@ export async function registrarMovimento(
       })
       .returning();
 
+    await tx.insert(auditLog).values({
+      orgId: ctx.orgId,
+      brandId: produtoRow.brandId,
+      autorId: ctx.userId,
+      autorTipo: ctx.userId ? "usuario" : "sistema",
+      entidade: "estoque_movimento",
+      entidadeId: movimento.id,
+      acao: "registrado",
+      depois: movimento,
+    });
+
     await tx
       .update(estoqueSaldo)
       .set({ saldo: novoSaldo, updatedAt: new Date() })
@@ -179,6 +190,15 @@ export async function registrarMovimento(
       entidade: "estoque_saldo",
       entidadeId: input.produtoId,
       payload: { produtoId: input.produtoId, novoSaldo, tipoMovimento: input.tipo },
+    }, tx);
+
+    await persistirEvento({
+      tipo: "estoque.movimento_registrado",
+      orgId: ctx.orgId,
+      brandId: produtoRow.brandId,
+      entidade: "estoque_movimento",
+      entidadeId: movimento.id,
+      payload: { produtoId: input.produtoId, tipo: input.tipo, quantidade: input.quantidade, novoSaldo },
     }, tx);
 
     const eventoMinimo = saldoRow.saldo > produtoRow.estoqueMinimo && novoSaldo <= produtoRow.estoqueMinimo

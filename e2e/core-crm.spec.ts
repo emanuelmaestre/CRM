@@ -4,7 +4,12 @@ test.describe("CRM Core — clientes, estoque e funil", () => {
   test("abre a ficha 360º de um cliente sintético", async ({ page }) => {
     await page.goto("/clientes");
     await page.getByPlaceholder(/buscar por nome/i).fill("Alice Exemplo");
-    await page.getByRole("button", { name: "Ver ficha" }).filter({ visible: true }).click();
+    const cliente = page
+      .locator('[data-testid="clientes-cards"] > div, [data-testid="clientes-table"] tbody tr')
+      .filter({ hasText: "Alice Exemplo", visible: true })
+      .first();
+    await expect(cliente).toBeVisible();
+    await cliente.getByRole("button", { name: "Ver ficha" }).click();
     await expect(page).toHaveURL(/\/clientes\/40000000-0000-4000-8000-000000000001$/, { timeout: 15_000 });
     await expect(page.getByTestId("cliente-360")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Alice Exemplo" })).toBeVisible();

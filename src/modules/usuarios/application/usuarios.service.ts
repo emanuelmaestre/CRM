@@ -2,6 +2,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { appUser, auditLog } from "@/shared/lib/db/schema";
+import { persistirEvento } from "@/shared/events";
 
 export const AtualizarUsuarioSchema = z.object({
   userId: z.string().uuid(),
@@ -84,6 +85,19 @@ export async function atualizarUsuario(ctx: CrudContext, rawInput: unknown) {
     antes: { perfil: atual.perfil, ativo: atual.ativo },
     depois: { perfil: atualizado.perfil, ativo: atualizado.ativo },
   });
+
+  await persistirEvento({
+    tipo: "usuario.perfil_atualizado",
+    orgId: ctx.orgId,
+    entidade: "app_user",
+    entidadeId: input.userId,
+    payload: {
+      perfilAnterior: atual.perfil,
+      perfilAtual: atualizado.perfil,
+      ativoAnterior: atual.ativo,
+      ativoAtual: atualizado.ativo,
+    },
+  }, ctx.db);
 
   return atualizado;
 }

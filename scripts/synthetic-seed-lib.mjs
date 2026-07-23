@@ -14,7 +14,12 @@ export async function loadSyntheticCatalog(env = process.env) {
     throw new Error("Catálogo de seed inválido: kind=synthetic e schemaVersion=1 são obrigatórios.");
   }
 
-  catalog.organization.id = env.DEFAULT_ORG_ID || catalog.organization.id;
+  if (env.DEFAULT_ORG_ID) {
+    catalog.organization.id = env.DEFAULT_ORG_ID;
+    // A chave natural precisa acompanhar o tenant sobrescrito. Sem isso, duas
+    // execuções com DEFAULT_ORG_ID diferentes disputam o mesmo CNPJ sintético.
+    catalog.organization.cnpj = `synthetic-${env.DEFAULT_ORG_ID}`;
+  }
   const brandOverrides = {
     karzi: env.NEXT_PUBLIC_BRAND_ID_KARZI,
     wuwu: env.NEXT_PUBLIC_BRAND_ID_WUWU,

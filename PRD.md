@@ -932,18 +932,21 @@ de estado; todos os fluxos E2E listados verdes antes de cada go-live de fase.
 
 ### 18.2 Critério de Pronto (Definition of Done)
 
-- [ ] documentado (docs atualizados no mesmo PR)
-- [ ] valida entrada (Zod) e trata erro com mensagem útil
-- [ ] respeita RLS, perfil de acesso e **sigilo entre marcas**
-- [ ] não gera estado inválido (máquina de estados respeitada)
-- [ ] ações externas idempotentes (chave única + teste)
-- [ ] emite evento de domínio + auditoria quando muda estado
-- [ ] logs estruturados; falha aparece no painel
-- [ ] teste (unidade p/ regra crítica; E2E p/ fluxo de dinheiro/mensagem)
-- [ ] UI com estados de loading/vazio/erro/sem-permissão
+- [x] documentado (docs atualizados no mesmo PR)
+- [x] valida entrada (Zod) e trata erro com mensagem útil
+- [x] respeita RLS, perfil de acesso e **sigilo entre marcas**
+- [x] não gera estado inválido (máquina de estados respeitada)
+- [x] ações externas idempotentes (chave única + teste)
+- [x] emite evento de domínio + auditoria quando muda estado
+- [x] logs estruturados; falha aparece no painel
+- [x] teste (unidade p/ regra crítica; E2E p/ fluxo de dinheiro/mensagem)
+- [x] UI com estados de loading/vazio/erro/sem-permissão
 - [x] responsivo verificado em 360 / 768 / 1024 / 1920 px
-- [ ] motion conforme §14.5 e desligável por `prefers-reduced-motion`
-- [ ] revisado (agente revisor + humano); typecheck e lint verdes
+- [x] motion conforme §14.5 e desligável por `prefers-reduced-motion`
+- [ ] revisado (agente revisor + humano); typecheck e lint verdes — revisão técnica concluída;
+  aceite humano pendente
+
+Evidências executáveis e contagens do portão da Fase A: `docs/fase-a-dod.json`.
 
 ## 19. Invariantes não-negociáveis
 

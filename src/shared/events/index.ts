@@ -4,10 +4,14 @@ import { inngest } from "@/shared/lib/inngest/client";
 
 export type DomainEventType =
   | "cliente.criado"
+  | "cliente.atualizado"
+  | "cliente.arquivado"
   | "cliente.mesclado"
   | "cliente.consentimento_registrado"
   | "cliente.consentimento_revogado"
   | "produto.criado"
+  | "estoque.movimento_registrado"
+  | "usuario.perfil_atualizado"
   | "oportunidade.criada"
   | "oportunidade.movida"
   | "oportunidade.excluida"

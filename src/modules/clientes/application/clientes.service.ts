@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import {
-  brand, cliente, clienteTag, consentimento, interacao, pedido, tag, tarefa,
+  auditLog, brand, cliente, clienteTag, consentimento, interacao, pedido, tag, tarefa,
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import {
@@ -140,11 +140,27 @@ export async function atualizarCliente(ctx: CrudContext, id: string, input: Upda
     throw new Error(`Cliente duplicado detectado: ID ${dedup.clienteIdExistente}`);
   }
 
-  return crudCliente.update(ctx, id, data);
+  const atualizado = await crudCliente.update(ctx, id, data);
+  await emitirEvento({
+    tipo: "cliente.atualizado",
+    orgId: ctx.orgId,
+    entidade: "cliente",
+    entidadeId: id,
+    payload: { campos: Object.keys(data) },
+  });
+  return atualizado;
 }
 
 export async function arquivarCliente(ctx: CrudContext, id: string) {
-  return crudCliente.softDeleteById(ctx, id);
+  const arquivado = await crudCliente.softDeleteById(ctx, id);
+  await emitirEvento({
+    tipo: "cliente.arquivado",
+    orgId: ctx.orgId,
+    entidade: "cliente",
+    entidadeId: id,
+    payload: { arquivado: true },
+  });
+  return arquivado;
 }
 
 async function verificarDeduplicacao(
@@ -231,6 +247,17 @@ export async function registrarConsentimento(
     })
     .returning();
 
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    brandId: inputSchema.brandId,
+    autorId: ctx.userId,
+    autorTipo: ctx.userId ? "usuario" : "sistema",
+    entidade: "consentimento",
+    entidadeId: novo.id,
+    acao: "registrado",
+    depois: novo,
+  });
+
   await emitirEvento({
     tipo: "cliente.consentimento_registrado",
     orgId: ctx.orgId,
@@ -244,6 +271,11 @@ export async function registrarConsentimento(
 }
 
 export async function revogarConsentimento(ctx: CrudContext, consentimentoId: string) {
+  const anterior = await ctx.db.select().from(consentimento).where(and(
+    eq(consentimento.id, consentimentoId),
+    eq(consentimento.orgId, ctx.orgId),
+  )).then((rows) => rows[0]);
+
   const [atualizado] = await db
     .update(consentimento)
     .set({ status: "revogado", revokedAt: new Date() })
@@ -251,6 +283,18 @@ export async function revogarConsentimento(ctx: CrudContext, consentimentoId: st
     .returning();
 
   if (!atualizado) throw new Error("Consentimento não encontrado.");
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    brandId: atualizado.brandId,
+    autorId: ctx.userId,
+    autorTipo: ctx.userId ? "usuario" : "sistema",
+    entidade: "consentimento",
+    entidadeId: consentimentoId,
+    acao: "revogado",
+    antes: anterior,
+    depois: atualizado,
+  });
 
   await emitirEvento({
     tipo: "cliente.consentimento_revogado",

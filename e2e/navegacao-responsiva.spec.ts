@@ -5,13 +5,19 @@ import { test, expect } from "@playwright/test";
 // Requer usuário autenticado — o global setup cria o estado de sessão.
 
 const paginas = [
+  { rota: "/admin/saude", titulo: "Saúde do sistema" },
   { rota: "/dashboard", titulo: "Painel" },
   { rota: "/clientes", titulo: "Clientes" },
+  { rota: "/clientes/novo", titulo: "Novo cliente" },
   { rota: "/estoque", titulo: "Estoque" },
+  { rota: "/estoque/novo", titulo: "Novo produto" },
   { rota: "/vendas", titulo: "Vendas" },
+  { rota: "/vendas/nova", titulo: "Nova venda" },
   { rota: "/tarefas", titulo: "Tarefas" },
   { rota: "/agenda", titulo: "Agenda" },
   { rota: "/auditoria", titulo: "Auditoria" },
+  { rota: "/importacao", titulo: "Importação" },
+  { rota: "/inbox", titulo: "Inbox" },
   { rota: "/relatorios", titulo: "Relatórios" },
   { rota: "/configuracoes", titulo: "Configurações" },
 ];
@@ -19,11 +25,22 @@ const paginas = [
 test.describe("Navegação responsiva — 4 breakpoints", () => {
   for (const { rota, titulo } of paginas) {
     test(`${titulo} (${rota}) carrega sem erro`, async ({ page, viewport }) => {
+      const runtimeErrors: string[] = [];
+      page.on("pageerror", (error) => runtimeErrors.push(error.message));
       await page.goto(rota);
 
       // Não deve haver erro 500 na página
       await expect(page).not.toHaveTitle(/500|Error/i);
       await expect(page).not.toHaveURL(/\/auth\/login/);
+      await expect(page.locator("main")).toBeVisible();
+      await expect(page.locator("[data-nextjs-dialog], nextjs-portal")).toHaveCount(0);
+      await expect(page.locator('[data-testid="dashboard-error"], [data-testid="global-error"]')).toHaveCount(0);
+      expect(runtimeErrors).toEqual([]);
+
+      const hasHorizontalOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth + 1,
+      );
+      expect(hasHorizontalOverflow).toBe(false);
 
       // Mobile: bottom nav visível; tablet/desktop: navegação superior visível.
       if (viewport && viewport.width < 768) {

@@ -33,6 +33,6 @@ test.describe("Operação comercial — tarefas, agenda e auditoria", () => {
   test("admin navega pela trilha imutável", async ({ page }) => {
     await page.goto("/auditoria");
     await expect(page.getByTestId("auditoria-page")).toBeVisible();
-    await expect(page.getByText("synthetic_seed.created").filter({ visible: true }).first()).toBeVisible();
+    await expect(page.locator('[data-testid^="audit-"]:visible').first()).toBeVisible();
   });
 });

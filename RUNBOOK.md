@@ -137,6 +137,12 @@ npx playwright test
 ```
 - [ ] Todos os testes passam nos 4 viewports
 
+### Observabilidade da aplicação
+- `/admin/saude` lista o estado real dos conectores e as execuções recentes de jobs.
+- Falhas definitivas de jobs e eventos operacionais aparecem na fila de falhas do painel.
+- Erros de renderização emitem JSON estruturado com `timestamp`, `level`, `event` e `digest`.
+- Para correlacionar uma falha reportada pela UI, pesquise o `digest` nos logs da Vercel.
+
 ---
 
 ## 7. Backup e restore

@@ -4,6 +4,7 @@ import brandsConfig from "@/config/brands.json";
 import dashboardConfig from "@/config/dashboard.json";
 import navigationConfig from "@/config/navigation.json";
 import settingsConfig from "@/config/settings.json";
+import saudeConfig from "@/config/saude.json";
 import wizardsConfig from "@/config/wizards.json";
 import { iconRegistry } from "@/shared/config/icon-registry";
 
@@ -35,6 +36,7 @@ describe("contratos JSON da interface", () => {
       settingsConfig.status.pendingIcon,
       settingsConfig.openAction.icon,
       ...settingsConfig.groups.flatMap((group) => [group.icon, ...group.cards.map((card) => card.icon)]),
+      ...Object.values(saudeConfig.sections).map((section) => section.icon),
     ];
 
     for (const icon of icons) expect(iconRegistry).toHaveProperty(icon);

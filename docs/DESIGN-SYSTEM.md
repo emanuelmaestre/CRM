@@ -73,4 +73,8 @@ deve ser executado nos quatro viewports oficiais do PRD:
 O portão responsivo roda no CI com Playwright autenticado por meio de
 `npm run test:e2e:phase-a`. Todas as rotas da Fase A devem carregar sem overflow horizontal,
 overlay de erro ou perda da navegação principal nos quatro projetos.
+
+Os segmentos autenticados compartilham estados de carregamento, erro recuperável, vazio e
+sem permissão. Animações Framer Motion usam `MotionConfig reducedMotion="user"`; animações e
+transições CSS obedecem a `prefers-reduced-motion: reduce`.
 PWA instalável: `public/manifest.json` com ícones 192×512.

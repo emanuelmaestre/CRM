@@ -36,6 +36,15 @@ assert.doesNotThrow(() => assertSyntheticSeedTarget("postgresql://user:pass@remo
 }));
 
 const catalog = await loadSyntheticCatalog(testEnv);
+const alternateCatalog = await loadSyntheticCatalog({
+  ...testEnv,
+  DEFAULT_ORG_ID: randomUUID(),
+});
+assert.notEqual(
+  alternateCatalog.organization.cnpj,
+  catalog.organization.cnpj,
+  "A chave natural sintética deve mudar quando DEFAULT_ORG_ID mudar.",
+);
 
 // Duas aplicações consecutivas comprovam que a carga é reexecutável.
 await seedSyntheticData({ databaseUrl: process.env.DATABASE_URL, env: testEnv });
