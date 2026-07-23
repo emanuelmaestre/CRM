@@ -22,6 +22,7 @@
     { "prefix": "/estoque/novo", "profiles": ["admin", "gestor"] }
   ],
   "messages": {
+    "restrictedEyebrow": "Acesso restrito",
     "notProvisionedTitle": "Acesso ainda não provisionado",
     "notProvisionedDescription": "Sua conta foi autenticada, mas ainda não pertence a esta organização. Solicite o provisionamento ao administrador.",
     "inactiveTitle": "Usuário desativado",

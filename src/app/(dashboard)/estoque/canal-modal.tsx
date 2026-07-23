@@ -12,6 +12,9 @@ import {
   actionRemoverMapeamentoCanal,
 } from "./actions";
 import { inputClass, selectClass } from "@/shared/design-system/primitives/WizardLayout";
+import pagesConfig from "@/config/pages.json";
+
+const copy = pagesConfig.estoque.channels;
 
 type ContaCanal = { id: string; tipo: string; nome: string; status: string; brandId: string };
 type Mapeamento = { id: string; channelAccountId: string; externalListingId: string; externalSkuId: string | null; externalWarehouseId: string | null; ativo: boolean; contaTipo: string; contaNome: string };
@@ -44,7 +47,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
     buscarMapeamentos(produtoId).then(([c, m]) => {
       setContas(c as ContaCanal[]);
       setMapeamentos(m as Mapeamento[]);
-    }).catch(() => toast.error("Erro ao carregar mapeamentos."))
+    }).catch(() => toast.error(copy.messages.loadError))
       .finally(() => setLoading(false));
   }, [produtoId]);
 
@@ -58,7 +61,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
         setMapeamentos(m as Mapeamento[]);
       })
       .catch(() => {
-        if (ativo) toast.error("Erro ao carregar mapeamentos.");
+        if (ativo) toast.error(copy.messages.loadError);
       })
       .finally(() => {
         if (ativo) setLoading(false);
@@ -70,14 +73,14 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
   }, [produtoId]);
 
   function salvar() {
-    if (!novaContaId) { toast.error("Selecione uma conta de canal."); return; }
-    if (!novoListingId.trim()) { toast.error("Informe o ID do anúncio no canal."); return; }
+    if (!novaContaId) { toast.error(copy.messages.accountRequired); return; }
+    if (!novoListingId.trim()) { toast.error(copy.messages.listingRequired); return; }
 
     startTransition(async () => {
       try {
         const conta = contas.find((item) => item.id === novaContaId);
         if (conta?.tipo === "tiktokshop" && (!novoSkuId.trim() || !novoWarehouseId.trim())) {
-          toast.error("TikTok Shop exige os IDs de SKU e warehouse.");
+          toast.error(copy.messages.tiktokIdsRequired);
           return;
         }
         await actionSalvarMapeamentoCanal(
@@ -87,14 +90,14 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
           novoSkuId,
           novoWarehouseId,
         );
-        toast.success("Mapeamento salvo.");
+        toast.success(copy.messages.saveSuccess);
         setNovaContaId("");
         setNovoListingId("");
         setNovoSkuId("");
         setNovoWarehouseId("");
         carregar();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Erro ao salvar mapeamento.");
+        toast.error(err instanceof Error ? err.message : copy.messages.saveError);
       }
     });
   }
@@ -103,10 +106,10 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
     startTransition(async () => {
       try {
         await actionRemoverMapeamentoCanal(id);
-        toast.success("Mapeamento removido.");
+        toast.success(copy.messages.removeSuccess);
         carregar();
       } catch {
-        toast.error("Erro ao remover mapeamento.");
+        toast.error(copy.messages.removeError);
       }
     });
   }
@@ -141,12 +144,13 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                 <Link2 size={15} color="white" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-foreground leading-tight">Canais do produto</p>
+                <p className="text-sm font-semibold text-foreground leading-tight">{copy.title}</p>
                 <p className="text-xs text-muted-foreground">{produtoNome}</p>
               </div>
             </div>
             <button
               onClick={onClose}
+              aria-label={copy.close}
               className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               <X size={16} />
@@ -159,7 +163,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
             {/* Mapeamentos existentes */}
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                Mapeamentos ativos
+                {copy.activeMappings}
               </p>
               {loading ? (
                 <div className="space-y-2">
@@ -169,8 +173,8 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                 </div>
               ) : mapeamentos.filter(m => m.ativo).length === 0 ? (
                 <div className="rounded-[0.75rem] border border-dashed border-border py-6 text-center">
-                  <p className="text-sm text-muted-foreground">Nenhum canal mapeado ainda.</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Adicione abaixo para sincronizar o estoque.</p>
+                  <p className="text-sm text-muted-foreground">{copy.emptyTitle}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{copy.emptyDescription}</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -185,12 +189,12 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{m.contaNome}</p>
                         <p className="text-xs text-muted-foreground font-mono truncate">{m.externalListingId}</p>
-                        {m.externalSkuId && <p className="text-[11px] text-muted-foreground font-mono truncate">SKU: {m.externalSkuId}</p>}
+                        {m.externalSkuId && <p className="text-[11px] text-muted-foreground font-mono truncate">{copy.skuPrefix} {m.externalSkuId}</p>}
                       </div>
                       <button
                         onClick={() => remover(m.id)}
                         className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-[#C21820] hover:bg-[#C2182014] transition-colors"
-                        title="Remover mapeamento"
+                        title={copy.removeTitle}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -204,7 +208,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
             {contasDisponiveis.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
-                  Adicionar canal
+                  {copy.addTitle}
                 </p>
                 <div className="space-y-3">
                   <select
@@ -212,17 +216,17 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                     value={novaContaId}
                     onChange={(e) => setNovaContaId(e.target.value)}
                   >
-                    <option value="">Selecione a conta de canal…</option>
+                    <option value="">{copy.accountPlaceholder}</option>
                     {contasDisponiveis.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.nome} ({c.tipo})
-                        {c.status !== "conectado" ? " — desconectado" : ""}
+                        {c.status !== "conectado" ? ` ${copy.disconnectedSuffix}` : ""}
                       </option>
                     ))}
                   </select>
                   <input
                     className={inputClass}
-                    placeholder="ID do anúncio no canal (listingId)"
+                    placeholder={copy.listingPlaceholder}
                     value={novoListingId}
                     onChange={(e) => setNovoListingId(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && salvar()}
@@ -230,7 +234,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                   {(contas.find((item) => item.id === novaContaId)?.tipo === "tiktokshop" || contas.find((item) => item.id === novaContaId)?.tipo === "shopee") && (
                     <input
                       className={inputClass}
-                      placeholder="ID externo do SKU / modelo"
+                      placeholder={copy.skuPlaceholder}
                       value={novoSkuId}
                       onChange={(e) => setNovoSkuId(e.target.value)}
                     />
@@ -238,7 +242,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                   {contas.find((item) => item.id === novaContaId)?.tipo === "tiktokshop" && (
                     <input
                       className={inputClass}
-                      placeholder="ID do warehouse no TikTok Shop"
+                      placeholder={copy.warehousePlaceholder}
                       value={novoWarehouseId}
                       onChange={(e) => setNovoWarehouseId(e.target.value)}
                     />
@@ -251,7 +255,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                     style={{ background: "var(--gradient-signature)" }}
                   >
                     <Plus size={15} />
-                    Salvar mapeamento
+                    {copy.save}
                   </motion.button>
                 </div>
               </div>
@@ -259,7 +263,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
 
             {contasDisponiveis.length === 0 && !loading && (
               <p className="text-xs text-muted-foreground text-center py-2">
-                Todos os canais disponíveis já estão mapeados para este produto.
+                {copy.allMapped}
               </p>
             )}
           </div>

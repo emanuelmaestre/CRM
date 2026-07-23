@@ -1,5 +1,7 @@
 "use client";
 
+import channelsConfig from "@/config/channels.json";
+
 type Channel =
   | "mercadolivre"
   | "shopee"
@@ -18,69 +20,11 @@ interface ChannelConfig {
   logo: string | null;
   fallback: string;
   accent: string;
-  logoDark?: boolean;
-  // aspect ratio of ICON-ONLY portion of the SVG (icon_width / icon_height)
-  // used to clip the img to hide the text wordmark
+  logoDark: boolean;
   iconAspect: number;
 }
 
-const CHANNELS: Record<string, ChannelConfig> = {
-  mercadolivre: {
-    label: "Mercado Livre",
-    logo: "/logos/mercadolivre.svg",
-    fallback: "ML",
-    accent: "#FFE600",
-    // yellow circle occupies left ~197px of 219.8px-tall viewBox
-    iconAspect: 197 / 219.8,
-  },
-  shopee: {
-    label: "Shopee",
-    logo: "/logos/shopee.svg",
-    fallback: "SP",
-    accent: "#EE4D2D",
-    // shopping-bag icon occupies left ~270px of 319.7px-tall viewBox
-    iconAspect: 270 / 319.7,
-  },
-  tiktok: {
-    label: "TikTok Shop",
-    logo: "/logos/tiktok.svg",
-    fallback: "TK",
-    accent: "#111111",
-    logoDark: true,
-    // note icon occupies left ~70px of 80.1px-tall viewBox
-    iconAspect: 70 / 80.1,
-  },
-  tiktokshop: {
-    label: "TikTok Shop",
-    logo: "/logos/tiktok.svg",
-    fallback: "TK",
-    accent: "#111111",
-    logoDark: true,
-    iconAspect: 70 / 80.1,
-  },
-  olist: {
-    label: "Olist",
-    logo: null,
-    fallback: "OL",
-    accent: "#F05B22",
-    iconAspect: 1,
-  },
-  whatsapp: {
-    label: "WhatsApp",
-    logo: "/logos/whatsapp.svg",
-    fallback: "WA",
-    accent: "#25D366",
-    // WhatsApp SVG is icon-only (phone in green circle), full width
-    iconAspect: 1172.92 / 1474.52,
-  },
-  instagram: {
-    label: "Instagram",
-    logo: null,
-    fallback: "IG",
-    accent: "#E1306C",
-    iconAspect: 1,
-  },
-};
+const CHANNELS = channelsConfig.items as Record<string, ChannelConfig>;
 
 const LOGO_HEIGHT: Record<Size, number> = {
   xs: 14,
@@ -97,15 +41,8 @@ const PILL_H: Record<Size, string> = {
 };
 
 function normalizeKey(canal: string): string {
-  const map: Record<string, string> = {
-    "mercado livre":    "mercadolivre",
-    "tiktok shop":      "tiktokshop",
-    "tiktok":           "tiktok",
-    "whatsapp (z-api)": "whatsapp",
-    "instagram":        "instagram",
-  };
   const lower = canal.toLowerCase();
-  return map[lower] ?? lower;
+  return channelsConfig.aliases[lower as keyof typeof channelsConfig.aliases] ?? lower;
 }
 
 interface Props {
@@ -123,7 +60,14 @@ interface Props {
  */
 export function ChannelLogo({ canal, size = "sm", variant = "badge", className = "" }: Props) {
   const key    = normalizeKey(canal);
-  const cfg    = CHANNELS[key] ?? { label: canal, logo: null, fallback: canal.slice(0, 2).toUpperCase(), accent: "#888", iconAspect: 1 };
+  const cfg = CHANNELS[key] ?? {
+    label: canal,
+    logo: null,
+    fallback: canal.slice(0, 2).toUpperCase(),
+    accent: channelsConfig.fallback.accent,
+    logoDark: false,
+    iconAspect: channelsConfig.fallback.iconAspect,
+  };
   const h      = LOGO_HEIGHT[size];
   const iconW  = Math.round(h * cfg.iconAspect);
 

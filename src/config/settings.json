@@ -1,5 +1,6 @@
 {
   "header": { "title": "Configurações", "description": "Organização, integrações, usuários e sistema" },
+  "loading": "Carregando…",
   "status": { "active": "Ativo", "pending": "Pendente", "pendingIcon": "Clock" },
   "openAction": { "label": "Abrir", "icon": "ExternalLink" },
   "organization": { "title": "Organização", "icon": "Building2", "rows": [{ "label": "Marcas ativas", "value": "KARZI, WUWU" }, { "label": "Plano", "value": "Acelera" }] },

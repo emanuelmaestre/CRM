@@ -98,11 +98,11 @@ function StepUpload({
           📄
         </div>
         <p className="text-sm font-medium text-foreground text-center">{cfg.labels.dropzone}</p>
-        <p className="text-xs text-muted-foreground">.csv · UTF-8</p>
+        <p className="text-xs text-muted-foreground">{cfg.labels.fileType}</p>
         <input
           ref={inputRef}
           type="file"
-          aria-label="Arquivo CSV"
+          aria-label={cfg.labels.fileAriaLabel}
           data-testid="arquivo-csv"
           accept=".csv"
           className="hidden"
@@ -202,7 +202,7 @@ function StepConfirmar({ resultado }: { resultado: PreviewResult }) {
 
       {resultado.rejeitados > 0 && (
         <p className="text-xs text-muted-foreground bg-muted rounded-xl px-4 py-3">
-          {resultado.rejeitados} {resultado.rejeitados === 1 ? "registro será ignorado" : "registros serão ignorados"} por conter erros de validação.
+          {resultado.rejeitados} {resultado.rejeitados === 1 ? cfg.labels.ignoredSingular : cfg.labels.ignoredPlural} {cfg.labels.invalidRowsSuffix}
         </p>
       )}
     </motion.div>
@@ -223,7 +223,7 @@ function Sucesso({ aceitos }: { aceitos: number }) {
       <div className="text-center">
         <h2 className="text-xl font-bold text-foreground">{cfg.labels.successTitle}</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          {aceitos} {aceitos === 1 ? "cliente importado" : "clientes importados"} com sucesso.
+          {aceitos} {aceitos === 1 ? cfg.labels.importedSingular : cfg.labels.importedPlural} {cfg.labels.importedRowsSuffix}
         </p>
       </div>
       <button
@@ -231,7 +231,7 @@ function Sucesso({ aceitos }: { aceitos: number }) {
         className="h-12 px-8 rounded-[0.75rem] text-sm font-semibold text-white"
         style={{ background: "var(--gradient-signature)" }}
       >
-        Ver clientes →
+        {cfg.labels.viewClients}
       </button>
     </div>
   );

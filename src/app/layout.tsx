@@ -21,20 +21,24 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: { default: appConfig.fullName, template: appConfig.metadata.titleTemplate },
   description: appConfig.description,
-  manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: appConfig.metadata.appleWebAppTitle },
+  manifest: appConfig.metadata.manifest,
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: appConfig.metadata.appleWebAppStatusBarStyle as "default" | "black" | "black-translucent",
+    title: appConfig.metadata.appleWebAppTitle,
+  },
   other: {
-    "tiktok-developers-site-verification": "ptbw0AK1yP4OTOYbtaTkuwMBl3ChdjhS",
+    "tiktok-developers-site-verification": appConfig.metadata.tiktokDevelopersSiteVerification,
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F7F7F8" },
-    { media: "(prefers-color-scheme: dark)", color: "#0E0F13" },
+    { media: "(prefers-color-scheme: light)", color: appConfig.viewport.lightThemeColor },
+    { media: "(prefers-color-scheme: dark)", color: appConfig.viewport.darkThemeColor },
   ],
-  width: "device-width",
-  initialScale: 1,
+  width: appConfig.viewport.width,
+  initialScale: appConfig.viewport.initialScale,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

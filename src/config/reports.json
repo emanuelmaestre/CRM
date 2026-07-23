@@ -20,6 +20,8 @@
     "totalLabel": "Total"
   },
   "kpis": ["Receita (30 dias)", "Pedidos (30 dias)", "Canais ativos", "Consumo IA (mês)"],
+  "aiBudgetAlert": "⚠️ Consumo de IA atingiu {alert} do orçamento mensal (${budget}/mês).",
+  "exportActions": ["CSV", "XLSX", "PDF"],
   "sales": { "title": "Vendas por canal", "period": "Últimos 30 dias", "empty": "Nenhum pedido registrado ainda." },
   "executiveDocument": {
     "action": "Documento Executivo IA",

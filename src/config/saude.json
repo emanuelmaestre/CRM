@@ -3,6 +3,10 @@
     "title": "Saúde do Sistema",
     "description": "Status em tempo real dos conectores, fila de jobs e últimas falhas"
   },
+  "labels": {
+    "verifiedAt": "Verificado: {date}",
+    "attempt": "Tentativa {attempt} · {date}"
+  },
   "sections": {
     "conectores": {
       "title": "Conectores de Canal",

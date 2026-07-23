@@ -221,7 +221,7 @@ export function EstoqueLista() {
                             <button
                               onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
                               className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                              title="Mapear canais de venda"
+                              title={pagesConfig.estoque.channels.mapTitle}
                             >
                               <Link2 size={15} />
                             </button>

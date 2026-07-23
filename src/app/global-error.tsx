@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import appConfig from "@/config/app.json";
+import pagesConfig from "@/config/pages.json";
 import { logUiFailure } from "@/shared/observability/structured-log";
+
+const copy = pagesConfig.system.globalError;
 
 export default function GlobalError({
   error,
@@ -15,12 +19,12 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="pt-BR">
+    <html lang={appConfig.locale}>
       <body>
         <main data-testid="global-error" style={{ margin: "0 auto", maxWidth: 560, padding: "15vh 24px", textAlign: "center" }}>
-          <h1>O aplicativo encontrou uma falha</h1>
-          <p>O erro foi registrado. Tente recarregar a aplicação.</p>
-          <button type="button" onClick={unstable_retry}>Tentar novamente</button>
+          <h1>{copy.title}</h1>
+          <p>{copy.description}</p>
+          <button type="button" onClick={unstable_retry}>{copy.retry}</button>
         </main>
       </body>
     </html>

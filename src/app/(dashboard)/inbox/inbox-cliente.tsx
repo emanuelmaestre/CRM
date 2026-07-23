@@ -18,6 +18,7 @@ type Conversa = Awaited<ReturnType<typeof actionListarConversas>>[number];
 type Mensagem = Awaited<ReturnType<typeof actionListarMensagens>>[number];
 
 const copy = pagesConfig.inbox;
+const conversationCopy = copy.conversation;
 
 /* ── Helpers ─────────────────────────────────────────────── */
 function formatarData(iso: Date | string): string {
@@ -154,7 +155,7 @@ export function InboxCliente() {
         setConversas((cs) => cs.map((c) => c.id === selecionada.id ? { ...c, status: "em_atendimento" } : c));
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao enviar mensagem.");
+      toast.error(err instanceof Error ? err.message : copy.messages.sendError);
       setTexto(conteudo);
     } finally {
       setEnviando(false);
@@ -168,9 +169,10 @@ export function InboxCliente() {
       await actionAvancarStatusConversa(selecionada.id, novoStatus);
       setSelecionada((s) => s ? { ...s, status: novoStatus } : s);
       setConversas((cs) => cs.map((c) => c.id === selecionada.id ? { ...c, status: novoStatus } : c));
-      toast.success(`Conversa ${novoStatus === "resolvida" ? "resolvida" : "arquivada"}.`);
+      const statusLabel = copy.status[novoStatus].label.toLocaleLowerCase("pt-BR");
+      toast.success(conversationCopy.statusUpdated.replace("{status}", statusLabel));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao avançar status.");
+      toast.error(err instanceof Error ? err.message : copy.messages.statusError);
     }
   }
 
@@ -224,10 +226,10 @@ export function InboxCliente() {
       <div className="w-80 flex-shrink-0 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col">
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">
-            {conversas.length} conversa{conversas.length !== 1 ? "s" : ""}
+            {conversas.length} {conversas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
           </p>
           <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded-full">
-            WhatsApp
+            {conversationCopy.channelSummary}
           </span>
         </div>
 
@@ -369,7 +371,7 @@ export function InboxCliente() {
                       className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950 dark:hover:bg-emerald-900 transition-colors"
                     >
                       <CheckCheck size={13} strokeWidth={2.5} />
-                      Resolver
+                      {conversationCopy.resolve}
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.03 }}
@@ -378,7 +380,7 @@ export function InboxCliente() {
                       className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                     >
                       <Archive size={13} />
-                      Arquivar
+                      {conversationCopy.archive}
                     </motion.button>
                   </div>
                 )}
@@ -440,7 +442,7 @@ export function InboxCliente() {
                       }
                     }}
                     rows={1}
-                    placeholder="Digite uma mensagem…"
+                    placeholder={conversationCopy.replyPlaceholder}
                     className="flex-1 resize-none rounded-[10px] border border-border bg-muted/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] max-h-28 overflow-y-auto leading-relaxed"
                   />
                   <motion.button
@@ -450,7 +452,7 @@ export function InboxCliente() {
                     disabled={!texto.trim() || enviando}
                     className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-[10px] text-white disabled:opacity-35 transition-shadow shadow-[0_4px_14px_rgba(227,19,27,.28)] disabled:shadow-none"
                     style={{ background: "var(--gradient-signature)" }}
-                    title="Enviar (Enter)"
+                    title={conversationCopy.sendTitle}
                   >
                     {enviando ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} strokeWidth={2} />}
                   </motion.button>

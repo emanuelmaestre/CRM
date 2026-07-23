@@ -5,7 +5,22 @@
   "locale": "pt-BR",
   "metadata": {
     "titleTemplate": "%s | CRM",
-    "appleWebAppTitle": "CRM"
+    "manifest": "/manifest.json",
+    "appleWebAppTitle": "CRM",
+    "appleWebAppStatusBarStyle": "default",
+    "tiktokDevelopersSiteVerification": "ptbw0AK1yP4OTOYbtaTkuwMBl3ChdjhS"
+  },
+  "viewport": {
+    "lightThemeColor": "#F7F7F8",
+    "darkThemeColor": "#0E0F13",
+    "width": "device-width",
+    "initialScale": 1
+  },
+  "identityLabel": "CRM LEO",
+  "logo": {
+    "src": "/logos/uncao.svg",
+    "alt": "KARZI | WUWU",
+    "homeAriaLabel": "Início"
   },
   "brandOrder": ["karzi", "wuwu"],
   "wizard": {

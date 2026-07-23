@@ -4,7 +4,9 @@ import permissionsConfig from "@/config/permissions.json";
 export default function SemPermissaoPage() {
   return (
     <section className="mx-auto max-w-xl rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Acesso restrito</p>
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+        {permissionsConfig.messages.restrictedEyebrow}
+      </p>
       <h1 className="mt-3 text-2xl font-bold text-foreground">
         {permissionsConfig.messages.forbiddenTitle}
       </h1>

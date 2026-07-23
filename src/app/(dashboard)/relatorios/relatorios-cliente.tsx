@@ -172,6 +172,11 @@ export function RelatoriosCliente() {
 
   const totalReceita = vendas?.porCanal.reduce((s, r) => s + parseFloat(String(r.receita ?? 0)), 0) ?? 0;
   const totalPedidos = vendas?.porCanal.reduce((s, r) => s + Number(r.total), 0) ?? 0;
+  const aiBudgetAlert = consumoIA?.alerta
+    ? reportsConfig.aiBudgetAlert
+      .replace("{alert}", consumoIA.alerta)
+      .replace("{budget}", String(consumoIA.orcamentoUsd))
+    : null;
 
   return (
     <div className="space-y-6">
@@ -193,7 +198,7 @@ export function RelatoriosCliente() {
       {/* Alerta consumo IA */}
       {consumoIA?.alerta && (
         <div className="rounded-[1rem] border border-amber-400/40 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
-          ⚠️ Consumo de IA atingiu {consumoIA.alerta} do orçamento mensal (${consumoIA.orcamentoUsd}/mês).
+          {aiBudgetAlert}
         </div>
       )}
 
@@ -210,19 +215,19 @@ export function RelatoriosCliente() {
                 onClick={() => exportarCSV(vendas)}
                 className="text-xs px-3 py-1.5 rounded-[0.5rem] border border-border hover:bg-muted transition-colors"
               >
-                CSV
+                {reportsConfig.exportActions[0]}
               </button>
               <button
                 onClick={() => exportarXLSX(vendas, totalReceita)}
                 className="text-xs px-3 py-1.5 rounded-[0.5rem] border border-border hover:bg-muted transition-colors"
               >
-                XLSX
+                {reportsConfig.exportActions[1]}
               </button>
               <button
                 onClick={() => exportarPDF(vendas, totalReceita, totalPedidos)}
                 className="text-xs px-3 py-1.5 rounded-[0.5rem] border border-border hover:bg-muted transition-colors"
               >
-                PDF
+                {reportsConfig.exportActions[2]}
               </button>
               <button
                 onClick={gerarDocumento}

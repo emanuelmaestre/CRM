@@ -2,7 +2,10 @@
 
 import { useEffect } from "react";
 import { RotateCcw, TriangleAlert } from "lucide-react";
+import pagesConfig from "@/config/pages.json";
 import { logUiFailure } from "@/shared/observability/structured-log";
+
+const copy = pagesConfig.system.dashboardError;
 
 export default function DashboardError({
   error,
@@ -24,14 +27,11 @@ export default function DashboardError({
       <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
         <TriangleAlert aria-hidden="true" size={26} />
       </div>
-      <h1 className="text-xl font-bold text-foreground">Não foi possível carregar esta área</h1>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-        A falha foi registrada com segurança. Tente novamente; se persistir, informe o código
-        abaixo ao administrador.
-      </p>
+      <h1 className="text-xl font-bold text-foreground">{copy.title}</h1>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{copy.description}</p>
       {error.digest && (
         <code className="mt-3 rounded bg-muted px-2 py-1 text-xs text-muted-foreground">
-          Código: {error.digest}
+          {copy.codeLabel} {error.digest}
         </code>
       )}
       <button
@@ -40,7 +40,7 @@ export default function DashboardError({
         className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
       >
         <RotateCcw aria-hidden="true" size={16} />
-        Tentar novamente
+        {copy.retry}
       </button>
     </section>
   );

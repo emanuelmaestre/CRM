@@ -1,4 +1,52 @@
 {
+  "system": {
+    "loading": {
+      "ariaLabel": "Carregando conteúdo",
+      "srText": "Carregando…"
+    },
+    "dashboardError": {
+      "title": "Não foi possível carregar esta área",
+      "description": "A falha foi registrada com segurança. Tente novamente; se persistir, informe o código abaixo ao administrador.",
+      "codeLabel": "Código:",
+      "retry": "Tentar novamente"
+    },
+    "globalError": {
+      "title": "O aplicativo encontrou uma falha",
+      "description": "O erro foi registrado. Tente recarregar a aplicação.",
+      "retry": "Tentar novamente"
+    }
+  },
+  "terms": {
+    "metadataTitle": "Termos de Serviço — KARZI & WUWU CRM",
+    "title": "Termos de Serviço",
+    "lastUpdated": "Última atualização: julho de 2026",
+    "sections": [
+      {
+        "title": "1. Descrição do serviço",
+        "content": "Este sistema de CRM integra pedidos, clientes e estoque das marcas KARZI e WUWU, operadas pela Plast Leo Limitada, a partir de canais de venda como TikTok Shop, Mercado Livre e Shopee. O acesso é restrito a usuários autorizados da empresa."
+      },
+      {
+        "title": "2. Uso dos dados",
+        "content": "Os dados de clientes e pedidos coletados via integrações de marketplace são utilizados exclusivamente para fins operacionais internos — gestão de pedidos, atendimento ao cliente e análise de desempenho. Nenhum dado é compartilhado com terceiros sem autorização expressa."
+      },
+      {
+        "title": "3. Acesso e segurança",
+        "content": "O acesso ao sistema é protegido por autenticação. Cada usuário é responsável pela confidencialidade de suas credenciais. A empresa adota medidas técnicas para proteger os dados armazenados, incluindo criptografia em trânsito e controles de acesso por perfil."
+      },
+      {
+        "title": "4. Integrações de terceiros",
+        "content": "O sistema utiliza APIs de plataformas como TikTok Shop, Mercado Livre e Shopee para receber notificações de pedidos. O uso dessas integrações segue os termos de serviço de cada respectiva plataforma."
+      },
+      {
+        "title": "5. Limitação de responsabilidade",
+        "content": "O sistema é fornecido para uso interno. A Plast Leo Limitada não se responsabiliza por indisponibilidades de plataformas de terceiros que afetem a sincronização de dados."
+      },
+      {
+        "title": "6. Contato",
+        "content": "Dúvidas sobre estes termos podem ser encaminhadas para o responsável técnico do sistema."
+      }
+    ]
+  },
   "login": {
     "title": "Entrar",
     "subtitle": "KARZI · WUWU",
@@ -78,9 +126,38 @@
       "submitting": "Registrando…",
       "success": "Movimento registrado!",
       "error": "Erro ao registrar movimento."
+    },
+    "channels": {
+      "title": "Canais do produto",
+      "close": "Fechar",
+      "mapTitle": "Mapear canais de venda",
+      "activeMappings": "Mapeamentos ativos",
+      "emptyTitle": "Nenhum canal mapeado ainda.",
+      "emptyDescription": "Adicione abaixo para sincronizar o estoque.",
+      "skuPrefix": "SKU:",
+      "removeTitle": "Remover mapeamento",
+      "addTitle": "Adicionar canal",
+      "accountPlaceholder": "Selecione a conta de canal…",
+      "disconnectedSuffix": "— desconectado",
+      "listingPlaceholder": "ID do anúncio no canal (listingId)",
+      "skuPlaceholder": "ID externo do SKU / modelo",
+      "warehousePlaceholder": "ID do warehouse no TikTok Shop",
+      "save": "Salvar mapeamento",
+      "allMapped": "Todos os canais disponíveis já estão mapeados para este produto.",
+      "messages": {
+        "loadError": "Erro ao carregar mapeamentos.",
+        "accountRequired": "Selecione uma conta de canal.",
+        "listingRequired": "Informe o ID do anúncio no canal.",
+        "tiktokIdsRequired": "TikTok Shop exige os IDs de SKU e warehouse.",
+        "saveSuccess": "Mapeamento salvo.",
+        "saveError": "Erro ao salvar mapeamento.",
+        "removeSuccess": "Mapeamento removido.",
+        "removeError": "Erro ao remover mapeamento."
+      }
     }
   },
   "vendas": {
+    "navigationAriaLabel": "Operação comercial",
     "metadataTitle": "Vendas",
     "title": "Vendas",
     "description": "Funil de vendas e oportunidades",
@@ -118,12 +195,15 @@
     "empty": "Nenhum pedido recebido pelos conectores.",
     "detail": {
       "back": "Voltar aos pedidos",
+      "orderPrefix": "Pedido #",
       "customer": "Cliente",
       "brand": "Marca",
       "channel": "Canal",
       "externalAccount": "Conta externa",
+      "legacyAccount": "Legado",
       "shipping": "Frete",
       "items": "Itens do pedido",
+      "emptyItems": "Nenhum item persistido para este pedido.",
       "quantity": "Quantidade",
       "unitPrice": "Preço unitário",
       "total": "Total"
@@ -160,7 +240,13 @@
       "concluida": "Concluída",
       "cancelada": "Cancelada"
     },
-    "labels": { "overdue": "Atrasada", "noDueDate": "Sem vencimento", "noClient": "Sem cliente" },
+    "labels": {
+      "overdue": "Atrasada",
+      "noDueDate": "Sem vencimento",
+      "noClient": "Sem cliente",
+      "status": "Status",
+      "statusAria": "Status de {title}"
+    },
     "actions": { "save": "Criar tarefa", "saving": "Criando…", "cancel": "Cancelar", "cancelTask": "Cancelar tarefa" },
     "messages": {
       "loadError": "Erro ao carregar tarefas.",
@@ -201,7 +287,15 @@
     "empty": { "title": "Nenhum evento de auditoria", "description": "Ajuste os filtros para consultar outro período." },
     "columns": ["Quando", "Autor / origem", "Entidade", "Ação", "Marca", "Detalhes"],
     "origins": { "usuario": "Manual", "usuario_sintetico": "Seed sintético", "sistema": "Sistema", "job": "Job", "ia": "IA", "webhook": "Webhook" },
-    "labels": { "system": "Sistema", "before": "Antes", "after": "Depois", "details": "Ver alterações", "page": "Página {current} de {total}" },
+    "labels": {
+      "system": "Sistema",
+      "before": "Antes",
+      "after": "Depois",
+      "details": "Ver alterações",
+      "page": "Página {current} de {total}",
+      "startDateAria": "Data inicial",
+      "endDateAria": "Data final"
+    },
     "actions": { "previous": "Anterior", "next": "Próxima" },
     "messages": { "loadError": "Erro ao carregar a trilha de auditoria." }
   },
@@ -209,6 +303,11 @@
     "metadataTitle": "Mensagens",
     "title": "Mensagens",
     "description": "Conversas unificadas de WhatsApp, Shopee, Mercado Livre e TikTok Shop",
+    "pageDescription": "Conversas e perguntas dos seus clientes em um só lugar",
+    "tabs": [
+      { "id": "conversas", "label": "Conversas", "icon": "MessageSquare" },
+      { "id": "perguntas", "label": "Perguntas", "icon": "HelpCircle" }
+    ],
     "status": {
       "nova": { "label": "Nova", "color": "#E3131B" },
       "em_atendimento": { "label": "Em atendimento", "color": "#9B30D9" },
@@ -225,7 +324,90 @@
     },
     "selectConversation": "Selecione uma conversa",
     "noMessages": "Sem mensagens ainda.",
-    "messages": { "conversationsError": "Erro ao carregar conversas.", "messagesError": "Erro ao carregar mensagens." }
+    "conversation": {
+      "countSingular": "conversa",
+      "countPlural": "conversas",
+      "channelSummary": "Todos os canais",
+      "resolve": "Resolver",
+      "archive": "Arquivar",
+      "replyPlaceholder": "Digite uma mensagem…",
+      "sendTitle": "Enviar (Enter)",
+      "statusUpdated": "Conversa {status}."
+    },
+    "questions": {
+        "urgencyColors": {
+          "urgent": "#E3131B",
+          "normal": "#9B30D9",
+          "ok": "#1F8A4C"
+        },
+      "platformOrder": ["mercadolivre", "shopee", "tiktok"],
+      "platforms": {
+        "mercadolivre": {
+          "label": "Mercado Livre",
+          "shortLabel": "ML",
+          "stripe": "#FFB900",
+          "logo": "/logos/mercadolivre.svg",
+          "logoDark": false,
+          "charLimit": 2000,
+          "quickReplies": [
+            "Sim, temos disponível! ✅",
+            "Enviamos para todo o Brasil via Correios.",
+            "Parcelamos em até 12× sem juros."
+          ]
+        },
+        "shopee": {
+          "label": "Shopee",
+          "shortLabel": "Shopee",
+          "stripe": "#EE4D2D",
+          "logo": "/logos/shopee.svg",
+          "logoDark": false,
+          "charLimit": 1000,
+          "quickReplies": [
+            "Olá! Estamos verificando e já te retorno. 😊",
+            "Prazo de envio: 1–2 dias úteis após confirmação.",
+            "Produto com garantia de 90 dias de fábrica."
+          ]
+        },
+        "tiktok": {
+          "label": "TikTok Shop",
+          "shortLabel": "TikTok",
+          "stripe": "#00C2CB",
+          "logo": "/logos/tiktok.svg",
+          "logoDark": true,
+          "charLimit": 500,
+          "quickReplies": [
+            "Oi! Pode conferir as fotos no anúncio. 👀",
+            "Entregamos com rastreio em todo o Brasil.",
+            "Tem dúvida? Chama a gente por aqui mesmo!"
+          ]
+        }
+      },
+      "allPlatforms": "Todos",
+      "statusFilters": {
+        "todos": "Todos",
+        "pendente": "Pendentes",
+        "respondida": "Respondidas"
+      },
+      "actions": {
+        "expand": "Expandir painel",
+        "collapse": "Recolher painel",
+        "resize": "Arrastar para redimensionar"
+      },
+      "empty": "Nenhuma pergunta encontrada",
+      "select": "Selecione uma pergunta",
+      "ago": "atrás",
+      "question": "Pergunta",
+      "yourAnswer": "Sua resposta",
+      "answered": "Pergunta respondida",
+      "quickReply": "Resposta rápida",
+      "replyPlaceholder": "Escreva sua resposta…"
+    },
+    "messages": {
+      "conversationsError": "Erro ao carregar conversas.",
+      "messagesError": "Erro ao carregar mensagens.",
+      "sendError": "Erro ao enviar mensagem.",
+      "statusError": "Erro ao avançar status."
+    }
   },
   "relatorios": { "metadataTitle": "Relatórios", "title": "Relatórios", "description": "Vendas por canal, sugestões de campanha e painel executivo" },
   "configuracoes": { "metadataTitle": "Configurações" }

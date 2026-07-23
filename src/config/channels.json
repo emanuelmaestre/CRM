@@ -1,0 +1,71 @@
+{
+  "aliases": {
+    "mercado livre": "mercadolivre",
+    "tiktok shop": "tiktokshop",
+    "tiktok": "tiktok",
+    "whatsapp (z-api)": "whatsapp",
+    "instagram": "instagram"
+  },
+  "fallback": {
+    "accent": "#888888",
+    "iconAspect": 1
+  },
+  "items": {
+    "mercadolivre": {
+      "label": "Mercado Livre",
+      "logo": "/logos/mercadolivre.svg",
+      "fallback": "ML",
+      "accent": "#FFE600",
+      "logoDark": false,
+      "iconAspect": 0.8962693357597816
+    },
+    "shopee": {
+      "label": "Shopee",
+      "logo": "/logos/shopee.svg",
+      "fallback": "SP",
+      "accent": "#EE4D2D",
+      "logoDark": false,
+      "iconAspect": 0.8445417578979668
+    },
+    "tiktok": {
+      "label": "TikTok Shop",
+      "logo": "/logos/tiktok.svg",
+      "fallback": "TK",
+      "accent": "#111111",
+      "logoDark": true,
+      "iconAspect": 0.8739076154806492
+    },
+    "tiktokshop": {
+      "label": "TikTok Shop",
+      "logo": "/logos/tiktok.svg",
+      "fallback": "TK",
+      "accent": "#111111",
+      "logoDark": true,
+      "iconAspect": 0.8739076154806492
+    },
+    "olist": {
+      "label": "Olist",
+      "logo": null,
+      "fallback": "OL",
+      "accent": "#F05B22",
+      "logoDark": false,
+      "iconAspect": 1
+    },
+    "whatsapp": {
+      "label": "WhatsApp",
+      "logo": "/logos/whatsapp.svg",
+      "fallback": "WA",
+      "accent": "#25D366",
+      "logoDark": false,
+      "iconAspect": 0.7954595227409595
+    },
+    "instagram": {
+      "label": "Instagram",
+      "logo": null,
+      "fallback": "IG",
+      "accent": "#E1306C",
+      "logoDark": false,
+      "iconAspect": 1
+    }
+  }
+}

@@ -1,11 +1,21 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HelpCircle, Send, CheckCircle2, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import pagesConfig from "@/config/pages.json";
 
 type Plataforma = "mercadolivre" | "shopee" | "tiktok";
 type Status = "pendente" | "respondida";
+type PlatformConfig = {
+  label: string;
+  shortLabel: string;
+  stripe: string;
+  logo: string;
+  logoDark: boolean;
+  charLimit: number;
+  quickReplies: string[];
+};
 
 type Pergunta = {
   id: string;
@@ -19,57 +29,9 @@ type Pergunta = {
   resposta?: string;
 };
 
-const PLAT: Record<Plataforma, {
-  label: string;
-  shortLabel: string;
-  stripe: string;
-  logo: string;
-  logoDark?: boolean;
-}> = {
-  mercadolivre: {
-    label: "Mercado Livre",
-    shortLabel: "ML",
-    stripe: "#FFB900",
-    logo: "/logos/mercadolivre.svg",
-  },
-  shopee: {
-    label: "Shopee",
-    shortLabel: "Shopee",
-    stripe: "#EE4D2D",
-    logo: "/logos/shopee.svg",
-  },
-  tiktok: {
-    label: "TikTok Shop",
-    shortLabel: "TikTok",
-    stripe: "#00C2CB",
-    logo: "/logos/tiktok.svg",
-    logoDark: true,
-  },
-};
-
-const QUICK_REPLIES: Record<Plataforma, string[]> = {
-  mercadolivre: [
-    "Sim, temos disponível! ✅",
-    "Enviamos para todo o Brasil via Correios.",
-    "Parcelamos em até 12× sem juros.",
-  ],
-  shopee: [
-    "Olá! Estamos verificando e já te retorno. 😊",
-    "Prazo de envio: 1–2 dias úteis após confirmação.",
-    "Produto com garantia de 90 dias de fábrica.",
-  ],
-  tiktok: [
-    "Oi! Pode conferir as fotos no anúncio. 👀",
-    "Entregamos com rastreio em todo o Brasil.",
-    "Tem dúvida? Chama a gente por aqui mesmo!",
-  ],
-};
-
-const CHAR_LIMIT: Record<Plataforma, number> = {
-  mercadolivre: 2000,
-  shopee: 1000,
-  tiktok: 500,
-};
+const copy = pagesConfig.inbox.questions;
+const PLAT = copy.platforms as Record<Plataforma, PlatformConfig>;
+const PLATFORM_TABS = ["todos", ...copy.platformOrder] as Array<Plataforma | "todos">;
 
 // Produção nunca exibe fixtures como se fossem mensagens reais.
 const PERGUNTAS_INICIAIS: Pergunta[] = [];
@@ -80,11 +42,7 @@ function urgency(h: number, status: Status): "urgent" | "normal" | "ok" {
   return "normal";
 }
 
-const URGENCY_COLOR = {
-  urgent: "#E3131B",
-  normal: "#9B30D9",
-  ok:     "#1F8A4C",
-};
+const URGENCY_COLOR = copy.urgencyColors;
 
 const stagger = {
   hidden: {},
@@ -124,7 +82,7 @@ function PlatTab({
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.94 }}
-      title={plat === "todos" ? "Todos" : PLAT[plat].label}
+      title={plat === "todos" ? copy.allPlatforms : PLAT[plat].label}
       className={`relative flex-1 flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-160 ${
         active
           ? "bg-card"
@@ -182,7 +140,6 @@ function CollapsedStrip({
   pendentesPorPlat: (p: Plataforma) => number;
   onExpand: () => void;
 }) {
-  const tabs = (["todos", "mercadolivre", "shopee", "tiktok"] as const);
   return (
     <motion.div
       key="collapsed"
@@ -198,14 +155,14 @@ function CollapsedStrip({
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.93 }}
         className="w-8 h-8 mt-1 mb-1 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        title="Expandir painel"
+        title={copy.actions.expand}
       >
         <ChevronRight size={16} strokeWidth={2} />
       </motion.button>
 
       <div className="w-6 h-px bg-border mx-auto" />
 
-      {tabs.map((p) => {
+      {PLATFORM_TABS.map((p) => {
         const count = p === "todos" ? pendentesTotais : pendentesPorPlat(p);
         const active = filtroPlat === p;
         const stripe = p !== "todos" ? PLAT[p].stripe : undefined;
@@ -215,7 +172,7 @@ function CollapsedStrip({
             onClick={() => { setFiltroPlat(p); onExpand(); }}
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.93 }}
-            title={p === "todos" ? "Todos" : PLAT[p].label}
+            title={p === "todos" ? copy.allPlatforms : PLAT[p].label}
             className={`relative w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
               active ? "bg-muted" : "hover:bg-muted/50"
             }`}
@@ -252,12 +209,6 @@ export function InboxPerguntas() {
   const [collapsed, setCollapsed] = useState(false);
   const dragState = useRef<{ startX: number; startW: number } | null>(null);
 
-  useEffect(() => {
-    return () => {
-      // Cleanup on unmount (handlers added inline in startResize are closure-scoped, no leak)
-    };
-  }, []);
-
   function startResize(e: React.MouseEvent) {
     e.preventDefault();
     dragState.current = { startX: e.clientX, startW: sideWidth };
@@ -286,7 +237,9 @@ export function InboxPerguntas() {
   const pendentesPorPlat = (pl: Plataforma) =>
     perguntas.filter((p) => p.plataforma === pl && p.status === "pendente").length;
 
-  const limit  = selecionada ? CHAR_LIMIT[selecionada.plataforma] : 2000;
+  const limit = selecionada
+    ? PLAT[selecionada.plataforma].charLimit
+    : Math.max(...Object.values(PLAT).map((platform) => platform.charLimit));
   const charPct = resposta.length / limit;
 
   function enviarResposta() {
@@ -337,7 +290,7 @@ export function InboxPerguntas() {
           >
             {/* Platform tabs bar */}
             <div className="flex gap-0 border-b border-border bg-muted/20">
-              {(["todos", "mercadolivre", "shopee", "tiktok"] as const).map((p) => (
+              {PLATFORM_TABS.map((p) => (
                 <PlatTab
                   key={p}
                   plat={p}
@@ -353,7 +306,7 @@ export function InboxPerguntas() {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.93 }}
                 className="flex-shrink-0 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border-l border-border"
-                title="Recolher painel"
+                title={copy.actions.collapse}
               >
                 <ChevronLeft size={14} strokeWidth={2} />
               </motion.button>
@@ -372,7 +325,7 @@ export function InboxPerguntas() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {s === "todos" ? "Todos" : s === "pendente" ? "Pendentes" : "Respondidas"}
+                  {copy.statusFilters[s]}
                 </motion.button>
               ))}
             </div>
@@ -386,7 +339,7 @@ export function InboxPerguntas() {
                     className="flex flex-col items-center justify-center py-12 text-center px-4"
                   >
                     <HelpCircle size={24} strokeWidth={1.5} className="text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground">Nenhuma pergunta encontrada</p>
+                    <p className="text-sm text-muted-foreground">{copy.empty}</p>
                   </motion.div>
                 ) : (
                   <motion.div variants={stagger} initial="hidden" animate="show">
@@ -460,7 +413,7 @@ export function InboxPerguntas() {
             <div
               onMouseDown={startResize}
               className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group z-20"
-              title="Arrastar para redimensionar"
+              title={copy.actions.resize}
             >
               <div className="w-[3px] h-10 rounded-full bg-border group-hover:bg-[rgba(155,48,217,.4)] transition-colors" />
               <GripVertical
@@ -497,7 +450,7 @@ export function InboxPerguntas() {
                 transition={{ delay: 0.14, duration: 0.2 }}
                 className="text-sm"
               >
-                Selecione uma pergunta
+                {copy.select}
               </motion.p>
             </motion.div>
           ) : (
@@ -526,7 +479,7 @@ export function InboxPerguntas() {
                 </div>
 
                 <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0">
-                  {selecionada.tempo} atrás
+                  {selecionada.tempo} {copy.ago}
                 </span>
               </div>
 
@@ -538,7 +491,7 @@ export function InboxPerguntas() {
                   transition={{ delay: 0.06, duration: 0.22, ease: [0, 0, 0.2, 1] }}
                 >
                   <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground mb-2">
-                    Pergunta
+                    {copy.question}
                   </p>
                   <div className="rounded-[4px_14px_14px_14px] border border-border bg-muted/40 px-4 py-3.5 text-[15px] text-foreground leading-relaxed max-w-[78%]">
                     {selecionada.pergunta}
@@ -553,7 +506,7 @@ export function InboxPerguntas() {
                     className="flex flex-col items-end gap-2"
                   >
                     <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground">
-                      Sua resposta
+                      {copy.yourAnswer}
                     </p>
                     <div
                       className="rounded-[14px_4px_14px_14px] px-4 py-3.5 text-sm text-white leading-relaxed max-w-[78%] shadow-[0_3px_14px_rgba(227,19,27,.22)]"
@@ -573,7 +526,7 @@ export function InboxPerguntas() {
                   className="px-5 py-3 border-t border-border flex items-center gap-1.5"
                 >
                   <CheckCircle2 size={13} strokeWidth={2} className="text-[#1F8A4C]" />
-                  <p className="text-xs text-[#1F8A4C] font-medium">Pergunta respondida</p>
+                  <p className="text-xs text-[#1F8A4C] font-medium">{copy.answered}</p>
                 </motion.div>
               )}
 
@@ -588,10 +541,10 @@ export function InboxPerguntas() {
                   {/* Quick reply chips */}
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground mb-2">
-                      Resposta rápida
+                      {copy.quickReply}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {QUICK_REPLIES[selecionada.plataforma].map((chip) => (
+                      {PLAT[selecionada.plataforma].quickReplies.map((chip) => (
                         <motion.button
                           key={chip}
                           onClick={() => usarChip(chip)}
@@ -609,7 +562,7 @@ export function InboxPerguntas() {
                   <div className="flex items-end gap-2">
                     <textarea
                       className="flex-1 resize-none rounded-[10px] border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] min-h-[62px] max-h-[120px] leading-relaxed"
-                      placeholder="Escreva sua resposta…"
+                      placeholder={copy.replyPlaceholder}
                       value={resposta}
                       onChange={(e) => setResposta(e.target.value)}
                       onKeyDown={(e) => {

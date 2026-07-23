@@ -1,6 +1,9 @@
+import pagesConfig from "@/config/pages.json";
+
 export default function DashboardLoading() {
+  const copy = pagesConfig.system.loading;
   return (
-    <div className="space-y-6" role="status" aria-label="Carregando conteúdo">
+    <div className="space-y-6" role="status" aria-label={copy.ariaLabel}>
       <div className="space-y-2">
         <div className="shimmer h-8 w-56 rounded-lg bg-muted" />
         <div className="shimmer h-4 w-full max-w-md rounded bg-muted" />
@@ -17,7 +20,7 @@ export default function DashboardLoading() {
           </div>
         ))}
       </div>
-      <span className="sr-only">Carregando…</span>
+      <span className="sr-only">{copy.srText}</span>
     </div>
   );
 }

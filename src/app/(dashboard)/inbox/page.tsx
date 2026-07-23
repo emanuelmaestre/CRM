@@ -2,16 +2,14 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, HelpCircle } from "lucide-react";
 import { InboxCliente } from "./inbox-cliente";
 import { InboxPerguntas } from "./inbox-perguntas";
+import pagesConfig from "@/config/pages.json";
+import { getIcon } from "@/shared/config/icon-registry";
 
-const ABAS = [
-  { id: "conversas", label: "Conversas",  icon: MessageSquare },
-  { id: "perguntas", label: "Perguntas",  icon: HelpCircle },
-] as const;
-
-type Aba = typeof ABAS[number]["id"];
+type Aba = "conversas" | "perguntas";
+const copy = pagesConfig.inbox;
+const ABAS = copy.tabs as Array<{ id: Aba; label: string; icon: string }>;
 
 export default function InboxPage() {
   const [aba, setAba] = useState<Aba>("conversas");
@@ -22,17 +20,17 @@ export default function InboxPage() {
       <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-            Mensagens
+            {copy.title}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Conversas e perguntas dos seus clientes em um só lugar
+            {copy.pageDescription}
           </p>
         </div>
 
         {/* Tab bar */}
         <div className="flex gap-1 p-1 rounded-[0.875rem] bg-muted w-fit">
           {ABAS.map((a) => {
-            const Icon = a.icon;
+            const Icon = getIcon(a.icon);
             const active = aba === a.id;
             return (
               <motion.button

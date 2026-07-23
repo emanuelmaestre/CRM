@@ -63,7 +63,9 @@ function ConectoresSection({ items }: { items: PainelSaudeData["conectores"] }) 
             <div key={item.id} className="flex items-start justify-between gap-3 py-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium capitalize text-foreground">{item.tipo}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">Verificado: {formatarData(item.ultimaVerificacao)}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {saudeConfig.labels.verifiedAt.replace("{date}", formatarData(item.ultimaVerificacao))}
+                </p>
                 {item.ultimoErro && <p className="mt-1 text-xs text-destructive">{item.ultimoErro}</p>}
               </div>
               <StatusBadge status={item.status} />
@@ -88,7 +90,11 @@ function JobsSection({ items }: { items: PainelSaudeData["jobs"] }) {
             <div key={item.id} className="flex items-start justify-between gap-3 py-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-foreground">{item.nome}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">Tentativa {item.tentativa} · {formatarData(item.iniciadoEm)}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {saudeConfig.labels.attempt
+                    .replace("{attempt}", item.tentativa)
+                    .replace("{date}", formatarData(item.iniciadoEm))}
+                </p>
                 {item.erro && <p className="mt-1 line-clamp-2 text-xs text-destructive">{item.erro}</p>}
               </div>
               <StatusBadge status={item.status} />

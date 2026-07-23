@@ -210,7 +210,7 @@ export default function ConfiguracoesPage() {
 
         {/* Mercado Livre OAuth */}
         <Card title={settingsConfig.mercadoLivre.title} icon={getIcon("ShoppingBag")}>
-          <Suspense fallback={<p className="text-sm text-muted-foreground py-2">Carregando…</p>}>
+          <Suspense fallback={<p className="text-sm text-muted-foreground py-2">{settingsConfig.loading}</p>}>
             <MLConnectSection />
           </Suspense>
         </Card>

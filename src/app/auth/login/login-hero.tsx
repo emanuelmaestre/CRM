@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import appConfig from "@/config/app.json";
 
 export function LoginHero() {
   return (
@@ -31,8 +32,8 @@ export function LoginHero() {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logos/uncao.svg"
-          alt="KARZI | WUWU"
+          src={appConfig.logo.src}
+          alt={appConfig.logo.alt}
           style={{ height: 52, width: "auto", display: "block", objectFit: "contain" }}
         />
       </motion.div>
