@@ -48,13 +48,17 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // getClaims valida a assinatura do JWT pelo JWKS (com cache) e evita uma
+  // chamada ao Auth server em cada navegação. O proxy continua responsável
+  // por renovar a sessão expirada e propagar os cookies atualizados.
+  const { data } = await supabase.auth.getClaims();
+  const isAuthenticated = Boolean(data?.claims.sub);
 
   const isLoginRoute = pathname === "/auth/login";
   const isPublicRoute = PUBLIC_PATHS.has(pathname);
   const isApiRoute = pathname.startsWith("/api/");
 
-  if (!user && !isPublicRoute) {
+  if (!isAuthenticated && !isPublicRoute) {
     if (isApiRoute) {
       return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
@@ -64,7 +68,7 @@ export async function updateSession(request: NextRequest) {
     return copyCookies(supabaseResponse, NextResponse.redirect(url));
   }
 
-  if (user && isLoginRoute) {
+  if (isAuthenticated && isLoginRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";

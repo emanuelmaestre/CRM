@@ -15,9 +15,11 @@ const OrgIdSchema = z.string().uuid();
 export async function getAuthContext(): Promise<AuthContext> {
   const orgId = OrgIdSchema.parse(process.env.DEFAULT_ORG_ID);
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  const userId = claims?.sub;
 
-  const usuarioBd = user
+  const usuarioBd = userId
     ? await db
         .select({
           id: appUser.id,
@@ -28,12 +30,21 @@ export async function getAuthContext(): Promise<AuthContext> {
           ativo: appUser.ativo,
         })
         .from(appUser)
-        .where(and(eq(appUser.id, user.id), eq(appUser.orgId, orgId)))
+        .where(and(eq(appUser.id, userId), eq(appUser.orgId, orgId)))
         .then((rows) => rows[0] ?? null)
     : null;
 
   return buildAuthContext(
-    user ? { id: user.id, email: user.email, userMetadata: user.user_metadata } : null,
+    userId
+      ? {
+          id: userId,
+          email: typeof claims.email === "string" ? claims.email : null,
+          userMetadata:
+            claims.user_metadata && typeof claims.user_metadata === "object"
+              ? claims.user_metadata
+              : undefined,
+        }
+      : null,
     usuarioBd,
     orgId,
   );
