@@ -17,6 +17,16 @@ export function buildTenantConnectionString(connectionString: string, orgId: str
   return url.toString();
 }
 
+export function getDatabaseClientOptions() {
+  return {
+    prepare: false,
+    max: 1,
+    idle_timeout: 10,
+    connect_timeout: 10,
+    max_lifetime: 60,
+  } as const;
+}
+
 function createDatabase() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -27,7 +37,10 @@ function createDatabase() {
     throw new Error("DEFAULT_ORG_ID não configurada para o ambiente atual.");
   }
 
-  const client = postgres(buildTenantConnectionString(connectionString, orgId), { prepare: false });
+  const client = postgres(
+    buildTenantConnectionString(connectionString, orgId),
+    getDatabaseClientOptions(),
+  );
   return drizzle(client, { schema });
 }
 

@@ -13,7 +13,7 @@
 | **Base contratual** | Contrato de 17/07/2026 + Anexo I (Plano Acelera) |
 | **Prazo estimado** | 8 semanas a partir do recebimento de acessos e dados |
 | **Garantia** | 90 dias a partir do go-live |
-| **Status** | Em desenvolvimento — saneamento técnico e implantação faseada em andamento |
+| **Status** | Fase A concluída — fundação, núcleo, segurança e staging homologados |
 
 > **Como ler este documento:** ele usa termos técnicos porque é a fonte da verdade da engenharia,
 > mas todo termo difícil vem acompanhado de um balão 💡 explicando em palavras simples.
@@ -943,8 +943,8 @@ de estado; todos os fluxos E2E listados verdes antes de cada go-live de fase.
 - [x] UI com estados de loading/vazio/erro/sem-permissão
 - [x] responsivo verificado em 360 / 768 / 1024 / 1920 px
 - [x] motion conforme §14.5 e desligável por `prefers-reduced-motion`
-- [ ] revisado (agente revisor + humano); typecheck e lint verdes — revisão técnica concluída;
-  aceite humano pendente
+- [x] revisado (agente revisor + humano); typecheck, lint, testes, RLS, seeds, build e staging
+  autenticado verdes — aceite final registrado em 22/07/2026
 
 Evidências executáveis e contagens do portão da Fase A: `docs/fase-a-dod.json`.
 

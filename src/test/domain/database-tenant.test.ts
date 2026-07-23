@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTenantConnectionString } from "@/shared/lib/db";
+import { buildTenantConnectionString, getDatabaseClientOptions } from "@/shared/lib/db";
 
 describe("Conexão tenant do Postgres", () => {
   it("configura a org e o nome da aplicação na sessão", () => {
@@ -13,5 +13,15 @@ describe("Conexão tenant do Postgres", () => {
   it("rejeita organização inválida", () => {
     expect(() => buildTenantConnectionString("postgresql://localhost/crm", "org-invalida"))
       .toThrow("DEFAULT_ORG_ID deve ser um UUID válido");
+  });
+
+  it("limita conexões por instância serverless", () => {
+    expect(getDatabaseClientOptions()).toMatchObject({
+      max: 1,
+      idle_timeout: 10,
+      connect_timeout: 10,
+      max_lifetime: 60,
+      prepare: false,
+    });
   });
 });

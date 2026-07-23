@@ -1,6 +1,6 @@
 {
   "scope": "Fase A — Fundação e Núcleo",
-  "status": "technical_green_human_approval_pending",
+  "status": "completed",
   "criteria": [
     {
       "id": "DOD-01",
@@ -18,7 +18,7 @@
       "id": "DOD-03",
       "name": "rls_perfis_e_sigilo_entre_marcas",
       "status": "verified",
-      "evidence": ["npm run test:rls", "32 cenários de segurança e integridade", "116 policies"]
+      "evidence": ["npm run test:rls", "32 cenários de segurança e integridade", "37 tabelas protegidas", "116 policies"]
     },
     {
       "id": "DOD-04",
@@ -30,7 +30,7 @@
       "id": "DOD-05",
       "name": "idempotencia_externa",
       "status": "verified",
-      "evidence": ["npm run test:seed-synthetic", "src/test/domain/reguas-gates.test.ts", "índices únicos de provider e referência"]
+      "evidence": ["npm run test:seed-synthetic", "27 conjuntos sintéticos", "reconciliação idempotente de etapas por org_id + ordem", "índices únicos de provider e referência"]
     },
     {
       "id": "DOD-06",
@@ -48,7 +48,7 @@
       "id": "DOD-08",
       "name": "testes",
       "status": "verified",
-      "evidence": ["99 testes Vitest", "32 cenários RLS", "92 testes Playwright", "next build"]
+      "evidence": ["100 testes Vitest", "32 cenários RLS", "92 testes Playwright no CI", "68 verificações Playwright em staging", "next build"]
     },
     {
       "id": "DOD-09",
@@ -60,7 +60,7 @@
       "id": "DOD-10",
       "name": "responsividade",
       "status": "verified",
-      "evidence": ["360x640", "768x1024", "1024x768", "1920x1080", "sem overflow horizontal"]
+      "evidence": ["60 verificações autenticadas em staging", "360x640", "768x1024", "1024x768", "1920x1080", "sem overflow horizontal"]
     },
     {
       "id": "DOD-11",
@@ -71,16 +71,27 @@
     {
       "id": "DOD-12",
       "name": "revisao",
-      "status": "human_approval_pending",
-      "evidence": ["revisão técnica React concluída", "typecheck verde", "lint verde"],
-      "pending": "aceite humano explícito"
+      "status": "verified",
+      "evidence": ["revisão técnica concluída", "typecheck verde", "lint verde", "aceite final solicitado pelo responsável em 22/07/2026"]
     }
   ],
   "verification": {
-    "unit_tests": 99,
+    "unit_tests": 100,
     "rls_scenarios": 32,
     "synthetic_seed_sets": 27,
     "e2e_tests": 92,
-    "breakpoints": [360, 768, 1024, 1920]
+    "staging_e2e_checks": 68,
+    "staging_responsive_checks": 60,
+    "staging_functional_checks": 8,
+    "breakpoints": [360, 768, 1024, 1920],
+    "staging_url": "https://karzi-wuwu-git-dev-emanuelmaestre.vercel.app",
+    "verified_at": "2026-07-22"
+  },
+  "final_corrections": {
+    "preview_environment": "credenciais Supabase exclusivas do staging configuradas no escopo Preview",
+    "database_connectivity": "pooler transacional IPv4 do Supabase configurado para funções Vercel",
+    "connection_pool": "uma conexão por instância, timeout ocioso de 10s e vida máxima de 60s",
+    "synthetic_seed": "reaplicação preserva IDs de etapas já referenciados pela chave natural org_id + ordem",
+    "preview_access": "staging navegável sem SSO da Vercel; autenticação, perfis e RLS permanecem ativos"
   }
 }

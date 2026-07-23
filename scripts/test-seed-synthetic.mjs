@@ -1,11 +1,20 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import postgres from "postgres";
 import {
   assertSyntheticSeedTarget,
   loadSyntheticCatalog,
   seedSyntheticData,
+  upsertFunnelStage,
 } from "./synthetic-seed-lib.mjs";
+
+const require = createRequire(import.meta.url);
+const { loadEnvConfig } = require("@next/env");
+
+loadEnvConfig(process.cwd());
+
+class RollbackOnly extends Error {}
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL não configurada para testar o seed sintético.");
@@ -35,20 +44,20 @@ assert.doesNotThrow(() => assertSyntheticSeedTarget("postgresql://user:pass@remo
   SYNTHETIC_SEED_REMOTE_CONFIRMATION: "seed-synthetic-data",
 }));
 
-const catalog = await loadSyntheticCatalog(testEnv);
+const catalogTemplate = await loadSyntheticCatalog(testEnv);
 const alternateCatalog = await loadSyntheticCatalog({
   ...testEnv,
   DEFAULT_ORG_ID: randomUUID(),
 });
 assert.notEqual(
   alternateCatalog.organization.cnpj,
-  catalog.organization.cnpj,
+  catalogTemplate.organization.cnpj,
   "A chave natural sintética deve mudar quando DEFAULT_ORG_ID mudar.",
 );
 
 // Duas aplicações consecutivas comprovam que a carga é reexecutável.
 await seedSyntheticData({ databaseUrl: process.env.DATABASE_URL, env: testEnv });
-await seedSyntheticData({ databaseUrl: process.env.DATABASE_URL, env: testEnv });
+const { catalog } = await seedSyntheticData({ databaseUrl: process.env.DATABASE_URL, env: testEnv });
 
 const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 10 });
 
@@ -168,6 +177,39 @@ try {
   for (const balance of balances) {
     assert.equal(balance.saldo, expectedBalances.get(balance.produto_id));
   }
+
+  const legacyOrgId = randomUUID();
+  const legacyStageId = randomUUID();
+  await assert.rejects(
+    sql.begin(async (tx) => {
+      await tx`
+        insert into public.org (id, name, cnpj)
+        values (${legacyOrgId}, 'Tenant temporário do seed', ${`test-${legacyOrgId}`})
+      `;
+      await tx`
+        insert into public.funil_etapa (id, org_id, nome, ordem, cor)
+        values (${legacyStageId}, ${legacyOrgId}, 'Etapa legada', 1, '#000000')
+      `;
+
+      const resolvedId = await upsertFunnelStage(tx, legacyOrgId, {
+        id: randomUUID(),
+        name: "Etapa reconciliada",
+        order: 1,
+        color: "#22c55e",
+      });
+      assert.equal(resolvedId, legacyStageId, "A reconciliação deve preservar o ID natural já referenciado.");
+
+      const [stage] = await tx`
+        select nome, cor from public.funil_etapa
+        where id = ${legacyStageId}
+      `;
+      assert.equal(stage.nome, "Etapa reconciliada");
+      assert.equal(stage.cor, "#22c55e");
+      throw new RollbackOnly();
+    }),
+    (error) => error instanceof RollbackOnly,
+    "A regressão de chave natural deve ser validada sem persistir fixtures temporárias.",
+  );
 
   await assert.rejects(
     sql`insert into public.cliente (id, org_id, nome, email)

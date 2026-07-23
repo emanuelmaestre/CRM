@@ -35,11 +35,12 @@ describe("Definition of Done da Fase A", () => {
     expect(payload.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it("mantém a matriz de evidências honesta sobre o aceite humano", () => {
+  it("mantém todos os critérios da Fase A verificados após o aceite final", () => {
     const dod = JSON.parse(
       fs.readFileSync(path.join(root, "docs/fase-a-dod.json"), "utf8"),
-    ) as { criteria: Array<{ status: string }> };
-    expect(dod.criteria.filter((item) => item.status === "verified")).toHaveLength(11);
-    expect(dod.criteria.filter((item) => item.status === "human_approval_pending")).toHaveLength(1);
+    ) as { status: string; criteria: Array<{ status: string }> };
+    expect(dod.status).toBe("completed");
+    expect(dod.criteria.filter((item) => item.status === "verified")).toHaveLength(12);
+    expect(dod.criteria.some((item) => item.status.includes("pending"))).toBe(false);
   });
 });

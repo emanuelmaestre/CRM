@@ -327,12 +327,7 @@ async function applyCatalog(tx, catalog, anchor) {
   }
 
   for (const item of catalog.funnelStages) {
-    await tx`
-      insert into public.funil_etapa (id, org_id, nome, ordem, cor)
-      values (${item.id}, ${orgId}, ${item.name}, ${item.order}, ${item.color})
-      on conflict (id) do update set
-        org_id = excluded.org_id, nome = excluded.nome, ordem = excluded.ordem, cor = excluded.cor
-    `;
+    item.id = await upsertFunnelStage(tx, orgId, item);
   }
 
   for (const item of catalog.orders) {
@@ -518,4 +513,16 @@ async function applyCatalog(tx, catalog, anchor) {
       on conflict (id) do nothing
     `;
   }
+}
+
+export async function upsertFunnelStage(tx, orgId, item) {
+  const [resolved] = await tx`
+    insert into public.funil_etapa (id, org_id, nome, ordem, cor)
+    values (${item.id}, ${orgId}, ${item.name}, ${item.order}, ${item.color})
+    on conflict (org_id, ordem) do update set
+      nome = excluded.nome, cor = excluded.cor
+    returning id::text as id
+  `;
+
+  return resolved.id;
 }
