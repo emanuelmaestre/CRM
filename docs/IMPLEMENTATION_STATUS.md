@@ -1,49 +1,51 @@
 # Estado de Implementação — CRM LEO
 
-Atualizado em 21/07/2026. Este documento registra o estado real da implantação; o `PRD.md`
-continua sendo a fonte da verdade dos requisitos de produto.
+Atualizado em 22/07/2026. O `PRD.md` permanece como fonte da verdade dos requisitos. Os arquivos
+`fase-a-dod.json` e `fase-b-dod.json` registram evidências verificáveis por fase.
 
 ## Regra de liberação
 
-O sistema ainda não está liberado para go-live. Integrações de escrita e disparos externos
-permanecem desativados até a conclusão dos gates de segurança, isolamento entre marcas,
-idempotência e testes ponta a ponta.
+O sistema ainda não está liberado para go-live. `EXTERNAL_SENDS_ENABLED` deve permanecer `false`
+até a homologação real dos conectores, do isolamento entre marcas e dos disparos externos.
 
-## Fases de saneamento
+## Estado atual
 
-| Fase | Estado | Gate de saída |
+| Frente | Estado | Evidência / próximo gate |
 |---|---|---|
-| 0 — Fonte da verdade | concluída | documentação e estado oficial coerentes |
-| 1 — Baseline técnico | concluída | typecheck, lint, testes e build verdes |
-| 2 — Segurança e banco | parcial | migrações prontas; aplicar e testar RLS no banco alvo |
-| 3 — Pedido e estoque | parcial | transações/idempotência implementadas; falta teste integrado com Postgres/Inngest |
-| 4 — Isolamento de marca | parcial | contas resolvidas por marca; falta homologação cruzada KARZI/WUWU |
-| 5 — Conectores | parcial | Mercado Livre persiste itens; Shopee/TikTok/Olist e sync de saldo pendentes |
-| 6 — CRM operacional | pendente | rotina diária completa para cada perfil |
-| 7 — Réguas e automações | parcial | gates endurecidos e aniversário real; falta homologar providers e retentativas |
-| 8 — IA, relatórios e LGPD | pendente | governança e direitos do titular operacionais |
-| 9 — Observabilidade e go-live | pendente | E2E, restore e homologação aprovados |
+| Fonte da verdade e baseline | concluída | tipos, lint, testes, migrations e build verdes |
+| Segurança, banco e RLS | concluída | migration `0012` aprovada em banco limpo, aplicada e verificada no banco alvo |
+| Pedido e estoque | pronta para homologação externa | ingestão por conta, advisory lock, baixa idempotente, sync e reconciliação testados localmente |
+| Isolamento de marca | pronta para homologação externa | FK composta e resolução por conta/marca; falta ensaio real KARZI × WUWU |
+| Conectores | pronta para homologação externa | ML, Shopee, TikTok v202309 e Olist implementados; faltam credenciais/contas reais |
+| CRM operacional (Fase A) | concluída | aceite e evidências em `fase-a-dod.json` |
+| Réguas e automações | pronta para homologação externa | seis gates aprovados no PostgreSQL; outbound real permanece bloqueado |
+| Inbox unificado | parcial | persistência/deduplicação prontas; falta habilitar e homologar eventos oficiais de chat dos marketplaces |
+| Observabilidade | parcial | painel e monitoramento A18/A24 prontos; falta Inngest publicado e operação real |
+| IA e lapidação (Fase C) | pendente | fora do escopo da Fase B |
 
-## Evidência obrigatória
-
-Cada fase só muda para concluída quando seus comandos, testes e verificações são registrados
-neste documento ou no plano de testes. Código existente sem fluxo verificável continua marcado
-como parcial.
-
-## Evidências de 21/07/2026
+## Evidências de 22/07/2026
 
 - `npm run typecheck`: aprovado.
 - `npm run lint`: aprovado sem avisos.
-- `npm test`: 10 arquivos e 61 testes aprovados.
-- `npm run build`: build de produção Next.js 16.2.10 aprovado, com 20 páginas geradas.
-- `npm run db:generate`: migração declarativa `0003_schema_integrity.sql` e snapshot gerados.
-- Migrações não foram aplicadas automaticamente ao banco alvo; exigem backup, verificação de
-  duplicatas e janela controlada conforme o runbook.
+- `npm test`: 18 arquivos e 99 testes aprovados.
+- `npm run db:check`: aprovado.
+- Migrations `0000`–`0012`: aplicadas com sucesso em PostgreSQL 17 limpo e no banco Supabase alvo.
+- `npm run test:phase-b:integration`: aprovado; 50 tentativas concorrentes produziram 1 mensagem
+  e 1 movimento de estoque.
+- `npm run test:phase-b:gates`: 6/6 gates aprovados no banco real.
+- `npm run test:seed-synthetic`: 27 conjuntos, 6 clientes e 6 pedidos; reexecução idempotente.
+- `npm run test:rls`: 32 verificações aprovadas, incluindo isolamento e integridade relacional.
+- `npm run build`: Next.js 16.2.11 aprovado com 37 rotas/páginas, incluindo pedidos e histórico
+  de automações.
+- Verificação em navegador: rota protegida redirecionou corretamente ao login, conteúdo renderizado
+  e nenhum overlay de erro do Next.js.
 
-## Bloqueios atuais de go-live
+## Gate contratual restante da Fase B
 
-- Homologar e completar a recuperação de detalhes de pedidos Shopee e TikTok Shop; implementar Olist.
-- Aplicar `0002`/`0003` e executar testes reais de RLS, concorrência e idempotência no Postgres.
-- Validar as duas contas por canal e provar que nenhum template, remetente ou link cruza marcas.
-- Executar E2E autenticado, teste de restore e ensaio operacional dos jobs/alertas.
-- Rotacionar qualquer credencial que tenha sido reutilizada a partir do antigo arquivo de exemplo.
+A implementação está pronta para homologação, mas a Fase B só pode ser marcada como concluída após:
+
+1. conectar as contas reais por marca;
+2. comprovar pedido real de cada canal em até cinco minutos;
+3. conferir baixa e saldo remoto ponta a ponta;
+4. homologar chat/perguntas oficiais dos marketplaces;
+5. executar outbound aprovado sem duplicação, mantendo os seis gates ativos.

@@ -1,51 +1,28 @@
-import { test, expect } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-/**
- * Fluxo E2E: importação de clientes CSV → prévia → confirmar importação
- */
 test.describe("Importação com prévia", () => {
-  test("upload CSV exibe prévia antes de confirmar importação", async ({ page }) => {
-    await page.goto("/clientes/importar");
-
-    // Upload de arquivo CSV de teste
-    const fileInput = page.getByLabel(/arquivo/i);
-    await fileInput.setInputFiles({
+  test("CSV válido exibe o resumo antes de qualquer escrita", async ({ page }) => {
+    await page.goto("/importacao");
+    await page.getByLabel(/arquivo csv/i).setInputFiles({
       name: "clientes_teste.csv",
       mimeType: "text/csv",
-      buffer: Buffer.from(
-        "nome,telefone,email,cpf\n" +
-        "João Silva,(11) 99999-0001,joao@exemplo.com,123.456.789-00\n" +
-        "Maria Souza,(11) 99999-0002,maria@exemplo.com,987.654.321-00\n"
-      ),
+      buffer: Buffer.from("nome,email,telefone\nCliente Preview,preview.phase-b@example.invalid,11999990000\n"),
     });
-
-    // Deve exibir prévia com 2 registros
-    await expect(page.getByTestId("previa-total")).toHaveText(/2/);
-    await expect(page.getByTestId("previa-tabela")).toBeVisible();
-
-    // Verificar que exibe erros de validação se houver
-    const erros = page.getByTestId("previa-erros");
-    const totalErros = await erros.count();
-    expect(totalErros).toBeGreaterThanOrEqual(0);
-
-    // Confirmar importação somente se sem erros bloqueantes
-    const btnConfirmar = page.getByRole("button", { name: /confirmar importação/i });
-    if (await btnConfirmar.isEnabled()) {
-      await btnConfirmar.click();
-      await expect(page.getByText(/importação concluída/i)).toBeVisible({ timeout: 15000 });
-    }
+    await page.getByRole("button", { name: /pré-visualizar/i }).click();
+    await expect(page.getByTestId("previa-resumo")).toBeVisible();
+    await expect(page.getByTestId("previa-total")).toContainText("1");
+    await expect(page.getByText(/pré-visualização/i).first()).toBeVisible();
   });
 
-  test("arquivo CSV inválido exibe mensagem de erro", async ({ page }) => {
-    await page.goto("/clientes/importar");
-
-    const fileInput = page.getByLabel(/arquivo/i);
-    await fileInput.setInputFiles({
+  test("CSV sem a coluna obrigatória exibe rejeição", async ({ page }) => {
+    await page.goto("/importacao");
+    await page.getByLabel(/arquivo csv/i).setInputFiles({
       name: "invalido.csv",
       mimeType: "text/csv",
-      buffer: Buffer.from("coluna_errada,outra_coluna\nvalor1,valor2\n"),
+      buffer: Buffer.from("coluna_errada,email\nvalor,invalid@example.invalid\n"),
     });
-
-    await expect(page.getByText(/coluna obrigatória|campo inválido/i)).toBeVisible();
+    await page.getByRole("button", { name: /pré-visualizar/i }).click();
+    await expect(page.getByTestId("previa-erros")).toBeVisible();
+    await expect(page.getByTestId("previa-erros")).toContainText(/nome|obrigat/i);
   });
 });

@@ -1,9 +1,10 @@
 "use server";
 
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/shared/lib/db";
 import { cliente, clienteIdentidade } from "@/shared/lib/db/schema/clientes";
+import { channelAccount } from "@/shared/lib/db/schema/canais";
 import { produto } from "@/shared/lib/db/schema/estoque";
 import { pedido, pedidoItem } from "@/shared/lib/db/schema/vendas";
 import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
@@ -19,6 +20,7 @@ function toCanal(canal: string): CanalSuportado {
 const PedidoIngestaoSchema = z.object({
   orgId: z.uuid(),
   brandId: z.uuid(),
+  channelAccountId: z.uuid(),
   providerOrderId: z.string().min(1),
   clienteExternalId: z.string().min(1),
   clienteNome: z.string().min(1),
@@ -32,9 +34,10 @@ const PedidoIngestaoSchema = z.object({
 export async function ingerirPedido(
   orgId: string,
   brandId: string,
+  channelAccountId: string,
   p: PedidoNormalizado
 ): Promise<{ pedidoId: string; novo: boolean }> {
-  PedidoIngestaoSchema.parse({ orgId, brandId, ...p });
+  PedidoIngestaoSchema.parse({ orgId, brandId, channelAccountId, ...p });
   const canal = toCanal(p.canal);
 
   const existente = await db
@@ -42,14 +45,43 @@ export async function ingerirPedido(
     .from(pedido)
     .where(and(
       eq(pedido.providerOrderId, p.providerOrderId),
-      eq(pedido.canal, canal),
+      eq(pedido.channelAccountId, channelAccountId),
       eq(pedido.orgId, orgId),
     ))
     .then((r) => r[0]);
 
   if (existente) return { pedidoId: existente.id, novo: false };
 
-  const { pedidoId, eventos } = await db.transaction(async (tx) => {
+  let persistido: { pedidoId: string; eventos: PersistedDomainEvent[]; novo: boolean };
+
+  try {
+    persistido = await db.transaction(async (tx) => {
+    const conta = await tx
+      .select({ id: channelAccount.id })
+      .from(channelAccount)
+      .where(and(
+        eq(channelAccount.id, channelAccountId),
+        eq(channelAccount.orgId, orgId),
+        eq(channelAccount.brandId, brandId),
+        eq(channelAccount.tipo, canal),
+      ))
+      .then((rows) => rows[0]);
+    if (!conta) throw new Error("Conta de canal não pertence à organização, marca e canal informados.");
+
+    // Serializa somente tentativas do mesmo pedido. Isso evita que duas entregas
+    // simultâneas criem cliente/identidade antes de a constraint do pedido atuar.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${orgId}:${channelAccountId}:${p.providerOrderId}`}, 0))`);
+    const pedidoConcorrente = await tx
+      .select({ id: pedido.id })
+      .from(pedido)
+      .where(and(
+        eq(pedido.orgId, orgId),
+        eq(pedido.channelAccountId, channelAccountId),
+        eq(pedido.providerOrderId, p.providerOrderId),
+      ))
+      .then((rows) => rows[0]);
+    if (pedidoConcorrente) return { pedidoId: pedidoConcorrente.id, eventos: [], novo: false };
+
     const skus = [...new Set(p.itens.map((item) => item.skuExterno))];
     const produtos = await tx
       .select({ id: produto.id, sku: produto.sku })
@@ -99,6 +131,7 @@ export async function ingerirPedido(
       .values({
         orgId,
         brandId,
+        channelAccountId,
         clienteId,
         providerOrderId: p.providerOrderId,
         canal,
@@ -123,7 +156,7 @@ export async function ingerirPedido(
       brandId,
       entidade: "pedido",
       entidadeId: novoPedido.id,
-      payload: { canal, providerOrderId: p.providerOrderId, total: p.total },
+      payload: { canal, channelAccountId, providerOrderId: p.providerOrderId, total: p.total },
     }, tx));
 
     if (["pago", "separado", "enviado", "entregue", "concluido"].includes(status)) {
@@ -148,12 +181,38 @@ export async function ingerirPedido(
       }, tx));
     }
 
-    return { pedidoId: novoPedido.id, eventos };
-  });
+    return { pedidoId: novoPedido.id, eventos, novo: true };
+    });
+  } catch (error) {
+    if (!isPedidoDuplicado(error)) throw error;
+
+    const concorrente = await db
+      .select({ id: pedido.id })
+      .from(pedido)
+      .where(and(
+        eq(pedido.orgId, orgId),
+        eq(pedido.channelAccountId, channelAccountId),
+        eq(pedido.providerOrderId, p.providerOrderId),
+      ))
+      .then((rows) => rows[0]);
+    if (!concorrente) throw error;
+    return { pedidoId: concorrente.id, novo: false };
+  }
+
+  const { pedidoId, eventos, novo } = persistido;
+
+  if (!novo) return { pedidoId, novo: false };
 
   for (const evento of eventos) await despacharEvento(evento);
 
   return { pedidoId, novo: true };
+}
+
+function isPedidoDuplicado(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const candidate = error as { code?: string; constraint_name?: string; constraint?: string };
+  const constraint = candidate.constraint_name ?? candidate.constraint;
+  return candidate.code === "23505" && constraint === "uq_pedido_org_account_provider";
 }
 
 function mapearStatus(statusExterno: string): "criado" | "pago" | "separado" | "enviado" | "entregue" | "concluido" | "cancelado" | "devolvido" {

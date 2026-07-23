@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type { ChannelProvider, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
 
 interface ShopeeCredentials {
   partnerId: string;
@@ -49,8 +49,11 @@ export class ShopeeProvider implements ChannelProvider {
 
     if (!listRes.ok) throw new Error(`Shopee HTTP ${listRes.status} em get_order_list`);
     const listData = await listRes.json() as {
+      error?: string;
+      message?: string;
       response?: { order_list?: { order_sn: string; order_status: string; total_amount: number; buyer_username: string; create_time: number }[] };
     };
+    if (listData.error) throw new Error(`Shopee get_order_list: ${listData.message ?? listData.error}`);
 
     const orders = listData.response?.order_list ?? [];
     if (orders.length === 0) return [];
@@ -69,12 +72,17 @@ export class ShopeeProvider implements ChannelProvider {
       item_list?: ShopeeItem[];
     };
 
+    if (!detailRes.ok) throw new Error(`Shopee HTTP ${detailRes.status} em get_order_detail`);
+    const detailData = await detailRes.json() as { error?: string; message?: string; response?: { order_list?: ShopeeDetail[] } };
+    if (detailData.error) throw new Error(`Shopee get_order_detail: ${detailData.message ?? detailData.error}`);
     const detailMap = new Map<string, ShopeeDetail>();
-    if (detailRes.ok) {
-      const detailData = await detailRes.json() as { response?: { order_list?: ShopeeDetail[] } };
-      for (const d of detailData.response?.order_list ?? []) {
-        detailMap.set(d.order_sn, d);
-      }
+    for (const d of detailData.response?.order_list ?? []) {
+      detailMap.set(d.order_sn, d);
+    }
+
+    const detalhesAusentes = orders.filter((order) => !detailMap.has(order.order_sn));
+    if (detalhesAusentes.length > 0) {
+      throw new Error(`Shopee não retornou detalhes de ${detalhesAusentes.length} pedido(s).`);
     }
 
     return orders.map((o) => {
@@ -97,13 +105,53 @@ export class ShopeeProvider implements ChannelProvider {
     });
   }
 
-  async sincronizarEstoque(skuExterno: string, saldo: number): Promise<void> {
-    await fetch(this.url("/product/update_stock"), {
+  async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {
+    const item = referencia.skuId
+      ? { item_id: Number(referencia.listingId), model_list: [{ model_id: Number(referencia.skuId), normal_stock: saldo }] }
+      : { item_id: Number(referencia.listingId), normal_stock: saldo };
+    const res = await fetch(this.url("/product/update_stock"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ item_list: [{ item_id: Number(skuExterno), normal_stock: saldo }] }),
+      body: JSON.stringify({ item_list: [item] }),
       signal: AbortSignal.timeout(8000),
     });
+    const data = await res.json().catch(() => null) as { error?: string; message?: string } | null;
+    if (!res.ok || data?.error) {
+      throw new Error(`Shopee sync estoque falhou para anúncio ${referencia.listingId}: ${data?.message ?? data?.error ?? `HTTP ${res.status}`}`);
+    }
+  }
+
+  async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
+    const res = await fetch(this.url("/product/get_model_list", {
+      item_id: Number(referencia.listingId),
+    }), { signal: AbortSignal.timeout(8000) });
+    const data = await res.json().catch(() => null) as {
+      error?: string;
+      message?: string;
+      response?: {
+        model?: Array<{
+          model_id?: number;
+          stock_info_v2?: { seller_stock?: Array<{ stock?: number }> };
+          normal_stock?: number;
+        }>;
+      };
+    } | null;
+    if (!res.ok || data?.error) {
+      throw new Error(`Shopee consulta de estoque falhou para anúncio ${referencia.listingId}: ${data?.message ?? data?.error ?? `HTTP ${res.status}`}`);
+    }
+
+    const modelos = (data?.response?.model ?? []).filter((modelo) => !referencia.skuId || String(modelo.model_id) === referencia.skuId);
+    if (referencia.skuId && modelos.length === 0) {
+      throw new Error(`Shopee não retornou o modelo ${referencia.skuId} do anúncio ${referencia.listingId}.`);
+    }
+    const saldo = modelos.reduce((total, modelo) => {
+      const sellerStock = modelo.stock_info_v2?.seller_stock?.reduce((sum, item) => sum + Number(item.stock ?? 0), 0);
+      return total + (sellerStock ?? Number(modelo.normal_stock ?? 0));
+    }, 0);
+    if (!Number.isInteger(saldo) || saldo < 0) {
+      throw new Error(`Shopee retornou saldo inválido para anúncio ${referencia.listingId}.`);
+    }
+    return saldo;
   }
 
   async saude(): Promise<SaudeConector> {

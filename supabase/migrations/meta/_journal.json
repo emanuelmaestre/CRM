@@ -85,6 +85,13 @@
       "when": 1784772000000,
       "tag": "0011_tasks_agenda_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1784775600000,
+      "tag": "0012_phase_b_operational",
+      "breakpoints": true
     }
   ]
 }

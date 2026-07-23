@@ -1,30 +1,11 @@
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
-import { produto, estoqueSaldo, produtoCanal } from "@/shared/lib/db/schema";
+import { brand, produto, estoqueSaldo, produtoCanal } from "@/shared/lib/db/schema";
 import { channelAccount } from "@/shared/lib/db/schema/canais";
 import { and, eq } from "drizzle-orm";
-import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
-import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
-import { criarOlistProvider } from "@/modules/canais/infrastructure/olist.provider";
+import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { emitirEvento } from "@/shared/events";
-import type { ChannelProvider } from "@/modules/canais/domain/ports";
-
-type BrandSlug = "karzi" | "wuwu";
-
-async function resolverChannelProvider(tipo: string, brandSlug: BrandSlug): Promise<ChannelProvider | null> {
-  try {
-    switch (tipo) {
-      case "mercadolivre": return await criarMLProvider(brandSlug);
-      case "shopee":       return criarShopeeProvider(brandSlug);
-      case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
-      case "olist":        return criarOlistProvider(brandSlug);
-      default:             return null;
-    }
-  } catch {
-    return null;
-  }
-}
+import { executarComRetry } from "@/modules/canais/application/retry";
 
 export const A4_syncSaldo = inngest.createFunction(
   {
@@ -64,13 +45,20 @@ export const A4_syncSaldo = inngest.createFunction(
           produtoCanalId: produtoCanal.id,
           channelAccountId: produtoCanal.channelAccountId,
           externalListingId: produtoCanal.externalListingId,
+          externalSkuId: produtoCanal.externalSkuId,
+          externalWarehouseId: produtoCanal.externalWarehouseId,
           contaTipo: channelAccount.tipo,
           contaMeta: channelAccount.meta,
           contaStatus: channelAccount.status,
           contaBrandId: channelAccount.brandId,
+          brandSlug: brand.slug,
         })
         .from(produtoCanal)
         .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
+        .innerJoin(brand, and(
+          eq(brand.id, channelAccount.brandId),
+          eq(brand.orgId, channelAccount.orgId),
+        ))
         .where(and(
           eq(produtoCanal.orgId, orgId),
           eq(produtoCanal.produtoId, produtoId),
@@ -82,8 +70,14 @@ export const A4_syncSaldo = inngest.createFunction(
     const resultados: { conta: string; listingId: string; ok: boolean; erro?: string }[] = [];
 
     for (const m of mapeamentos) {
-      const brandSlug = (m.contaMeta as Record<string, string> | null)?.brandSlug as BrandSlug ?? "karzi";
-      const provider = await resolverChannelProvider(m.contaTipo, brandSlug);
+      const brandSlug = m.brandSlug || (m.contaMeta as Record<string, string> | null)?.brandSlug;
+      let provider = null;
+      try {
+        provider = await resolverChannelProvider(m.contaTipo, brandSlug ?? "");
+      } catch (error) {
+        resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: false, erro: String(error) });
+        continue;
+      }
 
       if (!provider) {
         resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: false, erro: "provider nao suportado" });
@@ -92,7 +86,14 @@ export const A4_syncSaldo = inngest.createFunction(
 
       await step.run(`sync-${m.channelAccountId}`, async () => {
         try {
-          await provider.sincronizarEstoque(m.externalListingId, saldoRow.saldo);
+          await executarComRetry(
+            () => provider.sincronizarEstoque({
+              listingId: m.externalListingId,
+              skuId: m.externalSkuId,
+              warehouseId: m.externalWarehouseId,
+            }, saldoRow.saldo),
+            { tentativas: 3, atrasoInicialMs: 250 },
+          );
           resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: true });
         } catch (err) {
           resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: false, erro: String(err) });

@@ -65,6 +65,8 @@ export const produtoCanal = pgTable("produto_canal", {
   produtoId: uuid("produto_id").notNull().references(() => produto.id),
   channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
   externalListingId: text("external_listing_id").notNull(),
+  externalSkuId: text("external_sku_id"),
+  externalWarehouseId: text("external_warehouse_id"),
   ativo: boolean("ativo").notNull().default(true),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),

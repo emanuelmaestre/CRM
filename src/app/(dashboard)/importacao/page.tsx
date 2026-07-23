@@ -102,6 +102,8 @@ function StepUpload({
         <input
           ref={inputRef}
           type="file"
+          aria-label="Arquivo CSV"
+          data-testid="arquivo-csv"
           accept=".csv"
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) processarArquivo(f); }}
@@ -140,13 +142,13 @@ function StepPrevia({ resultado }: { resultado: PreviewResult }) {
         <p className="text-sm text-muted-foreground mt-1">{cfg.hints.preview}</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3" data-testid="previa-resumo">
         {[
           { label: cfg.labels.total, value: resultado.totalLinhas, color: "var(--foreground)" },
           { label: cfg.labels.accepted, value: resultado.aceitos, color: "#1F8A4C" },
           { label: cfg.labels.rejected, value: resultado.rejeitados, color: resultado.rejeitados > 0 ? "#C21820" : "#1F8A4C" },
-        ].map((stat) => (
-          <div key={stat.label} className="rounded-[1rem] bg-card border border-border p-4 text-center">
+        ].map((stat, index) => (
+          <div key={stat.label} data-testid={index === 0 ? "previa-total" : undefined} className="rounded-[1rem] bg-card border border-border p-4 text-center">
             <p className="text-2xl font-bold tabular-nums" style={{ color: stat.color }}>{stat.value}</p>
             <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
           </div>
@@ -154,7 +156,7 @@ function StepPrevia({ resultado }: { resultado: PreviewResult }) {
       </div>
 
       {temErros ? (
-        <div className="rounded-[1rem] border border-[#C21820]/30 bg-[#C21820]/05 overflow-hidden">
+        <div data-testid="previa-erros" className="rounded-[1rem] border border-[#C21820]/30 bg-[#C21820]/05 overflow-hidden">
           <div className="px-4 py-3 border-b border-[#C21820]/20">
             <p className="text-sm font-semibold text-[#C21820]">{cfg.labels.errorsTitle}</p>
           </div>
@@ -170,7 +172,7 @@ function StepPrevia({ resultado }: { resultado: PreviewResult }) {
           </div>
         </div>
       ) : (
-        <p className="text-sm text-[#1F8A4C] bg-[#1F8A4C]/08 rounded-xl px-4 py-3">{cfg.labels.noErrors}</p>
+        <p data-testid="previa-sem-erros" className="text-sm text-[#1F8A4C] bg-[#1F8A4C]/08 rounded-xl px-4 py-3">{cfg.labels.noErrors}</p>
       )}
     </motion.div>
   );

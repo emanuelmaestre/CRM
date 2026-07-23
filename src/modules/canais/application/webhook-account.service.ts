@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/shared/lib/db";
-import { channelAccount } from "@/shared/lib/db/schema";
+import { brand, channelAccount } from "@/shared/lib/db/schema";
 
 type Marketplace = "mercadolivre" | "shopee" | "tiktokshop" | "olist";
 type BrandSlug = "karzi" | "wuwu";
@@ -10,6 +10,7 @@ const AccountConfigSchema = z.object({
   orgId: z.uuid(),
   brandId: z.uuid(),
   brandSlug: z.enum(["karzi", "wuwu"]),
+  channelAccountId: z.uuid(),
   externalAccountId: z.string().min(1),
 });
 
@@ -24,25 +25,46 @@ export async function resolverContaWebhookMarketplace(
   tipo: Marketplace,
   externalAccountId: string,
 ): Promise<{ orgId: string; brandId: string; brandSlug: BrandSlug; channelAccountId: string }> {
-  const candidatas = (["KARZI", "WUWU"] as const)
-    .map((slug) => AccountConfigSchema.safeParse({
-      orgId: process.env.DEFAULT_ORG_ID,
-      brandId: process.env[`NEXT_PUBLIC_BRAND_ID_${slug}`],
-      brandSlug: slug.toLowerCase(),
-      externalAccountId: process.env[`${EXTERNAL_ID_ENV[tipo]}_${slug}`],
-    }))
+  const orgId = z.uuid().parse(process.env.DEFAULT_ORG_ID);
+  const contas = await db
+    .select({
+      orgId: channelAccount.orgId,
+      brandId: channelAccount.brandId,
+      brandSlug: brand.slug,
+      channelAccountId: channelAccount.id,
+      meta: channelAccount.meta,
+    })
+    .from(channelAccount)
+    .innerJoin(brand, and(
+      eq(brand.id, channelAccount.brandId),
+      eq(brand.orgId, channelAccount.orgId),
+    ))
+    .where(and(
+      eq(channelAccount.orgId, orgId),
+      eq(channelAccount.tipo, tipo),
+    ));
+
+  const candidatas = contas
+    .map((conta) => {
+      const upper = conta.brandSlug.toUpperCase();
+      const meta = conta.meta as Record<string, unknown> | null;
+      return AccountConfigSchema.safeParse({
+        ...conta,
+        externalAccountId:
+          (typeof meta?.externalAccountId === "string" ? meta.externalAccountId : undefined)
+          ?? process.env[`${EXTERNAL_ID_ENV[tipo]}_${upper}`],
+      });
+    })
     .filter((result) => result.success)
     .map((result) => result.data);
 
   const config = candidatas.find((item) => item.externalAccountId === externalAccountId);
   if (!config) throw new Error(`Conta externa de ${tipo} não reconhecida.`);
 
-  const conta = await db.select({ id: channelAccount.id }).from(channelAccount).where(and(
-    eq(channelAccount.orgId, config.orgId),
-    eq(channelAccount.brandId, config.brandId),
-    eq(channelAccount.tipo, tipo),
-  )).then((rows) => rows[0]);
-  if (!conta) throw new Error(`Conta ${tipo}/${config.brandSlug} não provisionada.`);
-
-  return { ...config, channelAccountId: conta.id };
+  return {
+    orgId: config.orgId,
+    brandId: config.brandId,
+    brandSlug: config.brandSlug,
+    channelAccountId: config.channelAccountId,
+  };
 }

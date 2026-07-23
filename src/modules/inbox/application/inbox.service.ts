@@ -6,6 +6,7 @@ import { validarTransicaoConversa, reabrirSeNecessario, type ConversaStatus } fr
 import { criarZApiProvider } from "@/modules/canais/infrastructure/zapi.provider";
 import { brand } from "@/shared/lib/db/schema";
 import type { CrudContext } from "@/shared/lib/crud-factory";
+import { executarComRetry } from "@/modules/canais/application/retry";
 
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
@@ -40,7 +41,6 @@ export async function receberMensagem(input: {
       eq(channelAccount.id, input.channelAccountId),
       eq(channelAccount.orgId, input.orgId),
       eq(channelAccount.brandId, input.brandId),
-      eq(channelAccount.tipo, "whatsapp"),
     )).then((rows) => rows[0]);
     if (!contaValida) throw new Error("Conta de canal não pertence à organização e marca informadas.");
 
@@ -162,26 +162,47 @@ export async function enviarMensagem(
   conteudo: string
 ): Promise<{ mensagemId: string }> {
   const conversaRow = await db
-    .select()
+    .select({ conversa, canalTipo: channelAccount.tipo })
     .from(conversa)
+    .innerJoin(channelAccount, and(
+      eq(channelAccount.id, conversa.channelAccountId),
+      eq(channelAccount.orgId, conversa.orgId),
+    ))
     .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)))
     .then((r) => r[0]);
   if (!conversaRow) throw new Error("Conversa não encontrada.");
 
+  if (conversaRow.canalTipo !== "whatsapp") {
+    throw new Error(`Envio pelo canal ${conversaRow.canalTipo} ainda não está habilitado pelo provider oficial.`);
+  }
+  if (process.env.EXTERNAL_SENDS_ENABLED !== "true") {
+    throw new Error("Envios externos desabilitados até a liberação de go-live.");
+  }
+
   const brandRow = await db
     .select({ slug: brand.slug })
     .from(brand)
-    .where(eq(brand.id, conversaRow.brandId))
+    .where(and(
+      eq(brand.id, conversaRow.conversa.brandId),
+      eq(brand.orgId, ctx.orgId),
+      eq(brand.active, true),
+    ))
     .then((r) => r[0]);
   if (!brandRow) throw new Error("Marca não encontrada.");
 
-  const slug = brandRow.slug as "karzi" | "wuwu";
+  if (brandRow.slug !== "karzi" && brandRow.slug !== "wuwu") {
+    throw new Error("Marca sem provider de mensageria configurado.");
+  }
+  const slug = brandRow.slug;
   const provider = criarZApiProvider(slug);
 
-  const telefone = conversaRow.externalId ?? "";
+  const telefone = conversaRow.conversa.externalId ?? "";
   if (!telefone) throw new Error("Conversa sem telefone de destino.");
 
-  const { providerMessageId } = await provider.enviarMensagem({ para: telefone, conteudo });
+  const { providerMessageId } = await executarComRetry(
+    () => provider.enviarMensagem({ para: telefone, conteudo }),
+    { tentativas: 3, atrasoInicialMs: 500 },
+  );
 
   const [novaMensagem] = await db
     .insert(mensagem)
@@ -195,7 +216,7 @@ export async function enviarMensagem(
     })
     .returning();
 
-  if (conversaRow.status === "nova" || conversaRow.status === "aguardando_cliente") {
+  if (conversaRow.conversa.status === "nova" || conversaRow.conversa.status === "aguardando_cliente") {
     await db
       .update(conversa)
       .set({ status: "em_atendimento", updatedAt: new Date() })

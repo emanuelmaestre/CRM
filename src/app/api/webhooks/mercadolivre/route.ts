@@ -43,15 +43,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (bloqueio) return bloqueio;
 
   const secret = process.env.ML_CLIENT_SECRET;
-  if (secret) {
-    const valido = validarAssinaturaML(
-      req.headers.get("x-signature"),
-      req.headers.get("x-request-id"),
-      secret,
-    );
-    if (!valido) {
-      return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
-    }
+  if (!secret) {
+    return NextResponse.json({ error: "Webhook não configurado" }, { status: 503 });
+  }
+  const valido = validarAssinaturaML(
+    req.headers.get("x-signature"),
+    req.headers.get("x-request-id"),
+    secret,
+  );
+  if (!valido) {
+    return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
   }
 
   let body: unknown;
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!accessToken) throw new Error(`Token Mercado Livre não configurado para ${conta.brandSlug}.`);
     const pedidoML = await buscarPedidoML(orderId, accessToken);
 
-    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, {
+    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, conta.channelAccountId, {
       providerOrderId: String(pedidoML.id),
       canal: "mercadolivre",
       clienteExternalId: String(pedidoML.buyer.id),

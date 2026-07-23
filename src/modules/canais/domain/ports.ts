@@ -21,8 +21,15 @@ export interface SaudeConector {
 
 export interface ChannelProvider {
   buscarPedidos(desde: Date): Promise<PedidoNormalizado[]>;
-  sincronizarEstoque(skuExterno: string, saldo: number): Promise<void>;
+  sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void>;
+  consultarEstoque(referencia: EstoqueCanalRef): Promise<number>;
   saude(): Promise<SaudeConector>;
+}
+
+export interface EstoqueCanalRef {
+  listingId: string;
+  skuId?: string | null;
+  warehouseId?: string | null;
 }
 
 export interface MensagemPayload {

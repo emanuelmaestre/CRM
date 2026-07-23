@@ -4,6 +4,7 @@ import { brand, regua, reguaExecucao, templateMensagem, clienteIdentidade, clien
 import { emitirEvento } from "@/shared/events";
 import { avaliarGates, type GateInput } from "../domain/gates";
 import { criarZApiProvider } from "@/modules/canais/infrastructure/zapi.provider";
+import { executarComRetry } from "@/modules/canais/application/retry";
 import { format } from "date-fns";
 
 function renderizarTemplate(conteudo: string, variaveis: Record<string, string>): string {
@@ -42,6 +43,7 @@ export async function dispararRegua(input: {
 
   const gateInput: GateInput = {
     orgId: input.orgId,
+    reguaId: input.reguaId,
     clienteId: input.clienteId,
     brandId: input.brandId,
     finalidade: finalidadeDoGatilho(reguaRow.gatilho),
@@ -49,6 +51,8 @@ export async function dispararRegua(input: {
     canalOrigem: input.canalOrigem,
     idempotencyKey,
     templateId: reguaRow.templateId ?? "",
+    cooldownHoras: reguaRow.cooldownHoras,
+    limiteDiarioCliente: reguaRow.limiteDiarioCliente,
   };
 
   const gateResult = await avaliarGates(gateInput);
@@ -145,7 +149,15 @@ export async function dispararRegua(input: {
       }
 
       const provider = criarZApiProvider(marca.slug);
-      await provider.enviarMensagem({ para, conteudo: conteudoFinal });
+      await executarComRetry(
+        async (tentativa) => {
+          await db.update(reguaExecucao)
+            .set({ tentativas: tentativa, updatedAt: new Date() })
+            .where(eq(reguaExecucao.id, execucao.id));
+          return provider.enviarMensagem({ para, conteudo: conteudoFinal });
+        },
+        { tentativas: 3, atrasoInicialMs: 500 },
+      );
     } else {
       throw new Error(`Canal ${reguaRow.canal} sem provider de envio configurado.`);
     }
@@ -169,7 +181,7 @@ export async function dispararRegua(input: {
     const motivo = err instanceof Error ? err.message : String(err);
 
     await db.update(reguaExecucao)
-      .set({ status: "bloqueada", motivoBloqueio: `Falha no envio: ${motivo}`, updatedAt: new Date() })
+      .set({ status: "falha_definitiva", motivoBloqueio: `Falha no envio: ${motivo}`, updatedAt: new Date() })
       .where(eq(reguaExecucao.id, execucao.id));
 
     await emitirEvento({

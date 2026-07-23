@@ -17,6 +17,7 @@ export class ZApiProvider implements MessagingProvider {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone: payload.para, message: payload.conteudo }),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {

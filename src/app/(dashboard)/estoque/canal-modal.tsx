@@ -14,7 +14,7 @@ import {
 import { inputClass, selectClass } from "@/shared/design-system/primitives/WizardLayout";
 
 type ContaCanal = { id: string; tipo: string; nome: string; status: string; brandId: string };
-type Mapeamento = { id: string; channelAccountId: string; externalListingId: string; ativo: boolean; contaTipo: string; contaNome: string };
+type Mapeamento = { id: string; channelAccountId: string; externalListingId: string; externalSkuId: string | null; externalWarehouseId: string | null; ativo: boolean; contaTipo: string; contaNome: string };
 
 async function buscarMapeamentos(produtoId: string) {
   return Promise.all([
@@ -35,6 +35,8 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
   const [loading, setLoading]         = useState(true);
   const [novaContaId, setNovaContaId] = useState("");
   const [novoListingId, setNovoListingId] = useState("");
+  const [novoSkuId, setNovoSkuId] = useState("");
+  const [novoWarehouseId, setNovoWarehouseId] = useState("");
   const [, startTransition]           = useTransition();
 
   const carregar = useCallback(() => {
@@ -73,10 +75,23 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
 
     startTransition(async () => {
       try {
-        await actionSalvarMapeamentoCanal(produtoId, novaContaId, novoListingId.trim());
+        const conta = contas.find((item) => item.id === novaContaId);
+        if (conta?.tipo === "tiktokshop" && (!novoSkuId.trim() || !novoWarehouseId.trim())) {
+          toast.error("TikTok Shop exige os IDs de SKU e warehouse.");
+          return;
+        }
+        await actionSalvarMapeamentoCanal(
+          produtoId,
+          novaContaId,
+          novoListingId.trim(),
+          novoSkuId,
+          novoWarehouseId,
+        );
         toast.success("Mapeamento salvo.");
         setNovaContaId("");
         setNovoListingId("");
+        setNovoSkuId("");
+        setNovoWarehouseId("");
         carregar();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Erro ao salvar mapeamento.");
@@ -170,6 +185,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{m.contaNome}</p>
                         <p className="text-xs text-muted-foreground font-mono truncate">{m.externalListingId}</p>
+                        {m.externalSkuId && <p className="text-[11px] text-muted-foreground font-mono truncate">SKU: {m.externalSkuId}</p>}
                       </div>
                       <button
                         onClick={() => remover(m.id)}
@@ -211,6 +227,22 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                     onChange={(e) => setNovoListingId(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && salvar()}
                   />
+                  {(contas.find((item) => item.id === novaContaId)?.tipo === "tiktokshop" || contas.find((item) => item.id === novaContaId)?.tipo === "shopee") && (
+                    <input
+                      className={inputClass}
+                      placeholder="ID externo do SKU / modelo"
+                      value={novoSkuId}
+                      onChange={(e) => setNovoSkuId(e.target.value)}
+                    />
+                  )}
+                  {contas.find((item) => item.id === novaContaId)?.tipo === "tiktokshop" && (
+                    <input
+                      className={inputClass}
+                      placeholder="ID do warehouse no TikTok Shop"
+                      value={novoWarehouseId}
+                      onChange={(e) => setNovoWarehouseId(e.target.value)}
+                    />
+                  )}
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.97 }}

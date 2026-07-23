@@ -2,7 +2,7 @@ import Link from "next/link";
 import pagesConfig from "@/config/pages.json";
 import { cn } from "@/shared/design-system/cn";
 
-export function VendasTabs({ active }: { active: "funil" | "tarefas" | "agenda" }) {
+export function VendasTabs({ active }: { active: "funil" | "pedidos" | "tarefas" | "agenda" }) {
   return (
     <nav aria-label="Operação comercial" className="mb-6 flex overflow-x-auto rounded-xl border border-border bg-card p-1">
       {pagesConfig.vendas.tabs.map((tab) => (

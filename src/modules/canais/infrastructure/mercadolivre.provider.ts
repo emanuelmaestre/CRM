@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { ChannelProvider, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
 
 interface MLCredentials {
   clientId: string;
@@ -59,8 +59,8 @@ export class MercadoLivreProvider implements ChannelProvider {
     }));
   }
 
-  async sincronizarEstoque(skuExterno: string, saldo: number): Promise<void> {
-    await fetch(`${this.baseUrl}/items/${skuExterno}`, {
+  async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/items/${referencia.listingId}`, {
       method: "PUT",
       headers: {
         Authorization: `Bearer ${this.creds.accessToken}`,
@@ -69,6 +69,17 @@ export class MercadoLivreProvider implements ChannelProvider {
       body: JSON.stringify({ available_quantity: saldo }),
       signal: AbortSignal.timeout(8000),
     });
+    if (!res.ok) {
+      throw new Error(`MercadoLivre sync estoque HTTP ${res.status} para anúncio ${referencia.listingId}`);
+    }
+  }
+
+  async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
+    const item = await this.get<{ available_quantity: number }>(`/items/${referencia.listingId}`);
+    if (!Number.isInteger(item.available_quantity) || item.available_quantity < 0) {
+      throw new Error(`MercadoLivre retornou saldo inválido para anúncio ${referencia.listingId}.`);
+    }
+    return item.available_quantity;
   }
 
   async saude(): Promise<SaudeConector> {

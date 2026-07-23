@@ -6,6 +6,7 @@ import { org, brand } from "./org";
 import { cliente } from "./clientes";
 import { produto } from "./estoque";
 import { appUser } from "./users";
+import { channelAccount } from "./canais";
 
 export const pedidoStatusEnum = pgEnum("pedido_status", [
   "criado", "pago", "separado", "enviado", "entregue",
@@ -20,6 +21,7 @@ export const pedido = pgTable("pedido", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull().references(() => org.id),
   brandId: uuid("brand_id").notNull().references(() => brand.id),
+  channelAccountId: uuid("channel_account_id").references(() => channelAccount.id),
   clienteId: uuid("cliente_id").notNull().references(() => cliente.id),
   providerOrderId: text("provider_order_id"),
   canal: text("canal").notNull(),
@@ -34,11 +36,15 @@ export const pedido = pgTable("pedido", {
   index("idx_pedido_org").on(t.orgId),
   index("idx_pedido_cliente").on(t.clienteId),
   index("idx_pedido_brand").on(t.brandId),
+  index("idx_pedido_channel_account").on(t.channelAccountId),
   index("idx_pedido_status").on(t.status),
   index("idx_pedido_provider").on(t.providerOrderId),
-  uniqueIndex("uq_pedido_org_canal_provider")
+  uniqueIndex("uq_pedido_org_account_provider")
+    .on(t.orgId, t.channelAccountId, t.providerOrderId)
+    .where(sql`${t.channelAccountId} is not null and ${t.providerOrderId} is not null`),
+  uniqueIndex("uq_pedido_org_canal_provider_legacy")
     .on(t.orgId, t.canal, t.providerOrderId)
-    .where(sql`${t.providerOrderId} is not null`),
+    .where(sql`${t.channelAccountId} is null and ${t.providerOrderId} is not null`),
 ]);
 
 export const pedidoItem = pgTable("pedido_item", {

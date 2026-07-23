@@ -43,4 +43,13 @@ describe("Definition of Done da Fase A", () => {
     expect(dod.criteria.filter((item) => item.status === "verified")).toHaveLength(12);
     expect(dod.criteria.some((item) => item.status.includes("pending"))).toBe(false);
   });
+
+  it("não declara a Fase B concluída antes da homologação dos canais reais", () => {
+    const dod = JSON.parse(
+      fs.readFileSync(path.join(root, "docs/fase-b-dod.json"), "utf8"),
+    ) as { status: string; criteria: Array<{ status: string }>; externalBlockers: string[] };
+    expect(dod.status).toBe("ready_for_external_homologation");
+    expect(dod.criteria.some((item) => item.status === "external_validation_pending")).toBe(true);
+    expect(dod.externalBlockers.length).toBeGreaterThan(0);
+  });
 });

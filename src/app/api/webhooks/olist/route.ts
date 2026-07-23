@@ -16,7 +16,8 @@ function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
     .update(rawBody)
     .digest("hex");
 
-  return assinatura === esperado;
+  return /^[a-f0-9]{40}$/i.test(assinatura)
+    && crypto.timingSafeEqual(Buffer.from(assinatura, "hex"), Buffer.from(esperado, "hex"));
 }
 
 const OlistWebhookSchema = z.object({
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const storeId = data.store_id ?? process.env.OLIST_SHOP_ID_KARZI ?? "";
     const conta = await resolverContaWebhookMarketplace("olist", storeId);
 
-    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, {
+    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, conta.channelAccountId, {
       providerOrderId: data.order_number,
       canal: "olist",
       clienteExternalId: data.customer?.email ?? data.order_number,

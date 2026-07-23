@@ -55,6 +55,8 @@ const MapeamentoCanalSchema = z.object({
   produtoId: z.string().uuid(),
   channelAccountId: z.string().uuid(),
   externalListingId: z.string().trim().min(1).max(200),
+  externalSkuId: z.string().trim().max(200).optional(),
+  externalWarehouseId: z.string().trim().max(200).optional(),
 });
 
 export async function actionListarContasCanal() {
@@ -79,6 +81,8 @@ export async function actionListarMapeamentosCanal(produtoId: string) {
       id: produtoCanal.id,
       channelAccountId: produtoCanal.channelAccountId,
       externalListingId: produtoCanal.externalListingId,
+      externalSkuId: produtoCanal.externalSkuId,
+      externalWarehouseId: produtoCanal.externalWarehouseId,
       ativo: produtoCanal.ativo,
       contaTipo: channelAccount.tipo,
       contaNome: channelAccount.nome,
@@ -88,10 +92,22 @@ export async function actionListarMapeamentosCanal(produtoId: string) {
     .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.produtoId, id)));
 }
 
-export async function actionSalvarMapeamentoCanal(produtoId: string, channelAccountId: string, externalListingId: string) {
+export async function actionSalvarMapeamentoCanal(
+  produtoId: string,
+  channelAccountId: string,
+  externalListingId: string,
+  externalSkuId?: string,
+  externalWarehouseId?: string,
+) {
   const ctx = await getCrudContext();
   assertPerfil(ctx, ["admin", "gestor"]);
-  const input = MapeamentoCanalSchema.parse({ produtoId, channelAccountId, externalListingId });
+  const input = MapeamentoCanalSchema.parse({
+    produtoId,
+    channelAccountId,
+    externalListingId,
+    externalSkuId: externalSkuId?.trim() || undefined,
+    externalWarehouseId: externalWarehouseId?.trim() || undefined,
+  });
 
   const [produtoValido, contaValida] = await Promise.all([
     db.select({ id: produto.id, brandId: produto.brandId }).from(produto).where(and(
@@ -110,7 +126,13 @@ export async function actionSalvarMapeamentoCanal(produtoId: string, channelAcco
     .values({ orgId: ctx.orgId, ...input, ativo: true })
     .onConflictDoUpdate({
       target: [produtoCanal.produtoId, produtoCanal.channelAccountId],
-      set: { externalListingId: input.externalListingId, ativo: true, updatedAt: new Date() },
+      set: {
+        externalListingId: input.externalListingId,
+        externalSkuId: input.externalSkuId,
+        externalWarehouseId: input.externalWarehouseId,
+        ativo: true,
+        updatedAt: new Date(),
+      },
     });
 
   revalidatePath("/estoque");

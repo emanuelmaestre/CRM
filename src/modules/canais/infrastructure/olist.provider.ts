@@ -1,4 +1,4 @@
-import type { ChannelProvider, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
 
 interface OlistCredentials {
   apiKey: string;
@@ -37,7 +37,7 @@ export class OlistProvider implements ChannelProvider {
         created_at: string;
         items: { seller_sku: string; quantity: number; unit_price: number }[];
       }[];
-    }>(`/orders/?created_at__gte=${dataFrom}&page_size=50`);
+    }>(`/orders/?created_at__gte=${dataFrom}&page_size=50${this.creds.shopId ? `&shop_id=${encodeURIComponent(this.creds.shopId)}` : ""}`);
 
     return (data.results ?? []).map((o) => ({
       providerOrderId: o.order_number,
@@ -58,8 +58,8 @@ export class OlistProvider implements ChannelProvider {
     }));
   }
 
-  async sincronizarEstoque(skuExterno: string, saldo: number): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/products/${skuExterno}/stocks/`, {
+  async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {
+    const res = await fetch(`${this.baseUrl}/products/${referencia.listingId}/stocks/`, {
       method: "PATCH",
       headers: {
         Authorization: `Token ${this.creds.apiKey}`,
@@ -68,7 +68,24 @@ export class OlistProvider implements ChannelProvider {
       body: JSON.stringify({ quantity: saldo }),
       signal: AbortSignal.timeout(8000),
     });
-    if (!res.ok) throw new Error(`Olist sync estoque HTTP ${res.status} para SKU ${skuExterno}`);
+    if (!res.ok) throw new Error(`Olist sync estoque HTTP ${res.status} para SKU ${referencia.listingId}`);
+  }
+
+  async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
+    const data = await this.get<{
+      quantity?: number;
+      available_quantity?: number;
+      results?: Array<{ quantity?: number; available_quantity?: number }>;
+    }>(`/products/${referencia.listingId}/stocks/`);
+    const saldoDireto = data.available_quantity ?? data.quantity;
+    const saldo = saldoDireto ?? (data.results ?? []).reduce(
+      (total, item) => total + Number(item.available_quantity ?? item.quantity ?? 0),
+      0,
+    );
+    if (!Number.isInteger(saldo) || saldo < 0) {
+      throw new Error(`Olist retornou saldo inválido para anúncio ${referencia.listingId}.`);
+    }
+    return saldo;
   }
 
   async saude(): Promise<SaudeConector> {

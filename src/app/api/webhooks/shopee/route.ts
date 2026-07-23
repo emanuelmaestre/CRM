@@ -27,7 +27,8 @@ function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
     .update(`${url}|${rawBody}`)
     .digest("hex");
 
-  return assinatura === esperado;
+  return /^[a-f0-9]{64}$/i.test(assinatura)
+    && crypto.timingSafeEqual(Buffer.from(assinatura, "hex"), Buffer.from(esperado, "hex"));
 }
 
 async function buscarDetalheShopee(
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const detalhe = await buscarDetalheShopee(data.ordersn, partnerId, partnerKey, shopId, accessToken);
 
-    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, {
+    const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, conta.channelAccountId, {
       providerOrderId: data.ordersn,
       canal: "shopee",
       clienteExternalId: data.buyer_username ?? data.ordersn,

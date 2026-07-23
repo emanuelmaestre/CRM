@@ -23,6 +23,7 @@ import { A14_scoresProduto } from "@/modules/jobs/A14-scores-produto";
 import { A15_insightsFunil } from "@/modules/jobs/A15-insights-funil";
 import { A16_sugestoesCampanha } from "@/modules/jobs/A16-sugestoes-campanha";
 import { A18_saudeConectores } from "@/modules/jobs/A18-saude-conectores";
+import { A24_pollPedidos } from "@/modules/jobs/A24-poll-pedidos";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -50,5 +51,6 @@ export const { GET, POST, PUT } = serve({
     A21_guardaConsumoIA,
     A22_lgpdRetencao,
     A23_refreshMLTokens,
+    A24_pollPedidos,
   ],
 });

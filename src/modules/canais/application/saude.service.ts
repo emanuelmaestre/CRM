@@ -1,11 +1,12 @@
 import { and, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { channelAccount, eventoDominio, jobRun } from "@/shared/lib/db/schema";
+import { brand, channelAccount, eventoDominio, jobRun } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { criarZApiProvider } from "../infrastructure/zapi.provider";
 import { criarShopeeProvider } from "../infrastructure/shopee.provider";
 import { criarMLProvider } from "../infrastructure/mercadolivre.provider";
 import { criarTikTokShopProvider } from "../infrastructure/tiktokshop.provider";
+import { criarOlistProvider } from "../infrastructure/olist.provider";
 import type { ChannelProvider, MessagingProvider } from "../domain/ports";
 
 type BrandSlug = "karzi" | "wuwu";
@@ -17,6 +18,7 @@ async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<Cha
       case "shopee":       return criarShopeeProvider(brandSlug);
       case "mercadolivre": return await criarMLProvider(brandSlug);
       case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
+      case "olist":        return criarOlistProvider(brandSlug);
       default:             return null;
     }
   } catch {
@@ -27,18 +29,25 @@ async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<Cha
 
 export async function verificarSaudeConectores(orgId: string): Promise<void> {
   const contas = await db
-    .select()
+    .select({ conta: channelAccount, brandSlug: brand.slug })
     .from(channelAccount)
+    .innerJoin(brand, and(
+      eq(brand.id, channelAccount.brandId),
+      eq(brand.orgId, channelAccount.orgId),
+    ))
     .where(eq(channelAccount.orgId, orgId));
 
-  for (const conta of contas) {
+  for (const item of contas) {
+    const conta = item.conta;
     const statusAnterior = conta.status;
     let novoStatus: "conectado" | "degradado" | "desconectado" = "desconectado";
     let ultimoErro: string | null = null;
 
     try {
-      const brandSlug = (conta.meta as Record<string, string> | null)?.brandSlug as BrandSlug | undefined;
-      const provider = await resolverProvider(conta.tipo, brandSlug ?? "karzi");
+      if (item.brandSlug !== "karzi" && item.brandSlug !== "wuwu") {
+        throw new Error(`Marca ${item.brandSlug} sem provider configurado.`);
+      }
+      const provider = await resolverProvider(conta.tipo, item.brandSlug);
 
       if (!provider) {
         novoStatus = "degradado";
@@ -58,7 +67,7 @@ export async function verificarSaudeConectores(orgId: string): Promise<void> {
     await db
       .update(channelAccount)
       .set({ status: novoStatus, ultimaVerificacao: new Date(), ultimoErro, updatedAt: new Date() })
-      .where(eq(channelAccount.id, conta.id));
+      .where(and(eq(channelAccount.id, conta.id), eq(channelAccount.orgId, orgId)));
 
     if (statusAnterior !== novoStatus) {
       const tipoEvento =

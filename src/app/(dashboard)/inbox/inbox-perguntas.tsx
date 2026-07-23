@@ -71,13 +71,8 @@ const CHAR_LIMIT: Record<Plataforma, number> = {
   tiktok: 500,
 };
 
-const DADOS_SIMULADOS: Pergunta[] = [
-  { id: "1", plataforma: "mercadolivre", produto: "Bolsa KARZI Couro Marrom", pergunta: "Tem disponível no tamanho P?",       cliente: "Comprador 4821", tempo: "2h",  horasAtras: 2,  status: "pendente" },
-  { id: "2", plataforma: "shopee",       produto: "Mochila WUWU Sport",       pergunta: "Qual o prazo de entrega para SP?",  cliente: "Comprador 1203", tempo: "5h",  horasAtras: 5,  status: "pendente" },
-  { id: "3", plataforma: "tiktok",       produto: "Carteira KARZI Slim",      pergunta: "Esse produto tem garantia?",        cliente: "Comprador 7734", tempo: "8h",  horasAtras: 8,  status: "pendente" },
-  { id: "4", plataforma: "mercadolivre", produto: "Bolsa KARZI Couro Marrom", pergunta: "Aceita parcelamento em 12x?",       cliente: "Comprador 9912", tempo: "1d",  horasAtras: 26, status: "respondida", resposta: "Sim, parcelamos em até 12× sem juros pelo Mercado Pago!" },
-  { id: "5", plataforma: "shopee",       produto: "Mochila WUWU Sport",       pergunta: "Tem foto do interior da mochila?", cliente: "Comprador 2281", tempo: "2d",  horasAtras: 50, status: "respondida", resposta: "Olá! Vou adicionar mais fotos ainda hoje. Obrigado pelo interesse!" },
-];
+// Produção nunca exibe fixtures como se fossem mensagens reais.
+const PERGUNTAS_INICIAIS: Pergunta[] = [];
 
 function urgency(h: number, status: Status): "urgent" | "normal" | "ok" {
   if (status === "respondida") return "ok";
@@ -250,7 +245,7 @@ export function InboxPerguntas() {
   const [selecionada, setSelecionada]   = useState<Pergunta | null>(null);
   const [resposta, setResposta]         = useState("");
   const [enviando, setEnviando]         = useState(false);
-  const [perguntas, setPerguntas]       = useState<Pergunta[]>(DADOS_SIMULADOS);
+  const [perguntas, setPerguntas]       = useState<Pergunta[]>(PERGUNTAS_INICIAIS);
 
   // Sidebar resize + collapse
   const [sideWidth, setSideWidth] = useState(304);

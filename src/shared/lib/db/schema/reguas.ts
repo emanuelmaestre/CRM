@@ -26,6 +26,8 @@ export const regua = pgTable("regua", {
   templateId: uuid("template_id"),
   canal: text("canal").notNull(),
   delayDias: integer("delay_dias").notNull().default(0),
+  cooldownHoras: integer("cooldown_horas").notNull().default(24),
+  limiteDiarioCliente: integer("limite_diario_cliente").notNull().default(1),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

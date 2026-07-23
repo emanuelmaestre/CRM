@@ -78,6 +78,12 @@ jobs:
       - name: RLS integration tests
         run: npm run test:rls
 
+      - name: Phase B idempotency and concurrency tests
+        run: npm run test:phase-b:integration
+
+      - name: Phase B automation gates integration tests
+        run: npm run test:phase-b:gates
+
   build:
     name: Build check
     runs-on: ubuntu-latest
@@ -189,3 +195,6 @@ jobs:
 
       - name: Validate authenticated responsive navigation
         run: npm run test:e2e:phase-a
+
+      - name: Validate authenticated Phase B routes and import preview
+        run: npm run test:e2e:phase-b

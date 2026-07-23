@@ -1,0 +1,77 @@
+{
+  "phase": "B",
+  "name": "Operação Conectada",
+  "updatedAt": "2026-07-22",
+  "status": "ready_for_external_homologation",
+  "summary": "Implementação, provas locais e migration do banco alvo concluídas; aceite contratual depende da homologação com canais e credenciais reais.",
+  "criteria": [
+    {
+      "id": "connectors",
+      "status": "verified_locally",
+      "evidence": "Providers Mercado Livre, Shopee, TikTok Shop v202309 e Olist com timeouts, erros HTTP/API, retries e health-check."
+    },
+    {
+      "id": "order_ingestion_sla",
+      "status": "external_validation_pending",
+      "evidence": "Webhooks idempotentes e polling de contingência a cada 4 minutos implementados; falta cronometrar um pedido real por canal."
+    },
+    {
+      "id": "stock_sync_reconciliation",
+      "status": "external_validation_pending",
+      "evidence": "Baixa idempotente, sync com retry e reconciliação local × remoto implementados; TikTok exige listing, SKU e warehouse mapeados; falta homologação real."
+    },
+    {
+      "id": "automation_six_gates",
+      "status": "verified_locally",
+      "evidence": "6 testes integrados aprovados: opt-in, canal de origem, marca, idempotência/cooldown, janela/limite diário e template aprovado."
+    },
+    {
+      "id": "message_deduplication",
+      "status": "verified_locally",
+      "evidence": "50 inserções concorrentes resultaram em exatamente 1 mensagem; fixtures de marketplace removidas da produção."
+    },
+    {
+      "id": "unified_inbox",
+      "status": "external_validation_pending",
+      "evidence": "Persistência unificada aceita contas de canal e bloqueia outbound sem provider oficial; eventos reais de perguntas/chat dos marketplaces ainda precisam de habilitação e homologação por plataforma."
+    },
+    {
+      "id": "import_preview",
+      "status": "verified_locally",
+      "evidence": "Rota /importacao e seletores E2E corrigidos; prévia válida e rejeição de CSV inválido cobertas no CI autenticado."
+    },
+    {
+      "id": "health_panel",
+      "status": "verified_locally",
+      "evidence": "Painel lista conectores, falhas e execuções; jobs A18 e A24 registram início, sucesso e falha."
+    },
+    {
+      "id": "target_database",
+      "status": "verified",
+      "evidence": "Migration 0012 aprovada em PostgreSQL limpo e aplicada ao Supabase alvo; cinco colunas, quatro constraints e três índices verificados."
+    }
+  ],
+  "validation": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "unitTests": "99 passed",
+    "gateIntegrationTests": "6 passed",
+    "rlsIntegrationTests": "32 passed",
+    "concurrency": {
+      "messageAttempts": 50,
+      "persistedMessages": 1,
+      "stockAttempts": 50,
+      "persistedStockMovements": 1
+    },
+    "build": "passed",
+    "browser": "login redirect rendered; no Next.js error overlay"
+  },
+  "externalBlockers": [
+    "Conectar e autorizar contas reais de Mercado Livre, Shopee, TikTok Shop e Olist por marca.",
+    "Configurar TIKTOK_SHOP_CIPHER, externalSkuId e externalWarehouseId nos produtos TikTok.",
+    "Configurar Inngest no ambiente publicado e comprovar o polling de 4 minutos.",
+    "Executar um pedido real por canal e registrar latência, baixa e saldo remoto.",
+    "Homologar eventos oficiais de perguntas/chat de cada marketplace.",
+    "Manter EXTERNAL_SENDS_ENABLED=false até o aceite final."
+  ]
+}
