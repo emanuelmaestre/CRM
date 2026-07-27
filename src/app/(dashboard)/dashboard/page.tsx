@@ -2,13 +2,16 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Bot, Filter, ShieldAlert, TrendingUp, UserRound } from "lucide-react";
 import { BrandChip } from "@/shared/design-system/primitives/BrandChip";
 import brandsConfig from "@/config/brands.json";
 import dashboardConfig from "@/config/dashboard.json";
 import { getIcon } from "@/shared/config/icon-registry";
 import { actionObterDashboardData } from "./actions";
-import type { DashboardData } from "@/modules/relatorios/application/dashboard.service";
+import type {
+  DashboardData,
+  DashboardFilters,
+} from "@/modules/relatorios/application/dashboard.service";
 
 /* ── Stagger container ─────────────────────────────────────────── */
 const stagger = {
@@ -28,6 +31,13 @@ const ChannelConnectedIcon = getIcon(dashboardConfig.channels.connectedIcon);
 const ChannelDisconnectedIcon = getIcon(dashboardConfig.channels.disconnectedIcon);
 
 const EMPTY_DASHBOARD: DashboardData = {
+  filters: {
+    period: "30d",
+    brand: "todas",
+    channel: "todos",
+    brands: [{ value: "todas", label: "Todas as marcas" }],
+    channels: [{ value: "todos", label: "Todos os canais" }],
+  },
   revenue: {
     value: dashboardConfig.revenue.value,
     peakLabel: dashboardConfig.revenue.peakLabel,
@@ -43,6 +53,15 @@ const EMPTY_DASHBOARD: DashboardData = {
     status: item.connected ? "conectado" : "desconectado",
     detail: item.connected ? dashboardConfig.channels.connectedLabel : dashboardConfig.channels.disconnectedLabel,
   })),
+  channelPerformance: [],
+  sellerPerformance: [],
+  ruleBlocks: [],
+  aiUsage: {
+    cost: "US$ 0.00",
+    runs: 0,
+    successRate: "0%",
+    detail: "Sem consumo de IA no periodo",
+  },
 };
 
 /* ── Card base ─────────────────────────────────────────────────── */
@@ -357,6 +376,152 @@ function KpiCard({ label, value, sub, icon: Icon, accent }: {
   );
 }
 
+function DashboardFiltersBar({
+  filters,
+  value,
+  onChange,
+  loading,
+}: {
+  filters: DashboardData["filters"];
+  value: Required<DashboardFilters>;
+  onChange: (next: Required<DashboardFilters>) => void;
+  loading: boolean;
+}) {
+  const selectClass = "h-10 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground outline-none transition focus:border-foreground";
+
+  return (
+    <Card className="mb-5">
+      <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <Filter size={16} strokeWidth={1.8} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-foreground">Painel executivo</p>
+            <p className="text-xs text-muted-foreground">Vendas, canais, equipe, reguas e IA com filtros reais.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <select className={selectClass} value={value.period} disabled={loading} onChange={(event) => onChange({ ...value, period: event.target.value as Required<DashboardFilters>["period"] })}>
+            <option value="7d">Ultimos 7 dias</option>
+            <option value="30d">Ultimos 30 dias</option>
+            <option value="90d">Ultimos 90 dias</option>
+          </select>
+          <select className={selectClass} value={value.brand} disabled={loading} onChange={(event) => onChange({ ...value, brand: event.target.value })}>
+            {filters.brands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+          <select className={selectClass} value={value.channel} disabled={loading} onChange={(event) => onChange({ ...value, channel: event.target.value })}>
+            {filters.channels.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ChannelPerformance({ items }: { items: DashboardData["channelPerformance"] }) {
+  return (
+    <Card>
+      <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+          <TrendingUp size={15} strokeWidth={1.8} />
+        </div>
+        <span className="text-sm font-bold text-foreground">Conversao por canal</span>
+      </div>
+      <div className="divide-y divide-border">
+        {items.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted-foreground">Sem pedidos no filtro atual.</p>}
+        {items.map((item) => (
+          <div key={item.channel} className="grid grid-cols-[1fr_auto] gap-3 px-5 py-3">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">{item.label}</p>
+              <p className="text-xs text-muted-foreground">{item.orders} pedido{item.orders === 1 ? "" : "s"} - ticket {item.ticket}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-bold tabular-nums text-foreground">{item.conversion}</p>
+              <p className="text-xs text-muted-foreground">{item.revenue}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function SellerPerformance({ items }: { items: DashboardData["sellerPerformance"] }) {
+  return (
+    <Card>
+      <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#1F8A4C]/10 text-[#1F8A4C]">
+          <UserRound size={15} strokeWidth={1.8} />
+        </div>
+        <span className="text-sm font-bold text-foreground">Responsaveis do funil</span>
+      </div>
+      <div className="divide-y divide-border">
+        {items.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted-foreground">Sem oportunidades no filtro atual.</p>}
+        {items.map((item) => (
+          <div key={item.id} className="px-5 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="truncate text-sm font-semibold text-foreground">{item.name}</p>
+              <p className="text-sm font-bold tabular-nums text-foreground">{item.pipeline}</p>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{item.opportunities} oportunidade{item.opportunities === 1 ? "" : "s"} - {item.detail}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function RuleBlocksAndAi({ blocks, ai }: { blocks: DashboardData["ruleBlocks"]; ai: DashboardData["aiUsage"] }) {
+  return (
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      <Card>
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#B57A00]/10 text-[#B57A00]">
+            <ShieldAlert size={15} strokeWidth={1.8} />
+          </div>
+          <span className="text-sm font-bold text-foreground">Bloqueios de reguas</span>
+        </div>
+        <div className="divide-y divide-border">
+          {blocks.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted-foreground">Nenhum bloqueio no periodo.</p>}
+          {blocks.map((item) => (
+            <div key={item.gate} className="px-5 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-foreground">{item.gate}</p>
+                <span className="rounded-full bg-[#B57A00]/10 px-2.5 py-1 text-xs font-bold text-[#B57A00]">{item.count}</span>
+              </div>
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card>
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#9B30D9]/10 text-[#9B30D9]">
+            <Bot size={15} strokeWidth={1.8} />
+          </div>
+          <span className="text-sm font-bold text-foreground">Consumo de IA</span>
+        </div>
+        <div className="grid grid-cols-3 gap-3 p-5">
+          <div>
+            <p className="text-[11px] font-semibold uppercase text-muted-foreground">Custo</p>
+            <p className="mt-1 text-lg font-bold text-foreground">{ai.cost}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase text-muted-foreground">Runs</p>
+            <p className="mt-1 text-lg font-bold text-foreground">{ai.runs}</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase text-muted-foreground">Sucesso</p>
+            <p className="mt-1 text-lg font-bold text-foreground">{ai.successRate}</p>
+          </div>
+        </div>
+        <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground">{ai.detail}</p>
+      </Card>
+    </div>
+  );
+}
+
 /* ── Recent orders ─────────────────────────────────────────────── */
 function RecentOrders({ items }: { items: DashboardData["recentOrders"] }) {
 
@@ -463,11 +628,16 @@ function Channels({ items }: { items: DashboardData["channels"] }) {
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD);
+  const [filters, setFilters] = useState<Required<DashboardFilters>>({
+    period: "30d",
+    brand: "todas",
+    channel: "todos",
+  });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    actionObterDashboardData()
+    actionObterDashboardData(filters)
       .then((result) => {
         setData(result);
         setLoadError(null);
@@ -476,9 +646,13 @@ export default function DashboardPage() {
         setLoadError(error instanceof Error ? error.message : "Nao foi possivel carregar o painel.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [filters]);
 
   const kpis = data.kpis.map((kpi) => ({ ...kpi, icon: getIcon(kpi.icon) }));
+  const handleFilterChange = (next: Required<DashboardFilters>) => {
+    setLoading(true);
+    setFilters(next);
+  };
 
   return (
     <motion.div
@@ -497,6 +671,12 @@ export default function DashboardPage() {
           Carregando dados reais do painel...
         </div>
       )}
+      <DashboardFiltersBar
+        filters={data.filters}
+        value={filters}
+        onChange={handleFilterChange}
+        loading={loading}
+      />
       <div className="grid grid-cols-1 xl:grid-cols-[62%_1fr] gap-5">
 
         {/* LEFT */}
@@ -520,6 +700,13 @@ export default function DashboardPage() {
           <RecentOrders items={data.recentOrders} />
           <Channels items={data.channels} />
         </div>
+      </div>
+      <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
+        <ChannelPerformance items={data.channelPerformance} />
+        <SellerPerformance items={data.sellerPerformance} />
+      </div>
+      <div className="mt-5">
+        <RuleBlocksAndAi blocks={data.ruleBlocks} ai={data.aiUsage} />
       </div>
     </motion.div>
   );

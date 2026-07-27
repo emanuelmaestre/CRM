@@ -54,6 +54,14 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
   - rota `/admin/lgpd` com fila, download JSON e confirmacao textual `ANONIMIZAR`;
   - link operacional em `/configuracoes`;
   - fallback visual quando a migration ainda nao foi aplicada no banco conectado.
+- Dashboard executivo foi ampliado conforme a secao 10 do PRD:
+  - filtros por periodo, marca e canal;
+  - receita, pedidos e curva respeitando filtros reais;
+  - conversao, ticket medio e receita por canal;
+  - responsaveis do funil com valor de oportunidades;
+  - bloqueios de reguas por gate/motivo;
+  - consumo de IA por custo, runs e taxa de sucesso;
+  - observacao explicita de que pedido ainda nao guarda vendedor direto, entao o painel usa funil por responsavel.
 
 ## Verificacoes executadas
 
@@ -65,6 +73,7 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
 - `npx playwright test e2e/navegacao-responsiva.spec.ts --project=notebook-1024 -g "Configuracoes|Configurações"`: 1 teste aprovado.
 - `npx playwright test e2e/navegacao-responsiva.spec.ts --project=notebook-1024 -g "Solicitacoes LGPD"`: 1 teste aprovado.
 - `npx playwright test e2e/navegacao-responsiva.spec.ts`: 64 testes aprovados nos breakpoints 360, 768, 1024 e 1920.
+- `npx playwright test e2e/navegacao-responsiva.spec.ts -g "Painel"`: 4 testes aprovados nos breakpoints 360, 768, 1024 e 1920 apos ampliacao do dashboard executivo.
 - O teste responsivo foi ajustado para Next.js 16: `nextjs-portal` pode ser apenas o Dev Tools em dev; o teste continua bloqueando `[data-nextjs-dialog]`, que representa dialog de erro real.
 
 ## Lacunas locais restantes
@@ -77,23 +86,21 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
    - envio oficial por marketplace quando a politica permitir;
    - evidencias reais de mensagens recebidas por Mercado Livre, Shopee, TikTok Shop e Olist;
    - estados de entrega/falha por provider.
-3. Completar dashboard executivo:
-   - filtros por marca/canal/periodo;
-   - conversao por canal;
-   - desempenho por vendedor;
-   - bloqueios de reguas e consumo de IA no primeiro painel.
-4. Completar validacao real de canais:
+3. Completar validacao real de canais:
    - editar/remover `channel_account` com regra de impacto;
    - validacao assistida por canal quando as credenciais reais existirem;
    - execucao real de `saude()` dos providers conectados.
-5. Completar documentos:
+4. Completar documentos:
    - confirmar bucket privado `documentos`;
    - validar upload/download real com URL assinada;
    - adicionar templates por marca quando o cliente fornecer modelos.
-6. Completar operacao:
+5. Completar operacao:
    - executar Inngest real;
    - observar A18/A24/A20 em ambiente conectado;
    - registrar teste de restauracao de backup no RUNBOOK.
+6. Refinar metricas comerciais quando o modelo evoluir:
+   - vincular pedido a vendedor/responsavel quando o processo comercial exigir atribuicao direta;
+   - medir North Star `% da receita influenciada pelo CRM` quando campanhas, reguas e follow-ups tiverem dados reais de origem.
 
 ## Bloqueios externos conhecidos
 

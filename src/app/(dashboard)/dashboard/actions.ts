@@ -1,9 +1,12 @@
 "use server";
 
 import { getCrudContext } from "@/shared/lib/get-crud-context";
-import { obterDashboardData } from "@/modules/relatorios/application/dashboard.service";
+import {
+  obterDashboardData,
+  type DashboardFilters,
+} from "@/modules/relatorios/application/dashboard.service";
 
-export async function actionObterDashboardData() {
+export async function actionObterDashboardData(filters?: DashboardFilters) {
   const ctx = await getCrudContext();
-  return obterDashboardData(ctx);
+  return obterDashboardData(ctx, filters);
 }
