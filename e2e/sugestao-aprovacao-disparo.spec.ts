@@ -20,11 +20,9 @@ test.describe("Sugestão IA → Aprovação → Disparo", () => {
     const aprovarBtn = page.getByRole("button", { name: /aprovar/i }).first();
     const rejeitarBtn = page.getByRole("button", { name: /rejeitar/i }).first();
 
-    // Se há sugestão pendente, o botão existe; se não, o teste passa vazio (IA ainda não rodou)
-    const temSugestao = await aprovarBtn.isVisible().catch(() => false);
-    if (!temSugestao) return;
-
-    // Garante que aprovar e rejeitar estão disponíveis (dois botões por sugestão)
+    await expect(aprovarBtn).toBeVisible();
     await expect(rejeitarBtn).toBeVisible();
+    await aprovarBtn.click();
+    await expect(page.getByText(/aprovada/i).first()).toBeVisible();
   });
 });

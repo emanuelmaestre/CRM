@@ -1,6 +1,6 @@
 import { eq, and, or, isNull, ilike, ne, desc } from "drizzle-orm";
 import { z } from "zod";
-import { createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
+import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import {
   auditLog, brand, cliente, clienteTag, consentimento, interacao, pedido, tag, tarefa,
@@ -98,6 +98,28 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
   ]);
 
   return { cliente: clienteAtual, interacoes, pedidos, tarefas: tarefasCliente, consentimentos, tags: tagsCliente };
+}
+
+export async function exportarDadosCliente(ctx: CrudContext, id: string) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  const data = await buscarCliente360(ctx, id);
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    autorId: ctx.userId,
+    autorTipo: ctx.userId ? "usuario" : "sistema",
+    entidade: "cliente",
+    entidadeId: id,
+    acao: "lgpd_exportacao",
+    depois: { clienteId: id, geradoEm: new Date().toISOString() },
+  });
+
+  return {
+    tipo: "lgpd_exportacao_cliente",
+    geradoEm: new Date().toISOString(),
+    orgId: ctx.orgId,
+    dados: data,
+  };
 }
 
 export async function listarClientes(
@@ -271,6 +293,7 @@ export async function registrarConsentimento(
 }
 
 export async function revogarConsentimento(ctx: CrudContext, consentimentoId: string) {
+  assertPerfil(ctx, ["admin", "gestor"]);
   const anterior = await ctx.db.select().from(consentimento).where(and(
     eq(consentimento.id, consentimentoId),
     eq(consentimento.orgId, ctx.orgId),

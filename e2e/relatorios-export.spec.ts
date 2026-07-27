@@ -23,12 +23,7 @@ test.describe("Relatórios — Exportação e Inteligência", () => {
     // Aguarda carregamento
     await page.waitForSelector("text=Vendas por canal", { timeout: 15_000 });
 
-    const temDados = await page.getByRole("button", { name: "CSV" }).isVisible().catch(() => false);
-    if (!temDados) {
-      // Sem dados ainda — skip silencioso
-      return;
-    }
-
+    await expect(page.getByRole("button", { name: "CSV" })).toBeVisible();
     await expect(page.getByRole("button", { name: "XLSX" })).toBeVisible();
     await expect(page.getByRole("button", { name: "PDF" })).toBeVisible();
     await expect(page.getByRole("button", { name: /documento executivo/i })).toBeVisible();

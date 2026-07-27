@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "kind": "synthetic-goldenset",
+  "casos": [
+    {
+      "nome": "cliente_recente_frequente",
+      "entrada": {
+        "diasDesdeUltimaCompra": 3,
+        "totalCompras": 12,
+        "valorTotalGasto": 3200,
+        "intervalMedioEntrCompras": 18
+      },
+      "churnMinimo": 0,
+      "churnMaximo": 25
+    },
+    {
+      "nome": "cliente_em_risco",
+      "entrada": {
+        "diasDesdeUltimaCompra": 75,
+        "totalCompras": 3,
+        "valorTotalGasto": 450,
+        "intervalMedioEntrCompras": 25
+      },
+      "churnMinimo": 55,
+      "churnMaximo": 80
+    },
+    {
+      "nome": "cliente_perdido",
+      "entrada": {
+        "diasDesdeUltimaCompra": 180,
+        "totalCompras": 1,
+        "valorTotalGasto": 50,
+        "intervalMedioEntrCompras": null
+      },
+      "churnMinimo": 75,
+      "churnMaximo": 100
+    }
+  ]
+}

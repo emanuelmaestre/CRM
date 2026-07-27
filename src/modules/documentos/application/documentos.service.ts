@@ -10,6 +10,7 @@ export type TipoDocumento = "relatorio_executivo" | "proposta" | "minuta";
 
 export interface SolicitacaoDocumento {
   tipo: TipoDocumento;
+  formato?: "pdf" | "docx";
   periodo: string;
   dadosKpis?: {
     receitaTotal: number;
@@ -18,6 +19,32 @@ export interface SolicitacaoDocumento {
     clientesEmRisco: number;
     sugestoesPendentes: number;
   };
+}
+
+async function renderizarDocx(
+  tipo: TipoDocumento,
+  periodo: string,
+  conteudo: DocumentoExecutivoOutput | Record<string, unknown>,
+): Promise<Uint8Array> {
+  const { Document, Packer, Paragraph, HeadingLevel } = await import("docx");
+  const titulo = "titulo" in conteudo ? String(conteudo.titulo) : `Documento — ${tipo}`;
+  const secoes: Array<{ titulo: string; itens: string[] }> = [
+    { titulo: "Destaques", itens: "destaques" in conteudo && Array.isArray(conteudo.destaques) ? conteudo.destaques.map(String) : [] },
+    { titulo: "Alertas", itens: "alertas" in conteudo && Array.isArray(conteudo.alertas) ? conteudo.alertas.map(String) : [] },
+    { titulo: "Recomendações", itens: "recomendacoes" in conteudo && Array.isArray(conteudo.recomendacoes) ? conteudo.recomendacoes.map(String) : [] },
+  ];
+  const children = [
+    new Paragraph({ text: titulo, heading: HeadingLevel.TITLE }),
+    new Paragraph({ text: `Período: ${periodo}` }),
+    new Paragraph({ text: "resumo" in conteudo ? String(conteudo.resumo) : JSON.stringify(conteudo) }),
+    ...secoes.flatMap((secao) => secao.itens.length === 0 ? [] : [
+      new Paragraph({ text: secao.titulo, heading: HeadingLevel.HEADING_1 }),
+      ...secao.itens.map((item) => new Paragraph({ text: item, bullet: { level: 0 } })),
+    ]),
+    new Paragraph({ text: "Resultado probabilístico; a decisão final é do gestor." }),
+  ];
+  const arquivo = new Document({ sections: [{ children }] });
+  return new Uint8Array(await Packer.toBuffer(arquivo));
 }
 
 // Gera bytes de PDF usando jsPDF (server-safe: sem DOM)
@@ -149,8 +176,9 @@ async function renderizarPdf(
 export async function gerarDocumento(
   ctx: CrudContext,
   solicitacao: SolicitacaoDocumento,
-): Promise<{ documentoId: string; nomeArquivo: string; conteudo: Record<string, unknown> }> {
-  const nomeArquivo = `${solicitacao.tipo}-${new Date().toISOString().slice(0, 10)}.pdf`;
+): Promise<{ documentoId: string; nomeArquivo: string; storageUrl: string; conteudo: Record<string, unknown> }> {
+  const formato = solicitacao.formato ?? "pdf";
+  const nomeArquivo = `${solicitacao.tipo}-${new Date().toISOString().slice(0, 10)}.${formato}`;
 
   let conteudo: DocumentoExecutivoOutput | Record<string, unknown>;
 
@@ -163,7 +191,9 @@ export async function gerarDocumento(
     conteudo = { tipo: solicitacao.tipo, periodo: solicitacao.periodo, geradoEm: new Date().toISOString() };
   }
 
-  const pdfBytes = await renderizarPdf(solicitacao.tipo, solicitacao.periodo, conteudo);
+  const arquivoBytes = formato === "docx"
+    ? await renderizarDocx(solicitacao.tipo, solicitacao.periodo, conteudo)
+    : await renderizarPdf(solicitacao.tipo, solicitacao.periodo, conteudo);
 
   // Salva o PDF no Supabase Storage (bucket "documentos", path orgId/nome)
   let storageUrl: string | null = null;
@@ -173,18 +203,20 @@ export async function gerarDocumento(
     const storagePath = `${ctx.orgId}/${nomeArquivo}`;
     const { error } = await supabase.storage
       .from("documentos")
-      .upload(storagePath, pdfBytes, {
-        contentType: "application/pdf",
+      .upload(storagePath, arquivoBytes, {
+        contentType: formato === "docx"
+          ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          : "application/pdf",
         upsert: true,
       });
-    if (!error) {
-      const { data: signed } = await supabase.storage
-        .from("documentos")
-        .createSignedUrl(storagePath, 60 * 60 * 24 * 7); // 7 dias
-      storageUrl = signed?.signedUrl ?? null;
-    }
-  } catch {
-    // Falha de storage não impede o registro do documento
+    if (error) throw new Error(`Falha ao armazenar documento: ${error.message}`);
+    const { data: signed, error: signedError } = await supabase.storage
+      .from("documentos")
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
+    if (signedError || !signed?.signedUrl) throw new Error("Não foi possível assinar a URL do documento.");
+    storageUrl = signed.signedUrl;
+  } catch (erro) {
+    throw erro instanceof Error ? erro : new Error("Falha ao persistir documento.");
   }
 
   const [doc] = await db
@@ -207,7 +239,7 @@ export async function gerarDocumento(
     payload: { tipo: solicitacao.tipo, nomeArquivo, storageUrl },
   });
 
-  return { documentoId: doc.id, nomeArquivo, conteudo: conteudo as Record<string, unknown> };
+  return { documentoId: doc.id, nomeArquivo, storageUrl, conteudo: conteudo as Record<string, unknown> };
 }
 
 export async function listarDocumentos(orgId: string, limite = 10) {

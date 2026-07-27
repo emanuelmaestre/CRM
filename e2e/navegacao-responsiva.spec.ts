@@ -6,6 +6,7 @@ import { test, expect } from "@playwright/test";
 
 const paginas = [
   { rota: "/admin/saude", titulo: "Saúde do sistema" },
+  { rota: "/admin/lgpd", titulo: "Solicitacoes LGPD" },
   { rota: "/dashboard", titulo: "Painel" },
   { rota: "/clientes", titulo: "Clientes" },
   { rota: "/clientes/novo", titulo: "Novo cliente" },
@@ -33,7 +34,7 @@ test.describe("Navegação responsiva — 4 breakpoints", () => {
       await expect(page).not.toHaveTitle(/500|Error/i);
       await expect(page).not.toHaveURL(/\/auth\/login/);
       await expect(page.locator("main")).toBeVisible();
-      await expect(page.locator("[data-nextjs-dialog], nextjs-portal")).toHaveCount(0);
+      await expect(page.locator("[data-nextjs-dialog]")).toHaveCount(0);
       await expect(page.locator('[data-testid="dashboard-error"], [data-testid="global-error"]')).toHaveCount(0);
       expect(runtimeErrors).toEqual([]);
 

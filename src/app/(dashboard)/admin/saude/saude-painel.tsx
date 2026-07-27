@@ -21,6 +21,13 @@ function formatarData(value: string | null) {
   return value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "—";
 }
 
+function formatarValorOperacional(value: string) {
+  const data = new Date(value);
+  return Number.isNaN(data.getTime())
+    ? value
+    : new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
+}
+
 function SectionCard({ title, icon: Icon, children }: {
   title: string; icon: React.ElementType; children: React.ReactNode;
 }) {
@@ -130,16 +137,40 @@ function FalhasSection({ items }: { items: PainelSaudeData["falhas"] }) {
   );
 }
 
-function BackupSection() {
+function ProntidaoSection({ items }: { items: PainelSaudeData["prontidao"] }) {
+  const section = saudeConfig.sections.prontidao;
+  const Icon = getIcon(section.icon);
+  return (
+    <SectionCard title={section.title} icon={Icon}>
+      {items.length === 0 ? (
+        <EmptyState illustration="generic" title={section.emptyTitle} description={section.emptyDescription} />
+      ) : (
+        <div className="divide-y divide-border">
+          {items.map((item) => (
+            <article key={item.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.detail}</p>
+              </div>
+              <StatusBadge status={item.status} />
+            </article>
+          ))}
+        </div>
+      )}
+    </SectionCard>
+  );
+}
+
+function BackupSection({ items }: { items: PainelSaudeData["backup"] }) {
   const section = saudeConfig.sections.backup;
   const Icon = getIcon(section.icon);
   return (
     <SectionCard title={section.title} icon={Icon}>
       <div className="divide-y divide-border">
-        {section.rows.map((row) => (
+        {items.map((row) => (
           <div key={row.label} className="flex items-center justify-between gap-4 py-2.5">
             <span className="text-sm text-muted-foreground">{row.label}</span>
-            <span className="text-right text-sm font-medium text-foreground">{row.value}</span>
+            <span className="text-right text-sm font-medium text-foreground">{formatarValorOperacional(row.value)}</span>
           </div>
         ))}
       </div>
@@ -157,7 +188,8 @@ export function SaudePainel({ data }: { data: PainelSaudeData }) {
           <FalhasSection items={data.falhas} />
         </div>
         <JobsSection items={data.jobs} />
-        <BackupSection />
+        <ProntidaoSection items={data.prontidao} />
+        <BackupSection items={data.backup} />
       </motion.div>
     </div>
   );

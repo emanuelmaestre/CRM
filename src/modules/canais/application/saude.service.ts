@@ -103,6 +103,36 @@ const EVENTOS_DE_FALHA = [
   "regua.falha_definitiva",
 ] as const;
 
+const CORE_ENV = [
+  "DATABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "DEFAULT_ORG_ID",
+];
+
+const INNGEST_ENV = ["INNGEST_SIGNING_KEY", "INNGEST_EVENT_KEY"];
+const OPENAI_ENV = ["OPENAI_API_KEY"];
+const STORAGE_BUCKET = "documentos";
+const CANAIS_GO_LIVE = ["mercadolivre", "shopee", "tiktokshop", "olist", "whatsapp"] as const;
+
+function configured(name: string): boolean {
+  const value = process.env[name]?.trim();
+  return Boolean(value && !/^(your-|replace-|changeme|placeholder)/i.test(value));
+}
+
+function readinessFromMissing(id: string, label: string, required: string[], okDetail: string) {
+  const missing = required.filter((name) => !configured(name));
+  return {
+    id,
+    label,
+    status: missing.length === 0 ? "ok" as const : "pendente" as const,
+    detail: missing.length === 0
+      ? okDetail
+      : `Variaveis ausentes: ${missing.join(", ")}`,
+  };
+}
+
 export interface PainelSaudeData {
   conectores: Array<{
     id: string;
@@ -127,10 +157,20 @@ export interface PainelSaudeData {
     mensagem: string;
     createdAt: string;
   }>;
+  prontidao: Array<{
+    id: string;
+    label: string;
+    status: "ok" | "pendente" | "falhou";
+    detail: string;
+  }>;
+  backup: Array<{
+    label: string;
+    value: string;
+  }>;
 }
 
 export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> {
-  const [contas, execucoes, jobsComFalha, eventosComFalha] = await Promise.all([
+  const [contas, execucoes, jobsComFalha, eventosComFalha, ultimoBackup] = await Promise.all([
     db.select({
       id: channelAccount.id,
       tipo: channelAccount.tipo,
@@ -167,6 +207,16 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
       eq(eventoDominio.orgId, orgId),
       inArray(eventoDominio.tipo, [...EVENTOS_DE_FALHA]),
     )).orderBy(desc(eventoDominio.createdAt)).limit(20),
+    db.select({
+      nome: jobRun.nome,
+      status: jobRun.status,
+      erro: jobRun.erro,
+      iniciadoEm: jobRun.iniciadoEm,
+      finalizadoEm: jobRun.finalizadoEm,
+    }).from(jobRun).where(and(
+      eq(jobRun.orgId, orgId),
+      eq(jobRun.nome, "A20-backup-verificacao"),
+    )).orderBy(desc(jobRun.iniciadoEm)).limit(1).then((rows) => rows[0] ?? null),
   ]);
 
   const falhas: PainelSaudeData["falhas"] = [
@@ -189,6 +239,60 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
     }),
   ].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 20);
 
+  const tiposConectados = new Set(contas.filter((item) => item.status === "conectado").map((item) => item.tipo));
+  const tiposCadastrados = new Set(contas.map((item) => item.tipo));
+  const canaisAusentes = CANAIS_GO_LIVE.filter((tipo) => !tiposCadastrados.has(tipo));
+  const canaisNaoConectados = CANAIS_GO_LIVE.filter((tipo) => tiposCadastrados.has(tipo) && !tiposConectados.has(tipo));
+  const jobsRecentes = new Set(execucoes.map((item) => item.nome));
+
+  const prontidao: PainelSaudeData["prontidao"] = [
+    readinessFromMissing("env-core", "Ambiente base", CORE_ENV, "Variaveis essenciais configuradas."),
+    readinessFromMissing("inngest", "Inngest", INNGEST_ENV, "Chaves Inngest presentes para jobs e webhooks internos."),
+    readinessFromMissing("openai", "OpenAI", OPENAI_ENV, "Chave OpenAI presente para IA e documentos executivos."),
+    {
+      id: "external-sends",
+      label: "Envios externos",
+      status: process.env.EXTERNAL_SENDS_ENABLED === "true" ? "ok" : "pendente",
+      detail: process.env.EXTERNAL_SENDS_ENABLED === "true"
+        ? "Disparos externos liberados neste ambiente."
+        : "Bloqueado por seguranca ate homologar canais, opt-in, marca e idempotencia.",
+    },
+    {
+      id: "channel-accounts",
+      label: "Contas de canal",
+      status: canaisAusentes.length === 0 && canaisNaoConectados.length === 0
+        ? "ok"
+        : canaisNaoConectados.length > 0 ? "falhou" : "pendente",
+      detail: [
+        canaisAusentes.length > 0 ? `Ausentes: ${canaisAusentes.join(", ")}` : null,
+        canaisNaoConectados.length > 0 ? `Nao conectados: ${canaisNaoConectados.join(", ")}` : null,
+        canaisAusentes.length === 0 && canaisNaoConectados.length === 0 ? "Canais prioritarios cadastrados e conectados." : null,
+      ].filter(Boolean).join(" · "),
+    },
+    {
+      id: "jobs-operacionais",
+      label: "Jobs operacionais",
+      status: jobsRecentes.has("A18-saude-conectores") && jobsRecentes.has("A24-poll-pedidos") ? "ok" : "pendente",
+      detail: jobsRecentes.has("A18-saude-conectores") && jobsRecentes.has("A24-poll-pedidos")
+        ? "A18 e A24 ja registraram execucao."
+        : "Aguardando execucao observavel de A18-saude-conectores e A24-poll-pedidos.",
+    },
+    {
+      id: "storage-documentos",
+      label: "Storage de documentos",
+      status: "pendente",
+      detail: `Confirmar bucket "${STORAGE_BUCKET}", politicas privadas e URL assinada em ambiente real.`,
+    },
+    {
+      id: "backup-restore",
+      label: "Backup e restore",
+      status: ultimoBackup?.status === "concluido" ? "ok" : "pendente",
+      detail: ultimoBackup
+        ? `Ultimo A20: ${ultimoBackup.status}${ultimoBackup.erro ? ` · ${ultimoBackup.erro}` : ""}`
+        : "Nenhuma execucao de A20-backup-verificacao registrada.",
+    },
+  ];
+
   return {
     conectores: contas.map((item) => ({
       ...item,
@@ -200,5 +304,18 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
       finalizadoEm: item.finalizadoEm?.toISOString() ?? null,
     })),
     falhas,
+    prontidao,
+    backup: [
+      {
+        label: "Ultimo backup automatico",
+        value: ultimoBackup?.finalizadoEm?.toISOString() ?? ultimoBackup?.iniciadoEm.toISOString() ?? "—",
+      },
+      {
+        label: "Ultimo teste de restauracao",
+        value: ultimoBackup?.status === "concluido" ? "Verificar evidencia no RUNBOOK" : "—",
+      },
+      { label: "RPO alvo", value: "24 horas" },
+      { label: "RTO alvo", value: "4 horas" },
+    ],
   };
 }

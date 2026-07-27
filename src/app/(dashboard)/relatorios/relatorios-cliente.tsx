@@ -28,7 +28,7 @@ function formatarBRL(valor: string | number | null | undefined): string {
 }
 
 async function exportarXLSX(dados: RelatorioVendas, totalReceita: number) {
-  const { utils, writeFile } = await import("xlsx");
+  const { default: writeXlsxFile } = await import("write-excel-file");
   const linhas = [
     [reportsConfig.exports.columns[0], reportsConfig.exports.columns[1], reportsConfig.exports.xlsxRevenueColumn, reportsConfig.exports.columns[3]],
     ...dados.porCanal.map((r) => {
@@ -39,10 +39,13 @@ async function exportarXLSX(dados: RelatorioVendas, totalReceita: number) {
     [],
     [reportsConfig.exports.totalLabel, dados.porCanal.reduce((s, r) => s + Number(r.total), 0), totalReceita, "100%"],
   ];
-  const ws = utils.aoa_to_sheet(linhas);
-  const wb = utils.book_new();
-  utils.book_append_sheet(wb, ws, reportsConfig.exports.sheetName);
-  writeFile(wb, `${reportsConfig.exports.filePrefix}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  await writeXlsxFile(
+    linhas.map((linha) => linha.map((value) => ({ value }))),
+    {
+      fileName: `${reportsConfig.exports.filePrefix}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      sheet: reportsConfig.exports.sheetName,
+    },
+  );
 }
 
 async function exportarPDF(dados: RelatorioVendas, totalReceita: number, totalPedidos: number) {

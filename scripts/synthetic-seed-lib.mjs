@@ -111,7 +111,7 @@ function collectIds(catalog) {
     "brands", "users", "channelAccounts", "clients", "clientIdentities", "consents", "tags",
     "segments", "interactions", "products", "stockMovements", "productChannels", "funnelStages",
     "orders", "orderItems", "opportunities", "tasks", "calendarEvents", "conversations", "messages",
-    "clientScores", "productScores", "insights", "auditLogs",
+    "clientScores", "productScores", "campaignSuggestions", "insights", "auditLogs",
   ];
   const ids = [["organization", catalog.organization.id]];
   for (const collection of collections) {
@@ -476,6 +476,25 @@ async function applyCatalog(tx, catalog, anchor) {
         risco_encalhe = excluded.risco_encalhe, dias_sem_venda = excluded.dias_sem_venda,
         capital_parado = excluded.capital_parado, acao_sugerida = excluded.acao_sugerida,
         versao_formula = excluded.versao_formula, calculado_em = excluded.calculado_em
+    `;
+  }
+
+  for (const item of catalog.campaignSuggestions) {
+    await tx`
+      insert into public.sugestao_campanha
+        (id, org_id, titulo, segmento_descricao, oferta, desconto_minimo, status,
+         expirado_em, modelo_usado, prompt_version, criado_em, atualizado_em)
+      values
+        (${item.id}, ${orgId}, ${item.title}, ${item.segment}, ${item.offer},
+         ${item.minimumDiscount}, 'sugerida', ${atOffset(anchor, 30)},
+         'synthetic-no-model', 'synthetic-v1', ${anchor}, ${anchor})
+      on conflict (id) do update set
+        org_id = excluded.org_id, titulo = excluded.titulo,
+        segmento_descricao = excluded.segmento_descricao, oferta = excluded.oferta,
+        desconto_minimo = excluded.desconto_minimo, status = 'sugerida',
+        motivo_rejeicao = null, aprovado_por_id = null,
+        expirado_em = excluded.expirado_em, modelo_usado = excluded.modelo_usado,
+        prompt_version = excluded.prompt_version, atualizado_em = excluded.atualizado_em
     `;
   }
 

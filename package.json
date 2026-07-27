@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:phase-c": "playwright test e2e/relatorios-export.spec.ts e2e/sugestao-aprovacao-disparo.spec.ts",
     "test:e2e:phase-b": "playwright test e2e/importacao-previa.spec.ts e2e/pedidos-consulta.spec.ts e2e/automacoes-historico.spec.ts",
     "test:e2e:phase-a": "playwright test e2e/navegacao-responsiva.spec.ts e2e/auth-perfis.spec.ts e2e/core-crm.spec.ts e2e/operacao-comercial.spec.ts",
     "test:e2e:staging": "node scripts/verify-staging-e2e.mjs",
@@ -18,6 +19,7 @@
     "test:phase-b:integration": "node scripts/test-phase-b-integration.mjs",
     "test:phase-b:gates": "vitest run --config vitest.integration.config.ts",
     "test:phase-b:production": "node scripts/verify-phase-b-production.mjs",
+    "test:phase-c:gates": "vitest run src/test/domain/scoring.test.ts src/test/domain/guardrails-ia.test.ts",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:ci:bootstrap": "node scripts/setup-ci-database.mjs bootstrap",
@@ -49,6 +51,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
+    "docx": "^9.7.1",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.42.2",
@@ -63,7 +66,7 @@
     "react-dom": "19.2.8",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
-    "xlsx": "^0.18.5",
+    "write-excel-file": "^2.3.10",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -81,5 +84,9 @@
     "tailwindcss": "^4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10"
+  },
+  "overrides": {
+    "postcss": "^8.5.10",
+    "sharp": "^0.35.0"
   }
 }

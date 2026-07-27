@@ -85,6 +85,7 @@ const tableExpectations = [
   ["mensagem", catalog.messages.map((item) => item.id)],
   ["score_cliente", catalog.clientScores.map((item) => item.id)],
   ["score_produto", catalog.productScores.map((item) => item.id)],
+  ["sugestao_campanha", catalog.campaignSuggestions.map((item) => item.id)],
   ["insight", catalog.insights.map((item) => item.id)],
   ["audit_log", catalog.auditLogs.map((item) => item.id)],
 ];

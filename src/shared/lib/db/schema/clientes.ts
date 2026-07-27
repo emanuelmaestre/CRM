@@ -18,6 +18,14 @@ export const statusConsentimentoEnum = pgEnum("status_consentimento", [
   "ativo", "revogado",
 ]);
 
+export const lgpdSolicitacaoTipoEnum = pgEnum("lgpd_solicitacao_tipo", [
+  "exportacao", "revogacao", "anonimizacao", "exclusao",
+]);
+
+export const lgpdSolicitacaoStatusEnum = pgEnum("lgpd_solicitacao_status", [
+  "aberta", "em_analise", "concluida", "rejeitada",
+]);
+
 export const cliente = pgTable("cliente", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull().references(() => org.id),
@@ -112,4 +120,24 @@ export const interacao = pgTable("interacao", {
 }, (t) => [
   index("idx_interacao_cliente").on(t.clienteId),
   index("idx_interacao_criado").on(t.createdAt),
+]);
+
+export const lgpdSolicitacao = pgTable("lgpd_solicitacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  clienteId: uuid("cliente_id").notNull().references(() => cliente.id),
+  tipo: lgpdSolicitacaoTipoEnum("tipo").notNull(),
+  status: lgpdSolicitacaoStatusEnum("status").notNull().default("aberta"),
+  motivo: text("motivo"),
+  resultado: jsonb("resultado"),
+  solicitanteId: uuid("solicitante_id").references(() => appUser.id),
+  resolvidoPorId: uuid("resolvido_por_id").references(() => appUser.id),
+  resolvidoEm: timestamp("resolvido_em", { withTimezone: true }),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_lgpd_solicitacao_org").on(t.orgId),
+  index("idx_lgpd_solicitacao_cliente").on(t.clienteId),
+  index("idx_lgpd_solicitacao_status").on(t.status),
+  index("idx_lgpd_solicitacao_criado").on(t.createdAt),
 ]);

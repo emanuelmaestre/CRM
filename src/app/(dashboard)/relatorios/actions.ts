@@ -10,8 +10,10 @@ import { assertPerfil } from "@/shared/lib/crud-factory";
 import { z } from "zod";
 import {
   listarSugestoes, aprovarSugestao, rejeitarSugestao,
-  gerarDocumentoExecutivo, listarInsights, consultarConsumoIA,
+  listarInsights, consultarConsumoIA,
 } from "@/modules/ai/application/ai.service";
+import { gerarDocumento } from "@/modules/documentos/application/documentos.service";
+import { DocumentoExecutivoOutputSchema } from "@/modules/ai/domain/guardrails";
 
 const SugestaoIdSchema = z.string().uuid();
 const MotivoRejeicaoSchema = z.string().trim().min(3).max(500);
@@ -101,15 +103,22 @@ export async function actionGerarDocumentoExecutivo() {
     .where(and(eq(pedido.orgId, ctx.orgId), gte(pedido.createdAt, desde)))
     .groupBy(pedido.canal);
 
-  return gerarDocumentoExecutivo(
-    ctx.orgId,
-    {
+  const documento = await gerarDocumento(ctx, {
+    tipo: "relatorio_executivo",
+    periodo: "últimos 30 dias",
+    dadosKpis: {
       receitaTotal: parseFloat(vendasRow?.receita ?? "0"),
       totalPedidos: Number(vendasRow?.total ?? 0),
       canaisAtivos: canaisRow.length,
       clientesEmRisco: Number(riscosRow?.total ?? 0),
       sugestoesPendentes: sugestoes.length,
-      periodo: "últimos 30 dias",
     },
-  );
+  });
+  const conteudo = DocumentoExecutivoOutputSchema.parse(documento.conteudo);
+  return {
+    ...conteudo,
+    documentoId: documento.documentoId,
+    nomeArquivo: documento.nomeArquivo,
+    storageUrl: documento.storageUrl,
+  };
 }

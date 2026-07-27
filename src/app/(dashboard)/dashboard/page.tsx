@@ -7,6 +7,8 @@ import { BrandChip } from "@/shared/design-system/primitives/BrandChip";
 import brandsConfig from "@/config/brands.json";
 import dashboardConfig from "@/config/dashboard.json";
 import { getIcon } from "@/shared/config/icon-registry";
+import { actionObterDashboardData } from "./actions";
+import type { DashboardData } from "@/modules/relatorios/application/dashboard.service";
 
 /* ── Stagger container ─────────────────────────────────────────── */
 const stagger = {
@@ -19,13 +21,29 @@ const fadeUp = {
   show:   { opacity: 1, y: 0, scale: 1, transition: { duration: 0.24, ease: [0, 0, 0.2, 1] as [number,number,number,number] } },
 };
 
-const REVENUE_BARS = dashboardConfig.revenue.bars;
-const MAX_REVENUE_BAR = Math.max(...REVENUE_BARS);
-const PEAK_REVENUE_BAR_INDEX = REVENUE_BARS.indexOf(MAX_REVENUE_BAR);
 const RevenueIcon = getIcon(dashboardConfig.revenue.icon);
 const CtaIcon = getIcon(dashboardConfig.connectCta.icon);
 const OrderIcon = getIcon(dashboardConfig.recentOrders.icon);
-const KPI_CONFIG = dashboardConfig.kpis.map((kpi) => ({ ...kpi, icon: getIcon(kpi.icon) }));
+const ChannelConnectedIcon = getIcon(dashboardConfig.channels.connectedIcon);
+const ChannelDisconnectedIcon = getIcon(dashboardConfig.channels.disconnectedIcon);
+
+const EMPTY_DASHBOARD: DashboardData = {
+  revenue: {
+    value: dashboardConfig.revenue.value,
+    peakLabel: dashboardConfig.revenue.peakLabel,
+    pendingText: dashboardConfig.revenue.pendingText,
+    bars: dashboardConfig.revenue.bars,
+  },
+  kpis: dashboardConfig.kpis,
+  recentClients: [],
+  recentOrders: [],
+  channels: dashboardConfig.channels.items.map((item) => ({
+    name: item.name,
+    connected: item.connected,
+    status: item.connected ? "conectado" : "desconectado",
+    detail: item.connected ? dashboardConfig.channels.connectedLabel : dashboardConfig.channels.disconnectedLabel,
+  })),
+};
 
 /* ── Card base ─────────────────────────────────────────────────── */
 function Card({ children, className = "", glow, style }: {
@@ -36,13 +54,13 @@ function Card({ children, className = "", glow, style }: {
       variants={fadeUp}
       whileHover={{ y: -1, boxShadow: "0 6px 24px rgba(14,15,19,.09)" }}
       transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
-      className={`rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden relative ${className}`}
+      className={`rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden relative ${glow ? "border-t-2" : ""} ${className}`}
       style={style}
     >
       {glow && (
         <div
-          className="absolute -top-10 -right-10 w-40 h-40 rounded-full opacity-[0.06] pointer-events-none"
-          style={{ background: glow, filter: "blur(30px)" }}
+          className="absolute inset-x-0 top-0 h-0.5 pointer-events-none"
+          style={{ background: glow }}
         />
       )}
       {children}
@@ -51,12 +69,14 @@ function Card({ children, className = "", glow, style }: {
 }
 
 /* ── Animated chart ────────────────────────────────────────────── */
-function RevenueChart() {
+function RevenueChart({ bars, peakLabel }: { bars: number[]; peakLabel: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ref       = useRef(null);
   const inView    = useInView(ref, { once: true });
   const progress  = useRef(0);
   const raf       = useRef<number>(0);
+  const maxRevenueBar = Math.max(...bars, 1);
+  const peakRevenueBarIndex = bars.indexOf(maxRevenueBar);
 
   useEffect(() => {
     if (!inView) return;
@@ -74,15 +94,15 @@ function RevenueChart() {
       ctx.clearRect(0, 0, W, H);
 
       const gap     = 6;
-      const bw      = (W - gap * (REVENUE_BARS.length - 1)) / REVENUE_BARS.length;
+      const bw      = (W - gap * (bars.length - 1)) / bars.length;
       const maxH    = H - 28;
 
-      REVENUE_BARS.forEach((v, i) => {
-        const h  = (v / MAX_REVENUE_BAR) * maxH * ease;
+      bars.forEach((v, i) => {
+        const h  = (v / maxRevenueBar) * maxH * ease;
         const x  = i * (bw + gap);
         const y  = H - h;
         const r  = Math.min(4, bw / 2);
-        const isPeak = i === PEAK_REVENUE_BAR_INDEX;
+        const isPeak = i === peakRevenueBarIndex;
 
         ctx.beginPath();
         ctx.roundRect(x, y, bw, h, [r, r, 2, 2]);
@@ -98,7 +118,7 @@ function RevenueChart() {
 
         // Tooltip on peak
         if (isPeak && ease > 0.85) {
-          const label  = dashboardConfig.revenue.peakLabel;
+          const label  = peakLabel;
           const tw     = ctx.measureText(label).width;
           const tx     = x + bw / 2 - tw / 2 - 10;
           const ty     = y - 30;
@@ -124,7 +144,7 @@ function RevenueChart() {
     };
     raf.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf.current);
-  }, [inView]);
+  }, [bars, inView, maxRevenueBar, peakLabel, peakRevenueBarIndex]);
 
   return (
     <div ref={ref} className="w-full h-[110px]">
@@ -134,7 +154,7 @@ function RevenueChart() {
 }
 
 /* ── Hero: Revenue Tracker ─────────────────────────────────────── */
-function RevenueTracker() {
+function RevenueTracker({ data }: { data: DashboardData["revenue"] }) {
   const [active, setActive] = useState(1);
 
   return (
@@ -164,7 +184,7 @@ function RevenueTracker() {
           {dashboardConfig.revenue.description}
         </p>
 
-        <RevenueChart />
+        <RevenueChart bars={data.bars} peakLabel={data.peakLabel} />
 
         {/* Day pills */}
         <div className="flex gap-1.5 mt-4 mb-5">
@@ -200,10 +220,10 @@ function RevenueTracker() {
             animate={{ opacity: 1, y: 0 }}
             className="text-[36px] font-bold text-foreground leading-none tabular-nums"
           >
-            {dashboardConfig.revenue.value}
+            {data.value}
           </motion.span>
           <span className="text-sm text-muted-foreground pb-1 max-w-[200px] leading-tight">
-            {dashboardConfig.revenue.pendingText}
+            {data.pendingText}
           </span>
         </div>
       </div>
@@ -212,7 +232,7 @@ function RevenueTracker() {
 }
 
 /* ── Recent clients ────────────────────────────────────────────── */
-function RecentClients() {
+function RecentClients({ items }: { items: DashboardData["recentClients"] }) {
   return (
     <Card>
       <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
@@ -226,11 +246,16 @@ function RecentClients() {
         </motion.a>
       </div>
       <div className="p-5 space-y-3">
-        {dashboardConfig.recentClients.items.map((c, i) => {
-          const color = brandsConfig[c.brand as keyof typeof brandsConfig].color;
+        {items.length === 0 && (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Nenhum cliente cadastrado ainda.
+          </p>
+        )}
+        {items.map((c, i) => {
+          const color = c.brand ? brandsConfig[c.brand].color : "var(--muted-foreground)";
           return (
             <motion.div
-              key={c.name}
+              key={c.id}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.04 + 0.08, duration: 0.22, ease: [0, 0, 0.2, 1] }}
@@ -247,13 +272,15 @@ function RecentClients() {
                 <p className="text-sm font-medium text-foreground truncate">{c.name}</p>
                 <p className="text-xs text-muted-foreground">{c.role}</p>
               </div>
-              <BrandChip brand={c.brand as "karzi" | "wuwu"} />
+              {c.brand && <BrandChip brand={c.brand} />}
             </motion.div>
           );
         })}
       </div>
       <div className="px-5 py-3 border-t border-border">
-        <p className="text-[11px] text-muted-foreground text-center">{dashboardConfig.recentClients.footer}</p>
+        <p className="text-[11px] text-muted-foreground text-center">
+          {items.length > 0 ? "Dados reais da base de clientes" : "Aguardando importacao ou cadastro"}
+        </p>
       </div>
     </Card>
   );
@@ -331,7 +358,7 @@ function KpiCard({ label, value, sub, icon: Icon, accent }: {
 }
 
 /* ── Recent orders ─────────────────────────────────────────────── */
-function RecentOrders() {
+function RecentOrders({ items }: { items: DashboardData["recentOrders"] }) {
 
   return (
     <Card>
@@ -346,8 +373,13 @@ function RecentOrders() {
         </motion.a>
       </div>
       <div>
-        {dashboardConfig.recentOrders.items.map((o, i) => {
-          const color = brandsConfig[o.brand as keyof typeof brandsConfig].color;
+        {items.length === 0 && (
+          <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+            Nenhum pedido recebido ainda.
+          </p>
+        )}
+        {items.map((o, i) => {
+          const color = brandsConfig[o.brand].color;
           return (
             <motion.div
               key={o.id}
@@ -356,6 +388,7 @@ function RecentOrders() {
               transition={{ delay: i * 0.06 + 0.1 }}
               whileHover={{ backgroundColor: "rgba(0,0,0,0.02)", x: 1 }}
               className="flex items-center gap-3 px-5 py-3.5 border-b border-border last:border-0 cursor-pointer"
+              onClick={() => { window.location.href = o.href; }}
             >
               <div
                 className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
@@ -369,7 +402,7 @@ function RecentOrders() {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-semibold tabular-nums text-foreground">{o.value}</p>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${dashboardConfig.recentOrders.statusStyles[o.status as keyof typeof dashboardConfig.recentOrders.statusStyles]}`}>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${dashboardConfig.recentOrders.statusStyles[o.status as keyof typeof dashboardConfig.recentOrders.statusStyles] ?? "bg-muted text-muted-foreground"}`}>
                   {o.status}
                 </span>
               </div>
@@ -378,7 +411,9 @@ function RecentOrders() {
         })}
       </div>
       <div className="px-5 py-3 border-t border-border">
-        <p className="text-[11px] text-muted-foreground text-center">{dashboardConfig.recentOrders.footer}</p>
+        <p className="text-[11px] text-muted-foreground text-center">
+          {items.length > 0 ? "Dados reais de pedidos normalizados" : "Aguardando integracao dos canais"}
+        </p>
       </div>
     </Card>
   );
@@ -386,7 +421,65 @@ function RecentOrders() {
 
 /* ── Channels ──────────────────────────────────────────────────── */
 /* ── Page ──────────────────────────────────────────────────────── */
+function Channels({ items }: { items: DashboardData["channels"] }) {
+  return (
+    <Card>
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <span className="text-sm font-bold text-foreground">{dashboardConfig.channels.title}</span>
+        <motion.a
+          href={dashboardConfig.channels.href}
+          whileHover={{ x: 2 }}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+        >
+          {dashboardConfig.channels.action} <ArrowRight size={11} />
+        </motion.a>
+      </div>
+      <div className="divide-y divide-border">
+        {items.map((item) => {
+          const Icon = item.connected ? ChannelConnectedIcon : ChannelDisconnectedIcon;
+          return (
+            <div key={`${item.name}-${item.detail}`} className="flex items-center gap-3 px-5 py-3">
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                item.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
+              }`}>
+                <Icon size={14} strokeWidth={1.75} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{item.detail}</p>
+              </div>
+              <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                item.connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
+              }`}>
+                {item.connected ? dashboardConfig.channels.connectedLabel : dashboardConfig.channels.disconnectedLabel}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 export default function DashboardPage() {
+  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    actionObterDashboardData()
+      .then((result) => {
+        setData(result);
+        setLoadError(null);
+      })
+      .catch((error) => {
+        setLoadError(error instanceof Error ? error.message : "Nao foi possivel carregar o painel.");
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const kpis = data.kpis.map((kpi) => ({ ...kpi, icon: getIcon(kpi.icon) }));
+
   return (
     <motion.div
       variants={stagger}
@@ -394,14 +487,24 @@ export default function DashboardPage() {
       animate="show"
     >
       {/* Layout 62 / 38 — título vive dentro do hero card, igual ao TWISTY */}
+      {loadError && (
+        <div className="mb-4 rounded-xl border border-[#C21820]/20 bg-[#C21820]/10 px-4 py-3 text-sm text-[#C21820]">
+          {loadError}
+        </div>
+      )}
+      {loading && (
+        <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          Carregando dados reais do painel...
+        </div>
+      )}
       <div className="grid grid-cols-1 xl:grid-cols-[62%_1fr] gap-5">
 
         {/* LEFT */}
         <div className="flex flex-col gap-5">
-          <RevenueTracker />
+          <RevenueTracker data={data.revenue} />
 
-          <div className="grid grid-cols-2 gap-5">
-            <RecentClients />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <RecentClients items={data.recentClients} />
             <ConnectCta />
           </div>
         </div>
@@ -409,12 +512,13 @@ export default function DashboardPage() {
         {/* RIGHT */}
         <div className="flex flex-col gap-5">
           <div className="grid grid-cols-2 gap-4">
-            {KPI_CONFIG.map((kpi) => (
+            {kpis.map((kpi) => (
               <KpiCard key={kpi.label} {...kpi} />
             ))}
           </div>
 
-          <RecentOrders />
+          <RecentOrders items={data.recentOrders} />
+          <Channels items={data.channels} />
         </div>
       </div>
     </motion.div>

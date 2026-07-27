@@ -1,22 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Sora } from "next/font/google";
 import { ThemeProvider } from "@/shared/lib/theme-provider";
 import { MotionProvider } from "@/shared/providers/motion-provider";
 import appConfig from "@/config/app.json";
 import { Toaster } from "sonner";
 import "./globals.css";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const sora = Sora({
-  subsets: ["latin"],
-  variable: "--font-sora",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: { default: appConfig.fullName, template: appConfig.metadata.titleTemplate },
@@ -43,7 +30,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang={appConfig.locale} className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
+    <html lang={appConfig.locale} suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <MotionProvider>

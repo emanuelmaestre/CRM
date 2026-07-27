@@ -22,11 +22,14 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
       .values({
         orgId, clienteId,
         churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0,
-        explicacao: "Sem compras concluídas ainda.", versaoFormula: "v1",
+        explicacao: "Sem compras concluídas ainda.", versaoFormula: "v2",
       })
       .onConflictDoUpdate({
         target: scoreCliente.clienteId,
-        set: { churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0, calculadoEm: new Date() },
+        set: {
+          churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0,
+          explicacao: "Sem compras concluídas ainda.", versaoFormula: "v2", calculadoEm: new Date(),
+        },
       });
     return;
   }
@@ -81,6 +84,7 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
         rfmValor: resultado.rfmValor.toFixed(2),
         proximaCompraEstimada,
         explicacao: resultado.explicacao,
+        versaoFormula: resultado.versaoFormula,
         calculadoEm: new Date(),
       },
     });
@@ -153,6 +157,7 @@ export async function recalcularScoreProduto(orgId: string, produtoId: string): 
         diasSemVenda,
         capitalParado: resultado.capitalParado.toFixed(2),
         acaoSugerida: resultado.acaoSugerida,
+        versaoFormula: resultado.versaoFormula,
         calculadoEm: new Date(),
       },
     });

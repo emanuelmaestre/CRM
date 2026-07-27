@@ -1,0 +1,23 @@
+{
+  "phase": "C",
+  "updatedAt": "2026-07-23",
+  "overallStatus": "pronto_para_homologacao_externa",
+  "internalGates": [
+    { "id": "scoring_versionado", "status": "concluido", "evidence": "RFM v2, encalhe v2 e desconto mínimo v1 com golden set sintético" },
+    { "id": "structured_outputs", "status": "concluido", "evidence": "JSON Schema estrito, Zod e uma tentativa de reparo" },
+    { "id": "llm_audit_cost", "status": "concluido", "evidence": "llm_run por tentativa e preço GPT-4.1 corrigido" },
+    { "id": "human_approval", "status": "concluido", "evidence": "transição atômica, restrita a sugestão pendente e não expirada" },
+    { "id": "no_autonomous_send", "status": "concluido", "evidence": "aprovação altera estado; não existe consumidor que dispare campanha automaticamente" },
+    { "id": "persisted_documents", "status": "concluido", "evidence": "PDF/DOCX gerados, armazenados e registrados; falha de storage não produz registro falso" },
+    { "id": "reports_exports", "status": "concluido", "evidence": "CSV, XLSX e PDF cobertos no E2E autenticado" },
+    { "id": "phase_c_ci", "status": "concluido", "evidence": "gates unitários e E2E em quatro breakpoints integrados ao CI" }
+  ],
+  "externalHomologation": [
+    { "id": "openai_production", "status": "pendente_externo", "requires": ["OPENAI_API_KEY", "execução real de A15/A16", "llm_run real"] },
+    { "id": "inngest_production", "status": "pendente_externo", "requires": ["INNGEST_SIGNING_KEY", "INNGEST_EVENT_KEY", "sincronização do endpoint"] },
+    { "id": "historical_calibration", "status": "pendente_externo", "requires": ["histórico real anonimizado", "aceite do gestor sobre faixas de score"] },
+    { "id": "storage_documentos", "status": "pendente_externo", "requires": ["bucket documentos", "políticas e download real"] },
+    { "id": "backup_restore", "status": "pendente_externo", "requires": ["backup do provedor", "ensaio documentado de restauração RPO/RTO"] },
+    { "id": "training_go_live", "status": "pendente_externo", "requires": ["treinamento", "aceite do checklist de go-live"] }
+  ]
+}

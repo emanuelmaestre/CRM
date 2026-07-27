@@ -39,8 +39,7 @@ export const A15_insightsFunil = inngest.createFunction(
       };
     });
 
-    await step.run("gerar-insight", () => gerarInsightFunil(orgId, dadosAgregados as Record<string, unknown>));
-
-    return { gerado: true };
+    const resultado = await step.run("gerar-insight", () => gerarInsightFunil(orgId, dadosAgregados as Record<string, unknown>));
+    return resultado;
   }
 );

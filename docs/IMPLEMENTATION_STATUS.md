@@ -21,7 +21,7 @@ até a homologação real dos conectores, do isolamento entre marcas e dos dispa
 | Réguas e automações | pronta para homologação externa | seis gates aprovados; outbound real permanece bloqueado |
 | Inbox unificado | parcial | WhatsApp, ML e TikTok possuem ingestão; faltam eventos reais e homologação oficial por marketplace |
 | Observabilidade | produção bloqueada | painel, A18 e A24 prontos; `/api/inngest` falha sem as chaves de produção |
-| IA e lapidação (Fase C) | pendente | fora do escopo da Fase B |
+| IA e lapidação (Fase C) | pronta para homologação externa | gates internos em `fase-c-dod.json`; faltam credenciais, calibração histórica, storage, restore e aceite operacional |
 
 ## Evidências de 23/07/2026
 
@@ -59,3 +59,12 @@ A Fase B só pode ser marcada como concluída após:
 4. conferir baixa e saldo remoto ponta a ponta por `estoque.sincronizado`;
 5. homologar mensagens/perguntas oficiais dos marketplaces;
 6. executar outbound aprovado sem duplicação, mantendo os seis gates ativos.
+
+## Evidências internas da Fase C
+
+- Scoring RFM v2, encalhe v2 com tendência e desconto mínimo v1 possuem fórmula versionada e golden set sintético.
+- A integração OpenAI usa Structured Outputs com JSON Schema estrito, validação Zod, uma tentativa de reparo e auditoria por tentativa em `llm_run`.
+- Aprovação e rejeição são transições atômicas; sugestões expiradas ou já decididas são recusadas.
+- Documento executivo é persistido em PDF ou DOCX; falha no Storage não cria evidência falsa de documento.
+- Tipos, lint, 123 testes, build com 37 rotas, migrations, seed idempotente e 32 cenários RLS foram aprovados localmente.
+- O E2E autenticado da Fase C foi integrado ao CI em quatro breakpoints e aguarda execução no ambiente com credenciais E2E.

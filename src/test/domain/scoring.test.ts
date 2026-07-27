@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { calcularScoreCliente } from "@/modules/scoring/domain/rfm";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
+import { calcularDescontoMinimo } from "@/modules/scoring/domain/desconto-minimo";
+import goldenSet from "@/test/fixtures/phase-c-scoring-goldenset.json";
 
 describe("Scoring RFM — fórmulas auditáveis (Camada A, sem IA)", () => {
   it("cliente sem compras há muito tempo tem churn_risk alto", () => {
@@ -71,5 +73,31 @@ describe("Scoring Encalhe — fórmulas auditáveis (Camada A, sem IA)", () => {
     const r = calcularScoreProduto({ diasSemVenda: 999, giroMensalMedio: 0, saldoAtual: 1000, custoUnitario: 100 });
     expect(r.riscoEncalhe).toBeGreaterThanOrEqual(0);
     expect(r.riscoEncalhe).toBeLessThanOrEqual(100);
+  });
+
+  it("agrava queda de tendência e identifica a fórmula v2", () => {
+    const estavel = calcularScoreProduto({ diasSemVenda: 15, giroMensalMedio: 4, saldoAtual: 10, custoUnitario: 10, tendenciaVendasPercentual: 0 });
+    const queda = calcularScoreProduto({ diasSemVenda: 15, giroMensalMedio: 4, saldoAtual: 10, custoUnitario: 10, tendenciaVendasPercentual: -60 });
+    expect(queda.riscoEncalhe).toBeGreaterThan(estavel.riscoEncalhe);
+    expect(queda.versaoFormula).toBe("v2");
+  });
+});
+
+describe("Desconto mínimo e calibração sintética", () => {
+  it("nunca ultrapassa o limite de margem", () => {
+    const r = calcularDescontoMinimo({
+      precoAtual: 100, custoUnitario: 60, margemMinimaPercentual: 20,
+      conversaoSemDesconto: 0.02, conversaoComDesconto: 0.04, descontoHistoricoPercentual: 30,
+    });
+    expect(r.descontoRecomendadoPercentual).toBeLessThanOrEqual(r.descontoMaximoPelaMargemPercentual);
+    expect(r.descontoMaximoPelaMargemPercentual).toBe(25);
+  });
+
+  it("mantém o golden set dentro das faixas esperadas", () => {
+    for (const caso of goldenSet.casos) {
+      const resultado = calcularScoreCliente(caso.entrada);
+      expect(resultado.churnRisk, caso.nome).toBeGreaterThanOrEqual(caso.churnMinimo);
+      expect(resultado.churnRisk, caso.nome).toBeLessThanOrEqual(caso.churnMaximo);
+    }
   });
 });

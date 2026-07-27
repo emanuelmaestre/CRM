@@ -26,6 +26,12 @@
       "emptyTitle": "Nenhuma falha definitiva",
       "emptyDescription": "Jobs que esgotaram todas as tentativas aparecem aqui para reprocessamento."
     },
+    "prontidao": {
+      "title": "Prontidão para Go-live",
+      "icon": "ShieldCheck",
+      "emptyTitle": "Sem verificações de prontidão",
+      "emptyDescription": "Os gates de produção aparecerão aqui."
+    },
     "backup": {
       "title": "Backup e Integridade",
       "icon": "Shield",
@@ -42,6 +48,7 @@
     "degradado": { "label": "Degradado", "color": "#B57A00" },
     "desconectado": { "label": "Desconectado", "color": "#C21820" },
     "ok": { "label": "OK", "color": "#1F8A4C" },
+    "pendente": { "label": "Pendente", "color": "#B57A00" },
     "falhou": { "label": "Falhou", "color": "#C21820" },
     "rodando": { "label": "Rodando", "color": "#2563EB" }
   },

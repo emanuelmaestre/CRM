@@ -19,6 +19,7 @@ export default async function ClienteDetalhePage({ params }: { params: Promise<{
     <Cliente360
       initialData={data}
       canArchive={ctx.perfil === "admin" || ctx.perfil === "gestor"}
+      canManageLgpd={ctx.perfil === "admin" || ctx.perfil === "gestor"}
     />
   );
 }

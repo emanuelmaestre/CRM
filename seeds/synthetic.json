@@ -137,6 +137,12 @@
     { "id": "91000000-0000-4000-8000-000000000001", "product": "karzi_wallet", "stagnationRisk": 72, "daysWithoutSale": 38, "idleCapital": "152.00", "suggestedAction": "Campanha sintética de giro." },
     { "id": "91000000-0000-4000-8000-000000000002", "product": "wuwu_case", "stagnationRisk": 55, "daysWithoutSale": 22, "idleCapital": "198.00", "suggestedAction": "Oferta fictícia em conjunto." }
   ],
+  "campaignSuggestions": [
+    { "id": "91500000-0000-4000-8000-000000000001", "title": "Reativação sintética A", "segment": "Clientes sintéticos em risco de churn", "offer": "Frete grátis em pedido elegível", "minimumDiscount": "0.00" },
+    { "id": "91500000-0000-4000-8000-000000000002", "title": "Reativação sintética B", "segment": "Clientes sintéticos sem compra recente", "offer": "Benefício de retorno controlado", "minimumDiscount": "5.00" },
+    { "id": "91500000-0000-4000-8000-000000000003", "title": "Reativação sintética C", "segment": "Clientes sintéticos com histórico recorrente", "offer": "Condição especial sujeita à aprovação", "minimumDiscount": "5.00" },
+    { "id": "91500000-0000-4000-8000-000000000004", "title": "Reativação sintética D", "segment": "Clientes sintéticos inativos", "offer": "Oferta de homologação sem envio externo", "minimumDiscount": "0.00" }
+  ],
   "insights": [
     { "id": "92000000-0000-4000-8000-000000000001", "type": "funil", "title": "Insight sintético de conversão", "content": "O canal manual possui uma oportunidade de melhoria nesta massa fictícia.", "sourceNumbers": { "orders": 6, "synthetic": true }, "confidence": "0.820", "validDays": 30 },
     { "id": "92000000-0000-4000-8000-000000000002", "type": "estoque", "title": "Insight sintético de estoque", "content": "A carteira KARZI está abaixo do estoque mínimo na demonstração.", "sourceNumbers": { "sku": "SYN-KAR-002", "synthetic": true }, "confidence": "0.910", "validDays": 30 }

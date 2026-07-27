@@ -54,6 +54,7 @@ export type DomainEventType =
   | "notificacao.interna"
   | "lgpd.anonimizacao_concluida"
   | "backup.executado"
+  | "backup.integridade_verificada"
   | "backup.falhou";
 
 export interface DomainEvent {

@@ -85,6 +85,9 @@ jobs:
       - name: Phase B automation gates integration tests
         run: npm run test:phase-b:gates
 
+      - name: Phase C scoring, guardrails and approval gates
+        run: npm run test:phase-c:gates
+
   build:
     name: Build check
     runs-on: ubuntu-latest
@@ -199,6 +202,9 @@ jobs:
 
       - name: Validate authenticated Phase B routes and import preview
         run: npm run test:e2e:phase-b
+
+      - name: Validate authenticated Phase C reports and human approval
+        run: npm run test:e2e:phase-c
 
       - name: Preserve Playwright diagnostics
         if: failure()

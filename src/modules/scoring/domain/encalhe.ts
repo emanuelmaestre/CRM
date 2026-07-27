@@ -3,6 +3,7 @@ export interface DadosEncalhe {
   giroMensalMedio: number;
   saldoAtual: number;
   custoUnitario: number;
+  tendenciaVendasPercentual?: number;
 }
 
 export interface ResultadoScoreProduto {
@@ -12,7 +13,7 @@ export interface ResultadoScoreProduto {
   versaoFormula: string;
 }
 
-const VERSAO_FORMULA = "v1";
+const VERSAO_FORMULA = "v2";
 const LIMITE_DIAS_PARADO = 30;
 
 export function calcularScoreProduto(dados: DadosEncalhe): ResultadoScoreProduto {
@@ -23,8 +24,14 @@ export function calcularScoreProduto(dados: DadosEncalhe): ResultadoScoreProduto
 
   // Agrava se giro baixo
   const fatorGiro = dados.giroMensalMedio < 1 ? 40 : dados.giroMensalMedio < 5 ? 20 : 0;
+  const fatorTendencia = dados.tendenciaVendasPercentual == null
+    ? 0
+    : dados.tendenciaVendasPercentual <= -50 ? 20
+    : dados.tendenciaVendasPercentual <= -20 ? 10
+    : dados.tendenciaVendasPercentual >= 20 ? -10
+    : 0;
 
-  const riscoEncalhe = Math.min(100, riscoBase + fatorGiro);
+  const riscoEncalhe = Math.max(0, Math.min(100, riscoBase + fatorGiro + fatorTendencia));
 
   let acaoSugerida = "Monitorar";
   if (riscoEncalhe >= 80) acaoSugerida = `Promoção urgente — R$ ${capitalParado.toFixed(2)} parado`;

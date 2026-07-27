@@ -7,7 +7,7 @@ import { emitirEvento } from "@/shared/events";
 export const A20_backupVerificacao = inngest.createFunction(
   {
     id: "A20-backup-verificacao",
-    name: "A20 — Backup diário e verificação de integridade",
+    name: "A20 — Verificação diária de integridade do banco",
     concurrency: { limit: 1 },
     triggers: [{ cron: "0 4 * * *" }],
   },
@@ -28,7 +28,7 @@ export const A20_backupVerificacao = inngest.createFunction(
       }
     });
 
-    const tipoEvento = integridadeOk.ok ? "backup.executado" : "backup.falhou";
+    const tipoEvento = integridadeOk.ok ? "backup.integridade_verificada" : "backup.falhou";
 
     await step.run("emitir-evento-backup", () =>
       emitirEvento({
@@ -42,7 +42,7 @@ export const A20_backupVerificacao = inngest.createFunction(
           erro: "erro" in integridadeOk ? integridadeOk.erro : null,
           // Supabase gerencia backups automáticos; este job verifica a conectividade
           // e registra na audit_log para o RUNBOOK (RPO 24h / RTO 4h)
-          nota: "Backup gerenciado pelo Supabase (diário automático). Este job verifica conectividade e registra o evento.",
+          nota: "Este job comprova conectividade e leitura. Backup e restauração exigem evidência externa do provedor.",
         },
       })
     );

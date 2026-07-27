@@ -3,8 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Archive, Check, Pencil, X } from "lucide-react";
-import { actionArquivarCliente, actionAtualizarCliente } from "../actions";
+import { ArrowLeft, Archive, Check, Download, Pencil, ShieldOff, X } from "lucide-react";
+import {
+  actionArquivarCliente,
+  actionAtualizarCliente,
+  actionExportarDadosCliente,
+  actionRevogarConsentimento,
+} from "../actions";
 import pagesConfig from "@/config/pages.json";
 
 const copy = pagesConfig.clientes.detail;
@@ -25,7 +30,15 @@ function formatDate(value: Date | string | null | undefined) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
-export function Cliente360({ initialData, canArchive }: { initialData: ClienteData; canArchive: boolean }) {
+export function Cliente360({
+  initialData,
+  canArchive,
+  canManageLgpd,
+}: {
+  initialData: ClienteData;
+  canArchive: boolean;
+  canManageLgpd: boolean;
+}) {
   const router = useRouter();
   const [data, setData] = useState(initialData);
   const [editing, setEditing] = useState(false);
@@ -58,6 +71,44 @@ export function Cliente360({ initialData, canArchive }: { initialData: ClienteDa
     });
   }
 
+  function exportarDados() {
+    startTransition(async () => {
+      try {
+        const pacote = await actionExportarDadosCliente(cliente.id);
+        const blob = new Blob([JSON.stringify(pacote, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `lgpd-cliente-${cliente.id}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        toast.success("Pacote LGPD gerado.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Erro ao exportar dados do cliente.");
+      }
+    });
+  }
+
+  function revogar(consentimentoId: string) {
+    if (!confirm("Revogar este consentimento? Execucoes futuras ligadas a ele serao bloqueadas.")) return;
+    startTransition(async () => {
+      try {
+        const atualizado = await actionRevogarConsentimento(consentimentoId, cliente.id);
+        setData((current) => ({
+          ...current,
+          consentimentos: current.consentimentos.map((item) =>
+            item.id === consentimentoId ? { ...item, status: atualizado.status } : item
+          ),
+        }));
+        toast.success("Consentimento revogado.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Erro ao revogar consentimento.");
+      }
+    });
+  }
+
   return (
     <div className="space-y-6" data-testid="cliente-360">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -72,6 +123,11 @@ export function Cliente360({ initialData, canArchive }: { initialData: ClienteDa
           {canArchive && (
             <button type="button" disabled={pending} onClick={archive} className="min-h-11 px-4 rounded-xl border border-destructive/30 text-sm font-medium text-destructive inline-flex items-center gap-2 disabled:opacity-50">
               <Archive size={16} /> {copy.actions.archive}
+            </button>
+          )}
+          {canManageLgpd && (
+            <button type="button" disabled={pending} onClick={exportarDados} className="min-h-11 px-4 rounded-xl border border-border text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50">
+              <Download size={16} /> Exportar LGPD
             </button>
           )}
         </div>
@@ -120,7 +176,22 @@ export function Cliente360({ initialData, canArchive }: { initialData: ClienteDa
           </section>
           <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
             <h2 className="font-semibold px-5 py-4 border-b border-border">{copy.consentsTitle}</h2>
-            <div className="divide-y divide-border">{data.consentimentos.map((item) => <div key={item.id} className="px-5 py-3 flex items-center justify-between gap-3"><span className="text-sm">{item.finalidade} · {item.canal}</span><span className="text-xs font-semibold">{item.status}</span></div>)}{data.consentimentos.length === 0 && <p className="p-5 text-sm text-muted-foreground">{copy.consentsEmpty}</p>}</div>
+            <div className="divide-y divide-border">
+              {data.consentimentos.map((item) => (
+                <div key={item.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                  <span className="text-sm">{item.finalidade} · {item.canal}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-semibold ${item.status === "ativo" ? "text-[#1F8A4C]" : "text-muted-foreground"}`}>{item.status}</span>
+                    {canManageLgpd && item.status === "ativo" && (
+                      <button type="button" disabled={pending} onClick={() => revogar(item.id)} title="Revogar consentimento" className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50">
+                        <ShieldOff size={15} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {data.consentimentos.length === 0 && <p className="p-5 text-sm text-muted-foreground">{copy.consentsEmpty}</p>}
+            </div>
           </section>
         </div>
       </div>

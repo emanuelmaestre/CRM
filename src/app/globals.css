@@ -36,6 +36,8 @@
   --info: #2563EB;
 
   /* Fontes */
+  --font-inter: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-sora: "Sora", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-sans: "Inter", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sora);
 
