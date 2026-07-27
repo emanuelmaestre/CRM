@@ -1,7 +1,7 @@
 import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import {
-  scoreCliente, scoreProduto, pedido, pedidoItem,
+  scoreCliente, scoreProduto, scoreHistorico, pedido, pedidoItem,
   estoqueSaldo, produto,
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
@@ -31,6 +31,12 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
           explicacao: "Sem compras concluídas ainda.", versaoFormula: "v2", calculadoEm: new Date(),
         },
       });
+    await db.insert(scoreHistorico).values({
+      orgId, tipo: "cliente", entidadeId: clienteId,
+      valorPrincipal: 50,
+      snapshot: { churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0, explicacao: "Sem compras concluídas ainda." },
+      versaoFormula: "v2",
+    });
     return;
   }
 
@@ -88,6 +94,20 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
         calculadoEm: new Date(),
       },
     });
+
+  await db.insert(scoreHistorico).values({
+    orgId, tipo: "cliente", entidadeId: clienteId,
+    valorPrincipal: resultado.churnRisk,
+    snapshot: {
+      churnRisk: resultado.churnRisk,
+      rfmRecencia: resultado.rfmRecencia,
+      rfmFrequencia: resultado.rfmFrequencia,
+      rfmValor: resultado.rfmValor,
+      proximaCompraEstimadaDias: resultado.proximaCompraEstimadaDias,
+      explicacao: resultado.explicacao,
+    },
+    versaoFormula: resultado.versaoFormula,
+  });
 
   if (scoreAnterior !== null && Math.abs(scoreAnterior - resultado.churnRisk) >= 10) {
     await emitirEvento({
@@ -162,6 +182,18 @@ export async function recalcularScoreProduto(orgId: string, produtoId: string): 
       },
     });
 
+  await db.insert(scoreHistorico).values({
+    orgId, tipo: "produto", entidadeId: produtoId,
+    valorPrincipal: resultado.riscoEncalhe,
+    snapshot: {
+      riscoEncalhe: resultado.riscoEncalhe,
+      diasSemVenda,
+      capitalParado: resultado.capitalParado,
+      acaoSugerida: resultado.acaoSugerida,
+    },
+    versaoFormula: resultado.versaoFormula,
+  });
+
   if (resultado.riscoEncalhe >= 70) {
     await emitirEvento({
       tipo: "estoque.parado_detectado",
@@ -171,4 +203,22 @@ export async function recalcularScoreProduto(orgId: string, produtoId: string): 
       payload: { sku: produtoRow.sku, riscoEncalhe: resultado.riscoEncalhe, capitalParado: resultado.capitalParado },
     });
   }
+}
+
+export async function obterHistoricoScore(
+  orgId: string,
+  tipo: "cliente" | "produto",
+  entidadeId: string,
+  limite = 30,
+) {
+  return db
+    .select()
+    .from(scoreHistorico)
+    .where(and(
+      eq(scoreHistorico.orgId, orgId),
+      eq(scoreHistorico.tipo, tipo),
+      eq(scoreHistorico.entidadeId, entidadeId),
+    ))
+    .orderBy(desc(scoreHistorico.calculadoEm))
+    .limit(limite);
 }

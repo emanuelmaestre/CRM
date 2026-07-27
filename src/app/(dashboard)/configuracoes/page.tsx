@@ -3,20 +3,24 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { Link2, Plus } from "lucide-react";
+import { Link2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { SectionCard as Card } from "@/shared/design-system/primitives/SectionCard";
+import { fadeUp, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { MLConnectSection } from "./MLConnectSection";
 import settingsConfig from "@/config/settings.json";
 import permissionsConfig from "@/config/permissions.json";
 import {
+  actionAtualizarContaCanal,
   actionAtualizarUsuario,
   actionCriarContaCanal,
   actionListarConfiguracaoCanais,
   actionListarProdutosConfiguracao,
   actionListarUsuarios,
+  actionRemoverContaCanal,
   actionSalvarMapeamentoCanal,
 } from "./actions";
 import type { Perfil } from "@/shared/lib/auth/authorization";
@@ -28,37 +32,6 @@ const ExternalIcon = getIcon(settingsConfig.openAction.icon);
 type UsuarioResumo = Awaited<ReturnType<typeof actionListarUsuarios>>[number];
 type CanalConfiguracao = Awaited<ReturnType<typeof actionListarConfiguracaoCanais>>[number];
 type ProdutoConfiguracao = Awaited<ReturnType<typeof actionListarProdutosConfiguracao>>[number];
-
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.04 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 5, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.24, ease: [0, 0, 0.2, 1] as [number,number,number,number] } },
-};
-
-function Card({ title, icon: Icon, children }: {
-  title: string; icon: React.ElementType; children: React.ReactNode;
-}) {
-  return (
-    <motion.div
-      variants={fadeUp}
-      whileHover={{ y: -1, boxShadow: "0 6px 24px rgba(14,15,19,.09)" }}
-      transition={{ duration: 0.18 }}
-      className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
-    >
-      <div className="flex items-center gap-2.5 px-6 py-4 border-b border-border">
-        <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
-          <Icon size={14} strokeWidth={1.75} />
-        </div>
-        <h2 className="text-[15px] font-bold text-foreground">{title}</h2>
-      </div>
-      <div className="p-6">{children}</div>
-    </motion.div>
-  );
-}
 
 function Row({ label, value, accent }: { label: string; value?: string; accent?: string }) {
   return (
@@ -103,7 +76,144 @@ function CanalStatusBadge({ status, pronto }: { status: CanalConfiguracao["statu
   return <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${tone}`}>{label}</span>;
 }
 
-function CanaisOperacionais({ items, loading }: { items: CanalConfiguracao[]; loading: boolean }) {
+function ContaCanalEditForm({ item, onCancel, onSaved }: {
+  item: CanalConfiguracao; onCancel: () => void; onSaved: () => void;
+}) {
+  const [nome, setNome] = useState(item.contaNome ?? "");
+  const [externalAccountId, setExternalAccountId] = useState(item.externalAccountId ?? "");
+  const [pending, startTransition] = useTransition();
+
+  function salvar() {
+    startTransition(async () => {
+      try {
+        await actionAtualizarContaCanal({
+          channelAccountId: item.channelAccountId,
+          nome,
+          externalAccountId: externalAccountId || undefined,
+        });
+        toast.success("Conta de canal atualizada.");
+        onSaved();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Nao foi possivel atualizar a conta.");
+      }
+    });
+  }
+
+  return (
+    <div className="mt-3 space-y-2 rounded-lg border border-border bg-card p-3">
+      <input
+        value={nome}
+        onChange={(event) => setNome(event.target.value)}
+        placeholder="Nome interno da conta"
+        className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-xs"
+      />
+      <input
+        value={externalAccountId}
+        onChange={(event) => setExternalAccountId(event.target.value)}
+        placeholder="ID externo, seller ou shop"
+        className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-xs"
+      />
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onCancel} disabled={pending} className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-muted-foreground disabled:opacity-50">
+          <X size={12} /> Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={salvar}
+          disabled={pending || nome.trim().length < 2}
+          className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
+          style={{ background: "var(--gradient-signature)" }}
+        >
+          Salvar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ContaCanalCard({ item, onChanged }: { item: CanalConfiguracao; onChanged: () => void }) {
+  const [editando, setEditando] = useState(false);
+  const [removendo, startRemoverTransition] = useTransition();
+
+  function remover() {
+    const channelAccountId = item.channelAccountId;
+    if (!channelAccountId) return;
+    if (!window.confirm(`Remover a conta "${item.contaNome}" de ${item.canalLabel}? Essa acao nao pode ser desfeita.`)) return;
+    startRemoverTransition(async () => {
+      try {
+        await actionRemoverContaCanal({ channelAccountId });
+        toast.success("Conta de canal removida.");
+        onChanged();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Nao foi possivel remover a conta.");
+      }
+    });
+  }
+
+  return (
+    <article className="rounded-xl border border-border bg-background/60 p-4">
+      <div className="flex items-start gap-3">
+        <ChannelLogo canal={item.canalLabel} size="sm" variant="logo" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-sm text-foreground">{item.canalLabel}</p>
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase" style={{
+              background: item.brand === "karzi" ? "#E3131B18" : "#9B30D918",
+              color: item.brand === "karzi" ? "#E3131B" : "#9B30D9",
+            }}>
+              {item.brandLabel}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {item.contaNome ?? "Conta nao cadastrada"} · {item.skusMapeados} SKU{item.skusMapeados === 1 ? "" : "s"} · {formatarData(item.ultimaVerificacao)}
+          </p>
+          {item.envAusentes.length > 0 && (
+            <p className="mt-2 line-clamp-2 text-xs text-[#B57A00]">
+              Variaveis ausentes: {item.envAusentes.join(", ")}
+            </p>
+          )}
+          {item.ultimoErro && <p className="mt-2 line-clamp-2 text-xs text-destructive">{item.ultimoErro}</p>}
+          {!item.pronto && item.envAusentes.length === 0 && item.skusMapeados === 0 && item.canal !== "whatsapp" && (
+            <p className="mt-2 text-xs text-muted-foreground">Mapeie SKUs para liberar sincronizacao de estoque.</p>
+          )}
+          {editando && item.channelAccountId && (
+            <ContaCanalEditForm
+              item={item}
+              onCancel={() => setEditando(false)}
+              onSaved={() => { setEditando(false); onChanged(); }}
+            />
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <CanalStatusBadge status={item.status} pronto={item.pronto} />
+          {item.channelAccountId && !editando && (
+            <div className="flex gap-1">
+              <button
+                type="button"
+                aria-label={`Editar conta de ${item.canalLabel}`}
+                onClick={() => setEditando(true)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+              >
+                <Pencil size={13} />
+              </button>
+              <button
+                type="button"
+                aria-label={`Remover conta de ${item.canalLabel}`}
+                onClick={remover}
+                disabled={removendo}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function CanaisOperacionais({ items, loading, onChanged }: { items: CanalConfiguracao[]; loading: boolean; onChanged: () => void }) {
   return (
     <div>
       {loading && <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>}
@@ -111,37 +221,7 @@ function CanaisOperacionais({ items, loading }: { items: CanalConfiguracao[]; lo
         <EmptyState illustration="generic" title="Sem marcas ativas" description="Cadastre marcas para configurar canais." />
       )}
       <div className="grid gap-3 lg:grid-cols-2">
-        {items.map((item) => (
-          <article key={item.id} className="rounded-xl border border-border bg-background/60 p-4">
-            <div className="flex items-start gap-3">
-              <ChannelLogo canal={item.canalLabel} size="sm" variant="logo" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold text-sm text-foreground">{item.canalLabel}</p>
-                  <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase" style={{
-                    background: item.brand === "karzi" ? "#E3131B18" : "#9B30D918",
-                    color: item.brand === "karzi" ? "#E3131B" : "#9B30D9",
-                  }}>
-                    {item.brandLabel}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {item.contaNome ?? "Conta nao cadastrada"} · {item.skusMapeados} SKU{item.skusMapeados === 1 ? "" : "s"} · {formatarData(item.ultimaVerificacao)}
-                </p>
-                {item.envAusentes.length > 0 && (
-                  <p className="mt-2 line-clamp-2 text-xs text-[#B57A00]">
-                    Variaveis ausentes: {item.envAusentes.join(", ")}
-                  </p>
-                )}
-                {item.ultimoErro && <p className="mt-2 line-clamp-2 text-xs text-destructive">{item.ultimoErro}</p>}
-                {!item.pronto && item.envAusentes.length === 0 && item.skusMapeados === 0 && item.canal !== "whatsapp" && (
-                  <p className="mt-2 text-xs text-muted-foreground">Mapeie SKUs para liberar sincronizacao de estoque.</p>
-                )}
-              </div>
-              <CanalStatusBadge status={item.status} pronto={item.pronto} />
-            </div>
-          </article>
-        ))}
+        {items.map((item) => <ContaCanalCard key={item.id} item={item} onChanged={onChanged} />)}
       </div>
     </div>
   );
@@ -407,7 +487,7 @@ export default function ConfiguracoesPage() {
 
         {/* Canais */}
         <Card title="Canais por marca" icon={getIcon("Wifi")}>
-          <CanaisOperacionais items={canais} loading={carregandoCanais} />
+          <CanaisOperacionais items={canais} loading={carregandoCanais} onChanged={recarregarCanaisEProdutos} />
         </Card>
 
         <div className="grid gap-5 xl:grid-cols-2">
@@ -473,6 +553,21 @@ export default function ConfiguracoesPage() {
               style={{ background: "var(--gradient-signature)" }}
             >
               Abrir LGPD
+            </Link>
+          </div>
+        </Card>
+
+        <Card title="Consumo de IA" icon={getIcon("Cpu")}>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Custo, runs e corte suave de orcamento mensal por finalidade.
+            </p>
+            <Link
+              href="/admin/consumo-ia"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white"
+              style={{ background: "var(--gradient-signature)" }}
+            >
+              Abrir consumo
             </Link>
           </div>
         </Card>

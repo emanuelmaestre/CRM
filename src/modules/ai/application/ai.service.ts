@@ -1,4 +1,4 @@
-import { eq, and, gte, sum, desc, gt } from "drizzle-orm";
+import { eq, and, gte, sum, desc, gt, count, sql } from "drizzle-orm";
 import type { ZodType } from "zod";
 import { db } from "@/shared/lib/db";
 import { llmRun, sugestaoCampanha, insight, scoreCliente } from "@/shared/lib/db/schema";
@@ -352,5 +352,48 @@ export async function consultarConsumoIA(orgId: string) {
     orcamentoUsd: orcamentoMensal,
     percentual: Math.round((consumoAtual / orcamentoMensal) * 100),
     alerta: consumoAtual >= alerta90 ? "90%" : consumoAtual >= alerta70 ? "70%" : null,
+  };
+}
+
+export async function obterConsumoDetalhado(orgId: string) {
+  const resumo = await consultarConsumoIA(orgId);
+  const inicio = startOfMonth(new Date());
+
+  const porFinalidade = await db
+    .select({
+      finalidade: llmRun.finalidade,
+      custo: sum(llmRun.custoUsd),
+      runs: count(llmRun.id),
+    })
+    .from(llmRun)
+    .where(and(eq(llmRun.orgId, orgId), gte(llmRun.createdAt, inicio)))
+    .groupBy(llmRun.finalidade)
+    .orderBy(desc(sum(llmRun.custoUsd)));
+
+  const totalRuns = await db
+    .select({ total: count(llmRun.id), sucesso: count(sql`case when ${llmRun.sucesso} = 'true' then 1 end`) })
+    .from(llmRun)
+    .where(and(eq(llmRun.orgId, orgId), gte(llmRun.createdAt, inicio)));
+
+  const recentes = await db
+    .select()
+    .from(llmRun)
+    .where(eq(llmRun.orgId, orgId))
+    .orderBy(desc(llmRun.createdAt))
+    .limit(30);
+
+  const total = totalRuns[0]?.total ?? 0;
+  const sucesso = totalRuns[0]?.sucesso ?? 0;
+
+  return {
+    ...resumo,
+    totalRuns: total,
+    taxaSucesso: total > 0 ? Math.round((sucesso / total) * 100) : 100,
+    porFinalidade: porFinalidade.map((item) => ({
+      finalidade: item.finalidade,
+      custoUsd: parseFloat(item.custo ?? "0"),
+      runs: item.runs,
+    })),
+    recentes,
   };
 }

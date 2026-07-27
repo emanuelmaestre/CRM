@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { FileText, Check } from "lucide-react";
 import { WizardLayout, WizardActions } from "@/shared/design-system/primitives/WizardLayout";
 import wizardsConfig from "@/config/wizards.json";
 import { previewImportacao, confirmarImportacao } from "./actions";
@@ -92,10 +93,10 @@ function StepUpload({
         }`}
       >
         <div
-          className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+          className="w-12 h-12 rounded-2xl flex items-center justify-center text-white"
           style={{ background: "var(--gradient-signature)", opacity: 0.85 }}
         >
-          📄
+          <FileText size={22} strokeWidth={1.75} />
         </div>
         <p className="text-sm font-medium text-foreground text-center">{cfg.labels.dropzone}</p>
         <p className="text-xs text-muted-foreground">{cfg.labels.fileType}</p>
@@ -215,10 +216,10 @@ function Sucesso({ aceitos }: { aceitos: number }) {
   return (
     <div className="fixed inset-0 z-[200] bg-background flex flex-col items-center justify-center gap-6 px-6">
       <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
+        className="w-16 h-16 rounded-2xl flex items-center justify-center text-white"
         style={{ background: "var(--gradient-signature)" }}
       >
-        ✓
+        <Check size={32} strokeWidth={2.25} />
       </div>
       <div className="text-center">
         <h2 className="text-xl font-bold text-foreground">{cfg.labels.successTitle}</h2>

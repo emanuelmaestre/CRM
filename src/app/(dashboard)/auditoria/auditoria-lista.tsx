@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import pagesConfig from "@/config/pages.json";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { actionListarAuditoria } from "./actions";
 
 const copy = pagesConfig.auditoria;
@@ -82,7 +83,7 @@ export function AuditoriaLista() {
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
-        {loading ? <p className="p-10 text-center text-sm text-muted-foreground">{copy.loading}</p> : items.length === 0 ? <EmptyState illustration="generic" title={copy.empty.title} description={copy.empty.description} /> : <>
+        {loading ? <div className="divide-y divide-border"><SkeletonRow /><SkeletonRow /><SkeletonRow /></div> : items.length === 0 ? <EmptyState illustration="generic" title={copy.empty.title} description={copy.empty.description} /> : <>
           <div className="divide-y divide-border lg:hidden">{items.map((item) => <article key={item.id} className="space-y-2 p-4" data-testid={`audit-${item.id}`}><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{item.entidade} · {item.acao}</p><p className="mt-1 font-mono text-[11px] text-muted-foreground">{item.entidadeId}</p></div><span className="text-xs text-muted-foreground">{formatarData(item.createdAt)}</span></div><p className="text-sm text-muted-foreground">{item.autorNome ?? copy.labels.system} · {copy.origins[item.autorTipo as keyof typeof copy.origins] ?? item.autorTipo}</p><Detalhes item={item} /></article>)}</div>
           <div className="hidden overflow-x-auto lg:block"><table className="w-full text-sm"><thead><tr className="border-b border-border text-left text-muted-foreground">{copy.columns.map((column) => <th key={column} className="px-4 py-3 font-medium">{column}</th>)}</tr></thead><tbody>{items.map((item) => <tr key={item.id} className="border-b border-border align-top last:border-0" data-testid={`audit-${item.id}`}><td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">{formatarData(item.createdAt)}</td><td className="px-4 py-3"><p className="font-medium">{item.autorNome ?? copy.labels.system}</p><p className="text-xs text-muted-foreground">{copy.origins[item.autorTipo as keyof typeof copy.origins] ?? item.autorTipo}</p></td><td className="px-4 py-3"><p className="font-medium">{item.entidade}</p><p className="max-w-36 truncate font-mono text-[10px] text-muted-foreground">{item.entidadeId}</p></td><td className="px-4 py-3 font-medium">{item.acao}</td><td className="px-4 py-3 text-muted-foreground">{item.brandNome ?? "—"}</td><td className="px-4 py-1"><Detalhes item={item} /></td></tr>)}</tbody></table></div>
         </>}

@@ -1,27 +1,30 @@
 "use client";
 
 import {
-  Users, Package, Filter, Inbox,
-  BarChart2, AlertTriangle, CircleOff, LucideIcon,
+  Users, Package, Filter, Inbox, MessageSquare, ClipboardList,
+  BarChart2, AlertTriangle, CircleOff, ShieldOff, LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../cn";
 
 const icons: Record<string, LucideIcon> = {
-  clients:  Users,
-  products: Package,
-  funnel:   Filter,
-  inbox:    Inbox,
-  reports:  BarChart2,
-  alerts:   AlertTriangle,
-  generic:  CircleOff,
+  clients:      Users,
+  products:     Package,
+  funnel:       Filter,
+  inbox:        Inbox,
+  conversation: MessageSquare,
+  tasks:        ClipboardList,
+  reports:      BarChart2,
+  alerts:       AlertTriangle,
+  blocked:      ShieldOff,
+  generic:      CircleOff,
 };
 
 export type IllustrationType = keyof typeof icons;
 
 interface EmptyStateProps {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   action?: React.ReactNode;
   illustration?: IllustrationType;
   className?: string;

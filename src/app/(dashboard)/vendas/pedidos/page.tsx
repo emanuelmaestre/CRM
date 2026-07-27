@@ -5,6 +5,8 @@ import { VendasTabs } from "../vendas-tabs";
 import { db } from "@/shared/lib/db";
 import { brand, cliente, pedido } from "@/shared/lib/db/schema";
 import { requirePageAuth } from "@/shared/lib/auth/session";
+import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
+import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 
 export const metadata = { title: pagesConfig.pedidos.metadataTitle };
 
@@ -39,28 +41,44 @@ export default async function PedidosPage() {
   return (
     <>
       <VendasTabs active="pedidos" />
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">{pagesConfig.pedidos.title}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{pagesConfig.pedidos.description}</p>
-      </header>
+      <PageHeader
+        title={pagesConfig.pedidos.title}
+        description={pagesConfig.pedidos.description}
+        className="mb-6"
+      />
 
-      <section className="overflow-hidden rounded-2xl border border-border bg-card" data-testid="pedidos-lista">
+      <section
+        className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
+        data-testid="pedidos-lista"
+      >
         {pedidos.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">{pagesConfig.pedidos.empty}</p>
+          <EmptyState illustration="reports" title={pagesConfig.pedidos.empty} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[880px] text-left text-sm">
               <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-                <tr>{pagesConfig.pedidos.columns.map((coluna) => <th key={coluna} className="px-4 py-3 font-semibold">{coluna}</th>)}</tr>
+                <tr>
+                  {pagesConfig.pedidos.columns.map((coluna) => (
+                    <th key={coluna} className="px-4 py-3 font-semibold">{coluna}</th>
+                  ))}
+                </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {pedidos.map((item) => (
-                  <tr key={item.id} className="hover:bg-muted/30">
-                    <td className="px-4 py-3 font-semibold"><Link className="hover:underline" href={`/vendas/pedidos/${item.id}`}>#{item.providerOrderId ?? item.id.slice(0, 8)}</Link></td>
+                  <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3 font-semibold">
+                      <Link className="hover:underline" href={`/vendas/pedidos/${item.id}`}>
+                        #{item.providerOrderId ?? item.id.slice(0, 8)}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">{item.clienteNome}</td>
                     <td className="px-4 py-3">{item.brandNome}</td>
                     <td className="px-4 py-3 capitalize">{item.canal}</td>
-                    <td className="px-4 py-3"><span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold capitalize">{item.status.replaceAll("_", " ")}</span></td>
+                    <td className="px-4 py-3">
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold capitalize">
+                        {item.status.replaceAll("_", " ")}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 tabular-nums">{moeda(item.total)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{dataHora(item.createdAt)}</td>
                   </tr>

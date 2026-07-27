@@ -10,7 +10,9 @@
     { "id": "no_autonomous_send", "status": "concluido", "evidence": "aprovação altera estado; não existe consumidor que dispare campanha automaticamente" },
     { "id": "persisted_documents", "status": "concluido", "evidence": "PDF/DOCX gerados, armazenados e registrados; falha de storage não produz registro falso" },
     { "id": "reports_exports", "status": "concluido", "evidence": "CSV, XLSX e PDF cobertos no E2E autenticado" },
-    { "id": "phase_c_ci", "status": "concluido", "evidence": "gates unitários e E2E em quatro breakpoints integrados ao CI" }
+    { "id": "phase_c_ci", "status": "concluido", "evidence": "gates unitários e E2E em quatro breakpoints integrados ao CI" },
+    { "id": "score_historico", "status": "concluido", "evidence": "tabela score_historico (migration 0015) grava série temporal a cada recálculo; teste de integração score-historico.integration.test.ts confere acumulação sem sobrescrita" },
+    { "id": "ui_consistency_pass", "status": "concluido", "evidence": "auditoria completa de responsividade/UI/UX/motion; fadeUp/stagger centralizados em motion-variants.ts; páginas pedidos/pedidos[id]/automacoes/sem-permissao alinhadas ao design system; coach marks no dashboard; painel dedicado /admin/consumo-ia" }
   ],
   "externalHomologation": [
     { "id": "openai_production", "status": "pendente_externo", "requires": ["OPENAI_API_KEY", "execução real de A15/A16", "llm_run real"] },
@@ -18,6 +20,6 @@
     { "id": "historical_calibration", "status": "pendente_externo", "requires": ["histórico real anonimizado", "aceite do gestor sobre faixas de score"] },
     { "id": "storage_documentos", "status": "pendente_externo", "requires": ["bucket documentos", "políticas e download real"] },
     { "id": "backup_restore", "status": "pendente_externo", "requires": ["backup do provedor", "ensaio documentado de restauração RPO/RTO"] },
-    { "id": "training_go_live", "status": "pendente_externo", "requires": ["treinamento", "aceite do checklist de go-live"] }
+    { "id": "training_go_live", "status": "pendente_externo", "requires": ["sessão ao vivo com o cliente", "gravação do vídeo", "aceite do checklist de go-live"], "evidence": "Roteiro pronto em docs/TREINAMENTO.md; falta apenas agendar a sessão e gravar." }
   ]
 }

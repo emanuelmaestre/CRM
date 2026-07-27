@@ -34,6 +34,88 @@
       },
       "churnMinimo": 75,
       "churnMaximo": 100
+    },
+    {
+      "nome": "cliente_alto_valor_esporadico",
+      "entrada": {
+        "diasDesdeUltimaCompra": 45,
+        "totalCompras": 2,
+        "valorTotalGasto": 8000,
+        "intervalMedioEntrCompras": 40
+      },
+      "churnMinimo": 40,
+      "churnMaximo": 70
+    },
+    {
+      "nome": "cliente_primeira_compra_recente",
+      "entrada": {
+        "diasDesdeUltimaCompra": 1,
+        "totalCompras": 1,
+        "valorTotalGasto": 150,
+        "intervalMedioEntrCompras": null
+      },
+      "churnMinimo": 15,
+      "churnMaximo": 40
+    },
+    {
+      "nome": "cliente_meio_termo_recorrente",
+      "entrada": {
+        "diasDesdeUltimaCompra": 30,
+        "totalCompras": 6,
+        "valorTotalGasto": 1200,
+        "intervalMedioEntrCompras": 20
+      },
+      "churnMinimo": 25,
+      "churnMaximo": 55
+    },
+    {
+      "nome": "cliente_comprou_hoje",
+      "entrada": {
+        "diasDesdeUltimaCompra": 0,
+        "totalCompras": 1,
+        "valorTotalGasto": 200,
+        "intervalMedioEntrCompras": null
+      },
+      "churnMinimo": 15,
+      "churnMaximo": 40
+    }
+  ],
+  "casosProduto": [
+    {
+      "nome": "produto_giro_saudavel",
+      "entrada": {
+        "diasSemVenda": 5,
+        "giroMensalMedio": 15,
+        "saldoAtual": 20,
+        "custoUnitario": 10,
+        "tendenciaVendasPercentual": 10
+      },
+      "riscoMinimo": 0,
+      "riscoMaximo": 25
+    },
+    {
+      "nome": "produto_giro_baixo_parado",
+      "entrada": {
+        "diasSemVenda": 45,
+        "giroMensalMedio": 0.5,
+        "saldoAtual": 50,
+        "custoUnitario": 20,
+        "tendenciaVendasPercentual": -60
+      },
+      "riscoMinimo": 90,
+      "riscoMaximo": 100
+    },
+    {
+      "nome": "produto_giro_medio_tendencia_queda_leve",
+      "entrada": {
+        "diasSemVenda": 20,
+        "giroMensalMedio": 3,
+        "saldoAtual": 30,
+        "custoUnitario": 15,
+        "tendenciaVendasPercentual": -25
+      },
+      "riscoMinimo": 55,
+      "riscoMaximo": 85
     }
   ]
 }

@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { atualizarUsuario, listarUsuarios } from "@/modules/usuarios/application/usuarios.service";
 import {
+  atualizarContaCanalConfiguracao,
   criarContaCanalConfiguracao,
   listarConfiguracaoCanais,
+  removerContaCanalConfiguracao,
   salvarMapeamentoCanalConfiguracao,
 } from "@/modules/canais/application/configuracao-canais.service";
 import { listarProdutos } from "@/modules/estoque/application/estoque.service";
@@ -39,6 +41,21 @@ export async function actionCriarContaCanal(input: unknown) {
   const result = await criarContaCanalConfiguracao(await getCrudContext(), input);
   revalidatePath("/configuracoes");
   revalidatePath("/admin/saude");
+  return result;
+}
+
+export async function actionAtualizarContaCanal(input: unknown) {
+  const result = await atualizarContaCanalConfiguracao(await getCrudContext(), input);
+  revalidatePath("/configuracoes");
+  revalidatePath("/admin/saude");
+  return result;
+}
+
+export async function actionRemoverContaCanal(input: unknown) {
+  const result = await removerContaCanalConfiguracao(await getCrudContext(), input);
+  revalidatePath("/configuracoes");
+  revalidatePath("/admin/saude");
+  revalidatePath("/estoque");
   return result;
 }
 

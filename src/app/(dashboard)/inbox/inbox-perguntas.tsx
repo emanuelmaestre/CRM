@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HelpCircle, Send, CheckCircle2, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 
 type Plataforma = "mercadolivre" | "shopee" | "tiktok";
@@ -43,15 +44,6 @@ function urgency(h: number, status: Status): "urgent" | "normal" | "ok" {
 }
 
 const URGENCY_COLOR = copy.urgencyColors;
-
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.035 } },
-};
-const cardVariant = {
-  hidden: { opacity: 0, x: -8 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.22, ease: [0, 0, 0.2, 1] as [number,number,number,number] } },
-};
 
 /* ── Platform Logo ─────────────────────────────────────── */
 function PlatLogo({ p, h = 20 }: { p: Plataforma; h?: number }) {

@@ -4,6 +4,10 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion, useInView, AnimatePresence } from "framer-motion";
 import { ArrowRight, Bot, Filter, ShieldAlert, TrendingUp, UserRound } from "lucide-react";
 import { BrandChip } from "@/shared/design-system/primitives/BrandChip";
+import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { SkeletonCard } from "@/shared/design-system/primitives/Skeleton";
+import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
+import { fadeUp, stagger } from "@/shared/design-system/motion-variants";
 import brandsConfig from "@/config/brands.json";
 import dashboardConfig from "@/config/dashboard.json";
 import { getIcon } from "@/shared/config/icon-registry";
@@ -13,16 +17,28 @@ import type {
   DashboardFilters,
 } from "@/modules/relatorios/application/dashboard.service";
 
-/* ── Stagger container ─────────────────────────────────────────── */
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.04 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 6, scale: 0.97 },
-  show:   { opacity: 1, y: 0, scale: 1, transition: { duration: 0.24, ease: [0, 0, 0.2, 1] as [number,number,number,number] } },
-};
+const DASHBOARD_TOUR_STEPS: CoachMarkStep[] = [
+  {
+    target: '[data-coachmark="dashboard-filters"]',
+    title: "Filtre por período, marca e canal",
+    description: "Todo o painel — receita, funil, IA — respeita esses filtros em tempo real.",
+  },
+  {
+    target: '[data-coachmark="dashboard-revenue"]',
+    title: "Receita e curva de vendas",
+    description: "Dados reais do banco, não simulados. Clique nos dias para ver o detalhe.",
+  },
+  {
+    target: '[data-coachmark="dashboard-kpis"]',
+    title: "Indicadores rápidos",
+    description: "KPIs configuráveis por marca — acompanhe o essencial sem sair do painel.",
+  },
+  {
+    target: '[data-coachmark="dashboard-ai"]',
+    title: "Consumo de IA",
+    description: "Custo, runs e taxa de sucesso do mês. Veja o detalhe em Configurações → Consumo de IA.",
+  },
+];
 
 const RevenueIcon = getIcon(dashboardConfig.revenue.icon);
 const CtaIcon = getIcon(dashboardConfig.connectCta.icon);
@@ -65,8 +81,8 @@ const EMPTY_DASHBOARD: DashboardData = {
 };
 
 /* ── Card base ─────────────────────────────────────────────────── */
-function Card({ children, className = "", glow, style }: {
-  children: React.ReactNode; className?: string; glow?: string; style?: CSSProperties;
+function Card({ children, className = "", glow, style, coachmark }: {
+  children: React.ReactNode; className?: string; glow?: string; style?: CSSProperties; coachmark?: string;
 }) {
   return (
     <motion.div
@@ -75,6 +91,7 @@ function Card({ children, className = "", glow, style }: {
       transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
       className={`rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden relative ${glow ? "border-t-2" : ""} ${className}`}
       style={style}
+      data-coachmark={coachmark}
     >
       {glow && (
         <div
@@ -177,7 +194,7 @@ function RevenueTracker({ data }: { data: DashboardData["revenue"] }) {
   const [active, setActive] = useState(1);
 
   return (
-    <Card glow="#9B30D9">
+    <Card glow="#9B30D9" coachmark="dashboard-revenue">
       <div className="p-6">
         <div className="flex items-start justify-between mb-1">
           <div className="flex items-center gap-3">
@@ -266,9 +283,7 @@ function RecentClients({ items }: { items: DashboardData["recentClients"] }) {
       </div>
       <div className="p-5 space-y-3">
         {items.length === 0 && (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Nenhum cliente cadastrado ainda.
-          </p>
+          <EmptyState illustration="clients" title="Nenhum cliente cadastrado ainda." className="py-6" />
         )}
         {items.map((c, i) => {
           const color = c.brand ? brandsConfig[c.brand].color : "var(--muted-foreground)";
@@ -390,7 +405,7 @@ function DashboardFiltersBar({
   const selectClass = "h-10 rounded-xl border border-border bg-card px-3 text-sm font-medium text-foreground outline-none transition focus:border-foreground";
 
   return (
-    <Card className="mb-5">
+    <Card className="mb-5" coachmark="dashboard-filters">
       <div className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
@@ -429,7 +444,7 @@ function ChannelPerformance({ items }: { items: DashboardData["channelPerformanc
         <span className="text-sm font-bold text-foreground">Conversao por canal</span>
       </div>
       <div className="divide-y divide-border">
-        {items.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted-foreground">Sem pedidos no filtro atual.</p>}
+        {items.length === 0 && <EmptyState illustration="reports" title="Sem pedidos no filtro atual." className="py-8" />}
         {items.map((item) => (
           <div key={item.channel} className="grid grid-cols-[1fr_auto] gap-3 px-5 py-3">
             <div className="min-w-0">
@@ -457,7 +472,7 @@ function SellerPerformance({ items }: { items: DashboardData["sellerPerformance"
         <span className="text-sm font-bold text-foreground">Responsaveis do funil</span>
       </div>
       <div className="divide-y divide-border">
-        {items.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted-foreground">Sem oportunidades no filtro atual.</p>}
+        {items.length === 0 && <EmptyState illustration="funnel" title="Sem oportunidades no filtro atual." className="py-8" />}
         {items.map((item) => (
           <div key={item.id} className="px-5 py-3">
             <div className="flex items-center justify-between gap-3">
@@ -483,7 +498,7 @@ function RuleBlocksAndAi({ blocks, ai }: { blocks: DashboardData["ruleBlocks"]; 
           <span className="text-sm font-bold text-foreground">Bloqueios de reguas</span>
         </div>
         <div className="divide-y divide-border">
-          {blocks.length === 0 && <p className="px-5 py-8 text-center text-sm text-muted-foreground">Nenhum bloqueio no periodo.</p>}
+          {blocks.length === 0 && <EmptyState illustration="alerts" title="Nenhum bloqueio no periodo." className="py-8" />}
           {blocks.map((item) => (
             <div key={item.gate} className="px-5 py-3">
               <div className="flex items-center justify-between gap-3">
@@ -495,7 +510,7 @@ function RuleBlocksAndAi({ blocks, ai }: { blocks: DashboardData["ruleBlocks"]; 
           ))}
         </div>
       </Card>
-      <Card>
+      <Card coachmark="dashboard-ai">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#9B30D9]/10 text-[#9B30D9]">
             <Bot size={15} strokeWidth={1.8} />
@@ -539,9 +554,7 @@ function RecentOrders({ items }: { items: DashboardData["recentOrders"] }) {
       </div>
       <div>
         {items.length === 0 && (
-          <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-            Nenhum pedido recebido ainda.
-          </p>
+          <EmptyState illustration="reports" title="Nenhum pedido recebido ainda." className="py-10" />
         )}
         {items.map((o, i) => {
           const color = brandsConfig[o.brand].color;
@@ -660,15 +673,11 @@ export default function DashboardPage() {
       initial="hidden"
       animate="show"
     >
+      {!loading && <CoachMarks storageKey="crm-leo:coachmarks:dashboard:v1" steps={DASHBOARD_TOUR_STEPS} />}
       {/* Layout 62 / 38 — título vive dentro do hero card, igual ao TWISTY */}
       {loadError && (
         <div className="mb-4 rounded-xl border border-[#C21820]/20 bg-[#C21820]/10 px-4 py-3 text-sm text-[#C21820]">
           {loadError}
-        </div>
-      )}
-      {loading && (
-        <div className="mb-4 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          Carregando dados reais do painel...
         </div>
       )}
       <DashboardFiltersBar
@@ -677,6 +686,25 @@ export default function DashboardPage() {
         onChange={handleFilterChange}
         loading={loading}
       />
+      {loading && data === EMPTY_DASHBOARD ? (
+        <div className="grid grid-cols-1 xl:grid-cols-[62%_1fr] gap-5">
+          <div className="flex flex-col gap-5">
+            <SkeletonCard />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          </div>
+          <div className="flex flex-col gap-5">
+            <div className="grid grid-cols-2 gap-4">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+            <SkeletonCard />
+          </div>
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-1 xl:grid-cols-[62%_1fr] gap-5">
 
         {/* LEFT */}
@@ -691,7 +719,7 @@ export default function DashboardPage() {
 
         {/* RIGHT */}
         <div className="flex flex-col gap-5">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4" data-coachmark="dashboard-kpis">
             {kpis.map((kpi) => (
               <KpiCard key={kpi.label} {...kpi} />
             ))}
@@ -708,6 +736,8 @@ export default function DashboardPage() {
       <div className="mt-5">
         <RuleBlocksAndAi blocks={data.ruleBlocks} ai={data.aiUsage} />
       </div>
+      </>
+      )}
     </motion.div>
   );
 }

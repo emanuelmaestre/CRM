@@ -62,6 +62,13 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
   - bloqueios de reguas por gate/motivo;
   - consumo de IA por custo, runs e taxa de sucesso;
   - observacao explicita de que pedido ainda nao guarda vendedor direto, entao o painel usa funil por responsavel.
+- Configuracoes de canais ganhou edicao e remocao de `channel_account` com regra de impacto (item 3 da secao de lacunas):
+  - `atualizarContaCanalConfiguracao` edita nome/ID externo com auditoria antes/depois;
+  - `removerContaCanalConfiguracao` bloqueia exclusao quando existem mapeamentos de SKU, pedidos historicos ou conversas de inbox vinculados a conta, com mensagem explicita do impedimento;
+  - exclusao sem dependencias remove a conta e registra auditoria `delete`;
+  - UI em `/configuracoes` ganhou botoes de editar (form inline) e remover (com confirmacao) por conta cadastrada;
+  - perfil `vendedor` é bloqueado nas duas operacoes via `assertPerfil`.
+- Painel `/admin/saude` ganhou botao "Verificar agora" que dispara `verificarSaudeConectores` sob demanda (server action com `assertPerfil admin/gestor`), sem depender do agendamento do Inngest (que segue bloqueado por credenciais). Cobre a lacuna "execucao real de saude() dos providers conectados" no nivel de codigo; o resultado real do healthcheck ainda depende das credenciais/contas de cada provider.
 
 ## Verificacoes executadas
 

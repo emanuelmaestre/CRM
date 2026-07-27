@@ -5,6 +5,8 @@ import { Download, Plus, ShieldCheck, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { SectionCard } from "@/shared/design-system/primitives/SectionCard";
+import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import {
   actionAnonimizarSolicitacaoLgpd,
   actionConcluirExportacaoLgpd,
@@ -161,14 +163,8 @@ export default function AdminLgpdPage() {
       />
 
       <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <section className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]">
-          <div className="flex items-center gap-2.5 border-b border-border px-6 py-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <Plus size={15} />
-            </div>
-            <h2 className="text-[15px] font-bold text-foreground">Abrir solicitacao</h2>
-          </div>
-          <div className="grid gap-3 p-6">
+        <SectionCard title="Abrir solicitacao" icon={Plus}>
+          <div className="grid gap-3">
             <select
               value={clienteId}
               onChange={(event) => setClienteId(event.target.value)}
@@ -205,23 +201,16 @@ export default function AdminLgpdPage() {
               <ShieldCheck size={15} /> Registrar
             </button>
           </div>
-        </section>
+        </SectionCard>
 
-        <section className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]">
-          <div className="flex items-center gap-2.5 border-b border-border px-6 py-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <ShieldCheck size={15} />
-            </div>
-            <h2 className="text-[15px] font-bold text-foreground">Fila LGPD</h2>
-          </div>
-          <div className="p-6">
+        <SectionCard title="Fila LGPD" icon={ShieldCheck}>
             {!lgpdDisponivel && (
               <div className="mb-4 rounded-xl border border-[#B57A00]/30 bg-[#B57A00]/10 px-4 py-3 text-sm text-[#B57A00]">
                 Migration LGPD 0014 ainda nao foi aplicada no banco conectado. A tela esta pronta, mas a fila fica bloqueada ate a aplicacao controlada da migration.
               </div>
             )}
             {loading ? (
-              <p className="text-sm text-muted-foreground">Carregando...</p>
+              <div className="-mx-6 -my-6 divide-y divide-border"><SkeletonRow /><SkeletonRow /><SkeletonRow /></div>
             ) : solicitacoes.length === 0 ? (
               <EmptyState illustration="generic" title="Nenhuma solicitacao" description="Solicitacoes LGPD abertas aparecerao aqui." />
             ) : (
@@ -303,8 +292,7 @@ export default function AdminLgpdPage() {
                 })}
               </div>
             )}
-          </div>
-        </section>
+        </SectionCard>
       </div>
     </div>
   );

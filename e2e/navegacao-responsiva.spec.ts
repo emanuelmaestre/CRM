@@ -7,6 +7,7 @@ import { test, expect } from "@playwright/test";
 const paginas = [
   { rota: "/admin/saude", titulo: "Saúde do sistema" },
   { rota: "/admin/lgpd", titulo: "Solicitacoes LGPD" },
+  { rota: "/admin/consumo-ia", titulo: "Consumo de IA" },
   { rota: "/dashboard", titulo: "Painel" },
   { rota: "/clientes", titulo: "Clientes" },
   { rota: "/clientes/novo", titulo: "Novo cliente" },
@@ -14,13 +15,16 @@ const paginas = [
   { rota: "/estoque/novo", titulo: "Novo produto" },
   { rota: "/vendas", titulo: "Vendas" },
   { rota: "/vendas/nova", titulo: "Nova venda" },
+  { rota: "/vendas/pedidos", titulo: "Pedidos" },
   { rota: "/tarefas", titulo: "Tarefas" },
   { rota: "/agenda", titulo: "Agenda" },
   { rota: "/auditoria", titulo: "Auditoria" },
+  { rota: "/automacoes/historico", titulo: "Automações" },
   { rota: "/importacao", titulo: "Importação" },
   { rota: "/inbox", titulo: "Inbox" },
   { rota: "/relatorios", titulo: "Relatórios" },
   { rota: "/configuracoes", titulo: "Configurações" },
+  { rota: "/sem-permissao", titulo: "Sem permissão" },
 ];
 
 test.describe("Navegação responsiva — 4 breakpoints", () => {

@@ -81,6 +81,14 @@ describe("Scoring Encalhe — fórmulas auditáveis (Camada A, sem IA)", () => {
     expect(queda.riscoEncalhe).toBeGreaterThan(estavel.riscoEncalhe);
     expect(queda.versaoFormula).toBe("v2");
   });
+
+  it("mantém o golden set de produto dentro das faixas esperadas", () => {
+    for (const caso of goldenSet.casosProduto) {
+      const resultado = calcularScoreProduto(caso.entrada);
+      expect(resultado.riscoEncalhe, caso.nome).toBeGreaterThanOrEqual(caso.riscoMinimo);
+      expect(resultado.riscoEncalhe, caso.nome).toBeLessThanOrEqual(caso.riscoMaximo);
+    }
+  });
 });
 
 describe("Desconto mínimo e calibração sintética", () => {

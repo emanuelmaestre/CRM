@@ -37,6 +37,20 @@ export const scoreProduto = pgTable("score_produto", {
   index("idx_score_produto_risco").on(t.riscoEncalhe),
 ]);
 
+export const scoreHistorico = pgTable("score_historico", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  tipo: text("tipo").notNull(),
+  entidadeId: uuid("entidade_id").notNull(),
+  valorPrincipal: integer("valor_principal").notNull(),
+  snapshot: jsonb("snapshot").notNull(),
+  versaoFormula: text("versao_formula").notNull(),
+  calculadoEm: timestamp("calculado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_score_historico_org").on(t.orgId),
+  index("idx_score_historico_entidade").on(t.tipo, t.entidadeId, t.calculadoEm),
+]);
+
 export const insight = pgTable("insight", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull().references(() => org.id),

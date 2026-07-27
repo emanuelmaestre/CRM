@@ -1,7 +1,15 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
-import { auditLog, brand, channelAccount, produto, produtoCanal } from "@/shared/lib/db/schema";
+import {
+  auditLog,
+  brand,
+  channelAccount,
+  conversa,
+  pedido,
+  produto,
+  produtoCanal,
+} from "@/shared/lib/db/schema";
 
 const CANAIS_PRIORITARIOS = [
   "whatsapp",
@@ -51,6 +59,7 @@ export interface CanalConfiguracao {
   skusMapeados: number;
   envAusentes: string[];
   pronto: boolean;
+  externalAccountId: string | null;
 }
 
 const ContaCanalInputSchema = z.object({
@@ -58,6 +67,16 @@ const ContaCanalInputSchema = z.object({
   tipo: z.enum(["whatsapp", "mercadolivre", "shopee", "tiktokshop", "olist"]),
   nome: z.string().trim().min(2).max(120),
   externalAccountId: z.string().trim().max(200).optional(),
+});
+
+const AtualizarContaCanalInputSchema = z.object({
+  channelAccountId: z.string().uuid(),
+  nome: z.string().trim().min(2).max(120),
+  externalAccountId: z.string().trim().max(200).optional(),
+});
+
+const RemoverContaCanalInputSchema = z.object({
+  channelAccountId: z.string().uuid(),
 });
 
 const MapeamentoInputSchema = z.object({
@@ -70,6 +89,14 @@ const MapeamentoInputSchema = z.object({
 
 function normalizeBrand(value: string): "karzi" | "wuwu" {
   return value === "wuwu" ? "wuwu" : "karzi";
+}
+
+function extrairExternalAccountId(meta: unknown): string | null {
+  if (meta && typeof meta === "object" && "externalAccountId" in meta) {
+    const value = (meta as { externalAccountId?: unknown }).externalAccountId;
+    return typeof value === "string" && value.length > 0 ? value : null;
+  }
+  return null;
 }
 
 export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalConfiguracao[]> {
@@ -87,6 +114,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
         status: channelAccount.status,
         ultimaVerificacao: channelAccount.ultimaVerificacao,
         ultimoErro: channelAccount.ultimoErro,
+        meta: channelAccount.meta,
       })
       .from(channelAccount)
       .where(eq(channelAccount.orgId, ctx.orgId)),
@@ -123,6 +151,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
       contaNome: conta?.nome ?? null,
       ultimaVerificacao: conta?.ultimaVerificacao?.toISOString() ?? null,
       ultimoErro: conta?.ultimoErro ?? null,
+      externalAccountId: conta ? extrairExternalAccountId(conta.meta) : null,
       skusMapeados,
       envAusentes,
       pronto: status === "conectado" && envAusentes.length === 0 && (canal === "whatsapp" || skusMapeados > 0),
@@ -173,6 +202,99 @@ export async function criarContaCanalConfiguracao(ctx: CrudContext, input: unkno
   });
 
   return conta;
+}
+
+export async function atualizarContaCanalConfiguracao(ctx: CrudContext, input: unknown) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  const data = AtualizarContaCanalInputSchema.parse(input);
+
+  const contaAtual = await ctx.db
+    .select({
+      id: channelAccount.id,
+      brandId: channelAccount.brandId,
+      nome: channelAccount.nome,
+      meta: channelAccount.meta,
+    })
+    .from(channelAccount)
+    .where(and(eq(channelAccount.id, data.channelAccountId), eq(channelAccount.orgId, ctx.orgId)))
+    .then((rows) => rows[0]);
+  if (!contaAtual) throw new Error("Conta de canal nao encontrada.");
+
+  const novoMeta = data.externalAccountId ? { externalAccountId: data.externalAccountId } : null;
+
+  const [conta] = await ctx.db.update(channelAccount)
+    .set({ nome: data.nome, meta: novoMeta, updatedAt: new Date() })
+    .where(and(eq(channelAccount.id, data.channelAccountId), eq(channelAccount.orgId, ctx.orgId)))
+    .returning();
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    brandId: contaAtual.brandId,
+    autorId: ctx.userId,
+    autorTipo: ctx.userId ? "usuario" : "sistema",
+    entidade: "channel_account",
+    entidadeId: conta.id,
+    acao: "update",
+    antes: { nome: contaAtual.nome, meta: contaAtual.meta },
+    depois: { nome: conta.nome, meta: conta.meta },
+  });
+
+  return conta;
+}
+
+export async function removerContaCanalConfiguracao(ctx: CrudContext, input: unknown) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  const data = RemoverContaCanalInputSchema.parse(input);
+
+  const conta = await ctx.db
+    .select({
+      id: channelAccount.id,
+      brandId: channelAccount.brandId,
+      tipo: channelAccount.tipo,
+      nome: channelAccount.nome,
+      status: channelAccount.status,
+    })
+    .from(channelAccount)
+    .where(and(eq(channelAccount.id, data.channelAccountId), eq(channelAccount.orgId, ctx.orgId)))
+    .then((rows) => rows[0]);
+  if (!conta) throw new Error("Conta de canal nao encontrada.");
+
+  const [mapeamentos, pedidosVinculados, conversasVinculadas] = await Promise.all([
+    ctx.db.select({ id: produtoCanal.id }).from(produtoCanal)
+      .where(eq(produtoCanal.channelAccountId, data.channelAccountId)),
+    ctx.db.select({ id: pedido.id }).from(pedido)
+      .where(eq(pedido.channelAccountId, data.channelAccountId)).limit(1),
+    ctx.db.select({ id: conversa.id }).from(conversa)
+      .where(eq(conversa.channelAccountId, data.channelAccountId)).limit(1),
+  ]);
+
+  const impedimentos: string[] = [];
+  if (mapeamentos.length > 0) impedimentos.push(`${mapeamentos.length} mapeamento(s) de SKU`);
+  if (pedidosVinculados.length > 0) impedimentos.push("pedidos historicos");
+  if (conversasVinculadas.length > 0) impedimentos.push("conversas de inbox");
+
+  if (impedimentos.length > 0) {
+    throw new Error(
+      `Nao e possivel remover: existem ${impedimentos.join(", ")} vinculados a esta conta. `
+      + "Remova os mapeamentos de SKU antes de excluir a conta; contas com pedidos ou conversas nao podem ser excluidas.",
+    );
+  }
+
+  await ctx.db.delete(channelAccount)
+    .where(and(eq(channelAccount.id, data.channelAccountId), eq(channelAccount.orgId, ctx.orgId)));
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    brandId: conta.brandId,
+    autorId: ctx.userId,
+    autorTipo: ctx.userId ? "usuario" : "sistema",
+    entidade: "channel_account",
+    entidadeId: conta.id,
+    acao: "delete",
+    antes: { tipo: conta.tipo, nome: conta.nome, status: conta.status },
+  });
+
+  return { removido: true };
 }
 
 export async function salvarMapeamentoCanalConfiguracao(ctx: CrudContext, input: unknown) {

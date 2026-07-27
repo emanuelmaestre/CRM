@@ -11,6 +11,8 @@ import {
   actionAvancarStatusConversa,
 } from "./actions";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { stagger, listItem } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
 
@@ -50,14 +52,6 @@ function formatarContato(externalId?: string | null): string {
 }
 
 /* ── Animation variants ──────────────────────────────────── */
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.04 } },
-};
-const listItem = {
-  hidden: { opacity: 0, x: -8 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.22, ease: [0, 0, 0.2, 1] as [number,number,number,number] } },
-};
 const msgIn = (saida: boolean) => ({
   initial: { opacity: 0, y: 6, scale: 0.95, x: saida ? 8 : -8 },
   animate: { opacity: 1, y: 0, scale: 1, x: 0 },
@@ -193,25 +187,18 @@ export function InboxCliente() {
   /* ── Empty ── */
   if (conversas.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-10 text-center"
-      >
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.1, type: "spring", stiffness: 260, damping: 22 }}
-          className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground mx-auto mb-4"
-        >
-          <MessageSquare size={24} strokeWidth={1.5} />
-        </motion.div>
-        <p className="text-sm font-semibold text-foreground mb-1">{copy.empty.title}</p>
-        <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-          {copy.empty.description}{" "}
-          <span className="font-medium text-foreground">{copy.empty.destination}</span>.
-        </p>
-      </motion.div>
+      <div className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]">
+        <EmptyState
+          illustration="conversation"
+          title={copy.empty.title}
+          description={
+            <>
+              {copy.empty.description}{" "}
+              <span className="font-medium text-foreground">{copy.empty.destination}</span>.
+            </>
+          }
+        />
+      </div>
     );
   }
 

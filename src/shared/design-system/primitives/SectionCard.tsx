@@ -1,17 +1,19 @@
 "use client";
 
+import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../cn";
 
 interface SectionCardProps {
   title?: string;
   description?: string;
+  icon?: LucideIcon;
   actions?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }
 
-export function SectionCard({ title, description, actions, children, className }: SectionCardProps) {
+export function SectionCard({ title, description, icon: Icon, actions, children, className }: SectionCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 4, scale: 0.98 }}
@@ -25,9 +27,16 @@ export function SectionCard({ title, description, actions, children, className }
     >
       {(title || actions) && (
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div>
-            {title && <h2 className="text-[15px] font-bold text-foreground">{title}</h2>}
-            {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+          <div className="flex items-center gap-2.5">
+            {Icon && (
+              <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
+                <Icon size={14} strokeWidth={1.75} />
+              </div>
+            )}
+            <div>
+              {title && <h2 className="text-[15px] font-bold text-foreground">{title}</h2>}
+              {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
+            </div>
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>

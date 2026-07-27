@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { toast } from "sonner";
 import pagesConfig from "@/config/pages.json";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import {
   actionCriarEventoAgenda,
   actionExcluirEventoAgenda,
@@ -117,7 +118,7 @@ export function AgendaLista() {
       {canViewTeam && <div className="mb-4 flex justify-end"><select value={responsavelId} onChange={(event) => setResponsavelId(event.target.value)} className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm sm:w-64"><option value="">{copy.allOwners}</option>{responsaveis.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></div>}
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
-        {loading ? <p className="p-10 text-center text-sm text-muted-foreground">{copy.loading}</p> : eventos.length === 0 ? <EmptyState illustration="generic" title={copy.empty.title} description={copy.empty.description} /> : <div className="divide-y divide-border">{eventos.map((item) => <article key={item.id} className="grid gap-3 p-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:px-5" data-testid={`evento-${item.id}`}><div><p className="text-sm font-semibold text-foreground">{formatarData(item.inicio)}</p>{item.fim && <p className="mt-1 text-xs text-muted-foreground">{copy.labels.until} {formatarData(item.fim)}</p>}</div><div><p className="font-semibold">{item.titulo}</p><p className="mt-1 text-xs text-muted-foreground">{item.clienteNome ?? copy.labels.noClient} · {item.responsavelNome ?? "—"}</p></div><button type="button" onClick={() => excluir(item)} disabled={pending} className="min-h-11 rounded-xl px-3 text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50">{copy.actions.delete}</button></article>)}</div>}
+        {loading ? <div className="divide-y divide-border"><SkeletonRow /><SkeletonRow /><SkeletonRow /></div> : eventos.length === 0 ? <EmptyState illustration="generic" title={copy.empty.title} description={copy.empty.description} /> : <div className="divide-y divide-border">{eventos.map((item) => <article key={item.id} className="grid gap-3 p-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:px-5" data-testid={`evento-${item.id}`}><div><p className="text-sm font-semibold text-foreground">{formatarData(item.inicio)}</p>{item.fim && <p className="mt-1 text-xs text-muted-foreground">{copy.labels.until} {formatarData(item.fim)}</p>}</div><div><p className="font-semibold">{item.titulo}</p><p className="mt-1 text-xs text-muted-foreground">{item.clienteNome ?? copy.labels.noClient} · {item.responsavelNome ?? "—"}</p></div><button type="button" onClick={() => excluir(item)} disabled={pending} className="min-h-11 rounded-xl px-3 text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50">{copy.actions.delete}</button></article>)}</div>}
       </section>
     </div>
   );

@@ -1,21 +1,17 @@
 "use client";
 
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { RotateCw } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { fadeUp, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import type { PainelSaudeData } from "@/modules/canais/application/saude.service";
 import saudeConfig from "@/config/saude.json";
-
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.04 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 5, scale: 0.97 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.24, ease: [0, 0, 0.2, 1] as [number, number, number, number] } },
-};
+import { actionVerificarSaudeConectores } from "./actions";
 
 function formatarData(value: string | null) {
   return value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "—";
@@ -178,10 +174,44 @@ function BackupSection({ items }: { items: PainelSaudeData["backup"] }) {
   );
 }
 
+function VerificarAgoraButton() {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  function verificar() {
+    startTransition(async () => {
+      try {
+        await actionVerificarSaudeConectores();
+        toast.success("Conectores verificados agora.");
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Nao foi possivel verificar os conectores.");
+      }
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={verificar}
+      disabled={pending}
+      className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50"
+      style={{ background: "var(--gradient-signature)" }}
+    >
+      <RotateCw size={14} className={pending ? "animate-spin" : undefined} />
+      {pending ? "Verificando..." : "Verificar agora"}
+    </button>
+  );
+}
+
 export function SaudePainel({ data }: { data: PainelSaudeData }) {
   return (
     <div>
-      <PageHeader title={saudeConfig.header.title} description={saudeConfig.header.description} />
+      <PageHeader
+        title={saudeConfig.header.title}
+        description={saudeConfig.header.description}
+        actions={<VerificarAgoraButton />}
+      />
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
         <div className="grid gap-5 md:grid-cols-2">
           <ConectoresSection items={data.conectores} />

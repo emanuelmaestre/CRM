@@ -6,7 +6,8 @@
     { "id": "estoque", "href": "/estoque", "label": "Estoque", "icon": "Package", "mobile": true, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "vendas", "href": "/vendas", "label": "Vendas", "icon": "ShoppingCart", "mobile": true, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "inbox", "href": "/inbox", "label": "Mensagens", "icon": "MessageSquare", "mobile": true, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "mobile": false, "profiles": ["admin", "gestor"] }
+    { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "mobile": false, "profiles": ["admin", "gestor"] },
+    { "id": "automacoes", "href": "/automacoes/historico", "label": "Automações", "icon": "Repeat", "mobile": false, "profiles": ["admin", "gestor"] }
   ],
   "utilities": {
     "search": { "label": "Buscar…", "shortcut": "⌘K", "icon": "Search" },
