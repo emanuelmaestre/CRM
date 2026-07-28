@@ -1,6 +1,6 @@
 {
   "phase": "C",
-  "updatedAt": "2026-07-23",
+  "updatedAt": "2026-07-27",
   "overallStatus": "pronto_para_homologacao_externa",
   "internalGates": [
     { "id": "scoring_versionado", "status": "concluido", "evidence": "RFM v2, encalhe v2 e desconto mínimo v1 com golden set sintético" },
@@ -12,7 +12,9 @@
     { "id": "reports_exports", "status": "concluido", "evidence": "CSV, XLSX e PDF cobertos no E2E autenticado" },
     { "id": "phase_c_ci", "status": "concluido", "evidence": "gates unitários e E2E em quatro breakpoints integrados ao CI" },
     { "id": "score_historico", "status": "concluido", "evidence": "tabela score_historico (migration 0015) grava série temporal a cada recálculo; teste de integração score-historico.integration.test.ts confere acumulação sem sobrescrita" },
-    { "id": "ui_consistency_pass", "status": "concluido", "evidence": "auditoria completa de responsividade/UI/UX/motion; fadeUp/stagger centralizados em motion-variants.ts; páginas pedidos/pedidos[id]/automacoes/sem-permissao alinhadas ao design system; coach marks no dashboard; painel dedicado /admin/consumo-ia" }
+    { "id": "ui_consistency_pass", "status": "concluido", "evidence": "auditoria completa de responsividade/UI/UX/motion; fadeUp/stagger centralizados em motion-variants.ts; páginas pedidos/pedidos[id]/automacoes/sem-permissao alinhadas ao design system; coach marks no dashboard; painel dedicado /admin/consumo-ia" },
+    { "id": "ai_service_unit_tests", "status": "concluido", "evidence": "src/test/domain/ai-service.test.ts (10 testes, db/emitirEvento mockados): corte suave de orçamento, ausência de OPENAI_API_KEY, reparo de JSON, falha após tentativa de reparo, trava atômica de aprovação/rejeição, agregação de consumo" },
+    { "id": "empty_state_illustrations", "status": "concluido", "evidence": "illustrations.tsx com SVG customizado para clients/conversation/inbox/reports/generic, substituindo o ícone-em-badge nos tipos mais visíveis" }
   ],
   "externalHomologation": [
     { "id": "openai_production", "status": "pendente_externo", "requires": ["OPENAI_API_KEY", "execução real de A15/A16", "llm_run real"] },

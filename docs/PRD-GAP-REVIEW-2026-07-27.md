@@ -117,3 +117,62 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
 - Chave OpenAI para execucao real de A15/A16.
 - Bucket/politicas de Storage em ambiente alvo.
 - Homologacao real antes de liberar `EXTERNAL_SENDS_ENABLED=true`.
+
+## Ciclo 2 (mesmo dia) — auditoria completa das Fases A/B/C e correcoes de codigo
+
+Apos revisao ponto-a-ponto do codigo contra os DoDs (`fase-a-dod.json`, `fase-b-dod.json`,
+`fase-c-dod.json`), a Fase A segue 100% fechada. Na Fase B e Fase C foram encontradas lacunas de
+codigo reais escondidas atras do rotulo "pendente externo" nos DoDs — corrigidas neste ciclo:
+
+- Item 3 (antigo) "editar/remover `channel_account`" — **confirmado ja resolvido** em ciclo anterior;
+  removido da lista de lacunas.
+- Webhook da Shopee (`src/app/api/webhooks/shopee/route.ts`) so processava atualizacao de pedido
+  (`code === 3`); nao existia nenhum tratamento de mensagem/chat, ao contrario de Mercado Livre e
+  TikTok Shop. Adicionado tratamento de `code === 3` (pedido, inalterado) e um novo caminho para
+  mensagem de chat, chamando `receberMensagem` como os demais canais. O valor exato do `code` de
+  chat da Shopee **precisa ser confirmado com logs reais de webhook na homologacao** (a Shopee nao
+  publica uma tabela oficial estavel) — o codigo esta defensivo: qualquer `code` nao reconhecido
+  continua sendo ignorado com 200, sem risco de processar dado incorreto.
+- Aba "Perguntas" do Inbox (`inbox-perguntas.tsx`) era 100% front-end estatico (array vazio local,
+  sem `actions.ts`, sem persistencia) enquanto a aba "Conversas" ao lado ja era real. Implementado
+  `listarPerguntas`/`responderPergunta` em `inbox.service.ts` reaproveitando as tabelas
+  `conversa`/`mensagem` (perguntas pre-venda de marketplace sao identificadas pela convencao de
+  `externalId` no formato `<canal>-question:<itemId>`, ja usada pelo webhook do Mercado Livre). A
+  resposta e registrada como resolucao interna/auditavel; o disparo real pela API oficial de cada
+  marketplace segue como trabalho futuro (depende de homologacao de politica e escopo de escrita,
+  nao apenas de credencial).
+- `ai.service.ts` (orquestracao de chamadas OpenAI, corte suave de orcamento, aprovacao atomica de
+  sugestao) nao tinha teste unitario direto, so cobertura indireta via E2E. Adicionado
+  `src/test/domain/ai-service.test.ts` (10 testes, `db` e `emitirEvento` mockados) cobrindo: corte
+  suave por orcamento, ausencia de `OPENAI_API_KEY`, reparo automatico de JSON invalido, falha apos
+  a tentativa de reparo, trava atomica de aprovacao/rejeicao de sugestao (Invariante nº4) e
+  agregacao de consumo/taxa de sucesso.
+- `EmptyState` ganhou ilustracoes SVG customizadas (`illustrations.tsx`) para os tipos mais visiveis
+  (`clients`, `conversation`/`inbox`, `reports`, `generic`) em vez de so icone Lucide em badge —
+  atende ao item "ilustracoes" do portao de saida da Fase C. Os demais tipos continuam usando o
+  icone em badge.
+- Removido residuo de config: `src/config/dashboard.json` tinha campos `footer: "Dados simulados"`
+  e arrays `items` com nomes ficticios em `recentClients`/`recentOrders` que nunca eram lidos pela
+  pagina (o footer real e calculado dinamicamente a partir dos dados reais). Removidos para nao
+  sugerir dado mockado onde hoje ja existe dado real.
+
+### Novas lacunas locais identificadas (nao existiam antes deste ciclo de auditoria)
+
+- Confirmar o `code` real de chat da Shopee com logs de webhook reais durante a homologacao da
+  conta (hoje assumido `20` por analogia com integracoes de referencia, nao documentado oficialmente
+  pela Shopee).
+- Decidir e documentar se Olist (ERP sem chat nativo) deve alimentar o inbox unificado, para nao
+  sugerir paridade total de inbox nos "4 canais fechados" onde ela nao se aplica.
+- Implementar o disparo real de resposta de pergunta pela API oficial de cada marketplace quando a
+  politica permitir (hoje a resposta fica registrada apenas internamente).
+
+### Verificacoes executadas neste ciclo
+
+- `npm run typecheck`: aprovado.
+- `npm run lint`: aprovado.
+- `npm run build`: aprovado com 39 rotas.
+- `npx vitest run --maxWorkers=1`: 22 arquivos e 134 testes aprovados.
+- Testes de integracao (`vitest.integration.config.ts`, banco Supabase conectado): 4 arquivos e 16
+  testes aprovados, incluindo os novos `score-historico.integration.test.ts` e
+  `inbox-perguntas.integration.test.ts`.
+- Migration `0015_score_historico.sql` aplicada no banco Supabase conectado.

@@ -1,4 +1,4 @@
-import { eq, and, desc, getTableColumns } from "drizzle-orm";
+import { eq, and, desc, like, inArray, getTableColumns } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { channelAccount, conversa, mensagem } from "@/shared/lib/db/schema";
 import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
@@ -222,6 +222,96 @@ export async function enviarMensagem(
       .set({ status: "em_atendimento", updatedAt: new Date() })
       .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)));
   }
+
+  return { mensagemId: novaMensagem.id };
+}
+
+// Perguntas pré-venda (Q&A de marketplace) usam a mesma tabela conversa/mensagem
+// do inbox de chat, marcadas por uma convenção de externalId "<canal>-question:<itemId>"
+// definida nos webhooks (ex.: mercadolivre/route.ts topic "questions").
+const PERGUNTA_EXTERNAL_ID_MARKER = "-question:";
+
+export async function listarPerguntas(orgId: string, opts: { brandId?: string } = {}) {
+  const conditions = [eq(conversa.orgId, orgId), like(conversa.externalId, `%${PERGUNTA_EXTERNAL_ID_MARKER}%`)];
+  if (opts.brandId) conditions.push(eq(conversa.brandId, opts.brandId));
+
+  const conversas = await db
+    .select({
+      id: conversa.id,
+      externalId: conversa.externalId,
+      status: conversa.status,
+      brandId: conversa.brandId,
+      canalTipo: channelAccount.tipo,
+      updatedAt: conversa.updatedAt,
+    })
+    .from(conversa)
+    .leftJoin(channelAccount, eq(conversa.channelAccountId, channelAccount.id))
+    .where(and(...conditions))
+    .orderBy(desc(conversa.updatedAt))
+    .limit(100);
+
+  if (conversas.length === 0) return [];
+
+  const mensagens = await db
+    .select()
+    .from(mensagem)
+    .where(and(eq(mensagem.orgId, orgId), inArray(mensagem.conversaId, conversas.map((c) => c.id))))
+    .orderBy(mensagem.createdAt);
+
+  return conversas.map((c) => {
+    const doConversa = mensagens.filter((m) => m.conversaId === c.id);
+    const pergunta = doConversa.find((m) => m.direcao === "entrada");
+    const resposta = [...doConversa].reverse().find((m) => m.direcao === "saida");
+    const meta = (pergunta?.meta ?? {}) as { canal?: string; itemId?: string; remetenteId?: number };
+
+    return {
+      id: c.id,
+      status: (resposta ? "respondida" : "pendente") as "pendente" | "respondida",
+      canal: meta.canal ?? c.canalTipo ?? "mercadolivre",
+      produto: meta.itemId ? `Item ${meta.itemId}` : "Item não identificado",
+      cliente: meta.remetenteId ? `Comprador #${meta.remetenteId}` : "Comprador",
+      pergunta: pergunta?.conteudo ?? "",
+      resposta: resposta?.conteudo,
+      criadoEm: pergunta?.createdAt ?? c.updatedAt,
+    };
+  });
+}
+
+export async function responderPergunta(
+  ctx: CrudContext,
+  conversaId: string,
+  conteudo: string,
+): Promise<{ mensagemId: string }> {
+  const conversaRow = await db
+    .select()
+    .from(conversa)
+    .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)))
+    .then((r) => r[0]);
+  if (!conversaRow) throw new Error("Pergunta não encontrada.");
+  if (!conversaRow.externalId?.includes(PERGUNTA_EXTERNAL_ID_MARKER)) {
+    throw new Error("Esta conversa não é uma pergunta pré-venda de marketplace.");
+  }
+
+  // O envio de resposta pela API oficial de cada marketplace depende de
+  // homologação de política e escopo de escrita (ver docs/PRD-GAP-REVIEW).
+  // A resposta é registrada como resolução interna/auditável; o disparo real
+  // à API do marketplace é trabalho futuro, não uma credencial ausente.
+  const [novaMensagem] = await db
+    .insert(mensagem)
+    .values({
+      conversaId,
+      orgId: ctx.orgId,
+      direcao: "saida",
+      tipo: "texto",
+      conteudo,
+      meta: { respostaInterna: true },
+    })
+    .returning();
+
+  await db
+    .update(conversa)
+    .set({ status: "resolvida", updatedAt: new Date() })
+    .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)));
 
   return { mensagemId: novaMensagem.id };
 }

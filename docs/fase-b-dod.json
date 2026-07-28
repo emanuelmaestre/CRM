@@ -1,7 +1,7 @@
 {
   "phase": "B",
   "name": "Operação Conectada",
-  "updatedAt": "2026-07-23",
+  "updatedAt": "2026-07-27",
   "status": "ready_for_external_homologation",
   "summary": "Código, contratos, recuperação de eventos e migration 0013 validados. O aceite final permanece bloqueado por credenciais, contas e provas reais inexistentes no ambiente publicado.",
   "criteria": [
@@ -43,7 +43,7 @@
     {
       "id": "unified_inbox",
       "status": "external_validation_pending",
-      "evidence": "Mercado Livre questions/messages e TikTok tipos 14/33 alimentam o inbox unificado; faltam credenciais, eventos reais e homologação de capacidades oficiais por marketplace."
+      "evidence": "Mercado Livre questions/messages, TikTok tipos 14/33 e Shopee code 3 (pedido) alimentam o inbox unificado. Adicionado tratamento de mensagem/chat da Shopee (code 20, a confirmar com logs reais na homologação) e backend real da aba Perguntas (listarPerguntas/responderPergunta, testado em inbox-perguntas.integration.test.ts). Faltam credenciais, eventos reais e homologação de capacidades oficiais por marketplace; resposta a pergunta pré-venda ainda não dispara pela API oficial do marketplace (registrada apenas internamente)."
     },
     {
       "id": "health_and_jobs",

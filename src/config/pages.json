@@ -394,6 +394,7 @@
         "resize": "Arrastar para redimensionar"
       },
       "empty": "Nenhuma pergunta encontrada",
+      "loadError": "Erro ao carregar perguntas.",
       "select": "Selecione uma pergunta",
       "ago": "atrás",
       "question": "Pergunta",

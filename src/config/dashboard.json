@@ -14,12 +14,7 @@
   "recentClients": {
     "title": "Clientes recentes",
     "href": "/clientes",
-    "action": "Ver todos",
-    "footer": "Dados simulados",
-    "items": [
-      { "name": "Ana Beatriz Silva", "role": "WhatsApp · Shopee", "brand": "karzi" },
-      { "name": "Lucas Mendes", "role": "Instagram · TikTok", "brand": "wuwu" }
-    ]
+    "action": "Ver todos"
   },
   "connectCta": {
     "icon": "Zap",
@@ -40,19 +35,11 @@
     "href": "/vendas",
     "action": "Ver todos",
     "icon": "ShoppingBag",
-    "footer": "Dados simulados",
     "statusStyles": {
       "Pago": "bg-[#1F8A4C]/10 text-[#1F8A4C]",
       "Pendente": "bg-[#B57A00]/10 text-[#B57A00]",
       "Cancelado": "bg-[#C21820]/10 text-[#C21820]"
-    },
-    "items": [
-      { "id": "#0042", "client": "Ana Beatriz", "brand": "karzi", "status": "Pago", "value": "R$ 189,90" },
-      { "id": "#0041", "client": "Lucas Mendes", "brand": "wuwu", "status": "Pendente", "value": "R$ 320,00" },
-      { "id": "#0040", "client": "Carla Souza", "brand": "karzi", "status": "Pago", "value": "R$ 99,90" },
-      { "id": "#0039", "client": "Pedro Alves", "brand": "wuwu", "status": "Cancelado", "value": "R$ 450,00" },
-      { "id": "#0038", "client": "Fernanda Lima", "brand": "karzi", "status": "Pago", "value": "R$ 210,00" }
-    ]
+    }
   },
   "channels": {
     "title": "Canais",

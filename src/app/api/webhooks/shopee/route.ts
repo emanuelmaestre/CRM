@@ -4,18 +4,36 @@ import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
+import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
-const ShopeeWebhookSchema = z.object({
+// code 3 = atualização de status de pedido (documentado). code 20 = push de
+// nova mensagem de chat, conforme integrações de referência da Shopee Open
+// Platform v2 — CONFIRMAR o valor exato com logs reais de webhook durante a
+// homologação da conta, pois a Shopee não publica uma tabela oficial estável
+// de "code" por tipo de evento. Qualquer outro code continua sendo ignorado
+// com 200, sem risco de processar dado incorreto.
+const ShopeeWebhookEnvelopeSchema = z.object({
   code: z.number(),
-  data: z.object({
-    ordersn: z.string(),
-    status: z.string().optional(),
-    buyer_username: z.string().optional(),
-  }),
+  data: z.unknown(),
   shop_id: z.number(),
   timestamp: z.number(),
+});
+
+const ShopeeOrderDataSchema = z.object({
+  ordersn: z.string(),
+  status: z.string().optional(),
+  buyer_username: z.string().optional(),
+});
+
+const ShopeeMessageDataSchema = z.object({
+  conversation_id: z.union([z.string(), z.number()]).transform(String),
+  message_id: z.union([z.string(), z.number()]).transform(String),
+  message_type: z.string().optional(),
+  content: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  from_id: z.union([z.string(), z.number()]).optional(),
+  to_id: z.union([z.string(), z.number()]).optional(),
 });
 
 function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
@@ -113,21 +131,57 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Payload inválido" }, { status: 400 });
   }
 
-  const resultado = ShopeeWebhookSchema.safeParse(body);
-  if (!resultado.success) {
+  const envelope = ShopeeWebhookEnvelopeSchema.safeParse(body);
+  if (!envelope.success) {
     return NextResponse.json({ error: "Schema inválido" }, { status: 422 });
   }
+  const { code, shop_id } = envelope.data;
 
-  const { code, data } = resultado.data;
+  if (code === 20) {
+    const mensagem = ShopeeMessageDataSchema.safeParse(envelope.data.data);
+    if (!mensagem.success) {
+      return NextResponse.json({ error: "Mensagem Shopee incompleta" }, { status: 422 });
+    }
+    const msgData = mensagem.data;
+    let conteudo = typeof msgData.content === "string" ? msgData.content : JSON.stringify(msgData.content ?? "");
+    if (typeof msgData.content === "object" && msgData.content && "text" in msgData.content && typeof msgData.content.text === "string") {
+      conteudo = msgData.content.text;
+    }
+    if (!conteudo) {
+      return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem_sem_conteudo" });
+    }
 
-  // code 3 = atualização de status do pedido. Outros códigos possuem schemas
-  // distintos e não podem alterar pedidos com payload parcial.
+    try {
+      const conta = await resolverContaWebhookMarketplace("shopee", String(shop_id));
+      const inbox = await receberMensagem({
+        orgId: conta.orgId,
+        brandId: conta.brandId,
+        channelAccountId: conta.channelAccountId,
+        externalConversaId: msgData.conversation_id,
+        providerMessageId: `shopee:${msgData.message_id}`,
+        conteudo,
+        tipo: (msgData.message_type ?? "text").toLowerCase(),
+        meta: { canal: "shopee", fromId: msgData.from_id, toId: msgData.to_id },
+      });
+      return NextResponse.json({ ok: true, ...inbox });
+    } catch (error) {
+      console.error("[webhook/shopee/inbox]", error);
+      return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    }
+  }
+
   if (code !== 3) {
     return NextResponse.json({ ok: true, ignorado: true, code });
   }
 
+  const pedidoResultado = ShopeeOrderDataSchema.safeParse(envelope.data.data);
+  if (!pedidoResultado.success) {
+    return NextResponse.json({ error: "Schema inválido" }, { status: 422 });
+  }
+  const data = pedidoResultado.data;
+
   try {
-    const conta = await resolverContaWebhookMarketplace("shopee", String(resultado.data.shop_id));
+    const conta = await resolverContaWebhookMarketplace("shopee", String(shop_id));
 
     const upper = conta.brandSlug.toUpperCase() as "KARZI" | "WUWU";
     const partnerId = process.env.SHOPEE_PARTNER_ID ?? "";

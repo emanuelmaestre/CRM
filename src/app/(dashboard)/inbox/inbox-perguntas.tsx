@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { HelpCircle, Send, CheckCircle2, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
+import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
+import { actionListarPerguntas, actionResponderPergunta } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
 type Plataforma = "mercadolivre" | "shopee" | "tiktok";
@@ -34,8 +37,33 @@ const copy = pagesConfig.inbox.questions;
 const PLAT = copy.platforms as Record<Plataforma, PlatformConfig>;
 const PLATFORM_TABS = ["todos", ...copy.platformOrder] as Array<Plataforma | "todos">;
 
-// Produção nunca exibe fixtures como se fossem mensagens reais.
-const PERGUNTAS_INICIAIS: Pergunta[] = [];
+function normalizarPlataforma(canal: string): Plataforma {
+  if (canal === "tiktokshop" || canal === "tiktok") return "tiktok";
+  if (canal === "shopee") return "shopee";
+  return "mercadolivre";
+}
+
+function formatarTempo(data: Date | string): { tempo: string; horasAtras: number } {
+  const horas = (Date.now() - new Date(data).getTime()) / 3_600_000;
+  if (horas < 1) return { tempo: `${Math.max(1, Math.round(horas * 60))}min`, horasAtras: horas };
+  if (horas < 24) return { tempo: `${Math.round(horas)}h`, horasAtras: horas };
+  return { tempo: `${Math.round(horas / 24)}d`, horasAtras: horas };
+}
+
+function mapearPergunta(item: Awaited<ReturnType<typeof actionListarPerguntas>>[number]): Pergunta {
+  const { tempo, horasAtras } = formatarTempo(item.criadoEm);
+  return {
+    id: item.id,
+    plataforma: normalizarPlataforma(item.canal),
+    produto: item.produto,
+    pergunta: item.pergunta,
+    cliente: item.cliente,
+    tempo,
+    horasAtras,
+    status: item.status,
+    resposta: item.resposta ?? undefined,
+  };
+}
 
 function urgency(h: number, status: Status): "urgent" | "normal" | "ok" {
   if (status === "respondida") return "ok";
@@ -194,12 +222,22 @@ export function InboxPerguntas() {
   const [selecionada, setSelecionada]   = useState<Pergunta | null>(null);
   const [resposta, setResposta]         = useState("");
   const [enviando, setEnviando]         = useState(false);
-  const [perguntas, setPerguntas]       = useState<Pergunta[]>(PERGUNTAS_INICIAIS);
+  const [perguntas, setPerguntas]       = useState<Pergunta[]>([]);
+  const [carregando, setCarregando]     = useState(true);
 
   // Sidebar resize + collapse
   const [sideWidth, setSideWidth] = useState(304);
   const [collapsed, setCollapsed] = useState(false);
   const dragState = useRef<{ startX: number; startW: number } | null>(null);
+
+  const carregarPerguntas = useCallback(() => {
+    actionListarPerguntas()
+      .then((itens) => setPerguntas(itens.map(mapearPergunta)))
+      .catch(() => toast.error(copy.loadError ?? "Não foi possível carregar as perguntas."))
+      .finally(() => setCarregando(false));
+  }, []);
+
+  useEffect(() => { carregarPerguntas(); }, [carregarPerguntas]);
 
   function startResize(e: React.MouseEvent) {
     e.preventDefault();
@@ -234,18 +272,22 @@ export function InboxPerguntas() {
     : Math.max(...Object.values(PLAT).map((platform) => platform.charLimit));
   const charPct = resposta.length / limit;
 
-  function enviarResposta() {
+  async function enviarResposta() {
     if (!selecionada || !resposta.trim() || enviando) return;
     const texto = resposta.trim();
     setEnviando(true);
-    setTimeout(() => {
+    try {
+      await actionResponderPergunta(selecionada.id, texto);
       setPerguntas((prev) =>
         prev.map((p) => p.id === selecionada.id ? { ...p, status: "respondida", resposta: texto } : p)
       );
       setSelecionada((prev) => prev ? { ...prev, status: "respondida", resposta: texto } : null);
       setResposta("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível registrar a resposta.");
+    } finally {
       setEnviando(false);
-    }, 400);
+    }
   }
 
   function usarChip(texto: string) {
@@ -325,7 +367,11 @@ export function InboxPerguntas() {
             {/* Card list */}
             <div className="overflow-y-auto flex-1 scrollbar-thin">
               <AnimatePresence initial={false}>
-                {filtradas.length === 0 ? (
+                {carregando ? (
+                  <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="divide-y divide-border">
+                    <SkeletonRow /><SkeletonRow /><SkeletonRow />
+                  </motion.div>
+                ) : filtradas.length === 0 ? (
                   <motion.div
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     className="flex flex-col items-center justify-center py-12 text-center px-4"

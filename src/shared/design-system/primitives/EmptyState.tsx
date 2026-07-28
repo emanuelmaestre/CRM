@@ -6,6 +6,9 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../cn";
+import {
+  ClientsIllustration, ConversationIllustration, ReportsIllustration, GenericIllustration,
+} from "./illustrations";
 
 const icons: Record<string, LucideIcon> = {
   clients:      Users,
@@ -18,6 +21,17 @@ const icons: Record<string, LucideIcon> = {
   alerts:       AlertTriangle,
   blocked:      ShieldOff,
   generic:      CircleOff,
+};
+
+// Ilustrações SVG customizadas para os tipos mais visíveis (dashboard, inbox,
+// clientes, relatórios). Os demais tipos usam o ícone Lucide em badge — mais
+// simples, mas ainda consistente com o design system.
+const illustrations: Partial<Record<string, () => React.ReactElement>> = {
+  clients: ClientsIllustration,
+  conversation: ConversationIllustration,
+  inbox: ConversationIllustration,
+  reports: ReportsIllustration,
+  generic: GenericIllustration,
 };
 
 export type IllustrationType = keyof typeof icons;
@@ -34,6 +48,7 @@ export function EmptyState({
   title, description, action, illustration = "generic", className,
 }: EmptyStateProps) {
   const Icon = icons[illustration] ?? CircleOff;
+  const Illustration = illustrations[illustration];
 
   return (
     <motion.div
@@ -42,9 +57,20 @@ export function EmptyState({
       transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
       className={cn("flex flex-col items-center justify-center py-14 px-4 text-center", className)}
     >
-      <div className="mb-4 flex items-center justify-center w-14 h-14 rounded-2xl bg-muted text-muted-foreground">
-        <Icon size={24} strokeWidth={1.5} />
-      </div>
+      {Illustration ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.92 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.04, duration: 0.28, ease: [0, 0, 0.2, 1] }}
+          className="mb-4"
+        >
+          <Illustration />
+        </motion.div>
+      ) : (
+        <div className="mb-4 flex items-center justify-center w-14 h-14 rounded-2xl bg-muted text-muted-foreground">
+          <Icon size={24} strokeWidth={1.5} />
+        </div>
+      )}
       <p className="text-sm font-semibold text-foreground mb-1">{title}</p>
       {description && (
         <p className="text-sm text-muted-foreground max-w-xs leading-relaxed">{description}</p>

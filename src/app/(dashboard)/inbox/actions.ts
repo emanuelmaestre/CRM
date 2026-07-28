@@ -7,6 +7,8 @@ import {
   listarMensagens,
   enviarMensagem,
   avancarStatusConversa,
+  listarPerguntas,
+  responderPergunta,
 } from "@/modules/inbox/application/inbox.service";
 import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
 
@@ -31,4 +33,16 @@ export async function actionAvancarStatusConversa(conversaId: string, novoStatus
   const ctx = await getCrudContext();
   z.string().uuid().parse(conversaId);
   return avancarStatusConversa(ctx, conversaId, novoStatus);
+}
+
+export async function actionListarPerguntas(opts: { brandId?: string } = {}) {
+  const ctx = await getCrudContext();
+  return listarPerguntas(ctx.orgId, opts);
+}
+
+export async function actionResponderPergunta(conversaId: string, conteudo: string) {
+  const ctx = await getCrudContext();
+  z.string().uuid().parse(conversaId);
+  z.string().trim().min(1).max(2000).parse(conteudo);
+  return responderPergunta(ctx, conversaId, conteudo.trim());
 }
