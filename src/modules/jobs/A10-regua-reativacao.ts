@@ -1,7 +1,7 @@
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
-import { scoreCliente, regua } from "@/shared/lib/db/schema";
-import { and, eq, gte } from "drizzle-orm";
+import { scoreCliente, regua, pedido } from "@/shared/lib/db/schema";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { dispararRegua } from "@/modules/reguas/application/reguas.service";
 
 export const A10_reguaReativacao = inngest.createFunction(
@@ -22,16 +22,32 @@ export const A10_reguaReativacao = inngest.createFunction(
       )
     );
 
+    // Origem real do cliente por marca (canal do último pedido conhecido), para
+    // o Gate 2 (isolamento de canal de marketplace) poder ser aplicado aqui
+    // como já acontece em A8/A9. Sem isso, "canalOrigem" caía sempre em
+    // "manual" e o gate nunca bloqueava reativação de clientes de marketplace.
+    const origens = await step.run("buscar-origem-clientes", async () => {
+      if (clientesEmRisco.length === 0) return [];
+      return db
+        .selectDistinct({ clienteId: pedido.clienteId, brandId: pedido.brandId, canal: pedido.canal })
+        .from(pedido)
+        .where(and(eq(pedido.orgId, orgId), inArray(pedido.clienteId, clientesEmRisco.map((c) => c.clienteId))));
+    });
+    // Mapa montado fora do step: o retorno de step.run é serializado em JSON
+    // pelo Inngest para memoização, e um Map não sobrevive a esse round-trip.
+    const origensPorClienteMarca = new Map(origens.map((o) => [`${o.clienteId}:${o.brandId}`, o.canal]));
+
     let disparos = 0;
     for (const { clienteId } of clientesEmRisco) {
       for (const r of reguasReativacao) {
+        const canalOrigem = origensPorClienteMarca.get(`${clienteId}:${r.brandId}`) ?? "manual";
         const resultado = await step.run(`reativacao-${clienteId}-${r.id}`, () =>
           dispararRegua({
             orgId,
             reguaId: r.id,
             clienteId,
             brandId: r.brandId,
-            canalOrigem: "manual",
+            canalOrigem,
             gatilhoData: new Date(),
           })
         );
