@@ -64,6 +64,7 @@
     "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "read-excel-file": "^9.3.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
     "write-excel-file": "^2.3.10",

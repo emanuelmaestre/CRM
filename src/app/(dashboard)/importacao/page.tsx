@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { FileText, Check } from "lucide-react";
+import readXlsxFile from "read-excel-file/browser";
 import { WizardLayout, WizardActions } from "@/shared/design-system/primitives/WizardLayout";
 import wizardsConfig from "@/config/wizards.json";
 import { previewImportacao, confirmarImportacao } from "./actions";
@@ -30,6 +31,22 @@ function parseCsv(text: string): Record<string, string>[] {
   });
 }
 
+/* ── XLSX → mesmo shape do CSV (linha de cabeçalho + linhas de dados) ── */
+function linhasParaRegistros(linhas: unknown[][]): Record<string, string>[] {
+  if (linhas.length < 2) return [];
+  const cabecalhos = linhas[0].map((h) => String(h ?? "").trim().toLowerCase());
+  return linhas.slice(1).map((linha) =>
+    Object.fromEntries(cabecalhos.map((h, i) => [h, linha[i] == null ? "" : String(linha[i]).trim()]))
+  );
+}
+
+/* ── JSON: aceita uma lista de objetos já no formato de registro ────── */
+function parseJson(text: string): Record<string, unknown>[] {
+  const dados = JSON.parse(text);
+  if (!Array.isArray(dados)) throw new Error("not-an-array");
+  return dados;
+}
+
 const fadeUp = {
   hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0, 0, 0.2, 1] as [number, number, number, number] } },
@@ -45,27 +62,52 @@ function StepUpload({
   const [erro, setErro] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function processarArquivo(file: File) {
-    if (!file.name.endsWith(".csv")) {
-      setErro("Apenas arquivos .csv são aceitos.");
-      return;
+  async function processarArquivo(file: File) {
+    const nome = file.name.toLowerCase();
+    setErro(null);
+
+    try {
+      if (nome.endsWith(".csv")) {
+        const text = await file.text();
+        const rows = parseCsv(text);
+        if (rows.length === 0) { setErro("Arquivo vazio ou sem dados após o cabeçalho."); return; }
+        onParsed(rows);
+        return;
+      }
+
+      if (nome.endsWith(".xlsx")) {
+        const [primeiraPlanilha] = await readXlsxFile(file);
+        const rows = linhasParaRegistros(primeiraPlanilha?.data ?? []);
+        if (rows.length === 0) { setErro("Arquivo vazio ou sem dados após o cabeçalho."); return; }
+        onParsed(rows);
+        return;
+      }
+
+      if (nome.endsWith(".json")) {
+        const text = await file.text();
+        const dados = parseJson(text);
+        if (dados.length === 0) { setErro("Arquivo vazio."); return; }
+        onParsed(dados as Record<string, string>[]);
+        return;
+      }
+
+      setErro(cfg.labels.unsupportedFormat);
+    } catch (error) {
+      if (nome.endsWith(".json") && error instanceof SyntaxError) {
+        setErro(cfg.labels.invalidJson);
+      } else if (error instanceof Error && error.message === "not-an-array") {
+        setErro(cfg.labels.invalidJson);
+      } else {
+        setErro(cfg.labels.errorMessage);
+      }
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const rows = parseCsv(text);
-      if (rows.length === 0) { setErro("Arquivo vazio ou sem dados após o cabeçalho."); return; }
-      setErro(null);
-      onParsed(rows);
-    };
-    reader.readAsText(file, "UTF-8");
   }
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) processarArquivo(file);
+    if (file) void processarArquivo(file);
   }
 
   function downloadModelo() {
@@ -105,9 +147,9 @@ function StepUpload({
           type="file"
           aria-label={cfg.labels.fileAriaLabel}
           data-testid="arquivo-csv"
-          accept=".csv"
+          accept=".csv,.xlsx,.json"
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) processarArquivo(f); }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) void processarArquivo(f); }}
         />
       </div>
 

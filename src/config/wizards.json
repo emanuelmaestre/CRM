@@ -54,7 +54,7 @@
       "template": "nome,email,telefone,cpf_cnpj,data_nascimento"
     },
     "hints": {
-      "upload": "Arraste um arquivo CSV ou clique para selecionar. Colunas aceitas: nome (obrigatório), email, telefone, cpf_cnpj, data_nascimento.",
+      "upload": "Arraste um arquivo CSV, XLSX ou JSON, ou clique para selecionar. Colunas aceitas: nome (obrigatório), email, telefone, cpf_cnpj, data_nascimento.",
       "preview": "Os registros com erro não serão importados. Corrija o arquivo e reimporte se necessário.",
       "confirm": "Esta ação não pode ser desfeita. Os registros rejeitados não serão importados."
     },
@@ -69,8 +69,10 @@
       "line": "Linha",
       "reason": "Motivo",
       "noErrors": "Nenhum erro encontrado — todos os registros serão importados.",
-      "fileType": ".csv · UTF-8",
-      "fileAriaLabel": "Arquivo CSV",
+      "fileType": ".csv, .xlsx ou .json",
+      "fileAriaLabel": "Arquivo de importação (CSV, XLSX ou JSON)",
+      "unsupportedFormat": "Formato não suportado. Envie um arquivo .csv, .xlsx ou .json.",
+      "invalidJson": "O arquivo JSON deve conter uma lista de objetos (registros).",
       "ignoredSingular": "registro será ignorado",
       "ignoredPlural": "registros serão ignorados",
       "invalidRowsSuffix": "por conter erros de validação.",
