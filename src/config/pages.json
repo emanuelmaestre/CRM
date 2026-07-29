@@ -139,6 +139,15 @@
     "messages": { "loadError": "Erro ao carregar produtos." },
     "mobile": { "balance": "Saldo", "price": "Preço", "channels": "Canais" },
     "minimumIndicator": "▼ mín",
+    "parados": {
+      "title": "Produtos parados",
+      "subtitle": "Sem saída há 30 dias ou mais, com risco de encalhe",
+      "toggleShow": "Ver produtos parados",
+      "toggleHide": "Ocultar produtos parados",
+      "empty": "Nenhum produto parado no momento.",
+      "daysSuffix": "dias sem venda",
+      "capitalLabel": "Capital parado"
+    },
     "movement": {
       "button": "+ Movimento",
       "title": "Registrar movimento",

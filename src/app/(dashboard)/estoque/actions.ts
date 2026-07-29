@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
-import { criarProduto, listarProdutos, registrarMovimento } from "@/modules/estoque/application/estoque.service";
+import { criarProduto, listarProdutos, listarProdutosParados, registrarMovimento } from "@/modules/estoque/application/estoque.service";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
@@ -49,6 +49,11 @@ export async function actionListarProdutos(brandId?: string, busca?: string) {
       );
     }),
   };
+}
+
+export async function actionListarProdutosParados() {
+  const ctx = await getCrudContext();
+  return listarProdutosParados(ctx);
 }
 
 const MapeamentoCanalSchema = z.object({

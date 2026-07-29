@@ -1,8 +1,12 @@
-import { and, count, eq, ilike, isNull, SQL, sql } from "drizzle-orm";
+import { and, count, eq, gt, ilike, inArray, isNull, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { auditLog, brand, produto, estoqueSaldo, estoqueMovimento } from "@/shared/lib/db/schema";
 import { despacharEvento, despacharEventosPendentes, persistirEvento } from "@/shared/events";
+import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { validarMovimento, calcularNovoSaldo, type MovimentoTipo, CreateProdutoSchema } from "../domain/entities";
+
+const DIAS_SEM_VENDA_ENCALHE = 30;
+const LIMITE_RISCO_ENCALHE = 30;
 
 export async function criarProduto(ctx: CrudContext, input: unknown) {
   const data = CreateProdutoSchema.parse(input);
@@ -81,6 +85,58 @@ export async function listarProdutos(
   ]);
 
   return { data: rows, total: totalRows[0]?.total ?? 0, limit, offset };
+}
+
+// Mesma fórmula de risco do job A7-encalhe (src/modules/jobs/A7-encalhe.ts),
+// mas calculada em lote e sob demanda para alimentar o indicador da tela de
+// Estoque — o job noturno só emite o evento, não persiste um status.
+export async function listarProdutosParados(ctx: CrudContext) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+
+  const candidatos = await ctx.db
+    .select({
+      id: produto.id, sku: produto.sku, nome: produto.nome, custo: produto.custo,
+      saldo: estoqueSaldo.saldo,
+    })
+    .from(produto)
+    .innerJoin(estoqueSaldo, eq(estoqueSaldo.produtoId, produto.id))
+    .where(and(eq(produto.orgId, ctx.orgId), eq(produto.ativo, true), isNull(produto.deletedAt), gt(estoqueSaldo.saldo, 0)));
+
+  if (candidatos.length === 0) return [];
+
+  const ultimasVendas = await ctx.db
+    .select({ produtoId: estoqueMovimento.produtoId, ultimaVenda: sql<string>`max(${estoqueMovimento.createdAt})` })
+    .from(estoqueMovimento)
+    .where(and(
+      eq(estoqueMovimento.orgId, ctx.orgId),
+      eq(estoqueMovimento.tipo, "saida"),
+      inArray(estoqueMovimento.produtoId, candidatos.map((item) => item.id)),
+    ))
+    .groupBy(estoqueMovimento.produtoId);
+
+  const ultimaVendaPorProduto = new Map(ultimasVendas.map((item) => [item.produtoId, item.ultimaVenda]));
+
+  return candidatos
+    .map((item) => {
+      const ultimaVenda = ultimaVendaPorProduto.get(item.id);
+      const diasSemVenda = ultimaVenda
+        ? Math.floor((Date.now() - new Date(ultimaVenda).getTime()) / 86_400_000)
+        : DIAS_SEM_VENDA_ENCALHE + 1;
+      if (diasSemVenda < DIAS_SEM_VENDA_ENCALHE) return null;
+
+      const score = calcularScoreProduto({
+        diasSemVenda, giroMensalMedio: 0, saldoAtual: item.saldo, custoUnitario: parseFloat(item.custo ?? "0"),
+      });
+      if (score.riscoEncalhe < LIMITE_RISCO_ENCALHE) return null;
+
+      return {
+        id: item.id, sku: item.sku, nome: item.nome, saldo: item.saldo,
+        diasSemVenda, riscoEncalhe: score.riscoEncalhe, capitalParado: score.capitalParado,
+        acaoSugerida: score.acaoSugerida,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((a, b) => b.riscoEncalhe - a.riscoEncalhe);
 }
 
 export async function registrarMovimento(

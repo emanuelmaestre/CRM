@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link2 } from "lucide-react";
 import { MovimentoModal } from "./movimento-modal";
 import { CanalModal } from "./canal-modal";
-import { actionListarProdutos } from "./actions";
+import { actionListarProdutos, actionListarProdutosParados } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import brandsConfig from "@/config/brands.json";
@@ -26,6 +26,62 @@ function brandLabel(brandId: string) {
   if (brandId === BRAND_KARZI) return { label: brandsConfig.karzi.label, color: brandsConfig.karzi.color };
   if (brandId === BRAND_WUWU)  return { label: brandsConfig.wuwu.label, color: brandsConfig.wuwu.color };
   return { label: brandId, color: "var(--muted-foreground)" };
+}
+
+type ProdutoParado = Awaited<ReturnType<typeof actionListarProdutosParados>>[number];
+
+function ProdutosParadosPanel() {
+  const pc = copy.parados;
+  const [aberto, setAberto] = useState(false);
+  const [parados, setParados] = useState<ProdutoParado[] | null>(null);
+
+  useEffect(() => {
+    if (aberto && parados === null) {
+      actionListarProdutosParados().then(setParados).catch(() => setParados([]));
+    }
+  }, [aberto, parados]);
+
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        onClick={() => setAberto((value) => !value)}
+        className="min-h-11 text-sm font-medium text-primary"
+        data-testid="toggle-produtos-parados"
+      >
+        {aberto ? pc.toggleHide : pc.toggleShow}
+      </button>
+
+      {aberto && (
+        <section className="mt-3 rounded-[1.25rem] border border-border bg-card overflow-hidden" data-testid="produtos-parados-painel">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold">{pc.title}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{pc.subtitle}</p>
+          </div>
+          <div className="divide-y divide-border">
+            {parados === null ? (
+              <SkeletonRow />
+            ) : parados.length === 0 ? (
+              <p className="px-5 py-4 text-sm text-muted-foreground">{pc.empty}</p>
+            ) : (
+              parados.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+                  <div>
+                    <p className="font-medium">{item.nome}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 font-mono">{item.sku}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">{item.diasSemVenda} {pc.daysSuffix}</p>
+                    <p className="text-xs font-semibold mt-0.5">{pc.capitalLabel}: R$ {item.capitalParado.toFixed(2)}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }
 
 export function EstoqueLista() {
@@ -88,6 +144,8 @@ export function EstoqueLista() {
           {copy.newAction}
         </motion.button>}
       </motion.div>
+
+      <ProdutosParadosPanel />
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] mb-4">
         <input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder={copy.searchPlaceholder} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
