@@ -7,8 +7,8 @@ import {
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import {
-  CreateClienteSchema, UpdateClienteSchema,
-  type CreateClienteDTO, type UpdateClienteDTO,
+  CreateClienteSchema, UpdateClienteSchema, CriarAnotacaoSchema, TIPO_INTERACAO_ANOTACAO,
+  type CreateClienteDTO, type UpdateClienteDTO, type CriarAnotacaoDTO,
 } from "../domain/entities";
 import {
   normalizarTelefone, normalizarEmail, normalizarCpfCnpj,
@@ -97,7 +97,55 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
       .where(and(eq(tag.orgId, ctx.orgId), eq(clienteTag.clienteId, id))),
   ]);
 
-  return { cliente: clienteAtual, interacoes, pedidos, tarefas: tarefasCliente, consentimentos, tags: tagsCliente };
+  const anotacoes = interacoes.filter((item) => item.tipo === TIPO_INTERACAO_ANOTACAO);
+  const timelineInteracoes = interacoes.filter((item) => item.tipo !== TIPO_INTERACAO_ANOTACAO);
+
+  return {
+    cliente: clienteAtual,
+    interacoes: timelineInteracoes,
+    anotacoes,
+    pedidos,
+    tarefas: tarefasCliente,
+    consentimentos,
+    tags: tagsCliente,
+  };
+}
+
+export async function criarAnotacaoCliente(ctx: CrudContext, input: CriarAnotacaoDTO) {
+  const data = CriarAnotacaoSchema.parse(input);
+
+  const clienteValido = await ctx.db.select({ id: cliente.id }).from(cliente).where(and(
+    eq(cliente.id, data.clienteId), eq(cliente.orgId, ctx.orgId), isNull(cliente.deletedAt),
+  )).then((rows) => rows[0]);
+  if (!clienteValido) throw new Error("Cliente não encontrado.");
+
+  const [nova] = await ctx.db.insert(interacao).values({
+    clienteId: data.clienteId,
+    orgId: ctx.orgId,
+    tipo: TIPO_INTERACAO_ANOTACAO,
+    resumo: data.texto,
+    autorId: ctx.userId,
+  }).returning();
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    autorId: ctx.userId,
+    autorTipo: ctx.userId ? "usuario" : "sistema",
+    entidade: "interacao",
+    entidadeId: nova.id,
+    acao: "create",
+    depois: nova,
+  });
+
+  await emitirEvento({
+    tipo: "cliente.anotacao_registrada",
+    orgId: ctx.orgId,
+    entidade: "cliente",
+    entidadeId: data.clienteId,
+    payload: { interacaoId: nova.id },
+  });
+
+  return nova;
 }
 
 export async function exportarDadosCliente(ctx: CrudContext, id: string) {

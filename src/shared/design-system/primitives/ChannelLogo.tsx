@@ -22,6 +22,7 @@ interface ChannelConfig {
   accent: string;
   logoDark: boolean;
   iconAspect: number;
+  iconScale: number;
 }
 
 const CHANNELS = channelsConfig.items as Record<string, ChannelConfig>;
@@ -67,21 +68,25 @@ export function ChannelLogo({ canal, size = "sm", variant = "badge", className =
     accent: channelsConfig.fallback.accent,
     logoDark: false,
     iconAspect: channelsConfig.fallback.iconAspect,
+    iconScale: channelsConfig.fallback.iconScale,
   };
-  const h      = LOGO_HEIGHT[size];
-  const iconW  = Math.round(h * cfg.iconAspect);
+  const h = LOGO_HEIGHT[size];
+  // Os arquivos em /logos/*-icon.svg já são recortados no ícone, então basta dar
+  // a altura: nada de recorte por overflow. O iconScale equaliza o peso visual
+  // entre ícones de proporções diferentes (ver _doc em channels.json).
+  const iconH = Math.round(h * cfg.iconScale);
+  const iconW = Math.round(iconH * cfg.iconAspect);
 
   const logoNode = cfg.logo ? (
-    // Clip to icon-only by constraining width to iconW and hiding overflow
-    <span style={{ display: "inline-flex", height: h, width: iconW, overflow: "hidden", flexShrink: 0 }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={cfg.logo}
-        alt={cfg.label}
-        style={{ height: h, width: "auto", flexShrink: 0, display: "block" }}
-        className={cfg.logoDark ? "dark:invert" : ""}
-      />
-    </span>
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={cfg.logo}
+      alt={cfg.label}
+      width={iconW}
+      height={iconH}
+      style={{ height: iconH, width: iconW, flexShrink: 0, display: "block", objectFit: "contain" }}
+      className={cfg.logoDark ? "dark:invert" : ""}
+    />
   ) : (
     <span
       className="font-bold text-white leading-none inline-flex items-center justify-center"

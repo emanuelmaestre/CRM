@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   atualizarCliente, buscarCliente360, criarCliente, listarClientes, arquivarCliente,
-  exportarDadosCliente, revogarConsentimento,
+  exportarDadosCliente, revogarConsentimento, criarAnotacaoCliente,
 } from "@/modules/clientes/application/clientes.service";
 
 const ClienteIdSchema = z.string().uuid();
@@ -53,6 +53,13 @@ export async function actionRevogarConsentimento(consentimentoId: string, client
   const atualizado = await revogarConsentimento(ctx, ClienteIdSchema.parse(consentimentoId));
   revalidatePath(`/clientes/${atualizado.clienteId ?? parsedClienteId}`);
   return atualizado;
+}
+
+export async function actionCriarAnotacao(clienteId: string, texto: string) {
+  const ctx = await getCrudContext();
+  const nova = await criarAnotacaoCliente(ctx, { clienteId: ClienteIdSchema.parse(clienteId), texto });
+  revalidatePath(`/clientes/${clienteId}`);
+  return nova;
 }
 
 export async function actionAtualizarCliente(id: string, formData: FormData) {

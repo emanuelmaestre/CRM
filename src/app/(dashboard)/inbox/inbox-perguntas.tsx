@@ -6,17 +6,18 @@ import { toast } from "sonner";
 import { HelpCircle, Send, CheckCircle2, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { actionListarPerguntas, actionResponderPergunta } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
 type Plataforma = "mercadolivre" | "shopee" | "tiktok";
 type Status = "pendente" | "respondida";
+/** Copy e limites por plataforma. A logo NÃO vem daqui: quem resolve é o
+ *  ChannelLogo, a partir de channels.json (fonte única das identidades visuais). */
 type PlatformConfig = {
   label: string;
   shortLabel: string;
   stripe: string;
-  logo: string;
-  logoDark: boolean;
   charLimit: number;
   quickReplies: string[];
 };
@@ -73,20 +74,6 @@ function urgency(h: number, status: Status): "urgent" | "normal" | "ok" {
 
 const URGENCY_COLOR = copy.urgencyColors;
 
-/* ── Platform Logo ─────────────────────────────────────── */
-function PlatLogo({ p, h = 20 }: { p: Plataforma; h?: number }) {
-  const cfg = PLAT[p];
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={cfg.logo}
-      alt={cfg.label}
-      style={{ height: h, width: "auto", maxWidth: h * 4, display: "block", objectFit: "contain" }}
-      className={cfg.logoDark ? "dark:invert" : ""}
-    />
-  );
-}
-
 /* ── Platform Tab (logo-only, no text) ─────────────────── */
 function PlatTab({
   plat, active, pendingCount, onClick,
@@ -128,7 +115,7 @@ function PlatTab({
           animate={{ opacity: active ? 1 : 0.5, scale: active ? 1 : 0.92 }}
           transition={{ duration: 0.16 }}
         >
-          <PlatLogo p={plat} h={20} />
+          <ChannelLogo canal={plat} size="sm" variant="logo" />
         </motion.span>
       )}
 
@@ -201,7 +188,7 @@ function CollapsedStrip({
             {p === "todos" ? (
               <span className="text-[16px] leading-none opacity-60">◎</span>
             ) : (
-              <PlatLogo p={p} h={16} />
+              <ChannelLogo canal={p} size="xs" variant="logo" />
             )}
             {count > 0 && (
               <span className="absolute top-0.5 right-0.5 min-w-[13px] h-[13px] flex items-center justify-center bg-[#E3131B] text-white text-[7px] font-bold rounded-full px-0.5 leading-none">
@@ -506,7 +493,7 @@ export function InboxPerguntas() {
                   transition={{ type: "spring", stiffness: 300, damping: 24 }}
                   className="flex items-center justify-center h-8 px-3 rounded-full bg-white border border-black/8 shadow-[0_1px_4px_rgba(0,0,0,.06)] flex-shrink-0"
                 >
-                  <PlatLogo p={selecionada.plataforma} h={16} />
+                  <ChannelLogo canal={selecionada.plataforma} size="xs" variant="logo" />
                 </motion.span>
 
                 <div className="flex-1 min-w-0">

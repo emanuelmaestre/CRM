@@ -7,10 +7,12 @@ import {
   CriarEventoAgendaSchema,
   CriarTarefaSchema,
   FiltrosAgendaSchema,
+  FiltrosLembretesSchema,
   FiltrosTarefaSchema,
   type CriarEventoAgendaDTO,
   type CriarTarefaDTO,
   type FiltrosAgendaDTO,
+  type FiltrosLembretesDTO,
   type FiltrosTarefaDTO,
 } from "../domain/operacao";
 
@@ -85,6 +87,57 @@ export async function listarTarefas(ctx: CrudContext, input: FiltrosTarefaDTO = 
     .leftJoin(cliente, and(eq(cliente.id, tarefa.clienteId), eq(cliente.orgId, ctx.orgId)))
     .leftJoin(appUser, and(eq(appUser.id, tarefa.responsavelId), eq(appUser.orgId, ctx.orgId)))
     .where(and(...conditions)).orderBy(asc(tarefa.vencimentoEm), desc(tarefa.createdAt)).limit(200);
+}
+
+// Lembretes não são uma entidade própria: são tarefas com vencimento e
+// eventos de agenda que caem dentro de uma janela próxima, unificados numa
+// única lista ordenada por data. Evita duplicar dado/infra de notificação.
+export async function listarLembretes(ctx: CrudContext, input: FiltrosLembretesDTO = {}) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+  const { janelaHoras } = FiltrosLembretesSchema.parse(input);
+  const agora = new Date();
+  const limite = new Date(agora.getTime() + janelaHoras * 60 * 60 * 1000);
+
+  const condicoesTarefa: SQL[] = [
+    eq(tarefa.orgId, ctx.orgId),
+    lte(tarefa.vencimentoEm, limite),
+    or(eq(tarefa.status, "pendente"), eq(tarefa.status, "em_andamento"))!,
+  ];
+  if (ctx.perfil === "vendedor") condicoesTarefa.push(eq(tarefa.responsavelId, ctx.userId!));
+
+  const condicoesEvento: SQL[] = [
+    eq(eventoAgenda.orgId, ctx.orgId),
+    gte(eventoAgenda.inicio, agora),
+    lte(eventoAgenda.inicio, limite),
+  ];
+  if (ctx.perfil === "vendedor") condicoesEvento.push(eq(eventoAgenda.responsavelId, ctx.userId!));
+
+  const [tarefasProximas, eventosProximos] = await Promise.all([
+    ctx.db.select({
+      id: tarefa.id,
+      titulo: tarefa.titulo,
+      quando: tarefa.vencimentoEm,
+      clienteNome: cliente.nome,
+      atrasada: lte(tarefa.vencimentoEm, agora),
+    }).from(tarefa)
+      .leftJoin(cliente, eq(cliente.id, tarefa.clienteId))
+      .where(and(...condicoesTarefa)).orderBy(asc(tarefa.vencimentoEm)).limit(50),
+    ctx.db.select({
+      id: eventoAgenda.id,
+      titulo: eventoAgenda.titulo,
+      quando: eventoAgenda.inicio,
+      clienteNome: cliente.nome,
+    }).from(eventoAgenda)
+      .leftJoin(cliente, eq(cliente.id, eventoAgenda.clienteId))
+      .where(and(...condicoesEvento)).orderBy(asc(eventoAgenda.inicio)).limit(50),
+  ]);
+
+  const lembretes = [
+    ...tarefasProximas.map((item) => ({ ...item, tipo: "tarefa" as const, atrasada: Boolean(item.atrasada) })),
+    ...eventosProximos.map((item) => ({ ...item, tipo: "evento" as const, atrasada: false })),
+  ].sort((a, b) => new Date(a.quando!).getTime() - new Date(b.quando!).getTime());
+
+  return lembretes;
 }
 
 export async function criarTarefa(ctx: CrudContext, input: CriarTarefaDTO) {

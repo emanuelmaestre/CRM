@@ -47,7 +47,12 @@ export const FiltrosAgendaSchema = z.object({
   path: ["fim"],
 });
 
+export const FiltrosLembretesSchema = z.object({
+  janelaHoras: z.coerce.number().int().min(1).max(24 * 30).default(72),
+});
+
 export type CriarTarefaDTO = z.input<typeof CriarTarefaSchema>;
 export type CriarEventoAgendaDTO = z.input<typeof CriarEventoAgendaSchema>;
 export type FiltrosTarefaDTO = z.input<typeof FiltrosTarefaSchema>;
 export type FiltrosAgendaDTO = z.input<typeof FiltrosAgendaSchema>;
+export type FiltrosLembretesDTO = z.input<typeof FiltrosLembretesSchema>;

@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { validarCpfCnpj } from "./identity";
 
+// Tipo de `interacao.tipo` usado para diferenciar anotações livres do
+// restante do histórico (mensagens de canal, eventos automáticos etc).
+export const TIPO_INTERACAO_ANOTACAO = "anotacao";
+
 const CpfCnpjSchema = z.string().trim().refine(
   validarCpfCnpj,
   "CPF/CNPJ inválido",
@@ -44,6 +48,13 @@ export const ConsentimentoSchema = z.object({
 });
 
 export type Consentimento = z.infer<typeof ConsentimentoSchema>;
+
+export const CriarAnotacaoSchema = z.object({
+  clienteId: z.string().uuid(),
+  texto: z.string().trim().min(1, "Anotação não pode ser vazia").max(2_000),
+});
+
+export type CriarAnotacaoDTO = z.input<typeof CriarAnotacaoSchema>;
 
 export function temConsentimento(
   consentimentos: Consentimento[],

@@ -560,7 +560,7 @@ function RecentOrders({ items }: { items: DashboardData["recentOrders"] }) {
           const color = brandsConfig[o.brand].color;
           return (
             <motion.div
-              key={o.id}
+              key={o.orderId}
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.06 + 0.1 }}

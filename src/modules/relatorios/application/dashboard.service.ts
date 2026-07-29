@@ -61,6 +61,9 @@ export interface DashboardRecentClient {
 }
 
 export interface DashboardRecentOrder {
+  /** Identificador completo do pedido — chave estavel de lista. */
+  orderId: string;
+  /** Codigo curto exibido na UI; pode colidir entre pedidos. */
   id: string;
   client: string;
   brand: "karzi" | "wuwu";
@@ -559,6 +562,7 @@ export async function obterDashboardData(ctx: CrudContext, filters?: DashboardFi
       };
     }),
     recentOrders: pedidosRecentes.map((item) => ({
+      orderId: item.id,
       id: `#${item.id.slice(0, 8)}`,
       client: item.clienteNome,
       brand: brandSlug(item.brandSlug),

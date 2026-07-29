@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { actionListarClientes, actionArquivarCliente } from "./actions";
+import { SegmentosPainel } from "./segmentos-painel";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import pagesConfig from "@/config/pages.json";
@@ -90,6 +91,8 @@ export function ClientesLista() {
           {copy.newAction}
         </button>
       </motion.div>
+
+      <SegmentosPainel />
 
       {/* Busca */}
       <div className="mb-4">

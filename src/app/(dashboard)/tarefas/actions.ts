@@ -5,6 +5,7 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   atualizarStatusTarefa,
   criarTarefa,
+  listarLembretes,
   listarReferenciasOperacao,
   listarTarefas,
 } from "@/modules/vendas/application/operacao.service";
@@ -16,6 +17,11 @@ export async function actionListarTarefas(filtros: FiltrosTarefaDTO = {}) {
     data: await listarTarefas(ctx, filtros),
     permissions: { canViewTeam: ctx.perfil !== "vendedor" },
   };
+}
+
+export async function actionListarLembretes(janelaHoras?: number) {
+  const ctx = await getCrudContext();
+  return listarLembretes(ctx, { janelaHoras });
 }
 
 export async function actionListarReferenciasTarefa() {

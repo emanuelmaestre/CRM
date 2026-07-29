@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import appConfig from "@/config/app.json";
 import brandsConfig from "@/config/brands.json";
@@ -18,7 +20,7 @@ describe("contratos JSON da interface", () => {
 
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(hrefs).size).toBe(hrefs.length);
-    expect(navigationConfig.items.filter((item) => item.mobile)).toHaveLength(5);
+    expect(navigationConfig.items.filter((item) => item.mobilePriority)).toHaveLength(6);
   });
 
   it("registra todos os ícones referenciados pelos arquivos JSON", () => {
@@ -56,7 +58,8 @@ describe("contratos JSON da interface", () => {
   });
 
   it("mantém funil, tarefas e agenda na operação comercial", () => {
-    expect(pagesConfig.vendas.tabs.map((tab) => tab.href)).toEqual(["/vendas", "/vendas/pedidos", "/tarefas", "/agenda"]);
+    expect(pagesConfig.vendas.tabs.map((tab) => tab.href)).toEqual(["/vendas", "/vendas/pedidos"]);
+    expect(pagesConfig.tarefas.tabs.map((tab) => tab.href)).toEqual(["/tarefas", "/agenda"]);
     expect(pagesConfig.auditoria.origins).toHaveProperty("sistema");
   });
 
@@ -76,7 +79,8 @@ describe("contratos JSON da interface", () => {
     for (const platform of Object.values(questions.platforms)) {
       expect(platform.charLimit).toBeGreaterThan(0);
       expect(platform.quickReplies.length).toBeGreaterThan(0);
-      expect(platform.logo).toMatch(/^\/logos\/.+\.svg$/);
+      // A logo não vive aqui: quem resolve é channels.json, via ChannelLogo.
+      expect(platform).not.toHaveProperty("logo");
     }
   });
 
@@ -102,7 +106,32 @@ describe("contratos JSON da interface", () => {
     for (const channel of Object.values(channelsConfig.items)) {
       expect(channel.label).not.toHaveLength(0);
       expect(channel.iconAspect).toBeGreaterThan(0);
-      if (channel.logo) expect(channel.logo).toMatch(/^\/logos\/.+\.svg$/);
+      expect(channel.iconScale).toBeGreaterThan(0);
+      if (channel.logo) {
+        // Só a variante icone-only: apontar para o wordmark faz o nome da
+        // plataforma aparecer escrito nas abas de canal.
+        expect(channel.logo).toMatch(/^\/logos\/[a-z]+-icon\.svg$/);
+        expect(existsSync(join(process.cwd(), "public", channel.logo))).toBe(true);
+      }
+    }
+  });
+
+  it("mantém os ícones de canal com a proporção declarada no JSON", () => {
+    // Guarda contra o bug real: mercadolivre.svg tinha width/height de proporção
+    // 24.27 e viewBox de 3.66, então o navegador encolhia o desenho e a logo
+    // aparecia minúscula. Aqui o viewBox do arquivo tem de bater com iconAspect.
+    for (const [nome, channel] of Object.entries(channelsConfig.items)) {
+      if (!channel.logo) continue;
+      const svg = readFileSync(join(process.cwd(), "public", channel.logo), "utf8");
+      const viewBox = svg.match(/viewBox="([^"]+)"/)?.[1];
+      expect(viewBox, `${nome} sem viewBox`).toBeDefined();
+
+      const [, , largura, altura] = viewBox!.split(/[\s,]+/).map(Number);
+      expect(largura / altura).toBeCloseTo(channel.iconAspect, 2);
+
+      const w = Number(svg.match(/\swidth="([\d.]+)"/)?.[1]);
+      const h = Number(svg.match(/\sheight="([\d.]+)"/)?.[1]);
+      expect(w / h, `${nome}: width/height divergem do viewBox`).toBeCloseTo(largura / altura, 2);
     }
   });
 });

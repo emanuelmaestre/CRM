@@ -80,6 +80,25 @@
       "archiveSuccess": "Cliente arquivado.",
       "archiveError": "Erro ao arquivar cliente."
     },
+    "segments": {
+      "title": "Segmentações",
+      "toggleShow": "Mostrar segmentações",
+      "toggleHide": "Ocultar segmentações",
+      "newAction": "+ Novo segmento",
+      "namePlaceholder": "Nome do segmento",
+      "tagsHint": "Cliente entra no segmento se tiver ao menos uma das tags marcadas.",
+      "noTags": "Nenhuma tag cadastrada ainda.",
+      "empty": "Nenhum segmento criado.",
+      "clientsCount": "{count} clientes",
+      "actions": { "create": "Criar segmento", "creating": "Criando…", "delete": "Excluir", "deleteConfirm": "Excluir o segmento \"{name}\"?" },
+      "messages": {
+        "loadError": "Erro ao carregar segmentações.",
+        "createSuccess": "Segmento criado.",
+        "createError": "Erro ao criar segmento.",
+        "deleteSuccess": "Segmento excluído.",
+        "deleteError": "Erro ao excluir segmento."
+      }
+    },
     "detail": {
       "emptyValue": "Não informado",
       "timelineTitle": "Timeline unificada",
@@ -88,16 +107,21 @@
       "tasksEmpty": "Nenhuma tarefa vinculada.",
       "consentsTitle": "Consentimentos",
       "consentsEmpty": "Nenhum consentimento registrado.",
+      "notesTitle": "Anotações",
+      "notesEmpty": "Nenhuma anotação registrada.",
+      "notesPlaceholder": "Escreva uma anotação sobre este cliente…",
       "orderPrefix": "Pedido",
       "fields": { "name": "Nome", "document": "CPF / CNPJ", "email": "E-mail", "phone": "WhatsApp" },
       "metrics": { "orders": "Pedidos", "tasks": "Tarefas" },
-      "actions": { "back": "Voltar aos clientes", "edit": "Editar", "cancel": "Cancelar edição", "save": "Salvar alterações", "saving": "Salvando…", "archive": "Arquivar" },
+      "actions": { "back": "Voltar aos clientes", "edit": "Editar", "cancel": "Cancelar edição", "save": "Salvar alterações", "saving": "Salvando…", "archive": "Arquivar", "addNote": "Adicionar anotação", "savingNote": "Salvando…" },
       "messages": {
         "updateSuccess": "Cliente atualizado.",
         "updateError": "Erro ao atualizar cliente.",
         "archiveConfirm": "Arquivar \"{name}\"?",
         "archiveSuccess": "Cliente arquivado.",
-        "archiveError": "Erro ao arquivar cliente."
+        "archiveError": "Erro ao arquivar cliente.",
+        "noteSuccess": "Anotação adicionada.",
+        "noteError": "Erro ao adicionar anotação."
       }
     }
   },
@@ -163,9 +187,7 @@
     "description": "Funil de vendas e oportunidades",
     "tabs": [
       { "id": "funil", "href": "/vendas", "label": "Funil" },
-      { "id": "pedidos", "href": "/vendas/pedidos", "label": "Pedidos" },
-      { "id": "tarefas", "href": "/tarefas", "label": "Tarefas" },
-      { "id": "agenda", "href": "/agenda", "label": "Agenda" }
+      { "id": "pedidos", "href": "/vendas/pedidos", "label": "Pedidos" }
     ],
     "newAction": "+ Nova oportunidade",
     "loading": "Carregando funil…",
@@ -220,9 +242,23 @@
     "metadataTitle": "Tarefas",
     "title": "Tarefas",
     "description": "Acompanhamentos, lembretes e pendências comerciais",
+    "navigationAriaLabel": "Tarefas e agenda",
+    "tabs": [
+      { "id": "tarefas", "href": "/tarefas", "label": "Tarefas" },
+      { "id": "agenda", "href": "/agenda", "label": "Agenda" }
+    ],
     "newAction": "+ Nova tarefa",
     "loading": "Carregando tarefas…",
     "searchPlaceholder": "Buscar por título ou descrição…",
+    "lembretes": {
+      "title": "Lembretes",
+      "subtitle": "Tarefas e compromissos das próximas 72h",
+      "empty": "Nada vencendo nos próximos 3 dias.",
+      "overdue": "Atrasada",
+      "eventLabel": "Evento",
+      "taskLabel": "Tarefa",
+      "noClient": "Sem cliente"
+    },
     "allStatuses": "Todos os status",
     "allOwners": "Toda a equipe",
     "empty": { "title": "Nenhuma tarefa encontrada", "description": "Crie uma tarefa ou ajuste os filtros da lista." },
@@ -346,8 +382,6 @@
           "label": "Mercado Livre",
           "shortLabel": "ML",
           "stripe": "#FFB900",
-          "logo": "/logos/mercadolivre.svg",
-          "logoDark": false,
           "charLimit": 2000,
           "quickReplies": [
             "Sim, temos disponível! ✅",
@@ -359,8 +393,6 @@
           "label": "Shopee",
           "shortLabel": "Shopee",
           "stripe": "#EE4D2D",
-          "logo": "/logos/shopee.svg",
-          "logoDark": false,
           "charLimit": 1000,
           "quickReplies": [
             "Olá! Estamos verificando e já te retorno. 😊",
@@ -372,8 +404,6 @@
           "label": "TikTok Shop",
           "shortLabel": "TikTok",
           "stripe": "#00C2CB",
-          "logo": "/logos/tiktok.svg",
-          "logoDark": true,
           "charLimit": 500,
           "quickReplies": [
             "Oi! Pode conferir as fotos no anúncio. 👀",

@@ -1,4 +1,9 @@
 {
+  "_doc": {
+    "logo": "Aponta para a variante icone-only em public/logos/*-icon.svg, gerada por scripts/gerar-logos-icone.mjs. Nunca aponte para o wordmark: as abas de canal mostram so o icone.",
+    "iconAspect": "largura/altura da caixa de tinta do icone, medida por rasterizacao. Usada para reservar espaco sem medir no cliente.",
+    "iconScale": "Fator de equilibrio optico aplicado a altura. Icones de proporcoes diferentes na mesma altura nao pesam igual aos olhos; o fator normaliza a AREA (1/raiz(iconAspect)), entao um icone largo e baixo como o do Mercado Livre desce um pouco e um icone alto e estreito sobe."
+  },
   "aliases": {
     "mercado livre": "mercadolivre",
     "tiktok shop": "tiktokshop",
@@ -8,40 +13,45 @@
   },
   "fallback": {
     "accent": "#888888",
-    "iconAspect": 1
+    "iconAspect": 1,
+    "iconScale": 1
   },
   "items": {
     "mercadolivre": {
       "label": "Mercado Livre",
-      "logo": "/logos/mercadolivre.svg",
+      "logo": "/logos/mercadolivre-icon.svg",
       "fallback": "ML",
       "accent": "#FFE600",
       "logoDark": false,
-      "iconAspect": 0.8962693357597816
+      "iconAspect": 1.4458,
+      "iconScale": 0.83
     },
     "shopee": {
       "label": "Shopee",
-      "logo": "/logos/shopee.svg",
+      "logo": "/logos/shopee-icon.svg",
       "fallback": "SP",
       "accent": "#EE4D2D",
       "logoDark": false,
-      "iconAspect": 0.8445417578979668
+      "iconAspect": 0.8845,
+      "iconScale": 1.06
     },
     "tiktok": {
       "label": "TikTok Shop",
-      "logo": "/logos/tiktok.svg",
+      "logo": "/logos/tiktok-icon.svg",
       "fallback": "TK",
       "accent": "#111111",
       "logoDark": true,
-      "iconAspect": 0.8739076154806492
+      "iconAspect": 0.8722,
+      "iconScale": 1.07
     },
     "tiktokshop": {
       "label": "TikTok Shop",
-      "logo": "/logos/tiktok.svg",
+      "logo": "/logos/tiktok-icon.svg",
       "fallback": "TK",
       "accent": "#111111",
       "logoDark": true,
-      "iconAspect": 0.8739076154806492
+      "iconAspect": 0.8722,
+      "iconScale": 1.07
     },
     "olist": {
       "label": "Olist",
@@ -49,15 +59,17 @@
       "fallback": "OL",
       "accent": "#F05B22",
       "logoDark": false,
-      "iconAspect": 1
+      "iconAspect": 1,
+      "iconScale": 1
     },
     "whatsapp": {
       "label": "WhatsApp",
-      "logo": "/logos/whatsapp.svg",
+      "logo": "/logos/whatsapp-icon.svg",
       "fallback": "WA",
       "accent": "#25D366",
       "logoDark": false,
-      "iconAspect": 0.7954595227409595
+      "iconAspect": 1.1892,
+      "iconScale": 0.92
     },
     "instagram": {
       "label": "Instagram",
@@ -65,7 +77,8 @@
       "fallback": "IG",
       "accent": "#E1306C",
       "logoDark": false,
-      "iconAspect": 1
+      "iconAspect": 1,
+      "iconScale": 1
     }
   }
 }

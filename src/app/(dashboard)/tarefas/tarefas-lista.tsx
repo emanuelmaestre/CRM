@@ -8,6 +8,7 @@ import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import {
   actionAtualizarStatusTarefa,
   actionCriarTarefa,
+  actionListarLembretes,
   actionListarReferenciasTarefa,
   actionListarTarefas,
 } from "./actions";
@@ -15,6 +16,7 @@ import {
 const copy = pagesConfig.tarefas;
 type TarefaItem = Awaited<ReturnType<typeof actionListarTarefas>>["data"][number];
 type Referencia = { id: string; nome: string };
+type LembreteItem = Awaited<ReturnType<typeof actionListarLembretes>>[number];
 
 function formatarData(value: Date | string | null) {
   if (!value) return copy.labels.noDueDate;
@@ -26,6 +28,43 @@ function formatarData(value: Date | string | null) {
 function atrasada(item: TarefaItem) {
   return Boolean(item.vencimentoEm && new Date(item.vencimentoEm) < new Date()
     && item.status !== "concluida" && item.status !== "cancelada");
+}
+
+function LembretesPanel() {
+  const lc = copy.lembretes;
+  const [lembretes, setLembretes] = useState<LembreteItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    actionListarLembretes().then(setLembretes).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  if (loading || lembretes.length === 0) return null;
+
+  return (
+    <section className="mb-5 overflow-hidden rounded-2xl border border-border bg-card" data-testid="lembretes-panel">
+      <div className="border-b border-border px-5 py-3">
+        <h2 className="text-sm font-semibold">{lc.title}</h2>
+        <p className="text-xs text-muted-foreground">{lc.subtitle}</p>
+      </div>
+      <ul className="divide-y divide-border">
+        {lembretes.map((item) => (
+          <li key={`${item.tipo}-${item.id}`} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+            <div>
+              <p className="font-medium">{item.titulo}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {item.tipo === "evento" ? lc.eventLabel : lc.taskLabel}
+                {" · "}{item.clienteNome ?? lc.noClient}
+              </p>
+            </div>
+            <span className={item.atrasada ? "text-xs font-semibold text-destructive" : "text-xs text-muted-foreground"}>
+              {item.atrasada && `${lc.overdue} · `}{formatarData(item.quando)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export function TarefasLista() {
@@ -107,6 +146,8 @@ export function TarefasLista() {
         <div><h1 className="text-2xl font-bold text-foreground">{copy.title}</h1><p className="mt-1 text-sm text-muted-foreground">{copy.description}</p></div>
         <button type="button" onClick={() => setFormAberto((value) => !value)} className="min-h-11 rounded-xl px-4 text-sm font-semibold text-white" style={{ background: "var(--gradient-signature)" }}>{copy.newAction}</button>
       </header>
+
+      <LembretesPanel />
 
       {formAberto && (
         <form onSubmit={criar} className="mb-5 grid gap-4 rounded-2xl border border-border bg-card p-5 sm:grid-cols-2" data-testid="tarefa-form">

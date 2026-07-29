@@ -1,18 +1,24 @@
 {
+  "_doc": {
+    "mobilePriority": "Ordem de importancia na barra inferior do celular. O PRD secao 2.2 exige 4 itens + botao \"mais\", entao a BottomNav pega os itens visiveis ao perfil com a menor prioridade e joga o resto no painel \"mais\". Item sem mobilePriority nunca aparece fixo na barra: vai direto para o \"mais\"."
+  },
   "homeHref": "/dashboard",
+  "mobilePrimaryCount": 4,
   "items": [
-    { "id": "dashboard", "href": "/dashboard", "label": "Painel", "icon": "LayoutDashboard", "mobile": true, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "clientes", "href": "/clientes", "label": "Clientes", "icon": "Users", "mobile": true, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "estoque", "href": "/estoque", "label": "Estoque", "icon": "Package", "mobile": true, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "vendas", "href": "/vendas", "label": "Vendas", "icon": "ShoppingCart", "mobile": true, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "inbox", "href": "/inbox", "label": "Mensagens", "icon": "MessageSquare", "mobile": true, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "mobile": false, "profiles": ["admin", "gestor"] },
-    { "id": "automacoes", "href": "/automacoes/historico", "label": "Automações", "icon": "Repeat", "mobile": false, "profiles": ["admin", "gestor"] }
+    { "id": "dashboard", "href": "/dashboard", "label": "Painel", "icon": "LayoutDashboard", "mobilePriority": 1, "profiles": ["admin", "gestor", "vendedor"] },
+    { "id": "clientes", "href": "/clientes", "label": "Clientes", "icon": "Users", "mobilePriority": 2, "profiles": ["admin", "gestor", "vendedor"] },
+    { "id": "inbox", "href": "/inbox", "label": "Mensagens", "icon": "MessageSquare", "mobilePriority": 3, "profiles": ["admin", "gestor", "vendedor"] },
+    { "id": "tarefas", "href": "/tarefas", "label": "Tarefas", "icon": "CheckSquare", "mobilePriority": 4, "profiles": ["admin", "gestor", "vendedor"] },
+    { "id": "vendas", "href": "/vendas", "label": "Vendas", "icon": "ShoppingCart", "mobilePriority": 5, "profiles": ["admin", "gestor", "vendedor"] },
+    { "id": "estoque", "href": "/estoque", "label": "Estoque", "icon": "Package", "mobilePriority": 6, "profiles": ["admin", "gestor", "vendedor"] },
+    { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "profiles": ["admin", "gestor"] },
+    { "id": "automacoes", "href": "/automacoes/historico", "label": "Automações", "icon": "Repeat", "profiles": ["admin", "gestor"] }
   ],
   "utilities": {
     "search": { "label": "Buscar…", "shortcut": "⌘K", "icon": "Search" },
     "notifications": { "label": "Notificações", "icon": "Bell" },
     "settings": { "href": "/configuracoes", "label": "Configurações", "icon": "Settings", "profiles": ["admin"] },
-    "logout": { "label": "Sair", "icon": "LogOut" }
+    "logout": { "label": "Sair", "icon": "LogOut" },
+    "more": { "label": "Mais", "icon": "MoreHorizontal", "closeLabel": "Fechar menu", "sheetAriaLabel": "Mais seções" }
   }
 }

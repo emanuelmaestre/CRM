@@ -1,12 +1,12 @@
 import pagesConfig from "@/config/pages.json";
 import { SectionTabs } from "@/shared/design-system/primitives/SectionTabs";
 
-export function VendasTabs({ active }: { active: "funil" | "pedidos" }) {
+export function TarefasTabs({ active }: { active: "tarefas" | "agenda" }) {
   return (
     <SectionTabs
-      tabs={pagesConfig.vendas.tabs}
+      tabs={pagesConfig.tarefas.tabs}
       active={active}
-      ariaLabel={pagesConfig.vendas.navigationAriaLabel}
+      ariaLabel={pagesConfig.tarefas.navigationAriaLabel}
     />
   );
 }

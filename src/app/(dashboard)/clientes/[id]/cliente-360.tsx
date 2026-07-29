@@ -7,6 +7,7 @@ import { ArrowLeft, Archive, Check, Download, Pencil, ShieldOff, X } from "lucid
 import {
   actionArquivarCliente,
   actionAtualizarCliente,
+  actionCriarAnotacao,
   actionExportarDadosCliente,
   actionRevogarConsentimento,
 } from "../actions";
@@ -19,6 +20,7 @@ type ClienteData = {
     id: string; nome: string; email?: string | null; telefone?: string | null; cpfCnpj?: string | null;
   };
   interacoes: Array<{ id: string; tipo: string; resumo: string | null; canal: string | null; createdAt: Date | string }>;
+  anotacoes: Array<{ id: string; resumo: string | null; createdAt: Date | string }>;
   pedidos: Array<{ id: string; canal: string; status: string; total: string; createdAt: Date | string }>;
   tarefas: Array<{ id: string; titulo: string; status: string; vencimentoEm: Date | string | null }>;
   consentimentos: Array<{ id: string; finalidade: string; canal: string; status: string }>;
@@ -87,6 +89,23 @@ export function Cliente360({
         toast.success("Pacote LGPD gerado.");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Erro ao exportar dados do cliente.");
+      }
+    });
+  }
+
+  function adicionarAnotacao(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const texto = (new FormData(form).get("texto") as string || "").trim();
+    if (!texto) return;
+    startTransition(async () => {
+      try {
+        const nova = await actionCriarAnotacao(cliente.id, texto);
+        setData((current) => ({ ...current, anotacoes: [nova as ClienteData["anotacoes"][number], ...current.anotacoes] }));
+        form.reset();
+        toast.success(copy.messages.noteSuccess);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : copy.messages.noteError);
       }
     });
   }
@@ -173,6 +192,24 @@ export function Cliente360({
           <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
             <h2 className="font-semibold px-5 py-4 border-b border-border">{copy.tasksTitle}</h2>
             <div className="divide-y divide-border">{data.tarefas.map((item) => <div key={item.id} className="px-5 py-3"><p className="text-sm font-medium">{item.titulo}</p><p className="text-xs text-muted-foreground mt-1">{item.status} · {formatDate(item.vencimentoEm)}</p></div>)}{data.tarefas.length === 0 && <p className="p-5 text-sm text-muted-foreground">{copy.tasksEmpty}</p>}</div>
+          </section>
+          <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
+            <h2 className="font-semibold px-5 py-4 border-b border-border">{copy.notesTitle}</h2>
+            <form onSubmit={adicionarAnotacao} className="flex gap-2 px-5 py-3 border-b border-border">
+              <input name="texto" maxLength={2000} placeholder={copy.notesPlaceholder} className="flex-1 min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
+              <button type="submit" disabled={pending} className="min-h-11 px-4 rounded-xl bg-foreground text-sm font-semibold text-background disabled:opacity-50">
+                {pending ? copy.actions.savingNote : copy.actions.addNote}
+              </button>
+            </form>
+            <div className="divide-y divide-border max-h-72 overflow-y-auto">
+              {data.anotacoes.map((item) => (
+                <div key={item.id} className="px-5 py-3">
+                  <p className="text-sm">{item.resumo}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{formatDate(item.createdAt)}</p>
+                </div>
+              ))}
+              {data.anotacoes.length === 0 && <p className="p-5 text-sm text-muted-foreground">{copy.notesEmpty}</p>}
+            </div>
           </section>
           <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
             <h2 className="font-semibold px-5 py-4 border-b border-border">{copy.consentsTitle}</h2>
