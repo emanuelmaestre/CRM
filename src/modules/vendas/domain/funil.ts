@@ -18,6 +18,7 @@ export const CriarOportunidadeSchema = z.object({
 export const MoverOportunidadeSchema = z.object({
   oportunidadeId: z.string().uuid(),
   novaEtapaId: z.string().uuid(),
+  motivoPerda: z.string().trim().min(3).max(300).optional().or(z.literal("")),
 });
 
 export type CriarOportunidadeDTO = z.input<typeof CriarOportunidadeSchema>;

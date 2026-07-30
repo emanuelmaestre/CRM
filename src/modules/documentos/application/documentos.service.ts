@@ -8,6 +8,16 @@ import type { DocumentoExecutivoOutput } from "@/modules/ai/domain/guardrails";
 
 export type TipoDocumento = "relatorio_executivo" | "proposta" | "minuta";
 
+export interface DadosProposta {
+  titulo: string;
+  clienteNome: string;
+  marcaNome: string;
+  valor: number | null;
+  responsavelNome: string | null;
+  validadeDias: number;
+  condicoesPagamento: string;
+}
+
 export interface SolicitacaoDocumento {
   tipo: TipoDocumento;
   formato?: "pdf" | "docx";
@@ -18,6 +28,31 @@ export interface SolicitacaoDocumento {
     canaisAtivos: number;
     clientesEmRisco: number;
     sugestoesPendentes: number;
+  };
+  dadosProposta?: DadosProposta;
+}
+
+// Conteúdo determinístico (sem IA) — proposta é documento comercial com
+// implicação de preço/condições para o cliente, então usa só os dados reais
+// da oportunidade, sem geração probabilística.
+function montarConteudoProposta(dados: DadosProposta, periodo: string) {
+  const validoAte = new Date(Date.now() + dados.validadeDias * 86_400_000);
+  return {
+    titulo: `Proposta comercial — ${dados.titulo}`,
+    resumo: `Proposta para ${dados.clienteNome} (${dados.marcaNome})` +
+      (dados.valor != null ? `, no valor de R$ ${dados.valor.toFixed(2)}` : "") + ".",
+    destaques: [
+      `Cliente: ${dados.clienteNome}`,
+      `Marca: ${dados.marcaNome}`,
+      dados.valor != null ? `Valor proposto: R$ ${dados.valor.toFixed(2)}` : "Valor a definir",
+      dados.responsavelNome ? `Responsável: ${dados.responsavelNome}` : null,
+    ].filter((item): item is string => item !== null),
+    alertas: [] as string[],
+    recomendacoes: [
+      `Condições de pagamento: ${dados.condicoesPagamento}`,
+      `Proposta válida até ${validoAte.toLocaleDateString("pt-BR")} (${dados.validadeDias} dias).`,
+    ],
+    periodo,
   };
 }
 
@@ -187,6 +222,8 @@ export async function gerarDocumento(
       ctx.orgId,
       { ...solicitacao.dadosKpis, periodo: solicitacao.periodo },
     );
+  } else if (solicitacao.tipo === "proposta" && solicitacao.dadosProposta) {
+    conteudo = montarConteudoProposta(solicitacao.dadosProposta, solicitacao.periodo);
   } else {
     conteudo = { tipo: solicitacao.tipo, periodo: solicitacao.periodo, geradoEm: new Date().toISOString() };
   }

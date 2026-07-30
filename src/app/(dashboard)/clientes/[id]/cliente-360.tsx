@@ -25,6 +25,21 @@ type ClienteData = {
   tarefas: Array<{ id: string; titulo: string; status: string; vencimentoEm: Date | string | null }>;
   consentimentos: Array<{ id: string; finalidade: string; canal: string; status: string }>;
   tags: Array<{ id: string; nome: string; cor: string | null }>;
+  score: {
+    churnRisk: number;
+    segmento: string | null;
+    acaoSugerida: string | null;
+    proximaCompraEstimada: Date | string | null;
+    calculadoEm: Date | string;
+  } | null;
+};
+
+const SEGMENTO_COR: Record<string, string> = {
+  "Campeão": "#1F8A4C",
+  "Leal": "#2563EB",
+  "Em risco": "#B57A00",
+  "Adormecido": "#C2621A",
+  "Perdido": "#C21820",
 };
 
 function formatDate(value: Date | string | null | undefined) {
@@ -177,6 +192,32 @@ export function Cliente360({
           </div>
         )}
       </section>
+
+      {data.score && (
+        <section className="rounded-[1.25rem] border border-border bg-card p-5" data-testid="cliente-inteligencia">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h2 className="font-semibold">{copy.intelligenceTitle}</h2>
+            {data.score.segmento && (
+              <span
+                className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                style={{
+                  color: SEGMENTO_COR[data.score.segmento] ?? "#64748b",
+                  background: `${SEGMENTO_COR[data.score.segmento] ?? "#64748b"}20`,
+                }}
+              >
+                {data.score.segmento}
+              </span>
+            )}
+            <span className="text-xs text-muted-foreground">{copy.churnRiskLabel}: {data.score.churnRisk}%</span>
+          </div>
+          {data.score.acaoSugerida && <p className="text-sm">{data.score.acaoSugerida}</p>}
+          {data.score.proximaCompraEstimada && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {copy.nextPurchaseLabel}: {formatDate(data.score.proximaCompraEstimada)}
+            </p>
+          )}
+        </section>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">

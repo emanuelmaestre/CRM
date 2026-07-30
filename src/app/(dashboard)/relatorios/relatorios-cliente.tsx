@@ -12,6 +12,10 @@ import {
   actionGerarDocumentoExecutivo,
 } from "./actions";
 import reportsConfig from "@/config/reports.json";
+import brandsConfig from "@/config/brands.json";
+
+const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
+const BRAND_WUWU = process.env.NEXT_PUBLIC_BRAND_ID_WUWU ?? "";
 
 type RelatorioVendas = Awaited<ReturnType<typeof actionRelatorioVendas>>;
 type Sugestao = Awaited<ReturnType<typeof actionListarSugestoes>>[number];
@@ -61,7 +65,7 @@ async function exportarPDF(dados: RelatorioVendas, totalReceita: number, totalPe
 
   doc.setFontSize(10);
   doc.setTextColor(120);
-  doc.text(`${reportsConfig.exports.period}  |  ${reportsConfig.exports.generatedAt}: ${hoje}`, 14, 28);
+  doc.text(`Período: ${dados.periodo}  |  ${reportsConfig.exports.generatedAt}: ${hoje}`, 14, 28);
 
   // KPIs
   doc.setFontSize(12);
@@ -108,14 +112,16 @@ export function RelatoriosCliente() {
   const [docExecutivo, setDocExecutivo] = useState<DocExecutivo | null>(null);
   const [loading, setLoading] = useState(true);
   const [gerandoDoc, setGerandoDoc] = useState(false);
+  const [dias, setDias] = useState(30);
+  const [brandId, setBrandId] = useState("");
   const [, startTransition] = useTransition();
 
-  const carregar = useCallback(() => {
+  const carregar = useCallback((filtroDias: number, filtroBrandId: string) => {
     startTransition(async () => {
       setLoading(true);
       try {
         const [v, s, i, c] = await Promise.all([
-          actionRelatorioVendas(),
+          actionRelatorioVendas({ dias: filtroDias, brandId: filtroBrandId || undefined }),
           actionListarSugestoes(),
           actionListarInsights(),
           actionConsumIA(),
@@ -132,13 +138,13 @@ export function RelatoriosCliente() {
     });
   }, []);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => { carregar(dias, brandId); }, [carregar, dias, brandId]);
 
   async function aprovar(id: string) {
     try {
       await actionAprovarSugestao(id);
       toast.success(reportsConfig.messages.approveSuccess);
-      carregar();
+      carregar(dias, brandId);
     } catch {
       toast.error(reportsConfig.messages.approveError);
     }
@@ -148,7 +154,7 @@ export function RelatoriosCliente() {
     try {
       await actionRejeitarSugestao(id, reportsConfig.suggestions.rejectionReason);
       toast.success(reportsConfig.messages.rejectSuccess);
-      carregar();
+      carregar(dias, brandId);
     } catch {
       toast.error(reportsConfig.messages.rejectError);
     }
@@ -183,6 +189,28 @@ export function RelatoriosCliente() {
 
   return (
     <div className="space-y-6">
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3" data-testid="relatorios-filtros">
+        <select
+          value={dias}
+          onChange={(event) => setDias(Number(event.target.value))}
+          className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm"
+        >
+          {reportsConfig.filters.periods.map((p) => (
+            <option key={p.dias} value={p.dias}>{p.label}</option>
+          ))}
+        </select>
+        <select
+          value={brandId}
+          onChange={(event) => setBrandId(event.target.value)}
+          className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm"
+        >
+          <option value="">{reportsConfig.filters.allBrands}</option>
+          <option value={BRAND_KARZI}>{brandsConfig.karzi.label}</option>
+          <option value={BRAND_WUWU}>{brandsConfig.wuwu.label}</option>
+        </select>
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
@@ -372,6 +400,11 @@ export function RelatoriosCliente() {
                       <p className="text-sm font-semibold text-foreground">{s.titulo}</p>
                       <p className="text-xs text-muted-foreground mt-0.5">{s.segmentoDescricao}</p>
                       <p className="text-xs text-foreground mt-1">{s.oferta}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {s.momentoSugerido && <>{reportsConfig.suggestions.timingLabel}: {s.momentoSugerido}</>}
+                        {s.momentoSugerido && s.descontoMinimo && " · "}
+                        {s.descontoMinimo && <>{reportsConfig.suggestions.discountLabel}: {Number(s.descontoMinimo).toFixed(0)}%</>}
+                      </p>
                     </div>
                     {s.status === "sugerida" && (
                       <div className="flex gap-2 flex-shrink-0">

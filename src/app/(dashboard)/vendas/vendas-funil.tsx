@@ -4,9 +4,10 @@ import { useState, useEffect, useTransition, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { Trash2 } from "lucide-react";
+import { FileText, Trash2 } from "lucide-react";
 import {
-  actionCriarEtapasPadrao, actionExcluirOportunidade, actionListarFunil, actionMoverOportunidade,
+  actionAnalisarGargalosFunil, actionCriarEtapasPadrao, actionExcluirOportunidade, actionGerarPropostaOportunidade,
+  actionListarFunil, actionMoverOportunidade,
 } from "./actions";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import brandsConfig from "@/config/brands.json";
@@ -28,6 +29,42 @@ function brandLabel(brandId: string) {
   return { label: "—", color: "var(--muted-foreground)" };
 }
 
+
+type Gargalo = {
+  etapaId: string; etapaNome: string; oportunidadesParadas: number;
+  mediaDiasParada: number; maiorEsperaDias: number;
+};
+
+function GargalosFunil() {
+  const gc = pagesConfig.vendas.gargalos;
+  const [gargalos, setGargalos] = useState<Gargalo[] | null>(null);
+
+  useEffect(() => {
+    actionAnalisarGargalosFunil().then(setGargalos).catch(() => setGargalos([]));
+  }, []);
+
+  const comOportunidades = gargalos?.filter((g) => g.oportunidadesParadas > 0) ?? [];
+  if (gargalos === null || comOportunidades.length === 0) return null;
+
+  return (
+    <section className="mb-4 rounded-[1.25rem] border border-border bg-card overflow-hidden" data-testid="gargalos-funil">
+      <div className="px-5 py-3 border-b border-border">
+        <h2 className="text-sm font-semibold">{gc.title}</h2>
+        <p className="text-xs text-muted-foreground">{gc.subtitle}</p>
+      </div>
+      <div className="divide-y divide-border">
+        {comOportunidades.map((g) => (
+          <div key={g.etapaId} className="flex items-center justify-between gap-3 px-5 py-2.5 text-sm">
+            <span className="font-medium">{g.etapaNome}</span>
+            <span className="text-xs text-muted-foreground">
+              {g.oportunidadesParadas} {gc.stuckSuffix} · {gc.avgLabel} {g.mediaDiasParada}d · {gc.maxLabel} {g.maiorEsperaDias}d
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function VendasFunil() {
   const router = useRouter();
@@ -58,11 +95,21 @@ export function VendasFunil() {
   useEffect(() => { carregar(); }, [carregar]);
 
   async function mover(opId: string, novaEtapaId: string) {
+    const etapaAlvo = etapas.find((e) => e.id === novaEtapaId);
+    let motivoPerda: string | undefined;
+    if (etapaAlvo?.nome.trim().toLowerCase() === "perdida") {
+      const informado = window.prompt(copy.labels.lossReasonPrompt ?? "Motivo da perda:");
+      if (!informado || informado.trim().length < 3) {
+        if (informado !== null) toast.error(copy.messages.lossReasonRequired);
+        return;
+      }
+      motivoPerda = informado.trim();
+    }
     try {
-      await actionMoverOportunidade(opId, novaEtapaId);
+      await actionMoverOportunidade(opId, novaEtapaId, motivoPerda);
       setOportunidades((prev) => prev.map((o) => o.id === opId ? { ...o, etapaId: novaEtapaId } : o));
-    } catch {
-      toast.error(copy.messages.moveError);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : copy.messages.moveError);
     }
   }
 
@@ -73,6 +120,21 @@ export function VendasFunil() {
       carregar();
     } catch {
       toast.error(copy.messages.setupError);
+    }
+  }
+
+  const [gerandoProposta, setGerandoProposta] = useState<string | null>(null);
+
+  async function gerarProposta(opId: string) {
+    setGerandoProposta(opId);
+    try {
+      const doc = await actionGerarPropostaOportunidade(opId);
+      window.open(doc.storageUrl, "_blank");
+      toast.success(copy.messages.proposalSuccess);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : copy.messages.proposalError);
+    } finally {
+      setGerandoProposta(null);
     }
   }
 
@@ -111,6 +173,8 @@ export function VendasFunil() {
           {copy.newAction}
         </motion.button>
       </motion.div>
+
+      {!loading && etapas.length > 0 && <GargalosFunil />}
 
       {loading ? (
         <div className="text-center text-sm text-muted-foreground py-12">{copy.loading}</div>
@@ -198,6 +262,15 @@ export function VendasFunil() {
                             >
                               {etapas.map((option) => <option key={option.id} value={option.id}>{option.nome}</option>)}
                             </select>
+                            <button
+                              type="button"
+                              onClick={() => gerarProposta(op.id)}
+                              disabled={gerandoProposta === op.id}
+                              title={copy.actions.generateProposal}
+                              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50"
+                            >
+                              <FileText size={15} />
+                            </button>
                             {canDelete && <button type="button" onClick={() => excluir(op.id, op.titulo)} title={copy.actions.delete} className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"><Trash2 size={15} /></button>}
                           </div>
                         </motion.div>

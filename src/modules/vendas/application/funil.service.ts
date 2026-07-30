@@ -13,7 +13,12 @@ const ETAPAS_PADRAO = [
   { nome: "Em contato", ordem: 2, cor: "#0284c7" },
   { nome: "Proposta", ordem: 3, cor: "#d97706" },
   { nome: "Ganho", ordem: 4, cor: "#16a34a" },
+  { nome: "Perdida", ordem: 5, cor: "#dc2626" },
 ];
+
+// Etapas terminais: uma oportunidade parada aqui não conta como "gargalo"
+// (ela não está mais em andamento).
+const NOMES_ETAPA_TERMINAL = ["ganho", "perdida"];
 
 export async function listarFunil(ctx: CrudContext) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
@@ -125,24 +130,38 @@ export async function criarOportunidade(ctx: CrudContext, input: CriarOportunida
   });
 }
 
-export async function moverOportunidade(ctx: CrudContext, oportunidadeId: string, novaEtapaId: string) {
+export async function moverOportunidade(
+  ctx: CrudContext,
+  oportunidadeId: string,
+  novaEtapaId: string,
+  motivoPerda?: string,
+) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
-  const ids = MoverOportunidadeSchema.parse({ oportunidadeId, novaEtapaId });
+  const ids = MoverOportunidadeSchema.parse({ oportunidadeId, novaEtapaId, motivoPerda });
 
   return ctx.db.transaction(async (tx) => {
-    const [antes, etapaValida] = await Promise.all([
+    const [antes, etapaNova] = await Promise.all([
       tx.select().from(oportunidade).where(and(
         eq(oportunidade.id, ids.oportunidadeId), eq(oportunidade.orgId, ctx.orgId),
       )).then((rows) => rows[0]),
-      tx.select({ id: funilEtapa.id }).from(funilEtapa).where(and(
+      tx.select({ id: funilEtapa.id, nome: funilEtapa.nome }).from(funilEtapa).where(and(
         eq(funilEtapa.id, ids.novaEtapaId), eq(funilEtapa.orgId, ctx.orgId),
       )).then((rows) => rows[0]),
     ]);
-    if (!antes || !etapaValida) throw new Error("Oportunidade ou etapa não encontrada.");
+    if (!antes || !etapaNova) throw new Error("Oportunidade ou etapa não encontrada.");
     if (antes.etapaId === ids.novaEtapaId) return antes;
 
+    if (etapaNova.nome.trim().toLowerCase() === "perdida" && !ids.motivoPerda) {
+      throw new Error("Informe o motivo da perda para mover a oportunidade para esta etapa.");
+    }
+
     const [atualizada] = await tx.update(oportunidade)
-      .set({ etapaId: ids.novaEtapaId, updatedAt: new Date() })
+      .set({
+        etapaId: ids.novaEtapaId,
+        entrouEtapaEm: new Date(),
+        motivoPerda: ids.motivoPerda || antes.motivoPerda,
+        updatedAt: new Date(),
+      })
       .where(and(eq(oportunidade.id, ids.oportunidadeId), eq(oportunidade.orgId, ctx.orgId)))
       .returning();
     await tx.insert(auditLog).values({
@@ -197,6 +216,48 @@ export async function excluirOportunidade(ctx: CrudContext, oportunidadeId: stri
     }, tx);
     return { id: removida.id };
   });
+}
+
+// Não há histórico completo de mudanças de etapa (só a etapa atual +
+// entrouEtapaEm), então o gargalo é medido pelo que dá pra medir com
+// honestidade: quanto tempo, em média, as oportunidades ABERTAS estão
+// paradas na etapa atual. Etapas terminais (Ganho/Perdida) ficam de fora —
+// não é "gargalo" estar parado ali, é o fim do fluxo.
+export async function analisarGargalosFunil(ctx: CrudContext) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+
+  const etapas = await ctx.db.select().from(funilEtapa)
+    .where(eq(funilEtapa.orgId, ctx.orgId)).orderBy(asc(funilEtapa.ordem));
+
+  const abertas = await ctx.db
+    .select({ etapaId: oportunidade.etapaId, entrouEtapaEm: oportunidade.entrouEtapaEm })
+    .from(oportunidade)
+    .where(eq(oportunidade.orgId, ctx.orgId));
+
+  const agora = Date.now();
+  const porEtapa = new Map<string, number[]>();
+  for (const op of abertas) {
+    const dias = (agora - op.entrouEtapaEm.getTime()) / 86_400_000;
+    const lista = porEtapa.get(op.etapaId) ?? [];
+    lista.push(dias);
+    porEtapa.set(op.etapaId, lista);
+  }
+
+  return etapas
+    .filter((etapa) => !NOMES_ETAPA_TERMINAL.includes(etapa.nome.trim().toLowerCase()))
+    .map((etapa) => {
+      const dias = porEtapa.get(etapa.id) ?? [];
+      const mediaDias = dias.length > 0 ? dias.reduce((a, b) => a + b, 0) / dias.length : 0;
+      const maiorEspera = dias.length > 0 ? Math.max(...dias) : 0;
+      return {
+        etapaId: etapa.id,
+        etapaNome: etapa.nome,
+        oportunidadesParadas: dias.length,
+        mediaDiasParada: Math.round(mediaDias * 10) / 10,
+        maiorEsperaDias: Math.round(maiorEspera * 10) / 10,
+      };
+    })
+    .sort((a, b) => b.mediaDiasParada - a.mediaDiasParada);
 }
 
 export async function criarEtapasPadrao(ctx: CrudContext) {

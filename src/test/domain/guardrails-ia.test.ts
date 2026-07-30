@@ -38,6 +38,7 @@ describe("Guardrails da IA (§11)", () => {
         titulo: "Reativação de clientes inativos",
         segmentoDescricao: "Clientes sem compra há mais de 90 dias com histórico de 3+ compras",
         oferta: "Frete grátis + 10% de desconto na próxima compra",
+        momentoSugerido: "terça a quinta, 10h-12h",
         descontoMinimo: 10,
         justificativa: "Clientes com alta frequência histórica têm maior probabilidade de reativar com incentivo leve",
       });
@@ -54,6 +55,7 @@ describe("Guardrails da IA (§11)", () => {
         titulo: "Campanha",
         segmentoDescricao: "Segmento válido com descrição",
         oferta: "Desconto absurdo nos produtos",
+        momentoSugerido: "quarta-feira, 14h",
         descontoMinimo: 150,
         justificativa: "Justificativa de teste para validar limite",
       });

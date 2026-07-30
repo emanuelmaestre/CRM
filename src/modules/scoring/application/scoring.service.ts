@@ -17,24 +17,28 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
     .orderBy(desc(pedido.createdAt));
 
   if (pedidos.length === 0) {
+    const semCompraSegmento = "Em risco";
+    const semCompraAcao = "Sem histórico de compras — priorizar primeiro contato comercial";
     await db
       .insert(scoreCliente)
       .values({
         orgId, clienteId,
         churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0,
+        segmento: semCompraSegmento, acaoSugerida: semCompraAcao,
         explicacao: "Sem compras concluídas ainda.", versaoFormula: "v2",
       })
       .onConflictDoUpdate({
         target: scoreCliente.clienteId,
         set: {
           churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0,
+          segmento: semCompraSegmento, acaoSugerida: semCompraAcao,
           explicacao: "Sem compras concluídas ainda.", versaoFormula: "v2", calculadoEm: new Date(),
         },
       });
     await db.insert(scoreHistorico).values({
       orgId, tipo: "cliente", entidadeId: clienteId,
       valorPrincipal: 50,
-      snapshot: { churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0, explicacao: "Sem compras concluídas ainda." },
+      snapshot: { churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0, segmento: semCompraSegmento, explicacao: "Sem compras concluídas ainda." },
       versaoFormula: "v2",
     });
     return;
@@ -78,6 +82,8 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
       rfmFrequencia: resultado.rfmFrequencia,
       rfmValor: resultado.rfmValor.toFixed(2),
       proximaCompraEstimada,
+      segmento: resultado.segmento,
+      acaoSugerida: resultado.acaoSugerida,
       explicacao: resultado.explicacao,
       versaoFormula: resultado.versaoFormula,
     })
@@ -89,6 +95,8 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
         rfmFrequencia: resultado.rfmFrequencia,
         rfmValor: resultado.rfmValor.toFixed(2),
         proximaCompraEstimada,
+        segmento: resultado.segmento,
+        acaoSugerida: resultado.acaoSugerida,
         explicacao: resultado.explicacao,
         versaoFormula: resultado.versaoFormula,
         calculadoEm: new Date(),
@@ -104,6 +112,8 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
       rfmFrequencia: resultado.rfmFrequencia,
       rfmValor: resultado.rfmValor,
       proximaCompraEstimadaDias: resultado.proximaCompraEstimadaDias,
+      segmento: resultado.segmento,
+      acaoSugerida: resultado.acaoSugerida,
       explicacao: resultado.explicacao,
     },
     versaoFormula: resultado.versaoFormula,

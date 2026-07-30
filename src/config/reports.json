@@ -2,6 +2,14 @@
   "locale": "pt-BR",
   "currency": "BRL",
   "channels": { "shopee": "Shopee", "mercadolivre": "Mercado Livre", "tiktokshop": "TikTok Shop", "whatsapp": "WhatsApp", "manual": "Manual" },
+  "filters": {
+    "allBrands": "Todas as marcas",
+    "periods": [
+      { "dias": 7, "label": "Últimos 7 dias" },
+      { "dias": 30, "label": "Últimos 30 dias" },
+      { "dias": 90, "label": "Últimos 90 dias" }
+    ]
+  },
   "suggestionStatus": {
     "sugerida": { "label": "Aguardando", "color": "#F59E0B" },
     "aprovada": { "label": "Aprovada", "color": "#10B981" },
@@ -37,7 +45,9 @@
     "empty": "Nenhuma sugestão gerada ainda. A IA roda toda segunda-feira às 08:00.",
     "approve": "Aprovar",
     "reject": "Rejeitar",
-    "rejectionReason": "Rejeitado pelo operador"
+    "rejectionReason": "Rejeitado pelo operador",
+    "timingLabel": "Melhor momento",
+    "discountLabel": "Desconto mínimo"
   },
   "messages": {
     "loading": "Carregando relatórios…",

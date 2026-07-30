@@ -22,6 +22,7 @@ export const SugestaoCampanhaOutputSchema = z.object({
   titulo: z.string().min(5).max(100),
   segmentoDescricao: z.string().min(10).max(500),
   oferta: z.string().min(10).max(500),
+  momentoSugerido: z.string().min(5).max(200),
   descontoMinimo: z.number().min(0).max(100),
   justificativa: z.string().min(10).max(1000),
 });
@@ -52,11 +53,12 @@ export type DocumentoExecutivoOutput = z.infer<typeof DocumentoExecutivoOutputSc
 export const OPENAI_JSON_SCHEMAS = {
   sugestao_campanha: {
     type: "object", additionalProperties: false,
-    required: ["titulo", "segmentoDescricao", "oferta", "descontoMinimo", "justificativa"],
+    required: ["titulo", "segmentoDescricao", "oferta", "momentoSugerido", "descontoMinimo", "justificativa"],
     properties: {
       titulo: { type: "string", minLength: 5, maxLength: 100 },
       segmentoDescricao: { type: "string", minLength: 10, maxLength: 500 },
       oferta: { type: "string", minLength: 10, maxLength: 500 },
+      momentoSugerido: { type: "string", minLength: 5, maxLength: 200 },
       descontoMinimo: { type: "number", minimum: 0, maximum: 100 },
       justificativa: { type: "string", minLength: 10, maxLength: 1000 },
     },

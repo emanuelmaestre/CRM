@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calcularScoreCliente } from "@/modules/scoring/domain/rfm";
+import { calcularScoreCliente, estaEsfriando } from "@/modules/scoring/domain/rfm";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { calcularDescontoMinimo } from "@/modules/scoring/domain/desconto-minimo";
 import goldenSet from "@/test/fixtures/phase-c-scoring-goldenset.json";
@@ -87,6 +87,34 @@ describe("Scoring Encalhe — fórmulas auditáveis (Camada A, sem IA)", () => {
       const resultado = calcularScoreProduto(caso.entrada);
       expect(resultado.riscoEncalhe, caso.nome).toBeGreaterThanOrEqual(caso.riscoMinimo);
       expect(resultado.riscoEncalhe, caso.nome).toBeLessThanOrEqual(caso.riscoMaximo);
+    }
+  });
+});
+
+describe("Segmento e ação sugerida (item 05 — esfriamento e ação comercial)", () => {
+  it("classifica cliente sem compra recente como esfriando", () => {
+    const r = calcularScoreCliente({
+      diasDesdeUltimaCompra: 100, totalCompras: 3, valorTotalGasto: 500, intervalMedioEntrCompras: 30,
+    });
+    expect(estaEsfriando(r.segmento)).toBe(true);
+    expect(r.acaoSugerida.length).toBeGreaterThan(0);
+  });
+
+  it("não classifica cliente campeão como esfriando", () => {
+    const r = calcularScoreCliente({
+      diasDesdeUltimaCompra: 2, totalCompras: 20, valorTotalGasto: 5000, intervalMedioEntrCompras: 10,
+    });
+    expect(r.segmento).toBe("Campeão");
+    expect(estaEsfriando(r.segmento)).toBe(false);
+  });
+
+  it("prioriza previsão de recompra próxima na ação sugerida", () => {
+    const r = calcularScoreCliente({
+      diasDesdeUltimaCompra: 25, totalCompras: 10, valorTotalGasto: 3000, intervalMedioEntrCompras: 30,
+    });
+    expect(r.proximaCompraEstimadaDias).not.toBeNull();
+    if (r.proximaCompraEstimadaDias != null && r.proximaCompraEstimadaDias <= 7) {
+      expect(r.acaoSugerida).toContain("recompra");
     }
   });
 });

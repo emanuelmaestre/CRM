@@ -23,4 +23,24 @@ describe("Funil de vendas", () => {
       oportunidadeId: uuid.opportunity, novaEtapaId: "etapa-invalida",
     })).toThrow();
   });
+
+  it("aceita mover sem motivo de perda (obrigatoriedade por etapa é checada no service)", () => {
+    const result = MoverOportunidadeSchema.parse({
+      oportunidadeId: uuid.opportunity, novaEtapaId: uuid.stage,
+    });
+    expect(result.motivoPerda).toBeUndefined();
+  });
+
+  it("rejeita motivo de perda curto demais quando informado", () => {
+    expect(() => MoverOportunidadeSchema.parse({
+      oportunidadeId: uuid.opportunity, novaEtapaId: uuid.stage, motivoPerda: "ok",
+    })).toThrow();
+  });
+
+  it("aceita motivo de perda válido", () => {
+    const result = MoverOportunidadeSchema.parse({
+      oportunidadeId: uuid.opportunity, novaEtapaId: uuid.stage, motivoPerda: "Preço acima do concorrente",
+    });
+    expect(result.motivoPerda).toBe("Preço acima do concorrente");
+  });
 });

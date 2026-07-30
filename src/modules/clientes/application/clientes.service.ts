@@ -3,7 +3,7 @@ import { z } from "zod";
 import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import {
-  auditLog, brand, cliente, clienteTag, consentimento, interacao, pedido, tag, tarefa,
+  auditLog, brand, cliente, clienteTag, consentimento, interacao, pedido, scoreCliente, tag, tarefa,
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import {
@@ -66,7 +66,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
   const clienteAtual = await crudCliente.getById(ctx, id) as typeof cliente.$inferSelect | null;
   if (!clienteAtual) throw new Error("Cliente não encontrado.");
 
-  const [interacoes, pedidos, tarefasCliente, consentimentos, tagsCliente] = await Promise.all([
+  const [interacoes, pedidos, tarefasCliente, consentimentos, tagsCliente, scoreRow] = await Promise.all([
     ctx.db
       .select()
       .from(interacao)
@@ -95,6 +95,17 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
       .from(clienteTag)
       .innerJoin(tag, eq(tag.id, clienteTag.tagId))
       .where(and(eq(tag.orgId, ctx.orgId), eq(clienteTag.clienteId, id))),
+    ctx.db
+      .select({
+        churnRisk: scoreCliente.churnRisk,
+        segmento: scoreCliente.segmento,
+        acaoSugerida: scoreCliente.acaoSugerida,
+        proximaCompraEstimada: scoreCliente.proximaCompraEstimada,
+        calculadoEm: scoreCliente.calculadoEm,
+      })
+      .from(scoreCliente)
+      .where(and(eq(scoreCliente.orgId, ctx.orgId), eq(scoreCliente.clienteId, id)))
+      .then((rows) => rows[0] ?? null),
   ]);
 
   const anotacoes = interacoes.filter((item) => item.tipo === TIPO_INTERACAO_ANOTACAO);
@@ -108,6 +119,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
     tarefas: tarefasCliente,
     consentimentos,
     tags: tagsCliente,
+    score: scoreRow,
   };
 }
 

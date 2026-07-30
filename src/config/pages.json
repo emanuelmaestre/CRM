@@ -110,6 +110,9 @@
       "notesTitle": "Anotações",
       "notesEmpty": "Nenhuma anotação registrada.",
       "notesPlaceholder": "Escreva uma anotação sobre este cliente…",
+      "intelligenceTitle": "Inteligência comercial",
+      "churnRiskLabel": "Risco de churn",
+      "nextPurchaseLabel": "Previsão de recompra",
       "orderPrefix": "Pedido",
       "fields": { "name": "Nome", "document": "CPF / CNPJ", "email": "E-mail", "phone": "WhatsApp" },
       "metrics": { "orders": "Pedidos", "tasks": "Tarefas" },
@@ -203,15 +206,29 @@
     "empty": { "title": "Funil vazio", "description": "Configure as etapas do funil e comece a registrar oportunidades." },
     "dropHint": "Arraste oportunidades aqui",
     "noClient": "Sem cliente",
+    "labels": {
+      "lossReasonPrompt": "Por que esta oportunidade foi perdida?"
+    },
+    "gargalos": {
+      "title": "Gargalos do funil",
+      "subtitle": "Etapas com oportunidades paradas há mais tempo",
+      "stuckSuffix": "parada(s)",
+      "avgLabel": "média",
+      "maxLabel": "máx"
+    },
     "actions": {
       "setup": "Criar funil padrão",
       "move": "Mover oportunidade",
       "delete": "Excluir oportunidade",
-      "deleteConfirm": "Excluir \"{title}\"?"
+      "deleteConfirm": "Excluir \"{title}\"?",
+      "generateProposal": "Gerar proposta (PDF)"
     },
     "messages": {
       "loadError": "Erro ao carregar funil.",
       "moveError": "Erro ao mover oportunidade.",
+      "lossReasonRequired": "Informe um motivo (mín. 3 caracteres) para marcar como perdida.",
+      "proposalSuccess": "Proposta gerada.",
+      "proposalError": "Erro ao gerar proposta.",
       "setupSuccess": "Funil padrão criado.",
       "setupError": "Erro ao criar o funil padrão.",
       "deleteSuccess": "Oportunidade excluída.",

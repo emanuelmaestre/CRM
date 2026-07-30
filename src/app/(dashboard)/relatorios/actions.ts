@@ -22,25 +22,36 @@ function assertPodeGerirInteligencia(ctx: Awaited<ReturnType<typeof getCrudConte
   assertPerfil(ctx, ["admin", "gestor"]);
 }
 
-export async function actionRelatorioVendas() {
+const FiltrosRelatorioSchema = z.object({
+  dias: z.number().int().min(1).max(365).default(30),
+  brandId: z.string().uuid().optional(),
+  canal: z.string().trim().min(1).optional(),
+});
+
+export async function actionRelatorioVendas(filtros: { dias?: number; brandId?: string; canal?: string } = {}) {
   const ctx = await getCrudContext();
   assertPodeGerirInteligencia(ctx);
-  const desde = subDays(new Date(), 30);
+  const { dias, brandId, canal } = FiltrosRelatorioSchema.parse(filtros);
+  const desde = subDays(new Date(), dias);
+
+  const condicoes = [eq(pedido.orgId, ctx.orgId), gte(pedido.createdAt, desde)];
+  if (brandId) condicoes.push(eq(pedido.brandId, brandId));
+  if (canal) condicoes.push(eq(pedido.canal, canal));
 
   const porCanal = await db
     .select({ canal: pedido.canal, total: count(), receita: sum(pedido.total) })
     .from(pedido)
-    .where(and(eq(pedido.orgId, ctx.orgId), gte(pedido.createdAt, desde)))
+    .where(and(...condicoes))
     .groupBy(pedido.canal)
     .orderBy(desc(sum(pedido.total)));
 
   const porStatus = await db
     .select({ status: pedido.status, total: count() })
     .from(pedido)
-    .where(and(eq(pedido.orgId, ctx.orgId), gte(pedido.createdAt, desde)))
+    .where(and(...condicoes))
     .groupBy(pedido.status);
 
-  return { porCanal, porStatus, periodo: "últimos 30 dias" };
+  return { porCanal, porStatus, periodo: `últimos ${dias} dias` };
 }
 
 export async function actionListarSugestoes() {

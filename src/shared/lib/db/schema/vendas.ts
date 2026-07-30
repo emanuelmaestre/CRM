@@ -78,6 +78,12 @@ export const oportunidade = pgTable("oportunidade", {
   responsavelId: uuid("responsavel_id").references(() => appUser.id),
   titulo: text("titulo").notNull(),
   valor: numeric("valor", { precision: 12, scale: 2 }),
+  // Atualizado a cada mudanca de etapa (ver moverOportunidade); junto com a
+  // etapa atual, permite medir ha quanto tempo a oportunidade esta parada ali
+  // — a analise de gargalo do funil nao tem historico completo de etapas,
+  // so "tempo na etapa atual", mas isso ja e um indicador real e honesto.
+  entrouEtapaEm: timestamp("entrou_etapa_em", { withTimezone: true }).notNull().defaultNow(),
+  motivoPerda: text("motivo_perda"),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
