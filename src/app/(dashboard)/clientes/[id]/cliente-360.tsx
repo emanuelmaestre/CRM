@@ -30,6 +30,7 @@ type ClienteData = {
     segmento: string | null;
     acaoSugerida: string | null;
     proximaCompraEstimada: Date | string | null;
+    probabilidadeRecompra30d: number | null;
     calculadoEm: Date | string;
   } | null;
 };
@@ -214,6 +215,11 @@ export function Cliente360({
           {data.score.proximaCompraEstimada && (
             <p className="text-xs text-muted-foreground mt-1">
               {copy.nextPurchaseLabel}: {formatDate(data.score.proximaCompraEstimada)}
+            </p>
+          )}
+          {data.score.probabilidadeRecompra30d != null && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {copy.repurchaseProbabilityLabel}: {data.score.probabilidadeRecompra30d}%
             </p>
           )}
         </section>

@@ -14,6 +14,7 @@ export const scoreCliente = pgTable("score_cliente", {
   rfmFrequencia: integer("rfm_frequencia").notNull().default(0),
   rfmValor: numeric("rfm_valor", { precision: 12, scale: 2 }),
   proximaCompraEstimada: timestamp("proxima_compra_estimada", { withTimezone: true }),
+  probabilidadeRecompra30d: integer("probabilidade_recompra_30d"),
   segmento: text("segmento"),
   acaoSugerida: text("acao_sugerida"),
   explicacao: text("explicacao"),

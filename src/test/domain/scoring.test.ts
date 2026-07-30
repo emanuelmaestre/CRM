@@ -119,6 +119,38 @@ describe("Segmento e ação sugerida (item 05 — esfriamento e ação comercial
   });
 });
 
+describe("Probabilidade de recompra em 30 dias (item 05)", () => {
+  it("fica entre 0 e 100 para qualquer entrada", () => {
+    const r = calcularScoreCliente({
+      diasDesdeUltimaCompra: 45, totalCompras: 6, valorTotalGasto: 1200, intervalMedioEntrCompras: 20,
+    });
+    expect(r.probabilidadeRecompra30d).toBeGreaterThanOrEqual(0);
+    expect(r.probabilidadeRecompra30d).toBeLessThanOrEqual(100);
+  });
+
+  it("cliente com intervalo curto tem probabilidade alta de recompra em 30d", () => {
+    const r = calcularScoreCliente({
+      diasDesdeUltimaCompra: 5, totalCompras: 10, valorTotalGasto: 2000, intervalMedioEntrCompras: 10,
+    });
+    // 1 - e^(-30/10) ≈ 95%
+    expect(r.probabilidadeRecompra30d).toBeGreaterThan(90);
+  });
+
+  it("cliente com intervalo muito longo tem probabilidade baixa", () => {
+    const r = calcularScoreCliente({
+      diasDesdeUltimaCompra: 10, totalCompras: 3, valorTotalGasto: 300, intervalMedioEntrCompras: 180,
+    });
+    expect(r.probabilidadeRecompra30d).toBeLessThan(20);
+  });
+
+  it("sem intervalo (uma única compra) cai para estimativa via churnRisk", () => {
+    const r = calcularScoreCliente({
+      diasDesdeUltimaCompra: 10, totalCompras: 1, valorTotalGasto: 100, intervalMedioEntrCompras: null,
+    });
+    expect(r.probabilidadeRecompra30d).toBe(Math.max(0, Math.min(100, 100 - r.churnRisk)));
+  });
+});
+
 describe("Desconto mínimo e calibração sintética", () => {
   it("nunca ultrapassa o limite de margem", () => {
     const r = calcularDescontoMinimo({

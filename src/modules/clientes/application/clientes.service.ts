@@ -101,6 +101,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
         segmento: scoreCliente.segmento,
         acaoSugerida: scoreCliente.acaoSugerida,
         proximaCompraEstimada: scoreCliente.proximaCompraEstimada,
+        probabilidadeRecompra30d: scoreCliente.probabilidadeRecompra30d,
         calculadoEm: scoreCliente.calculadoEm,
       })
       .from(scoreCliente)

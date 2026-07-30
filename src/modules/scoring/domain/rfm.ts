@@ -13,10 +13,27 @@ export interface ResultadoScoreCliente {
   rfmFrequencia: number;
   rfmValor: number;
   proximaCompraEstimadaDias: number | null;
+  probabilidadeRecompra30d: number;
   segmento: SegmentoCliente;
   acaoSugerida: string;
   explicacao: string;
   versaoFormula: string;
+}
+
+// Probabilidade de recompra nos próximos 30 dias — modelo exponencial
+// (processo de Poisson, memoryless): P(recompra em N dias) = 1 - e^(-N/intervalo).
+// Não é ML nem depende de dado que o sistema não tem — só usa o intervalo médio
+// real entre as compras do próprio cliente. Cliente com uma única compra ainda
+// não tem intervalo, então cai para uma estimativa grosseira via churnRisk.
+function calcularProbabilidadeRecompra30d(
+  churnRisk: number,
+  intervalMedioEntrCompras: number | null,
+): number {
+  if (intervalMedioEntrCompras == null || intervalMedioEntrCompras <= 0) {
+    return Math.max(0, Math.min(100, 100 - churnRisk));
+  }
+  const probabilidade = (1 - Math.exp(-30 / intervalMedioEntrCompras)) * 100;
+  return Math.round(Math.max(0, Math.min(100, probabilidade)));
 }
 
 // "Esfriamento" é a faixa de transição: o cliente ainda compra mas o
@@ -69,12 +86,13 @@ function calcularV1(dados: DadosRFM): ResultadoScoreCliente {
     ? Math.round(dados.intervalMedioEntrCompras - dados.diasDesdeUltimaCompra)
     : null;
   const segmento = segmentarPorChurn(churnRisk);
+  const probabilidadeRecompra30d = calcularProbabilidadeRecompra30d(churnRisk, dados.intervalMedioEntrCompras);
   const explicacao =
     `${dados.totalCompras} compra(s), última há ${dados.diasDesdeUltimaCompra} dia(s)` +
     (dados.intervalMedioEntrCompras ? `, intervalo médio ${Math.round(dados.intervalMedioEntrCompras)} dias` : "") +
     `. Valor total: R$ ${dados.valorTotalGasto.toFixed(2)}.`;
   return {
-    churnRisk, rfmRecencia, rfmFrequencia, rfmValor, proximaCompraEstimadaDias,
+    churnRisk, rfmRecencia, rfmFrequencia, rfmValor, proximaCompraEstimadaDias, probabilidadeRecompra30d,
     segmento, acaoSugerida: sugerirAcaoComercial(segmento, proximaCompraEstimadaDias),
     explicacao, versaoFormula: "v1",
   };
@@ -99,15 +117,16 @@ function calcularV2(dados: DadosRFM): ResultadoScoreCliente {
     : null;
 
   const segmento = segmentarPorChurn(churnRisk);
+  const probabilidadeRecompra30d = calcularProbabilidadeRecompra30d(churnRisk, dados.intervalMedioEntrCompras);
 
   const explicacao =
     `[${segmento}] ${dados.totalCompras} compra(s), última há ${dados.diasDesdeUltimaCompra} dia(s)` +
     (dados.intervalMedioEntrCompras ? `, intervalo médio ${Math.round(dados.intervalMedioEntrCompras)} dias` : "") +
     `. Valor total: R$ ${dados.valorTotalGasto.toFixed(2)}.` +
-    ` R=${rfmRecencia} F=${rfmFrequencia} M=${rfmValor} → churn ${churnRisk}%.`;
+    ` R=${rfmRecencia} F=${rfmFrequencia} M=${rfmValor} → churn ${churnRisk}%. Prob. recompra 30d: ${probabilidadeRecompra30d}%.`;
 
   return {
-    churnRisk, rfmRecencia, rfmFrequencia, rfmValor, proximaCompraEstimadaDias,
+    churnRisk, rfmRecencia, rfmFrequencia, rfmValor, proximaCompraEstimadaDias, probabilidadeRecompra30d,
     segmento, acaoSugerida: sugerirAcaoComercial(segmento, proximaCompraEstimadaDias),
     explicacao, versaoFormula: "v2",
   };

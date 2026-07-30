@@ -24,14 +24,14 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
       .values({
         orgId, clienteId,
         churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0,
-        segmento: semCompraSegmento, acaoSugerida: semCompraAcao,
+        segmento: semCompraSegmento, acaoSugerida: semCompraAcao, probabilidadeRecompra30d: 50,
         explicacao: "Sem compras concluídas ainda.", versaoFormula: "v2",
       })
       .onConflictDoUpdate({
         target: scoreCliente.clienteId,
         set: {
           churnRisk: 50, rfmRecencia: 0, rfmFrequencia: 0,
-          segmento: semCompraSegmento, acaoSugerida: semCompraAcao,
+          segmento: semCompraSegmento, acaoSugerida: semCompraAcao, probabilidadeRecompra30d: 50,
           explicacao: "Sem compras concluídas ainda.", versaoFormula: "v2", calculadoEm: new Date(),
         },
       });
@@ -82,6 +82,7 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
       rfmFrequencia: resultado.rfmFrequencia,
       rfmValor: resultado.rfmValor.toFixed(2),
       proximaCompraEstimada,
+      probabilidadeRecompra30d: resultado.probabilidadeRecompra30d,
       segmento: resultado.segmento,
       acaoSugerida: resultado.acaoSugerida,
       explicacao: resultado.explicacao,
@@ -95,6 +96,7 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
         rfmFrequencia: resultado.rfmFrequencia,
         rfmValor: resultado.rfmValor.toFixed(2),
         proximaCompraEstimada,
+        probabilidadeRecompra30d: resultado.probabilidadeRecompra30d,
         segmento: resultado.segmento,
         acaoSugerida: resultado.acaoSugerida,
         explicacao: resultado.explicacao,
@@ -112,6 +114,7 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
       rfmFrequencia: resultado.rfmFrequencia,
       rfmValor: resultado.rfmValor,
       proximaCompraEstimadaDias: resultado.proximaCompraEstimadaDias,
+      probabilidadeRecompra30d: resultado.probabilidadeRecompra30d,
       segmento: resultado.segmento,
       acaoSugerida: resultado.acaoSugerida,
       explicacao: resultado.explicacao,

@@ -113,6 +113,7 @@
       "intelligenceTitle": "Inteligência comercial",
       "churnRiskLabel": "Risco de churn",
       "nextPurchaseLabel": "Previsão de recompra",
+      "repurchaseProbabilityLabel": "Probabilidade de recompra em 30 dias",
       "orderPrefix": "Pedido",
       "fields": { "name": "Nome", "document": "CPF / CNPJ", "email": "E-mail", "phone": "WhatsApp" },
       "metrics": { "orders": "Pedidos", "tasks": "Tarefas" },
