@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { Link2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { SectionCard as Card } from "@/shared/design-system/primitives/SectionCard";
@@ -32,6 +33,29 @@ const ExternalIcon = getIcon(settingsConfig.openAction.icon);
 type UsuarioResumo = Awaited<ReturnType<typeof actionListarUsuarios>>[number];
 type CanalConfiguracao = Awaited<ReturnType<typeof actionListarConfiguracaoCanais>>[number];
 type ProdutoConfiguracao = Awaited<ReturnType<typeof actionListarProdutosConfiguracao>>[number];
+
+/** Título que separa os blocos temáticos da página, no lugar da pilha de cards. */
+function SectionHeading({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
+  return (
+    <motion.h2
+      variants={fadeUp}
+      className="flex items-center gap-2 pt-1 text-[15px] font-bold text-foreground"
+    >
+      <Icon size={16} strokeWidth={1.75} className="text-muted-foreground" />
+      {title}
+    </motion.h2>
+  );
+}
+
+/** Campo rotulado: os formulários usavam placeholder como único rótulo. */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
+      {children}
+    </label>
+  );
+}
 
 function Row({ label, value, accent }: { label: string; value?: string; accent?: string }) {
   return (
@@ -94,7 +118,7 @@ function ContaCanalEditForm({ item, onCancel, onSaved }: {
         toast.success("Conta de canal atualizada.");
         onSaved();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel atualizar a conta.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível atualizar a conta.");
       }
     });
   }
@@ -138,14 +162,14 @@ function ContaCanalCard({ item, onChanged }: { item: CanalConfiguracao; onChange
   function remover() {
     const channelAccountId = item.channelAccountId;
     if (!channelAccountId) return;
-    if (!window.confirm(`Remover a conta "${item.contaNome}" de ${item.canalLabel}? Essa acao nao pode ser desfeita.`)) return;
+    if (!window.confirm(`Remover a conta "${item.contaNome}" de ${item.canalLabel}? Essa ação não pode ser desfeita.`)) return;
     startRemoverTransition(async () => {
       try {
         await actionRemoverContaCanal({ channelAccountId });
         toast.success("Conta de canal removida.");
         onChanged();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel remover a conta.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível remover a conta.");
       }
     });
   }
@@ -165,16 +189,16 @@ function ContaCanalCard({ item, onChanged }: { item: CanalConfiguracao; onChange
             </span>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            {item.contaNome ?? "Conta nao cadastrada"} · {item.skusMapeados} SKU{item.skusMapeados === 1 ? "" : "s"} · {formatarData(item.ultimaVerificacao)}
+            {item.contaNome ?? "Conta não cadastrada"} · {item.skusMapeados} SKU{item.skusMapeados === 1 ? "" : "s"} · {formatarData(item.ultimaVerificacao)}
           </p>
           {item.envAusentes.length > 0 && (
             <p className="mt-2 line-clamp-2 text-xs text-[#B57A00]">
-              Variaveis ausentes: {item.envAusentes.join(", ")}
+              Variáveis ausentes: {item.envAusentes.join(", ")}
             </p>
           )}
           {item.ultimoErro && <p className="mt-2 line-clamp-2 text-xs text-destructive">{item.ultimoErro}</p>}
           {!item.pronto && item.envAusentes.length === 0 && item.skusMapeados === 0 && item.canal !== "whatsapp" && (
-            <p className="mt-2 text-xs text-muted-foreground">Mapeie SKUs para liberar sincronizacao de estoque.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Mapeie SKUs para liberar sincronização de estoque.</p>
           )}
           {editando && item.channelAccountId && (
             <ContaCanalEditForm
@@ -245,22 +269,32 @@ function CadastrarContaCanalForm({ canais, onDone }: { canais: CanalConfiguracao
         toast.success("Conta de canal cadastrada.");
         onDone();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel cadastrar a conta.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível cadastrar a conta.");
       }
     });
   }
 
+  const inputClass = "min-h-11 rounded-xl border border-border bg-background px-3 text-sm";
+
   return (
-    <div className="grid gap-3 md:grid-cols-[1fr_1fr_1.2fr_1.2fr_auto]">
-      <select value={selectedBrandId} onChange={(event) => setBrandId(event.target.value)} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm">
-        <option value="">Marca</option>
-        {marcas.map((marca) => <option key={marca.brandId} value={marca.brandId}>{marca.brandLabel}</option>)}
-      </select>
-      <select value={tipo} onChange={(event) => setTipo(event.target.value)} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm">
-        {["whatsapp", "mercadolivre", "shopee", "tiktokshop", "olist"].map((item) => <option key={item} value={item}>{item}</option>)}
-      </select>
-      <input value={nome} onChange={(event) => setNome(event.target.value)} placeholder="Nome interno da conta" className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
-      <input value={externalAccountId} onChange={(event) => setExternalAccountId(event.target.value)} placeholder="ID externo, seller ou shop" className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
+    <div className="grid items-end gap-3 md:grid-cols-[1fr_1fr_1.2fr_1.2fr_auto]">
+      <Field label="Marca">
+        <select value={selectedBrandId} onChange={(event) => setBrandId(event.target.value)} className={inputClass}>
+          <option value="">Selecione</option>
+          {marcas.map((marca) => <option key={marca.brandId} value={marca.brandId}>{marca.brandLabel}</option>)}
+        </select>
+      </Field>
+      <Field label="Canal">
+        <select value={tipo} onChange={(event) => setTipo(event.target.value)} className={inputClass}>
+          {["whatsapp", "mercadolivre", "shopee", "tiktokshop", "olist"].map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+      </Field>
+      <Field label="Nome interno">
+        <input value={nome} onChange={(event) => setNome(event.target.value)} placeholder="Ex.: KARZI principal" className={inputClass} />
+      </Field>
+      <Field label="ID externo">
+        <input value={externalAccountId} onChange={(event) => setExternalAccountId(event.target.value)} placeholder="Seller ou shop ID" className={inputClass} />
+      </Field>
       <button type="button" disabled={pending || !selectedBrandId || !nome.trim()} onClick={submit} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--gradient-signature)" }}>
         <Plus size={15} /> Cadastrar
       </button>
@@ -304,7 +338,7 @@ function MapearSkuCanalForm({
         toast.success("Mapeamento salvo.");
         onDone();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel salvar o mapeamento.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível salvar o mapeamento.");
       }
     });
   }
@@ -313,21 +347,33 @@ function MapearSkuCanalForm({
     return <p className="text-sm text-muted-foreground">Cadastre uma conta de canal antes de mapear SKUs.</p>;
   }
 
+  const inputClass = "min-h-11 rounded-xl border border-border bg-background px-3 text-sm";
+
   return (
-    <div className="grid gap-3 lg:grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_auto]">
-      <select value={selectedChannelAccountId} onChange={(event) => { setChannelAccountId(event.target.value); setProdutoId(""); }} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm">
-        <option value="">Conta de canal</option>
-        {contas.map((item) => (
-          <option key={item.channelAccountId} value={item.channelAccountId ?? ""}>{item.canalLabel} - {item.brandLabel}</option>
-        ))}
-      </select>
-      <select value={produtoId} onChange={(event) => setProdutoId(event.target.value)} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm">
-        <option value="">Produto da mesma marca</option>
-        {produtosDaMarca.map((item) => <option key={item.id} value={item.id}>{item.sku} - {item.nome}</option>)}
-      </select>
-      <input value={externalListingId} onChange={(event) => setExternalListingId(event.target.value)} placeholder="ID anuncio/listing" className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
-      <input value={externalSkuId} onChange={(event) => setExternalSkuId(event.target.value)} placeholder="SKU/modelo externo" className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
-      <input value={externalWarehouseId} onChange={(event) => setExternalWarehouseId(event.target.value)} placeholder="Warehouse" className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
+    <div className="grid items-end gap-3 lg:grid-cols-[1.2fr_1.4fr_1fr_1fr_1fr_auto]">
+      <Field label="Conta de canal">
+        <select value={selectedChannelAccountId} onChange={(event) => { setChannelAccountId(event.target.value); setProdutoId(""); }} className={inputClass}>
+          <option value="">Selecione</option>
+          {contas.map((item) => (
+            <option key={item.channelAccountId} value={item.channelAccountId ?? ""}>{item.canalLabel} — {item.brandLabel}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Produto da mesma marca">
+        <select value={produtoId} onChange={(event) => setProdutoId(event.target.value)} className={inputClass}>
+          <option value="">Selecione</option>
+          {produtosDaMarca.map((item) => <option key={item.id} value={item.id}>{item.sku} — {item.nome}</option>)}
+        </select>
+      </Field>
+      <Field label="ID do anúncio">
+        <input value={externalListingId} onChange={(event) => setExternalListingId(event.target.value)} placeholder="Listing" className={inputClass} />
+      </Field>
+      <Field label="SKU externo">
+        <input value={externalSkuId} onChange={(event) => setExternalSkuId(event.target.value)} placeholder="Opcional" className={inputClass} />
+      </Field>
+      <Field label="Warehouse">
+        <input value={externalWarehouseId} onChange={(event) => setExternalWarehouseId(event.target.value)} placeholder="Opcional" className={inputClass} />
+      </Field>
       <button type="button" disabled={pending || !produtoId || !selectedChannelAccountId || !externalListingId.trim()} onClick={submit} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--gradient-signature)" }}>
         <Link2 size={15} /> Mapear
       </button>
@@ -376,6 +422,7 @@ export default function ConfiguracoesPage() {
   const [carregandoCanais, setCarregandoCanais] = useState(true);
   const [carregandoProdutos, setCarregandoProdutos] = useState(true);
   const [alterandoUsuario, setAlterandoUsuario] = useState<string | null>(null);
+  const [formulariosAbertos, setFormulariosAbertos] = useState(false);
 
   async function recarregarCanaisEProdutos() {
     setCarregandoCanais(true);
@@ -388,7 +435,7 @@ export default function ConfiguracoesPage() {
       setCanais(canaisAtualizados);
       setProdutos(produtosAtualizados);
     } catch {
-      toast.error("Nao foi possivel atualizar canais e produtos.");
+      toast.error("Não foi possível atualizar canais e produtos.");
     } finally {
       setCarregandoCanais(false);
       setCarregandoProdutos(false);
@@ -409,7 +456,7 @@ export default function ConfiguracoesPage() {
         setCanais(canaisIniciais);
         setProdutos(produtosIniciais);
       })
-      .catch(() => toast.error("Nao foi possivel carregar canais e produtos."))
+      .catch(() => toast.error("Não foi possível carregar canais e produtos."))
       .finally(() => {
         setCarregandoCanais(false);
         setCarregandoProdutos(false);
@@ -438,7 +485,8 @@ export default function ConfiguracoesPage() {
 
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
 
-        {/* Linha 1 */}
+        <SectionHeading title={settingsConfig.sections.acesso.title} icon={getIcon(settingsConfig.sections.acesso.icon)} />
+
         <div className="grid md:grid-cols-2 gap-5">
           <Card title={settingsConfig.organization.title} icon={getIcon(settingsConfig.organization.icon)}>
             {settingsConfig.organization.rows.map((row) => <Row key={row.label} {...row} />)}
@@ -485,37 +533,60 @@ export default function ConfiguracoesPage() {
           </Card>
         </div>
 
-        {/* Canais */}
+        <SectionHeading title={settingsConfig.sections.canais.title} icon={getIcon(settingsConfig.sections.canais.icon)} />
+
         <Card title="Canais por marca" icon={getIcon("Wifi")}>
           <CanaisOperacionais items={canais} loading={carregandoCanais} onChanged={recarregarCanaisEProdutos} />
         </Card>
 
-        <div className="grid gap-5 xl:grid-cols-2">
-          <Card title="Cadastrar conta de canal" icon={Plus}>
-            {carregandoCanais ? (
-              <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>
-            ) : (
-              <CadastrarContaCanalForm canais={canais} onDone={recarregarCanaisEProdutos} />
-            )}
-          </Card>
-
-          <Card title="Mapear SKU x anuncio" icon={Link2}>
-            {carregandoCanais || carregandoProdutos ? (
-              <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>
-            ) : (
-              <MapearSkuCanalForm canais={canais} produtos={produtos} onDone={recarregarCanaisEProdutos} />
-            )}
-          </Card>
-        </div>
-
-        {/* Mercado Livre OAuth */}
         <Card title={settingsConfig.mercadoLivre.title} icon={getIcon("ShoppingBag")}>
           <Suspense fallback={<p className="text-sm text-muted-foreground py-2">{settingsConfig.loading}</p>}>
             <MLConnectSection />
           </Suspense>
         </Card>
 
-        {/* Integrações */}
+        {/* Formularios de manutencao: ficam recolhidos porque sao usados de vez
+            em quando, e abertos ocupavam duas telas de altura por nada. */}
+        <Card
+          title={settingsConfig.channelForms.showLabel}
+          icon={Link2}
+          actions={
+            <button
+              type="button"
+              onClick={() => setFormulariosAbertos((v) => !v)}
+              aria-expanded={formulariosAbertos}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              {formulariosAbertos ? settingsConfig.channelForms.hideLabel : settingsConfig.channelForms.showLabel}
+              <ChevronDown
+                size={14}
+                className={`transition-transform ${formulariosAbertos ? "rotate-180" : ""}`}
+              />
+            </button>
+          }
+        >
+          {!formulariosAbertos ? (
+            <p className="text-sm text-muted-foreground">{settingsConfig.channelForms.hint}</p>
+          ) : carregandoCanais || carregandoProdutos ? (
+            <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Cadastrar conta de canal
+                </h3>
+                <CadastrarContaCanalForm canais={canais} onDone={recarregarCanaisEProdutos} />
+              </div>
+              <div className="border-t border-border pt-5">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Mapear SKU × anúncio
+                </h3>
+                <MapearSkuCanalForm canais={canais} produtos={produtos} onDone={recarregarCanaisEProdutos} />
+              </div>
+            </div>
+          )}
+        </Card>
+
         <Card title={settingsConfig.integrations.title} icon={getIcon(settingsConfig.integrations.icon)}>
           {settingsConfig.integrations.items
             .filter((i) => i.name !== settingsConfig.mercadoLivre.title)
@@ -524,52 +595,43 @@ export default function ConfiguracoesPage() {
             ))}
         </Card>
 
-        {/* Sistema */}
+        <SectionHeading title={settingsConfig.sections.administracao.title} icon={getIcon(settingsConfig.sections.administracao.icon)} />
+
+        {/* Tres cards identicos (auditoria, LGPD, consumo) viraram uma lista. */}
+        <Card
+          title={settingsConfig.adminAreas.title}
+          description={settingsConfig.adminAreas.description}
+          icon={getIcon(settingsConfig.adminAreas.icon)}
+        >
+          <div className="divide-y divide-border">
+            {settingsConfig.adminAreas.items.map((area) => {
+              const AreaIcon = getIcon(area.icon);
+              return (
+                <div key={area.href} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                      <AreaIcon size={15} strokeWidth={1.75} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">{area.title}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{area.description}</p>
+                    </div>
+                  </div>
+                  <Link
+                    href={area.href}
+                    className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-lg px-4 text-xs font-semibold text-white sm:self-center"
+                    style={{ background: "var(--gradient-signature)" }}
+                  >
+                    {area.action}
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
         <Card title={settingsConfig.system.title} icon={getIcon(settingsConfig.system.icon)}>
           {settingsConfig.system.rows.map((row) => <Row key={row.label} {...row} />)}
-        </Card>
-
-        <Card title={settingsConfig.audit.title} icon={getIcon(settingsConfig.audit.icon)}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">{settingsConfig.audit.description}</p>
-            <Link
-              href={settingsConfig.audit.href}
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white"
-              style={{ background: "var(--gradient-signature)" }}
-            >
-              {settingsConfig.audit.action}
-            </Link>
-          </div>
-        </Card>
-
-        <Card title="Solicitacoes LGPD" icon={getIcon("ShieldCheck")}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Gerencie exportacao, rejeicao e anonimizacao com trilha de auditoria.
-            </p>
-            <Link
-              href="/admin/lgpd"
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white"
-              style={{ background: "var(--gradient-signature)" }}
-            >
-              Abrir LGPD
-            </Link>
-          </div>
-        </Card>
-
-        <Card title="Consumo de IA" icon={getIcon("Cpu")}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Custo, runs e corte suave de orcamento mensal por finalidade.
-            </p>
-            <Link
-              href="/admin/consumo-ia"
-              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-semibold text-white"
-              style={{ background: "var(--gradient-signature)" }}
-            >
-              Abrir consumo
-            </Link>
-          </div>
         </Card>
 
         {settingsConfig.groups.map((group) => {
