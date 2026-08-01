@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { brandEnvSuffix, getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +14,61 @@ interface MLTokenResponse {
   scope: string;
   user_id: number;
   refresh_token?: string;
+}
+
+async function sincronizarContaCanal(input: {
+  orgId: string;
+  brandId: string;
+  brand: BrandSlug;
+  sellerId: string;
+}) {
+  const { data: existente, error: selectError } = await supabase
+    .from("channel_account")
+    .select("id, meta")
+    .eq("org_id", input.orgId)
+    .eq("brand_id", input.brandId)
+    .eq("tipo", "mercadolivre")
+    .maybeSingle();
+
+  if (selectError) return { error: selectError };
+
+  const now = new Date().toISOString();
+  const metaAtual = existente?.meta && typeof existente.meta === "object"
+    ? existente.meta as Record<string, unknown>
+    : {};
+  const payload = {
+    nome: `Mercado Livre ${getBrandConfig(input.brand)?.label ?? input.brand}`,
+    status: "conectado",
+    meta: { ...metaAtual, externalAccountId: input.sellerId, synthetic: false },
+    ultima_verificacao: now,
+    ultimo_erro: null,
+    atualizado_em: now,
+  };
+
+  const result = existente
+    ? await supabase.from("channel_account").update(payload).eq("id", existente.id).select("id").single()
+    : await supabase.from("channel_account").insert({
+      ...payload,
+      org_id: input.orgId,
+      brand_id: input.brandId,
+      tipo: "mercadolivre",
+      vault_key: `oauth:mercadolivre:${input.brand}`,
+    }).select("id").single();
+
+  if (result.error) return { error: result.error };
+
+  await supabase.from("audit_log").insert({
+    org_id: input.orgId,
+    brand_id: input.brandId,
+    autor_tipo: "sistema",
+    entidade: "channel_account",
+    entidade_id: result.data.id,
+    acao: existente ? "oauth_sync" : "oauth_create",
+    antes: existente ? { meta: existente.meta } : null,
+    depois: { status: "conectado", externalAccountId: input.sellerId },
+  });
+
+  return { error: null };
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -39,10 +95,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(`${appUrl}/configuracoes?ml_error=state_mismatch`);
   }
 
-  const brand = state.split(":")[0] as "karzi" | "wuwu";
-  if (brand !== "karzi" && brand !== "wuwu") {
+  const rawBrand = state.split(":")[0];
+  if (!isBrandSlug(rawBrand)) {
     return NextResponse.redirect(`${appUrl}/configuracoes?ml_error=invalid_brand`);
   }
+  const brand = rawBrand;
 
   const clientId     = process.env.ML_CLIENT_ID!;
   const clientSecret = process.env.ML_CLIENT_SECRET!;
@@ -75,10 +132,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   // Isolamento de marca (PRD §Fase 4): o OAuth usa a sessão do ML aberta no
   // navegador, então conectar a WUWU logado como KARZI gravaria o token da
   // conta errada. Recusa quando o vendedor autorizado não é o da marca.
-  const sellerEsperado = process.env[`ML_SELLER_ID_${brand.toUpperCase()}`];
+  const brandEnv = brandEnvSuffix(brand);
+  const sellerEsperado = process.env[`ML_SELLER_ID_${brandEnv}`];
   if (!sellerEsperado) {
     console.warn(
-      `[ml/callback] ML_SELLER_ID_${brand.toUpperCase()} não configurado — ` +
+      `[ml/callback] ML_SELLER_ID_${brandEnv} não configurado — ` +
       `token aceito sem validar a marca (seller ${tokens.user_id}).`
     );
   } else if (String(tokens.user_id) !== sellerEsperado) {
@@ -87,7 +145,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       `autorizado ${tokens.user_id}`
     );
     const detalhe = encodeURIComponent(
-      `Você autorizou a conta ${tokens.user_id}, mas ${brand.toUpperCase()} espera a ${sellerEsperado}. ` +
+      `Você autorizou a conta ${tokens.user_id}, mas ${getBrandConfig(brand)?.label ?? brand} espera a ${sellerEsperado}. ` +
       `Saia da conta atual no Mercado Livre e entre com a conta correta.`
     );
     return NextResponse.redirect(
@@ -95,10 +153,19 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const orgId   = process.env.DEFAULT_ORG_ID!;
-  const brandId = brand === "karzi"
-    ? process.env.NEXT_PUBLIC_BRAND_ID_KARZI!
-    : process.env.NEXT_PUBLIC_BRAND_ID_WUWU!;
+  const orgId = process.env.DEFAULT_ORG_ID!;
+  const { data: marca, error: marcaError } = await supabase
+    .from("brand")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("slug", brand)
+    .eq("active", true)
+    .maybeSingle();
+  if (marcaError || !marca) {
+    console.error("[ml/callback] brand resolution failed", marcaError);
+    return NextResponse.redirect(`${appUrl}/configuracoes?ml_error=invalid_brand`);
+  }
+  const brandId = marca.id;
 
   const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
@@ -121,6 +188,23 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (dbError) {
     console.error("[ml/callback] db upsert failed", dbError);
+    return NextResponse.redirect(`${appUrl}/configuracoes?ml_error=db_failed`);
+  }
+
+  const contaResult = await sincronizarContaCanal({
+    orgId,
+    brandId,
+    brand,
+    sellerId: String(tokens.user_id),
+  });
+  if (contaResult.error) {
+    console.error("[ml/callback] channel_account sync failed", contaResult.error);
+    await supabase
+      .from("canal_tokens")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("brand_id", brandId)
+      .eq("canal", "mercadolivre");
     return NextResponse.redirect(`${appUrl}/configuracoes?ml_error=db_failed`);
   }
 

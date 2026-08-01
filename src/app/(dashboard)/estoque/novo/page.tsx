@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -10,14 +10,10 @@ import {
   inputClass,
   selectClass,
 } from "@/shared/design-system/primitives/WizardLayout";
-import { actionCriarProduto } from "../actions";
-import brandsConfig from "@/config/brands.json";
+import { actionCriarProduto, actionListarMarcasEstoque } from "../actions";
 import wizardsConfig from "@/config/wizards.json";
 
 const copy = wizardsConfig.produto;
-
-const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
-const BRAND_WUWU = process.env.NEXT_PUBLIC_BRAND_ID_WUWU ?? "";
 
 type FormData = {
   nome: string;
@@ -36,6 +32,11 @@ export default function NovoProdutoWizard() {
     nome: "", sku: "", brandId: "", preco: "", custo: "", estoqueMinimo: "0",
   });
   const [pending, startTransition] = useTransition();
+  const [marcas, setMarcas] = useState<Awaited<ReturnType<typeof actionListarMarcasEstoque>>>([]);
+
+  useEffect(() => {
+    actionListarMarcasEstoque().then(setMarcas).catch(() => toast.error(copy.messages.error));
+  }, []);
 
   function set(field: keyof FormData, value: string) {
     setData((prev) => ({ ...prev, [field]: value }));
@@ -84,7 +85,7 @@ export default function NovoProdutoWizard() {
     });
   }
 
-  const brandLabel = data.brandId === BRAND_KARZI ? brandsConfig.karzi.label : data.brandId === BRAND_WUWU ? brandsConfig.wuwu.label : "—";
+  const brandLabel = marcas.find((marca) => marca.id === data.brandId)?.name ?? "—";
 
   return (
     <WizardLayout
@@ -103,8 +104,7 @@ export default function NovoProdutoWizard() {
           <WizardField label={copy.fields.brandId.label} required error={errors.brandId}>
             <select className={selectClass} value={data.brandId} onChange={(e) => set("brandId", e.target.value)}>
               <option value="">{copy.fields.brandId.placeholder}</option>
-              <option value={BRAND_KARZI}>{brandsConfig.karzi.label}</option>
-              <option value={BRAND_WUWU}>{brandsConfig.wuwu.label}</option>
+              {marcas.map((marca) => <option key={marca.id} value={marca.id}>{marca.name}</option>)}
             </select>
           </WizardField>
           <WizardField label={copy.fields.nome.label} required error={errors.nome}>

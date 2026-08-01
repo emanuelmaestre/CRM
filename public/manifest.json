@@ -1,7 +1,7 @@
 {
   "name": "CRM LEO — Plast Leo",
   "short_name": "CRM LEO",
-  "description": "Central de gestão KARZI & WUWU — clientes, vendas, estoque e automações",
+  "description": "Central de gestão KARZI, WUWU e Armarinhos Lima — clientes, vendas, estoque e automações",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0E0F13",

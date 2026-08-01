@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { ChevronDown, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { AlertTriangle, ChevronDown, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -21,11 +21,13 @@ import {
   actionListarConfiguracaoCanais,
   actionListarProdutosConfiguracao,
   actionListarUsuarios,
+  actionObterResumoConfiguracoes,
   actionRemoverContaCanal,
   actionSalvarMapeamentoCanal,
 } from "./actions";
 import type { Perfil } from "@/shared/lib/auth/authorization";
 import { toast } from "sonner";
+import { getBrandConfig } from "@/shared/config/brands";
 
 const PendingIcon = getIcon(settingsConfig.status.pendingIcon);
 const ExternalIcon = getIcon(settingsConfig.openAction.icon);
@@ -33,6 +35,7 @@ const ExternalIcon = getIcon(settingsConfig.openAction.icon);
 type UsuarioResumo = Awaited<ReturnType<typeof actionListarUsuarios>>[number];
 type CanalConfiguracao = Awaited<ReturnType<typeof actionListarConfiguracaoCanais>>[number];
 type ProdutoConfiguracao = Awaited<ReturnType<typeof actionListarProdutosConfiguracao>>[number];
+type ResumoConfiguracoes = Awaited<ReturnType<typeof actionObterResumoConfiguracoes>>;
 
 /** Título que separa os blocos temáticos da página, no lugar da pilha de cards. */
 function SectionHeading({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
@@ -134,7 +137,7 @@ function ContaCanalEditForm({ item, onCancel, onSaved }: {
       <input
         value={externalAccountId}
         onChange={(event) => setExternalAccountId(event.target.value)}
-        placeholder="ID externo, seller ou shop"
+        placeholder={settingsConfig.channelForms.externalId.placeholder}
         className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-xs"
       />
       <div className="flex justify-end gap-2">
@@ -144,7 +147,7 @@ function ContaCanalEditForm({ item, onCancel, onSaved }: {
         <button
           type="button"
           onClick={salvar}
-          disabled={pending || nome.trim().length < 2}
+          disabled={pending || nome.trim().length < 2 || (item.canal !== "whatsapp" && !externalAccountId.trim())}
           className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
           style={{ background: "var(--gradient-signature)" }}
         >
@@ -158,6 +161,7 @@ function ContaCanalEditForm({ item, onCancel, onSaved }: {
 function ContaCanalCard({ item, onChanged }: { item: CanalConfiguracao; onChanged: () => void }) {
   const [editando, setEditando] = useState(false);
   const [removendo, startRemoverTransition] = useTransition();
+  const brandColor = getBrandConfig(item.brand)?.color ?? "var(--muted-foreground)";
 
   function remover() {
     const channelAccountId = item.channelAccountId;
@@ -175,15 +179,15 @@ function ContaCanalCard({ item, onChanged }: { item: CanalConfiguracao; onChange
   }
 
   return (
-    <article className="rounded-xl border border-border bg-background/60 p-4">
+    <article className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
       <div className="flex items-start gap-3">
         <ChannelLogo canal={item.canalLabel} size="sm" variant="logo" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-sm text-foreground">{item.canalLabel}</p>
             <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase" style={{
-              background: item.brand === "karzi" ? "#E3131B18" : "#9B30D918",
-              color: item.brand === "karzi" ? "#E3131B" : "#9B30D9",
+              background: `color-mix(in srgb, ${brandColor} 10%, transparent)`,
+              color: brandColor,
             }}>
               {item.brandLabel}
             </span>
@@ -191,6 +195,20 @@ function ContaCanalCard({ item, onChanged }: { item: CanalConfiguracao; onChange
           <p className="mt-1 text-xs text-muted-foreground">
             {item.contaNome ?? "Conta não cadastrada"} · {item.skusMapeados} SKU{item.skusMapeados === 1 ? "" : "s"} · {formatarData(item.ultimaVerificacao)}
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {settingsConfig.channelForms.externalId.label}: {item.externalAccountId ?? settingsConfig.channelForms.externalId.missing}
+            {item.externalAccountIdSource && (
+              <span className="ml-1 opacity-70">
+                ({settingsConfig.channelForms.externalId[item.externalAccountIdSource]})
+              </span>
+            )}
+          </p>
+          {item.externalAccountIdMismatch && (
+            <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-[#B57A00]/10 px-2.5 py-2 text-xs font-medium text-[#B57A00]">
+              <AlertTriangle size={13} className="mt-px shrink-0" />
+              {settingsConfig.channelForms.externalId.mismatch}
+            </p>
+          )}
           {item.envAusentes.length > 0 && (
             <p className="mt-2 line-clamp-2 text-xs text-[#B57A00]">
               Variáveis ausentes: {item.envAusentes.join(", ")}
@@ -244,7 +262,7 @@ function CanaisOperacionais({ items, loading, onChanged }: { items: CanalConfigu
       {!loading && items.length === 0 && (
         <EmptyState illustration="generic" title="Sem marcas ativas" description="Cadastre marcas para configurar canais." />
       )}
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-3 lg:grid-cols-2">
         {items.map((item) => <ContaCanalCard key={item.id} item={item} onChanged={onChanged} />)}
       </div>
     </div>
@@ -259,6 +277,11 @@ function CadastrarContaCanalForm({ canais, onDone }: { canais: CanalConfiguracao
   const [externalAccountId, setExternalAccountId] = useState("");
   const [pending, startTransition] = useTransition();
   const selectedBrandId = brandId || marcas[0]?.brandId || "";
+  const marketplace = tipo !== "whatsapp";
+
+  function idConhecido(nextBrandId: string, nextTipo: string) {
+    return canais.find((item) => item.brandId === nextBrandId && item.canal === nextTipo)?.externalAccountId ?? "";
+  }
 
   function submit() {
     startTransition(async () => {
@@ -279,23 +302,46 @@ function CadastrarContaCanalForm({ canais, onDone }: { canais: CanalConfiguracao
   return (
     <div className="grid items-end gap-3 md:grid-cols-[1fr_1fr_1.2fr_1.2fr_auto]">
       <Field label="Marca">
-        <select value={selectedBrandId} onChange={(event) => setBrandId(event.target.value)} className={inputClass}>
+        <select
+          value={selectedBrandId}
+          onChange={(event) => {
+            const nextBrandId = event.target.value;
+            setBrandId(nextBrandId);
+            setExternalAccountId(idConhecido(nextBrandId, tipo));
+          }}
+          className={inputClass}
+        >
           <option value="">Selecione</option>
           {marcas.map((marca) => <option key={marca.brandId} value={marca.brandId}>{marca.brandLabel}</option>)}
         </select>
       </Field>
       <Field label="Canal">
-        <select value={tipo} onChange={(event) => setTipo(event.target.value)} className={inputClass}>
+        <select
+          value={tipo}
+          onChange={(event) => {
+            const nextTipo = event.target.value;
+            setTipo(nextTipo);
+            setExternalAccountId(idConhecido(selectedBrandId, nextTipo));
+          }}
+          className={inputClass}
+        >
           {["whatsapp", "mercadolivre", "shopee", "tiktokshop", "olist"].map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
       </Field>
       <Field label="Nome interno">
         <input value={nome} onChange={(event) => setNome(event.target.value)} placeholder="Ex.: KARZI principal" className={inputClass} />
       </Field>
-      <Field label="ID externo">
-        <input value={externalAccountId} onChange={(event) => setExternalAccountId(event.target.value)} placeholder="Seller ou shop ID" className={inputClass} />
+      <Field label={`${settingsConfig.channelForms.externalId.label}${marketplace ? " *" : ""}`}>
+        <input
+          value={externalAccountId}
+          onChange={(event) => setExternalAccountId(event.target.value)}
+          placeholder={marketplace
+            ? settingsConfig.channelForms.externalId.required
+            : settingsConfig.channelForms.externalId.placeholder}
+          className={inputClass}
+        />
       </Field>
-      <button type="button" disabled={pending || !selectedBrandId || !nome.trim()} onClick={submit} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--gradient-signature)" }}>
+      <button type="button" disabled={pending || !selectedBrandId || !nome.trim() || (marketplace && !externalAccountId.trim())} onClick={submit} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50" style={{ background: "var(--gradient-signature)" }}>
         <Plus size={15} /> Cadastrar
       </button>
     </div>
@@ -394,7 +440,8 @@ function IntegrationRow({ name, description, href, color, connected = false }: {
         {description && <p className="text-[11px] text-muted-foreground mt-0.5">{description}</p>}
       </div>
       <div className="ml-3 flex-shrink-0 flex items-center gap-2">
-        {href ? (
+        <StatusBadge connected={connected} />
+        {href && (
           <motion.a
             href={href}
             target="_blank"
@@ -406,8 +453,6 @@ function IntegrationRow({ name, description, href, color, connected = false }: {
           >
             {settingsConfig.openAction.label} <ExternalIcon size={10} strokeWidth={2.5} />
           </motion.a>
-        ) : (
-          <StatusBadge connected={connected} />
         )}
       </div>
     </motion.div>
@@ -418,6 +463,7 @@ export default function ConfiguracoesPage() {
   const [usuarios, setUsuarios] = useState<UsuarioResumo[]>([]);
   const [canais, setCanais] = useState<CanalConfiguracao[]>([]);
   const [produtos, setProdutos] = useState<ProdutoConfiguracao[]>([]);
+  const [resumo, setResumo] = useState<ResumoConfiguracoes | null>(null);
   const [carregandoUsuarios, setCarregandoUsuarios] = useState(true);
   const [carregandoCanais, setCarregandoCanais] = useState(true);
   const [carregandoProdutos, setCarregandoProdutos] = useState(true);
@@ -443,21 +489,21 @@ export default function ConfiguracoesPage() {
   }
 
   useEffect(() => {
-    actionListarUsuarios()
-      .then(setUsuarios)
-      .catch(() => toast.error(settingsConfig.users.messages.loadError))
-      .finally(() => setCarregandoUsuarios(false));
-
     Promise.all([
+      actionListarUsuarios(),
       actionListarConfiguracaoCanais(),
       actionListarProdutosConfiguracao(),
+      actionObterResumoConfiguracoes(),
     ])
-      .then(([canaisIniciais, produtosIniciais]) => {
+      .then(([usuariosIniciais, canaisIniciais, produtosIniciais, resumoInicial]) => {
+        setUsuarios(usuariosIniciais);
         setCanais(canaisIniciais);
         setProdutos(produtosIniciais);
+        setResumo(resumoInicial);
       })
-      .catch(() => toast.error("Não foi possível carregar canais e produtos."))
+      .catch(() => toast.error("Não foi possível carregar as configurações."))
       .finally(() => {
+        setCarregandoUsuarios(false);
         setCarregandoCanais(false);
         setCarregandoProdutos(false);
       });
@@ -487,9 +533,18 @@ export default function ConfiguracoesPage() {
 
         <SectionHeading title={settingsConfig.sections.acesso.title} icon={getIcon(settingsConfig.sections.acesso.icon)} />
 
-        <div className="grid md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Card title={settingsConfig.organization.title} icon={getIcon(settingsConfig.organization.icon)}>
-            {settingsConfig.organization.rows.map((row) => <Row key={row.label} {...row} />)}
+            <Row label={settingsConfig.organization.labels.name} value={resumo?.organizationName ?? settingsConfig.loading} />
+            <Row label={settingsConfig.organization.labels.activeBrands} value={resumo?.activeBrands.join(", ") ?? settingsConfig.loading} />
+            <Row
+              label={settingsConfig.organization.labels.configuredAccounts}
+              value={String(canais.filter((item) => item.channelAccountId).length)}
+            />
+            <Row
+              label={settingsConfig.organization.labels.connectedAccounts}
+              value={String(canais.filter((item) => item.status === "conectado").length)}
+            />
           </Card>
 
           <Card title={settingsConfig.users.title} icon={getIcon(settingsConfig.users.icon)}>
@@ -590,9 +645,13 @@ export default function ConfiguracoesPage() {
         <Card title={settingsConfig.integrations.title} icon={getIcon(settingsConfig.integrations.icon)}>
           {settingsConfig.integrations.items
             .filter((i) => i.name !== settingsConfig.mercadoLivre.title)
-            .map((integration) => (
-              <IntegrationRow key={integration.name} {...integration} />
-            ))}
+            .map((integration) => {
+              const [source, value] = integration.statusSource.split(":");
+              const connected = source === "channel"
+                ? canais.some((item) => item.canal === value && item.status === "conectado")
+                : value === "inngest" ? resumo?.inngestConfigured === true : resumo?.openAiConfigured === true;
+              return <IntegrationRow key={integration.name} {...integration} connected={connected} />;
+            })}
         </Card>
 
         <SectionHeading title={settingsConfig.sections.administracao.title} icon={getIcon(settingsConfig.sections.administracao.icon)} />
@@ -631,31 +690,30 @@ export default function ConfiguracoesPage() {
         </Card>
 
         <Card title={settingsConfig.system.title} icon={getIcon(settingsConfig.system.icon)}>
-          {settingsConfig.system.rows.map((row) => <Row key={row.label} {...row} />)}
+          <Row label={settingsConfig.system.labels.version} value={settingsConfig.system.version} />
+          <Row label={settingsConfig.system.labels.environment} value={resumo?.environment ?? settingsConfig.loading} />
+          <Row
+            label={settingsConfig.system.labels.externalSends}
+            value={resumo?.externalSendsEnabled
+              ? settingsConfig.system.labels.enabled
+              : settingsConfig.system.labels.disabled}
+            accent={resumo?.externalSendsEnabled ? "#1F8A4C" : "#B57A00"}
+          />
         </Card>
 
-        {settingsConfig.groups.map((group) => {
-          const GroupIcon = getIcon(group.icon);
-          return (
-            <div key={group.title}>
-              <motion.h2 variants={fadeUp} className="flex items-center gap-2 text-[15px] font-bold text-foreground mb-4">
-                <GroupIcon size={16} strokeWidth={1.75} className="text-muted-foreground" />
-                {group.title}
-              </motion.h2>
-              <div className="grid md:grid-cols-2 gap-5">
-                {group.cards.map((card) => (
-                  <Card key={card.title} title={card.title} icon={getIcon(card.icon)}>
-                    <EmptyState
-                      illustration={card.illustration as React.ComponentProps<typeof EmptyState>["illustration"]}
-                      title={card.emptyTitle}
-                      description={card.description}
-                    />
-                  </Card>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+        <Card
+          title={settingsConfig.healthLink.title}
+          description={settingsConfig.healthLink.description}
+          icon={getIcon(settingsConfig.healthLink.icon)}
+        >
+          <Link
+            href={settingsConfig.healthLink.href}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg px-4 text-xs font-semibold text-white"
+            style={{ background: "var(--gradient-signature)" }}
+          >
+            {settingsConfig.healthLink.action}
+          </Link>
+        </Card>
 
       </motion.div>
     </div>

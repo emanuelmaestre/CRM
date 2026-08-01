@@ -5,6 +5,7 @@ import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.serv
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { receberMensagem } from "@/modules/inbox/application/inbox.service";
+import { brandEnvSuffix } from "@/shared/config/brands";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const conta = await resolverContaWebhookMarketplace("shopee", String(shop_id));
 
-    const upper = conta.brandSlug.toUpperCase() as "KARZI" | "WUWU";
+    const upper = brandEnvSuffix(conta.brandSlug);
     const partnerId = process.env.SHOPEE_PARTNER_ID ?? "";
     const partnerKey = process.env.SHOPEE_PARTNER_KEY ?? "";
     const shopId = process.env[`SHOPEE_SHOP_ID_${upper}`] ?? "";

@@ -23,7 +23,7 @@
 └─────────────────────────────────────────────────────────┘
          │                    │                │
     Supabase            Inngest Cloud      Z-API (WhatsApp)
-    (Postgres+RLS)      (job orchestration) (KARZI + WUWU)
+    (Postgres+RLS)      (job orchestration) (uma instância por operação)
          │
     Upstash Redis       OpenAI API
     (cache/rate-limit)  (gpt-4.1 / gpt-4.1-mini)
@@ -53,7 +53,8 @@ Comunicação entre módulos apenas via eventos de domínio (`emitirEvento`) ou 
 
 ## Isolamento multi-marca
 
-KARZI e WUWU são marcas da mesma empresa (mesmo CNPJ, mesmo org_id).
+KARZI, WUWU e Armarinhos Lima compartilham o tenant administrativo atual (`org_id`) e mantêm
+fronteiras operacionais independentes por `brand_id`.
 Isolamento garantido por `brand_id` em:
 - Templates de mensagem
 - Instâncias Z-API (1 por marca)

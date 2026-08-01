@@ -15,6 +15,7 @@ import {
   regua,
   reguaExecucao,
 } from "@/shared/lib/db/schema";
+import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 const CANAIS_PRIORITARIOS = [
   "whatsapp",
@@ -57,7 +58,7 @@ export interface DashboardRecentClient {
   id: string;
   name: string;
   role: string;
-  brand?: "karzi" | "wuwu";
+  brand?: BrandSlug;
 }
 
 export interface DashboardRecentOrder {
@@ -66,7 +67,7 @@ export interface DashboardRecentOrder {
   /** Codigo curto exibido na UI; pode colidir entre pedidos. */
   id: string;
   client: string;
-  brand: "karzi" | "wuwu";
+  brand: BrandSlug;
   status: string;
   value: string;
   href: string;
@@ -163,8 +164,13 @@ function parseMoney(value: string | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function brandSlug(value: string | null | undefined): "karzi" | "wuwu" {
-  return value === "wuwu" ? "wuwu" : "karzi";
+function brandSlug(value: string | null | undefined): BrandSlug {
+  if (value && isBrandSlug(value)) return value;
+  throw new Error(`Marca não configurada no dashboard: ${value ?? "ausente"}`);
+}
+
+function brandLabel(value: string): string {
+  return getBrandConfig(value)?.label ?? value;
 }
 
 function normalizeBars(values: number[]): number[] {
@@ -413,12 +419,12 @@ export async function obterDashboardData(ctx: CrudContext, filters?: DashboardFi
   const canaisExistentes = contasFiltradas.map((conta) => {
     const totalMapeado = mapeamentosPorConta.get(conta.id) ?? 0;
     const detailParts = [
-      conta.brandSlug.toUpperCase(),
+      brandLabel(conta.brandSlug),
       `${totalMapeado} SKU${totalMapeado === 1 ? "" : "s"}`,
     ];
     if (conta.ultimoErro) detailParts.push("com erro recente");
     return {
-      name: `${CANAL_LABEL[conta.tipo] ?? conta.tipo} · ${conta.brandSlug.toUpperCase()}`,
+      name: `${CANAL_LABEL[conta.tipo] ?? conta.tipo} · ${brandLabel(conta.brandSlug)}`,
       connected: conta.status === "conectado",
       status: conta.status,
       detail: detailParts.join(" · "),
@@ -556,7 +562,7 @@ export async function obterDashboardData(ctx: CrudContext, filters?: DashboardFi
         id: item.id,
         name: item.nome,
         role: ultimoPedido
-          ? `${CANAL_LABEL[ultimoPedido.canal] ?? ultimoPedido.canal} · ${ultimoPedido.brandSlug.toUpperCase()}`
+          ? `${CANAL_LABEL[ultimoPedido.canal] ?? ultimoPedido.canal} · ${brandLabel(ultimoPedido.brandSlug)}`
           : "Cadastro sem pedido",
         brand: ultimoPedido ? brandSlug(ultimoPedido.brandSlug) : undefined,
       };

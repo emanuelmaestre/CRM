@@ -2,6 +2,9 @@
   "karzi": {
     "label": "KARZI",
     "color": "var(--karzi)",
+    "logo": "/logos/karzi.svg",
+    "logoSize": { "width": 213, "height": 72 },
+    "shortLabel": "K",
     "chip": {
       "background": "bg-[#E3131B]/10",
       "text": "text-[#E3131B]",
@@ -12,11 +15,27 @@
   "wuwu": {
     "label": "WUWU",
     "color": "var(--wuwu)",
+    "logo": "/logos/wuwu.svg",
+    "logoSize": { "width": 517, "height": 251 },
+    "shortLabel": "W",
     "chip": {
       "background": "bg-[#9B30D9]/10",
       "text": "text-[#9B30D9]",
       "border": "border-[#9B30D9]/20"
     },
     "environmentKey": "NEXT_PUBLIC_BRAND_ID_WUWU"
+  },
+  "armarinhos_lima": {
+    "label": "Armarinhos Lima",
+    "color": "var(--armarinhos-lima)",
+    "logo": "/logos/armarinhos-lima.svg",
+    "logoSize": { "width": 1439, "height": 718 },
+    "shortLabel": "AL",
+    "chip": {
+      "background": "bg-[#6F6F6E]/10",
+      "text": "text-[#6F6F6E]",
+      "border": "border-[#6F6F6E]/20"
+    },
+    "environmentKey": "NEXT_PUBLIC_BRAND_ID_ARMARINHOS_LIMA"
   }
 }

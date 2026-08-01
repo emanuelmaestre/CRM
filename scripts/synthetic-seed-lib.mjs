@@ -1,31 +1,52 @@
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import postgres from "postgres";
 
 const LOCAL_DATABASE_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const REMOTE_CONFIRMATION = "seed-synthetic-data";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ID_COLLECTIONS = [
+  "brands", "users", "channelAccounts", "clients", "clientIdentities", "consents", "tags",
+  "segments", "interactions", "products", "stockMovements", "productChannels", "funnelStages",
+  "orders", "orderItems", "opportunities", "tasks", "calendarEvents", "conversations", "messages",
+  "clientScores", "productScores", "campaignSuggestions", "insights", "auditLogs",
+];
 
 export const catalogUrl = new URL("../seeds/synthetic.json", import.meta.url);
+const brandsConfigUrl = new URL("../src/config/brands.json", import.meta.url);
 
 export async function loadSyntheticCatalog(env = process.env) {
-  const catalog = JSON.parse(await readFile(catalogUrl, "utf8"));
+  const [catalog, brandsConfig] = await Promise.all([
+    readFile(catalogUrl, "utf8").then(JSON.parse),
+    readFile(brandsConfigUrl, "utf8").then(JSON.parse),
+  ]);
 
   if (catalog.meta?.kind !== "synthetic" || catalog.meta?.schemaVersion !== 1) {
     throw new Error("Catálogo de seed inválido: kind=synthetic e schemaVersion=1 são obrigatórios.");
   }
 
-  if (env.DEFAULT_ORG_ID) {
-    catalog.organization.id = env.DEFAULT_ORG_ID;
+  if (env.SYNTHETIC_SEED_ORG_ID) {
+    catalog.organization.id = env.SYNTHETIC_SEED_ORG_ID;
     // A chave natural precisa acompanhar o tenant sobrescrito. Sem isso, duas
-    // execuções com DEFAULT_ORG_ID diferentes disputam o mesmo CNPJ sintético.
-    catalog.organization.cnpj = `synthetic-${env.DEFAULT_ORG_ID}`;
+    // execuções com tenants sintéticos diferentes disputam o mesmo CNPJ.
+    catalog.organization.cnpj = `synthetic-${env.SYNTHETIC_SEED_ORG_ID}`;
   }
-  const brandOverrides = {
-    karzi: env.NEXT_PUBLIC_BRAND_ID_KARZI,
-    wuwu: env.NEXT_PUBLIC_BRAND_ID_WUWU,
-  };
+  const missingBrands = Object.keys(brandsConfig)
+    .filter((key) => !catalog.brands.some((brand) => brand.key === key && brand.slug === key));
+  if (missingBrands.length > 0) {
+    throw new Error(`Marcas ausentes no seed sintético: ${missingBrands.join(", ")}`);
+  }
+  const usesConfiguredTenant = Boolean(
+    env.DEFAULT_ORG_ID && catalog.organization.id === env.DEFAULT_ORG_ID,
+  );
   for (const brand of catalog.brands) {
-    brand.id = brandOverrides[brand.key] || brand.id;
+    const environmentKey = brandsConfig[brand.key]?.environmentKey;
+    if (usesConfiguredTenant && environmentKey && env[environmentKey]) {
+      brand.id = env[environmentKey];
+    }
+  }
+  if (!usesConfiguredTenant) {
+    namespaceCatalogIds(catalog, catalog.organization.id);
   }
 
   const ids = collectIds(catalog);
@@ -69,6 +90,13 @@ export function assertSyntheticSeedTarget(databaseUrl, env = process.env) {
   if (productionSignals.includes("production")) {
     throw new Error("Seed sintético bloqueado: o ambiente foi identificado como produção.");
   }
+  if (
+    env.SYNTHETIC_SEED_ORG_ID &&
+    env.DEFAULT_ORG_ID &&
+    env.SYNTHETIC_SEED_ORG_ID === env.DEFAULT_ORG_ID
+  ) {
+    throw new Error("Seed remoto bloqueado: o tenant sintético deve ser diferente do tenant operacional.");
+  }
   if (!new Set(["development", "dev", "staging", "preview"]).has(environment)) {
     throw new Error("Seed remoto bloqueado: defina SYNTHETIC_SEED_ENV como development, staging ou preview.");
   }
@@ -97,7 +125,7 @@ export async function seedSyntheticData({ databaseUrl, env = process.env } = {})
 
   try {
     await sql.begin(async (tx) => {
-      await applyCatalog(tx, catalog, anchor);
+      await applySyntheticCatalog(tx, catalog, anchor);
     });
   } finally {
     await sql.end({ timeout: 2 });
@@ -107,20 +135,41 @@ export async function seedSyntheticData({ databaseUrl, env = process.env } = {})
 }
 
 function collectIds(catalog) {
-  const collections = [
-    "brands", "users", "channelAccounts", "clients", "clientIdentities", "consents", "tags",
-    "segments", "interactions", "products", "stockMovements", "productChannels", "funnelStages",
-    "orders", "orderItems", "opportunities", "tasks", "calendarEvents", "conversations", "messages",
-    "clientScores", "productScores", "campaignSuggestions", "insights", "auditLogs",
-  ];
   const ids = [["organization", catalog.organization.id]];
-  for (const collection of collections) {
+  for (const collection of ID_COLLECTIONS) {
     for (const [index, item] of catalog[collection].entries()) {
       ids.push([`${collection}[${index}]`, item.id]);
       if (collection === "products") ids.push([`${collection}[${index}].balanceId`, item.balanceId]);
     }
   }
   return ids;
+}
+
+function deterministicUuid(namespace, sourceId) {
+  const bytes = createHash("sha256")
+    .update(`crm-synthetic:${namespace}:${sourceId}`)
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function namespaceCatalogIds(catalog, namespace) {
+  const emailSuffix = namespace.replaceAll("-", "").slice(0, 12);
+  for (const collection of ID_COLLECTIONS) {
+    for (const item of catalog[collection]) {
+      item.id = deterministicUuid(namespace, item.id);
+      if (collection === "users") {
+        const [localPart, domain] = item.email.split("@");
+        item.email = `${localPart}+${emailSuffix}@${domain}`;
+      }
+      if (collection === "products") {
+        item.balanceId = deterministicUuid(namespace, item.balanceId);
+      }
+    }
+  }
 }
 
 function mapByKey(items) {
@@ -134,7 +183,7 @@ function atOffset(anchor, days, hour = 12) {
   return date;
 }
 
-async function applyCatalog(tx, catalog, anchor) {
+export async function applySyntheticCatalog(tx, catalog, anchor) {
   const orgId = catalog.organization.id;
   const brands = mapByKey(catalog.brands);
   const users = mapByKey(catalog.users);
@@ -314,14 +363,18 @@ async function applyCatalog(tx, catalog, anchor) {
   for (const item of catalog.productChannels) {
     await tx`
       insert into public.produto_canal
-        (id, org_id, produto_id, channel_account_id, external_listing_id, ativo, atualizado_em)
+        (id, org_id, produto_id, channel_account_id, external_listing_id,
+         external_sku_id, external_warehouse_id, ativo, atualizado_em)
       values
         (${item.id}, ${orgId}, ${products.get(item.product).id}, ${channels.get(item.channelAccount).id},
-         ${item.externalListingId}, true, ${anchor})
+         ${item.externalListingId}, ${item.externalSkuId || null}, ${item.externalWarehouseId || null},
+         true, ${anchor})
       on conflict (id) do update set
         org_id = excluded.org_id, produto_id = excluded.produto_id,
         channel_account_id = excluded.channel_account_id,
-        external_listing_id = excluded.external_listing_id, ativo = true,
+        external_listing_id = excluded.external_listing_id,
+        external_sku_id = excluded.external_sku_id,
+        external_warehouse_id = excluded.external_warehouse_id, ativo = true,
         atualizado_em = excluded.atualizado_em
     `;
   }
@@ -334,14 +387,16 @@ async function applyCatalog(tx, catalog, anchor) {
     const createdAt = atOffset(anchor, -item.daysAgo);
     await tx`
       insert into public.pedido
-        (id, org_id, brand_id, cliente_id, provider_order_id, canal, status,
+        (id, org_id, brand_id, cliente_id, channel_account_id, provider_order_id, canal, status,
          total, frete, desconto, cancelado_motivo, criado_em, atualizado_em)
       values
         (${item.id}, ${orgId}, ${brands.get(item.brand).id}, ${clients.get(item.client).id},
+         ${item.channelAccount ? channels.get(item.channelAccount).id : null},
          ${item.providerOrderId}, ${item.channel}, ${item.status}, ${item.total}, ${item.shipping},
          ${item.discount}, ${item.cancelReason || null}, ${createdAt}, ${createdAt})
       on conflict (id) do update set
         org_id = excluded.org_id, brand_id = excluded.brand_id, cliente_id = excluded.cliente_id,
+        channel_account_id = excluded.channel_account_id,
         provider_order_id = excluded.provider_order_id, canal = excluded.canal, status = excluded.status,
         total = excluded.total, frete = excluded.frete, desconto = excluded.desconto,
         cancelado_motivo = excluded.cancelado_motivo, criado_em = excluded.criado_em,

@@ -1,4 +1,5 @@
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 interface OlistCredentials {
   idToken: string;
@@ -164,8 +165,8 @@ export class OlistProvider implements ChannelProvider {
   }
 }
 
-export function criarOlistProvider(brandSlug: "karzi" | "wuwu"): OlistProvider {
-  const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
+export function criarOlistProvider(brandSlug: BrandSlug): OlistProvider {
+  const upper = brandEnvSuffix(brandSlug);
   const idToken = process.env[`OLIST_ID_TOKEN_${upper}`] ?? process.env[`OLIST_API_KEY_${upper}`];
   const sellerId = process.env[`OLIST_SELLER_ID_${upper}`] ?? process.env[`OLIST_SHOP_ID_${upper}`] ?? "";
   const baseUrl = (process.env.OLIST_API_BASE_URL ?? "https://partners-api.olist.com").replace(/\/$/, "");

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const org = pgTable("org", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -17,4 +17,6 @@ export const brand = pgTable("brand", {
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("uq_brand_org_slug").on(t.orgId, t.slug),
+]);

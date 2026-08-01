@@ -42,7 +42,7 @@ describe("contratos JSON da interface", () => {
       ...Object.values(settingsConfig.sections).map((section) => section.icon),
       settingsConfig.status.pendingIcon,
       settingsConfig.openAction.icon,
-      ...settingsConfig.groups.flatMap((group) => [group.icon, ...group.cards.map((card) => card.icon)]),
+      settingsConfig.healthLink.icon,
       ...Object.values(saudeConfig.sections).map((section) => section.icon),
       ...pagesConfig.inbox.tabs.map((tab) => tab.icon),
     ];
@@ -52,6 +52,19 @@ describe("contratos JSON da interface", () => {
 
   it("mantém marcas e assistentes consistentes", () => {
     expect(appConfig.brandOrder).toEqual(Object.keys(brandsConfig));
+    expect(appConfig.brandOrder).toEqual(["karzi", "wuwu", "armarinhos_lima"]);
+    for (const brand of Object.values(brandsConfig)) {
+      expect(brand.logo).toMatch(/^\/logos\/.+\.svg$/);
+      expect(brand.logoSize.width).toBeGreaterThan(0);
+      expect(brand.logoSize.height).toBeGreaterThan(0);
+      expect(existsSync(join(process.cwd(), "public", brand.logo))).toBe(true);
+
+      const svg = readFileSync(join(process.cwd(), "public", brand.logo), "utf8");
+      const viewBox = svg.match(/viewBox="([^"]+)"/)?.[1];
+      expect(viewBox).toBeDefined();
+      const [, , width, height] = viewBox!.split(/[\s,]+/).map(Number);
+      expect(brand.logoSize.width / brand.logoSize.height).toBeCloseTo(width / height, 2);
+    }
     for (const wizard of Object.values(wizardsConfig)) {
       expect(wizard.steps).toHaveLength(3);
       expect(wizard.sections).toHaveLength(wizard.steps.length);
@@ -71,6 +84,14 @@ describe("contratos JSON da interface", () => {
     );
     expect(settingsConfig.mercadoLivre.feedback.success).toContain("{brand}");
     expect(Object.keys(settingsConfig.mercadoLivre.feedback.errors)).toContain("token_exchange_failed");
+  });
+
+  it("não mantém estados operacionais fixos na tela de configurações", () => {
+    expect(settingsConfig.organization).not.toHaveProperty("rows");
+    expect(settingsConfig.system).not.toHaveProperty("rows");
+    expect(settingsConfig).not.toHaveProperty("groups");
+    expect(settingsConfig.integrations.items.every((item) => item.statusSource.includes(":"))).toBe(true);
+    expect(settingsConfig.channelForms.externalId.required).not.toHaveLength(0);
   });
 
   it("mantém conteúdo e plataformas do Inbox íntegros no JSON", () => {
@@ -99,7 +120,24 @@ describe("contratos JSON da interface", () => {
     expect(pagesConfig.terms.sections).toHaveLength(6);
     expect(pagesConfig.system.loading.ariaLabel).not.toHaveLength(0);
     expect(pagesConfig.system.dashboardError.title).not.toHaveLength(0);
-    expect(appConfig.logo.src).toMatch(/^\/logos\/.+\.svg$/);
+    expect(appConfig.logo.alt).toContain("Armarinhos Lima");
+  });
+
+  it("mantém a massa sintética cobrindo todas as marcas configuradas", () => {
+    const catalog = JSON.parse(
+      readFileSync(join(process.cwd(), "seeds", "synthetic.json"), "utf8"),
+    ) as {
+      brands: { key: string }[];
+      channelAccounts: { brand: string }[];
+      products: { brand: string }[];
+      orders: { brand: string }[];
+    };
+    const configured = new Set(appConfig.brandOrder);
+
+    expect(new Set(catalog.brands.map((brand) => brand.key))).toEqual(configured);
+    for (const collection of [catalog.channelAccounts, catalog.products, catalog.orders]) {
+      expect(new Set(collection.map((item) => item.brand))).toEqual(configured);
+    }
   });
 
   it("mantém o catálogo de canais dirigido pelo JSON", () => {

@@ -1,13 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
+import { readFile } from "node:fs/promises";
 import postgres from "postgres";
 
+const brandsConfig = JSON.parse(await readFile(new URL("../src/config/brands.json", import.meta.url), "utf8"));
+const configuredBrands = Object.entries(brandsConfig);
 const requiredVariables = [
   "DATABASE_URL",
   "DEFAULT_ORG_ID",
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "NEXT_PUBLIC_BRAND_ID_KARZI",
-  "NEXT_PUBLIC_BRAND_ID_WUWU",
+  ...configuredBrands.map(([, config]) => config.environmentKey),
   "E2E_USER_EMAIL",
   "E2E_USER_PASSWORD",
 ];
@@ -50,13 +52,17 @@ try {
       on conflict (id) do update set active = true
     `;
 
-    await tx`
-      insert into public.brand (id, org_id, name, slug, active)
-      values
-        (${process.env.NEXT_PUBLIC_BRAND_ID_KARZI}, ${orgId}, 'KARZI', 'karzi', true),
-        (${process.env.NEXT_PUBLIC_BRAND_ID_WUWU}, ${orgId}, 'WUWU', 'wuwu', true)
-      on conflict (id) do update set org_id = excluded.org_id, active = true
-    `;
+    for (const [slug, config] of configuredBrands) {
+      await tx`
+        insert into public.brand (id, org_id, name, slug, active)
+        values (${process.env[config.environmentKey]}, ${orgId}, ${config.label}, ${slug}, true)
+        on conflict (id) do update set
+          org_id = excluded.org_id,
+          name = excluded.name,
+          slug = excluded.slug,
+          active = true
+      `;
+    }
 
     await tx`
       insert into public.app_user (id, org_id, email, nome, perfil, ativo)

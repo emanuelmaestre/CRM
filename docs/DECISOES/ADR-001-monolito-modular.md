@@ -6,8 +6,8 @@ Aceita.
 
 ## Contexto
 
-O PRD define o LEO como um unico sistema para a Plast Leo, com duas marcas fantasia separadas para
-comunicacao externa: KARZI e WUWU. O principal risco arquitetural e misturar identidade de marca
+O PRD define o LEO como um único sistema administrativo para KARZI, WUWU e Armarinhos Lima,
+com identidade externa separada por operação. O principal risco arquitetural é misturar identidade
 em mensagens, documentos, templates ou canais.
 
 ## Decisao

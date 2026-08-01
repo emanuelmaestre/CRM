@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 interface TikTokCredentials {
   appKey: string;
@@ -158,8 +159,8 @@ export class TikTokShopProvider implements ChannelProvider {
   }
 }
 
-export function criarTikTokShopProvider(brandSlug: "karzi" | "wuwu"): TikTokShopProvider {
-  const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
+export function criarTikTokShopProvider(brandSlug: BrandSlug): TikTokShopProvider {
+  const upper = brandEnvSuffix(brandSlug);
   const appKey = process.env.TIKTOK_APP_KEY;
   const appSecret = process.env.TIKTOK_APP_SECRET;
   const accessToken = process.env[`TIKTOK_ACCESS_TOKEN_${upper}`];

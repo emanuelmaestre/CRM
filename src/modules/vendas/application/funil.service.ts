@@ -33,6 +33,8 @@ export async function listarFunil(ctx: CrudContext) {
         titulo: oportunidade.titulo,
         etapaId: oportunidade.etapaId,
         brandId: oportunidade.brandId,
+        brandName: brand.name,
+        brandSlug: brand.slug,
         clienteId: oportunidade.clienteId,
         responsavelId: oportunidade.responsavelId,
         valor: oportunidade.valor,
@@ -42,6 +44,7 @@ export async function listarFunil(ctx: CrudContext) {
         updatedAt: oportunidade.updatedAt,
       })
       .from(oportunidade)
+      .innerJoin(brand, and(eq(brand.id, oportunidade.brandId), eq(brand.orgId, ctx.orgId)))
       .leftJoin(cliente, and(eq(cliente.id, oportunidade.clienteId), eq(cliente.orgId, ctx.orgId)))
       .leftJoin(appUser, and(eq(appUser.id, oportunidade.responsavelId), eq(appUser.orgId, ctx.orgId)))
       .where(eq(oportunidade.orgId, ctx.orgId)),

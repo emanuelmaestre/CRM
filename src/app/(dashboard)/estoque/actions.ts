@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { criarProduto, listarProdutos, listarProdutosParados, registrarMovimento } from "@/modules/estoque/application/estoque.service";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { produto, produtoCanal, channelAccount } from "@/shared/lib/db/schema";
+import { brand, produto, produtoCanal, channelAccount } from "@/shared/lib/db/schema";
 import { assertPerfil } from "@/shared/lib/crud-factory";
 
 const BrandIdSchema = z.string().uuid();
@@ -54,6 +54,14 @@ export async function actionListarProdutos(brandId?: string, busca?: string) {
 export async function actionListarProdutosParados() {
   const ctx = await getCrudContext();
   return listarProdutosParados(ctx);
+}
+
+export async function actionListarMarcasEstoque() {
+  const ctx = await getCrudContext();
+  return db.select({ id: brand.id, name: brand.name, slug: brand.slug }).from(brand).where(and(
+    eq(brand.orgId, ctx.orgId),
+    eq(brand.active, true),
+  )).orderBy(asc(brand.name));
 }
 
 const MapeamentoCanalSchema = z.object({

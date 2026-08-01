@@ -10,6 +10,7 @@ import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
 import appConfig from "@/config/app.json";
 import { nomePerfil, type Perfil } from "@/shared/lib/auth/authorization";
+import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 
 const BellIcon = getIcon(navigationConfig.utilities.notifications.icon);
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
@@ -33,7 +34,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
 
   return (
     <motion.header
-      initial={{ y: -8, opacity: 0 }}
+      initial={false}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.28, ease: [0, 0, 0.2, 1] }}
       className="fixed top-0 inset-x-0 z-30 h-14 bg-card/90 backdrop-blur-md border-b border-border flex items-center px-4 sm:px-6 gap-4"
@@ -45,12 +46,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
           className="flex items-center"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={appConfig.logo.src}
-            alt={appConfig.logo.alt}
-            style={{ height: 26, width: "auto", display: "block", objectFit: "contain" }}
-          />
+          <BrandLogoGroup height={18} />
         </motion.span>
       </Link>
 

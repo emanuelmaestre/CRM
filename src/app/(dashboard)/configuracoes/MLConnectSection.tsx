@@ -7,15 +7,13 @@ import { AlertTriangle, ExternalLink, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import settingsConfig from "@/config/settings.json";
+import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 /** Espelha o retorno de /api/ml/status: booleano plano + detalhes por marca. */
 type DetalheMarca = { conectado: boolean; sellerId?: string; contaConfere?: boolean };
-type Status = {
-  karzi: boolean;
-  wuwu: boolean;
-  detalhes?: { karzi: DetalheMarca; wuwu: DetalheMarca };
-} | null;
-type BrandSlug = "karzi" | "wuwu";
+type Status = (Partial<Record<BrandSlug, boolean>> & {
+  detalhes?: Partial<Record<BrandSlug, DetalheMarca>>;
+}) | null;
 type Feedback = { type: "success" | "error"; brand?: string; msg: string; detail?: string };
 
 const mlConfig = settingsConfig.mercadoLivre;
@@ -26,10 +24,11 @@ function getInitialFeedback(searchParams: { get(name: string): string | null }):
   const error = searchParams.get("ml_error");
 
   if (connected) {
+    const brandLabel = mlConfig.brands.find((item) => item.slug === connected)?.label ?? connected;
     return {
       type: "success",
       brand: connected,
-      msg: mlConfig.feedback.success.replace("{brand}", connected.toUpperCase()),
+      msg: mlConfig.feedback.success.replace("{brand}", brandLabel),
     };
   }
 
@@ -131,7 +130,8 @@ export function MLConnectSection() {
       )}
 
       {mlConfig.brands.map(({ slug: rawSlug, label }) => {
-        const slug      = rawSlug as BrandSlug;
+        if (!isBrandSlug(rawSlug)) return null;
+        const slug      = rawSlug;
         const connected = status?.[slug] ?? false;
         const detalhe   = status?.detalhes?.[slug];
         // contaConfere só vem quando ML_SELLER_ID_<MARCA> está configurado.

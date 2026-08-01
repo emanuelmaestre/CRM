@@ -1,14 +1,14 @@
 # PRD — CRM Inteligente Plast Leo
-### Central de clientes, estoque e vendas multicanal para as marcas KARZI e WUWU
+### Central de clientes, estoque e vendas multicanal para KARZI, WUWU e Armarinhos Lima
 
 | | |
 |---|---|
 | **Produto** | CRM Inteligente — Plano Acelera |
 | **Codinome interno** | `LEO` |
 | **Repositório** | https://github.com/emanuelmaestre/CRM.git |
-| **Versão do documento** | 2.1 (revisão cruzada com o material de estudo) |
-| **Data** | 17/07/2026 |
-| **Contratante** | Plast Leo Limitada (indústria) — as marcas KARZI e WUWU são nomes fantasia do **mesmo CNPJ** |
+| **Versão do documento** | 2.2 (inclusão da operação Armarinhos Lima) |
+| **Data** | 31/07/2026 |
+| **Contratante** | Plast Leo Limitada (indústria) — ambiente administrativo de KARZI, WUWU e Armarinhos Lima |
 | **Contratada** | Emanuel Maestre dos Santos — Desenvolvedor de Software |
 | **Base contratual** | Contrato de 17/07/2026 + Anexo I (Plano Acelera) |
 | **Prazo estimado** | 8 semanas a partir do recebimento de acessos e dados |
@@ -56,20 +56,20 @@
 **O LEO é um monólito modular com Clean Architecture interna, single-tenant e multi-marca.**
 
 💡 *Em palavras simples: um único sistema (não vários sistemas separados), organizado por dentro
-em "gavetas" independentes (módulos), servindo uma única empresa (Plast Leo) que opera duas
-marcas de fachada (KARZI e WUWU).*
+em "gavetas" independentes (módulos), servindo um único grupo administrativo que opera KARZI,
+WUWU e Armarinhos Lima com separação obrigatória por `brand_id`.*
 
-1. **Uma empresa, duas vitrines.** KARZI e WUWU são nomes fantasia do mesmo CNPJ, separados
-   *de propósito* para que os clientes finais não percebam que têm o mesmo dono. Isso gera um
+1. **Um ambiente, três operações.** KARZI, WUWU e Armarinhos Lima são administradas no mesmo
+   CRM, separadas *de propósito* para que os clientes finais nunca recebam identidade de outra operação. Isso gera um
    requisito de produto que atravessa o sistema inteiro — o **sigilo entre marcas**:
    - Nenhuma comunicação externa (mensagem, e-mail, documento, avaliação, remetente, assinatura,
      domínio de link) pode misturar ou revelar a outra marca.
    - Templates, remetentes e identidades visuais são 100% segregados por marca.
    - *Por dentro*, o gestor vê tudo unificado (essa é a vantagem competitiva: saber que o mesmo
-     comprador consome as duas marcas). *Por fora*, são empresas diferentes.
+     comprador consome mais de uma operação). *Por fora*, cada identidade permanece independente.
    - Isso é o **Invariante nº 1** do sistema (seção 19).
 2. **Single-tenant, multi-tenant-ready.** Um deploy, um banco, um cliente. O modelo de dados
-   carrega `org_id` desde o dia 1 (valor fixo = Plast Leo) para que este core vire produto
+   carrega `org_id` desde o dia 1 (valor fixo = grupo administrativo atual) para que este core vire produto
    revendável no futuro, sem nunca construir feature multi-empresa agora.
    💡 *"Tenant" = inquilino. Um sistema multi-tenant hospeda várias empresas isoladas; o LEO
    hospeda uma, mas já nasce com a fundação preparada.*
@@ -84,7 +84,7 @@ marcas de fachada (KARZI e WUWU).*
 ## 1. Visão Geral
 
 ### 1.1 Problema
-A Plast Leo vende KARZI e WUWU em vários canais (marketplaces, redes sociais, WhatsApp) com:
+O grupo administra KARZI, WUWU e Armarinhos Lima em vários canais (marketplaces, redes sociais, WhatsApp) com:
 estoque desconectado da venda, clientes espalhados sem histórico único, conversas esquecidas,
 recompra dependente de memória, trabalho manual repetitivo, reputação sem gestão ativa e
 decisões sem números por canal/campanha/vendedor.
@@ -311,10 +311,10 @@ provider concreto (só a porta `MessagingProvider`).
 ## 6. Modelo de Domínio
 
 ### 6.1 Dimensões estruturais
-- **`org`** — Plast Leo (fixo hoje). Toda tabela de dado do cliente tem `org_id` + RLS.
-- **`brand`** — KARZI e WUWU (mesmo CNPJ, fantasias distintas). Produtos, canais, templates,
+- **`org`** — grupo administrativo atual (fixo hoje). Toda tabela de dado do cliente tem `org_id` + RLS.
+- **`brand`** — KARZI, WUWU e Armarinhos Lima. Produtos, canais, templates,
   campanhas e identidades de remetente são **por marca**. O **cliente é da org** — a relação
-  cliente↔marca é derivada de pedidos e conversas. 💡 *O mesmo comprador nas duas marcas é
+  cliente↔marca é derivada de pedidos e conversas. 💡 *O mesmo comprador em mais de uma operação é
   1 cadastro com um insight valioso — mas ele nunca saberá disso por fora (Invariante nº 1).*
 - **`channel_account`** — cada conta conectada (ML-KARZI, Shopee-WUWU, WhatsApp-KARZI…) com
   `brand_id`, tipo, credencial (referência ao vault — nunca token em texto claro), status e saúde.
@@ -716,7 +716,7 @@ revogar credencial: procedimento por conector; restaurar backup: passo a passo) 
 | Supabase | banco + auth + storage | US$ 25 (Pro) |
 | Upstash Redis | cache + rate limit | US$ 0–10 |
 | Inngest | filas e crons | US$ 0–20 |
-| Z-API | WhatsApp (2 instâncias: KARZI e WUWU) | ~R$ 200–400 |
+| Z-API | WhatsApp (até 3 instâncias, uma por operação) | ~R$ 200–600 |
 | OpenAI | IA (orçamento-alvo com corte suave) | ≤ US$ 20 |
 | Sentry | erros | US$ 0 (free) |
 | **Total aproximado** | | **~R$ 450–750/mês** conforme volume |
@@ -728,14 +728,14 @@ Consumo fora da curva vira dado objetivo para a revisão extraordinária previst
 ## 14. Design System — "Sinal Duplo"
 
 ### 14.1 Conceito
-As duas logos dão o DNA: o **velocímetro KARZI** (vermelho/amarelo sobre preto — energia, pista,
-precisão) e o **neon WUWU** (roxo/preto — moderno, jovem, elétrico). O produto LEO não copia
-nenhuma das duas: ele é o **painel de controle neutro e premium** onde as duas marcas acendem
+As três logos dão o DNA: o **velocímetro KARZI** (vermelho/amarelo), o **neon WUWU**
+(roxo/preto) e o wordmark **Armarinhos Lima** (cinza/vermelho). O produto LEO não copia
+nenhuma delas: ele é o **painel de controle neutro e premium** onde as três operações acendem
 como *sinais*. Daí o nome: **Sinal Duplo**.
 
-**Assinatura visual do produto:** o gradiente `Vermelho KARZI → Roxo WUWU` — usado com parcimônia
+**Assinatura visual do produto:** o gradiente `Vermelho KARZI → Roxo WUWU → Cinza Armarinhos Lima` — usado com parcimônia
 (hero do login, barra de progresso global, realce do onboarding, ring de foco de elementos de
-destaque). Ele conta a história do produto: duas marcas, uma central.
+destaque). Ele conta a história do produto: três operações, uma central.
 
 ### 14.2 Paleta (tokens)
 
@@ -948,8 +948,8 @@ de estado; todos os fluxos E2E listados verdes antes de cada go-live de fase.
 ## 19. Invariantes não-negociáveis
 
 O sistema NUNCA pode:
-1. **Revelar a um cliente final que KARZI e WUWU têm o mesmo dono** — nenhuma mensagem, remetente,
-   documento, link ou template cruza marcas.
+1. **Cruzar a identidade de KARZI, WUWU ou Armarinhos Lima diante do cliente final** — nenhuma
+   mensagem, remetente, documento, link ou template usa dados de outra operação.
 2. Enviar mensagem sem opt-in registrado para aquela finalidade, canal e marca.
 3. Puxar cliente de marketplace para fora do canal de origem.
 4. Deixar a IA disparar comunicação ou alterar preço/estoque sem aprovação humana.
@@ -979,7 +979,7 @@ O sistema NUNCA pode:
 outras existem para explicá-la (conceito da aula de Operação/Fase 3).*
 
 > **% da receita mensal influenciada pelo CRM** — soma das vendas que passaram por régua,
-> sugestão aprovada, reativação ou follow-up registrado no sistema ÷ receita total das duas marcas.
+> sugestão aprovada, reativação ou follow-up registrado no sistema ÷ receita total das três operações.
 > Meta: crescer mês a mês; o painel executivo a exibe no topo, por marca.
 
 Métricas de suporte:
@@ -1038,7 +1038,7 @@ layout se reorganiza. **PWA**: site instalável como app. **RPO/RTO**: perda má
 tempo máximo de recuperação. **Evolução**: mudança fora do escopo aprovado (Cláusula 4.3).
 
 ### Apêndice B — Referências
-Contrato PLAST LEO (17/07/2026) + Anexo I · Proposta FUGAZI (modelo comercial) · Logos KARZI/WUWU ·
+Contrato PLAST LEO (17/07/2026) + Anexo I · Proposta FUGAZI (modelo comercial) · Logos KARZI/WUWU/Armarinhos Lima ·
 Padrões validados: Viratour (design system, réguas WhatsApp, Inngest, PWA), ChronosLab
 (anti-over-engineering, Clean Architecture), Bellasu (stack UI) · Metodologia: material de estudo
 (engenharia AI-native 09/05; pipelines 01/07; orquestração 02/07; agentes 04/07; memória 05/07;

@@ -99,6 +99,41 @@
       "when": 1784780455000,
       "tag": "0013_phase_b_delivery_sla",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1785297600000,
+      "tag": "0014_lgpd_solicitacoes",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1785301200000,
+      "tag": "0015_score_historico",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1785304800000,
+      "tag": "0016_ia_preditiva_gargalos",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1785308400000,
+      "tag": "0017_probabilidade_recompra",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1785528000000,
+      "tag": "0018_three_brand_integrity",
+      "breakpoints": true
     }
   ]
 }

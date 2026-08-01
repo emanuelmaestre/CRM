@@ -1,9 +1,10 @@
 "use server";
 
-import { and, count, desc, eq, gte, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, sum } from "drizzle-orm";
 import { subDays } from "date-fns";
 import { db } from "@/shared/lib/db";
 import { pedido } from "@/shared/lib/db/schema/vendas";
+import { brand } from "@/shared/lib/db/schema/org";
 import { scoreCliente } from "@/shared/lib/db/schema/scoring";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
@@ -52,6 +53,15 @@ export async function actionRelatorioVendas(filtros: { dias?: number; brandId?: 
     .groupBy(pedido.status);
 
   return { porCanal, porStatus, periodo: `últimos ${dias} dias` };
+}
+
+export async function actionListarMarcasRelatorio() {
+  const ctx = await getCrudContext();
+  assertPodeGerirInteligencia(ctx);
+  return db.select({ id: brand.id, name: brand.name }).from(brand).where(and(
+    eq(brand.orgId, ctx.orgId),
+    eq(brand.active, true),
+  )).orderBy(asc(brand.name));
 }
 
 export async function actionListarSugestoes() {

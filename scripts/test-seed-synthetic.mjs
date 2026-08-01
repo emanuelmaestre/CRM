@@ -39,20 +39,37 @@ assert.throws(
   /produção/,
   "Banco remoto deve ser recusado quando houver sinal de produção.",
 );
+assert.throws(
+  () => assertSyntheticSeedTarget("postgresql://user:pass@remote.example.invalid/crm", {
+    DEFAULT_ORG_ID: "00000000-0000-4000-8000-000000000001",
+    SYNTHETIC_SEED_ORG_ID: "00000000-0000-4000-8000-000000000001",
+    SYNTHETIC_SEED_ENV: "staging",
+    SYNTHETIC_SEED_REMOTE_CONFIRMATION: "seed-synthetic-data",
+  }),
+  /tenant sintético deve ser diferente/,
+  "Banco remoto não pode receber fixtures no tenant operacional.",
+);
 assert.doesNotThrow(() => assertSyntheticSeedTarget("postgresql://user:pass@remote.example.invalid/crm", {
   SYNTHETIC_SEED_ENV: "staging",
   SYNTHETIC_SEED_REMOTE_CONFIRMATION: "seed-synthetic-data",
 }));
 
 const catalogTemplate = await loadSyntheticCatalog(testEnv);
+const alternateOrgId = randomUUID();
 const alternateCatalog = await loadSyntheticCatalog({
   ...testEnv,
-  DEFAULT_ORG_ID: randomUUID(),
+  SYNTHETIC_SEED_ORG_ID: alternateOrgId,
 });
+assert.equal(alternateCatalog.organization.id, alternateOrgId);
 assert.notEqual(
   alternateCatalog.organization.cnpj,
   catalogTemplate.organization.cnpj,
-  "A chave natural sintética deve mudar quando DEFAULT_ORG_ID mudar.",
+  "A chave natural sintética deve mudar quando SYNTHETIC_SEED_ORG_ID mudar.",
+);
+assert.notDeepEqual(
+  alternateCatalog.brands.map((brand) => brand.id),
+  catalogTemplate.brands.map((brand) => brand.id),
+  "Cada tenant sintético deve receber IDs determinísticos próprios.",
 );
 
 // Duas aplicações consecutivas comprovam que a carga é reexecutável.
@@ -100,6 +117,12 @@ try {
   assert.equal(organization?.active, true);
   assert.match(organization?.cnpj || "", /^synthetic-/);
 
+  assert.deepEqual(
+    new Set(catalog.brands.map((item) => item.key)),
+    new Set(["karzi", "wuwu", "armarinhos_lima"]),
+    "O seed deve cobrir as três operações administradas pelo CRM.",
+  );
+
   for (const [table, ids] of tableExpectations) {
     const [result] = await sql.unsafe(
       `select count(*)::int as count from public.${table} where id = any($1::uuid[])`,
@@ -136,6 +159,34 @@ try {
       )
   `;
   assert.equal(unsafeChannels.length, 0, "Canais sintéticos devem permanecer desconectados e sem envio externo.");
+
+  const brandCoverage = await sql`
+    select b.slug,
+      count(distinct ca.id)::int as accounts,
+      count(distinct p.id)::int as products,
+      count(distinct pe.id)::int as orders
+    from public.brand b
+    left join public.channel_account ca on ca.brand_id = b.id and ca.org_id = b.org_id
+    left join public.produto p on p.brand_id = b.id and p.org_id = b.org_id
+    left join public.pedido pe on pe.brand_id = b.id and pe.org_id = b.org_id
+    where b.id in ${sql(catalog.brands.map((item) => item.id))}
+    group by b.slug
+  `;
+  assert.equal(brandCoverage.length, 3, "As três marcas devem existir no banco semeado.");
+  for (const row of brandCoverage) {
+    assert(row.accounts > 0, `${row.slug} deve ter ao menos uma conta de canal sintética.`);
+    assert(row.products > 0, `${row.slug} deve ter ao menos um produto sintético.`);
+    assert(row.orders > 0, `${row.slug} deve ter ao menos um pedido sintético.`);
+  }
+
+  const brandMismatches = await sql`
+    select pe.id
+    from public.pedido pe
+    inner join public.channel_account ca on ca.id = pe.channel_account_id
+    where pe.id in ${sql(catalog.orders.map((item) => item.id))}
+      and (ca.org_id <> pe.org_id or ca.brand_id <> pe.brand_id)
+  `;
+  assert.equal(brandMismatches.length, 0, "Pedido e conta externa devem permanecer na mesma marca.");
 
   const profiles = await sql`
     select perfil, count(*)::int as count

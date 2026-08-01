@@ -62,6 +62,8 @@ export async function listarProdutos(
         id: produto.id,
         orgId: produto.orgId,
         brandId: produto.brandId,
+        brandName: brand.name,
+        brandSlug: brand.slug,
         sku: produto.sku,
         nome: produto.nome,
         custo: produto.custo,
@@ -73,6 +75,10 @@ export async function listarProdutos(
         saldo: sql<number>`coalesce(${estoqueSaldo.saldo}, 0)`,
       })
       .from(produto)
+      .innerJoin(brand, and(
+        eq(brand.id, produto.brandId),
+        eq(brand.orgId, ctx.orgId),
+      ))
       .leftJoin(estoqueSaldo, and(
         eq(estoqueSaldo.produtoId, produto.id),
         eq(estoqueSaldo.orgId, ctx.orgId),

@@ -99,12 +99,14 @@ async function createFixtures(tx) {
 async function createRelationalFixtures(tx) {
   const fixtures = await createFixtures(tx);
   const brandA = randomUUID();
+  const brandA2 = randomUUID();
   const brandB = randomUUID();
   const clientA = randomUUID();
   const clientB = randomUUID();
   const productA = randomUUID();
   const productB = randomUUID();
   const channelA = randomUUID();
+  const channelA2 = randomUUID();
   const channelB = randomUUID();
   const orderA = randomUUID();
 
@@ -112,12 +114,14 @@ async function createRelationalFixtures(tx) {
     insert into public.brand (id, org_id, name, slug)
     values
       (${brandA}, ${fixtures.orgA}, 'RLS Brand A', ${`rls-a-${randomUUID()}`}),
+      (${brandA2}, ${fixtures.orgA}, 'RLS Brand A2', ${`rls-a2-${randomUUID()}`}),
       (${brandB}, ${fixtures.orgB}, 'RLS Brand B', ${`rls-b-${randomUUID()}`})
   `;
   await tx`
     insert into public.channel_account (id, org_id, brand_id, tipo, nome, vault_key)
     values
       (${channelA}, ${fixtures.orgA}, ${brandA}, 'mercadolivre', 'RLS Canal A', ${`rls-a-${randomUUID()}`}),
+      (${channelA2}, ${fixtures.orgA}, ${brandA2}, 'mercadolivre', 'RLS Canal A2', ${`rls-a2-${randomUUID()}`}),
       (${channelB}, ${fixtures.orgB}, ${brandB}, 'mercadolivre', 'RLS Canal B', ${`rls-b-${randomUUID()}`})
   `;
   await tx`
@@ -140,12 +144,14 @@ async function createRelationalFixtures(tx) {
   return {
     ...fixtures,
     brandA,
+    brandA2,
     brandB,
     clientA,
     clientB,
     productA,
     productB,
     channelA,
+    channelA2,
     channelB,
     orderA,
   };
@@ -628,6 +634,35 @@ async function testStockMutationByProfile() {
   });
 }
 
+async function testCrossBrandProductChannelDenied() {
+  await expectDatabaseDenied("produto_canal entre marcas do mesmo tenant", ["23514"], async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
+    await tx`
+      insert into public.produto_canal (
+        org_id, produto_id, channel_account_id, external_listing_id
+      ) values (
+        ${fixtures.orgA}, ${fixtures.productA}, ${fixtures.channelA2}, ${`rls-${randomUUID()}`}
+      )
+    `;
+  });
+}
+
+async function testCrossBrandOrderAccountDenied() {
+  await expectDatabaseDenied("pedido e conta externa entre marcas do mesmo tenant", ["23503"], async (tx) => {
+    const fixtures = await createRelationalFixtures(tx);
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
+    await tx`
+      insert into public.pedido (
+        org_id, brand_id, channel_account_id, cliente_id, provider_order_id, canal, total
+      ) values (
+        ${fixtures.orgA}, ${fixtures.brandA}, ${fixtures.channelA2}, ${fixtures.clientA},
+        ${`rls-${randomUUID()}`}, 'mercadolivre', 1
+      )
+    `;
+  });
+}
+
 async function testTaskAgendaOwnershipByProfile() {
   await testWithRollback("vendedor vê somente tarefas e agenda próprias", async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
@@ -733,6 +768,8 @@ try {
   await testCrossTenantOrderItemDenied();
   await testCrossTenantStockMovementDenied();
   await testCrossTenantProductChannelDenied();
+  await testCrossBrandProductChannelDenied();
+  await testCrossBrandOrderAccountDenied();
   await testProfileUserVisibility();
   await testOnlyAdminManagesUsers();
   await testOnlyAdminManagesOrganization();

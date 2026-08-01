@@ -6,10 +6,12 @@ import {
   brand,
   channelAccount,
   conversa,
+  org,
   pedido,
   produto,
   produtoCanal,
 } from "@/shared/lib/db/schema";
+import { brandEnvSuffix } from "@/shared/config/brands";
 
 const CANAIS_PRIORITARIOS = [
   "whatsapp",
@@ -29,14 +31,22 @@ const CANAL_LABEL: Record<string, string> = {
 
 const ENV_POR_CANAL: Record<string, string[]> = {
   whatsapp: ["ZAPI_INSTANCE_{BRAND}", "ZAPI_TOKEN_{BRAND}", "ZAPI_WEBHOOK_TOKEN_{BRAND}"],
-  mercadolivre: ["ML_CLIENT_ID", "ML_CLIENT_SECRET"],
+  mercadolivre: ["ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_SELLER_ID_{BRAND}"],
   shopee: ["SHOPEE_PARTNER_ID", "SHOPEE_PARTNER_KEY", "SHOPEE_SHOP_ID_{BRAND}", "SHOPEE_ACCESS_TOKEN_{BRAND}"],
   tiktokshop: ["TIKTOK_APP_KEY", "TIKTOK_APP_SECRET", "TIKTOK_SHOP_ID_{BRAND}", "TIKTOK_SHOP_CIPHER_{BRAND}", "TIKTOK_ACCESS_TOKEN_{BRAND}"],
   olist: ["OLIST_ID_TOKEN_{BRAND}", "OLIST_SELLER_ID_{BRAND}", "OLIST_WEBHOOK_SECRET"],
 };
 
+const EXTERNAL_ID_ENV: Record<string, string | null> = {
+  whatsapp: null,
+  mercadolivre: "ML_SELLER_ID_{BRAND}",
+  shopee: "SHOPEE_SHOP_ID_{BRAND}",
+  tiktokshop: "TIKTOK_SHOP_ID_{BRAND}",
+  olist: "OLIST_SELLER_ID_{BRAND}",
+};
+
 function envName(template: string, brandSlug: string) {
-  return template.replace("{BRAND}", brandSlug.toUpperCase());
+  return template.replace("{BRAND}", brandEnvSuffix(brandSlug));
 }
 
 function configured(name: string): boolean {
@@ -49,7 +59,7 @@ export interface CanalConfiguracao {
   channelAccountId: string | null;
   canal: string;
   canalLabel: string;
-  brand: "karzi" | "wuwu";
+  brand: string;
   brandId: string;
   brandLabel: string;
   status: "conectado" | "degradado" | "desconectado" | "pendente";
@@ -60,6 +70,8 @@ export interface CanalConfiguracao {
   envAusentes: string[];
   pronto: boolean;
   externalAccountId: string | null;
+  externalAccountIdSource: "database" | "environment" | null;
+  externalAccountIdMismatch: boolean;
 }
 
 const ContaCanalInputSchema = z.object({
@@ -67,6 +79,14 @@ const ContaCanalInputSchema = z.object({
   tipo: z.enum(["whatsapp", "mercadolivre", "shopee", "tiktokshop", "olist"]),
   nome: z.string().trim().min(2).max(120),
   externalAccountId: z.string().trim().max(200).optional(),
+}).superRefine((data, ctx) => {
+  if (data.tipo !== "whatsapp" && !data.externalAccountId) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["externalAccountId"],
+      message: "ID externo é obrigatório para contas de marketplace.",
+    });
+  }
 });
 
 const AtualizarContaCanalInputSchema = z.object({
@@ -87,16 +107,39 @@ const MapeamentoInputSchema = z.object({
   externalWarehouseId: z.string().trim().max(200).optional(),
 });
 
-function normalizeBrand(value: string): "karzi" | "wuwu" {
-  return value === "wuwu" ? "wuwu" : "karzi";
-}
-
 function extrairExternalAccountId(meta: unknown): string | null {
   if (meta && typeof meta === "object" && "externalAccountId" in meta) {
     const value = (meta as { externalAccountId?: unknown }).externalAccountId;
     return typeof value === "string" && value.length > 0 ? value : null;
   }
   return null;
+}
+
+function externalAccountIdDoAmbiente(canal: string, brandSlug: string): string | null {
+  const template = EXTERNAL_ID_ENV[canal];
+  if (!template) return null;
+  const value = process.env[envName(template, brandSlug)]?.trim();
+  return value && configured(envName(template, brandSlug)) ? value : null;
+}
+
+export async function obterResumoConfiguracoes(ctx: CrudContext) {
+  const [organizacao, marcas] = await Promise.all([
+    ctx.db.select({ name: org.name }).from(org).where(eq(org.id, ctx.orgId)).then((rows) => rows[0]),
+    ctx.db.select({ name: brand.name }).from(brand).where(and(
+      eq(brand.orgId, ctx.orgId),
+      eq(brand.active, true),
+    )),
+  ]);
+
+  const environment = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
+  return {
+    organizationName: organizacao?.name ?? "Organização não encontrada",
+    activeBrands: marcas.map((item) => item.name),
+    environment,
+    externalSendsEnabled: process.env.EXTERNAL_SENDS_ENABLED === "true",
+    inngestConfigured: configured("INNGEST_SIGNING_KEY") && configured("INNGEST_EVENT_KEY"),
+    openAiConfigured: configured("OPENAI_API_KEY"),
+  };
 }
 
 export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalConfiguracao[]> {
@@ -138,20 +181,31 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
       .filter((name) => !configured(name));
     const skusMapeados = conta ? skusPorConta.get(conta.id) ?? 0 : 0;
     const status = conta?.status ?? "pendente";
+    const databaseExternalAccountId = conta ? extrairExternalAccountId(conta.meta) : null;
+    const environmentExternalAccountId = externalAccountIdDoAmbiente(canal, marca.slug);
+    const externalAccountId = databaseExternalAccountId ?? environmentExternalAccountId;
 
     return {
       id: `${marca.slug}-${canal}`,
       channelAccountId: conta?.id ?? null,
       canal,
       canalLabel: CANAL_LABEL[canal] ?? canal,
-      brand: normalizeBrand(marca.slug),
+      brand: marca.slug,
       brandId: marca.id,
       brandLabel: marca.name,
       status,
       contaNome: conta?.nome ?? null,
       ultimaVerificacao: conta?.ultimaVerificacao?.toISOString() ?? null,
       ultimoErro: conta?.ultimoErro ?? null,
-      externalAccountId: conta ? extrairExternalAccountId(conta.meta) : null,
+      externalAccountId,
+      externalAccountIdSource: databaseExternalAccountId
+        ? "database"
+        : environmentExternalAccountId ? "environment" : null,
+      externalAccountIdMismatch: Boolean(
+        databaseExternalAccountId
+        && environmentExternalAccountId
+        && databaseExternalAccountId !== environmentExternalAccountId,
+      ),
       skusMapeados,
       envAusentes,
       pronto: status === "conectado" && envAusentes.length === 0 && (canal === "whatsapp" || skusMapeados > 0),
@@ -198,7 +252,13 @@ export async function criarContaCanalConfiguracao(ctx: CrudContext, input: unkno
     entidade: "channel_account",
     entidadeId: conta.id,
     acao: "create",
-    depois: { id: conta.id, tipo: conta.tipo, nome: conta.nome, status: conta.status },
+    depois: {
+      id: conta.id,
+      tipo: conta.tipo,
+      nome: conta.nome,
+      status: conta.status,
+      externalAccountId: data.externalAccountId ?? null,
+    },
   });
 
   return conta;
@@ -212,6 +272,7 @@ export async function atualizarContaCanalConfiguracao(ctx: CrudContext, input: u
     .select({
       id: channelAccount.id,
       brandId: channelAccount.brandId,
+      tipo: channelAccount.tipo,
       nome: channelAccount.nome,
       meta: channelAccount.meta,
     })
@@ -220,7 +281,16 @@ export async function atualizarContaCanalConfiguracao(ctx: CrudContext, input: u
     .then((rows) => rows[0]);
   if (!contaAtual) throw new Error("Conta de canal nao encontrada.");
 
-  const novoMeta = data.externalAccountId ? { externalAccountId: data.externalAccountId } : null;
+  if (contaAtual.tipo !== "whatsapp" && !data.externalAccountId) {
+    throw new Error("ID externo é obrigatório para contas de marketplace.");
+  }
+
+  const metaAtual = contaAtual.meta && typeof contaAtual.meta === "object"
+    ? { ...(contaAtual.meta as Record<string, unknown>) }
+    : {};
+  if (data.externalAccountId) metaAtual.externalAccountId = data.externalAccountId;
+  else delete metaAtual.externalAccountId;
+  const novoMeta = Object.keys(metaAtual).length > 0 ? metaAtual : null;
 
   const [conta] = await ctx.db.update(channelAccount)
     .set({ nome: data.nome, meta: novoMeta, updatedAt: new Date() })

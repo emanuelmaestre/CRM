@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildTenantConnectionString, getDatabaseClientOptions } from "@/shared/lib/db";
+import {
+  buildTenantConnectionString,
+  getDatabaseClientOptions,
+  resolveDatabaseConnectionString,
+} from "@/shared/lib/db";
 
 describe("Conexão tenant do Postgres", () => {
   it("configura a org e o nome da aplicação na sessão", () => {
@@ -23,5 +27,23 @@ describe("Conexão tenant do Postgres", () => {
       max_lifetime: 60,
       prepare: false,
     });
+  });
+
+  it("usa o pooler regional quando a URL aponta para o host direto do Supabase", () => {
+    const directUrl =
+      "postgresql://postgres:secret@db.hnyswnefymnszuqzrewm.supabase.co:5432/postgres?sslmode=require";
+    const result = new URL(resolveDatabaseConnectionString(directUrl));
+
+    expect(result.hostname).toBe("aws-1-sa-east-1.pooler.supabase.com");
+    expect(result.port).toBe("5432");
+    expect(result.username).toBe("postgres.hnyswnefymnszuqzrewm");
+    expect(result.password).toBe("secret");
+    expect(result.searchParams.get("sslmode")).toBe("require");
+  });
+
+  it("mantém URLs que não pertencem ao host direto configurado", () => {
+    const localUrl = "postgresql://user:secret@localhost:5432/crm";
+
+    expect(resolveDatabaseConnectionString(localUrl)).toBe(localUrl);
   });
 });

@@ -1,10 +1,14 @@
+import brandsConfig from "@/config/brands.json";
+import type { BrandSlug } from "@/shared/config/brands";
+
 export const tokens = {
   colors: {
     // Marca
     karzi: "#E3131B",
     karziAccent: "#FFC400",
     wuwu: "#9B30D9",
-    gradientSignature: "linear-gradient(135deg, #E3131B 0%, #9B30D9 100%)",
+    armarinhosLima: "#6F6F6E",
+    gradientSignature: "linear-gradient(135deg, #E3131B 0%, #9B30D9 50%, #6F6F6E 100%)",
 
     // Semânticas
     success: "#1F8A4C",
@@ -85,8 +89,8 @@ export const tokens = {
   },
 } as const;
 
-export type BrandId = "karzi" | "wuwu";
+export type BrandId = BrandSlug;
 
 export function brandColor(brand: BrandId) {
-  return brand === "karzi" ? tokens.colors.karzi : tokens.colors.wuwu;
+  return brandsConfig[brand].color;
 }

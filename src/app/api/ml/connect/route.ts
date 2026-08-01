@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { authorizeRoute } from "@/shared/lib/auth/session";
+import { isBrandSlug } from "@/shared/config/brands";
 
 // Gera code_verifier + code_challenge para PKCE (S256)
 function gerarPkce() {
@@ -14,8 +15,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!auth.ok) return auth.response;
 
   const brand = req.nextUrl.searchParams.get("brand");
-  if (brand !== "karzi" && brand !== "wuwu") {
-    return NextResponse.json({ error: "brand deve ser 'karzi' ou 'wuwu'" }, { status: 400 });
+  if (!brand || !isBrandSlug(brand)) {
+    return NextResponse.json({ error: "Marca não suportada." }, { status: 400 });
   }
 
   const clientId = process.env.ML_CLIENT_ID;

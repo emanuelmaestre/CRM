@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 interface ShopeeCredentials {
   partnerId: string;
@@ -167,8 +168,8 @@ export class ShopeeProvider implements ChannelProvider {
   }
 }
 
-export function criarShopeeProvider(brandSlug: "karzi" | "wuwu"): ShopeeProvider {
-  const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
+export function criarShopeeProvider(brandSlug: BrandSlug): ShopeeProvider {
+  const upper = brandEnvSuffix(brandSlug);
   const partnerId = process.env.SHOPEE_PARTNER_ID;
   const partnerKey = process.env.SHOPEE_PARTNER_KEY;
   const shopId = process.env[`SHOPEE_SHOP_ID_${upper}`];

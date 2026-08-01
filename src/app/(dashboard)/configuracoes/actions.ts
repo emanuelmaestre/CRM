@@ -7,6 +7,7 @@ import {
   atualizarContaCanalConfiguracao,
   criarContaCanalConfiguracao,
   listarConfiguracaoCanais,
+  obterResumoConfiguracoes,
   removerContaCanalConfiguracao,
   salvarMapeamentoCanalConfiguracao,
 } from "@/modules/canais/application/configuracao-canais.service";
@@ -24,6 +25,10 @@ export async function actionAtualizarUsuario(input: unknown) {
 
 export async function actionListarConfiguracaoCanais() {
   return listarConfiguracaoCanais(await getCrudContext());
+}
+
+export async function actionObterResumoConfiguracoes() {
+  return obterResumoConfiguracoes(await getCrudContext());
 }
 
 export async function actionListarProdutosConfiguracao() {

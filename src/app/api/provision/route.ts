@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { db } from "@/shared/lib/db";
 import { org, brand, appUser } from "@/shared/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import crypto from "node:crypto";
 import { z } from "zod";
+import brandsConfig from "@/config/brands.json";
+import { BRAND_SLUGS, brandEnvSuffix } from "@/shared/config/brands";
 
 const SECRET = process.env.PROVISION_SECRET;
 const ProvisionSchema = z.object({
@@ -59,8 +61,6 @@ export async function POST(req: NextRequest) {
   }
 
   const orgId = process.env.DEFAULT_ORG_ID!;
-  const brandKarziId = process.env.BRAND_ID_KARZI ?? process.env.NEXT_PUBLIC_BRAND_ID_KARZI!;
-  const brandWuwuId = process.env.BRAND_ID_WUWU ?? process.env.NEXT_PUBLIC_BRAND_ID_WUWU!;
 
   // 1. Ensure org exists
   const existingOrg = await db.select().from(org).where(eq(org.id, orgId)).then(r => r[0]);
@@ -69,14 +69,27 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Ensure brands exist
-  const existingKarzi = await db.select().from(brand).where(eq(brand.id, brandKarziId)).then(r => r[0]);
-  if (!existingKarzi) {
-    await db.insert(brand).values({ id: brandKarziId, orgId, name: "KARZI", slug: "karzi", active: true });
-  }
+  const provisionedBrands = [];
+  for (const slug of BRAND_SLUGS) {
+    const existing = await db.select().from(brand).where(and(
+      eq(brand.orgId, orgId),
+      eq(brand.slug, slug),
+    )).then((rows) => rows[0]);
+    if (existing) {
+      provisionedBrands.push({ slug, id: existing.id, created: false });
+      continue;
+    }
 
-  const existingWuwu = await db.select().from(brand).where(eq(brand.id, brandWuwuId)).then(r => r[0]);
-  if (!existingWuwu) {
-    await db.insert(brand).values({ id: brandWuwuId, orgId, name: "WUWU", slug: "wuwu", active: true });
+    const suffix = brandEnvSuffix(slug);
+    const configuredId = process.env[`BRAND_ID_${suffix}`] ?? process.env[`NEXT_PUBLIC_BRAND_ID_${suffix}`];
+    const [created] = await db.insert(brand).values({
+      ...(configuredId ? { id: configuredId } : {}),
+      orgId,
+      name: brandsConfig[slug].label,
+      slug,
+      active: true,
+    }).returning({ id: brand.id });
+    provisionedBrands.push({ slug, id: created.id, created: true });
   }
 
   // 3. Ensure app_user exists
@@ -99,8 +112,7 @@ export async function POST(req: NextRequest) {
       userId: authUser.id,
       email: authUser.email,
       orgCreated: !existingOrg,
-      karziCreated: !existingKarzi,
-      wuwuCreated: !existingWuwu,
+      brands: provisionedBrands,
       userCreated: !existingUser,
     },
   });

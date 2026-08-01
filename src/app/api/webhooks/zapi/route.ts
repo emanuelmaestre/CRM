@@ -4,8 +4,9 @@ import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 import { db } from "@/shared/lib/db";
-import { channelAccount } from "@/shared/lib/db/schema";
+import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
+import { brandEnvSuffix, isBrandSlug } from "@/shared/config/brands";
 
 const ZApiWebhookSchema = z.object({
   instanceId: z.string(),
@@ -29,14 +30,22 @@ function compararSegredo(recebido: string, esperado: string): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-function resolverConta(instanceId: string) {
+async function resolverConta(instanceId: string) {
   const orgId = process.env.DEFAULT_ORG_ID;
-  const candidatas = (["KARZI", "WUWU"] as const).map((slug) => ContaWebhookSchema.safeParse({
-    orgId,
-    brandId: process.env[`NEXT_PUBLIC_BRAND_ID_${slug}`],
-    instanceId: process.env[`ZAPI_INSTANCE_${slug}`],
-    webhookToken: process.env[`ZAPI_WEBHOOK_TOKEN_${slug}`],
-  })).filter((resultado) => resultado.success).map((resultado) => resultado.data);
+  if (!orgId) return undefined;
+  const marcas = await db.select({ id: brand.id, slug: brand.slug }).from(brand).where(and(
+    eq(brand.orgId, orgId),
+    eq(brand.active, true),
+  ));
+  const candidatas = marcas.filter((marca) => isBrandSlug(marca.slug)).map((marca) => {
+    const suffix = brandEnvSuffix(marca.slug);
+    return ContaWebhookSchema.safeParse({
+      orgId,
+      brandId: marca.id,
+      instanceId: process.env[`ZAPI_INSTANCE_${suffix}`],
+      webhookToken: process.env[`ZAPI_WEBHOOK_TOKEN_${suffix}`],
+    });
+  }).filter((resultado) => resultado.success).map((resultado) => resultado.data);
 
   return candidatas.find((conta) => conta.instanceId === instanceId);
 }
@@ -66,7 +75,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
   }
 
-  const configuracao = resolverConta(identificacao.data.instanceId);
+  const configuracao = await resolverConta(identificacao.data.instanceId);
   if (!configuracao || !compararSegredo(assinatura, configuracao.webhookToken)) {
     return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
   }

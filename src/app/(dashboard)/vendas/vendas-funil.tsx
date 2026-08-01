@@ -10,23 +10,23 @@ import {
   actionListarFunil, actionMoverOportunidade,
 } from "./actions";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
-import brandsConfig from "@/config/brands.json";
 import pagesConfig from "@/config/pages.json";
+import { getBrandConfig } from "@/shared/config/brands";
 
 type Etapa = { id: string; nome: string; ordem: number; cor: string | null };
 type Oportunidade = {
   id: string; titulo: string; etapaId: string; brandId: string; valor: string | null;
+  brandName: string; brandSlug: string;
   clienteNome: string | null; responsavelNome: string | null;
 };
 
-const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
-const BRAND_WUWU = process.env.NEXT_PUBLIC_BRAND_ID_WUWU ?? "";
 const copy = pagesConfig.vendas;
 
-function brandLabel(brandId: string) {
-  if (brandId === BRAND_KARZI) return { label: brandsConfig.karzi.label, color: brandsConfig.karzi.color };
-  if (brandId === BRAND_WUWU) return { label: brandsConfig.wuwu.label, color: brandsConfig.wuwu.color };
-  return { label: "—", color: "var(--muted-foreground)" };
+function brandLabel(opportunity: Oportunidade) {
+  return {
+    label: opportunity.brandName,
+    color: getBrandConfig(opportunity.brandSlug)?.color ?? "var(--muted-foreground)",
+  };
 }
 
 
@@ -221,7 +221,7 @@ export function VendasFunil() {
                     <p className="text-xs text-muted-foreground text-center py-4">{copy.dropHint}</p>
                   ) : (
                     ops.map((op) => {
-                      const brand = brandLabel(op.brandId);
+                      const brand = brandLabel(op);
                       return (
                         <motion.div
                           key={op.id}

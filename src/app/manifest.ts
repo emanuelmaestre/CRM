@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "LEO CRM — Plast Leo",
     short_name: "LEO CRM",
-    description: "Central de clientes, estoque e vendas KARZI e WUWU",
+    description: "Central de clientes, estoque e vendas para KARZI, WUWU e Armarinhos Lima",
     start_url: "/dashboard",
     display: "standalone",
     background_color: "#0E0F13",

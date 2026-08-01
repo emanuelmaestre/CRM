@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 interface MLCredentials {
   clientId: string;
@@ -92,27 +93,35 @@ export class MercadoLivreProvider implements ChannelProvider {
   }
 }
 
-export async function obterTokenMercadoLivre(brandSlug: "karzi" | "wuwu"): Promise<{
+export async function obterTokenMercadoLivre(brandSlug: BrandSlug): Promise<{
   accessToken: string;
   refreshToken: string;
 }> {
-  const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
+  const upper = brandEnvSuffix(brandSlug);
   const orgId = process.env.DEFAULT_ORG_ID;
-  const brandId = process.env[`NEXT_PUBLIC_BRAND_ID_${upper}`];
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   let tokenRow: { access_token?: string; refresh_token?: string; expires_at?: string } | null = null;
-  if (orgId && brandId && supabaseUrl && serviceRoleKey) {
+  if (orgId && supabaseUrl && serviceRoleKey) {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const result = await supabase
-      .from("canal_tokens")
-      .select("access_token, refresh_token, expires_at")
+    const marca = await supabase
+      .from("brand")
+      .select("id")
       .eq("org_id", orgId)
-      .eq("brand_id", brandId)
-      .eq("canal", "mercadolivre")
+      .eq("slug", brandSlug)
+      .eq("active", true)
       .maybeSingle();
-    tokenRow = result.data;
+    if (marca.data?.id) {
+      const result = await supabase
+        .from("canal_tokens")
+        .select("access_token, refresh_token, expires_at")
+        .eq("org_id", orgId)
+        .eq("brand_id", marca.data.id)
+        .eq("canal", "mercadolivre")
+        .maybeSingle();
+      tokenRow = result.data;
+    }
   }
 
   const tokenBancoExpirado = tokenRow?.expires_at
@@ -131,8 +140,8 @@ export async function obterTokenMercadoLivre(brandSlug: "karzi" | "wuwu"): Promi
   return { accessToken, refreshToken };
 }
 
-export async function criarMLProvider(brandSlug: "karzi" | "wuwu"): Promise<MercadoLivreProvider> {
-  const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
+export async function criarMLProvider(brandSlug: BrandSlug): Promise<MercadoLivreProvider> {
+  const upper = brandEnvSuffix(brandSlug);
   const clientId = process.env.ML_CLIENT_ID;
   const clientSecret = process.env.ML_CLIENT_SECRET;
   if (!clientId || !clientSecret) {

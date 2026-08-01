@@ -1,4 +1,5 @@
 import type { MessagingProvider, MensagemPayload, SaudeConector } from "../domain/ports";
+import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 export class ZApiProvider implements MessagingProvider {
   private instanceId: string;
@@ -51,8 +52,8 @@ export class ZApiProvider implements MessagingProvider {
   }
 }
 
-export function criarZApiProvider(brandSlug: "karzi" | "wuwu"): ZApiProvider {
-  const upper = brandSlug.toUpperCase() as "KARZI" | "WUWU";
+export function criarZApiProvider(brandSlug: BrandSlug): ZApiProvider {
+  const upper = brandEnvSuffix(brandSlug);
   const instanceId = process.env[`ZAPI_INSTANCE_${upper}`];
   const token = process.env[`ZAPI_TOKEN_${upper}`];
 

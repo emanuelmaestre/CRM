@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import appConfig from "@/config/app.json";
+import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 
 export function LoginHero() {
   return (
@@ -26,16 +26,11 @@ export function LoginHero() {
 
       {/* Logo */}
       <motion.div
-        initial={{ opacity: 0, y: 18, scale: 0.94 }}
+        initial={false}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={appConfig.logo.src}
-          alt={appConfig.logo.alt}
-          style={{ height: 52, width: "auto", display: "block", objectFit: "contain" }}
-        />
+        <BrandLogoGroup height={36} className="gap-4" />
       </motion.div>
     </div>
   );

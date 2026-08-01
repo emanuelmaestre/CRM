@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, jsonb, pgEnum, index,
+  pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { org, brand } from "./org";
 
@@ -29,4 +29,5 @@ export const channelAccount = pgTable("channel_account", {
 }, (t) => [
   index("idx_channel_org").on(t.orgId),
   index("idx_channel_brand").on(t.brandId),
+  uniqueIndex("uq_channel_account_org_brand_tipo").on(t.orgId, t.brandId, t.tipo),
 ]);

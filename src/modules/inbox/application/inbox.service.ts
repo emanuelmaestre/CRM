@@ -7,6 +7,7 @@ import { criarZApiProvider } from "@/modules/canais/infrastructure/zapi.provider
 import { brand } from "@/shared/lib/db/schema";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { executarComRetry } from "@/modules/canais/application/retry";
+import { isBrandSlug } from "@/shared/config/brands";
 
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
@@ -190,7 +191,7 @@ export async function enviarMensagem(
     .then((r) => r[0]);
   if (!brandRow) throw new Error("Marca não encontrada.");
 
-  if (brandRow.slug !== "karzi" && brandRow.slug !== "wuwu") {
+  if (!isBrandSlug(brandRow.slug)) {
     throw new Error("Marca sem provider de mensageria configurado.");
   }
   const slug = brandRow.slug;

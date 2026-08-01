@@ -10,12 +10,9 @@ import {
   actionAprovarSugestao,
   actionRejeitarSugestao,
   actionGerarDocumentoExecutivo,
+  actionListarMarcasRelatorio,
 } from "./actions";
 import reportsConfig from "@/config/reports.json";
-import brandsConfig from "@/config/brands.json";
-
-const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
-const BRAND_WUWU = process.env.NEXT_PUBLIC_BRAND_ID_WUWU ?? "";
 
 type RelatorioVendas = Awaited<ReturnType<typeof actionRelatorioVendas>>;
 type Sugestao = Awaited<ReturnType<typeof actionListarSugestoes>>[number];
@@ -114,6 +111,7 @@ export function RelatoriosCliente() {
   const [gerandoDoc, setGerandoDoc] = useState(false);
   const [dias, setDias] = useState(30);
   const [brandId, setBrandId] = useState("");
+  const [marcas, setMarcas] = useState<Awaited<ReturnType<typeof actionListarMarcasRelatorio>>>([]);
   const [, startTransition] = useTransition();
 
   const carregar = useCallback((filtroDias: number, filtroBrandId: string) => {
@@ -139,6 +137,9 @@ export function RelatoriosCliente() {
   }, []);
 
   useEffect(() => { carregar(dias, brandId); }, [carregar, dias, brandId]);
+  useEffect(() => {
+    actionListarMarcasRelatorio().then(setMarcas).catch(() => setMarcas([]));
+  }, []);
 
   async function aprovar(id: string) {
     try {
@@ -206,8 +207,7 @@ export function RelatoriosCliente() {
           className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm"
         >
           <option value="">{reportsConfig.filters.allBrands}</option>
-          <option value={BRAND_KARZI}>{brandsConfig.karzi.label}</option>
-          <option value={BRAND_WUWU}>{brandsConfig.wuwu.label}</option>
+          {marcas.map((marca) => <option key={marca.id} value={marca.id}>{marca.name}</option>)}
         </select>
       </div>
 

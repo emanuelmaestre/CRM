@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { authorizeRoute } from "@/shared/lib/auth/session";
+import { isBrandSlug } from "@/shared/config/brands";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const BRAND_ENV = {
-  karzi: "NEXT_PUBLIC_BRAND_ID_KARZI",
-  wuwu: "NEXT_PUBLIC_BRAND_ID_WUWU",
-} as const;
 
 /**
  * Remove o token do Mercado Livre da marca. Existe porque o OAuth reaproveita a
@@ -22,25 +18,50 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!auth.ok) return auth.response;
 
   const brand = req.nextUrl.searchParams.get("brand");
-  if (brand !== "karzi" && brand !== "wuwu") {
-    return NextResponse.json({ error: "brand deve ser 'karzi' ou 'wuwu'" }, { status: 400 });
+  if (!brand || !isBrandSlug(brand)) {
+    return NextResponse.json({ error: "Marca não suportada." }, { status: 400 });
   }
 
-  const brandId = process.env[BRAND_ENV[brand]];
-  if (!brandId) {
-    return NextResponse.json({ error: `${BRAND_ENV[brand]} não configurado` }, { status: 500 });
+  const orgId = process.env.DEFAULT_ORG_ID!;
+  const { data: marca, error: marcaError } = await supabase
+    .from("brand")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("slug", brand)
+    .eq("active", true)
+    .maybeSingle();
+  if (marcaError || !marca) {
+    return NextResponse.json({ error: "Marca ativa não encontrada." }, { status: 404 });
   }
+  const brandId = marca.id;
 
   const { error } = await supabase
     .from("canal_tokens")
     .delete()
-    .eq("org_id", process.env.DEFAULT_ORG_ID!)
+    .eq("org_id", orgId)
     .eq("brand_id", brandId)
     .eq("canal", "mercadolivre");
 
   if (error) {
     console.error("[ml/disconnect] delete failed", error);
     return NextResponse.json({ error: "Não foi possível desconectar." }, { status: 500 });
+  }
+
+  const { error: accountError } = await supabase
+    .from("channel_account")
+    .update({
+      status: "desconectado",
+      ultima_verificacao: new Date().toISOString(),
+      ultimo_erro: null,
+      atualizado_em: new Date().toISOString(),
+    })
+    .eq("org_id", orgId)
+    .eq("brand_id", brandId)
+    .eq("tipo", "mercadolivre");
+
+  if (accountError) {
+    console.error("[ml/disconnect] channel_account update failed", accountError);
+    return NextResponse.json({ error: "Token removido, mas o status da conta não foi atualizado." }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, brand });

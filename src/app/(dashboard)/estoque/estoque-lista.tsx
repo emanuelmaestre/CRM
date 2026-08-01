@@ -7,25 +7,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link2 } from "lucide-react";
 import { MovimentoModal } from "./movimento-modal";
 import { CanalModal } from "./canal-modal";
-import { actionListarProdutos, actionListarProdutosParados } from "./actions";
+import { actionListarMarcasEstoque, actionListarProdutos, actionListarProdutosParados } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
-import brandsConfig from "@/config/brands.json";
 import pagesConfig from "@/config/pages.json";
+import { getBrandConfig } from "@/shared/config/brands";
 
 type Produto = {
   id: string; sku: string; nome: string; preco: string;
-  estoqueMinimo: number; brandId: string; saldo?: number;
+  estoqueMinimo: number; brandId: string; brandName: string; brandSlug: string; saldo?: number;
 };
 
-const BRAND_KARZI = process.env.NEXT_PUBLIC_BRAND_ID_KARZI ?? "";
-const BRAND_WUWU  = process.env.NEXT_PUBLIC_BRAND_ID_WUWU  ?? "";
 const copy = pagesConfig.estoque;
 
-function brandLabel(brandId: string) {
-  if (brandId === BRAND_KARZI) return { label: brandsConfig.karzi.label, color: brandsConfig.karzi.color };
-  if (brandId === BRAND_WUWU)  return { label: brandsConfig.wuwu.label, color: brandsConfig.wuwu.color };
-  return { label: brandId, color: "var(--muted-foreground)" };
+function brandLabel(produto: Produto) {
+  return {
+    label: produto.brandName,
+    color: getBrandConfig(produto.brandSlug)?.color ?? "var(--muted-foreground)",
+  };
 }
 
 type ProdutoParado = Awaited<ReturnType<typeof actionListarProdutosParados>>[number];
@@ -95,6 +94,11 @@ export function EstoqueLista() {
   const requestId = useRef(0);
   const [, startTransition]       = useTransition();
   const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
+  const [marcas, setMarcas] = useState<Awaited<ReturnType<typeof actionListarMarcasEstoque>>>([]);
+
+  useEffect(() => {
+    actionListarMarcasEstoque().then(setMarcas).catch(() => setMarcas([]));
+  }, []);
 
   const carregar = useCallback((marca?: string, termo?: string) => {
     const currentRequest = ++requestId.current;
@@ -151,8 +155,7 @@ export function EstoqueLista() {
         <input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder={copy.searchPlaceholder} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
         <select value={brandId} onChange={(event) => setBrandId(event.target.value)} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm">
           <option value="">{copy.allBrands}</option>
-          <option value={BRAND_KARZI}>{brandsConfig.karzi.label}</option>
-          <option value={BRAND_WUWU}>{brandsConfig.wuwu.label}</option>
+          {marcas.map((marca) => <option key={marca.id} value={marca.id}>{marca.name}</option>)}
         </select>
       </div>
 
@@ -204,7 +207,7 @@ export function EstoqueLista() {
             <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="md:hidden divide-y divide-border" data-testid="estoque-cards">
                 {produtos.map((p) => {
-                  const brand = brandLabel(p.brandId);
+                  const brand = brandLabel(p);
                   const saldo = p.saldo ?? 0;
                   const alerta = saldo <= p.estoqueMinimo;
                   return (
@@ -237,7 +240,7 @@ export function EstoqueLista() {
                 </thead>
                 <tbody>
                   {produtos.map((p, i) => {
-                    const brand   = brandLabel(p.brandId);
+                    const brand   = brandLabel(p);
                     const saldo   = p.saldo ?? 0;
                     const alerta  = saldo <= p.estoqueMinimo;
                     return (

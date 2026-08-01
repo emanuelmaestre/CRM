@@ -1,9 +1,9 @@
 {
   "phase": "B",
   "name": "Operação Conectada",
-  "updatedAt": "2026-07-27",
+  "updatedAt": "2026-08-01",
   "status": "ready_for_external_homologation",
-  "summary": "Código, contratos, recuperação de eventos e migration 0013 validados. O aceite final permanece bloqueado por credenciais, contas e provas reais inexistentes no ambiente publicado.",
+  "summary": "Código, contratos, recuperação de eventos e migrations até 0018 validados. O aceite final permanece bloqueado por credenciais, contas e provas reais inexistentes no ambiente publicado.",
   "criteria": [
     {
       "id": "connectors",
@@ -53,15 +53,15 @@
     {
       "id": "target_database",
       "status": "verified",
-      "evidence": "Migration 0013 aplicada ao banco alvo; coluna recebido_em e índices de SLA/outbox confirmados pelos testes integrados."
+      "evidence": "Migrations até 0018 aplicadas ao banco alvo; coluna recebido_em, índices de SLA/outbox e integridade entre as três marcas confirmados."
     }
   ],
   "validation": {
     "typecheck": "passed",
     "lint": "passed",
-    "unitTests": "118 passed",
+    "unitTests": "158 passed",
     "gateIntegrationTests": "6 passed",
-    "rlsIntegrationTests": "32 passed",
+    "rlsIntegrationTests": "34 passed",
     "phaseBIntegration": {
       "status": "passed",
       "messageAttempts": 50,
@@ -76,14 +76,14 @@
     "productionReadiness": "blocked"
   },
   "productionSnapshot": {
-    "checkedAt": "2026-07-23T07:33:32.611Z",
-    "marketplaceAccounts": 2,
+    "checkedAt": "2026-07-31",
+    "marketplaceAccounts": 8,
     "connectedAccounts": 0,
     "inngestJobsObserved": 0,
     "externalSendsEnabled": false,
     "notes": [
-      "Mercado Livre/KARZI e Shopee/WUWU estão desconectados.",
-      "TikTok Shop e Olist não possuem channel_account.",
+      "Os 8 channel_account de marketplace de KARZI, WUWU e Armarinhos Lima estão desconectados.",
+      "IDs externos de Mercado Livre, Shopee e TikTok Shop foram cadastrados quando fornecidos; Olist ainda não possui channel_account.",
       "Tokens OAuth do Mercado Livre estão expirados.",
       "INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY estão ausentes.",
       "Não existe prova de pedido, baixa, sincronização e inbox reais por canal."

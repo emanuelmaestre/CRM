@@ -46,7 +46,7 @@
 ## Componentes base
 
 Todos via shadcn/ui + Tailwind v4. Extensões:
-- `BrandBadge` — exibe pill com cor da marca (karzi/wuwu)
+- `BrandBadge` — exibe pill com cor da marca (karzi/wuwu/armarinhos_lima)
 - `GradientButton` — botão primário com gradiente assinatura
 - `ThemeToggle` — alterna Vitrine/Cabine
 - `StatusBadge` — cor semântica por status de pedido/conversa

@@ -7,6 +7,7 @@ import { auditLog, brand, channelAccount, produto, produtoCanal } from "@/shared
 import {
   atualizarContaCanalConfiguracao,
   criarContaCanalConfiguracao,
+  listarConfiguracaoCanais,
   removerContaCanalConfiguracao,
 } from "@/modules/canais/application/configuracao-canais.service";
 
@@ -19,6 +20,8 @@ const ctxAdmin: CrudContext = { db, orgId, perfil: "admin" };
 const ctxVendedor: CrudContext = { db, orgId, perfil: "vendedor" };
 
 let brandId: string;
+let brandSemWhatsAppId: string;
+let brandArmarinhosId: string;
 const contasParaLimpar: string[] = [];
 const produtosParaLimpar: string[] = [];
 
@@ -27,6 +30,14 @@ beforeAll(async () => {
     .where(and(eq(brand.orgId, orgId), eq(brand.slug, "karzi")));
   if (!karzi) throw new Error("Marca karzi não encontrada no org alvo; seed necessário antes do teste.");
   brandId = karzi.id;
+  const [wuwu] = await db.select({ id: brand.id }).from(brand)
+    .where(and(eq(brand.orgId, orgId), eq(brand.slug, "wuwu")));
+  if (!wuwu) throw new Error("Marca wuwu não encontrada no org alvo; seed necessário antes do teste.");
+  brandSemWhatsAppId = wuwu.id;
+  const [armarinhos] = await db.select({ id: brand.id }).from(brand)
+    .where(and(eq(brand.orgId, orgId), eq(brand.slug, "armarinhos_lima")));
+  if (!armarinhos) throw new Error("Marca armarinhos_lima não encontrada no org alvo; seed necessário antes do teste.");
+  brandArmarinhosId = armarinhos.id;
 });
 
 afterAll(async () => {
@@ -45,8 +56,13 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
       brandId,
       tipo: "olist",
       nome: `Teste integracao update ${randomUUID()}`,
+      externalAccountId: "seller-original",
     });
     contasParaLimpar.push(conta.id);
+
+    await db.update(channelAccount).set({
+      meta: { externalAccountId: "seller-original", customFlag: "preservar" },
+    }).where(eq(channelAccount.id, conta.id));
 
     const atualizado = await atualizarContaCanalConfiguracao(ctxAdmin, {
       channelAccountId: conta.id,
@@ -54,6 +70,10 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
       externalAccountId: "seller-teste-123",
     });
     expect(atualizado.nome).toBe("Nome atualizado pelo teste");
+    expect(atualizado.meta).toMatchObject({
+      externalAccountId: "seller-teste-123",
+      customFlag: "preservar",
+    });
 
     const [auditoria] = await db.select().from(auditLog).where(and(
       eq(auditLog.entidade, "channel_account"),
@@ -71,6 +91,7 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
       brandId,
       tipo: "olist",
       nome: `Teste integracao permissao ${randomUUID()}`,
+      externalAccountId: "seller-permissao",
     });
     contasParaLimpar.push(conta.id);
 
@@ -92,6 +113,7 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
       brandId,
       tipo: "olist",
       nome: `Teste integracao impacto ${randomUUID()}`,
+      externalAccountId: "seller-impacto",
     });
     contasParaLimpar.push(conta.id);
 
@@ -129,6 +151,7 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
       brandId,
       tipo: "olist",
       nome: `Teste integracao remocao ${randomUUID()}`,
+      externalAccountId: "seller-remocao",
     });
 
     const resultado = await removerContaCanalConfiguracao(ctxAdmin, { channelAccountId: conta.id });
@@ -144,5 +167,75 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
       eq(auditLog.acao, "delete"),
     ));
     expect(auditoria).toBeDefined();
+  });
+
+  it("exige ID externo para marketplace e permite WhatsApp sem ID", async () => {
+    await expect(criarContaCanalConfiguracao(ctxAdmin, {
+      brandId,
+      tipo: "olist",
+      nome: "Marketplace sem ID",
+    })).rejects.toThrow(/ID externo/);
+
+    const conta = await criarContaCanalConfiguracao(ctxAdmin, {
+      brandId: brandSemWhatsAppId,
+      tipo: "whatsapp",
+      nome: `WhatsApp sem ID ${randomUUID()}`,
+    });
+    contasParaLimpar.push(conta.id);
+
+    await db.delete(channelAccount).where(eq(channelAccount.id, conta.id));
+    contasParaLimpar.splice(contasParaLimpar.indexOf(conta.id), 1);
+  });
+
+  it("expõe no wizard a origem e divergência do ID externo", async () => {
+    const anterior = process.env.OLIST_SELLER_ID_KARZI;
+    process.env.OLIST_SELLER_ID_KARZI = "seller-ambiente";
+    const conta = await criarContaCanalConfiguracao(ctxAdmin, {
+      brandId,
+      tipo: "olist",
+      nome: `Olist divergente ${randomUUID()}`,
+      externalAccountId: "seller-banco",
+    });
+    contasParaLimpar.push(conta.id);
+
+    try {
+      const configuracao = await listarConfiguracaoCanais(ctxAdmin);
+      const olist = configuracao.find((item) => item.brandId === brandId && item.canal === "olist");
+      expect(olist).toMatchObject({
+        externalAccountId: "seller-banco",
+        externalAccountIdSource: "database",
+        externalAccountIdMismatch: true,
+      });
+    } finally {
+      if (anterior === undefined) delete process.env.OLIST_SELLER_ID_KARZI;
+      else process.env.OLIST_SELLER_ID_KARZI = anterior;
+      await db.delete(channelAccount).where(eq(channelAccount.id, conta.id));
+      contasParaLimpar.splice(contasParaLimpar.indexOf(conta.id), 1);
+    }
+  });
+
+  it("monta as cinco integrações da Armarinhos Lima a partir da configuração", async () => {
+    const environment = {
+      ML_SELLER_ID_ARMARINHOS_LIMA: process.env.ML_SELLER_ID_ARMARINHOS_LIMA,
+      SHOPEE_SHOP_ID_ARMARINHOS_LIMA: process.env.SHOPEE_SHOP_ID_ARMARINHOS_LIMA,
+      TIKTOK_SHOP_ID_ARMARINHOS_LIMA: process.env.TIKTOK_SHOP_ID_ARMARINHOS_LIMA,
+    };
+    process.env.ML_SELLER_ID_ARMARINHOS_LIMA = "3222790734";
+    process.env.SHOPEE_SHOP_ID_ARMARINHOS_LIMA = "1824117705";
+    process.env.TIKTOK_SHOP_ID_ARMARINHOS_LIMA = "BRLCXEL2YD";
+
+    try {
+      const configuracao = await listarConfiguracaoCanais(ctxAdmin);
+      const armarinhos = configuracao.filter((item) => item.brandId === brandArmarinhosId);
+      expect(armarinhos).toHaveLength(5);
+      expect(armarinhos.find((item) => item.canal === "mercadolivre")?.externalAccountId).toBe("3222790734");
+      expect(armarinhos.find((item) => item.canal === "shopee")?.externalAccountId).toBe("1824117705");
+      expect(armarinhos.find((item) => item.canal === "tiktokshop")?.externalAccountId).toBe("BRLCXEL2YD");
+    } finally {
+      for (const [name, value] of Object.entries(environment)) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
   });
 });

@@ -17,9 +17,11 @@
 | `INNGEST_SIGNING_KEY` | Vercel (secret) | `signkey-...` |
 | `UPSTASH_REDIS_REST_URL` | Vercel | `https://...upstash.io` |
 | `UPSTASH_REDIS_REST_TOKEN` | Vercel (secret) | `AX...` |
-| `DEFAULT_ORG_ID` | Vercel (secret) | UUID da org Plast Leo |
+| `DEFAULT_ORG_ID` | Vercel (secret) | UUID do tenant administrativo das três operações |
+| `SYNTHETIC_SEED_ORG_ID` | Apenas dev/staging | UUID exclusivo do tenant sintético; nunca igual ao `DEFAULT_ORG_ID` em banco remoto |
 | `BRAND_ID_KARZI` | Vercel (secret) | UUID da brand KARZI |
 | `BRAND_ID_WUWU` | Vercel (secret) | UUID da brand WUWU |
+| `BRAND_ID_ARMARINHOS_LIMA` | Vercel (secret) | UUID da brand Armarinhos Lima |
 | `PROVISION_SECRET` | Vercel (secret) | Token de bootstrap inicial |
 | `E2E_USER_EMAIL` | CI secrets | E-mail do usuário de teste |
 | `E2E_USER_PASSWORD` | CI secrets | Senha do usuário de teste |
@@ -37,7 +39,7 @@ curl -X POST https://<domínio>/api/provision \
   -d '{"email": "emanuelmaestre1@gmail.com"}'
 ```
 
-Isso cria: org Plast Leo · brands KARZI e WUWU · usuário admin.
+Isso cria: tenant administrativo · brands KARZI, WUWU e Armarinhos Lima · usuário admin.
 
 ---
 
@@ -137,6 +139,19 @@ npx playwright test
 ```
 - [ ] Todos os testes passam nos 4 viewports
 
+### Seed sintético isolado
+
+Em banco remoto de desenvolvimento, staging ou preview, defina um tenant exclusivo e mantenha os envios externos desativados:
+
+```bash
+SYNTHETIC_SEED_ENV=staging \
+SYNTHETIC_SEED_REMOTE_CONFIRMATION=seed-synthetic-data \
+SYNTHETIC_SEED_ORG_ID=<uuid-diferente-do-DEFAULT_ORG_ID> \
+npm run test:seed-synthetic
+```
+
+O comando é bloqueado em produção e também quando o tenant sintético coincide com o tenant operacional.
+
 ### Observabilidade da aplicação
 - `/admin/saude` lista o estado real dos conectores e as execuções recentes de jobs.
 - Falhas definitivas de jobs e eventos operacionais aparecem na fila de falhas do painel.
@@ -227,7 +242,7 @@ Banco: nenhuma migração destrutiva foi aplicada; rollback de schema é seguro 
 
 ## 11. Treinamento Plast Leo (roteiro 30 min)
 
-1. **Login e navegação** (5 min) — sidebar, marcas KARZI / WUWU
+1. **Login e navegação** (5 min) — sidebar, marcas KARZI / WUWU / Armarinhos Lima
 2. **Cadastro de clientes** (5 min) — criar cliente, validar CPF/CNPJ, adicionar canal WhatsApp
 3. **Pedidos e estoque** (5 min) — criar pedido, confirmar, ver baixa de estoque
 4. **Relatórios** (10 min):
@@ -249,4 +264,4 @@ Itens fora do escopo contratual atual (Plano Acelera):
 
 ---
 
-*Última atualização: 2026-07-21 · Fases A + B + C implementadas.*
+*Última atualização: 2026-08-01 · Fase A concluída; Fases B + C prontas para homologação externa.*

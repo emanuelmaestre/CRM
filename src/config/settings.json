@@ -3,7 +3,16 @@
   "loading": "Carregando…",
   "status": { "active": "Ativo", "pending": "Pendente", "pendingIcon": "Clock" },
   "openAction": { "label": "Abrir", "icon": "ExternalLink" },
-  "organization": { "title": "Organização", "icon": "Building2", "rows": [{ "label": "Marcas ativas", "value": "KARZI, WUWU" }, { "label": "Plano", "value": "Acelera" }] },
+  "organization": {
+    "title": "Organização",
+    "icon": "Building2",
+    "labels": {
+      "name": "Organização",
+      "activeBrands": "Marcas ativas",
+      "configuredAccounts": "Contas cadastradas",
+      "connectedAccounts": "Contas conectadas"
+    }
+  },
   "users": {
     "title": "Usuários e perfis",
     "icon": "Users",
@@ -21,19 +30,20 @@
     "title": "Integrações",
     "icon": "Plug",
     "items": [
-      { "name": "WhatsApp (Z-API)", "connected": false },
-      { "name": "Shopee", "description": "Seller Centre Brasil", "href": "https://seller.shopee.com.br", "color": "#EE4D2D" },
-      { "name": "Mercado Livre", "description": "Gerencie anúncios e vendas", "href": "https://www.mercadolivre.com.br/vendas", "color": "#FFE600" },
-      { "name": "TikTok Shop", "description": "Seller Center", "href": "https://seller-br.tiktok.com", "color": "#010101" },
-      { "name": "Inngest", "connected": false },
-      { "name": "OpenAI", "connected": false }
+      { "name": "WhatsApp (Z-API)", "statusSource": "channel:whatsapp" },
+      { "name": "Shopee", "description": "Seller Centre Brasil", "href": "https://seller.shopee.com.br", "color": "#EE4D2D", "statusSource": "channel:shopee" },
+      { "name": "Mercado Livre", "description": "Gerencie anúncios e vendas", "href": "https://www.mercadolivre.com.br/vendas", "color": "#FFE600", "statusSource": "channel:mercadolivre" },
+      { "name": "TikTok Shop", "description": "Seller Center", "href": "https://seller-br.tiktok.com", "color": "#010101", "statusSource": "channel:tiktokshop" },
+      { "name": "Inngest", "statusSource": "readiness:inngest" },
+      { "name": "OpenAI", "statusSource": "readiness:openai" }
     ]
   },
   "mercadoLivre": {
     "title": "Mercado Livre",
     "brands": [
       { "slug": "karzi", "label": "KARZI" },
-      { "slug": "wuwu", "label": "WUWU" }
+      { "slug": "wuwu", "label": "WUWU" },
+      { "slug": "armarinhos_lima", "label": "Armarinhos Lima" }
     ],
     "labels": {
       "loading": "Verificando…",
@@ -65,7 +75,18 @@
       }
     }
   },
-  "system": { "title": "Sistema", "icon": "Cpu", "rows": [{ "label": "Versão", "value": "LEO v1.0" }, { "label": "Ambiente", "value": "Desenvolvimento" }] },
+  "system": {
+    "title": "Sistema",
+    "icon": "Cpu",
+    "version": "LEO v1.0",
+    "labels": {
+      "version": "Versão",
+      "environment": "Ambiente",
+      "externalSends": "Envios externos",
+      "enabled": "Liberados",
+      "disabled": "Bloqueados até homologação"
+    }
+  },
   "adminAreas": {
     "title": "Áreas administrativas",
     "icon": "ShieldCheck",
@@ -102,26 +123,22 @@
   "channelForms": {
     "showLabel": "Cadastrar conta ou mapear SKU",
     "hideLabel": "Ocultar formulários",
-    "hint": "Use para adicionar uma conta de canal ou ligar um SKU a um anúncio."
-  },
-  "groups": [
-    {
-      "title": "Saúde do Sistema",
-      "icon": "HeartPulse",
-      "cards": [
-        { "title": "Conectores", "icon": "Plug", "illustration": "generic", "emptyTitle": "Sem conectores configurados", "description": "Configure as contas dos canais para monitorar a saúde aqui." },
-        { "title": "Fila de tarefas", "icon": "Cpu", "illustration": "generic", "emptyTitle": "Nenhuma tarefa em execução", "description": "Tarefas ativas e falhas aparecem aqui em tempo real." },
-        { "title": "Falhas definitivas", "icon": "CheckCircle2", "illustration": "alerts", "emptyTitle": "Nenhuma falha registrada", "description": "Tarefas que esgotaram as tentativas aparecem aqui para reprocessamento." },
-        { "title": "Backups", "icon": "HeartPulse", "illustration": "generic", "emptyTitle": "Aguardando primeiro backup", "description": "Backups diários automáticos. O último é exibido aqui." }
-      ]
-    },
-    {
-      "title": "Inteligência",
-      "icon": "Brain",
-      "cards": [
-        { "title": "Consumo de IA", "icon": "Brain", "illustration": "reports", "emptyTitle": "Sem dados de consumo", "description": "O consumo de tokens aparece aqui conforme a IA é utilizada." },
-        { "title": "Insights do funil", "icon": "Brain", "illustration": "funnel", "emptyTitle": "Nenhum insight gerado", "description": "Insights semanais serão exibidos aqui após a integração de dados." }
-      ]
+    "hint": "Use para adicionar uma conta de canal ou ligar um SKU a um anúncio.",
+    "externalId": {
+      "label": "ID externo",
+      "missing": "Não informado",
+      "database": "salvo no banco",
+      "environment": "configurado no ambiente",
+      "mismatch": "O ID salvo no banco diverge do ID configurado no ambiente.",
+      "required": "Obrigatório para marketplaces",
+      "placeholder": "Seller, shop ou conta externa"
     }
-  ]
+  },
+  "healthLink": {
+    "title": "Saúde operacional",
+    "description": "Conectores, jobs, falhas, backups e prontidão usam dados reais no painel de saúde.",
+    "href": "/admin/saude",
+    "action": "Abrir painel de saúde",
+    "icon": "HeartPulse"
+  }
 }

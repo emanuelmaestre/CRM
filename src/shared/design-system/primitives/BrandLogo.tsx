@@ -1,17 +1,25 @@
 "use client";
 
+import Image from "next/image";
+import brandsConfig from "@/config/brands.json";
+import type { BrandSlug } from "@/shared/config/brands";
+
 interface Props {
-  brand: "karzi" | "wuwu";
+  brand: BrandSlug;
   height?: number;
   className?: string;
 }
 
 export function BrandLogo({ brand, height = 22, className = "" }: Props) {
+  const config = brandsConfig[brand];
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={brand === "karzi" ? "/logos/karzi.svg" : "/logos/wuwu.svg"}
-      alt={brand === "karzi" ? "KARZI" : "WUWU"}
+    <Image
+      src={config.logo}
+      alt={config.label}
+      width={config.logoSize.width}
+      height={config.logoSize.height}
+      loading="eager"
+      unoptimized
       className={className}
       style={{ height, width: "auto", display: "block", flexShrink: 0 }}
     />

@@ -6,6 +6,7 @@ import { avaliarGates, type GateInput } from "../domain/gates";
 import { criarZApiProvider } from "@/modules/canais/infrastructure/zapi.provider";
 import { executarComRetry } from "@/modules/canais/application/retry";
 import { format } from "date-fns";
+import { isBrandSlug } from "@/shared/config/brands";
 
 function renderizarTemplate(conteudo: string, variaveis: Record<string, string>): string {
   return conteudo.replace(/\{\{(\w+)\}\}/g, (_, chave) => variaveis[chave] ?? `{{${chave}}}`);
@@ -144,7 +145,7 @@ export async function dispararRegua(input: {
         eq(brand.orgId, input.orgId),
         eq(brand.active, true),
       )).then((rows) => rows[0]);
-      if (!marca || (marca.slug !== "karzi" && marca.slug !== "wuwu")) {
+      if (!marca || !isBrandSlug(marca.slug)) {
         throw new Error("Marca ativa não encontrada ou sem provider configurado.");
       }
 

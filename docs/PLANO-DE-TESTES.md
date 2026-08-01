@@ -23,7 +23,7 @@ Este plano transforma a secao 18 do PRD em uma matriz executavel de qualidade.
 
 | Invariante | Cobertura |
 |---|---|
-| Sigilo KARZI/WUWU | Testes de gates, provider account por marca, mapeamento SKU por marca e RLS. |
+| Sigilo entre operações | Testes de gates, provider account por marca, mapeamento SKU por marca e RLS para KARZI, WUWU e Armarinhos Lima. |
 | Sem envio sem opt-in | `reguas-gates`, `phase-b-gates.integration`. |
 | Cliente marketplace nao sai do canal | Gate de canal de origem e provider oficial. |
 | IA nao dispara nem altera preco/estoque | `guardrails-ia.test.ts` e fluxo de aprovacao. |

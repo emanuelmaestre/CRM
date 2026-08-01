@@ -1,48 +1,67 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { authorizeRoute } from "@/shared/lib/auth/session";
+import { BRAND_SLUGS, brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
+
+type DetalheMarca = {
+  conectado: boolean;
+  sellerId?: string;
+  contaConfere?: boolean;
+};
 
 export async function GET(): Promise<NextResponse> {
   const auth = await authorizeRoute(["admin"]);
   if (!auth.ok) return auth.response;
 
-  const orgId    = process.env.DEFAULT_ORG_ID!;
-  const karziId  = process.env.NEXT_PUBLIC_BRAND_ID_KARZI!;
-  const wuwuId   = process.env.NEXT_PUBLIC_BRAND_ID_WUWU!;
-
-  const { data } = await supabase
-    .from("canal_tokens")
-    .select("brand_id, expires_at, seller_id")
+  const orgId = process.env.DEFAULT_ORG_ID!;
+  const { data: marcas, error: marcasError } = await supabase
+    .from("brand")
+    .select("id, slug")
     .eq("org_id", orgId)
-    .eq("canal", "mercadolivre")
-    .in("brand_id", [karziId, wuwuId]);
+    .eq("active", true)
+    .in("slug", BRAND_SLUGS);
+
+  if (marcasError) {
+    console.error("[ml/status] brand query failed", marcasError);
+    return NextResponse.json({ error: "Não foi possível consultar as marcas." }, { status: 500 });
+  }
+
+  const brandIds = (marcas ?? []).map((marca) => marca.id);
+  const { data: tokens, error: tokensError } = brandIds.length > 0
+    ? await supabase
+      .from("canal_tokens")
+      .select("brand_id, expires_at, seller_id")
+      .eq("org_id", orgId)
+      .eq("canal", "mercadolivre")
+      .in("brand_id", brandIds)
+    : { data: [], error: null };
+
+  if (tokensError) {
+    console.error("[ml/status] token query failed", tokensError);
+    return NextResponse.json({ error: "Não foi possível consultar os tokens." }, { status: 500 });
+  }
 
   const now = Date.now();
-  const resumo = (brand: "karzi" | "wuwu", brandId: string) => {
-    const row = data?.find((r) => r.brand_id === brandId);
-    if (!row) return { conectado: false as const };
+  const detalhes = Object.fromEntries(BRAND_SLUGS.map((slug): [BrandSlug, DetalheMarca] => {
+    const marca = marcas?.find((item) => item.slug === slug);
+    const token = marca ? tokens?.find((item) => item.brand_id === marca.id) : null;
+    if (!token) return [slug, { conectado: false }];
 
-    const esperado = process.env[`ML_SELLER_ID_${brand.toUpperCase()}`];
-    return {
-      conectado: !row.expires_at || new Date(row.expires_at).getTime() > now,
-      sellerId:  row.seller_id ?? undefined,
-      // Alerta se a marca ficou com o token de outra conta.
-      contaConfere: esperado ? row.seller_id === esperado : undefined,
-    };
-  };
-
-  const karzi = resumo("karzi", karziId);
-  const wuwu  = resumo("wuwu", wuwuId);
+    const esperado = process.env[`ML_SELLER_ID_${brandEnvSuffix(slug)}`];
+    return [slug, {
+      conectado: !token.expires_at || new Date(token.expires_at).getTime() > now,
+      sellerId: token.seller_id ?? undefined,
+      contaConfere: esperado ? token.seller_id === esperado : undefined,
+    }];
+  }));
 
   return NextResponse.json({
-    // Formato plano mantido para o componente existente.
-    karzi: karzi.conectado,
-    wuwu:  wuwu.conectado,
-    detalhes: { karzi, wuwu },
+    ...Object.fromEntries(BRAND_SLUGS.map((slug) => [slug, detalhes[slug].conectado])),
+    detalhes,
   });
 }

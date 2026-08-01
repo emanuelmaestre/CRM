@@ -18,7 +18,7 @@
       "id": "DOD-03",
       "name": "rls_perfis_e_sigilo_entre_marcas",
       "status": "verified",
-      "evidence": ["npm run test:rls", "32 cenários de segurança e integridade", "37 tabelas protegidas", "116 policies"]
+      "evidence": ["npm run test:rls", "34 cenários de segurança e integridade", "39 tabelas protegidas", "118 policies"]
     },
     {
       "id": "DOD-04",
@@ -30,7 +30,7 @@
       "id": "DOD-05",
       "name": "idempotencia_externa",
       "status": "verified",
-      "evidence": ["npm run test:seed-synthetic", "27 conjuntos sintéticos", "reconciliação idempotente de etapas por org_id + ordem", "índices únicos de provider e referência"]
+      "evidence": ["npm run test:seed-synthetic", "28 conjuntos sintéticos em tenant isolado", "reconciliação idempotente de etapas por org_id + ordem", "índices únicos de provider e referência"]
     },
     {
       "id": "DOD-06",
@@ -48,7 +48,7 @@
       "id": "DOD-08",
       "name": "testes",
       "status": "verified",
-      "evidence": ["100 testes Vitest", "32 cenários RLS", "92 testes Playwright no CI", "68 verificações Playwright em staging", "next build"]
+      "evidence": ["158 testes Vitest", "34 cenários RLS", "92 testes Playwright no CI", "8 verificações autenticadas locais nos quatro breakpoints", "next build com 40 páginas"]
     },
     {
       "id": "DOD-09",
@@ -76,22 +76,22 @@
     }
   ],
   "verification": {
-    "unit_tests": 100,
-    "rls_scenarios": 32,
-    "synthetic_seed_sets": 27,
+    "unit_tests": 158,
+    "rls_scenarios": 34,
+    "synthetic_seed_sets": 28,
     "e2e_tests": 92,
     "staging_e2e_checks": 68,
     "staging_responsive_checks": 60,
     "staging_functional_checks": 8,
     "breakpoints": [360, 768, 1024, 1920],
     "staging_url": "https://karzi-wuwu-git-dev-emanuelmaestre.vercel.app",
-    "verified_at": "2026-07-22"
+    "verified_at": "2026-08-01"
   },
   "final_corrections": {
     "preview_environment": "credenciais Supabase exclusivas do staging configuradas no escopo Preview",
     "database_connectivity": "pooler transacional IPv4 do Supabase configurado para funções Vercel",
     "connection_pool": "uma conexão por instância, timeout ocioso de 10s e vida máxima de 60s",
-    "synthetic_seed": "reaplicação preserva IDs de etapas já referenciados pela chave natural org_id + ordem",
+    "synthetic_seed": "reaplicação preserva IDs naturais, usa namespace determinístico e recusa o tenant operacional em banco remoto",
     "preview_access": "staging navegável sem SSO da Vercel; autenticação, perfis e RLS permanecem ativos"
   }
 }

@@ -1,15 +1,33 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import databaseConfig from "@/config/database.json";
 import * as schema from "./schema";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function resolveDatabaseConnectionString(connectionString: string): string {
+  const url = new URL(connectionString);
+  const pooler = databaseConfig.supabasePoolers.find(
+    ({ directHost }) => directHost === url.hostname,
+  );
+
+  if (!pooler) {
+    return connectionString;
+  }
+
+  const projectRef = pooler.directHost.slice(3, -".supabase.co".length);
+  url.hostname = pooler.poolerHost;
+  url.port = String(pooler.poolerPort);
+  url.username = `postgres.${projectRef}`;
+  return url.toString();
+}
 
 export function buildTenantConnectionString(connectionString: string, orgId: string): string {
   if (!UUID_PATTERN.test(orgId)) {
     throw new Error("DEFAULT_ORG_ID deve ser um UUID válido.");
   }
 
-  const url = new URL(connectionString);
+  const url = new URL(resolveDatabaseConnectionString(connectionString));
   const currentOptions = url.searchParams.get("options")?.trim();
   const tenantOption = `-c app.current_org_id=${orgId}`;
   url.searchParams.set("options", currentOptions ? `${currentOptions} ${tenantOption}` : tenantOption);

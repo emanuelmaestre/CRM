@@ -8,8 +8,7 @@ import { criarMLProvider } from "../infrastructure/mercadolivre.provider";
 import { criarTikTokShopProvider } from "../infrastructure/tiktokshop.provider";
 import { criarOlistProvider } from "../infrastructure/olist.provider";
 import type { ChannelProvider, MessagingProvider } from "../domain/ports";
-
-type BrandSlug = "karzi" | "wuwu";
+import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<ChannelProvider | MessagingProvider | null> {
   try {
@@ -44,7 +43,7 @@ export async function verificarSaudeConectores(orgId: string): Promise<void> {
     let ultimoErro: string | null = null;
 
     try {
-      if (item.brandSlug !== "karzi" && item.brandSlug !== "wuwu") {
+      if (!isBrandSlug(item.brandSlug)) {
         throw new Error(`Marca ${item.brandSlug} sem provider configurado.`);
       }
       const provider = await resolverProvider(conta.tipo, item.brandSlug);

@@ -2,14 +2,14 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
+import { brandEnvSuffix, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 type Marketplace = "mercadolivre" | "shopee" | "tiktokshop" | "olist";
-type BrandSlug = "karzi" | "wuwu";
 
 const AccountConfigSchema = z.object({
   orgId: z.uuid(),
   brandId: z.uuid(),
-  brandSlug: z.enum(["karzi", "wuwu"]),
+  brandSlug: z.custom<BrandSlug>((value) => typeof value === "string" && isBrandSlug(value)),
   channelAccountId: z.uuid(),
   externalAccountId: z.string().min(1),
 });
@@ -18,7 +18,7 @@ const EXTERNAL_ID_ENV: Record<Marketplace, string> = {
   mercadolivre: "ML_SELLER_ID",
   shopee: "SHOPEE_SHOP_ID",
   tiktokshop: "TIKTOK_SHOP_ID",
-  olist: "OLIST_SHOP_ID",
+  olist: "OLIST_SELLER_ID",
 };
 
 export async function resolverContaWebhookMarketplace(
@@ -46,7 +46,7 @@ export async function resolverContaWebhookMarketplace(
 
   const candidatas = contas
     .map((conta) => {
-      const upper = conta.brandSlug.toUpperCase();
+      const upper = brandEnvSuffix(conta.brandSlug);
       const meta = conta.meta as Record<string, unknown> | null;
       return AccountConfigSchema.safeParse({
         ...conta,

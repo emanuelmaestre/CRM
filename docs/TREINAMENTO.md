@@ -1,4 +1,4 @@
-# Treinamento — CRM LEO (Plast Leo / KARZI + WUWU)
+# Treinamento — CRM LEO (KARZI, WUWU e Armarinhos Lima)
 
 Este documento é o roteiro de treinamento exigido pela Fase 5 do contrato (§16 do PRD,
 "Homologação e Go-live") e pelo portão de saída da Fase C. Ele serve como script para a sessão
@@ -32,7 +32,7 @@ Tela: `/dashboard`
    360/768/1024/1920 já testados — mostrar responsividade ao vivo redimensionando a janela).
 3. Painel executivo: filtros por período/marca/canal, receita, pedidos, conversão, ticket médio,
    consumo de IA. Explicar que os números vêm do banco real, não de simulação.
-4. Explicar o Invariante nº 1 do PRD: KARZI e WUWU nunca se cruzam — nenhuma tela mistura marcas
+4. Explicar o Invariante nº 1 do PRD: KARZI, WUWU e Armarinhos Lima nunca se cruzam — nenhuma tela mistura marcas
    sem o seletor explícito.
 
 ## Bloco 2 — Operação do dia a dia (gestor + vendedor, ~15 min)

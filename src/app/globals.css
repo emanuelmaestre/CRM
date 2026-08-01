@@ -27,7 +27,8 @@
   --karzi: #E3131B;
   --karzi-accent: #FFC400;
   --wuwu: #9B30D9;
-  --gradient-signature: linear-gradient(135deg, #E3131B 0%, #9B30D9 100%);
+  --armarinhos-lima: #6F6F6E;
+  --gradient-signature: linear-gradient(135deg, #E3131B 0%, #9B30D9 50%, #6F6F6E 100%);
 
   /* Semânticas */
   --success: #1F8A4C;
