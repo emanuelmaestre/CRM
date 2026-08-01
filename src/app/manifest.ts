@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
+import appConfig from "@/config/app.json";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "LEO CRM — Plast Leo",
-    short_name: "LEO CRM",
-    description: "Central de clientes, estoque e vendas para KARZI, WUWU e Armarinhos Lima",
+    name: appConfig.fullName,
+    short_name: appConfig.identityLabel,
+    description: appConfig.description,
     start_url: "/dashboard",
     display: "standalone",
     background_color: "#0E0F13",
