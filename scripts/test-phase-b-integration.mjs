@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import postgres from "postgres";
+import { resolveDatabaseConnectionString } from "./database-url.mjs";
 
 const require = createRequire(import.meta.url);
 const { loadEnvConfig } = require("@next/env");
@@ -11,8 +12,8 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL não configurada para os testes integrados da Fase B.");
 }
 
-const sql = postgres(process.env.DATABASE_URL, {
-  max: 20,
+const sql = postgres(resolveDatabaseConnectionString(process.env.DATABASE_URL), {
+  max: 10,
   prepare: false,
   connect_timeout: 10,
 });
@@ -20,6 +21,7 @@ const sql = postgres(process.env.DATABASE_URL, {
 const ids = {
   org: randomUUID(),
   brand: randomUUID(),
+  brandB: randomUUID(),
   cliente: randomUUID(),
   contaA: randomUUID(),
   contaB: randomUUID(),
@@ -45,6 +47,7 @@ async function limparFixtures() {
   await sql`delete from public.channel_account where id = ${ids.contaExterna}`;
   await sql`delete from public.cliente where id = ${ids.cliente}`;
   await sql`delete from public.brand where id = ${ids.brand}`;
+  await sql`delete from public.brand where id = ${ids.brandB}`;
   await sql`delete from public.org where id = ${ids.org}`;
   await sql`delete from public.brand where id = ${ids.brandExterna}`;
   await sql`delete from public.org where id = ${ids.orgExterna}`;
@@ -95,7 +98,9 @@ try {
   `;
   await sql`
     insert into public.brand (id, org_id, name, slug)
-    values (${ids.brand}, ${ids.org}, 'Marca de teste', 'karzi')
+    values
+      (${ids.brand}, ${ids.org}, 'Marca de teste A', ${`fase-b-a-${ids.brand}`}),
+      (${ids.brandB}, ${ids.org}, 'Marca de teste B', ${`fase-b-b-${ids.brandB}`})
   `;
   await sql`
     insert into public.cliente (id, org_id, nome)
@@ -105,7 +110,7 @@ try {
     insert into public.channel_account (id, org_id, brand_id, tipo, nome, status, vault_key)
     values
       (${ids.contaA}, ${ids.org}, ${ids.brand}, 'mercadolivre', 'Conta A', 'desconectado', ${`test/${ids.contaA}`}),
-      (${ids.contaB}, ${ids.org}, ${ids.brand}, 'mercadolivre', 'Conta B', 'desconectado', ${`test/${ids.contaB}`})
+      (${ids.contaB}, ${ids.org}, ${ids.brandB}, 'mercadolivre', 'Conta B', 'desconectado', ${`test/${ids.contaB}`})
   `;
   await sql`
     insert into public.org (id, name, cnpj)
@@ -124,7 +129,7 @@ try {
     insert into public.pedido (org_id, brand_id, channel_account_id, cliente_id, provider_order_id, canal, total)
     values
       (${ids.org}, ${ids.brand}, ${ids.contaA}, ${ids.cliente}, ${providerOrderId}, 'mercadolivre', 10),
-      (${ids.org}, ${ids.brand}, ${ids.contaB}, ${ids.cliente}, ${providerOrderId}, 'mercadolivre', 10)
+      (${ids.org}, ${ids.brandB}, ${ids.contaB}, ${ids.cliente}, ${providerOrderId}, 'mercadolivre', 10)
   `;
   const [ordersByAccount] = await sql`
     select count(*)::int as total from public.pedido

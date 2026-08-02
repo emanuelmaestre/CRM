@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import {
@@ -12,6 +12,7 @@ import {
   produtoCanal,
 } from "@/shared/lib/db/schema";
 import { brandEnvSuffix } from "@/shared/config/brands";
+import { criarProduto } from "@/modules/estoque/application/estoque.service";
 
 const CANAIS_PRIORITARIOS = [
   "whatsapp",
@@ -105,6 +106,16 @@ const MapeamentoInputSchema = z.object({
   externalListingId: z.string().trim().min(1).max(200),
   externalSkuId: z.string().trim().max(200).optional(),
   externalWarehouseId: z.string().trim().max(200).optional(),
+});
+
+const ImportarProdutoMercadoLivreSchema = z.object({
+  brandId: z.string().uuid(),
+  channelAccountId: z.string().uuid(),
+  externalListingId: z.string().trim().min(1).max(200),
+  externalSkuId: z.string().trim().min(1).max(80),
+  variationId: z.string().trim().max(200).optional(),
+  nome: z.string().trim().min(2).max(160),
+  preco: z.string().trim().regex(/^\d+(?:\.\d{1,2})?$/).refine((value) => Number(value) > 0),
 });
 
 function extrairExternalAccountId(meta: unknown): string | null {
@@ -421,4 +432,54 @@ export async function salvarMapeamentoCanalConfiguracao(ctx: CrudContext, input:
       externalListingId: data.externalListingId,
     },
   });
+}
+
+export async function importarProdutoMercadoLivreConfiguracao(ctx: CrudContext, input: unknown) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  const data = ImportarProdutoMercadoLivreSchema.parse(input);
+  const conta = await ctx.db
+    .select({ id: channelAccount.id, brandId: channelAccount.brandId, status: channelAccount.status })
+    .from(channelAccount)
+    .where(and(
+      eq(channelAccount.id, data.channelAccountId),
+      eq(channelAccount.orgId, ctx.orgId),
+      eq(channelAccount.tipo, "mercadolivre"),
+    ))
+    .then((rows) => rows[0]);
+  if (!conta || conta.brandId !== data.brandId || conta.status !== "conectado") {
+    throw new Error("Conta Mercado Livre conectada não pertence à marca informada.");
+  }
+
+  const sku = data.externalSkuId.toUpperCase();
+  let produtoRow = await ctx.db
+    .select({ id: produto.id, brandId: produto.brandId })
+    .from(produto)
+    .where(and(eq(produto.orgId, ctx.orgId), eq(produto.sku, sku), isNull(produto.deletedAt)))
+    .then((rows) => rows[0]);
+  if (produtoRow && produtoRow.brandId !== data.brandId) {
+    throw new Error("Este SKU já pertence a outra empresa no catálogo interno.");
+  }
+
+  let criado = false;
+  if (!produtoRow) {
+    const novo = await criarProduto(ctx, {
+      brandId: data.brandId,
+      sku,
+      nome: data.nome,
+      preco: data.preco,
+      estoqueMinimo: 0,
+      ativo: true,
+    });
+    produtoRow = { id: novo.id, brandId: novo.brandId };
+    criado = true;
+  }
+
+  await salvarMapeamentoCanalConfiguracao(ctx, {
+    produtoId: produtoRow.id,
+    channelAccountId: data.channelAccountId,
+    externalListingId: data.externalListingId,
+    externalSkuId: data.externalSkuId,
+    externalWarehouseId: data.variationId,
+  });
+  return { produtoId: produtoRow.id, criado };
 }

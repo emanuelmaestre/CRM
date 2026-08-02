@@ -1,8 +1,10 @@
 import {
-  pgTable, uuid, text, timestamp, jsonb, pgEnum, integer, index,
+  pgTable, uuid, text, timestamp, jsonb, pgEnum, integer, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { org, brand } from "./org";
 import { cliente } from "./clientes";
+import { channelAccount } from "./canais";
+import { appUser } from "./users";
 
 export const reguaStatusEnum = pgEnum("regua_status", ["ativa", "pausada", "arquivada"]);
 
@@ -74,9 +76,15 @@ export const reguaExecucao = pgTable("regua_execucao", {
 export const importLote = pgTable("import_lote", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull().references(() => org.id),
+  brandId: uuid("brand_id").references(() => brand.id),
+  channelAccountId: uuid("channel_account_id").references(() => channelAccount.id),
   tipo: text("tipo").notNull(),
   nomeArquivo: text("nome_arquivo").notNull(),
   status: text("status").notNull().default("processando"),
+  fase: text("fase").notNull().default("preparacao"),
+  progresso: integer("progresso").notNull().default(0),
+  configuracao: jsonb("configuracao"),
+  solicitadoPorId: uuid("solicitado_por_id").references(() => appUser.id),
   totalLinhas: integer("total_linhas"),
   aceitos: integer("aceitos").notNull().default(0),
   rejeitados: integer("rejeitados").notNull().default(0),
@@ -85,4 +93,23 @@ export const importLote = pgTable("import_lote", {
   finalizadoEm: timestamp("finalizado_em", { withTimezone: true }),
 }, (t) => [
   index("idx_import_org").on(t.orgId),
+  index("idx_import_brand").on(t.brandId),
+  index("idx_import_channel_account").on(t.channelAccountId),
+]);
+
+export const importItem = pgTable("import_item", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  loteId: uuid("lote_id").notNull().references(() => importLote.id, { onDelete: "cascade" }),
+  providerRecordId: text("provider_record_id").notNull(),
+  status: text("status").notNull().default("pendente"),
+  payload: jsonb("payload").notNull(),
+  erros: jsonb("erros"),
+  pedidoId: uuid("pedido_id"),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_import_item_org").on(t.orgId),
+  index("idx_import_item_lote_status").on(t.loteId, t.status),
+  uniqueIndex("uq_import_item_lote_provider").on(t.loteId, t.providerRecordId),
 ]);

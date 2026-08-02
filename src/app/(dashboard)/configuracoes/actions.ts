@@ -6,12 +6,22 @@ import { atualizarUsuario, listarUsuarios } from "@/modules/usuarios/application
 import {
   atualizarContaCanalConfiguracao,
   criarContaCanalConfiguracao,
+  importarProdutoMercadoLivreConfiguracao,
   listarConfiguracaoCanais,
   obterResumoConfiguracoes,
   removerContaCanalConfiguracao,
   salvarMapeamentoCanalConfiguracao,
 } from "@/modules/canais/application/configuracao-canais.service";
 import { listarProdutos } from "@/modules/estoque/application/estoque.service";
+import {
+  confirmarLoteHistorico,
+  criarLoteHistorico,
+  descartarLoteHistorico,
+  listarLotesHistoricos,
+  marcarFalhaLoteHistorico,
+  obterLoteHistorico,
+} from "@/modules/importacao/application/importacao-historica.service";
+import { inngest } from "@/shared/lib/inngest/client";
 
 export async function actionListarUsuarios() {
   return listarUsuarios(await getCrudContext());
@@ -68,4 +78,57 @@ export async function actionSalvarMapeamentoCanal(input: unknown) {
   await salvarMapeamentoCanalConfiguracao(await getCrudContext(), input);
   revalidatePath("/configuracoes");
   revalidatePath("/estoque");
+}
+
+export async function actionImportarProdutoMercadoLivre(input: unknown) {
+  const result = await importarProdutoMercadoLivreConfiguracao(await getCrudContext(), input);
+  revalidatePath("/configuracoes");
+  revalidatePath("/estoque");
+  return result;
+}
+
+export async function actionListarLotesHistoricos() {
+  return listarLotesHistoricos(await getCrudContext());
+}
+
+export async function actionObterLoteHistorico(loteId: string) {
+  return obterLoteHistorico(await getCrudContext(), loteId);
+}
+
+export async function actionPrepararLoteHistorico(input: unknown) {
+  const result = await criarLoteHistorico(await getCrudContext(), input);
+  try {
+    await inngest.send({
+      id: `historical-prepare-${result.loteId}`,
+      name: "importacao/historica.preparar",
+      data: { loteId: result.loteId },
+    });
+  } catch (error) {
+    await marcarFalhaLoteHistorico(result.loteId, error);
+    throw new Error("O lote foi criado, mas nao foi possivel iniciar a preparacao. Tente novamente.");
+  }
+  revalidatePath("/configuracoes");
+  return result;
+}
+
+export async function actionConfirmarLoteHistorico(loteId: string) {
+  const result = await confirmarLoteHistorico(await getCrudContext(), loteId);
+  try {
+    await inngest.send({
+      id: `historical-import-${result.loteId}`,
+      name: "importacao/historica.confirmar",
+      data: result,
+    });
+  } catch (error) {
+    await marcarFalhaLoteHistorico(result.loteId, error);
+    throw new Error("A confirmacao foi registrada, mas o processamento nao iniciou. Tente novamente.");
+  }
+  revalidatePath("/configuracoes");
+  return result;
+}
+
+export async function actionDescartarLoteHistorico(loteId: string) {
+  const result = await descartarLoteHistorico(await getCrudContext(), loteId);
+  revalidatePath("/configuracoes");
+  return result;
 }

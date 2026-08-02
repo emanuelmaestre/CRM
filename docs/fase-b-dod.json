@@ -1,14 +1,14 @@
 {
   "phase": "B",
   "name": "Operação Conectada",
-  "updatedAt": "2026-08-01",
+  "updatedAt": "2026-08-02",
   "status": "ready_for_external_homologation",
-  "summary": "Código, contratos, recuperação de eventos e migrations até 0018 validados. O aceite final permanece bloqueado por credenciais, contas e provas reais inexistentes no ambiente publicado.",
+  "summary": "As três contas reais do Mercado Livre foram autenticadas e validadas, o A23 foi corrigido e a descoberta assistida de anúncios/SKUs foi implantada. As chaves Inngest existem em Production; o aceite final ainda depende da confirmação dos mapeamentos, sincronização dos novos jobs e provas ponta a ponta.",
   "criteria": [
     {
       "id": "connectors",
       "status": "verified_locally",
-      "evidence": "Providers Mercado Livre, Shopee, TikTok Shop v202309 e Olist Partner API possuem testes contratuais, timeouts, validação de respostas e health-check."
+      "evidence": "Providers Mercado Livre, Shopee, TikTok Shop v202309 e Olist Partner API possuem testes contratuais, timeouts, validação de respostas e health-check. No Mercado Livre, as três identidades reais foram confirmadas e o catálogo trata SELLER_SKU e variações."
     },
     {
       "id": "webhooks",
@@ -48,7 +48,7 @@
     {
       "id": "health_and_jobs",
       "status": "external_validation_pending",
-      "evidence": "A18 e A24 registram execução e A24 falha explicitamente sem contas ou com falhas parciais; /api/inngest publicado retorna erro porque INNGEST_SIGNING_KEY não está configurada."
+      "evidence": "A18, A23 e A24 registram execução. O A23 agora roda de hora em hora, renova com margem de 90 minutos, impede concorrência e persiste o refresh token rotativo; INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY foram confirmadas no ambiente Production da Vercel."
     },
     {
       "id": "target_database",
@@ -59,8 +59,8 @@
   "validation": {
     "typecheck": "passed",
     "lint": "passed",
-    "unitTests": "158 passed",
-    "gateIntegrationTests": "6 passed",
+    "unitTests": "166 passed",
+    "gateIntegrationTests": "19 passed",
     "rlsIntegrationTests": "34 passed",
     "phaseBIntegration": {
       "status": "passed",
@@ -76,24 +76,25 @@
     "productionReadiness": "blocked"
   },
   "productionSnapshot": {
-    "checkedAt": "2026-07-31",
+    "checkedAt": "2026-08-02T15:36:46.927Z",
     "marketplaceAccounts": 8,
-    "connectedAccounts": 0,
-    "inngestJobsObserved": 0,
+    "connectedAccounts": 3,
+    "inngestJobsObserved": 2,
     "externalSendsEnabled": false,
     "notes": [
-      "Os 8 channel_account de marketplace de KARZI, WUWU e Armarinhos Lima estão desconectados.",
+      "As três contas Mercado Livre de KARZI, WUWU e Armarinhos Lima estão conectadas; os demais marketplaces permanecem desconectados.",
       "IDs externos de Mercado Livre, Shopee e TikTok Shop foram cadastrados quando fornecidos; Olist ainda não possui channel_account.",
-      "Tokens OAuth do Mercado Livre estão expirados.",
-      "INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY estão ausentes.",
+      "Os três tokens OAuth do Mercado Livre foram renovados e os seller IDs conferem com 3328823991, 2901062325 e 3222790734.",
+      "Catálogo real: Armarinhos Lima 458 anúncios ativos, KARZI 17 e WUWU 175; todos os 277 candidatos auditados na primeira página possuem SELLER_SKU.",
+      "INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY estão presentes no ambiente Production da Vercel.",
       "Não existe prova de pedido, baixa, sincronização e inbox reais por canal."
     ]
   },
   "externalBlockers": [
-    "Configurar INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY no ambiente Production e sincronizar /api/inngest no Inngest.",
-    "Renovar os tokens OAuth do Mercado Livre e conectar as contas reais.",
+    "Sincronizar /api/inngest no Inngest após o deploy e comprovar A25/A26 registrados.",
+    "Comprovar execuções concluídas de A18, A23 e A24 em produção.",
     "Configurar credenciais e conectar Shopee, TikTok Shop e Olist por marca.",
-    "Cadastrar externalAccountId e mapeamentos produto/listing/SKU/warehouse de cada conta.",
+    "Confirmar na tela de Configurações os mapeamentos produto/listing/SKU/variação do Mercado Livre; cadastrar os mapeamentos dos demais canais quando conectados.",
     "Executar um pedido real por canal e comprovar latência de até 5 minutos, baixa e evento estoque.sincronizado.",
     "Receber e comprovar ao menos uma mensagem real suportada por marketplace no inbox.",
     "Manter EXTERNAL_SENDS_ENABLED=false até o aceite final."

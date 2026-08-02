@@ -42,6 +42,69 @@ describe("contratos dos providers de marketplace", () => {
     expect(String(fetchMock.mock.calls[1][0])).toContain("order.date_created.from=");
   });
 
+  it("descobre anúncios e prioriza SELLER_SKU nas variações", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "seller-1" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: ["MLB-1"],
+        paging: { total: 1, offset: 0, limit: 50 },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{
+        code: 200,
+        body: {
+          id: "MLB-1",
+          title: "Produto com variação",
+          price: 49.9,
+          status: "active",
+          permalink: "https://produto.mercadolivre.com.br/MLB-1",
+          attributes: [{ id: "SELLER_SKU", value_name: "SKU-PAI" }],
+          variations: [{
+            id: 12345,
+            available_quantity: 7,
+            attributes: [{ id: "SELLER_SKU", value_name: "SKU-AZUL" }],
+            attribute_combinations: [{ name: "Cor", value_name: "Azul" }],
+          }],
+        },
+      }]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client",
+      clientSecret: "secret",
+      accessToken: "token",
+      refreshToken: "refresh",
+    });
+    const catalog = await provider.listarAnunciosAtivos();
+
+    expect(catalog.totalListings).toBe(1);
+    expect(catalog.items).toEqual([expect.objectContaining({
+      listingId: "MLB-1",
+      variationId: "12345",
+      externalSku: "SKU-AZUL",
+      variationLabel: "Azul",
+      availableQuantity: 7,
+      price: "49.9",
+    })]);
+    expect(String(fetchMock.mock.calls[2][0])).toContain("include_attributes=all");
+  });
+
+  it("sincroniza o saldo da variação mapeada sem alterar o anúncio pai", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new MercadoLivreProvider({
+      clientId: "client",
+      clientSecret: "secret",
+      accessToken: "token",
+      refreshToken: "refresh",
+    });
+
+    await provider.sincronizarEstoque({ listingId: "MLB-1", warehouseId: "12345" }, 9);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+      variations: [{ id: 12345, available_quantity: 9 }],
+    });
+  });
+
   it("usa assinatura Shopee v2 e rejeita pedido sem detalhe", async () => {
     vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
     const fetchMock = vi.fn()

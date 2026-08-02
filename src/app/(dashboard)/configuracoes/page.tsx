@@ -12,6 +12,8 @@ import { fadeUp, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { MLConnectSection } from "./MLConnectSection";
+import { MLCatalogMappingSection } from "./MLCatalogMappingSection";
+import { MLHistoricalImportSection } from "./MLHistoricalImportSection";
 import settingsConfig from "@/config/settings.json";
 import permissionsConfig from "@/config/permissions.json";
 import {
@@ -598,6 +600,8 @@ export default function ConfiguracoesPage() {
           <Suspense fallback={<p className="text-sm text-muted-foreground py-2">{settingsConfig.loading}</p>}>
             <MLConnectSection />
           </Suspense>
+          <MLCatalogMappingSection produtos={produtos} onMapped={recarregarCanaisEProdutos} />
+          <MLHistoricalImportSection />
         </Card>
 
         {/* Formularios de manutencao: ficam recolhidos porque sao usados de vez

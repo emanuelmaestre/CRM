@@ -63,6 +63,87 @@
       "disconnected_ok": "Conta {brand} desconectada.",
       "disconnect_error": "Não foi possível desconectar."
     },
+    "catalog": {
+      "title": "Anúncios e SKUs",
+      "description": "Consulte os anúncios ativos de cada empresa e confirme o vínculo com o produto interno antes de liberar pedidos e estoque.",
+      "brandLabel": "Empresa",
+      "load": "Consultar anúncios",
+      "loading": "Consultando Mercado Livre…",
+      "loadMore": "Carregar mais",
+      "empty": "Nenhum anúncio ativo encontrado nesta conta.",
+      "listing": "Anúncio",
+      "externalSku": "SKU no Mercado Livre",
+      "stock": "Saldo exibido",
+      "price": "Preço anunciado",
+      "internalProduct": "Produto interno",
+      "selectProduct": "Selecione um produto",
+      "map": "Confirmar vínculo",
+      "createAndMap": "Criar produto e vincular",
+      "creating": "Criando produto…",
+      "mapped": "Mapeado",
+      "mappedSuccess": "Vínculo salvo. O pedido e a sincronização de estoque já podem usar este SKU.",
+      "createdSuccess": "Produto criado com saldo inicial zero e vínculo salvo. Revise custo e estoque antes de liberar a sincronização.",
+      "missingSku": "Este anúncio não possui SELLER_SKU. Cadastre o SKU no Mercado Livre antes de vinculá-lo.",
+      "loadError": "Não foi possível consultar os anúncios do Mercado Livre.",
+      "mapError": "Não foi possível salvar o vínculo.",
+      "summary": "{shown} variações/SKUs exibidos de {total} anúncios ativos.",
+      "suggestion": "Sugestão por SKU",
+      "openListing": "Abrir anúncio"
+    },
+    "historicalImport": {
+      "eyebrow": "Memória de vendas",
+      "title": "Importação histórica",
+      "description": "Traga pedidos antigos para clientes e relatórios sem recriar vendas, baixar estoque ou disparar pós-venda.",
+      "illustrationLabel": "Pedidos antigos atravessando uma camada de proteção antes de chegar ao CRM",
+      "form": {
+        "brand": "Empresa",
+        "from": "Pedidos desde",
+        "until": "Pedidos até",
+        "prepare": "Preparar histórico",
+        "preparing": "Preparando histórico…"
+      },
+      "protections": [
+        { "id": "stock", "label": "Estoque intacto", "description": "Nenhuma baixa ou estorno" },
+        { "id": "automation", "label": "Automações pausadas", "description": "Sem régua ou notificação" },
+        { "id": "sync", "label": "Marketplace protegido", "description": "Nenhum saldo será enviado" },
+        { "id": "dates", "label": "Datas preservadas", "description": "Relatórios no período correto" }
+      ],
+      "stages": {
+        "coleta": "Coletando pedidos",
+        "revisao": "Pronto para revisão",
+        "importacao": "Importando com proteção",
+        "concluido": "Histórico incorporado",
+        "erro": "Atenção necessária"
+      },
+      "summary": {
+        "found": "Encontrados",
+        "ready": "Prontos",
+        "quarantine": "Em quarentena",
+        "duplicates": "Já existentes"
+      },
+      "review": {
+        "title": "Última verificação antes da entrada",
+        "description": "Somente os pedidos prontos serão incorporados. Itens em quarentena permanecem no lote para correção posterior.",
+        "confirmation": "Confirmo a importação histórica sem movimentação de estoque, sincronização ou automações.",
+        "confirm": "Importar pedidos validados",
+        "importing": "Importando pedidos…",
+        "discard": "Descartar preparação"
+      },
+      "quarantine": {
+        "title": "Quarentena inteligente",
+        "empty": "Nenhuma inconsistência encontrada neste lote.",
+        "hint": "Corrija os vínculos de SKU acima e prepare um novo lote para liberar estes pedidos."
+      },
+      "historyTitle": "Lotes recentes",
+      "empty": "Nenhum lote histórico preparado ainda.",
+      "success": "Importação histórica concluída. Estoque e automações permaneceram intactos.",
+      "errors": {
+        "load": "Não foi possível carregar os lotes históricos.",
+        "prepare": "Não foi possível iniciar a preparação.",
+        "confirm": "Não foi possível confirmar a importação.",
+        "discard": "Não foi possível descartar o lote."
+      }
+    },
     "feedback": {
       "success": "Mercado Livre ({brand}) conectado com sucesso!",
       "errors": {

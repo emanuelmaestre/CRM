@@ -69,6 +69,15 @@
     { "id": "A14", "nome": "Scores de produto", "disparo": "Cron", "cron": "0 1 * * *" },
     { "id": "A15", "nome": "Insights do funil (IA)", "disparo": "Cron", "cron": "0 6 * * 1" },
     { "id": "A16", "nome": "Sugestões de campanha (IA)", "disparo": "Cron", "cron": "0 7 * * 1" },
-    { "id": "A18", "nome": "Saúde dos conectores", "disparo": "Cron", "cron": "*/15 * * * *" }
+    { "id": "A17", "nome": "Documentos executivos automáticos", "disparo": "ia/documento.solicitado", "cron": null },
+    { "id": "A18", "nome": "Saúde dos conectores", "disparo": "Cron", "cron": "*/15 * * * *" },
+    { "id": "A19", "nome": "Notificações internas", "disparo": "Cron", "cron": "0 8 * * *" },
+    { "id": "A20", "nome": "Integridade e backup", "disparo": "Cron", "cron": "0 4 * * *" },
+    { "id": "A21", "nome": "Guarda de consumo de IA", "disparo": "Cron", "cron": "0 */6 * * *" },
+    { "id": "A22", "nome": "Retenção LGPD", "disparo": "Cron", "cron": "0 3 1 * *" },
+    { "id": "A23", "nome": "Renovação de tokens Mercado Livre", "disparo": "Cron", "cron": "0 * * * *" },
+    { "id": "A24", "nome": "Contingência de pedidos", "disparo": "Cron", "cron": "*/4 * * * *" },
+    { "id": "A25", "nome": "Preparar importação histórica", "disparo": "importacao/historica.preparar", "cron": null },
+    { "id": "A26", "nome": "Promover histórico validado", "disparo": "importacao/historica.confirmar", "cron": null }
   ]
 }

@@ -11,6 +11,6 @@ export default defineConfig({
     exclude: ["node_modules", "e2e/**", "src/test/integration/**"],
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: { "@": path.resolve(import.meta.dirname, "./src") },
   },
 });

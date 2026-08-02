@@ -1,7 +1,9 @@
 import { defineConfig } from "vitest/config";
 import fs from "node:fs";
 import path from "node:path";
-import { loadEnvConfig } from "@next/env";
+import nextEnv from "@next/env";
+
+const { loadEnvConfig } = nextEnv;
 
 loadEnvConfig(process.cwd());
 
@@ -26,6 +28,23 @@ function loadDotEnvLocalFallback() {
 
 loadDotEnvLocalFallback();
 
+function resolveIntegrationDatabaseUrl() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) return;
+  const databaseConfig = JSON.parse(
+    fs.readFileSync(path.join(process.cwd(), "src/config/database.json"), "utf8"),
+  ) as { supabasePoolers: Array<{ directHost: string; poolerHost: string; poolerPort: number }> };
+  const url = new URL(connectionString);
+  const pooler = databaseConfig.supabasePoolers.find(({ directHost }) => directHost === url.hostname);
+  if (!pooler) return;
+  url.hostname = pooler.poolerHost;
+  url.port = String(pooler.poolerPort);
+  url.username = `postgres.${pooler.directHost.slice(3, -".supabase.co".length)}`;
+  process.env.DATABASE_URL = url.toString();
+}
+
+resolveIntegrationDatabaseUrl();
+
 export default defineConfig({
   test: {
     environment: "node",
@@ -33,6 +52,6 @@ export default defineConfig({
     fileParallelism: false,
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: { "@": path.resolve(import.meta.dirname, "./src") },
   },
 });

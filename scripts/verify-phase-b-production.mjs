@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import postgres from "postgres";
+import { resolveDatabaseConnectionString } from "./database-url.mjs";
 
 const require = createRequire(import.meta.url);
 const { loadEnvConfig } = require("@next/env");
@@ -26,7 +27,7 @@ if (!configured("DATABASE_URL")) {
   process.exit(1);
 }
 
-const sql = postgres(process.env.DATABASE_URL, {
+const sql = postgres(resolveDatabaseConnectionString(process.env.DATABASE_URL), {
   prepare: false,
   max: 1,
   connect_timeout: 10,
@@ -57,7 +58,7 @@ try {
       nome, status, iniciado_em, finalizado_em, erro
     from job_run
     where org_id = ${process.env.DEFAULT_ORG_ID ?? ""}
-      and nome in ('A18-saude-conectores', 'A24-poll-pedidos')
+      and nome in ('A18-saude-conectores', 'A23-refresh-ml-tokens', 'A24-poll-pedidos')
     order by nome, iniciado_em desc
   `;
 
@@ -181,6 +182,7 @@ try {
   const now = Date.now();
   const jobBlockers = [
     ["A18-saude-conectores", 20],
+    ["A23-refresh-ml-tokens", 70],
     ["A24-poll-pedidos", 10],
   ].flatMap(([name, maxAgeMinutes]) => {
     const job = jobs.find((item) => item.nome === name);

@@ -15,7 +15,7 @@ import {
   type PersistedDomainEvent,
 } from "@/shared/events";
 import type { PedidoNormalizado } from "../domain/ports";
-import { deveAplicarStatusMarketplace, mapearStatusPedido } from "../domain/order-status";
+import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, mapearStatusPedido } from "../domain/order-status";
 
 type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop" | "olist";
 
@@ -253,7 +253,7 @@ async function reconciliarStatusPedido(
   const novoStatus = mapearStatusPedido(statusExterno);
   const resultado = await db.transaction(async (tx) => {
     const atual = await tx
-      .select({ status: pedido.status, brandId: pedido.brandId })
+      .select({ status: pedido.status, brandId: pedido.brandId, origemIngestao: pedido.origemIngestao })
       .from(pedido)
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)))
       .for("update")
@@ -263,6 +263,14 @@ async function reconciliarStatusPedido(
       || atual.brandId !== brandId
       || !deveAplicarStatusMarketplace(atual.status, novoStatus)
     ) {
+      return [] as PersistedDomainEvent[];
+    }
+
+    if (!deveExecutarEfeitosOperacionais(atual.origemIngestao as "tempo_real" | "historico")) {
+      await tx
+        .update(pedido)
+        .set({ status: novoStatus, updatedAt: new Date() })
+        .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)));
       return [] as PersistedDomainEvent[];
     }
 

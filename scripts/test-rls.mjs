@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import postgres from "postgres";
+import { resolveDatabaseConnectionString } from "./database-url.mjs";
 
 const require = createRequire(import.meta.url);
 const { loadEnvConfig } = require("@next/env");
@@ -11,7 +12,7 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL não configurada para o teste RLS.");
 }
 
-const sql = postgres(process.env.DATABASE_URL, {
+const sql = postgres(resolveDatabaseConnectionString(process.env.DATABASE_URL), {
   max: 1,
   prepare: false,
   idle_timeout: 5,
@@ -159,12 +160,9 @@ async function createRelationalFixtures(tx) {
 
 async function assumeRole(tx, role, orgId, userId) {
   await tx.unsafe(`set local role ${role}`);
-  if (orgId) {
-    await tx`select set_config('app.current_org_id', ${orgId}, true)`;
-  }
-  if (userId) {
-    await tx`select set_config('request.jwt.claim.sub', ${userId}, true)`;
-  }
+  const deniedUuid = "00000000-0000-0000-0000-000000000000";
+  await tx`select set_config('app.current_org_id', ${orgId ?? deniedUuid}, true)`;
+  await tx`select set_config('request.jwt.claim.sub', ${userId ?? deniedUuid}, true)`;
 }
 
 async function testWithRollback(name, test) {

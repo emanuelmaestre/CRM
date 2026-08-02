@@ -84,6 +84,8 @@ describe("contratos JSON da interface", () => {
     );
     expect(settingsConfig.mercadoLivre.feedback.success).toContain("{brand}");
     expect(Object.keys(settingsConfig.mercadoLivre.feedback.errors)).toContain("token_exchange_failed");
+    expect(settingsConfig.mercadoLivre.catalog.summary).toContain("{shown}");
+    expect(settingsConfig.mercadoLivre.catalog.summary).toContain("{total}");
   });
 
   it("não mantém estados operacionais fixos na tela de configurações", () => {
@@ -112,6 +114,9 @@ describe("contratos JSON da interface", () => {
     expect(reportsConfig.aiBudgetAlert).toContain("{budget}");
     expect(saudeConfig.labels.verifiedAt).toContain("{date}");
     expect(saudeConfig.labels.attempt).toContain("{attempt}");
+    expect(saudeConfig.automacoes.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["A23", "A24", "A25", "A26"]),
+    );
     expect(pagesConfig.inbox.conversation.statusUpdated).toContain("{status}");
     expect(pagesConfig.tarefas.labels.statusAria).toContain("{title}");
   });

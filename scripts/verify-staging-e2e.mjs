@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
+import { resolveDatabaseConnectionString } from "./database-url.mjs";
 
 const require = createRequire(import.meta.url);
 const { loadEnvConfig } = require("@next/env");
@@ -39,7 +40,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY,
   { auth: { persistSession: false, autoRefreshToken: false } },
 );
-const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, connect_timeout: 10 });
+const sql = postgres(resolveDatabaseConnectionString(process.env.DATABASE_URL), { max: 1, prepare: false, connect_timeout: 10 });
 
 let authUserId;
 let testExitCode = 1;

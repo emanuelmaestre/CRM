@@ -9,6 +9,12 @@ export type PedidoStatus =
   | "cancelado"
   | "devolvido";
 
+export type OrigemIngestaoPedido = "tempo_real" | "historico";
+
+export function deveExecutarEfeitosOperacionais(origem: OrigemIngestaoPedido): boolean {
+  return origem === "tempo_real";
+}
+
 export function mapearStatusPedido(statusExterno: string): PedidoStatus {
   const mapa: Record<string, PedidoStatus> = {
     unpaid: "criado",
