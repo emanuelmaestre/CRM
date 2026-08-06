@@ -3,6 +3,9 @@ import postgres from "postgres";
 import databaseConfig from "@/config/database.json";
 import * as schema from "./schema";
 
+// RFC 4122 estrito de propósito: rejeita o placeholder 00000000-…-000000000000
+// do .env.example, que não corresponde a nenhuma org real e deixaria o app subir
+// apontando para um tenant inexistente.
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function resolveDatabaseConnectionString(connectionString: string): string {
@@ -24,7 +27,9 @@ export function resolveDatabaseConnectionString(connectionString: string): strin
 
 export function buildTenantConnectionString(connectionString: string, orgId: string): string {
   if (!UUID_PATTERN.test(orgId)) {
-    throw new Error("DEFAULT_ORG_ID deve ser um UUID válido.");
+    throw new Error(
+      "DEFAULT_ORG_ID deve ser o UUID de uma org existente, não o placeholder do .env.example.",
+    );
   }
 
   const url = new URL(resolveDatabaseConnectionString(connectionString));

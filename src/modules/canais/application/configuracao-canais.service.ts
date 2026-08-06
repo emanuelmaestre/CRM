@@ -12,6 +12,7 @@ import {
   produtoCanal,
 } from "@/shared/lib/db/schema";
 import { brandEnvSuffix } from "@/shared/config/brands";
+import { isCredencialConfigurada } from "@/shared/config/env-credentials";
 import { criarProduto } from "@/modules/estoque/application/estoque.service";
 
 const CANAIS_PRIORITARIOS = [
@@ -50,10 +51,7 @@ function envName(template: string, brandSlug: string) {
   return template.replace("{BRAND}", brandEnvSuffix(brandSlug));
 }
 
-function configured(name: string): boolean {
-  const value = process.env[name]?.trim();
-  return Boolean(value && !/^(your-|replace-|changeme|placeholder)/i.test(value));
-}
+const configured = isCredencialConfigurada;
 
 export interface CanalConfiguracao {
   id: string;

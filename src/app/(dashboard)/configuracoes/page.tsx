@@ -1,35 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useEffect, useMemo, useState, useTransition } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronDown, Link2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, Link2, Plus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
-import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { SectionCard as Card } from "@/shared/design-system/primitives/SectionCard";
 import { fadeUp, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { MLConnectSection } from "./MLConnectSection";
+import { MLConnectionStrip } from "./MLConnectionStrip";
+import { MLOAuthFeedback } from "./MLOAuthFeedback";
+import { CanaisPorMarca } from "./CanaisPorMarca";
+import { useMercadoLivreStatus } from "./useMercadoLivreStatus";
 import { MLCatalogMappingSection } from "./MLCatalogMappingSection";
 import { MLHistoricalImportSection } from "./MLHistoricalImportSection";
 import settingsConfig from "@/config/settings.json";
 import permissionsConfig from "@/config/permissions.json";
 import {
-  actionAtualizarContaCanal,
   actionAtualizarUsuario,
   actionCriarContaCanal,
   actionListarConfiguracaoCanais,
   actionListarProdutosConfiguracao,
   actionListarUsuarios,
   actionObterResumoConfiguracoes,
-  actionRemoverContaCanal,
   actionSalvarMapeamentoCanal,
 } from "./actions";
 import type { Perfil } from "@/shared/lib/auth/authorization";
 import { toast } from "sonner";
-import { getBrandConfig } from "@/shared/config/brands";
 
 const PendingIcon = getIcon(settingsConfig.status.pendingIcon);
 const ExternalIcon = getIcon(settingsConfig.openAction.icon);
@@ -85,189 +83,6 @@ function StatusBadge({ connected }: { connected: boolean }) {
         : <><PendingIcon size={11} strokeWidth={2} /> {settingsConfig.status.pending}</>
       }
     </span>
-  );
-}
-
-function formatarData(value: string | null) {
-  if (!value) return "Nunca verificado";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
-}
-
-function CanalStatusBadge({ status, pronto }: { status: CanalConfiguracao["status"]; pronto: boolean }) {
-  const tone = pronto || status === "conectado"
-    ? "bg-[#1F8A4C]/10 text-[#1F8A4C]"
-    : status === "degradado"
-      ? "bg-[#B57A00]/10 text-[#B57A00]"
-      : status === "desconectado"
-        ? "bg-[#C21820]/10 text-[#C21820]"
-        : "bg-muted text-muted-foreground";
-  const label = pronto ? "Pronto" : status === "pendente" ? "Pendente" : status;
-  return <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ${tone}`}>{label}</span>;
-}
-
-function ContaCanalEditForm({ item, onCancel, onSaved }: {
-  item: CanalConfiguracao; onCancel: () => void; onSaved: () => void;
-}) {
-  const [nome, setNome] = useState(item.contaNome ?? "");
-  const [externalAccountId, setExternalAccountId] = useState(item.externalAccountId ?? "");
-  const [pending, startTransition] = useTransition();
-
-  function salvar() {
-    startTransition(async () => {
-      try {
-        await actionAtualizarContaCanal({
-          channelAccountId: item.channelAccountId,
-          nome,
-          externalAccountId: externalAccountId || undefined,
-        });
-        toast.success("Conta de canal atualizada.");
-        onSaved();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Não foi possível atualizar a conta.");
-      }
-    });
-  }
-
-  return (
-    <div className="mt-3 space-y-2 rounded-lg border border-border bg-card p-3">
-      <input
-        value={nome}
-        onChange={(event) => setNome(event.target.value)}
-        placeholder="Nome interno da conta"
-        className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-xs"
-      />
-      <input
-        value={externalAccountId}
-        onChange={(event) => setExternalAccountId(event.target.value)}
-        placeholder={settingsConfig.channelForms.externalId.placeholder}
-        className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-xs"
-      />
-      <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} disabled={pending} className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-muted-foreground disabled:opacity-50">
-          <X size={12} /> Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={salvar}
-          disabled={pending || nome.trim().length < 2 || (item.canal !== "whatsapp" && !externalAccountId.trim())}
-          className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
-          style={{ background: "var(--gradient-signature)" }}
-        >
-          Salvar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ContaCanalCard({ item, onChanged }: { item: CanalConfiguracao; onChanged: () => void }) {
-  const [editando, setEditando] = useState(false);
-  const [removendo, startRemoverTransition] = useTransition();
-  const brandColor = getBrandConfig(item.brand)?.color ?? "var(--muted-foreground)";
-
-  function remover() {
-    const channelAccountId = item.channelAccountId;
-    if (!channelAccountId) return;
-    if (!window.confirm(`Remover a conta "${item.contaNome}" de ${item.canalLabel}? Essa ação não pode ser desfeita.`)) return;
-    startRemoverTransition(async () => {
-      try {
-        await actionRemoverContaCanal({ channelAccountId });
-        toast.success("Conta de canal removida.");
-        onChanged();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Não foi possível remover a conta.");
-      }
-    });
-  }
-
-  return (
-    <article className="min-w-0 rounded-xl border border-border bg-background/60 p-4">
-      <div className="flex items-start gap-3">
-        <ChannelLogo canal={item.canalLabel} size="sm" variant="logo" />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-sm text-foreground">{item.canalLabel}</p>
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase" style={{
-              background: `color-mix(in srgb, ${brandColor} 10%, transparent)`,
-              color: brandColor,
-            }}>
-              {item.brandLabel}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {item.contaNome ?? "Conta não cadastrada"} · {item.skusMapeados} SKU{item.skusMapeados === 1 ? "" : "s"} · {formatarData(item.ultimaVerificacao)}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {settingsConfig.channelForms.externalId.label}: {item.externalAccountId ?? settingsConfig.channelForms.externalId.missing}
-            {item.externalAccountIdSource && (
-              <span className="ml-1 opacity-70">
-                ({settingsConfig.channelForms.externalId[item.externalAccountIdSource]})
-              </span>
-            )}
-          </p>
-          {item.externalAccountIdMismatch && (
-            <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-[#B57A00]/10 px-2.5 py-2 text-xs font-medium text-[#B57A00]">
-              <AlertTriangle size={13} className="mt-px shrink-0" />
-              {settingsConfig.channelForms.externalId.mismatch}
-            </p>
-          )}
-          {item.envAusentes.length > 0 && (
-            <p className="mt-2 line-clamp-2 text-xs text-[#B57A00]">
-              Variáveis ausentes: {item.envAusentes.join(", ")}
-            </p>
-          )}
-          {item.ultimoErro && <p className="mt-2 line-clamp-2 text-xs text-destructive">{item.ultimoErro}</p>}
-          {!item.pronto && item.envAusentes.length === 0 && item.skusMapeados === 0 && item.canal !== "whatsapp" && (
-            <p className="mt-2 text-xs text-muted-foreground">Mapeie SKUs para liberar sincronização de estoque.</p>
-          )}
-          {editando && item.channelAccountId && (
-            <ContaCanalEditForm
-              item={item}
-              onCancel={() => setEditando(false)}
-              onSaved={() => { setEditando(false); onChanged(); }}
-            />
-          )}
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          <CanalStatusBadge status={item.status} pronto={item.pronto} />
-          {item.channelAccountId && !editando && (
-            <div className="flex gap-1">
-              <button
-                type="button"
-                aria-label={`Editar conta de ${item.canalLabel}`}
-                onClick={() => setEditando(true)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-              >
-                <Pencil size={13} />
-              </button>
-              <button
-                type="button"
-                aria-label={`Remover conta de ${item.canalLabel}`}
-                onClick={remover}
-                disabled={removendo}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 disabled:opacity-50"
-              >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function CanaisOperacionais({ items, loading, onChanged }: { items: CanalConfiguracao[]; loading: boolean; onChanged: () => void }) {
-  return (
-    <div>
-      {loading && <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>}
-      {!loading && items.length === 0 && (
-        <EmptyState illustration="generic" title="Sem marcas ativas" description="Cadastre marcas para configurar canais." />
-      )}
-      <div className="grid min-w-0 gap-3 lg:grid-cols-2">
-        {items.map((item) => <ContaCanalCard key={item.id} item={item} onChanged={onChanged} />)}
-      </div>
-    </div>
   );
 }
 
@@ -472,7 +287,7 @@ export default function ConfiguracoesPage() {
   const [alterandoUsuario, setAlterandoUsuario] = useState<string | null>(null);
   const [formulariosAbertos, setFormulariosAbertos] = useState(false);
 
-  async function recarregarCanaisEProdutos() {
+  const recarregarCanaisEProdutos = useCallback(async () => {
     setCarregandoCanais(true);
     setCarregandoProdutos(true);
     try {
@@ -488,7 +303,9 @@ export default function ConfiguracoesPage() {
       setCarregandoCanais(false);
       setCarregandoProdutos(false);
     }
-  }
+  }, []);
+
+  const mlStatus = useMercadoLivreStatus(recarregarCanaisEProdutos);
 
   useEffect(() => {
     Promise.all([
@@ -593,13 +410,22 @@ export default function ConfiguracoesPage() {
         <SectionHeading title={settingsConfig.sections.canais.title} icon={getIcon(settingsConfig.sections.canais.icon)} />
 
         <Card title="Canais por marca" icon={getIcon("Wifi")}>
-          <CanaisOperacionais items={canais} loading={carregandoCanais} onChanged={recarregarCanaisEProdutos} />
+          {/* Faixa-resumo do ML acima do grid: status num relance, ação no card. */}
+          <div className="mb-4 rounded-xl border border-border bg-background/60 px-4 py-3">
+            <Suspense fallback={null}>
+              <MLOAuthFeedback onConectado={mlStatus.atualizar} />
+            </Suspense>
+            <MLConnectionStrip status={mlStatus} />
+          </div>
+          <CanaisPorMarca
+            items={canais}
+            loading={carregandoCanais}
+            onChanged={recarregarCanaisEProdutos}
+            mlStatus={mlStatus}
+          />
         </Card>
 
         <Card title={settingsConfig.mercadoLivre.title} icon={getIcon("ShoppingBag")}>
-          <Suspense fallback={<p className="text-sm text-muted-foreground py-2">{settingsConfig.loading}</p>}>
-            <MLConnectSection />
-          </Suspense>
           <MLCatalogMappingSection produtos={produtos} onMapped={recarregarCanaisEProdutos} />
           <MLHistoricalImportSection />
         </Card>

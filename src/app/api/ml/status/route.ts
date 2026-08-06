@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { authorizeRoute } from "@/shared/lib/auth/session";
 import { BRAND_SLUGS, brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
+import { credencialConfigurada } from "@/shared/config/env-credentials";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,7 +53,9 @@ export async function GET(): Promise<NextResponse> {
     const token = marca ? tokens?.find((item) => item.brand_id === marca.id) : null;
     if (!token) return [slug, { conectado: false }];
 
-    const esperado = process.env[`ML_SELLER_ID_${brandEnvSuffix(slug)}`];
+    // Mesmo filtro de placeholder do serviço de canais: sem ele o valor
+    // `your-ml-seller-id-...` do .env.example vira um falso "conta divergente".
+    const esperado = credencialConfigurada(`ML_SELLER_ID_${brandEnvSuffix(slug)}`);
     return [slug, {
       conectado: !token.expires_at || new Date(token.expires_at).getTime() > now,
       sellerId: token.seller_id ?? undefined,

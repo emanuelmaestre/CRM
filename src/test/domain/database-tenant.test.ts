@@ -16,7 +16,14 @@ describe("Conexão tenant do Postgres", () => {
 
   it("rejeita organização inválida", () => {
     expect(() => buildTenantConnectionString("postgresql://localhost/crm", "org-invalida"))
-      .toThrow("DEFAULT_ORG_ID deve ser um UUID válido");
+      .toThrow("DEFAULT_ORG_ID deve ser o UUID de uma org existente");
+  });
+
+  // O placeholder do .env.example não corresponde a nenhuma org: se passasse na
+  // validação, o app subiria e só falharia mais tarde, como "acesso negado".
+  it("rejeita o placeholder do .env.example", () => {
+    expect(() => buildTenantConnectionString("postgresql://localhost/crm", "00000000-0000-0000-0000-000000000000"))
+      .toThrow("DEFAULT_ORG_ID deve ser o UUID de uma org existente");
   });
 
   it("limita conexões por instância serverless", () => {
