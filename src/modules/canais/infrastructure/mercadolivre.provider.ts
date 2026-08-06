@@ -60,7 +60,13 @@ export interface MLAnuncioCatalogo {
   price: string;
   status: string;
   permalink: string | null;
+  // Nota é por anúncio (item), não por variação — o Mercado Livre não separa
+  // avaliação por variação. Null quando a consulta falhou ou não há opiniões.
+  ratingAverage: number | null;
+  reviewsTotal: number | null;
 }
+
+type MLRatings = ReadonlyMap<string, { ratingAverage: number | null; reviewsTotal: number | null }>;
 
 function skuDosAtributos(attributes?: MLAttribute[]): string | null {
   const atributo = attributes?.find((item) => item.id === "SELLER_SKU");
@@ -69,9 +75,10 @@ function skuDosAtributos(attributes?: MLAttribute[]): string | null {
     || null;
 }
 
-export function normalizarCatalogoMercadoLivre(items: MLItemDetail[]): MLAnuncioCatalogo[] {
+export function normalizarCatalogoMercadoLivre(items: MLItemDetail[], ratings: MLRatings = new Map()): MLAnuncioCatalogo[] {
   return items.flatMap<MLAnuncioCatalogo>((item): MLAnuncioCatalogo[] => {
     const skuItem = skuDosAtributos(item.attributes) || item.seller_custom_field?.trim() || null;
+    const rating = ratings.get(item.id) ?? { ratingAverage: null, reviewsTotal: null };
     const variations = item.variations ?? [];
     if (variations.length === 0) {
       return [{
@@ -84,6 +91,7 @@ export function normalizarCatalogoMercadoLivre(items: MLItemDetail[]): MLAnuncio
         price: String(item.price ?? 0),
         status: item.status ?? "unknown",
         permalink: item.permalink ?? null,
+        ...rating,
       }];
     }
 
@@ -102,6 +110,7 @@ export function normalizarCatalogoMercadoLivre(items: MLItemDetail[]): MLAnuncio
       price: String(variation.price ?? item.price ?? 0),
       status: item.status ?? "unknown",
       permalink: item.permalink ?? null,
+      ...rating,
     }));
   });
 }
@@ -178,6 +187,27 @@ export class MercadoLivreProvider implements ChannelProvider {
     };
   }
 
+  // Nota do produto é read-only na API do ML — não há endpoint pra solicitar
+  // ou escrever avaliação, só consultar o que já existe. Falha por item não
+  // derruba o catálogo inteiro: fica sem nota, o resto segue normal.
+  private async buscarAvaliacoes(itemIds: string[]): Promise<MLRatings> {
+    const unicos = [...new Set(itemIds)];
+    const resultados = await Promise.all(unicos.map(async (id) => {
+      try {
+        const data = await this.get<{ rating_average?: number; reviews?: unknown[]; paging?: { total?: number } }>(
+          `/reviews/item/${encodeURIComponent(id)}`,
+        );
+        return [id, {
+          ratingAverage: typeof data.rating_average === "number" ? data.rating_average : null,
+          reviewsTotal: data.paging?.total ?? (Array.isArray(data.reviews) ? data.reviews.length : null),
+        }] as const;
+      } catch {
+        return [id, { ratingAverage: null, reviewsTotal: null }] as const;
+      }
+    }));
+    return new Map(resultados);
+  }
+
   async listarAnunciosAtivos(opcoes: { offset?: number; limit?: number } = {}): Promise<{
     items: MLAnuncioCatalogo[];
     totalListings: number;
@@ -207,8 +237,10 @@ export class MercadoLivreProvider implements ChannelProvider {
       .filter((response) => response.code === 200 && response.body)
       .map((response) => response.body as MLItemDetail);
 
+    const ratings = await this.buscarAvaliacoes(details.map((item) => item.id));
+
     return {
-      items: normalizarCatalogoMercadoLivre(details),
+      items: normalizarCatalogoMercadoLivre(details, ratings),
       totalListings: search.paging?.total ?? ids.length,
       offset,
       limit,

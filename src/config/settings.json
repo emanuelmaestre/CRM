@@ -79,7 +79,8 @@
       "onlyPending": "Só pendentes",
       "emptyFiltered": "Nenhum anúncio encontrado com esse filtro.",
       "clearFilter": "Limpar filtro",
-      "vincular": "Vincular"
+      "vincular": "Vincular",
+      "reviewsSuffix": "avaliações"
     },
     "historicalImport": {
       "eyebrow": "Memória de vendas",

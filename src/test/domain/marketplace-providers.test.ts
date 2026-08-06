@@ -105,6 +105,68 @@ describe("contratos dos providers de marketplace", () => {
     });
   });
 
+  it("inclui a nota (rating_average) do anúncio no catálogo, compartilhada entre variações", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "seller-1" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: ["MLB-1"],
+        paging: { total: 1, offset: 0, limit: 50 },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{
+        code: 200,
+        body: {
+          id: "MLB-1",
+          title: "Produto com variação",
+          price: 49.9,
+          status: "active",
+          variations: [
+            { id: 111, available_quantity: 3 },
+            { id: 222, available_quantity: 5 },
+          ],
+        },
+      }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        rating_average: 4.8,
+        paging: { total: 27 },
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
+    });
+    const catalog = await provider.listarAnunciosAtivos();
+
+    expect(catalog.items).toHaveLength(2);
+    expect(catalog.items[0]).toMatchObject({ ratingAverage: 4.8, reviewsTotal: 27 });
+    expect(catalog.items[1]).toMatchObject({ ratingAverage: 4.8, reviewsTotal: 27 });
+    // uma única chamada de avaliação para os dois itens (mesmo listingId)
+    expect(String(fetchMock.mock.calls[3][0])).toContain("/reviews/item/MLB-1");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("mantém nota nula quando a consulta de avaliação falha, sem derrubar o catálogo", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "seller-1" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: ["MLB-2"],
+        paging: { total: 1, offset: 0, limit: 50 },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{
+        code: 200,
+        body: { id: "MLB-2", title: "Produto sem avaliação", price: 10, status: "active" },
+      }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
+    });
+    const catalog = await provider.listarAnunciosAtivos();
+
+    expect(catalog.items).toHaveLength(1);
+    expect(catalog.items[0]).toMatchObject({ ratingAverage: null, reviewsTotal: null, title: "Produto sem avaliação" });
+  });
+
   it("sincroniza título e preço do anúncio (item raiz, sem variação)", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
