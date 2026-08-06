@@ -45,6 +45,53 @@ describe("importacao historica de pedidos", () => {
     ]);
   });
 
+  it("marca payload_invalido quando o schema não bate (ex.: canal diferente de mercadolivre)", () => {
+    const payloadInvalido = { ...serializarPedidoHistorico(pedido), canal: "shopee" };
+    const resultado = validarPedidoHistorico(payloadInvalido, new Set(["SKU-OK"]));
+    expect(resultado.payload).toBeUndefined();
+    expect(resultado.pendencias).toEqual([
+      expect.objectContaining({ codigo: "payload_invalido" }),
+    ]);
+  });
+
+  it("marca payload_invalido quando falta um campo obrigatorio", () => {
+    const payload = serializarPedidoHistorico(pedido);
+    const semNome: Record<string, unknown> = { ...payload };
+    delete semNome.clienteNome;
+    const resultado = validarPedidoHistorico(semNome, new Set(["SKU-OK"]));
+    expect(resultado.pendencias[0]?.codigo).toBe("payload_invalido");
+  });
+
+  it("acumula uma pendencia por item quando ha multiplos SKUs problematicos no mesmo pedido", () => {
+    const payload = serializarPedidoHistorico({
+      ...pedido,
+      itens: [
+        { skuExterno: "SKU-OK", quantidade: 1, precoUnitario: "10.00" },
+        { skuExterno: "", quantidade: 1, precoUnitario: "10.00" },
+        { skuExterno: "SKU-DESCONHECIDO", quantidade: 1, precoUnitario: "10.00" },
+      ],
+    });
+    const resultado = validarPedidoHistorico(payload, new Set(["SKU-OK"]));
+    expect(resultado.pendencias).toHaveLength(2);
+    expect(resultado.pendencias.map((p) => p.codigo)).toEqual(["sku_ausente", "sku_nao_mapeado"]);
+  });
+
+  it("rejeita total/preco em formato invalido ao serializar (schema estrito)", () => {
+    expect(() => serializarPedidoHistorico({ ...pedido, total: "49,90" })).toThrow();
+    expect(() => serializarPedidoHistorico({
+      ...pedido,
+      itens: [{ ...pedido.itens[0], quantidade: 0 }],
+    })).toThrow();
+  });
+
+  it("mantem frete ausente como opcional sem gerar pendencia", () => {
+    const semFrete = { ...pedido } as Partial<typeof pedido>;
+    delete semFrete.frete;
+    const payload = serializarPedidoHistorico(semFrete as typeof pedido);
+    expect(payload.frete).toBeUndefined();
+    expect(validarPedidoHistorico(payload, new Set(["SKU-OK"])).pendencias).toEqual([]);
+  });
+
   it("pagina o historico no intervalo solicitado e preserva a data original", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "seller-1" }), { status: 200 }))
