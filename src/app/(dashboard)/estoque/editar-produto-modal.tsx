@@ -1,0 +1,139 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { actionEditarProduto } from "./actions";
+import pagesConfig from "@/config/pages.json";
+
+const copy = pagesConfig.estoque.edit;
+
+interface Props {
+  produtoId: string;
+  produtoNome: string;
+  preco: string;
+  custo?: string | null;
+  estoqueMinimo: number;
+  onSuccess: () => void;
+}
+
+export function EditarProdutoModal({ produtoId, produtoNome, preco, custo, estoqueMinimo, onSuccess }: Props) {
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const nome = fd.get("nome") as string;
+    const precoValor = fd.get("preco") as string;
+    const custoValor = fd.get("custo") as string;
+    const estoqueMinimoValor = fd.get("estoqueMinimo") as string;
+
+    startTransition(async () => {
+      try {
+        await actionEditarProduto(
+          produtoId,
+          nome,
+          precoValor,
+          custoValor || undefined,
+          estoqueMinimoValor ? Number(estoqueMinimoValor) : undefined,
+        );
+        toast.success(copy.success);
+        setOpen(false);
+        onSuccess();
+      } catch (err: unknown) {
+        toast.error(err instanceof Error ? err.message : copy.error);
+      }
+    });
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        {copy.button}
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-[1.25rem] shadow-xl w-full max-w-sm mx-4 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-semibold text-foreground">{copy.title}</h2>
+              <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.name} *</label>
+                <input
+                  name="nome"
+                  defaultValue={produtoNome}
+                  required
+                  className="w-full h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.price} *</label>
+                <input
+                  name="preco"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  defaultValue={preco}
+                  required
+                  className="w-full h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.cost} ({copy.fields.optional})</label>
+                <input
+                  name="custo"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  defaultValue={custo ?? ""}
+                  className="w-full h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.minStock}</label>
+                <input
+                  name="estoqueMinimo"
+                  type="number"
+                  step="1"
+                  min="0"
+                  defaultValue={estoqueMinimo}
+                  className="w-full h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <p className="text-[11px] text-muted-foreground">{copy.syncHint}</p>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="flex-1 h-10 rounded-[0.75rem] border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                  {copy.cancel}
+                </button>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="flex-1 h-10 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ background: "var(--gradient-signature)" }}
+                >
+                  {pending ? copy.submitting : copy.submit}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

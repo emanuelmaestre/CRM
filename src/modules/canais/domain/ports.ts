@@ -19,11 +19,19 @@ export interface SaudeConector {
   verificadoEm: Date;
 }
 
+export interface AnuncioCanalDados {
+  titulo: string;
+  preco: string;
+}
+
 export interface ChannelProvider {
   buscarPedidos(desde: Date): Promise<PedidoNormalizado[]>;
   sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void>;
   consultarEstoque(referencia: EstoqueCanalRef): Promise<number>;
   saude(): Promise<SaudeConector>;
+  // Opcional: nem todo canal expõe atualização de título/preço via API própria
+  // do jeito que expõe estoque. Implementado hoje só no Mercado Livre.
+  sincronizarAnuncio?(referencia: EstoqueCanalRef, dados: AnuncioCanalDados): Promise<void>;
 }
 
 export interface EstoqueCanalRef {

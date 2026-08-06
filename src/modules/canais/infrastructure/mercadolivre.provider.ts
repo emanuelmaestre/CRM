@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import type { AnuncioCanalDados, ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 interface MLCredentials {
@@ -236,6 +236,34 @@ export class MercadoLivreProvider implements ChannelProvider {
     }
   }
 
+  async sincronizarAnuncio(referencia: EstoqueCanalRef, dados: AnuncioCanalDados): Promise<void> {
+    const variationId = referencia.warehouseId ? Number(referencia.warehouseId) : null;
+    if (referencia.warehouseId && !Number.isSafeInteger(variationId)) {
+      throw new Error(`Variação Mercado Livre inválida: ${referencia.warehouseId}.`);
+    }
+    const precoCentavos = Number(dados.preco);
+    if (!Number.isFinite(precoCentavos) || precoCentavos <= 0) {
+      throw new Error(`Preço inválido para sincronizar anúncio ${referencia.listingId}: ${dados.preco}.`);
+    }
+    // O título é sempre do anúncio (item), não da variação — o Mercado Livre
+    // não permite título por variação. O preço vai na variação quando existe.
+    const body = variationId
+      ? { title: dados.titulo, variations: [{ id: variationId, price: precoCentavos }] }
+      : { title: dados.titulo, price: precoCentavos };
+    const res = await fetch(`${this.baseUrl}/items/${referencia.listingId}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${this.creds.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) {
+      throw new Error(`Mercado Livre sync anúncio HTTP ${res.status} para anúncio ${referencia.listingId}`);
+    }
+  }
+
   async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
     const item = await this.get<{
       available_quantity: number;
@@ -300,6 +328,14 @@ export async function obterTokenMercadoLivre(brandSlug: BrandSlug): Promise<{
     ? process.env[`ML_ACCESS_TOKEN_${upper}`]
     : tokenRow?.access_token ?? process.env[`ML_ACCESS_TOKEN_${upper}`];
   const refreshToken = tokenRow?.refresh_token ?? process.env[`ML_REFRESH_TOKEN_${upper}`] ?? "";
+
+  if (accessToken && (!tokenRow || tokenBancoExpirado)) {
+    const motivo = tokenRow ? "token OAuth em canal_tokens expirado" : "nenhum token persistido em canal_tokens";
+    console.warn(
+      `[mercadolivre] usando ML_ACCESS_TOKEN_${upper} do ambiente (${motivo}). ` +
+      "Esse fallback não é renovado pelo job de refresh automático (A23) — reconecte via OAuth em /configuracoes assim que possível.",
+    );
+  }
 
   if (!accessToken) {
     const motivo = tokenBancoExpirado ? "token OAuth expirado" : "token ausente";

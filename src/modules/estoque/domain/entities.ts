@@ -22,8 +22,15 @@ export const CreateProdutoSchema = ProdutoSchema.omit({
   id: true, orgId: true, deletedAt: true, createdAt: true, updatedAt: true,
 }).partial({ custo: true, estoqueMinimo: true });
 
+// SKU e brandId ficam de fora: trocar o identificador externo ou a marca de
+// um produto já mapeado em canais quebraria os vínculos de produto_canal.
+export const UpdateProdutoSchema = ProdutoSchema.pick({
+  nome: true, custo: true, preco: true, estoqueMinimo: true,
+}).partial({ custo: true, estoqueMinimo: true });
+
 export type Produto = z.infer<typeof ProdutoSchema>;
 export type CreateProdutoDTO = z.infer<typeof CreateProdutoSchema>;
+export type UpdateProdutoDTO = z.infer<typeof UpdateProdutoSchema>;
 
 export type MovimentoTipo = "entrada" | "saida" | "ajuste" | "reserva" | "estorno";
 

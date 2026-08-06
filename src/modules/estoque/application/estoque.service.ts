@@ -1,9 +1,13 @@
-import { and, count, eq, gt, ilike, inArray, isNull, SQL, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, ilike, inArray, isNull, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
-import { auditLog, brand, produto, estoqueSaldo, estoqueMovimento } from "@/shared/lib/db/schema";
+import {
+  auditLog, brand, channelAccount, produto, estoqueDivergencia, estoqueSaldo, estoqueMovimento,
+} from "@/shared/lib/db/schema";
 import { despacharEvento, despacharEventosPendentes, persistirEvento } from "@/shared/events";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
-import { validarMovimento, calcularNovoSaldo, type MovimentoTipo, CreateProdutoSchema } from "../domain/entities";
+import {
+  validarMovimento, calcularNovoSaldo, type MovimentoTipo, CreateProdutoSchema, UpdateProdutoSchema,
+} from "../domain/entities";
 
 const DIAS_SEM_VENDA_ENCALHE = 30;
 const LIMITE_RISCO_ENCALHE = 30;
@@ -44,6 +48,61 @@ export async function criarProduto(ctx: CrudContext, input: unknown) {
   });
 
   return novo;
+}
+
+// Só nome/preço mudam o que é anunciado nos canais — custo e estoqueMinimo
+// são internos e não disparam sincronização de anúncio.
+const CAMPOS_SINCRONIZAVEIS = ["nome", "preco"] as const;
+
+export async function editarProduto(ctx: CrudContext, produtoId: string, input: unknown) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  const data = UpdateProdutoSchema.parse(input);
+
+  const resultado = await ctx.db.transaction(async (tx) => {
+    const antes = await tx
+      .select()
+      .from(produto)
+      .where(and(eq(produto.orgId, ctx.orgId), eq(produto.id, produtoId), isNull(produto.deletedAt)))
+      .then((rows) => rows[0]);
+    if (!antes) throw new Error("Produto não encontrado.");
+
+    const [depois] = await tx.update(produto).set({
+      nome: data.nome,
+      preco: data.preco,
+      custo: data.custo,
+      estoqueMinimo: data.estoqueMinimo,
+      updatedAt: new Date(),
+    }).where(eq(produto.id, produtoId)).returning();
+
+    await tx.insert(auditLog).values({
+      orgId: ctx.orgId,
+      brandId: antes.brandId,
+      autorId: ctx.userId,
+      autorTipo: ctx.userId ? "usuario" : "sistema",
+      entidade: "produto",
+      entidadeId: produtoId,
+      acao: "update",
+      antes,
+      depois,
+    });
+
+    const mudouAnuncio = CAMPOS_SINCRONIZAVEIS.some((campo) => antes[campo] !== depois[campo]);
+    const eventoProduto = mudouAnuncio
+      ? await persistirEvento({
+          tipo: "produto.atualizado",
+          orgId: ctx.orgId,
+          brandId: antes.brandId,
+          entidade: "produto",
+          entidadeId: produtoId,
+          payload: { produtoId, nome: depois.nome, preco: depois.preco },
+        }, tx)
+      : null;
+
+    return { produto: depois, eventoProduto };
+  });
+
+  if (resultado.eventoProduto) await despacharEvento(resultado.eventoProduto);
+  return resultado.produto;
 }
 
 export async function listarProdutos(
@@ -300,4 +359,144 @@ export async function consultarSaldo(ctx: CrudContext, produtoId: string) {
     .from(estoqueSaldo)
     .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, produtoId)))
     .then((r) => r[0] ?? null);
+}
+
+// Divergências vêm da reconciliação noturna (job A5-reconciliacao-saldo): o
+// saldo do canal (ex.: Mercado Livre) não bate com o saldo local. A correção
+// nunca é automática — fica pendente até um admin decidir aplicar o valor do
+// canal ou ignorar a diferença.
+export async function listarDivergenciasEstoque(ctx: CrudContext) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  return ctx.db
+    .select({
+      id: estoqueDivergencia.id,
+      produtoId: estoqueDivergencia.produtoId,
+      produtoSku: produto.sku,
+      produtoNome: produto.nome,
+      channelAccountId: estoqueDivergencia.channelAccountId,
+      canal: channelAccount.tipo,
+      brandSlug: brand.slug,
+      saldoLocal: estoqueDivergencia.saldoLocal,
+      saldoCanal: estoqueDivergencia.saldoCanal,
+      createdAt: estoqueDivergencia.createdAt,
+    })
+    .from(estoqueDivergencia)
+    .innerJoin(produto, eq(produto.id, estoqueDivergencia.produtoId))
+    .innerJoin(channelAccount, eq(channelAccount.id, estoqueDivergencia.channelAccountId))
+    .innerJoin(brand, eq(brand.id, channelAccount.brandId))
+    .where(and(
+      eq(estoqueDivergencia.orgId, ctx.orgId),
+      eq(estoqueDivergencia.status, "pendente"),
+    ))
+    .orderBy(desc(estoqueDivergencia.createdAt));
+}
+
+export async function resolverDivergenciaEstoque(
+  ctx: CrudContext,
+  divergenciaId: string,
+  decisao: "aplicar_canal" | "ignorar",
+) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+
+  const resultado = await ctx.db.transaction(async (tx) => {
+    const divergenciaRow = await tx
+      .select()
+      .from(estoqueDivergencia)
+      .where(and(
+        eq(estoqueDivergencia.id, divergenciaId),
+        eq(estoqueDivergencia.orgId, ctx.orgId),
+        eq(estoqueDivergencia.status, "pendente"),
+      ))
+      .for("update")
+      .then((rows) => rows[0]);
+    if (!divergenciaRow) throw new Error("Divergência não encontrada ou já resolvida.");
+
+    if (decisao === "ignorar") {
+      await tx.update(estoqueDivergencia).set({
+        status: "ignorada",
+        resolvidoPorId: ctx.userId,
+        resolvidoEm: new Date(),
+      }).where(eq(estoqueDivergencia.id, divergenciaId));
+
+      await tx.insert(auditLog).values({
+        orgId: ctx.orgId,
+        autorId: ctx.userId,
+        autorTipo: ctx.userId ? "usuario" : "sistema",
+        entidade: "estoque_divergencia",
+        entidadeId: divergenciaId,
+        acao: "ignorada",
+        antes: { saldoLocal: divergenciaRow.saldoLocal, saldoCanal: divergenciaRow.saldoCanal },
+      });
+      return { status: "ignorada" as const, eventoSaldo: null };
+    }
+
+    const produtoRow = await tx
+      .select({ id: produto.id, brandId: produto.brandId })
+      .from(produto)
+      .where(and(eq(produto.orgId, ctx.orgId), eq(produto.id, divergenciaRow.produtoId), isNull(produto.deletedAt)))
+      .then((rows) => rows[0]);
+    if (!produtoRow) throw new Error("Produto não encontrado.");
+
+    const saldoRow = await tx
+      .select()
+      .from(estoqueSaldo)
+      .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, divergenciaRow.produtoId)))
+      .for("update")
+      .then((rows) => rows[0]);
+    if (!saldoRow) throw new Error("Produto sem saldo cadastrado.");
+
+    const novoSaldo = divergenciaRow.saldoCanal;
+    if (novoSaldo < 0) throw new Error("Saldo do canal inválido para aplicar.");
+
+    // O banco tem um check constraint (chk_movimento_quantidade_positiva) que
+    // proíbe quantidade = 0 em estoque_movimento para qualquer tipo — inclusive
+    // "ajuste". Quando o canal está zerado (anúncio esgotado), não há como
+    // representar isso como um movimento; o audit_log abaixo já registra o
+    // antes/depois, então só pulamos a linha de movimento nesse caso.
+    const movimento = novoSaldo > 0
+      ? await tx.insert(estoqueMovimento).values({
+          orgId: ctx.orgId,
+          produtoId: divergenciaRow.produtoId,
+          tipo: "ajuste",
+          quantidade: novoSaldo,
+          referenciaId: divergenciaRow.id,
+          referenciaTipo: "reconciliacao_estoque",
+          observacao: `Aplicado saldo do canal após divergência (local ${saldoRow.saldo} → canal ${novoSaldo}).`,
+        }).returning().then((rows) => rows[0])
+      : null;
+
+    await tx.update(estoqueSaldo).set({ saldo: novoSaldo, updatedAt: new Date() })
+      .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, divergenciaRow.produtoId)));
+
+    await tx.update(estoqueDivergencia).set({
+      status: "aplicada",
+      resolvidoPorId: ctx.userId,
+      resolvidoEm: new Date(),
+    }).where(eq(estoqueDivergencia.id, divergenciaId));
+
+    await tx.insert(auditLog).values({
+      orgId: ctx.orgId,
+      brandId: produtoRow.brandId,
+      autorId: ctx.userId,
+      autorTipo: ctx.userId ? "usuario" : "sistema",
+      entidade: "estoque_divergencia",
+      entidadeId: divergenciaId,
+      acao: "aplicada",
+      antes: { saldoLocal: saldoRow.saldo },
+      depois: { saldoLocal: novoSaldo, movimentoId: movimento?.id ?? null },
+    });
+
+    const eventoSaldo = await persistirEvento({
+      tipo: "estoque.saldo_atualizado",
+      orgId: ctx.orgId,
+      entidade: "estoque_saldo",
+      entidadeId: divergenciaRow.produtoId,
+      payload: { produtoId: divergenciaRow.produtoId, novoSaldo, tipoMovimento: "ajuste" },
+    }, tx);
+
+    return { status: "aplicada" as const, novoSaldo, eventoSaldo };
+  });
+
+  if (resultado.eventoSaldo) await despacharEvento(resultado.eventoSaldo);
+  return resultado;
 }

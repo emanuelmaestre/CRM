@@ -152,6 +152,41 @@
       "daysSuffix": "dias sem venda",
       "capitalLabel": "Capital parado"
     },
+    "divergencias": {
+      "title": "Divergências de estoque",
+      "subtitle": "Saldo do canal diferente do saldo local, detectado na reconciliação noturna",
+      "toggleShow": "Ver divergências pendentes",
+      "toggleHide": "Ocultar divergências",
+      "empty": "Nenhuma divergência pendente no momento.",
+      "localLabel": "Local",
+      "channelLabel": "Canal",
+      "applyAction": "Aplicar valor do canal",
+      "applyingAction": "Aplicando…",
+      "ignoreAction": "Ignorar",
+      "ignoringAction": "Ignorando…",
+      "applySuccess": "Saldo atualizado com o valor do canal.",
+      "applyError": "Erro ao aplicar o valor do canal.",
+      "ignoreSuccess": "Divergência ignorada.",
+      "ignoreError": "Erro ao ignorar a divergência.",
+      "loadError": "Erro ao carregar divergências."
+    },
+    "edit": {
+      "button": "Editar",
+      "title": "Editar produto",
+      "fields": {
+        "name": "Nome",
+        "price": "Preço",
+        "cost": "Custo",
+        "minStock": "Estoque mínimo",
+        "optional": "Opcional"
+      },
+      "cancel": "Cancelar",
+      "submit": "Salvar",
+      "submitting": "Salvando…",
+      "success": "Produto atualizado!",
+      "error": "Erro ao atualizar produto.",
+      "syncHint": "Nome e preço são sincronizados automaticamente com os canais mapeados."
+    },
     "movement": {
       "button": "+ Movimento",
       "title": "Registrar movimento",

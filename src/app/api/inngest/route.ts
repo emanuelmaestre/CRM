@@ -26,6 +26,7 @@ import { A18_saudeConectores } from "@/modules/jobs/A18-saude-conectores";
 import { A24_pollPedidos } from "@/modules/jobs/A24-poll-pedidos";
 import { A25_prepararImportacaoHistorica } from "@/modules/jobs/A25-importacao-historica";
 import { A26_importarHistorico } from "@/modules/jobs/A26-importar-historico";
+import { A27_syncAnuncio } from "@/modules/jobs/A27-sync-anuncio";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -56,5 +57,6 @@ export const { GET, POST, PUT } = serve({
     A24_pollPedidos,
     A25_prepararImportacaoHistorica,
     A26_importarHistorico,
+    A27_syncAnuncio,
   ],
 });

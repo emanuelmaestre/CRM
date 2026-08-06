@@ -14,6 +14,7 @@ export type DomainEventType =
   | "cliente.segmento_criado"
   | "cliente.segmento_excluido"
   | "produto.criado"
+  | "produto.atualizado"
   | "estoque.movimento_registrado"
   | "usuario.perfil_atualizado"
   | "oportunidade.criada"
@@ -84,6 +85,7 @@ const INNGEST_EVENT_MAP: Partial<Record<DomainEventType, string>> = {
   "pedido.cancelado":                 "pedido/cancelado",
   "estoque.baixa_automatica":         "estoque/baixa-automatica",
   "estoque.saldo_atualizado":         "estoque/saldo.atualizado",
+  "produto.atualizado":               "produto/atualizado",
   "cliente.consentimento_revogado":   "cliente/consentimento-revogado",
 };
 

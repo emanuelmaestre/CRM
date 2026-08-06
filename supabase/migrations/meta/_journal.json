@@ -141,6 +141,13 @@
       "when": 1785687600000,
       "tag": "0019_historical_marketplace_import",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1786018526432,
+      "tag": "0020_add_estoque_divergencia",
+      "breakpoints": true
     }
   ]
 }

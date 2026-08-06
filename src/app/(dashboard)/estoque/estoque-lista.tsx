@@ -4,17 +4,22 @@ import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link2 } from "lucide-react";
+import { Link2, Loader2 } from "lucide-react";
 import { MovimentoModal } from "./movimento-modal";
+import { EditarProdutoModal } from "./editar-produto-modal";
 import { CanalModal } from "./canal-modal";
-import { actionListarMarcasEstoque, actionListarProdutos, actionListarProdutosParados } from "./actions";
+import {
+  actionListarMarcasEstoque, actionListarProdutos, actionListarProdutosParados,
+  actionListarDivergenciasEstoque, actionResolverDivergenciaEstoque,
+} from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import pagesConfig from "@/config/pages.json";
+import channelsConfig from "@/config/channels.json";
 import { getBrandConfig } from "@/shared/config/brands";
 
 type Produto = {
-  id: string; sku: string; nome: string; preco: string;
+  id: string; sku: string; nome: string; preco: string; custo?: string | null;
   estoqueMinimo: number; brandId: string; brandName: string; brandSlug: string; saldo?: number;
 };
 
@@ -75,6 +80,115 @@ function ProdutosParadosPanel() {
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+type Divergencia = Awaited<ReturnType<typeof actionListarDivergenciasEstoque>>[number];
+
+function canalLabel(canal: string) {
+  const items = channelsConfig.items as Record<string, { label?: string }>;
+  return items[canal]?.label ?? canal;
+}
+
+function DivergenciasEstoquePanel() {
+  const dc = pagesConfig.estoque.divergencias;
+  const [aberto, setAberto] = useState(false);
+  const [divergencias, setDivergencias] = useState<Divergencia[] | null>(null);
+  const [resolvendo, setResolvendo] = useState<{ id: string; decisao: "aplicar_canal" | "ignorar" } | null>(null);
+
+  const carregar = useCallback(() => {
+    actionListarDivergenciasEstoque().then(setDivergencias).catch(() => {
+      setDivergencias([]);
+      toast.error(dc.loadError);
+    });
+  }, [dc.loadError]);
+
+  useEffect(() => {
+    if (aberto && divergencias === null) carregar();
+  }, [aberto, divergencias, carregar]);
+
+  async function resolver(id: string, decisao: "aplicar_canal" | "ignorar") {
+    setResolvendo({ id, decisao });
+    try {
+      await actionResolverDivergenciaEstoque(id, decisao);
+      toast.success(decisao === "aplicar_canal" ? dc.applySuccess : dc.ignoreSuccess);
+      setDivergencias((atual) => atual?.filter((item) => item.id !== id) ?? atual);
+    } catch {
+      toast.error(decisao === "aplicar_canal" ? dc.applyError : dc.ignoreError);
+    } finally {
+      setResolvendo(null);
+    }
+  }
+
+  const pendentes = divergencias?.length ?? 0;
+
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        onClick={() => setAberto((value) => !value)}
+        className="min-h-11 text-sm font-medium text-primary"
+        data-testid="toggle-divergencias-estoque"
+      >
+        {aberto ? dc.toggleHide : dc.toggleShow}
+        {pendentes > 0 ? ` (${pendentes})` : ""}
+      </button>
+
+      {aberto && (
+        <section className="mt-3 rounded-[1.25rem] border border-border bg-card overflow-hidden" data-testid="divergencias-estoque-painel">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold">{dc.title}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{dc.subtitle}</p>
+          </div>
+          <div className="divide-y divide-border">
+            {divergencias === null ? (
+              <SkeletonRow />
+            ) : divergencias.length === 0 ? (
+              <p className="px-5 py-4 text-sm text-muted-foreground">{dc.empty}</p>
+            ) : (
+              divergencias.map((item) => {
+                const aplicando = resolvendo?.id === item.id && resolvendo.decisao === "aplicar_canal";
+                const ignorando = resolvendo?.id === item.id && resolvendo.decisao === "ignorar";
+                const ocupado = resolvendo?.id === item.id;
+                return (
+                  <div key={item.id} className="flex flex-col gap-3 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground">{item.produtoNome}</p>
+                      <p className="font-mono text-xs text-muted-foreground mt-0.5">{item.produtoSku} · {canalLabel(item.canal)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {dc.localLabel}: <span className="font-semibold text-foreground">{item.saldoLocal}</span>
+                        {"  ·  "}
+                        {dc.channelLabel}: <span className="font-semibold text-foreground">{item.saldoCanal}</span>
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={ocupado}
+                        onClick={() => resolver(item.id, "ignorar")}
+                        className="min-h-9 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
+                      >
+                        {ignorando ? <Loader2 size={13} className="animate-spin" /> : dc.ignoreAction}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={ocupado}
+                        onClick={() => resolver(item.id, "aplicar_canal")}
+                        className="min-h-9 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-60"
+                        style={{ background: "var(--gradient-signature)" }}
+                      >
+                        {aplicando && <Loader2 size={13} className="animate-spin" />}
+                        {aplicando ? dc.applyingAction : dc.applyAction}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </section>
@@ -150,6 +264,7 @@ export function EstoqueLista() {
       </motion.div>
 
       <ProdutosParadosPanel />
+      {canManage && <DivergenciasEstoquePanel />}
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] mb-4">
         <input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder={copy.searchPlaceholder} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
@@ -220,7 +335,11 @@ export function EstoqueLista() {
                         <div><p className="text-xs text-muted-foreground">{copy.mobile.balance}</p><p data-testid={`saldo-${p.sku}`} className={alerta ? "font-bold text-destructive" : "font-bold"}>{saldo}{alerta ? ` ${copy.minimumIndicator}` : ""}</p></div>
                         <div><p className="text-xs text-muted-foreground">{copy.mobile.price}</p><p className="font-semibold">R$ {Number(p.preco).toFixed(2)}</p></div>
                       </div>
-                      {canManage && <div className="flex min-h-11 items-center justify-end gap-2"><button type="button" onClick={() => setCanalProduto({ id: p.id, nome: p.nome })} className="min-h-11 px-3 inline-flex items-center gap-2 text-sm text-muted-foreground"><Link2 size={15} /> {copy.mobile.channels}</button><MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={saldo} onSuccess={() => carregar(brandId, busca)} /></div>}
+                      {canManage && <div className="flex min-h-11 items-center justify-end gap-2">
+                        <EditarProdutoModal produtoId={p.id} produtoNome={p.nome} preco={p.preco} custo={p.custo} estoqueMinimo={p.estoqueMinimo} onSuccess={() => carregar(brandId, busca)} />
+                        <button type="button" onClick={() => setCanalProduto({ id: p.id, nome: p.nome })} className="min-h-11 px-3 inline-flex items-center gap-2 text-sm text-muted-foreground"><Link2 size={15} /> {copy.mobile.channels}</button>
+                        <MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={saldo} onSuccess={() => carregar(brandId, busca)} />
+                      </div>}
                     </article>
                   );
                 })}
@@ -279,6 +398,14 @@ export function EstoqueLista() {
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           {canManage && <div className="flex items-center justify-end gap-2">
+                            <EditarProdutoModal
+                              produtoId={p.id}
+                              produtoNome={p.nome}
+                              preco={p.preco}
+                              custo={p.custo}
+                              estoqueMinimo={p.estoqueMinimo}
+                              onSuccess={() => carregar(brandId, busca)}
+                            />
                             <button
                               onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
                               className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
-import { criarProduto, listarProdutos, listarProdutosParados, registrarMovimento } from "@/modules/estoque/application/estoque.service";
+import {
+  criarProduto, editarProduto, listarProdutos, listarProdutosParados, registrarMovimento,
+  listarDivergenciasEstoque, resolverDivergenciaEstoque,
+} from "@/modules/estoque/application/estoque.service";
 import { z } from "zod";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
@@ -160,6 +163,37 @@ export async function actionRemoverMapeamentoCanal(mapeamentoId: string) {
     .set({ ativo: false, updatedAt: new Date() })
     .where(and(eq(produtoCanal.id, mapeamentoId), eq(produtoCanal.orgId, ctx.orgId)));
   revalidatePath("/estoque");
+}
+
+export async function actionEditarProduto(
+  produtoId: string,
+  nome: string,
+  preco: string,
+  custo?: string,
+  estoqueMinimo?: number,
+) {
+  const ctx = await getCrudContext();
+  const id = z.string().uuid().parse(produtoId);
+  const result = await editarProduto(ctx, id, { nome, preco, custo: custo || undefined, estoqueMinimo });
+  revalidatePath("/estoque");
+  return result;
+}
+
+export async function actionListarDivergenciasEstoque() {
+  const ctx = await getCrudContext();
+  return listarDivergenciasEstoque(ctx);
+}
+
+export async function actionResolverDivergenciaEstoque(
+  divergenciaId: string,
+  decisao: "aplicar_canal" | "ignorar",
+) {
+  const ctx = await getCrudContext();
+  const id = z.string().uuid().parse(divergenciaId);
+  const decisaoValidada = z.enum(["aplicar_canal", "ignorar"]).parse(decisao);
+  const result = await resolverDivergenciaEstoque(ctx, id, decisaoValidada);
+  revalidatePath("/estoque");
+  return result;
 }
 
 export async function actionRegistrarMovimento(

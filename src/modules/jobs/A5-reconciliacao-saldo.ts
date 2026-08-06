@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
-import { brand, channelAccount, estoqueSaldo, produtoCanal } from "@/shared/lib/db/schema";
+import { brand, channelAccount, estoqueDivergencia, estoqueSaldo, produtoCanal } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { executarComRetry } from "@/modules/canais/application/retry";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
@@ -94,6 +94,33 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
         });
 
         if (divergente) {
+          await step.run(`persistir-divergencia-${item.produtoCanalId}`, async () => {
+            const pendenteExistente = await db
+              .select({ id: estoqueDivergencia.id })
+              .from(estoqueDivergencia)
+              .where(and(
+                eq(estoqueDivergencia.produtoCanalId, item.produtoCanalId),
+                eq(estoqueDivergencia.status, "pendente"),
+              ))
+              .then((rows) => rows[0]);
+
+            if (pendenteExistente) {
+              await db.update(estoqueDivergencia).set({
+                saldoLocal: item.saldoLocal,
+                saldoCanal,
+              }).where(eq(estoqueDivergencia.id, pendenteExistente.id));
+            } else {
+              await db.insert(estoqueDivergencia).values({
+                orgId,
+                produtoId: item.produtoId,
+                channelAccountId: item.channelAccountId,
+                produtoCanalId: item.produtoCanalId,
+                saldoLocal: item.saldoLocal,
+                saldoCanal,
+              });
+            }
+          });
+
           await emitirEvento({
             tipo: "estoque.divergencia_detectada",
             orgId,
@@ -109,6 +136,15 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
               acao: "alertar_sem_corrigir",
             },
           });
+        } else {
+          // O saldo voltou a bater — descarta qualquer divergência pendente
+          // ainda aberta pra esse mapeamento, pra não deixar alerta obsoleto.
+          await step.run(`limpar-divergencia-${item.produtoCanalId}`, () =>
+            db.delete(estoqueDivergencia).where(and(
+              eq(estoqueDivergencia.produtoCanalId, item.produtoCanalId),
+              eq(estoqueDivergencia.status, "pendente"),
+            )),
+          );
         }
       } catch (error) {
         resultados.push({

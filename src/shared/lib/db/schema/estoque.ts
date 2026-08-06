@@ -4,6 +4,7 @@ import {
 import { sql } from "drizzle-orm";
 import { org, brand } from "./org";
 import { channelAccount } from "./canais";
+import { appUser } from "./users";
 
 export const movimentoTipoEnum = pgEnum("movimento_tipo", [
   "entrada", "saida", "ajuste", "reserva", "estorno",
@@ -55,6 +56,35 @@ export const estoqueMovimento = pgTable("estoque_movimento", {
   uniqueIndex("uq_movimento_referencia")
     .on(t.orgId, t.produtoId, t.referenciaTipo, t.referenciaId)
     .where(sql`${t.referenciaTipo} is not null and ${t.referenciaId} is not null`),
+]);
+
+export const estoqueDivergenciaStatusEnum = pgEnum("estoque_divergencia_status", [
+  "pendente", "aplicada", "ignorada",
+]);
+
+// Registro de divergências entre o saldo local e o saldo real no canal,
+// detectadas pela reconciliação noturna (job A5). Fica pendente até um admin
+// decidir aplicar o valor do canal (gera ajuste em estoque_movimento) ou
+// ignorar — a correção nunca é automática, é sempre uma decisão humana.
+export const estoqueDivergencia = pgTable("estoque_divergencia", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  produtoId: uuid("produto_id").notNull().references(() => produto.id),
+  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
+  produtoCanalId: uuid("produto_canal_id").notNull(),
+  saldoLocal: integer("saldo_local").notNull(),
+  saldoCanal: integer("saldo_canal").notNull(),
+  status: estoqueDivergenciaStatusEnum("status").notNull().default("pendente"),
+  resolvidoPorId: uuid("resolvido_por_id").references(() => appUser.id),
+  resolvidoEm: timestamp("resolvido_em", { withTimezone: true }),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_estoque_divergencia_org").on(t.orgId),
+  index("idx_estoque_divergencia_produto").on(t.produtoId),
+  index("idx_estoque_divergencia_status").on(t.status),
+  uniqueIndex("uq_estoque_divergencia_pendente")
+    .on(t.produtoCanalId)
+    .where(sql`${t.status} = 'pendente'`),
 ]);
 
 // Mapeamento produto ↔ anúncio por canal. Permite A4 passar o listingId correto
