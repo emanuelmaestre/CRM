@@ -10,6 +10,7 @@ import { SectionCard as Card } from "@/shared/design-system/primitives/SectionCa
 import { fadeUp, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import { MLConnectionStrip } from "./MLConnectionStrip";
+import { ChannelConnectionStrip } from "./ChannelConnectionStrip";
 import { MLOAuthFeedback } from "./MLOAuthFeedback";
 import { CanaisPorMarca } from "./CanaisPorMarca";
 import { useMercadoLivreStatus } from "./useMercadoLivreStatus";
@@ -350,23 +351,22 @@ export default function ConfiguracoesPage() {
 
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
 
-        <SectionHeading title={settingsConfig.sections.acesso.title} icon={getIcon(settingsConfig.sections.acesso.icon)} />
+        <Card title={settingsConfig.sections.acesso.title} icon={getIcon(settingsConfig.sections.acesso.icon)}>
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
+            <p className="text-sm font-semibold text-foreground">
+              {resumo?.organizationName ?? settingsConfig.loading}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                {resumo?.activeBrands.length ?? 0} marca{resumo?.activeBrands.length === 1 ? "" : "s"}
+              </span>
+              <span className="rounded-full bg-[#1F8A4C]/10 px-2.5 py-1 text-xs font-medium text-[#1F8A4C]">
+                {canais.filter((item) => item.status === "conectado").length}/{canais.length} canais conectados
+              </span>
+            </div>
+          </div>
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Card title={settingsConfig.organization.title} icon={getIcon(settingsConfig.organization.icon)}>
-            <Row label={settingsConfig.organization.labels.name} value={resumo?.organizationName ?? settingsConfig.loading} />
-            <Row label={settingsConfig.organization.labels.activeBrands} value={resumo?.activeBrands.join(", ") ?? settingsConfig.loading} />
-            <Row
-              label={settingsConfig.organization.labels.configuredAccounts}
-              value={String(canais.filter((item) => item.channelAccountId).length)}
-            />
-            <Row
-              label={settingsConfig.organization.labels.connectedAccounts}
-              value={String(canais.filter((item) => item.status === "conectado").length)}
-            />
-          </Card>
-
-          <Card title={settingsConfig.users.title} icon={getIcon(settingsConfig.users.icon)}>
+          <div className="border-t border-border pt-3">
             {carregandoUsuarios && <p className="text-sm text-muted-foreground">{settingsConfig.users.loading}</p>}
             {!carregandoUsuarios && usuarios.length === 0 && (
               <p className="text-sm text-muted-foreground">{settingsConfig.users.empty}</p>
@@ -404,18 +404,26 @@ export default function ConfiguracoesPage() {
                 </div>
               ))}
             </div>
-          </Card>
-        </div>
+          </div>
+        </Card>
 
         <SectionHeading title={settingsConfig.sections.canais.title} icon={getIcon(settingsConfig.sections.canais.icon)} />
 
         <Card title="Canais por marca" icon={getIcon("Wifi")}>
-          {/* Faixa-resumo do ML acima do grid: status num relance, ação no card. */}
-          <div className="mb-4 rounded-xl border border-border bg-background/60 px-4 py-3">
-            <Suspense fallback={null}>
-              <MLOAuthFeedback onConectado={mlStatus.atualizar} />
-            </Suspense>
-            <MLConnectionStrip status={mlStatus} />
+          {/* Faixas-resumo por marketplace acima do grid: status num relance, ação no card. */}
+          <div className="mb-4 divide-y divide-border rounded-xl border border-border bg-background/60 [&>*]:px-4 [&>*]:py-3">
+            <div>
+              <Suspense fallback={null}>
+                <MLOAuthFeedback onConectado={mlStatus.atualizar} />
+              </Suspense>
+              <MLConnectionStrip status={mlStatus} />
+            </div>
+            <div>
+              <ChannelConnectionStrip canal="shopee" items={canais.filter((item) => item.canal === "shopee")} />
+            </div>
+            <div>
+              <ChannelConnectionStrip canal="tiktokshop" items={canais.filter((item) => item.canal === "tiktokshop")} />
+            </div>
           </div>
           <CanaisPorMarca
             items={canais}

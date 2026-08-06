@@ -3,19 +3,7 @@
   "loading": "Carregando…",
   "status": { "active": "Ativo", "pending": "Pendente", "pendingIcon": "Clock" },
   "openAction": { "label": "Abrir", "icon": "ExternalLink" },
-  "organization": {
-    "title": "Organização",
-    "icon": "Building2",
-    "labels": {
-      "name": "Organização",
-      "activeBrands": "Marcas ativas",
-      "configuredAccounts": "Contas cadastradas",
-      "connectedAccounts": "Contas conectadas"
-    }
-  },
   "users": {
-    "title": "Usuários e perfis",
-    "icon": "Users",
     "loading": "Carregando usuários…",
     "empty": "Nenhum usuário provisionado.",
     "activate": "Ativar",
@@ -31,9 +19,7 @@
     "icon": "Plug",
     "items": [
       { "name": "WhatsApp (Z-API)", "statusSource": "channel:whatsapp" },
-      { "name": "Shopee", "description": "Seller Centre Brasil", "href": "https://seller.shopee.com.br", "color": "#EE4D2D", "statusSource": "channel:shopee" },
       { "name": "Mercado Livre", "description": "Gerencie anúncios e vendas", "href": "https://www.mercadolivre.com.br/vendas", "color": "#FFE600", "statusSource": "channel:mercadolivre" },
-      { "name": "TikTok Shop", "description": "Seller Center", "href": "https://seller-br.tiktok.com", "color": "#010101", "statusSource": "channel:tiktokshop" },
       { "name": "Inngest", "statusSource": "readiness:inngest" },
       { "name": "OpenAI", "statusSource": "readiness:openai" }
     ]
@@ -88,7 +74,12 @@
       "mapError": "Não foi possível salvar o vínculo.",
       "summary": "{shown} variações/SKUs exibidos de {total} anúncios ativos.",
       "suggestion": "Sugestão por SKU",
-      "openListing": "Abrir anúncio"
+      "openListing": "Abrir anúncio",
+      "searchPlaceholder": "Buscar por anúncio ou SKU…",
+      "onlyPending": "Só pendentes",
+      "emptyFiltered": "Nenhum anúncio encontrado com esse filtro.",
+      "clearFilter": "Limpar filtro",
+      "vincular": "Vincular"
     },
     "historicalImport": {
       "eyebrow": "Memória de vendas",

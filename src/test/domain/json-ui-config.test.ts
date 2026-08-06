@@ -33,8 +33,6 @@ describe("contratos JSON da interface", () => {
       dashboardConfig.channels.connectedIcon,
       dashboardConfig.channels.disconnectedIcon,
       ...dashboardConfig.kpis.map((item) => item.icon),
-      settingsConfig.organization.icon,
-      settingsConfig.users.icon,
       settingsConfig.integrations.icon,
       settingsConfig.system.icon,
       settingsConfig.adminAreas.icon,
@@ -89,7 +87,6 @@ describe("contratos JSON da interface", () => {
   });
 
   it("não mantém estados operacionais fixos na tela de configurações", () => {
-    expect(settingsConfig.organization).not.toHaveProperty("rows");
     expect(settingsConfig.system).not.toHaveProperty("rows");
     expect(settingsConfig).not.toHaveProperty("groups");
     expect(settingsConfig.integrations.items.every((item) => item.statusSource.includes(":"))).toBe(true);
