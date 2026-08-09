@@ -67,14 +67,19 @@ export default function InboxPage() {
         </div>
       </div>
 
-      {/* Conteúdo da aba */}
-      <motion.div
-        key={aba}
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
-      >
-        {aba === "conversas" ? <InboxCliente /> : aba === "perguntas" ? <InboxPerguntas /> : <InboxAvaliacoes />}
+      {/* Conteúdo da aba — as três ficam montadas desde a entrada na página,
+          cada uma disparando sua própria busca em paralelo; só escondemos
+          via CSS a que não está ativa, então trocar de aba não tem espera. */}
+      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}>
+        <div className={aba === "conversas" ? "" : "hidden"}>
+          <InboxCliente />
+        </div>
+        <div className={aba === "perguntas" ? "" : "hidden"}>
+          <InboxPerguntas />
+        </div>
+        <div className={aba === "avaliacoes" ? "" : "hidden"}>
+          <InboxAvaliacoes />
+        </div>
       </motion.div>
     </div>
   );
