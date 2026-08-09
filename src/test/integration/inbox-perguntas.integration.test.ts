@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 import postgres from "postgres";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+// O envio real sai por este provider. Aqui ele é dublê: o teste cobre a
+// persistência e a mudança de status, nunca a API do Mercado Livre.
+vi.mock("@/modules/canais/infrastructure/mercadolivre.provider", () => ({
+  criarMLProvider: async () => ({
+    responderPergunta: async (questionId: string) => ({ questionId, status: "ANSWERED" }),
+  }),
+}));
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { receberMensagem, listarPerguntas, responderPergunta } from "@/modules/inbox/application/inbox.service";
@@ -15,6 +23,9 @@ const ids = {
   conta: randomUUID(),
 };
 process.env.DEFAULT_ORG_ID ??= ids.org;
+// Este arquivo cobre o caminho de resposta; o portão de go-live é do ambiente,
+// então o teste o fixa em vez de herdar o .env local.
+process.env.EXTERNAL_SENDS_ENABLED = "true";
 
 const ctx: CrudContext = { db, orgId: ids.org, perfil: "admin" };
 
@@ -82,7 +93,7 @@ describe.sequential("inbox — perguntas pré-venda de marketplace", () => {
       providerMessageId: `ml-question:${randomUUID()}`,
       conteudo: "Qual o prazo de entrega?",
       tipo: "texto",
-      meta: { canal: "mercadolivre", itemId: "item-456" },
+      meta: { canal: "mercadolivre", itemId: "item-456", questionId: `q-${randomUUID()}` },
     });
 
     const [pergunta] = await listarPerguntas(ids.org, { brandId: ids.brand })

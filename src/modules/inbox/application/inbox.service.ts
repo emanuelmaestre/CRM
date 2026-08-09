@@ -1,4 +1,4 @@
-import { eq, and, desc, like, notLike, inArray, getTableColumns } from "drizzle-orm";
+import { eq, and, or, desc, isNull, like, notLike, inArray, getTableColumns } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { channelAccount, conversa, mensagem } from "@/shared/lib/db/schema";
 import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
@@ -133,7 +133,9 @@ export async function avancarStatusConversa(
 export async function listarConversas(orgId: string, opts: { brandId?: string; status?: string; limit?: number } = {}) {
   const conditions = [
     eq(conversa.orgId, orgId),
-    notLike(conversa.externalId, `%${PERGUNTA_EXTERNAL_ID_MARKER}%`),
+    // externalId é opcional: em SQL, NULL NOT LIKE '...' resolve para NULL e a
+    // linha cairia fora do filtro. Sem externalId a conversa nunca é pergunta.
+    or(isNull(conversa.externalId), notLike(conversa.externalId, `%${PERGUNTA_EXTERNAL_ID_MARKER}%`)),
   ];
   if (opts.brandId) conditions.push(eq(conversa.brandId, opts.brandId));
   if (opts.status) conditions.push(eq(conversa.status, opts.status as never));
