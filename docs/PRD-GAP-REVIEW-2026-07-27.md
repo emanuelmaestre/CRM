@@ -89,9 +89,10 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
    - aplicar migration `0014_lgpd_solicitacoes.sql` no banco Supabase conectado apos confirmacao especifica;
    - validar fluxo real de solicitacao/exportacao/anonimizacao com dados de staging;
    - exportacao assinada via Storage quando o bucket `documentos` estiver homologado.
-2. Completar inbox por canal:
+2. Completar inbox por canal (foco atual: Mercado Livre; Shopee e TikTok Shop adiados para fase
+   futura, fora da pendencia ativa):
    - envio oficial por marketplace quando a politica permitir;
-   - evidencias reais de mensagens recebidas por Mercado Livre, Shopee, TikTok Shop e Olist;
+   - evidencias reais de mensagens recebidas por Mercado Livre e Olist;
    - estados de entrega/falha por provider.
 3. Completar validacao real de canais:
    - editar/remover `channel_account` com regra de impacto;
@@ -102,19 +103,23 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
    - validar upload/download real com URL assinada;
    - adicionar templates por marca quando o cliente fornecer modelos.
 5. Completar operacao:
-   - executar Inngest real;
-   - observar A18/A24/A20 em ambiente conectado;
-   - registrar teste de restauracao de backup no RUNBOOK.
+   - confirmado em 09/08/2026: Inngest real em execucao (A18, A23 e A24 rodando no cron, historico
+     de job_run com centenas de execucoes); falta apenas registrar teste de restauracao de backup
+     no RUNBOOK e observar A20.
 6. Refinar metricas comerciais quando o modelo evoluir:
    - vincular pedido a vendedor/responsavel quando o processo comercial exigir atribuicao direta;
    - medir North Star `% da receita influenciada pelo CRM` quando campanhas, reguas e follow-ups tiverem dados reais de origem.
 
 ## Bloqueios externos conhecidos
 
-- Credenciais e contas reais dos marketplaces.
+- Atualizado em 09/08/2026 (verificado direto no banco alvo, sem expor segredos): Mercado Livre
+  conectado nas tres marcas com token valido e renovacao automatica confirmada (A23); Inngest com
+  chaves de producao configuradas e A18/A23/A24 rodando no cron real; OpenAI configurada (ao menos
+  1 execucao real e bem-sucedida registrada em `llm_run`). Esses tres itens **nao sao mais
+  bloqueio**.
+- Credenciais e conta real de Olist (unico marketplace do escopo atual ainda sem `channel_account`;
+  Shopee e TikTok Shop ficam para fase futura, fora da pendencia ativa).
 - Confirmacao especifica para aplicar migration 0014 no Supabase remoto conectado.
-- Chaves Inngest de producao.
-- Chave OpenAI para execucao real de A15/A16.
 - Bucket/politicas de Storage em ambiente alvo.
 - Homologacao real antes de liberar `EXTERNAL_SENDS_ENABLED=true`.
 

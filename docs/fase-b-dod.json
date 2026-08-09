@@ -8,7 +8,7 @@
     {
       "id": "connectors",
       "status": "verified_locally",
-      "evidence": "Providers Mercado Livre, Shopee, TikTok Shop v202309 e Olist Partner API possuem testes contratuais, timeouts, validação de respostas e health-check. No Mercado Livre, as três identidades reais foram confirmadas e o catálogo trata SELLER_SKU e variações."
+      "evidence": "Foco atual de homologação é o Mercado Livre: as três identidades reais foram confirmadas e o catálogo trata SELLER_SKU e variações. Providers Shopee, TikTok Shop v202309 e Olist Partner API têm testes contratuais, timeouts, validação de respostas e health-check no código, mas a conexão e homologação real desses canais foi adiada para uma fase futura — não são pendência ativa deste ciclo."
     },
     {
       "id": "webhooks",
@@ -43,7 +43,7 @@
     {
       "id": "unified_inbox",
       "status": "external_validation_pending",
-      "evidence": "Mercado Livre questions/messages, TikTok tipos 14/33 e Shopee code 3 (pedido) alimentam o inbox unificado. Adicionado tratamento de mensagem/chat da Shopee (code 20, a confirmar com logs reais na homologação) e backend real da aba Perguntas (listarPerguntas/responderPergunta, testado em inbox-perguntas.integration.test.ts). Faltam credenciais, eventos reais e homologação de capacidades oficiais por marketplace; resposta a pergunta pré-venda ainda não dispara pela API oficial do marketplace (registrada apenas internamente)."
+      "evidence": "Mercado Livre alimenta o inbox unificado nos três tipos oficiais de mensagem (pós-venda, perguntas pré-venda e mensagem de reclamação), com backend real (listarPerguntas/responderPergunta, listarMensagensReclamacao/responderReclamacao). Falta apenas a homologação com eventos reais e conta produtiva do Mercado Livre. TikTok Shop e Shopee têm tratamento de mensagem/pedido no código (Shopee code 20 de chat ainda não confirmado com log real), mas a conexão desses canais foi adiada para uma fase futura — não são pendência ativa deste ciclo."
     },
     {
       "id": "health_and_jobs",
@@ -83,7 +83,7 @@
     "externalSendsEnabled": false,
     "notes": [
       "As três contas Mercado Livre de KARZI, WUWU e Armarinhos Lima estão conectadas; os demais marketplaces permanecem desconectados.",
-      "IDs externos de Mercado Livre, Shopee e TikTok Shop foram cadastrados quando fornecidos; Olist ainda não possui channel_account.",
+      "IDs externos de Mercado Livre foram cadastrados; Shopee e TikTok Shop têm cadastro adiado para fase futura; Olist ainda não possui channel_account.",
       "Os três tokens OAuth do Mercado Livre foram renovados e os seller IDs conferem com 3328823991, 2901062325 e 3222790734.",
       "Catálogo real: Armarinhos Lima 458 anúncios ativos, KARZI 17 e WUWU 175; todos os 277 candidatos auditados na primeira página possuem SELLER_SKU.",
       "INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY estão presentes no ambiente Production da Vercel.",
@@ -93,10 +93,10 @@
   "externalBlockers": [
     "Sincronizar /api/inngest no Inngest após o deploy e comprovar A25/A26 registrados.",
     "Comprovar execuções concluídas de A18, A23 e A24 em produção.",
-    "Configurar credenciais e conectar Shopee, TikTok Shop e Olist por marca.",
+    "Configurar credenciais e conectar Olist por marca.",
     "Confirmar na tela de Configurações os mapeamentos produto/listing/SKU/variação do Mercado Livre; cadastrar os mapeamentos dos demais canais quando conectados.",
-    "Executar um pedido real por canal e comprovar latência de até 5 minutos, baixa e evento estoque.sincronizado.",
-    "Receber e comprovar ao menos uma mensagem real suportada por marketplace no inbox.",
+    "Executar um pedido real via Mercado Livre e comprovar latência de até 5 minutos, baixa e evento estoque.sincronizado.",
+    "Receber e comprovar ao menos uma mensagem real do Mercado Livre no inbox.",
     "Manter EXTERNAL_SENDS_ENABLED=false até o aceite final."
   ]
 }
