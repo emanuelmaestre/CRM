@@ -93,9 +93,18 @@ export function InboxCliente() {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [enviando, setEnviando]       = useState(false);
   const [texto, setTexto]             = useState("");
+  const [isMobile, setIsMobile]       = useState(false);
   const [, startTransition]           = useTransition();
   const textareaRef                   = useRef<HTMLTextAreaElement>(null);
   const msgEndRef                     = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   const carregarConversas = useCallback(() => {
     startTransition(async () => {
@@ -460,10 +469,16 @@ export function InboxCliente() {
         {conversationContent}
       </div>
 
-      {/* ── Message sheet (mobile) — arrasta para fechar, projeta momentum ao soltar ── */}
-      <Sheet open={!!selecionada} onOpenChange={(open) => { if (!open) setSelecionada(null); }} className="h-[88dvh] lg:hidden" overlayClassName="lg:hidden">
-        {conversationContent}
-      </Sheet>
+      {/* ── Message sheet (mobile) — arrasta para fechar, projeta momentum ao soltar ──
+           Só é montado em telas estreitas: mantê-lo montado (mesmo só escondido via CSS)
+           no desktop faz o vaul tentar prender o foco num conteúdo com display:none, e o
+           dismiss-layer interpreta isso como "perdeu o foco" e fecha o sheet na hora,
+           derrubando a conversa selecionada logo após o clique. */}
+      {isMobile && (
+        <Sheet open={!!selecionada} onOpenChange={(open) => { if (!open) setSelecionada(null); }} className="h-[88dvh]">
+          {conversationContent}
+        </Sheet>
+      )}
     </motion.div>
   );
 }
