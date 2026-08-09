@@ -1,8 +1,9 @@
 # CRM LEO — Contexto para Agentes IA
 
 ## O que é este projeto
-CRM single-tenant multi-marca para Plast Leo (KARZI #E3131B + WUWU #9B30D9).
-Stack: Next.js 16.2 App Router · React 19.2 · TypeScript strict · Drizzle ORM · Supabase · Inngest · Z-API.
+CRM single-tenant multi-marca para Plast Leo (KARZI #E3131B, WUWU #9B30D9, Armarinhos Lima).
+Stack: Next.js 16.2 App Router · React 19.2 · TypeScript strict · Drizzle ORM · Supabase · Inngest.
+Canais: Mercado Livre, Shopee, TikTok Shop e Olist (Z-API foi removida do projeto).
 
 ## Estrutura de módulos
 ```
@@ -11,8 +12,8 @@ src/modules/
   vendas/      — pedidos (state machine), funil, tarefas, agenda
   estoque/     — livro-razão imutável (só estoqueMovimento altera saldo)
   reguas/      — 6-gate pipeline, templates, importação em lote
-  inbox/       — conversas WhatsApp (state machine), mensagens idempotentes
-  canais/      — Z-API provider (1 instância por marca), health-check
+  inbox/       — conversas de marketplace (state machine), mensagens idempotentes
+  canais/      — providers ML/Shopee/TikTok Shop/Olist, health-check, tokens ML
   scoring/     — RFM determinístico (sem IA), encalhe, churn_risk
   ai/          — AiService central (OpenAI), budget $20/mês, human-in-the-loop
   jobs/        — Inngest A2-A18 (automações durable)
