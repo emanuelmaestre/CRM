@@ -108,7 +108,9 @@ export async function persistirEvento(
 
 export async function despacharEvento(event: PersistedDomainEvent): Promise<void> {
   const inngestName = INNGEST_EVENT_MAP[event.tipo];
-  if (inngestName) {
+  if (!inngestName) return;
+
+  try {
     await inngest.send({
       id: event.eventId,
       name: inngestName,
@@ -130,6 +132,13 @@ export async function despacharEvento(event: PersistedDomainEvent): Promise<void
         eq(eventoDominio.id, event.eventId),
         eq(eventoDominio.orgId, event.orgId),
       ));
+  } catch (error) {
+    // O evento já está persistido por persistirEvento e fica com processado="false";
+    // despacharEventosPendentes reenvia depois. Uma falha aqui (Inngest fora do ar,
+    // sem credencial no ambiente) não pode derrubar a operação de negócio que já
+    // foi concluída — o Inngest deduplica por eventId, então um reenvio é seguro
+    // mesmo se o send tiver ido adiante antes de o erro acontecer.
+    console.error(`[despacharEvento] falha ao publicar ${event.tipo} (${event.eventId}):`, error);
   }
 }
 

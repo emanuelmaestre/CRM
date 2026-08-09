@@ -208,7 +208,7 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
     }
   });
 
-  it("monta as cinco integrações da Armarinhos Lima a partir da configuração", async () => {
+  it("monta as quatro integrações da Armarinhos Lima a partir da configuração", async () => {
     const environment = {
       ML_SELLER_ID_ARMARINHOS_LIMA: process.env.ML_SELLER_ID_ARMARINHOS_LIMA,
       SHOPEE_SHOP_ID_ARMARINHOS_LIMA: process.env.SHOPEE_SHOP_ID_ARMARINHOS_LIMA,
@@ -221,7 +221,8 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
     try {
       const configuracao = await listarConfiguracaoCanais(ctxAdmin);
       const armarinhos = configuracao.filter((item) => item.brandId === brandArmarinhosId);
-      expect(armarinhos).toHaveLength(5);
+      // whatsapp (Z-API) foi removido de CANAIS_PRIORITARIOS; restam 4 canais.
+      expect(armarinhos).toHaveLength(4);
       expect(armarinhos.find((item) => item.canal === "mercadolivre")?.externalAccountId).toBe("3222790734");
       expect(armarinhos.find((item) => item.canal === "shopee")?.externalAccountId).toBe("1824117705");
       expect(armarinhos.find((item) => item.canal === "tiktokshop")?.externalAccountId).toBe("BRLCXEL2YD");

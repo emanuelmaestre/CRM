@@ -37,4 +37,25 @@ describe("outbox de eventos de domínio", () => {
     }));
     expect(mocks.set).toHaveBeenCalledWith({ processado: "true" });
   });
+
+  it("não deixa uma falha de publicação (Inngest fora do ar, sem credencial) derrubar a operação", async () => {
+    mocks.send.mockRejectedValueOnce(new Error("sem event key configurada"));
+    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(despacharEvento({
+      eventId: "7ba021fd-8200-4ed8-91b0-5f26711f3641",
+      tipo: "pedido.pago",
+      orgId: "22222222-2222-4222-8222-222222222222",
+      brandId: "33333333-3333-4333-8333-333333333333",
+      entidade: "pedido",
+      entidadeId: "44444444-4444-4444-8444-444444444444",
+      payload: { status: "pago" },
+    })).resolves.toBeUndefined();
+
+    // O evento fica processado="false" (nenhum update disparado) para o job de
+    // redrive encontrá-lo depois — não marca sucesso que não aconteceu.
+    expect(mocks.set).not.toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalled();
+    logSpy.mockRestore();
+  });
 });
