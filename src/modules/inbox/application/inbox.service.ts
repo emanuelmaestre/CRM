@@ -110,6 +110,70 @@ export async function receberMensagem(input: {
   return { conversaId: resultado.conversaId, mensagemId: resultado.mensagemId };
 }
 
+/** Busca ativa das conversas pós-venda dos pedidos recentes de todas as
+ *  marcas com Mercado Livre conectado — preenche a aba Conversas sem
+ *  depender exclusivamente do webhook, que só reage a eventos a partir do
+ *  momento em que passa a estar no ar. Idempotente: reaproveita a mesma
+ *  dedupe por providerMessageId do webhook (receberMensagem). */
+export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroativos = 30): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
+  const contas = await db
+    .select({
+      channelAccountId: channelAccount.id,
+      brandId: channelAccount.brandId,
+      brandSlug: brand.slug,
+    })
+    .from(channelAccount)
+    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
+    .where(and(
+      eq(channelAccount.orgId, orgId),
+      eq(channelAccount.tipo, "mercadolivre"),
+      eq(channelAccount.status, "conectado"),
+    ));
+
+  const desde = new Date(Date.now() - diasRetroativos * 24 * 60 * 60 * 1000);
+  let mensagensNovas = 0;
+
+  for (const conta of contas) {
+    if (!isBrandSlug(conta.brandSlug)) continue;
+    try {
+      const provider = await criarMLProvider(conta.brandSlug);
+      const mensagens = await provider.buscarMensagensPosVendaRecentes(desde);
+      for (const msg of mensagens) {
+        if (msg.deVendedor) continue; // mesma regra do webhook: só entrada vira conversa nova
+        const antes = await db.select({ id: mensagem.id }).from(mensagem).where(and(
+          eq(mensagem.orgId, orgId),
+          eq(mensagem.providerMessageId, `ml-message:${msg.providerMessageId}`),
+        )).then((r) => r[0]);
+        if (antes) continue;
+        await receberMensagem({
+          orgId,
+          brandId: conta.brandId,
+          channelAccountId: conta.channelAccountId,
+          externalConversaId: `ml-pack:${msg.packId}`,
+          providerMessageId: `ml-message:${msg.providerMessageId}`,
+          conteudo: msg.texto,
+          tipo: "texto",
+          meta: {
+            canal: "mercadolivre",
+            topic: "messages",
+            remetenteId: msg.remetenteId,
+            sellerId: msg.destinatarioId === null ? undefined : String(msg.destinatarioId),
+            packId: msg.packId,
+            orderId: msg.orderId,
+            recebidaEm: msg.criadaEm,
+            origem: "sincronizacao-ativa",
+          },
+        });
+        mensagensNovas += 1;
+      }
+    } catch (error) {
+      console.error(`[inbox] sincronização de conversas falhou para ${conta.brandSlug}`, error);
+    }
+  }
+
+  return { contasVerificadas: contas.length, mensagensNovas };
+}
+
 export async function avancarStatusConversa(
   ctx: CrudContext,
   conversaId: string,

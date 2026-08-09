@@ -403,9 +403,9 @@
     "description": "Perguntas e mensagens pós-venda do Mercado Livre",
     "pageDescription": "Atendimento completo do Mercado Livre em um só lugar",
     "tabs": [
-      { "id": "conversas", "label": "Conversas", "icon": "MessageSquare" },
-      { "id": "perguntas", "label": "Perguntas", "icon": "HelpCircle" },
-      { "id": "avaliacoes", "label": "Avaliações", "icon": "Star" }
+      { "id": "conversas", "label": "Conversas", "icon": "MessageSquare", "hint": "Chat privado com o comprador dentro de um pedido já fechado (mensagens pós-venda)." },
+      { "id": "perguntas", "label": "Perguntas", "icon": "HelpCircle", "hint": "Perguntas e respostas públicas na página do anúncio (pré-venda)." },
+      { "id": "avaliacoes", "label": "Avaliações", "icon": "Star", "hint": "Avaliações (estrelas e comentários) deixadas pelos compradores nos produtos." }
     ],
     "status": {
       "nova": { "label": "Nova", "color": "#E3131B" },

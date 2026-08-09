@@ -48,6 +48,32 @@ interface MLOrderDetail {
     unit_price: number;
   }>;
   date_created: string;
+  pack_id?: number | null;
+}
+
+/** Mensagem bruta de GET /messages/packs/{packId}/sellers/{sellerId}. */
+interface MLPackMessageRaw {
+  message_id?: string;
+  id?: string;
+  message_date?: { received?: string; available?: string; created?: string };
+  from?: { user_id?: number };
+  to?: { user_id?: number };
+  text?: string;
+  subject?: string;
+}
+
+/** Mensagem pós-venda normalizada, usada pra popular a aba Conversas sem
+ *  depender só do webhook (chegada passiva) — busca ativa dos pedidos
+ *  recentes e das trocas de mensagem de cada um. */
+export interface MLMensagemPosVenda {
+  packId: string;
+  orderId: string;
+  providerMessageId: string;
+  texto: string;
+  remetenteId: number | null;
+  destinatarioId: number | null;
+  criadaEm: string | null;
+  deVendedor: boolean;
 }
 
 export interface MLAnuncioCatalogo {
@@ -344,6 +370,53 @@ export class MercadoLivreProvider implements ChannelProvider {
     }>(`/orders/search?seller=${me.id}&order.date_created.from=${encodeURIComponent(desde.toISOString())}&limit=50`);
 
     return (data.results ?? []).map(normalizarPedidoMercadoLivre);
+  }
+
+  /** Busca ativa das mensagens pós-venda (chat dentro de um pedido já
+   *  fechado) dos pedidos recentes do vendedor. Complementa o webhook do
+   *  tópico "messages": o webhook só reage a eventos novos a partir do
+   *  momento em que está no ar, então pedidos/mensagens anteriores a isso
+   *  nunca chegariam à aba Conversas sem essa busca. Falha por pedido não
+   *  derruba a sincronização inteira — só aquele pedido fica sem histórico. */
+  async buscarMensagensPosVendaRecentes(desde: Date): Promise<MLMensagemPosVenda[]> {
+    const me = await this.get<{ id: string }>("/users/me");
+    const sellerId = Number(me.id);
+    const orders = await this.get<{ results?: MLOrderDetail[] }>(
+      `/orders/search?seller=${me.id}&order.date_created.from=${encodeURIComponent(desde.toISOString())}&limit=50`,
+    );
+    const results = orders.results ?? [];
+
+    const packsUnicos = new Map<string, string>();
+    for (const order of results) {
+      const packId = String(order.pack_id ?? order.id);
+      if (!packsUnicos.has(packId)) packsUnicos.set(packId, String(order.id));
+    }
+
+    const porPack = await Promise.all([...packsUnicos.entries()].map(async ([packId, orderId]) => {
+      try {
+        const mensagens = await this.get<MLPackMessageRaw[] | { messages?: MLPackMessageRaw[] }>(
+          `/messages/packs/${encodeURIComponent(packId)}/sellers/${sellerId}?tag=post_sale&limit=50`,
+        );
+        const lista = Array.isArray(mensagens) ? mensagens : (mensagens.messages ?? []);
+        return lista
+          .filter((m) => (m.text ?? m.subject))
+          .map((m): MLMensagemPosVenda => ({
+            packId,
+            orderId,
+            providerMessageId: String(m.message_id ?? m.id ?? ""),
+            texto: (m.text ?? m.subject ?? "").trim(),
+            remetenteId: m.from?.user_id ?? null,
+            destinatarioId: m.to?.user_id ?? null,
+            criadaEm: m.message_date?.received ?? m.message_date?.available ?? m.message_date?.created ?? null,
+            deVendedor: m.from?.user_id === sellerId,
+          }))
+          .filter((m) => m.providerMessageId && m.texto);
+      } catch {
+        return [];
+      }
+    }));
+
+    return porPack.flat();
   }
 
   async listarPedidosHistoricos(opcoes: {

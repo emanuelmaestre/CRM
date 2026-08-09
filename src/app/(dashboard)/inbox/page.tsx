@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { Info as InfoIcon } from "lucide-react";
 import { InboxCliente } from "./inbox-cliente";
 import { InboxPerguntas } from "./inbox-perguntas";
 import { InboxAvaliacoes } from "./inbox-avaliacoes";
@@ -10,7 +11,7 @@ import { getIcon } from "@/shared/config/icon-registry";
 
 type Aba = "conversas" | "perguntas" | "avaliacoes";
 const copy = pagesConfig.inbox;
-const ABAS = copy.tabs as Array<{ id: Aba; label: string; icon: string }>;
+const ABAS = copy.tabs as Array<{ id: Aba; label: string; icon: string; hint?: string }>;
 
 export default function InboxPage() {
   const [aba, setAba] = useState<Aba>("conversas");
@@ -50,6 +51,16 @@ export default function InboxPage() {
                 )}
                 <Icon size={15} strokeWidth={active ? 2.25 : 1.75} className="relative z-10" />
                 <span className="relative z-10">{a.label}</span>
+                {a.hint && (
+                  <span
+                    role="img"
+                    aria-label={a.hint}
+                    title={a.hint}
+                    className="relative z-10 opacity-50 hover:opacity-100 transition-opacity"
+                  >
+                    <InfoIcon size={12} strokeWidth={2} />
+                  </span>
+                )}
               </motion.button>
             );
           })}

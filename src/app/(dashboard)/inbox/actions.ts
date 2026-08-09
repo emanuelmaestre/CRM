@@ -9,12 +9,18 @@ import {
   avancarStatusConversa,
   listarPerguntas,
   responderPergunta,
+  sincronizarConversasMercadoLivre,
 } from "@/modules/inbox/application/inbox.service";
 import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
 
 export async function actionListarConversas(opts: { brandId?: string; status?: string } = {}) {
   const ctx = await getCrudContext();
   return listarConversas(ctx.orgId, { ...opts, limit: 60 });
+}
+
+export async function actionSincronizarConversas() {
+  const ctx = await getCrudContext();
+  return sincronizarConversasMercadoLivre(ctx.orgId);
 }
 
 export async function actionListarMensagens(conversaId: string) {

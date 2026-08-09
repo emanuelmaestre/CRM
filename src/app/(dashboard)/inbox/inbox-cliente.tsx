@@ -9,6 +9,7 @@ import {
   actionListarMensagens,
   actionEnviarMensagem,
   actionAvancarStatusConversa,
+  actionSincronizarConversas,
 } from "./actions";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -100,6 +101,12 @@ export function InboxCliente() {
     startTransition(async () => {
       setLoading(true);
       try {
+        // Sincronização ativa: busca pedidos recentes na API do ML e importa
+        // mensagens pós-venda que ainda não chegaram por webhook. Falha aqui
+        // não deve impedir a lista de carregar com o que já está salvo.
+        await actionSincronizarConversas().catch((error) => {
+          console.error("[inbox] sincronização de conversas falhou", error);
+        });
         setConversas(await actionListarConversas());
       } catch {
         toast.error(copy.messages.conversationsError);
