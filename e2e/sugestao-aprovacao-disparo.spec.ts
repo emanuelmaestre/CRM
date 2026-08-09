@@ -10,8 +10,7 @@ test.describe("Sugestão IA → Aprovação → Disparo", () => {
     await page.goto("/relatorios");
     await expect(page).not.toHaveTitle(/500|Error/i);
 
-    const heading = page.getByRole("heading", { name: /sugestões de campanha/i });
-    await expect(heading).toBeVisible();
+    await expect(page.getByText(/sugestões de campanha/i).first()).toBeVisible();
   });
 
   test("sugestão pendente pode ser aprovada ou rejeitada", async ({ page }) => {

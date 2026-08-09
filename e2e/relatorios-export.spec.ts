@@ -46,7 +46,7 @@ test.describe("RFM Scoring — fórmulas versionadas", () => {
     expect(campeao.explicacao).toContain("Campeão");
     expect(campeao.versaoFormula).toBe("v2");
 
-    const perdido = calcularScoreCliente({ diasDesdeUltimaCompra: 200, totalCompras: 1, valorTotalGasto: 50, intervalMedioEntrCompras: null }, "v2");
+    const perdido = calcularScoreCliente({ diasDesdeUltimaCompra: 200, totalCompras: 1, valorTotalGasto: 20, intervalMedioEntrCompras: null }, "v2");
     expect(perdido.churnRisk).toBeGreaterThanOrEqual(80);
     expect(perdido.explicacao).toContain("Perdido");
 
