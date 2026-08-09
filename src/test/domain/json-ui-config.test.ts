@@ -27,12 +27,7 @@ describe("contratos JSON da interface", () => {
     const icons = [
       ...navigationConfig.items.map((item) => item.icon),
       ...Object.values(navigationConfig.utilities).map((item) => item.icon),
-      dashboardConfig.revenue.icon,
-      dashboardConfig.connectCta.icon,
-      dashboardConfig.recentOrders.icon,
-      dashboardConfig.channels.connectedIcon,
-      dashboardConfig.channels.disconnectedIcon,
-      ...dashboardConfig.kpis.map((item) => item.icon),
+      ...Object.values(dashboardConfig.cards).map((card) => card.icon),
       settingsConfig.integrations.icon,
       settingsConfig.system.icon,
       settingsConfig.adminAreas.icon,

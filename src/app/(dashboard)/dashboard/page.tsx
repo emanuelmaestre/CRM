@@ -1,173 +1,167 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Filter } from "lucide-react";
 import { SkeletonCard } from "@/shared/design-system/primitives/Skeleton";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
+import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { stagger } from "@/shared/design-system/motion-variants";
 import dashboardConfig from "@/config/dashboard.json";
-import { VisaoGeralCards } from "./visao-geral-cards";
-import { actionObterDashboardData } from "./actions";
+import { SectionLabel } from "./card-primitives";
+import { FaturamentoCard } from "./faturamento-card";
+import { GiroBaixoCard, MaisVendidosCard, ParadosCard, ReposicaoCard } from "./listas-cards";
+import { ReclamacoesCard } from "./reclamacoes-card";
+import { actionObterDashboardData, actionObterReclamacoes } from "./actions";
 import type {
   DashboardData,
-  DashboardFilters,
+  Granularidade,
 } from "@/modules/relatorios/application/dashboard.service";
+import type { ReclamacoesResultado } from "@/modules/relatorios/application/reclamacoes.service";
 
-const DASHBOARD_TOUR_STEPS: CoachMarkStep[] = [
+const copy = dashboardConfig;
+
+const TOUR: CoachMarkStep[] = [
   {
-    target: '[data-coachmark="dashboard-filters"]',
-    title: "Filtre por período, marca e canal",
-    description: "Todo o painel respeita esses filtros em tempo real.",
+    target: '[data-coachmark="dashboard-resultado"]',
+    title: "Seu faturamento, na lente que quiser",
+    description: "Alterne entre diário, semanal e mensal — o painel inteiro acompanha.",
   },
   {
-    target: '[data-coachmark="dashboard-revenue"]',
-    title: "Receita e curva de vendas",
-    description: "Dados reais do banco, não simulados.",
+    target: '[data-coachmark="dashboard-acao"]',
+    title: "O que precisa de você agora",
+    description: "Reposição enquanto ainda dá tempo, e reclamações abertas no Mercado Livre.",
   },
 ];
 
-const EMPTY_DASHBOARD: DashboardData = {
-  filters: {
-    period: "30d",
-    brand: "todas",
-    channel: "todos",
-    brands: [{ value: "todas", label: "Todas as marcas" }],
-    channels: [{ value: "todos", label: "Todos os canais" }],
-  },
-  revenue: {
-    value: dashboardConfig.revenue.value,
-    peakLabel: dashboardConfig.revenue.peakLabel,
-    pendingText: dashboardConfig.revenue.pendingText,
-    bars: dashboardConfig.revenue.bars,
-  },
-  kpis: dashboardConfig.kpis,
-  recentClients: [],
-  recentOrders: [],
-  channels: dashboardConfig.channels.items.map((item) => ({
-    name: item.name,
-    connected: item.connected,
-    status: item.connected ? "conectado" : "desconectado",
-    detail: item.connected ? dashboardConfig.channels.connectedLabel : dashboardConfig.channels.disconnectedLabel,
-  })),
-  channelPerformance: [],
-  sellerPerformance: [],
-  ruleBlocks: [],
-  aiUsage: {
-    cost: "US$ 0.00",
-    runs: 0,
-    successRate: "0%",
-    detail: "Sem consumo de IA no periodo",
-  },
-};
-
-/* ── Header da página + filtros ────────────────────────────────── */
-function DashboardHeader({
-  filters,
-  value,
-  onChange,
-  loading,
-}: {
-  filters: DashboardData["filters"];
-  value: Required<DashboardFilters>;
-  onChange: (next: Required<DashboardFilters>) => void;
-  loading: boolean;
-}) {
-  const selectClass = "h-10 appearance-none rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground shadow-[var(--shadow-card)] outline-none transition-colors hover:border-muted-foreground/40 focus:border-foreground disabled:opacity-60";
-
+function EsqueletoPainel() {
   return (
-    <div
-      className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-      data-coachmark="dashboard-filters"
-    >
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <Filter size={17} strokeWidth={1.9} />
-        </div>
-        <div>
-          <h1 className="text-headline-lg text-foreground">{dashboardConfig.header.title}</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">{dashboardConfig.header.description}</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <select className={selectClass} value={value.period} disabled={loading} onChange={(event) => onChange({ ...value, period: event.target.value as Required<DashboardFilters>["period"] })}>
-          <option value="7d">Ultimos 7 dias</option>
-          <option value="30d">Ultimos 30 dias</option>
-          <option value="90d">Ultimos 90 dias</option>
-        </select>
-        <select className={selectClass} value={value.brand} disabled={loading} onChange={(event) => onChange({ ...value, brand: event.target.value })}>
-          {filters.brands.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-        </select>
-        <select className={selectClass} value={value.channel} disabled={loading} onChange={(event) => onChange({ ...value, channel: event.target.value })}>
-          {filters.channels.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-        </select>
-      </div>
+    <div className="flex flex-col gap-5">
+      {[0, 1, 2, 3, 4, 5].map((card) => (
+        <SkeletonCard key={card} />
+      ))}
     </div>
   );
 }
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD);
-  const [filters, setFilters] = useState<Required<DashboardFilters>>({
-    period: "30d",
-    brand: "todas",
-    channel: "todos",
-  });
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [dados, setDados] = useState<DashboardData | null>(null);
+  const [granularidade, setGranularidade] = useState<Granularidade>("dia");
+  const [marca, setMarca] = useState("todas");
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const [reclamacoes, setReclamacoes] = useState<ReclamacoesResultado | null>(null);
+  const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
 
   useEffect(() => {
-    actionObterDashboardData(filters)
-      .then((result) => {
-        setData(result);
-        setLoadError(null);
+    let ativo = true;
+    setCarregando(true);
+    actionObterDashboardData({ granularidade, brand: marca })
+      .then((resultado) => {
+        if (!ativo) return;
+        setDados(resultado);
+        setErro(null);
       })
-      .catch((error) => {
-        setLoadError(error instanceof Error ? error.message : "Nao foi possivel carregar o painel.");
+      .catch((error: unknown) => {
+        if (!ativo) return;
+        setErro(error instanceof Error ? error.message : "Não foi possível carregar o painel.");
       })
-      .finally(() => setLoading(false));
-  }, [filters]);
+      .finally(() => {
+        if (ativo) setCarregando(false);
+      });
+    return () => { ativo = false; };
+  }, [granularidade, marca]);
 
-  const handleFilterChange = (next: Required<DashboardFilters>) => {
-    setLoading(true);
-    setFilters(next);
-  };
+  // Independente do painel: depende da API do Mercado Livre, que é lenta.
+  useEffect(() => {
+    let ativo = true;
+    actionObterReclamacoes()
+      .then((resultado) => { if (ativo) setReclamacoes(resultado); })
+      .catch(() => {
+        if (ativo) setReclamacoes({ itens: [], total: 0, marcasComFalha: [], semContaConectada: false });
+      })
+      .finally(() => { if (ativo) setCarregandoReclamacoes(false); });
+    return () => { ativo = false; };
+  }, []);
+
+  // O filtro de marca vale para o painel inteiro, inclusive para o que veio da API.
+  const reclamacoesVisiveis = useMemo<ReclamacoesResultado | null>(() => {
+    if (!reclamacoes || marca === "todas") return reclamacoes;
+    const itens = reclamacoes.itens.filter((item) => item.marca === marca);
+    return { ...reclamacoes, itens, total: itens.length };
+  }, [reclamacoes, marca]);
+
+  const trocarGranularidade = useCallback((valor: Granularidade) => {
+    setGranularidade(valor);
+  }, []);
+
+  const marcas = dados?.filtros.brands ?? [{ value: "todas", label: copy.filters.allBrands }];
+  const pendencias = (dados?.reposicao.length ?? 0) + (reclamacoesVisiveis?.total ?? 0);
 
   return (
-    <motion.div
-      variants={stagger}
-      initial="hidden"
-      animate="show"
-    >
-      {!loading && <CoachMarks storageKey="crm-leo:coachmarks:dashboard:v1" steps={DASHBOARD_TOUR_STEPS} />}
-      {loadError && (
-        <div className="mb-4 rounded-lg border border-[#C21820]/20 bg-[#C21820]/10 px-4 py-3 text-sm text-[#C21820]">
-          {loadError}
+    <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
+      {!carregando && dados && <CoachMarks storageKey="crm-leo:coachmarks:dashboard:v2" steps={TOUR} />}
+
+      <PageHeader
+        title={copy.header.title}
+        description={copy.header.description}
+        actions={
+          <label className="flex items-center gap-2">
+            <span className="sr-only">{copy.filters.brandLabel}</span>
+            <select
+              value={marca}
+              disabled={carregando && !dados}
+              onChange={(event) => setMarca(event.target.value)}
+              className="h-10 appearance-none rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground shadow-[var(--shadow-card)] outline-none transition-colors hover:border-muted-foreground/40 focus:border-foreground disabled:opacity-60"
+            >
+              {marcas.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+        }
+      />
+
+      {erro && (
+        <div className="rounded-xl border border-[#C21820]/20 bg-[#C21820]/10 px-4 py-3 text-sm text-[#C21820]">
+          {erro}
         </div>
       )}
-      <DashboardHeader
-        filters={data.filters}
-        value={filters}
-        onChange={handleFilterChange}
-        loading={loading}
-      />
-      {loading && data === EMPTY_DASHBOARD ? (
-        <div className="flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-            <div className="flex flex-col gap-5">
-              <SkeletonCard />
-              <SkeletonCard />
-            </div>
-            <div className="lg:col-span-2"><SkeletonCard /></div>
-          </div>
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-            <div className="lg:col-span-8"><SkeletonCard /></div>
-            <div className="lg:col-span-4"><SkeletonCard /></div>
-          </div>
-        </div>
+
+      {!dados ? (
+        <EsqueletoPainel />
       ) : (
-        /* Visão geral — faturamento, ranking de produtos, atendimento e estoque */
-        <VisaoGeralCards revenue={data.revenue} />
+        <>
+          {/* Ato 1 — como estamos */}
+          <section className="flex flex-col gap-3" data-coachmark="dashboard-resultado">
+            <SectionLabel>Resultado</SectionLabel>
+            <FaturamentoCard
+              dados={dados.faturamento}
+              granularidade={granularidade}
+              onGranularidade={trocarGranularidade}
+              carregando={carregando}
+            />
+          </section>
+
+          {/* Ato 2 — o que pede decisão agora */}
+          <section className="flex flex-col gap-3" data-coachmark="dashboard-acao">
+            <SectionLabel count={pendencias}>Precisa de ação</SectionLabel>
+            <div className="flex flex-col gap-5">
+              <ReposicaoCard itens={dados.reposicao} />
+              <ReclamacoesCard dados={reclamacoesVisiveis} carregando={carregandoReclamacoes} />
+            </div>
+          </section>
+
+          {/* Ato 3 — como o catálogo se comporta, do que mais gira ao que não gira */}
+          <section className="flex flex-col gap-3">
+            <SectionLabel>Comportamento do catálogo</SectionLabel>
+            <div className="flex flex-col gap-5">
+              <MaisVendidosCard itens={dados.maisVendidos} />
+              <GiroBaixoCard itens={dados.giroBaixo} />
+              <ParadosCard itens={dados.parados} />
+            </div>
+          </section>
+        </>
       )}
     </motion.div>
   );

@@ -1,58 +1,83 @@
 {
-  "header": { "title": "Painel", "description": "Visão geral da operação" },
-  "revenue": {
-    "icon": "TrendingUp",
-    "title": "Receita Consolidada",
-    "description": "Acompanhe a evolução da receita e o detalhamento por canal e marca",
-    "period": "Mês",
-    "bars": [38, 55, 42, 70, 52, 88, 65, 58, 80, 48, 72, 60, 90, 68],
-    "days": ["D", "S", "T", "Q", "Q", "S", "S"],
-    "value": "—",
-    "peakLabel": "R$ —",
-    "pendingText": "Conecte os canais para ver os dados reais"
+  "header": { "title": "Painel", "description": "O que precisa da sua atenção hoje" },
+  "filters": {
+    "allBrands": "Todas as marcas",
+    "brandLabel": "Marca"
   },
-  "recentClients": {
-    "title": "Clientes recentes",
-    "href": "/clientes",
-    "action": "Ver todos"
-  },
-  "connectCta": {
-    "icon": "Zap",
-    "eyebrow": "Ação necessária",
-    "title": "Conecte seus canais",
-    "description": "Ative Mercado Livre, Shopee e TikTok para dados em tempo real",
-    "href": "/configuracoes",
-    "action": "Configurar agora"
-  },
-  "kpis": [
-    { "label": "Pedidos hoje", "value": "—", "sub": "Aguardando integração", "icon": "ShoppingBag", "accent": "#E3131B" },
-    { "label": "Receita", "value": "—", "sub": "Aguardando integração", "icon": "DollarSign", "accent": "#9B30D9" },
-    { "label": "Clientes", "value": "—", "sub": "Base importada", "icon": "Users", "accent": "#2563EB" },
-    { "label": "SKUs em alerta", "value": "—", "sub": "Estoque mínimo", "icon": "AlertTriangle", "accent": "#B57A00" }
+  "granularities": [
+    { "value": "dia", "label": "Diário" },
+    { "value": "semana", "label": "Semanal" },
+    { "value": "mes", "label": "Mensal" }
   ],
-  "recentOrders": {
-    "title": "Pedidos recentes",
-    "href": "/vendas",
-    "action": "Ver todos",
-    "icon": "ShoppingBag",
-    "statusStyles": {
-      "Pago": "bg-[#1F8A4C]/10 text-[#1F8A4C]",
-      "Pendente": "bg-[#B57A00]/10 text-[#B57A00]",
-      "Cancelado": "bg-[#C21820]/10 text-[#C21820]"
+  "cards": {
+    "faturamento": {
+      "icon": "TrendingUp",
+      "title": "Faturamento",
+      "accent": "#9B30D9",
+      "ordersLabel": "pedidos",
+      "ticketLabel": "ticket médio",
+      "comparisonLabel": "vs. período anterior",
+      "emptyTitle": "Nenhuma venda registrada",
+      "emptyDescription": "O faturamento aparece assim que os primeiros pedidos forem ingeridos dos canais."
+    },
+    "maisVendidos": {
+      "icon": "ShoppingBag",
+      "title": "Vendem mais",
+      "subtitle": "Campeões de saída no período",
+      "accent": "#1F8A4C",
+      "unitLabel": "un.",
+      "emptyTitle": "Sem vendas no período",
+      "emptyDescription": "O ranking de produtos aparece aqui assim que houver pedidos."
+    },
+    "reposicao": {
+      "icon": "Package",
+      "title": "Repor em breve",
+      "subtitle": "Ainda acima do mínimo — dá tempo de comprar",
+      "accent": "#B57A00",
+      "minLabel": "mín.",
+      "coverageLabel": "de estoque",
+      "noCoverageLabel": "sem histórico de venda",
+      "emptyTitle": "Nada para repor agora",
+      "emptyDescription": "Produtos entram aqui quando o saldo começa a se aproximar do estoque mínimo."
+    },
+    "giroBaixo": {
+      "icon": "TrendingDown",
+      "title": "Giro baixo",
+      "subtitle": "Vendem pouco ou nada no período",
+      "accent": "#2563EB",
+      "saleLabel": "venda",
+      "salesLabel": "vendas",
+      "noSaleLabel": "nenhuma venda",
+      "stockLabel": "em estoque",
+      "emptyTitle": "Todo o catálogo girando",
+      "emptyDescription": "Nenhum produto ficou abaixo do limite de vendas no período."
+    },
+    "parados": {
+      "icon": "Hourglass",
+      "title": "Estoque parado",
+      "subtitle": "Sem nenhuma saída há mais de 90 dias",
+      "accent": "#6F6F6E",
+      "daysLabel": "sem sair",
+      "neverLabel": "nunca saiu",
+      "stuckLabel": "parado",
+      "emptyTitle": "Nenhum item parado",
+      "emptyDescription": "Todo o estoque teve movimento nos últimos 90 dias."
+    },
+    "reclamacoes": {
+      "icon": "AlertTriangle",
+      "title": "Reclamações a resolver",
+      "subtitle": "Casos abertos no Mercado Livre",
+      "accent": "#C21820",
+      "openLabel": "aberta há",
+      "dayLabel": "dia",
+      "daysLabel": "dias",
+      "todayLabel": "aberta hoje",
+      "orderLabel": "Ver pedido",
+      "partialLabel": "Lista parcial — falha ao consultar",
+      "emptyTitle": "Nenhuma reclamação aberta",
+      "emptyDescription": "Nada pendente de resposta no Mercado Livre agora.",
+      "disconnectedTitle": "Mercado Livre desconectado",
+      "disconnectedDescription": "Conecte uma conta em Configurações para acompanhar as reclamações."
     }
-  },
-  "channels": {
-    "title": "Canais",
-    "href": "/configuracoes",
-    "action": "Configurar",
-    "connectedLabel": "Ativo",
-    "disconnectedLabel": "Pendente",
-    "connectedIcon": "Wifi",
-    "disconnectedIcon": "WifiOff",
-    "items": [
-      { "name": "Mercado Livre", "connected": false },
-      { "name": "Shopee", "connected": false },
-      { "name": "TikTok Shop", "connected": false }
-    ]
   }
 }

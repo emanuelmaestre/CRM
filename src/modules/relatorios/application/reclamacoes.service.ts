@@ -1,0 +1,127 @@
+import { and, eq, inArray } from "drizzle-orm";
+import type { CrudContext } from "@/shared/lib/crud-factory";
+import { brand, channelAccount, pedido } from "@/shared/lib/db/schema";
+import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+
+/** Estágios do pós-venda do Mercado Livre, na ordem em que escalam. */
+const ESTAGIO_LABEL: Record<string, string> = {
+  none: "Sem estágio",
+  claim: "Reclamação",
+  recontact: "Recontato",
+  dispute: "Mediação",
+};
+
+export interface ReclamacaoResumo {
+  id: string;
+  marca: string;
+  marcaLabel: string;
+  estagio: string;
+  /** Código de motivo do Mercado Livre. Exibido cru: a API não devolve texto legível. */
+  motivo: string | null;
+  abertaEm: string | null;
+  diasAberta: number | null;
+  /** Link interno para o pedido, quando o pedido já foi ingerido no CRM. */
+  pedidoHref: string | null;
+  /** Escalou para mediação — precisa de atenção antes das demais. */
+  emMediacao: boolean;
+}
+
+export interface ReclamacoesResultado {
+  itens: ReclamacaoResumo[];
+  total: number;
+  /** Marcas cuja consulta falhou — a lista fica parcial, e a UI precisa dizer isso. */
+  marcasComFalha: string[];
+  /** Nenhuma conta do Mercado Livre conectada: não é "zero reclamações", é "não dá para saber". */
+  semContaConectada: boolean;
+}
+
+export async function obterReclamacoesAbertas(ctx: CrudContext): Promise<ReclamacoesResultado> {
+  const contas = await ctx.db
+    .select({ marca: brand.slug })
+    .from(channelAccount)
+    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
+    .where(and(
+      eq(channelAccount.orgId, ctx.orgId),
+      eq(channelAccount.tipo, "mercadolivre"),
+      eq(channelAccount.status, "conectado"),
+      eq(brand.active, true),
+    ));
+
+  const marcas = [...new Set(contas.map((item) => item.marca))].filter(isBrandSlug);
+  if (marcas.length === 0) {
+    return { itens: [], total: 0, marcasComFalha: [], semContaConectada: true };
+  }
+
+  const resultados = await Promise.allSettled(
+    marcas.map(async (slug) => {
+      const provider = await criarMLProvider(slug);
+      return { slug, reclamacoes: await provider.listarReclamacoesAbertas() };
+    }),
+  );
+
+  const marcasComFalha: string[] = [];
+  const brutas: Array<{ slug: string; reclamacao: Awaited<ReturnType<
+    Awaited<ReturnType<typeof criarMLProvider>>["listarReclamacoesAbertas"]
+  >>[number] }> = [];
+
+  resultados.forEach((resultado, index) => {
+    if (resultado.status === "fulfilled") {
+      for (const reclamacao of resultado.value.reclamacoes) {
+        brutas.push({ slug: resultado.value.slug, reclamacao });
+      }
+    } else {
+      marcasComFalha.push(getBrandConfig(marcas[index])?.label ?? marcas[index]);
+    }
+  });
+
+  // Liga a reclamação ao pedido local quando ele já foi ingerido, para o card
+  // poder navegar direto ao pedido em vez de só mostrar um número solto.
+  const pedidoExternoIds = [...new Set(
+    brutas.map((item) => item.reclamacao.pedidoExternoId).filter((id): id is string => Boolean(id)),
+  )];
+  const pedidosLocais = pedidoExternoIds.length > 0
+    ? await ctx.db
+        .select({ id: pedido.id, providerOrderId: pedido.providerOrderId })
+        .from(pedido)
+        .where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.providerOrderId, pedidoExternoIds)))
+    : [];
+  const pedidoPorExterno = new Map(
+    pedidosLocais
+      .filter((item): item is { id: string; providerOrderId: string } => Boolean(item.providerOrderId))
+      .map((item) => [item.providerOrderId, item.id]),
+  );
+
+  const agora = Date.now();
+  const itens: ReclamacaoResumo[] = brutas
+    .map(({ slug, reclamacao }) => {
+      const abertaEm = reclamacao.abertaEm ? new Date(reclamacao.abertaEm) : null;
+      const valida = abertaEm && !Number.isNaN(abertaEm.getTime()) ? abertaEm : null;
+      const pedidoLocalId = reclamacao.pedidoExternoId
+        ? pedidoPorExterno.get(reclamacao.pedidoExternoId) ?? null
+        : null;
+      return {
+        id: reclamacao.id,
+        marca: slug,
+        marcaLabel: getBrandConfig(slug)?.label ?? slug,
+        estagio: ESTAGIO_LABEL[reclamacao.estagio ?? "none"] ?? reclamacao.estagio ?? "Reclamação",
+        motivo: reclamacao.motivo,
+        abertaEm: valida ? valida.toISOString() : null,
+        diasAberta: valida ? Math.floor((agora - valida.getTime()) / 86_400_000) : null,
+        pedidoHref: pedidoLocalId ? `/vendas/pedidos/${pedidoLocalId}` : null,
+        emMediacao: reclamacao.estagio === "dispute",
+      };
+    })
+    // Mediação primeiro (já escalou), depois as mais antigas — quem espera há mais tempo.
+    .sort((a, b) => {
+      if (a.emMediacao !== b.emMediacao) return a.emMediacao ? -1 : 1;
+      return (b.diasAberta ?? 0) - (a.diasAberta ?? 0);
+    });
+
+  return {
+    itens: itens.slice(0, 8),
+    total: itens.length,
+    marcasComFalha,
+    semContaConectada: false,
+  };
+}

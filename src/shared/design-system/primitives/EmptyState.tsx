@@ -2,13 +2,16 @@
 
 import {
   Users, Package, Filter, Inbox, MessageSquare, ClipboardList,
-  BarChart2, AlertTriangle, CircleOff, ShieldOff, LucideIcon,
+  BarChart2, AlertTriangle, CircleOff, ShieldOff, TrendingUp, TrendingDown,
+  ShoppingBag, Hourglass, LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../cn";
 import { springs } from "../motion-variants";
 import {
   ClientsIllustration, ConversationIllustration, ReportsIllustration, GenericIllustration,
+  RevenueIllustration, BestSellersIllustration, RestockIllustration,
+  SlowMovingIllustration, DeadStockIllustration, ComplaintsIllustration,
 } from "./illustrations";
 
 const icons: Record<string, LucideIcon> = {
@@ -22,6 +25,12 @@ const icons: Record<string, LucideIcon> = {
   alerts:       AlertTriangle,
   blocked:      ShieldOff,
   generic:      CircleOff,
+  revenue:      TrendingUp,
+  bestSellers:  ShoppingBag,
+  restock:      Package,
+  slowMoving:   TrendingDown,
+  deadStock:    Hourglass,
+  complaints:   AlertTriangle,
 };
 
 // Ilustrações SVG customizadas para os tipos mais visíveis (dashboard, inbox,
@@ -33,6 +42,12 @@ const illustrations: Partial<Record<string, () => React.ReactElement>> = {
   inbox: ConversationIllustration,
   reports: ReportsIllustration,
   generic: GenericIllustration,
+  revenue: RevenueIllustration,
+  bestSellers: BestSellersIllustration,
+  restock: RestockIllustration,
+  slowMoving: SlowMovingIllustration,
+  deadStock: DeadStockIllustration,
+  complaints: ComplaintsIllustration,
 };
 
 export type IllustrationType = keyof typeof icons;

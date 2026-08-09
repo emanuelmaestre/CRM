@@ -1,81 +1,51 @@
-import { and, desc, eq, gte, inArray, isNull, lte, sum } from "drizzle-orm";
-import { startOfDay, subDays } from "date-fns";
+import { and, eq, gte, isNull, max, ne } from "drizzle-orm";
+import { startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
-  appUser,
   brand,
-  channelAccount,
-  cliente,
+  estoqueMovimento,
   estoqueSaldo,
-  llmRun,
-  oportunidade,
   pedido,
+  pedidoItem,
   produto,
-  produtoCanal,
-  regua,
-  reguaExecucao,
 } from "@/shared/lib/db/schema";
-import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
+import { getBrandConfig } from "@/shared/config/brands";
 
-const CANAIS_PRIORITARIOS = [
-  "mercadolivre",
-  "shopee",
-  "tiktokshop",
-  "olist",
-] as const;
+/* ── Parâmetros de negócio ───────────────────────────────────────
+   Valores que definem o que conta como "atenção", "giro baixo" e
+   "parado". Ficam nomeados aqui para serem discutíveis e ajustáveis
+   sem caçar número mágico no meio de query. */
 
-const CANAL_LABEL: Record<string, string> = {
-  mercadolivre: "Mercado Livre",
-  shopee: "Shopee",
-  tiktokshop: "TikTok Shop",
-  olist: "Olist",
-  manual: "Manual",
+/** Zona de atenção de reposição: saldo acima do mínimo, mas até N× o mínimo.
+ *  Avisa enquanto ainda dá tempo de repor — quem já bateu no mínimo passou do ponto. */
+const FATOR_ZONA_ATENCAO = 2;
+
+/** Vendas no período abaixo ou igual a isto contam como giro baixo. */
+const LIMITE_GIRO_BAIXO = 2;
+
+/** Dias sem nenhuma saída de estoque para o item ser considerado parado. */
+const DIAS_PARA_PARADO = 90;
+
+/** Quantos itens cada lista traz. Lista curta é lista que se lê. */
+const TAMANHO_LISTA = 6;
+
+export type Granularidade = "dia" | "semana" | "mes";
+
+/** Janela de análise de produto acompanha a lente de faturamento escolhida. */
+const JANELA_DIAS: Record<Granularidade, number> = { dia: 30, semana: 84, mes: 365 };
+
+/** Quantos pontos a série temporal mostra em cada lente. */
+const PONTOS_SERIE: Record<Granularidade, number> = { dia: 14, semana: 12, mes: 12 };
+
+const GRANULARIDADE_LABEL: Record<Granularidade, string> = {
+  dia: "Últimos 30 dias",
+  semana: "Últimas 12 semanas",
+  mes: "Últimos 12 meses",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  criado: "Criado",
-  pago: "Pago",
-  separado: "Separado",
-  enviado: "Enviado",
-  entregue: "Entregue",
-  avaliacao_solicitada: "Avaliacao",
-  concluido: "Concluido",
-  cancelado: "Cancelado",
-  devolvido: "Devolvido",
-};
-
-export interface DashboardKpi {
-  label: string;
-  value: string;
-  sub: string;
-  icon: string;
-  accent: string;
-}
-
-export interface DashboardRecentClient {
-  id: string;
-  name: string;
-  role: string;
-  brand?: BrandSlug;
-}
-
-export interface DashboardRecentOrder {
-  /** Identificador completo do pedido — chave estavel de lista. */
-  orderId: string;
-  /** Codigo curto exibido na UI; pode colidir entre pedidos. */
-  id: string;
-  client: string;
-  brand: BrandSlug;
-  status: string;
-  value: string;
-  href: string;
-}
-
-export interface DashboardChannel {
-  name: string;
-  connected: boolean;
-  status: "conectado" | "degradado" | "desconectado";
-  detail: string;
+export interface DashboardFilters {
+  granularidade?: Granularidade;
+  brand?: string;
 }
 
 export interface DashboardFilterOption {
@@ -83,67 +53,76 @@ export interface DashboardFilterOption {
   label: string;
 }
 
-export interface DashboardFilters {
-  period?: "7d" | "30d" | "90d";
-  brand?: string;
-  channel?: string;
-}
-
-export interface DashboardFilterState {
-  period: "7d" | "30d" | "90d";
-  brand: string;
-  channel: string;
-  brands: DashboardFilterOption[];
-  channels: DashboardFilterOption[];
-}
-
-export interface DashboardChannelPerformance {
-  channel: string;
+export interface SeriePonto {
   label: string;
-  orders: number;
-  revenue: string;
-  ticket: string;
-  conversion: string;
+  valor: number;
+  /** Altura relativa (0–100) já normalizada, para o gráfico não recalcular. */
+  altura: number;
 }
 
-export interface DashboardSellerPerformance {
-  id: string;
-  name: string;
-  opportunities: number;
-  pipeline: string;
-  detail: string;
+export interface FaturamentoResumo {
+  granularidade: Granularidade;
+  total: string;
+  totalNumerico: number;
+  /** Variação percentual contra a janela anterior de mesmo tamanho. Null quando não há base de comparação. */
+  variacaoPercentual: number | null;
+  pedidos: number;
+  ticketMedio: string;
+  serie: SeriePonto[];
+  janelaLabel: string;
 }
 
-export interface DashboardRuleBlock {
-  gate: string;
-  count: number;
-  detail: string;
+interface ProdutoBase {
+  produtoId: string;
+  sku: string;
+  nome: string;
+  marca: string;
+  marcaLabel: string;
 }
 
-export interface DashboardAiUsage {
-  cost: string;
-  runs: number;
-  successRate: string;
-  detail: string;
+export interface ProdutoMaisVendido extends ProdutoBase {
+  quantidade: number;
+  receita: string;
+  /** Participação (0–100) na receita do topo da lista, para a barra de proporção. */
+  participacao: number;
+}
+
+export interface ProdutoGiroBaixo extends ProdutoBase {
+  quantidade: number;
+  saldo: number;
+  valorParado: string;
+}
+
+export interface ProdutoParado extends ProdutoBase {
+  saldo: number;
+  /** Dias desde a última saída. Null quando nunca teve saída registrada. */
+  diasParado: number | null;
+  valorParado: string;
+}
+
+export interface ProdutoReposicao extends ProdutoBase {
+  saldo: number;
+  minimo: number;
+  /** Dias de estoque restantes no ritmo de venda atual. Null sem histórico de venda. */
+  coberturaDias: number | null;
+  /** Quão perto do mínimo está (0–100): 100 = encostando no mínimo. */
+  urgencia: number;
 }
 
 export interface DashboardData {
-  filters: DashboardFilterState;
-  revenue: {
-    value: string;
-    peakLabel: string;
-    pendingText: string;
-    bars: number[];
+  filtros: {
+    granularidade: Granularidade;
+    brand: string;
+    brands: DashboardFilterOption[];
   };
-  kpis: DashboardKpi[];
-  recentClients: DashboardRecentClient[];
-  recentOrders: DashboardRecentOrder[];
-  channels: DashboardChannel[];
-  channelPerformance: DashboardChannelPerformance[];
-  sellerPerformance: DashboardSellerPerformance[];
-  ruleBlocks: DashboardRuleBlock[];
-  aiUsage: DashboardAiUsage;
+  faturamento: FaturamentoResumo;
+  maisVendidos: ProdutoMaisVendido[];
+  giroBaixo: ProdutoGiroBaixo[];
+  parados: ProdutoParado[];
+  reposicao: ProdutoReposicao[];
 }
+
+/* ── Formatação ───────────────────────────────────────────────── */
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
@@ -153,54 +132,76 @@ function formatCurrency(value: number): string {
   }).format(value);
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("pt-BR").format(value);
-}
-
 function parseMoney(value: string | null | undefined): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function brandSlug(value: string | null | undefined): BrandSlug {
-  if (value && isBrandSlug(value)) return value;
-  throw new Error(`Marca não configurada no dashboard: ${value ?? "ausente"}`);
+function brandLabel(slug: string): string {
+  return getBrandConfig(slug)?.label ?? slug;
 }
 
-function brandLabel(value: string): string {
-  return getBrandConfig(value)?.label ?? value;
+const diaMes = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
+const mesAno = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" });
+
+/* ── Séries temporais ─────────────────────────────────────────── */
+
+/** Início do balde a que uma data pertence, na granularidade pedida. */
+function inicioDoBalde(data: Date, granularidade: Granularidade): Date {
+  if (granularidade === "mes") return startOfMonth(data);
+  if (granularidade === "semana") return startOfWeek(data, { weekStartsOn: 1 });
+  return startOfDay(data);
 }
 
-function normalizeBars(values: number[]): number[] {
-  const max = Math.max(...values, 1);
-  return values.map((value) => Math.max(4, Math.round((value / max) * 100)));
+function recuarBaldes(referencia: Date, granularidade: Granularidade, quantidade: number): Date {
+  if (granularidade === "mes") return subMonths(referencia, quantidade);
+  if (granularidade === "semana") return subWeeks(referencia, quantidade);
+  return subDays(referencia, quantidade);
 }
 
-const PERIOD_DAYS: Record<Required<DashboardFilters>["period"], number> = {
-  "7d": 7,
-  "30d": 30,
-  "90d": 90,
-};
+function rotuloDoBalde(inicio: Date, granularidade: Granularidade): string {
+  if (granularidade === "mes") return mesAno.format(inicio).replace(".", "");
+  return diaMes.format(inicio);
+}
 
-function normalizeFilters(filters?: DashboardFilters): Required<DashboardFilters> {
+/** Baldes vazios da janela, do mais antigo ao mais recente — garante que
+ *  período sem venda apareça como vale no gráfico, não como buraco. */
+function montarBaldes(agora: Date, granularidade: Granularidade): Map<number, number> {
+  const total = PONTOS_SERIE[granularidade];
+  const baldes = new Map<number, number>();
+  for (let i = total - 1; i >= 0; i--) {
+    const inicio = inicioDoBalde(recuarBaldes(agora, granularidade, i), granularidade);
+    baldes.set(inicio.getTime(), 0);
+  }
+  return baldes;
+}
+
+/* ── Consulta principal ───────────────────────────────────────── */
+
+function normalizarFiltros(filters?: DashboardFilters): Required<DashboardFilters> {
+  const granularidade = filters?.granularidade;
   return {
-    period: filters?.period && filters.period in PERIOD_DAYS ? filters.period : "30d",
+    granularidade: granularidade && granularidade in JANELA_DIAS ? granularidade : "dia",
     brand: filters?.brand ?? "todas",
-    channel: filters?.channel ?? "todos",
   };
 }
 
-function successStatus(status: string): boolean {
-  return !["cancelado", "devolvido"].includes(status);
-}
-
-export async function obterDashboardData(ctx: CrudContext, filters?: DashboardFilters): Promise<DashboardData> {
+export async function obterDashboardData(
+  ctx: CrudContext,
+  filters?: DashboardFilters,
+): Promise<DashboardData> {
   const agora = new Date();
-  const hoje = startOfDay(agora);
-  const normalizedFilters = normalizeFilters(filters);
-  const periodDays = PERIOD_DAYS[normalizedFilters.period];
-  const inicioPeriodo = subDays(agora, periodDays);
-  const inicioGrafico = periodDays > 14 ? subDays(agora, 13) : subDays(agora, periodDays - 1);
+  const { granularidade, brand: brandFiltro } = normalizarFiltros(filters);
+  const janelaDias = JANELA_DIAS[granularidade];
+  const inicioJanela = subDays(agora, janelaDias);
+  const inicioJanelaAnterior = subDays(agora, janelaDias * 2);
+  const inicioSerie = inicioDoBalde(
+    recuarBaldes(agora, granularidade, PONTOS_SERIE[granularidade] - 1),
+    granularidade,
+  );
+  // A série pode olhar mais para trás que a janela de produto (12 meses vs 365 dias
+  // batem, mas 12 semanas < 84 dias não). Busca pedidos desde o que for mais antigo.
+  const inicioBusca = inicioSerie < inicioJanelaAnterior ? inicioSerie : inicioJanelaAnterior;
 
   const marcas = await ctx.db
     .select({ id: brand.id, name: brand.name, slug: brand.slug })
@@ -208,381 +209,234 @@ export async function obterDashboardData(ctx: CrudContext, filters?: DashboardFi
     .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
     .orderBy(brand.slug);
 
-  const selectedBrand = marcas.find((item) => item.slug === normalizedFilters.brand);
-  const selectedChannel = normalizedFilters.channel !== "todos" ? normalizedFilters.channel : undefined;
-  const pedidoConditions = [
-    eq(pedido.orgId, ctx.orgId),
-    gte(pedido.createdAt, inicioPeriodo),
-  ];
-  const pedidoGraficoConditions = [
-    eq(pedido.orgId, ctx.orgId),
-    gte(pedido.createdAt, inicioGrafico),
-  ];
-  const pedidoHojeConditions = [
-    eq(pedido.orgId, ctx.orgId),
-    gte(pedido.createdAt, hoje),
-  ];
-  if (selectedBrand) {
-    pedidoConditions.push(eq(pedido.brandId, selectedBrand.id));
-    pedidoGraficoConditions.push(eq(pedido.brandId, selectedBrand.id));
-    pedidoHojeConditions.push(eq(pedido.brandId, selectedBrand.id));
-  }
-  if (selectedChannel) {
-    pedidoConditions.push(eq(pedido.canal, selectedChannel));
-    pedidoGraficoConditions.push(eq(pedido.canal, selectedChannel));
-    pedidoHojeConditions.push(eq(pedido.canal, selectedChannel));
-  }
+  const marcaSelecionada = marcas.find((item) => item.slug === brandFiltro);
+  const limiteParado = subDays(agora, DIAS_PARA_PARADO);
 
-  const [
-    pedidosPeriodo,
-    pedidosGrafico,
-    pedidosHoje,
-    receitaPeriodo,
-    clientesRecentes,
-    pedidosRecentes,
-    skusAlerta,
-    contas,
-    mapeamentos,
-    execucoesRegua,
-    consumoIa,
-    oportunidades,
-  ] = await Promise.all([
-    ctx.db
-      .select({
-        id: pedido.id,
-        total: pedido.total,
-        status: pedido.status,
-        canal: pedido.canal,
-        createdAt: pedido.createdAt,
-      })
-      .from(pedido)
-      .where(and(...pedidoConditions)),
+  const condicoesPedido = [
+    eq(pedido.orgId, ctx.orgId),
+    gte(pedido.createdAt, inicioBusca),
+    // Cancelado e devolvido não são faturamento nem venda de produto.
+    ne(pedido.status, "cancelado"),
+    ne(pedido.status, "devolvido"),
+  ];
+  if (marcaSelecionada) condicoesPedido.push(eq(pedido.brandId, marcaSelecionada.id));
+
+  const condicoesProduto = [
+    eq(produto.orgId, ctx.orgId),
+    eq(produto.ativo, true),
+    isNull(produto.deletedAt),
+  ];
+  if (marcaSelecionada) condicoesProduto.push(eq(produto.brandId, marcaSelecionada.id));
+
+  const [pedidosJanela, itensVendidos, produtosAtivos, ultimasSaidas] = await Promise.all([
     ctx.db
       .select({ id: pedido.id, total: pedido.total, createdAt: pedido.createdAt })
       .from(pedido)
-      .where(and(...pedidoGraficoConditions)),
-    ctx.db
-      .select({ id: pedido.id })
-      .from(pedido)
-      .where(and(...pedidoHojeConditions)),
-    ctx.db
-      .select({ total: sum(pedido.total) })
-      .from(pedido)
-      .where(and(...pedidoConditions)),
+      .where(and(...condicoesPedido)),
     ctx.db
       .select({
-        id: cliente.id,
-        nome: cliente.nome,
-        createdAt: cliente.createdAt,
+        produtoId: pedidoItem.produtoId,
+        quantidade: pedidoItem.quantidade,
+        precoUnitario: pedidoItem.precoUnitario,
+        pedidoEm: pedido.createdAt,
       })
-      .from(cliente)
-      .where(and(eq(cliente.orgId, ctx.orgId), isNull(cliente.deletedAt)))
-      .orderBy(desc(cliente.createdAt))
-      .limit(5),
+      .from(pedidoItem)
+      .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
+      .where(and(...condicoesPedido, gte(pedido.createdAt, inicioJanela))),
     ctx.db
       .select({
-        id: pedido.id,
-        total: pedido.total,
-        status: pedido.status,
-        canal: pedido.canal,
-        createdAt: pedido.createdAt,
-        clienteNome: cliente.nome,
-        brandSlug: brand.slug,
+        id: produto.id,
+        sku: produto.sku,
+        nome: produto.nome,
+        custo: produto.custo,
+        preco: produto.preco,
+        estoqueMinimo: produto.estoqueMinimo,
+        saldo: estoqueSaldo.saldo,
+        marca: brand.slug,
       })
-      .from(pedido)
-      .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
-      .innerJoin(brand, eq(brand.id, pedido.brandId))
-      .where(and(...pedidoConditions))
-      .orderBy(desc(pedido.createdAt))
-      .limit(5),
-    ctx.db
-      .select({ id: produto.id })
       .from(produto)
+      .innerJoin(brand, eq(brand.id, produto.brandId))
       .leftJoin(estoqueSaldo, eq(estoqueSaldo.produtoId, produto.id))
-      .where(and(
-        eq(produto.orgId, ctx.orgId),
-        eq(produto.ativo, true),
-        isNull(produto.deletedAt),
-        lte(estoqueSaldo.saldo, produto.estoqueMinimo),
-      )),
+      .where(and(...condicoesProduto)),
     ctx.db
-      .select({
-        id: channelAccount.id,
-        tipo: channelAccount.tipo,
-        nome: channelAccount.nome,
-        status: channelAccount.status,
-        ultimaVerificacao: channelAccount.ultimaVerificacao,
-        ultimoErro: channelAccount.ultimoErro,
-        brandSlug: brand.slug,
-      })
-      .from(channelAccount)
-      .innerJoin(brand, eq(brand.id, channelAccount.brandId))
-      .where(eq(channelAccount.orgId, ctx.orgId))
-      .orderBy(channelAccount.tipo, brand.slug),
-    ctx.db
-      .select({
-        channelAccountId: produtoCanal.channelAccountId,
-        produtoId: produtoCanal.produtoId,
-      })
-      .from(produtoCanal)
-      .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.ativo, true))),
-    ctx.db
-      .select({
-        status: reguaExecucao.status,
-        gate: reguaExecucao.gateBloqueado,
-        motivo: reguaExecucao.motivoBloqueio,
-        brandSlug: brand.slug,
-      })
-      .from(reguaExecucao)
-      .innerJoin(regua, eq(regua.id, reguaExecucao.reguaId))
-      .innerJoin(brand, eq(brand.id, regua.brandId))
-      .where(and(
-        eq(reguaExecucao.orgId, ctx.orgId),
-        gte(reguaExecucao.createdAt, inicioPeriodo),
-        selectedBrand ? eq(regua.brandId, selectedBrand.id) : undefined,
-      )),
-    ctx.db
-      .select({
-        finalidade: llmRun.finalidade,
-        sucesso: llmRun.sucesso,
-        custoUsd: llmRun.custoUsd,
-      })
-      .from(llmRun)
-      .where(and(eq(llmRun.orgId, ctx.orgId), gte(llmRun.createdAt, inicioPeriodo))),
-    ctx.db
-      .select({
-        id: oportunidade.id,
-        valor: oportunidade.valor,
-        responsavelId: oportunidade.responsavelId,
-        responsavelNome: appUser.nome,
-        responsavelEmail: appUser.email,
-      })
-      .from(oportunidade)
-      .leftJoin(appUser, eq(appUser.id, oportunidade.responsavelId))
-      .where(and(
-        eq(oportunidade.orgId, ctx.orgId),
-        gte(oportunidade.createdAt, inicioPeriodo),
-        selectedBrand ? eq(oportunidade.brandId, selectedBrand.id) : undefined,
-      )),
+      .select({ produtoId: estoqueMovimento.produtoId, ultima: max(estoqueMovimento.createdAt) })
+      .from(estoqueMovimento)
+      .where(and(eq(estoqueMovimento.orgId, ctx.orgId), eq(estoqueMovimento.tipo, "saida")))
+      .groupBy(estoqueMovimento.produtoId),
   ]);
 
-  const receitaTotalPeriodo = parseMoney(receitaPeriodo[0]?.total);
-  const porDia = new Map<string, number>();
-  const diasGrafico = Math.min(14, periodDays);
-  for (let i = 0; i < diasGrafico; i++) {
-    const dia = startOfDay(subDays(agora, diasGrafico - 1 - i)).toISOString().slice(0, 10);
-    porDia.set(dia, 0);
-  }
-  for (const item of pedidosGrafico) {
-    const dia = startOfDay(item.createdAt).toISOString().slice(0, 10);
-    porDia.set(dia, (porDia.get(dia) ?? 0) + parseMoney(item.total));
-  }
-  const receitasDiarias = [...porDia.values()];
-  const pico = Math.max(...receitasDiarias, 0);
+  /* ── Faturamento ── */
+  const baldes = montarBaldes(agora, granularidade);
+  let totalJanela = 0;
+  let pedidosNaJanela = 0;
+  let totalJanelaAnterior = 0;
 
-  const clienteIds = clientesRecentes.map((item) => item.id);
-  const ultimosPedidosDosClientes = clienteIds.length > 0
-    ? await ctx.db
-        .select({
-          clienteId: pedido.clienteId,
-          canal: pedido.canal,
-          brandSlug: brand.slug,
-          createdAt: pedido.createdAt,
-        })
-        .from(pedido)
-        .innerJoin(brand, eq(brand.id, pedido.brandId))
-        .where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.clienteId, clienteIds)))
-        .orderBy(desc(pedido.createdAt))
-    : [];
+  for (const item of pedidosJanela) {
+    const valor = parseMoney(item.total);
+    const chave = inicioDoBalde(item.createdAt, granularidade).getTime();
+    if (baldes.has(chave)) baldes.set(chave, (baldes.get(chave) ?? 0) + valor);
 
-  const ultimoPedidoPorCliente = new Map<string, typeof ultimosPedidosDosClientes[number]>();
-  for (const item of ultimosPedidosDosClientes) {
-    if (!ultimoPedidoPorCliente.has(item.clienteId)) {
-      ultimoPedidoPorCliente.set(item.clienteId, item);
+    if (item.createdAt >= inicioJanela) {
+      totalJanela += valor;
+      pedidosNaJanela += 1;
+    } else if (item.createdAt >= inicioJanelaAnterior) {
+      totalJanelaAnterior += valor;
     }
   }
 
-  const mapeamentosPorConta = new Map<string, number>();
-  for (const item of mapeamentos) {
-    mapeamentosPorConta.set(
-      item.channelAccountId,
-      (mapeamentosPorConta.get(item.channelAccountId) ?? 0) + 1,
-    );
+  const valoresSerie = [...baldes.values()];
+  const maiorValor = Math.max(...valoresSerie, 0);
+  const serie: SeriePonto[] = [...baldes.entries()].map(([chave, valor]) => ({
+    label: rotuloDoBalde(new Date(chave), granularidade),
+    valor,
+    altura: maiorValor > 0 ? Math.max(2, Math.round((valor / maiorValor) * 100)) : 0,
+  }));
+
+  const faturamento: FaturamentoResumo = {
+    granularidade,
+    total: formatCurrency(totalJanela),
+    totalNumerico: totalJanela,
+    variacaoPercentual: totalJanelaAnterior > 0
+      ? Math.round(((totalJanela - totalJanelaAnterior) / totalJanelaAnterior) * 100)
+      : null,
+    pedidos: pedidosNaJanela,
+    ticketMedio: formatCurrency(pedidosNaJanela > 0 ? totalJanela / pedidosNaJanela : 0),
+    serie,
+    janelaLabel: GRANULARIDADE_LABEL[granularidade],
+  };
+
+  /* ── Agregação de vendas por produto ── */
+  const vendasPorProduto = new Map<string, { quantidade: number; receita: number }>();
+  for (const item of itensVendidos) {
+    const atual = vendasPorProduto.get(item.produtoId) ?? { quantidade: 0, receita: 0 };
+    atual.quantidade += item.quantidade;
+    atual.receita += item.quantidade * parseMoney(item.precoUnitario);
+    vendasPorProduto.set(item.produtoId, atual);
   }
 
-  const contasFiltradas = contas.filter((conta) => (
-    (!selectedBrand || conta.brandSlug === selectedBrand.slug)
-    && (!selectedChannel || conta.tipo === selectedChannel)
-  ));
-  const canaisExistentes = contasFiltradas.map((conta) => {
-    const totalMapeado = mapeamentosPorConta.get(conta.id) ?? 0;
-    const detailParts = [
-      brandLabel(conta.brandSlug),
-      `${totalMapeado} SKU${totalMapeado === 1 ? "" : "s"}`,
-    ];
-    if (conta.ultimoErro) detailParts.push("com erro recente");
-    return {
-      name: `${CANAL_LABEL[conta.tipo] ?? conta.tipo} · ${brandLabel(conta.brandSlug)}`,
-      connected: conta.status === "conectado",
-      status: conta.status,
-      detail: detailParts.join(" · "),
-    };
+  const ultimaSaidaPorProduto = new Map<string, Date>();
+  for (const item of ultimasSaidas) {
+    if (item.ultima) ultimaSaidaPorProduto.set(item.produtoId, item.ultima);
+  }
+
+  const base = (item: typeof produtosAtivos[number]): ProdutoBase => ({
+    produtoId: item.id,
+    sku: item.sku,
+    nome: item.nome,
+    marca: item.marca,
+    marcaLabel: brandLabel(item.marca),
   });
 
-  const tiposPresentes = new Set(contas.map((conta) => conta.tipo));
-  const canaisPendentes = CANAIS_PRIORITARIOS
-    .filter((tipo) => !tiposPresentes.has(tipo))
-    .map((tipo) => ({
-      name: CANAL_LABEL[tipo],
-      connected: false,
-      status: "desconectado" as const,
-      detail: "Conta ainda nao cadastrada",
+  /** Capital imobilizado: custo quando cadastrado, senão preço de venda. */
+  const valorUnitario = (item: typeof produtosAtivos[number]): number =>
+    parseMoney(item.custo) || parseMoney(item.preco);
+
+  /* ── 1. Produtos que vendem mais ── */
+  const rankingVendas = produtosAtivos
+    .map((item) => ({ item, venda: vendasPorProduto.get(item.id) }))
+    .filter((linha): linha is { item: typeof produtosAtivos[number]; venda: { quantidade: number; receita: number } } =>
+      Boolean(linha.venda && linha.venda.quantidade > 0))
+    .sort((a, b) => b.venda.quantidade - a.venda.quantidade || b.venda.receita - a.venda.receita)
+    .slice(0, TAMANHO_LISTA);
+
+  const maiorQuantidade = rankingVendas[0]?.venda.quantidade ?? 0;
+  const maisVendidos: ProdutoMaisVendido[] = rankingVendas.map(({ item, venda }) => ({
+    ...base(item),
+    quantidade: venda.quantidade,
+    receita: formatCurrency(venda.receita),
+    participacao: maiorQuantidade > 0 ? Math.round((venda.quantidade / maiorQuantidade) * 100) : 0,
+  }));
+
+  /* ── 2. Produtos que não vendem (giro baixo) ── */
+  const giroBaixo: ProdutoGiroBaixo[] = produtosAtivos
+    .filter((item) => (item.saldo ?? 0) > 0)
+    .map((item) => ({ item, quantidade: vendasPorProduto.get(item.id)?.quantidade ?? 0 }))
+    .filter(({ quantidade }) => quantidade <= LIMITE_GIRO_BAIXO)
+    .map(({ item, quantidade }) => ({
+      ...base(item),
+      quantidade,
+      saldo: item.saldo ?? 0,
+      valorParadoNumerico: (item.saldo ?? 0) * valorUnitario(item),
+    }))
+    // Menor giro primeiro; empate desempata por dinheiro parado — o que dói mais.
+    .sort((a, b) => a.quantidade - b.quantidade || b.valorParadoNumerico - a.valorParadoNumerico)
+    .slice(0, TAMANHO_LISTA)
+    .map(({ valorParadoNumerico, ...resto }) => ({
+      ...resto,
+      valorParado: formatCurrency(valorParadoNumerico),
     }));
 
-  const canaisPerformanceMap = new Map<string, { orders: number; success: number; revenue: number }>();
-  for (const item of pedidosPeriodo) {
-    const current = canaisPerformanceMap.get(item.canal) ?? { orders: 0, success: 0, revenue: 0 };
-    current.orders += 1;
-    if (successStatus(item.status)) current.success += 1;
-    current.revenue += parseMoney(item.total);
-    canaisPerformanceMap.set(item.canal, current);
-  }
-  const channelPerformance = [...canaisPerformanceMap.entries()]
-    .sort((a, b) => b[1].revenue - a[1].revenue)
-    .slice(0, 6)
-    .map(([canal, item]) => ({
-      channel: canal,
-      label: CANAL_LABEL[canal] ?? canal,
-      orders: item.orders,
-      revenue: formatCurrency(item.revenue),
-      ticket: formatCurrency(item.orders > 0 ? item.revenue / item.orders : 0),
-      conversion: item.orders > 0 ? `${Math.round((item.success / item.orders) * 100)}%` : "0%",
+  /* ── 3. Produtos que não saem (estoque parado) ── */
+  const parados: ProdutoParado[] = produtosAtivos
+    .filter((item) => (item.saldo ?? 0) > 0)
+    .map((item) => {
+      const ultimaSaida = ultimaSaidaPorProduto.get(item.id) ?? null;
+      return { item, ultimaSaida };
+    })
+    .filter(({ ultimaSaida }) => ultimaSaida === null || ultimaSaida < limiteParado)
+    .map(({ item, ultimaSaida }) => ({
+      ...base(item),
+      saldo: item.saldo ?? 0,
+      diasParado: ultimaSaida
+        ? Math.floor((agora.getTime() - ultimaSaida.getTime()) / 86_400_000)
+        : null,
+      valorParadoNumerico: (item.saldo ?? 0) * valorUnitario(item),
+    }))
+    // Maior capital imobilizado primeiro — é o que justifica liquidar.
+    .sort((a, b) => b.valorParadoNumerico - a.valorParadoNumerico)
+    .slice(0, TAMANHO_LISTA)
+    .map(({ valorParadoNumerico, ...resto }) => ({
+      ...resto,
+      valorParado: formatCurrency(valorParadoNumerico),
     }));
 
-  const sellerMap = new Map<string, { name: string; opportunities: number; pipeline: number }>();
-  for (const item of oportunidades) {
-    const id = item.responsavelId ?? "sem-responsavel";
-    const current = sellerMap.get(id) ?? {
-      name: item.responsavelNome ?? item.responsavelEmail ?? "Sem responsavel",
-      opportunities: 0,
-      pipeline: 0,
-    };
-    current.opportunities += 1;
-    current.pipeline += parseMoney(item.valor);
-    sellerMap.set(id, current);
-  }
-  const sellerPerformance = [...sellerMap.entries()]
-    .sort((a, b) => b[1].pipeline - a[1].pipeline)
-    .slice(0, 5)
-    .map(([id, item]) => ({
-      id,
-      name: item.name,
-      opportunities: item.opportunities,
-      pipeline: formatCurrency(item.pipeline),
-      detail: "Funil por responsavel; pedido ainda nao guarda vendedor",
-    }));
-
-  const blocked = execucoesRegua.filter((item) => item.status === "bloqueada");
-  const blocksMap = new Map<string, { count: number; reason: string }>();
-  for (const item of blocked) {
-    const gate = item.gate ?? "sem_gate";
-    const current = blocksMap.get(gate) ?? { count: 0, reason: item.motivo ?? "Bloqueio sem motivo registrado" };
-    current.count += 1;
-    if (item.motivo) current.reason = item.motivo;
-    blocksMap.set(gate, current);
-  }
-  const ruleBlocks = [...blocksMap.entries()]
-    .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 5)
-    .map(([gate, item]) => ({ gate, count: item.count, detail: item.reason }));
-
-  const aiCost = consumoIa.reduce((total, item) => total + parseMoney(item.custoUsd), 0);
-  const aiSuccess = consumoIa.filter((item) => item.sucesso === "true").length;
+  /* ── 4. Reposição (baixo estoque, ainda em tempo) ── */
+  const reposicao: ProdutoReposicao[] = produtosAtivos
+    .filter((item) => {
+      const saldo = item.saldo ?? 0;
+      const minimo = item.estoqueMinimo;
+      // Sem mínimo cadastrado não há régua para avisar.
+      if (minimo <= 0) return false;
+      // Já bateu ou passou do mínimo: saiu da zona de "dá tempo de repor".
+      return saldo > minimo && saldo <= minimo * FATOR_ZONA_ATENCAO;
+    })
+    .map((item) => {
+      const saldo = item.saldo ?? 0;
+      const minimo = item.estoqueMinimo;
+      const vendidoNaJanela = vendasPorProduto.get(item.id)?.quantidade ?? 0;
+      const consumoDiario = vendidoNaJanela / janelaDias;
+      const folga = minimo * FATOR_ZONA_ATENCAO - minimo;
+      return {
+        ...base(item),
+        saldo,
+        minimo,
+        coberturaDias: consumoDiario > 0 ? Math.floor(saldo / consumoDiario) : null,
+        // 100 = encostando no mínimo; 0 = no topo da zona de atenção.
+        urgencia: folga > 0 ? Math.round(((minimo * FATOR_ZONA_ATENCAO - saldo) / folga) * 100) : 100,
+      };
+    })
+    // Quem tem menos dias de estoque primeiro; sem histórico, quem está mais perto do mínimo.
+    .sort((a, b) => {
+      if (a.coberturaDias !== null && b.coberturaDias !== null) return a.coberturaDias - b.coberturaDias;
+      if (a.coberturaDias !== null) return -1;
+      if (b.coberturaDias !== null) return 1;
+      return b.urgencia - a.urgencia;
+    })
+    .slice(0, TAMANHO_LISTA);
 
   return {
-    filters: {
-      period: normalizedFilters.period,
-      brand: selectedBrand?.slug ?? "todas",
-      channel: selectedChannel ?? "todos",
+    filtros: {
+      granularidade,
+      brand: marcaSelecionada?.slug ?? "todas",
       brands: [
         { value: "todas", label: "Todas as marcas" },
         ...marcas.map((item) => ({ value: item.slug, label: item.name })),
       ],
-      channels: [
-        { value: "todos", label: "Todos os canais" },
-        ...[...new Set([...CANAIS_PRIORITARIOS, "manual" as const])].map((item) => ({
-          value: item,
-          label: CANAL_LABEL[item] ?? item,
-        })),
-      ],
     },
-    revenue: {
-      value: formatCurrency(receitaTotalPeriodo),
-      peakLabel: formatCurrency(pico),
-      pendingText: pedidosPeriodo.length > 0
-        ? `${formatNumber(pedidosPeriodo.length)} pedido${pedidosPeriodo.length === 1 ? "" : "s"} nos ultimos ${periodDays} dias`
-        : "Sem pedidos reais no periodo",
-      bars: normalizeBars(receitasDiarias),
-    },
-    kpis: [
-      {
-        label: "Pedidos hoje",
-        value: formatNumber(pedidosHoje.length),
-        sub: pedidosHoje.length > 0 ? "Operacao em movimento" : "Nenhum pedido recebido hoje",
-        icon: "ShoppingBag",
-        accent: "#E3131B",
-      },
-      {
-        label: "Receita 30d",
-        value: formatCurrency(receitaTotalPeriodo),
-        sub: receitaTotalPeriodo > 0 ? `Periodo: ${periodDays} dias` : "Aguardando pedidos reais",
-        icon: "DollarSign",
-        accent: "#9B30D9",
-      },
-      {
-        label: "Clientes",
-        value: formatNumber(clientesRecentes.length),
-        sub: clientesRecentes.length > 0 ? "Ultimos cadastrados" : "Base ainda vazia",
-        icon: "Users",
-        accent: "#2563EB",
-      },
-      {
-        label: "SKUs em alerta",
-        value: formatNumber(skusAlerta.length),
-        sub: skusAlerta.length > 0 ? "Saldo no minimo ou abaixo" : "Sem alerta de minimo",
-        icon: "AlertTriangle",
-        accent: "#B57A00",
-      },
-    ],
-    recentClients: clientesRecentes.map((item) => {
-      const ultimoPedido = ultimoPedidoPorCliente.get(item.id);
-      return {
-        id: item.id,
-        name: item.nome,
-        role: ultimoPedido
-          ? `${CANAL_LABEL[ultimoPedido.canal] ?? ultimoPedido.canal} · ${brandLabel(ultimoPedido.brandSlug)}`
-          : "Cadastro sem pedido",
-        brand: ultimoPedido ? brandSlug(ultimoPedido.brandSlug) : undefined,
-      };
-    }),
-    recentOrders: pedidosRecentes.map((item) => ({
-      orderId: item.id,
-      id: `#${item.id.slice(0, 8)}`,
-      client: item.clienteNome,
-      brand: brandSlug(item.brandSlug),
-      status: STATUS_LABEL[item.status] ?? item.status,
-      value: formatCurrency(parseMoney(item.total)),
-      href: `/vendas/pedidos/${item.id}`,
-    })),
-    channels: [...canaisExistentes, ...canaisPendentes].slice(0, 8),
-    channelPerformance,
-    sellerPerformance,
-    ruleBlocks,
-    aiUsage: {
-      cost: `US$ ${aiCost.toFixed(2)}`,
-      runs: consumoIa.length,
-      successRate: consumoIa.length > 0 ? `${Math.round((aiSuccess / consumoIa.length) * 100)}%` : "0%",
-      detail: consumoIa.length > 0 ? "Execucoes auditadas em llm_run" : "Sem consumo de IA no periodo",
-    },
+    faturamento,
+    maisVendidos,
+    giroBaixo,
+    parados,
+    reposicao,
   };
 }

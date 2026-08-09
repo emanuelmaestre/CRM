@@ -27,6 +27,17 @@ type FiltroNota = "todas" | "excelentes" | "atencao" | "sem_avaliacao";
 
 const marcas = settingsConfig.mercadoLivre.brands;
 
+/* Trocar de aba desmonta este componente. Sem guardar o resultado, cada volta
+   refaz a consulta inteira ao Mercado Livre — que é 1 requisição por anúncio,
+   porque a API não tem endpoint de nota em lote. O cache de sessão deixa a volta
+   instantânea; o botão atualizar ignora ele e busca de novo. */
+const CACHE_TTL_MS = 5 * 60_000;
+let cacheAvaliacoes: { itens: Avaliacao[]; buscadoEm: number } | null = null;
+
+function cacheValido(): boolean {
+  return cacheAvaliacoes !== null && Date.now() - cacheAvaliacoes.buscadoEm < CACHE_TTL_MS;
+}
+
 function estrelas(nota: number | null) {
   const preenchidas = nota === null ? 0 : Math.round(nota);
   return Array.from({ length: 5 }, (_, index) => index < preenchidas);
@@ -64,18 +75,24 @@ function RatingStars({ nota, size = 15 }: { nota: number | null; size?: number }
 }
 
 export function InboxAvaliacoes() {
-  const [itens, setItens] = useState<Avaliacao[]>([]);
-  const [carregando, setCarregando] = useState(true);
+  const [itens, setItens] = useState<Avaliacao[]>(() => cacheAvaliacoes?.itens ?? []);
+  const [carregando, setCarregando] = useState(() => !cacheValido());
   const [busca, setBusca] = useState("");
   const [marca, setMarca] = useState("todas");
   const [nota, setNota] = useState<FiltroNota>("todas");
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (forcar = false) => {
+    if (!forcar && cacheValido() && cacheAvaliacoes) {
+      setItens(cacheAvaliacoes.itens);
+      setCarregando(false);
+      return;
+    }
     setCarregando(true);
     try {
       const resultados = await Promise.allSettled(marcas.map((item) => carregarMarca(item.slug, item.label)));
       const sucesso = resultados.flatMap((resultado) => resultado.status === "fulfilled" ? resultado.value : []);
       setItens(sucesso);
+      cacheAvaliacoes = { itens: sucesso, buscadoEm: Date.now() };
       const falhas = resultados.filter((resultado) => resultado.status === "rejected").length;
       if (falhas === resultados.length) throw new Error("Nenhuma conta do Mercado Livre respondeu.");
       if (falhas > 0) toast.warning(`${falhas} conta(s) não puderam ser consultadas.`);
@@ -152,7 +169,7 @@ export function InboxAvaliacoes() {
               <option value="atencao">Abaixo de 4,0</option>
               <option value="sem_avaliacao">Sem avaliação</option>
             </select>
-            <button type="button" onClick={() => void carregar()} disabled={carregando} className="flex h-10 w-10 items-center justify-center rounded-xl border border-border hover:bg-muted disabled:opacity-50" title="Atualizar avaliações">
+            <button type="button" onClick={() => void carregar(true)} disabled={carregando} className="press-feedback flex h-10 w-10 items-center justify-center rounded-xl border border-border hover:bg-muted disabled:opacity-50" title="Atualizar avaliações">
               <RefreshCw size={15} className={carregando ? "animate-spin" : ""} />
             </button>
           </div>

@@ -66,6 +66,28 @@ export interface MLAnuncioCatalogo {
   reviewsTotal: number | null;
 }
 
+/** Reclamação bruta do endpoint de claims do pós-venda. */
+interface MLClaimDetail {
+  id?: number | string;
+  status?: string;
+  stage?: string;
+  reason_id?: string;
+  resource?: string;
+  resource_id?: number | string;
+  date_created?: string;
+  last_updated?: string;
+}
+
+export interface MLReclamacao {
+  id: string;
+  status: string;
+  estagio: string | null;
+  motivo: string | null;
+  pedidoExternoId: string | null;
+  abertaEm: string | null;
+  atualizadaEm: string | null;
+}
+
 type MLRatings = ReadonlyMap<string, { ratingAverage: number | null; reviewsTotal: number | null }>;
 
 function skuDosAtributos(attributes?: MLAttribute[]): string | null {
@@ -291,6 +313,26 @@ export class MercadoLivreProvider implements ChannelProvider {
       offset,
       limit,
     };
+  }
+
+  // Reclamações (claims) do pós-venda. São read-only aqui: o dashboard só
+  // aponta o que existe em aberto — tratar/responder continua sendo feito no
+  // painel do Mercado Livre, que tem o fluxo de mediação completo.
+  async listarReclamacoesAbertas(): Promise<MLReclamacao[]> {
+    const data = await this.get<{ data?: MLClaimDetail[] }>(
+      "/post-purchase/v1/claims/search?status=opened&limit=50&sort=date_created,desc",
+    );
+    return (data.data ?? []).map((claim) => ({
+      id: String(claim.id),
+      status: claim.status ?? "opened",
+      estagio: claim.stage ?? null,
+      motivo: claim.reason_id ?? null,
+      pedidoExternoId: claim.resource === "order" && claim.resource_id !== undefined
+        ? String(claim.resource_id)
+        : null,
+      abertaEm: claim.date_created ?? null,
+      atualizadaEm: claim.last_updated ?? null,
+    }));
   }
 
   async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {
