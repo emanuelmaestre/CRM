@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MercadoLivreProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { MercadoLivreProvider, normalizarAvaliacoesItem } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { OlistProvider } from "@/modules/canais/infrastructure/olist.provider";
 import { ShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 
@@ -305,6 +305,55 @@ describe("contratos dos providers de marketplace", () => {
     expect(String(fetchMock.mock.calls[1][0])).toContain("/v1/seller-products/OLIST-SKU/");
     expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
       stock: [{ quantity: 7, availability_days: 0 }],
+    });
+  });
+});
+
+describe("normalização de opiniões do Mercado Livre", () => {
+  const resposta = {
+    rating_average: 4.6,
+    paging: { total: 52 },
+    rating_levels: { one_star: 3, two_star: 0, three_star: 3, four_star: 5, five_star: 41 },
+    reviews: [
+      { id: 1, title: "Antiga", content: "Chegou certo", rate: 5, status: "published", date_created: "2024-01-10T12:00:00Z" },
+      { id: 2, title: "Recente", content: "Muito bom", rate: 4, status: "published", date_created: "2025-06-02T12:00:00Z" },
+    ],
+  };
+
+  it("extrai distribuição, média e total da mesma resposta", () => {
+    const resultado = normalizarAvaliacoesItem(resposta);
+
+    expect(resultado.ratingAverage).toBe(4.6);
+    expect(resultado.reviewsTotal).toBe(52);
+    expect(resultado.ratingLevels).toEqual({ uma: 3, duas: 0, tres: 3, quatro: 5, cinco: 41 });
+  });
+
+  it("ordena as opiniões da mais recente para a mais antiga", () => {
+    const resultado = normalizarAvaliacoesItem(resposta);
+
+    expect(resultado.opinioes.map((opiniao) => opiniao.titulo)).toEqual(["Recente", "Antiga"]);
+  });
+
+  it("descarta opinião não publicada e opinião sem texto algum", () => {
+    const resultado = normalizarAvaliacoesItem({
+      reviews: [
+        { id: 10, title: "Escondida", content: "Removida", rate: 1, status: "deleted" },
+        { id: 11, rate: 5, status: "published" },
+        { id: 12, content: "Vale a pena", rate: 5, status: "published" },
+      ],
+    });
+
+    expect(resultado.opinioes.map((opiniao) => opiniao.id)).toEqual(["12"]);
+  });
+
+  it("sobrevive a uma resposta sem nota, sem níveis e sem opiniões", () => {
+    const resultado = normalizarAvaliacoesItem({});
+
+    expect(resultado).toEqual({
+      ratingAverage: null,
+      reviewsTotal: null,
+      ratingLevels: null,
+      opinioes: [],
     });
   });
 });

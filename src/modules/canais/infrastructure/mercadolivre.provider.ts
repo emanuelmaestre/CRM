@@ -64,6 +64,29 @@ export interface MLAnuncioCatalogo {
   // avaliação por variação. Null quando a consulta falhou ou não há opiniões.
   ratingAverage: number | null;
   reviewsTotal: number | null;
+  // Distribuição por estrela e as opiniões em si vêm na mesma resposta da nota;
+  // aproveitá-las não custa requisição nenhuma.
+  ratingLevels: MLDistribuicaoNotas | null;
+  opinioes: MLOpiniao[];
+}
+
+/** Opinião de um comprador sobre o produto. Leitura apenas: a API do Mercado
+ *  Livre não expõe endpoint para o vendedor responder uma opinião. */
+export interface MLOpiniao {
+  id: string;
+  titulo: string | null;
+  conteudo: string | null;
+  nota: number;
+  criadaEm: string | null;
+}
+
+/** Quantidade de opiniões por estrela, de 1 a 5. */
+export interface MLDistribuicaoNotas {
+  uma: number;
+  duas: number;
+  tres: number;
+  quatro: number;
+  cinco: number;
 }
 
 /** Reclamação bruta do endpoint de claims do pós-venda. */
@@ -88,7 +111,83 @@ export interface MLReclamacao {
   atualizadaEm: string | null;
 }
 
-type MLRatings = ReadonlyMap<string, { ratingAverage: number | null; reviewsTotal: number | null }>;
+type MLRating = {
+  ratingAverage: number | null;
+  reviewsTotal: number | null;
+  ratingLevels: MLDistribuicaoNotas | null;
+  opinioes: MLOpiniao[];
+};
+
+const SEM_AVALIACAO: MLRating = {
+  ratingAverage: null,
+  reviewsTotal: null,
+  ratingLevels: null,
+  opinioes: [],
+};
+
+type MLRatings = ReadonlyMap<string, MLRating>;
+
+/** Resposta crua de GET /reviews/item/{id}. */
+interface MLReviewsResponse {
+  rating_average?: number;
+  paging?: { total?: number };
+  rating_levels?: Record<string, unknown>;
+  reviews?: Array<{
+    id?: number | string;
+    title?: string;
+    content?: string;
+    rate?: number;
+    status?: string;
+    date_created?: string;
+  }>;
+}
+
+/** Quantas opiniões guardamos por anúncio. A API devolve as mais relevantes;
+ *  além disso o payload cresce sem o operador conseguir ler tudo. */
+const MAX_OPINIOES_POR_ANUNCIO = 20;
+
+function contar(valor: unknown): number {
+  return typeof valor === "number" && Number.isFinite(valor) ? valor : 0;
+}
+
+function textoOuNulo(valor: string | undefined): string | null {
+  const limpo = valor?.trim();
+  return limpo ? limpo : null;
+}
+
+export function normalizarAvaliacoesItem(data: MLReviewsResponse): MLRating {
+  const brutas = Array.isArray(data.reviews) ? data.reviews : [];
+  const niveis = data.rating_levels;
+
+  const opinioes = brutas
+    // Só opinião publicada e com algo escrito — estrela sem texto já está na média.
+    .filter((review) => (review.status ?? "published") === "published")
+    .map((review): MLOpiniao => ({
+      id: String(review.id ?? ""),
+      titulo: textoOuNulo(review.title),
+      conteudo: textoOuNulo(review.content),
+      nota: contar(review.rate),
+      criadaEm: textoOuNulo(review.date_created),
+    }))
+    .filter((opiniao) => opiniao.id && (opiniao.titulo || opiniao.conteudo))
+    .sort((a, b) => (b.criadaEm ?? "").localeCompare(a.criadaEm ?? ""))
+    .slice(0, MAX_OPINIOES_POR_ANUNCIO);
+
+  return {
+    ratingAverage: typeof data.rating_average === "number" ? data.rating_average : null,
+    reviewsTotal: data.paging?.total ?? (brutas.length || null),
+    ratingLevels: niveis
+      ? {
+          uma: contar(niveis.one_star),
+          duas: contar(niveis.two_star),
+          tres: contar(niveis.three_star),
+          quatro: contar(niveis.four_star),
+          cinco: contar(niveis.five_star),
+        }
+      : null,
+    opinioes,
+  };
+}
 
 function skuDosAtributos(attributes?: MLAttribute[]): string | null {
   const atributo = attributes?.find((item) => item.id === "SELLER_SKU");
@@ -100,7 +199,7 @@ function skuDosAtributos(attributes?: MLAttribute[]): string | null {
 export function normalizarCatalogoMercadoLivre(items: MLItemDetail[], ratings: MLRatings = new Map()): MLAnuncioCatalogo[] {
   return items.flatMap<MLAnuncioCatalogo>((item): MLAnuncioCatalogo[] => {
     const skuItem = skuDosAtributos(item.attributes) || item.seller_custom_field?.trim() || null;
-    const rating = ratings.get(item.id) ?? { ratingAverage: null, reviewsTotal: null };
+    const rating = ratings.get(item.id) ?? SEM_AVALIACAO;
     const variations = item.variations ?? [];
     if (variations.length === 0) {
       return [{
@@ -255,22 +354,19 @@ export class MercadoLivreProvider implements ChannelProvider {
     };
   }
 
-  // Nota do produto é read-only na API do ML — não há endpoint pra solicitar
-  // ou escrever avaliação, só consultar o que já existe. Falha por item não
-  // derruba o catálogo inteiro: fica sem nota, o resto segue normal.
+  // Opinião de produto é read-only na API do ML — não há endpoint pra solicitar
+  // ou responder avaliação, só consultar o que já existe (GET /reviews/item).
+  // A mesma resposta traz a média, a distribuição por estrela e os textos das
+  // opiniões, então lê-los é de graça. Falha por item não derruba o catálogo
+  // inteiro: fica sem nota, o resto segue normal.
   private async buscarAvaliacoes(itemIds: string[]): Promise<MLRatings> {
     const unicos = [...new Set(itemIds)];
     const resultados = await Promise.all(unicos.map(async (id) => {
       try {
-        const data = await this.get<{ rating_average?: number; reviews?: unknown[]; paging?: { total?: number } }>(
-          `/reviews/item/${encodeURIComponent(id)}`,
-        );
-        return [id, {
-          ratingAverage: typeof data.rating_average === "number" ? data.rating_average : null,
-          reviewsTotal: data.paging?.total ?? (Array.isArray(data.reviews) ? data.reviews.length : null),
-        }] as const;
+        const data = await this.get<MLReviewsResponse>(`/reviews/item/${encodeURIComponent(id)}`);
+        return [id, normalizarAvaliacoesItem(data)] as const;
       } catch {
-        return [id, { ratingAverage: null, reviewsTotal: null }] as const;
+        return [id, SEM_AVALIACAO] as const;
       }
     }));
     return new Map(resultados);
