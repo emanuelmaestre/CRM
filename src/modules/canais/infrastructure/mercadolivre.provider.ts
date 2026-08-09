@@ -101,6 +101,28 @@ interface MLClaimDetail {
   last_updated?: string;
 }
 
+/** Mensagem bruta de GET /post-purchase/v1/claims/{id}/messages. */
+interface MLClaimMessageRaw {
+  sender_role?: string;
+  receiver_role?: string;
+  message?: string;
+  date_created?: string;
+  status?: string;
+}
+
+/** Uma mensagem dentro de uma reclamação — troca entre comprador, vendedor e,
+ *  se escalou, o mediador do Mercado Livre. */
+export interface MLReclamacaoMensagem {
+  remetente: "complainant" | "respondent" | "mediator" | string;
+  destinatario: "complainant" | "respondent" | "mediator" | string;
+  texto: string;
+  criadaEm: string | null;
+}
+
+/** Para quem a resposta do vendedor (respondent) pode ir, conforme a etapa da
+ *  reclamação — ver tabela "available_actions" na documentação oficial. */
+export type MLReclamacaoDestinatario = "complainant" | "mediator";
+
 export interface MLReclamacao {
   id: string;
   status: string;
@@ -411,9 +433,7 @@ export class MercadoLivreProvider implements ChannelProvider {
     };
   }
 
-  // Reclamações (claims) do pós-venda. São read-only aqui: o dashboard só
-  // aponta o que existe em aberto — tratar/responder continua sendo feito no
-  // painel do Mercado Livre, que tem o fluxo de mediação completo.
+  // Reclamações (claims) do pós-venda.
   async listarReclamacoesAbertas(): Promise<MLReclamacao[]> {
     const data = await this.get<{ data?: MLClaimDetail[] }>(
       "/post-purchase/v1/claims/search?status=opened&limit=50&sort=date_created,desc",
@@ -429,6 +449,51 @@ export class MercadoLivreProvider implements ChannelProvider {
       abertaEm: claim.date_created ?? null,
       atualizadaEm: claim.last_updated ?? null,
     }));
+  }
+
+  async listarMensagensReclamacao(claimId: string): Promise<MLReclamacaoMensagem[]> {
+    const claimIdNumero = Number(claimId);
+    if (!Number.isSafeInteger(claimIdNumero) || claimIdNumero <= 0) {
+      throw new Error("ID de reclamação do Mercado Livre inválido.");
+    }
+    const mensagens = await this.get<MLClaimMessageRaw[]>(
+      `/post-purchase/v1/claims/${claimIdNumero}/messages`,
+    );
+    return (Array.isArray(mensagens) ? mensagens : [])
+      // Mensagens moderadas/rejeitadas não vêm com texto utilizável — a API já
+      // filtra a maioria, mas alguns registros antigos chegam com status vazio.
+      .filter((mensagem) => (mensagem.status ?? "available") !== "rejected" && mensagem.message)
+      .map((mensagem) => ({
+        remetente: mensagem.sender_role ?? "desconhecido",
+        destinatario: mensagem.receiver_role ?? "desconhecido",
+        texto: mensagem.message ?? "",
+        criadaEm: mensagem.date_created ?? null,
+      }))
+      .sort((a, b) => (a.criadaEm ?? "").localeCompare(b.criadaEm ?? ""));
+  }
+
+  /** O vendedor é sempre "respondent". destinatario vem da etapa da reclamação:
+   *  "claim" → complainant, "dispute" (mediação) → mediator (ver tabela
+   *  available_actions da documentação oficial). */
+  async responderReclamacao(claimId: string, mensagem: string, destinatario: MLReclamacaoDestinatario): Promise<void> {
+    const claimIdNumero = Number(claimId);
+    if (!Number.isSafeInteger(claimIdNumero) || claimIdNumero <= 0) {
+      throw new Error("ID de reclamação do Mercado Livre inválido.");
+    }
+    const res = await fetch(`${this.baseUrl}/post-purchase/v1/claims/${claimIdNumero}/actions/send-message`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.creds.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ receiver_role: destinatario, message: mensagem, attachments: [] }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      // A resposta de sucesso é "201 created" sem corpo JSON útil — só falha vira texto.
+      const detail = (await res.text()).replace(/[\r\n]+/g, " ").slice(0, 300);
+      throw new Error(`Mercado Livre HTTP ${res.status} ao responder reclamação: ${detail}`);
+    }
   }
 
   async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {

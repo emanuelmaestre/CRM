@@ -77,7 +77,16 @@
       "emptyTitle": "Nenhuma reclamação aberta",
       "emptyDescription": "Nada pendente de resposta no Mercado Livre agora.",
       "disconnectedTitle": "Mercado Livre desconectado",
-      "disconnectedDescription": "Conecte uma conta em Configurações para acompanhar as reclamações."
+      "disconnectedDescription": "Conecte uma conta em Configurações para acompanhar as reclamações.",
+      "toComplainant": "Respondendo a quem reclamou",
+      "toMediator": "Respondendo ao mediador",
+      "emptyThread": "Nenhuma mensagem trocada nesta reclamação ainda.",
+      "loadingThread": "Carregando mensagens…",
+      "threadError": "Não foi possível carregar as mensagens desta reclamação.",
+      "placeholder": "Escreva sua resposta…",
+      "send": "Enviar",
+      "sendError": "Não foi possível enviar a resposta.",
+      "sendSuccess": "Resposta enviada."
     }
   }
 }

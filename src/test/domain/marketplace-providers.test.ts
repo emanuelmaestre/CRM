@@ -357,3 +357,67 @@ describe("normalização de opiniões do Mercado Livre", () => {
     });
   });
 });
+
+describe("mensagens de reclamação do Mercado Livre", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("lista mensagens da reclamação, ordenadas da mais antiga para a mais nova", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify([
+      { sender_role: "respondent", receiver_role: "complainant", message: "Segunda", date_created: "2026-02-02T00:00:00Z", status: "available" },
+      { sender_role: "complainant", receiver_role: "respondent", message: "Primeira", date_created: "2026-02-01T00:00:00Z", status: "available" },
+      { sender_role: "respondent", receiver_role: "complainant", message: "", date_created: "2026-02-03T00:00:00Z", status: "available" },
+    ]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
+    });
+    const mensagens = await provider.listarMensagensReclamacao("5204934310");
+
+    expect(mensagens.map((m) => m.texto)).toEqual(["Primeira", "Segunda"]);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/post-purchase/v1/claims/5204934310/messages");
+  });
+
+  it("responde a quem reclamou quando a reclamação ainda não escalou", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response("status 201 created", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
+    });
+    await provider.responderReclamacao("5204934310", "Vamos resolver.", "complainant");
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/post-purchase/v1/claims/5204934310/actions/send-message");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+      receiver_role: "complainant",
+      message: "Vamos resolver.",
+      attachments: [],
+    });
+  });
+
+  it("responde ao mediador quando a reclamação está em mediação", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response("status 201 created", { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
+    });
+    await provider.responderReclamacao("5204934310", "Envio comprovante.", "mediator");
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({ receiver_role: "mediator" });
+  });
+
+  it("propaga erro da API ao responder reclamação", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response("conversa bloqueada", { status: 409 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
+    });
+
+    await expect(provider.responderReclamacao("5204934310", "Oi", "complainant")).rejects.toThrow(/409/);
+  });
+});

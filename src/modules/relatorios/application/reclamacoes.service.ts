@@ -2,7 +2,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { brand, channelAccount, pedido } from "@/shared/lib/db/schema";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import type { MLReclamacaoDestinatario } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 /** Estágios do pós-venda do Mercado Livre, na ordem em que escalam. */
 const ESTAGIO_LABEL: Record<string, string> = {
@@ -124,4 +125,66 @@ export async function obterReclamacoesAbertas(ctx: CrudContext): Promise<Reclama
     marcasComFalha,
     semContaConectada: false,
   };
+}
+
+export interface ReclamacaoMensagem {
+  deVendedor: boolean;
+  destinatario: string;
+  texto: string;
+  criadaEm: string | null;
+}
+
+/** Reclamação não é persistida localmente — a marca é o que identifica qual
+ *  conta do Mercado Livre consultar, tal como já chega em ReclamacaoResumo.marca. */
+export async function listarMensagensReclamacao(
+  ctx: CrudContext,
+  marca: string,
+  claimId: string,
+): Promise<ReclamacaoMensagem[]> {
+  if (!isBrandSlug(marca)) throw new Error("Marca inválida.");
+  await confirmarContaConectada(ctx, marca);
+  const provider = await criarMLProvider(marca);
+  const mensagens = await provider.listarMensagensReclamacao(claimId);
+  return mensagens.map((mensagem) => ({
+    deVendedor: mensagem.remetente === "respondent",
+    destinatario: mensagem.destinatario,
+    texto: mensagem.texto,
+    criadaEm: mensagem.criadaEm,
+  }));
+}
+
+export async function responderReclamacao(
+  ctx: CrudContext,
+  marca: string,
+  claimId: string,
+  mensagem: string,
+  emMediacao: boolean,
+): Promise<void> {
+  if (process.env.EXTERNAL_SENDS_ENABLED !== "true") {
+    throw new Error("Envios externos desabilitados até a liberação de go-live.");
+  }
+  if (!isBrandSlug(marca)) throw new Error("Marca inválida.");
+  await confirmarContaConectada(ctx, marca);
+  const provider = await criarMLProvider(marca);
+  // O vendedor é sempre "respondent"; o destinatário segue a etapa da
+  // reclamação (ver available_actions na documentação oficial do Mercado
+  // Livre): em disputa/mediação vai para o mediador, senão para quem reclamou.
+  const destinatario: MLReclamacaoDestinatario = emMediacao ? "mediator" : "complainant";
+  await provider.responderReclamacao(claimId, mensagem, destinatario);
+}
+
+async function confirmarContaConectada(ctx: CrudContext, marca: BrandSlug): Promise<void> {
+  const conta = await ctx.db
+    .select({ id: channelAccount.id })
+    .from(channelAccount)
+    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
+    .where(and(
+      eq(channelAccount.orgId, ctx.orgId),
+      eq(channelAccount.tipo, "mercadolivre"),
+      eq(channelAccount.status, "conectado"),
+      eq(brand.slug, marca),
+      eq(brand.active, true),
+    ))
+    .then((rows) => rows[0]);
+  if (!conta) throw new Error("Conta Mercado Livre não conectada para esta marca.");
 }
