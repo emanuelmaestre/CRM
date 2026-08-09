@@ -5,7 +5,7 @@ test.describe("Autenticação e perfis", () => {
     await page.goto("/configuracoes");
     await expect(page).toHaveURL(/\/configuracoes$/);
     await expect(page.getByRole("heading", { name: "Configurações" })).toBeVisible();
-    await expect(page.getByText("Usuários e perfis")).toBeVisible();
+    await expect(page.getByText("Organização e acesso")).toBeVisible();
   });
 
   test("visitante é redirecionado para o login", async ({ page }) => {
