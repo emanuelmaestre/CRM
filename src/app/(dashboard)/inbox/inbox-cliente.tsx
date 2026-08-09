@@ -110,17 +110,24 @@ export function InboxCliente() {
     startTransition(async () => {
       setLoading(true);
       try {
-        // Sincronização ativa: busca pedidos recentes na API do ML e importa
-        // mensagens pós-venda que ainda não chegaram por webhook. Falha aqui
-        // não deve impedir a lista de carregar com o que já está salvo.
-        await actionSincronizarConversas().catch((error) => {
-          console.error("[inbox] sincronização de conversas falhou", error);
-        });
         setConversas(await actionListarConversas());
       } catch {
         toast.error(copy.messages.conversationsError);
       } finally {
         setLoading(false);
+      }
+
+      // Sincronização ativa: busca pedidos recentes na API do ML e importa
+      // mensagens pós-venda que ainda não chegaram por webhook. Roda depois
+      // de já exibir o que está salvo, pra não segurar a tela — se achar
+      // mensagem nova, a lista é atualizada silenciosamente em seguida.
+      try {
+        const { mensagensNovas } = await actionSincronizarConversas();
+        if (mensagensNovas > 0) {
+          setConversas(await actionListarConversas());
+        }
+      } catch (error) {
+        console.error("[inbox] sincronização de conversas falhou", error);
       }
     });
   }, []);
