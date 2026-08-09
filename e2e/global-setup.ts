@@ -5,7 +5,7 @@ import { chromium, type FullConfig } from "@playwright/test";
 const STORAGE_STATE_PATH = "e2e/.auth/user.json";
 
 async function globalSetup(config: FullConfig) {
-  const baseURL = config.projects[0]?.use.baseURL ?? "http://localhost:3000";
+  const baseURL = config.projects[0]?.use.baseURL ?? "http://localhost:3001";
   const email = process.env.E2E_USER_EMAIL;
   const password = process.env.E2E_USER_PASSWORD;
 

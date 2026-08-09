@@ -8,7 +8,7 @@ export default defineConfig({
   reporter: "html",
   globalSetup: "./e2e/global-setup.ts",
   use: {
-    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3001",
     storageState: "e2e/.auth/user.json",
     trace: "on-first-retry",
   },
@@ -33,7 +33,7 @@ export default defineConfig({
   ],
   webServer: {
     command: process.env.CI ? "npm run start" : "npm run dev",
-    url: process.env.E2E_BASE_URL ?? "http://localhost:3000",
+    url: process.env.E2E_BASE_URL ?? "http://localhost:3001",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
