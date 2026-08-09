@@ -31,7 +31,7 @@ validacao, erro visivel e isolamento por org/marca.
 | `/api/ml/connect` | `GET` | Inicio OAuth Mercado Livre | Gera URL de autorizacao por marca/conta. |
 | `/api/ml/callback` | `GET` | Callback OAuth | Persiste referencia segura de token em `channel_account`. |
 | `/api/ml/status` | `GET` | Estado da conexao | Retorna status sem expor token. |
-| `/api/webhooks/mercadolivre` | `POST` | Eventos ML | Valida origem, normaliza pedido/pergunta e enfileira ingestao. |
+| `/api/webhooks/mercadolivre` | `POST` | Eventos ML | Confere `application_id` do payload contra `ML_CLIENT_ID` (o produto de notificacoes de marketplace da ML nao usa assinatura HMAC, diferente do Mercado Pago), normaliza pedido/pergunta/mensagem e enfileira ingestao. |
 
 ## Marketplaces
 

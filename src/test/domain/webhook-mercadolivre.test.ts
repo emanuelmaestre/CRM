@@ -1,4 +1,3 @@
-import { createHmac } from "crypto";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,18 +23,15 @@ vi.mock("@/modules/inbox/application/inbox.service", () => ({
 
 const { POST } = await import("@/app/api/webhooks/mercadolivre/route");
 
+const CLIENT_ID = "1234567890";
+const APPLICATION_ID = Number(CLIENT_ID);
+
 const CONTA = {
   orgId: "22222222-2222-4222-8222-222222222222",
   brandId: "33333333-3333-4333-8333-333333333333",
   brandSlug: "karzi",
   channelAccountId: "44444444-4444-4444-8444-444444444444",
 };
-
-function assinar(body: string, requestId: string, secret: string, ts = String(Date.now())) {
-  const payload = `x-request-id:${requestId};request-id:${requestId};ts:${ts}`;
-  const v1 = createHmac("sha256", secret).update(payload).digest("hex");
-  return { signature: `ts=${ts},v1=${v1}`, requestId };
-}
 
 function montarRequest(body: unknown, headers: Record<string, string> = {}) {
   const raw = JSON.stringify(body);
@@ -47,58 +43,50 @@ function montarRequest(body: unknown, headers: Record<string, string> = {}) {
 }
 
 describe("webhook Mercado Livre", () => {
-  const SECRET = "segredo-teste-ml";
-  let originalSecret: string | undefined;
+  let originalClientId: string | undefined;
   let originalFetch: typeof fetch;
 
   beforeEach(() => {
-    originalSecret = process.env.ML_CLIENT_SECRET;
-    process.env.ML_CLIENT_SECRET = SECRET;
+    originalClientId = process.env.ML_CLIENT_ID;
+    process.env.ML_CLIENT_ID = CLIENT_ID;
     originalFetch = global.fetch;
     vi.clearAllMocks();
   });
 
   afterEach(() => {
-    if (originalSecret === undefined) delete process.env.ML_CLIENT_SECRET;
-    else process.env.ML_CLIENT_SECRET = originalSecret;
+    if (originalClientId === undefined) delete process.env.ML_CLIENT_ID;
+    else process.env.ML_CLIENT_ID = originalClientId;
     global.fetch = originalFetch;
   });
 
-  it("rejeita quando o secret não está configurado", async () => {
-    delete process.env.ML_CLIENT_SECRET;
-    const req = montarRequest({ topic: "orders_v2", resource: "/orders/1", user_id: "1" });
+  it("rejeita quando o ML_CLIENT_ID não está configurado", async () => {
+    delete process.env.ML_CLIENT_ID;
+    const req = montarRequest({ topic: "orders_v2", resource: "/orders/1", user_id: "1", application_id: APPLICATION_ID });
     const res = await POST(req);
     expect(res.status).toBe(503);
   });
 
-  it("rejeita quando a assinatura está ausente", async () => {
-    const req = montarRequest({ topic: "orders_v2", resource: "/orders/1", user_id: "1" });
+  it("rejeita quando application_id não bate com ML_CLIENT_ID", async () => {
+    const req = montarRequest({ topic: "orders_v2", resource: "/orders/1", user_id: "1", application_id: 999 });
     const res = await POST(req);
     expect(res.status).toBe(401);
   });
 
-  it("rejeita quando a assinatura é inválida", async () => {
-    const body = { topic: "orders_v2", resource: "/orders/1", user_id: "1" };
-    const req = montarRequest(body, {
-      "x-signature": "ts=123,v1=assinaturaerrada",
-      "x-request-id": "req-1",
-    });
+  it("rejeita quando application_id está ausente", async () => {
+    const req = montarRequest({ topic: "orders_v2", resource: "/orders/1", user_id: "1" });
     const res = await POST(req);
     expect(res.status).toBe(401);
   });
 
   it("rejeita payload que excede o limite de tamanho declarado", async () => {
-    const body = { topic: "orders_v2", resource: "/orders/1", user_id: "1" };
+    const body = { topic: "orders_v2", resource: "/orders/1", user_id: "1", application_id: APPLICATION_ID };
     const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-2", SECRET);
     const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
       method: "POST",
       body: raw,
       headers: {
         "content-type": "application/json",
         "content-length": String(1_048_577),
-        "x-signature": signature,
-        "x-request-id": requestId,
       },
     });
     const res = await POST(req);
@@ -107,15 +95,12 @@ describe("webhook Mercado Livre", () => {
 
   it("rejeita JSON malformado", async () => {
     const raw = "{ isso não é json";
-    const { signature, requestId } = assinar(raw, "req-3", SECRET);
     const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
       method: "POST",
       body: raw,
       headers: {
         "content-type": "application/json",
         "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
       },
     });
     const res = await POST(req);
@@ -124,36 +109,14 @@ describe("webhook Mercado Livre", () => {
 
   it("rejeita payload que não bate com o schema esperado", async () => {
     const body = { topic: "orders_v2" }; // falta resource e user_id
-    const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-4", SECRET);
-    const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
-      },
-    });
+    const req = montarRequest(body);
     const res = await POST(req);
     expect(res.status).toBe(422);
   });
 
   it("ignora tópicos fora da lista suportada sem chamar a API do ML", async () => {
-    const body = { topic: "payments", resource: "/payments/1", user_id: "1" };
-    const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-5", SECRET);
-    const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
-      },
-    });
+    const body = { topic: "payments", resource: "/payments/1", user_id: "1", application_id: APPLICATION_ID };
+    const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
     expect(json).toMatchObject({ ok: true, ignorado: true, topic: "payments" });
@@ -177,19 +140,8 @@ describe("webhook Mercado Livre", () => {
       }),
     }) as unknown as typeof fetch;
 
-    const body = { topic: "orders_v2", resource: "/orders/999", user_id: "555" };
-    const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-6", SECRET);
-    const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
-      },
-    });
+    const body = { topic: "orders_v2", resource: "/orders/999", user_id: "555", application_id: APPLICATION_ID };
+    const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
 
@@ -213,19 +165,8 @@ describe("webhook Mercado Livre", () => {
     mocks.resolverContaWebhookMarketplace.mockResolvedValue(CONTA);
     mocks.obterTokenMercadoLivre.mockResolvedValue({ accessToken: "token-abc" });
 
-    const body = { topic: "orders_v2", resource: "/nao-tem-order", user_id: "555" };
-    const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-7", SECRET);
-    const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
-      },
-    });
+    const body = { topic: "orders_v2", resource: "/nao-tem-order", user_id: "555", application_id: APPLICATION_ID };
+    const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
     expect(json).toMatchObject({ ok: true, ignorado: true, motivo: "sem-order-id" });
@@ -248,19 +189,8 @@ describe("webhook Mercado Livre", () => {
       }),
     }) as unknown as typeof fetch;
 
-    const body = { topic: "messages", resource: "/messages/msg-1", user_id: "555" };
-    const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-8", SECRET);
-    const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
-      },
-    });
+    const body = { topic: "messages", resource: "/messages/msg-1", user_id: "555", application_id: APPLICATION_ID };
+    const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
     expect(res.status).toBe(200);
@@ -279,19 +209,8 @@ describe("webhook Mercado Livre", () => {
       json: async () => ({ message_id: "msg-2" }),
     }) as unknown as typeof fetch;
 
-    const body = { topic: "messages", resource: "/messages/msg-2", user_id: "555" };
-    const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-9", SECRET);
-    const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
-      },
-    });
+    const body = { topic: "messages", resource: "/messages/msg-2", user_id: "555", application_id: APPLICATION_ID };
+    const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
     expect(json).toMatchObject({ ok: true, ignorado: true, motivo: "mensagem-sem-texto" });
@@ -313,19 +232,8 @@ describe("webhook Mercado Livre", () => {
       }),
     }) as unknown as typeof fetch;
 
-    const body = { topic: "questions", resource: "/questions/77", user_id: "555" };
-    const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-10", SECRET);
-    const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
-      },
-    });
+    const body = { topic: "questions", resource: "/questions/77", user_id: "555", application_id: APPLICATION_ID };
+    const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
     expect(res.status).toBe(200);
@@ -340,19 +248,8 @@ describe("webhook Mercado Livre", () => {
   it("retorna 500 e não vaza detalhes quando a conta do webhook não é resolvida", async () => {
     mocks.resolverContaWebhookMarketplace.mockRejectedValue(new Error("conta não encontrada"));
 
-    const body = { topic: "orders_v2", resource: "/orders/1", user_id: "999" };
-    const raw = JSON.stringify(body);
-    const { signature, requestId } = assinar(raw, "req-11", SECRET);
-    const req = new NextRequest("http://localhost/api/webhooks/mercadolivre", {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "content-length": String(Buffer.byteLength(raw)),
-        "x-signature": signature,
-        "x-request-id": requestId,
-      },
-    });
+    const body = { topic: "orders_v2", resource: "/orders/1", user_id: "999", application_id: APPLICATION_ID };
+    const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
     expect(res.status).toBe(500);

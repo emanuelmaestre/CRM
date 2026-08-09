@@ -5,7 +5,6 @@ import { resolverContaWebhookMarketplace } from "@/modules/canais/application/we
 import { obterTokenMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
-import { validarAssinaturaML } from "@/shared/lib/ml-signature";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -36,16 +35,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const bloqueio = await verificarRateLimit(req, "webhook");
   if (bloqueio) return bloqueio;
 
-  const secret = process.env.ML_CLIENT_SECRET;
-  if (!secret) {
+  const clientId = process.env.ML_CLIENT_ID;
+  if (!clientId) {
     return NextResponse.json({ error: "Webhook não configurado" }, { status: 503 });
-  }
-  if (!validarAssinaturaML(
-    req.headers.get("x-signature"),
-    req.headers.get("x-request-id"),
-    secret,
-  )) {
-    return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 });
   }
 
   const contentLength = Number(req.headers.get("content-length") ?? "0");
@@ -66,6 +58,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const resultado = MLNotificationSchema.safeParse(body);
   if (!resultado.success) {
     return NextResponse.json({ error: "Schema inválido" }, { status: 422 });
+  }
+
+  // Notificações da Mercado Livre (produto de marketplace) não usam assinatura
+  // HMAC — esse mecanismo é do Mercado Pago, produto diferente. A forma
+  // oficial de confirmar que a notificação é para o nosso app é conferir o
+  // application_id do payload contra o client_id da aplicação.
+  // https://developers.mercadolivre.com.br/pt_br/produto-receba-notificacoes
+  if (String(resultado.data.application_id ?? "") !== clientId) {
+    return NextResponse.json({ error: "Aplicação não reconhecida" }, { status: 401 });
   }
 
   const { topic, resource, user_id: sellerId } = resultado.data;
