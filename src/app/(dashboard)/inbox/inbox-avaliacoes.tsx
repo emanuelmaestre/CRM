@@ -83,20 +83,28 @@ function formatarData(iso: string | null): string {
   return Number.isNaN(data.getTime()) ? "" : dataCurta.format(data);
 }
 
+async function buscarPagina(slug: string, label: string, offset: number): Promise<CatalogResponse> {
+  const response = await fetch(`/api/ml/catalog?brand=${slug}&offset=${offset}&limit=50`);
+  const body = await response.json() as CatalogResponse | { error?: string };
+  if (!response.ok || !("items" in body)) {
+    throw new Error("error" in body && body.error ? body.error : `Falha ao consultar ${label}.`);
+  }
+  return body;
+}
+
+/* A primeira página sai sozinha pra saber o total de anúncios; as páginas
+   seguintes já são conhecidas de antemão, então saem todas em paralelo em
+   vez de uma esperando a outra — corta o tempo de carregamento à metade
+   ou mais quando a marca tem muitos anúncios. */
 async function carregarMarca(slug: string, label: string): Promise<Avaliacao[]> {
-  const acumulado: CatalogItem[] = [];
-  let offset = 0;
-  let total = 1;
-  while (offset < total) {
-    const response = await fetch(`/api/ml/catalog?brand=${slug}&offset=${offset}&limit=50`);
-    const body = await response.json() as CatalogResponse | { error?: string };
-    if (!response.ok || !("items" in body)) {
-      throw new Error("error" in body && body.error ? body.error : `Falha ao consultar ${label}.`);
-    }
-    acumulado.push(...body.items);
-    total = body.totalListings;
-    offset += body.limit;
-    if (body.items.length === 0) break;
+  const primeira = await buscarPagina(slug, label, 0);
+  const acumulado: CatalogItem[] = [...primeira.items];
+
+  if (primeira.items.length > 0 && primeira.totalListings > primeira.limit) {
+    const offsets: number[] = [];
+    for (let offset = primeira.limit; offset < primeira.totalListings; offset += primeira.limit) offsets.push(offset);
+    const paginas = await Promise.all(offsets.map((offset) => buscarPagina(slug, label, offset)));
+    for (const pagina of paginas) acumulado.push(...pagina.items);
   }
 
   const anuncios = new Map<string, CatalogItem>();
