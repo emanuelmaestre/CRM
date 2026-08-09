@@ -5,7 +5,6 @@ import { useInView } from "framer-motion";
 import {
   AlertTriangle,
   Clock,
-  Hourglass,
   ListFilter,
   MoreVertical,
   ReceiptText,
@@ -14,6 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Card, CardHead } from "./card-primitives";
+import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import type { DashboardData } from "@/modules/relatorios/application/dashboard.service";
 
 /** Placeholder para métrica ainda sem origem de dado no banco. */
@@ -231,35 +231,8 @@ function CardFooterButton({ label, variant = "outline" }: {
   );
 }
 
-/* ── Linha de placeholder para listas sem origem de dado ─────── */
-function PlaceholderRow({ leading, primary, secondary, value, hint }: {
-  leading: React.ReactNode;
-  primary: string;
-  secondary: string;
-  value: string;
-  hint: string;
-}) {
-  return (
-    <li className="flex items-center justify-between gap-3 py-3.5">
-      <div className="flex min-w-0 items-center gap-3">
-        {leading}
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{primary}</p>
-          <p className="truncate text-xs text-muted-foreground">{secondary}</p>
-        </div>
-      </div>
-      <div className="flex shrink-0 flex-col items-end">
-        <span className="text-sm font-bold tabular-nums text-muted-foreground">{value}</span>
-        <span className="text-[10px] text-muted-foreground">{hint}</span>
-      </div>
-    </li>
-  );
-}
-
 /* ── Bloco "Visão Geral" — 7 cards do layout de referência ───── */
 export function VisaoGeralCards({ revenue }: { revenue: DashboardData["revenue"] }) {
-  const placeholderRows = [0, 1, 2];
-
   return (
     <div className="flex flex-col gap-5">
       {/* SEÇÃO 1 — Faturamento (métricas + gráfico) */}
@@ -312,36 +285,11 @@ export function VisaoGeralCards({ revenue }: { revenue: DashboardData["revenue"]
             action="Ver Relatorio Completo"
             actionHref="/relatorios"
           />
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-label-md px-6 py-3 uppercase text-muted-foreground">Produto</th>
-                  <th className="text-label-md px-6 py-3 uppercase text-muted-foreground">Marca</th>
-                  <th className="text-label-md px-6 py-3 text-right uppercase text-muted-foreground">Vendas</th>
-                  <th className="text-label-md px-6 py-3 text-right uppercase text-muted-foreground">Receita</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {placeholderRows.map((row) => (
-                  <tr key={row} className="transition-colors hover:bg-muted/50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 shrink-0 rounded-lg border border-border bg-muted" />
-                        <div>
-                          <p className="text-sm font-semibold text-muted-foreground">{VAZIO}</p>
-                          <p className="text-xs text-muted-foreground">SKU: {VAZIO}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{VAZIO}</td>
-                    <td className="px-6 py-4 text-right text-sm font-semibold text-muted-foreground">{VAZIO}</td>
-                    <td className="px-6 py-4 text-right text-sm font-semibold text-muted-foreground">{VAZIO}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <EmptyState
+            illustration="reports"
+            title="Ainda sem vendas no período"
+            description="O ranking de produtos aparece aqui assim que as primeiras vendas forem registradas."
+          />
         </Card>
 
         <Card className="flex flex-col lg:col-span-4">
@@ -387,21 +335,10 @@ export function VisaoGeralCards({ revenue }: { revenue: DashboardData["revenue"]
             }
           />
           <div className="flex flex-1 flex-col px-6 pb-6">
-            <ul className="divide-y divide-border">
-              {placeholderRows.map((row) => (
-                <PlaceholderRow
-                  key={row}
-                  leading={<span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/30" />}
-                  primary={VAZIO}
-                  secondary={`SKU: ${VAZIO}`}
-                  value={`${VAZIO} und.`}
-                  hint={`Minimo: ${VAZIO}`}
-                />
-              ))}
-            </ul>
-            <div className="mt-4 flex flex-col">
-              <CardFooterButton label="Gerar Pedido de Compra" />
-            </div>
+            <EmptyState
+              title="Nenhum item em baixo estoque"
+              description="Assim que um produto atingir o mínimo cadastrado, ele aparece aqui."
+            />
           </div>
         </Card>
 
@@ -417,25 +354,10 @@ export function VisaoGeralCards({ revenue }: { revenue: DashboardData["revenue"]
             }
           />
           <div className="flex flex-1 flex-col px-6 pb-6">
-            <ul className="divide-y divide-border">
-              {placeholderRows.map((row) => (
-                <PlaceholderRow
-                  key={row}
-                  leading={
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                      <Hourglass size={15} strokeWidth={1.9} />
-                    </span>
-                  }
-                  primary={VAZIO}
-                  secondary={`${VAZIO} dias sem vendas`}
-                  value={`${VAZIO} und.`}
-                  hint={`Custo: ${VAZIO}`}
-                />
-              ))}
-            </ul>
-            <div className="mt-4 flex flex-col">
-              <CardFooterButton label="Criar Campanha de Liquidacao" />
-            </div>
+            <EmptyState
+              title="Nenhum item parado"
+              description="Produtos sem vendas há mais de 90 dias aparecem aqui."
+            />
           </div>
         </Card>
       </section>
