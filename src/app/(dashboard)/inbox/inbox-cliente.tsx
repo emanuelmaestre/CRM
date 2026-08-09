@@ -461,7 +461,7 @@ export function InboxCliente() {
       </div>
 
       {/* ── Message sheet (mobile) — arrasta para fechar, projeta momentum ao soltar ── */}
-      <Sheet open={!!selecionada} onOpenChange={(open) => { if (!open) setSelecionada(null); }} className="h-[88dvh] lg:hidden">
+      <Sheet open={!!selecionada} onOpenChange={(open) => { if (!open) setSelecionada(null); }} className="h-[88dvh] lg:hidden" overlayClassName="lg:hidden">
         {conversationContent}
       </Sheet>
     </motion.div>

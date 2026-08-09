@@ -8,6 +8,11 @@ interface SheetProps {
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
   className?: string;
+  /** Classes extras pro overlay — necessário pra esconder o fundo escurecido
+   *  nos breakpoints em que o Content também está escondido (ex.: "lg:hidden"
+   *  no Content sozinho não basta, o Overlay é irmão dele no Portal e fica
+   *  cobrindo o painel de desktop por trás). */
+  overlayClassName?: string;
 }
 
 /**
@@ -15,11 +20,11 @@ interface SheetProps {
  * momentum ao soltar — comportamento nativo do vaul. Reservado para telas
  * estreitas onde um painel lateral não cabe (ver uso em InboxCliente).
  */
-export function Sheet({ open, onOpenChange, children, className }: SheetProps) {
+export function Sheet({ open, onOpenChange, children, className, overlayClassName }: SheetProps) {
   return (
     <Drawer.Root open={open} onOpenChange={onOpenChange}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]" />
+        <Drawer.Overlay className={cn("fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px]", overlayClassName)} />
         <Drawer.Content
           className={cn(
             "material-thick fixed inset-x-0 bottom-0 z-50 flex max-h-[min(88vh,88dvh)] flex-col rounded-t-[1.25rem] pb-[env(safe-area-inset-bottom)] outline-none",
