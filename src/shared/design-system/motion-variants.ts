@@ -1,5 +1,3 @@
-const easeStandard: [number, number, number, number] = [0, 0, 0.2, 1];
-
 /**
  * Spring presets seguindo a nomenclatura da Apple (Designing Fluid Interfaces, WWDC18):
  * damping = 1.0 é crítico (sem overshoot), <1.0 tem bounce. response = tempo até o alvo, em segundos.

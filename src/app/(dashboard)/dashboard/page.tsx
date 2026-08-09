@@ -55,7 +55,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let ativo = true;
-    setCarregando(true);
     actionObterDashboardData({ granularidade, brand: marca })
       .then((resultado) => {
         if (!ativo) return;
@@ -92,7 +91,13 @@ export default function DashboardPage() {
   }, [reclamacoes, marca]);
 
   const trocarGranularidade = useCallback((valor: Granularidade) => {
+    setCarregando(true);
     setGranularidade(valor);
+  }, []);
+
+  const trocarMarca = useCallback((valor: string) => {
+    setCarregando(true);
+    setMarca(valor);
   }, []);
 
   const marcas = dados?.filtros.brands ?? [{ value: "todas", label: copy.filters.allBrands }];
@@ -111,7 +116,7 @@ export default function DashboardPage() {
             <select
               value={marca}
               disabled={carregando && !dados}
-              onChange={(event) => setMarca(event.target.value)}
+              onChange={(event) => trocarMarca(event.target.value)}
               className="h-10 appearance-none rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground shadow-[var(--shadow-card)] outline-none transition-colors hover:border-muted-foreground/40 focus:border-foreground disabled:opacity-60"
             >
               {marcas.map((item) => (
