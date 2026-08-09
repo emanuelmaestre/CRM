@@ -244,6 +244,7 @@ describe("webhook Mercado Livre", () => {
         from: { user_id: 42 },
         text: { plain: "Olá, chegou meu pedido?" },
         conversation_id: "conv-1",
+        pack_id: 987,
       }),
     }) as unknown as typeof fetch;
 
@@ -330,8 +331,9 @@ describe("webhook Mercado Livre", () => {
     expect(res.status).toBe(200);
     expect(json).toMatchObject({ ok: true, conversaId: "conversa-2" });
     expect(mocks.receberMensagem).toHaveBeenCalledWith(expect.objectContaining({
-      externalConversaId: "ml-question:MLB123",
+      externalConversaId: "ml-question:77",
       conteudo: "Tem em outra cor?",
+      meta: expect.objectContaining({ questionId: "77", itemId: "MLB123" }),
     }));
   });
 

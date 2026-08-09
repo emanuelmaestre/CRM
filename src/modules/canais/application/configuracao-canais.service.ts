@@ -16,7 +16,6 @@ import { isCredencialConfigurada } from "@/shared/config/env-credentials";
 import { criarProduto } from "@/modules/estoque/application/estoque.service";
 
 const CANAIS_PRIORITARIOS = [
-  "whatsapp",
   "mercadolivre",
   "shopee",
   "tiktokshop",
@@ -24,7 +23,6 @@ const CANAIS_PRIORITARIOS = [
 ] as const;
 
 const CANAL_LABEL: Record<string, string> = {
-  whatsapp: "WhatsApp",
   mercadolivre: "Mercado Livre",
   shopee: "Shopee",
   tiktokshop: "TikTok Shop",
@@ -32,7 +30,6 @@ const CANAL_LABEL: Record<string, string> = {
 };
 
 const ENV_POR_CANAL: Record<string, string[]> = {
-  whatsapp: ["ZAPI_INSTANCE_{BRAND}", "ZAPI_TOKEN_{BRAND}", "ZAPI_WEBHOOK_TOKEN_{BRAND}"],
   mercadolivre: ["ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_SELLER_ID_{BRAND}"],
   shopee: ["SHOPEE_PARTNER_ID", "SHOPEE_PARTNER_KEY", "SHOPEE_SHOP_ID_{BRAND}", "SHOPEE_ACCESS_TOKEN_{BRAND}"],
   tiktokshop: ["TIKTOK_APP_KEY", "TIKTOK_APP_SECRET", "TIKTOK_SHOP_ID_{BRAND}", "TIKTOK_SHOP_CIPHER_{BRAND}", "TIKTOK_ACCESS_TOKEN_{BRAND}"],
@@ -40,7 +37,6 @@ const ENV_POR_CANAL: Record<string, string[]> = {
 };
 
 const EXTERNAL_ID_ENV: Record<string, string | null> = {
-  whatsapp: null,
   mercadolivre: "ML_SELLER_ID_{BRAND}",
   shopee: "SHOPEE_SHOP_ID_{BRAND}",
   tiktokshop: "TIKTOK_SHOP_ID_{BRAND}",
@@ -75,11 +71,11 @@ export interface CanalConfiguracao {
 
 const ContaCanalInputSchema = z.object({
   brandId: z.string().uuid(),
-  tipo: z.enum(["whatsapp", "mercadolivre", "shopee", "tiktokshop", "olist"]),
+  tipo: z.enum(["mercadolivre", "shopee", "tiktokshop", "olist"]),
   nome: z.string().trim().min(2).max(120),
   externalAccountId: z.string().trim().max(200).optional(),
 }).superRefine((data, ctx) => {
-  if (data.tipo !== "whatsapp" && !data.externalAccountId) {
+  if (!data.externalAccountId) {
     ctx.addIssue({
       code: "custom",
       path: ["externalAccountId"],
@@ -217,7 +213,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
       ),
       skusMapeados,
       envAusentes,
-      pronto: status === "conectado" && envAusentes.length === 0 && (canal === "whatsapp" || skusMapeados > 0),
+      pronto: status === "conectado" && envAusentes.length === 0 && skusMapeados > 0,
     };
   }));
 }
@@ -290,7 +286,7 @@ export async function atualizarContaCanalConfiguracao(ctx: CrudContext, input: u
     .then((rows) => rows[0]);
   if (!contaAtual) throw new Error("Conta de canal nao encontrada.");
 
-  if (contaAtual.tipo !== "whatsapp" && !data.externalAccountId) {
+  if (!data.externalAccountId) {
     throw new Error("ID externo é obrigatório para contas de marketplace.");
   }
 

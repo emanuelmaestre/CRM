@@ -39,7 +39,7 @@ export const ConsentimentoSchema = z.object({
   orgId: z.string().uuid(),
   brandId: z.string().uuid(),
   finalidade: z.enum(["marketing", "avaliacao", "suporte", "cobranca"]),
-  canal: z.enum(["whatsapp", "instagram", "facebook", "email", "mercadolivre", "shopee", "tiktokshop", "olist", "manual"]),
+  canal: z.enum(["instagram", "facebook", "email", "mercadolivre", "shopee", "tiktokshop", "olist", "manual"]),
   status: z.enum(["ativo", "revogado"]),
   origem: z.string(),
   prova: z.string().nullish(),

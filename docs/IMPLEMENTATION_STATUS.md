@@ -19,7 +19,7 @@ até a homologação real dos conectores, do isolamento entre marcas e dos dispa
 | Conectores | código verificado; produção bloqueada | ML, Shopee, TikTok v202309 e Olist Partner API testados; faltam contas e credenciais reais |
 | CRM operacional (Fase A) | concluída | aceite e evidências em `fase-a-dod.json` |
 | Réguas e automações | pronta para homologação externa | seis gates aprovados; outbound real permanece bloqueado |
-| Inbox unificado | parcial | WhatsApp, ML e TikTok possuem ingestão; faltam eventos reais e homologação oficial por marketplace |
+| Inbox Mercado Livre | pronta para homologação externa | perguntas e pós-venda possuem ingestão e resposta oficial; faltam eventos reais e aceite da conta produtiva |
 | Observabilidade | produção bloqueada | painel, A18 e A24 prontos; `/api/inngest` falha sem as chaves de produção |
 | IA e lapidação (Fase C) | pronta para homologação externa | gates internos em `fase-c-dod.json`; faltam credenciais, calibração histórica, storage, restore e aceite operacional |
 

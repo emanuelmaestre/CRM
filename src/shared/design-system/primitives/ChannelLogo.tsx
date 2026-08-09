@@ -8,7 +8,6 @@ type Channel =
   | "tiktok"
   | "tiktokshop"
   | "olist"
-  | "whatsapp"
   | "instagram"
   | string;
 

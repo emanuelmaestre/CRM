@@ -8,7 +8,6 @@
     "mercado livre": "mercadolivre",
     "tiktok shop": "tiktokshop",
     "tiktok": "tiktok",
-    "whatsapp (z-api)": "whatsapp",
     "instagram": "instagram"
   },
   "fallback": {
@@ -61,15 +60,6 @@
       "logoDark": false,
       "iconAspect": 1,
       "iconScale": 1
-    },
-    "whatsapp": {
-      "label": "WhatsApp",
-      "logo": "/logos/whatsapp-icon.svg",
-      "fallback": "WA",
-      "accent": "#25D366",
-      "logoDark": false,
-      "iconAspect": 1.1892,
-      "iconScale": 0.92
     },
     "instagram": {
       "label": "Instagram",

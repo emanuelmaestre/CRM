@@ -47,8 +47,8 @@ export function MovimentoModal({ produtoId, produtoNome, saldoAtual, onSuccess }
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-[1.25rem] shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4">
+          <div role="dialog" aria-modal="true" className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-[1.25rem] border border-border bg-card p-4 shadow-xl sm:p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-semibold text-foreground">{copy.title}</h2>
               <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
@@ -90,7 +90,7 @@ export function MovimentoModal({ produtoId, produtoNome, saldoAtual, onSuccess }
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col-reverse gap-3 pt-2 min-[380px]:flex-row">
                 <button
                   type="button"
                   onClick={() => setOpen(false)}

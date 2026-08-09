@@ -12,9 +12,9 @@
       "nome": { "label": "Nome completo", "placeholder": "Ex: Maria da Silva" },
       "cpfCnpj": { "label": "CPF / CNPJ", "placeholder": "000.000.000-00 ou 00.000.000/0001-00" },
       "email": { "label": "E-mail", "placeholder": "cliente@exemplo.com" },
-      "telefone": { "label": "WhatsApp", "placeholder": "(11) 99999-9999" }
+      "telefone": { "label": "Telefone", "placeholder": "(11) 99999-9999" }
     },
-    "reviewLabels": { "nome": "Nome", "cpfCnpj": "CPF / CNPJ", "email": "E-mail", "telefone": "WhatsApp" },
+    "reviewLabels": { "nome": "Nome", "cpfCnpj": "CPF / CNPJ", "email": "E-mail", "telefone": "Telefone" },
     "actions": { "submit": "Cadastrar cliente", "submitting": "Cadastrando…" },
     "messages": { "nameInvalid": "Nome deve ter ao menos 2 caracteres", "emailInvalid": "E-mail inválido", "success": "Cliente criado com sucesso!", "error": "Erro ao criar cliente." }
   },

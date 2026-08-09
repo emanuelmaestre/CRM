@@ -1,12 +1,9 @@
 import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { brand, regua, reguaExecucao, templateMensagem, clienteIdentidade, cliente } from "@/shared/lib/db/schema";
+import { regua, reguaExecucao, templateMensagem, clienteIdentidade, cliente } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { avaliarGates, type GateInput } from "../domain/gates";
-import { criarZApiProvider } from "@/modules/canais/infrastructure/zapi.provider";
-import { executarComRetry } from "@/modules/canais/application/retry";
 import { format } from "date-fns";
-import { isBrandSlug } from "@/shared/config/brands";
 
 function renderizarTemplate(conteudo: string, variaveis: Record<string, string>): string {
   return conteudo.replace(/\{\{(\w+)\}\}/g, (_, chave) => variaveis[chave] ?? `{{${chave}}}`);
@@ -134,34 +131,12 @@ export async function dispararRegua(input: {
     };
     const conteudoFinal = renderizarTemplate(template.conteudo, variaveis);
 
-    // Somente WhatsApp (Z-API) implementado; outros canais de mensageria a adicionar
-    if (reguaRow.canal === "whatsapp") {
-      if (process.env.EXTERNAL_SENDS_ENABLED !== "true") {
-        throw new Error("Envios externos desabilitados até a liberação de go-live.");
-      }
-
-      const marca = await db.select({ slug: brand.slug }).from(brand).where(and(
-        eq(brand.id, input.brandId),
-        eq(brand.orgId, input.orgId),
-        eq(brand.active, true),
-      )).then((rows) => rows[0]);
-      if (!marca || !isBrandSlug(marca.slug)) {
-        throw new Error("Marca ativa não encontrada ou sem provider configurado.");
-      }
-
-      const provider = criarZApiProvider(marca.slug);
-      await executarComRetry(
-        async (tentativa) => {
-          await db.update(reguaExecucao)
-            .set({ tentativas: tentativa, updatedAt: new Date() })
-            .where(eq(reguaExecucao.id, execucao.id));
-          return provider.enviarMensagem({ para, conteudo: conteudoFinal });
-        },
-        { tentativas: 3, atrasoInicialMs: 500 },
-      );
-    } else {
-      throw new Error(`Canal ${reguaRow.canal} sem provider de envio configurado.`);
-    }
+    // Réguas de mensageria foram desativadas; o Mercado Livre só permite
+    // responder a interações já iniciadas pelo comprador no Inbox.
+    // Perguntas e pós-venda do Mercado Livre só respondem a interações existentes no Inbox.
+    void para;
+    void conteudoFinal;
+    throw new Error(`Canal ${reguaRow.canal} sem provider de envio de régua configurado.`);
 
     await db.update(reguaExecucao)
       .set({ status: "enviada", enviadaEm: new Date(), updatedAt: new Date() })

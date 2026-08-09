@@ -18,7 +18,6 @@ import {
 import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 const CANAIS_PRIORITARIOS = [
-  "whatsapp",
   "mercadolivre",
   "shopee",
   "tiktokshop",
@@ -26,7 +25,6 @@ const CANAIS_PRIORITARIOS = [
 ] as const;
 
 const CANAL_LABEL: Record<string, string> = {
-  whatsapp: "WhatsApp",
   mercadolivre: "Mercado Livre",
   shopee: "Shopee",
   tiktokshop: "TikTok Shop",

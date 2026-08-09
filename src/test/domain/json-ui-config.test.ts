@@ -97,7 +97,7 @@ describe("contratos JSON da interface", () => {
     const questions = pagesConfig.inbox.questions;
 
     expect(questions.platformOrder).toEqual(Object.keys(questions.platforms));
-    expect(pagesConfig.inbox.tabs.map((tab) => tab.id)).toEqual(["conversas", "perguntas"]);
+    expect(pagesConfig.inbox.tabs.map((tab) => tab.id)).toEqual(["conversas", "perguntas", "avaliacoes"]);
     for (const platform of Object.values(questions.platforms)) {
       expect(platform.charLimit).toBeGreaterThan(0);
       expect(platform.quickReplies.length).toBeGreaterThan(0);

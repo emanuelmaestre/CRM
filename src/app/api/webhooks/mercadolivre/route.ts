@@ -86,17 +86,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         text?: { plain?: string };
         subject?: string;
         conversation_id?: string;
+        pack_id?: string | number;
+        order_id?: string | number;
+        to?: { user_id?: number };
+        message_resources?: Array<{ id?: string | number; name?: string }>;
       }>(resource, accessToken);
       const messageId = message.message_id ?? message.id ?? resultado.data.id ?? resource;
       const conteudo = message.text?.plain ?? message.subject;
       if (!conteudo) {
         return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem-sem-texto" });
       }
+      const packResource = message.message_resources?.find((item) => item.name === "packs");
+      const packId = String(message.pack_id ?? packResource?.id ?? message.order_id ?? "");
+      if (!packId) {
+        return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem-sem-pack-id" });
+      }
+      // Notificações também podem refletir mensagens enviadas pelo próprio vendedor.
+      if (String(message.from?.user_id ?? "") === sellerId) {
+        return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem-de-saida" });
+      }
       const inbox = await receberMensagem({
         orgId: conta.orgId,
         brandId: conta.brandId,
         channelAccountId: conta.channelAccountId,
-        externalConversaId: message.conversation_id ?? resource,
+        externalConversaId: message.conversation_id ?? `ml-pack:${packId}`,
         providerMessageId: `ml-message:${messageId}`,
         conteudo,
         tipo: "texto",
@@ -104,6 +117,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           canal: "mercadolivre",
           topic,
           remetenteId: message.from?.user_id,
+          destinatarioId: message.from?.user_id === undefined ? undefined : String(message.from.user_id),
+          sellerId,
+          packId,
+          orderId: message.order_id === undefined ? undefined : String(message.order_id),
           recebidaEm: message.date,
         },
       });
@@ -125,7 +142,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         orgId: conta.orgId,
         brandId: conta.brandId,
         channelAccountId: conta.channelAccountId,
-        externalConversaId: `ml-question:${question.item_id ?? resource}`,
+        externalConversaId: `ml-question:${question.id ?? resource}`,
         providerMessageId: `ml-question:${question.id ?? resource}`,
         conteudo: question.text,
         tipo: "texto",
@@ -133,6 +150,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           canal: "mercadolivre",
           topic,
           itemId: question.item_id,
+          questionId: String(question.id ?? resource.split("/").filter(Boolean).at(-1) ?? ""),
           remetenteId: question.from?.id,
           recebidaEm: question.date_created,
         },

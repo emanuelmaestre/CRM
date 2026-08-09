@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Loader2, Send, CheckCheck, Archive, Phone } from "lucide-react";
+import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package } from "lucide-react";
 import {
   actionListarConversas,
   actionListarMensagens,
@@ -12,6 +12,7 @@ import {
 } from "./actions";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { Sheet } from "@/shared/design-system/primitives/Sheet";
 import { stagger, listItem } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
@@ -34,21 +35,14 @@ function formatarData(iso: Date | string): string {
 
 function iniciais(externalId?: string | null): string {
   if (!externalId) return "?";
-  // phone number
-  if (/^\d+$/.test(externalId.replace(/\D/g, ""))) {
-    const digits = externalId.replace(/\D/g, "");
-    return digits.slice(-2);
-  }
   return externalId.slice(0, 2).toUpperCase();
 }
 
 function formatarContato(externalId?: string | null): string {
   if (!externalId) return "Desconhecido";
-  const d = externalId.replace(/\D/g, "");
-  if (d.length >= 10) {
-    return `+${d.slice(0, 2)} (${d.slice(2, 4)}) ${d.slice(4, 9)}-${d.slice(9)}`;
-  }
-  return externalId;
+  return externalId.startsWith("ml-pack:")
+    ? `Pacote ${externalId.slice("ml-pack:".length)}`
+    : externalId;
 }
 
 /* ── Animation variants ──────────────────────────────────── */
@@ -202,82 +196,8 @@ export function InboxCliente() {
     );
   }
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.26 }}
-      className="flex gap-4 h-[calc(100vh-10rem)]"
-    >
-      {/* ── Conversation list ── */}
-      <div className="w-80 flex-shrink-0 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">
-            {conversas.length} {conversas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
-          </p>
-          <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded-full">
-            {conversationCopy.channelSummary}
-          </span>
-        </div>
-
-        <div className="overflow-y-auto flex-1 scrollbar-thin">
-          <motion.div variants={stagger} initial="hidden" animate="show">
-            {conversas.map((c) => (
-              <motion.button
-                key={c.id}
-                variants={listItem}
-                onClick={() => abrirConversa(c)}
-                whileHover={{ backgroundColor: "rgba(0,0,0,0.025)" }}
-                className={`w-full text-left px-4 py-3.5 border-b border-border last:border-0 relative flex items-start gap-3 transition-colors ${
-                  selecionada?.id === c.id ? "bg-muted/50" : ""
-                }`}
-              >
-                {/* Active pip */}
-                <AnimatePresence>
-                  {selecionada?.id === c.id && (
-                    <motion.span
-                      layoutId="inbox-active"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 400, damping: 36 }}
-                      className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full"
-                      style={{ background: "var(--gradient-signature)" }}
-                    />
-                  )}
-                </AnimatePresence>
-
-                {/* Channel logo or avatar */}
-                <div className="relative flex-shrink-0 mt-0.5">
-                  <ContactAvatar c={c} size="sm" />
-                  {c.canalTipo && (
-                    <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-white border border-border shadow-sm overflow-hidden">
-                      <ChannelLogo canal={c.canalTipo} size="xs" variant="logo" />
-                    </span>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1 mb-1">
-                    <p className="text-xs font-semibold text-foreground truncate">
-                      {formatarContato(c.externalId)}
-                    </p>
-                    <span className="text-[10px] text-muted-foreground flex-shrink-0 tabular-nums">
-                      {formatarData(c.updatedAt)}
-                    </span>
-                  </div>
-                  <StatusPill status={c.status} />
-                </div>
-              </motion.button>
-            ))}
-          </motion.div>
-        </div>
-      </div>
-
-      {/* ── Message panel ── */}
-      <div className="flex-1 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col">
-        <AnimatePresence mode="wait">
+  const conversationContent = (
+    <AnimatePresence mode="wait">
 
           {/* Empty state */}
           {!selecionada && (
@@ -377,7 +297,7 @@ export function InboxCliente() {
               <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2 scrollbar-thin">
                 {mensagens.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground">
-                    <Phone size={18} strokeWidth={1.5} />
+                    <Package size={18} strokeWidth={1.5} />
                     <p className="text-xs">{copy.noMessages}</p>
                   </div>
                 ) : (
@@ -421,6 +341,7 @@ export function InboxCliente() {
                   <textarea
                     ref={textareaRef}
                     value={texto}
+                    maxLength={350}
                     onChange={(e) => setTexto(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
@@ -432,6 +353,9 @@ export function InboxCliente() {
                     placeholder={conversationCopy.replyPlaceholder}
                     className="flex-1 resize-none rounded-[10px] border border-border bg-muted/40 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] max-h-28 overflow-y-auto leading-relaxed"
                   />
+                  <span className="text-[10px] text-muted-foreground tabular-nums self-center">
+                    {texto.length}/350
+                  </span>
                   <motion.button
                     whileHover={{ scale: 1.06, y: -1 }}
                     whileTap={{ scale: 0.94 }}
@@ -448,8 +372,91 @@ export function InboxCliente() {
             </motion.div>
           )}
 
-        </AnimatePresence>
+    </AnimatePresence>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.26 }}
+      className="flex h-[max(32rem,calc(100dvh-10rem))] max-h-[calc(100dvh-7rem)] gap-4"
+    >
+      {/* ── Conversation list ── */}
+      <div className="w-full lg:w-80 flex-shrink-0 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">
+            {conversas.length} {conversas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
+          </p>
+          <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded-full">
+            {conversationCopy.channelSummary}
+          </span>
+        </div>
+
+        <div className="overflow-y-auto flex-1 scrollbar-thin">
+          <motion.div variants={stagger} initial="hidden" animate="show">
+            {conversas.map((c) => (
+              <motion.button
+                key={c.id}
+                variants={listItem}
+                onClick={(e) => { e.currentTarget.blur(); abrirConversa(c); }}
+                whileHover={{ backgroundColor: "rgba(0,0,0,0.025)" }}
+                className={`w-full text-left px-4 py-3.5 border-b border-border last:border-0 relative flex items-start gap-3 transition-colors ${
+                  selecionada?.id === c.id ? "bg-muted/50" : ""
+                }`}
+              >
+                {/* Active pip */}
+                <AnimatePresence>
+                  {selecionada?.id === c.id && (
+                    <motion.span
+                      layoutId="inbox-active"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 36 }}
+                      className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full"
+                      style={{ background: "var(--gradient-signature)" }}
+                    />
+                  )}
+                </AnimatePresence>
+
+                {/* Channel logo or avatar */}
+                <div className="relative flex-shrink-0 mt-0.5">
+                  <ContactAvatar c={c} size="sm" />
+                  {c.canalTipo && (
+                    <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-white border border-border shadow-sm overflow-hidden">
+                      <ChannelLogo canal={c.canalTipo} size="xs" variant="logo" />
+                    </span>
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {formatarContato(c.externalId)}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground flex-shrink-0 tabular-nums">
+                      {formatarData(c.updatedAt)}
+                    </span>
+                  </div>
+                  <StatusPill status={c.status} />
+                </div>
+              </motion.button>
+            ))}
+          </motion.div>
+        </div>
       </div>
+
+      {/* ── Message panel (desktop) ── */}
+      <div className="hidden lg:flex flex-1 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col">
+        {conversationContent}
+      </div>
+
+      {/* ── Message sheet (mobile) — arrasta para fechar, projeta momentum ao soltar ── */}
+      <Sheet open={!!selecionada} onOpenChange={(open) => { if (!open) setSelecionada(null); }} className="h-[88dvh] lg:hidden">
+        {conversationContent}
+      </Sheet>
     </motion.div>
   );
 }

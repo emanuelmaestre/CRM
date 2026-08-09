@@ -20,7 +20,6 @@ const ctxAdmin: CrudContext = { db, orgId, perfil: "admin" };
 const ctxVendedor: CrudContext = { db, orgId, perfil: "vendedor" };
 
 let brandId: string;
-let brandSemWhatsAppId: string;
 let brandArmarinhosId: string;
 const contasParaLimpar: string[] = [];
 const produtosParaLimpar: string[] = [];
@@ -33,7 +32,6 @@ beforeAll(async () => {
   const [wuwu] = await db.select({ id: brand.id }).from(brand)
     .where(and(eq(brand.orgId, orgId), eq(brand.slug, "wuwu")));
   if (!wuwu) throw new Error("Marca wuwu não encontrada no org alvo; seed necessário antes do teste.");
-  brandSemWhatsAppId = wuwu.id;
   const [armarinhos] = await db.select({ id: brand.id }).from(brand)
     .where(and(eq(brand.orgId, orgId), eq(brand.slug, "armarinhos_lima")));
   if (!armarinhos) throw new Error("Marca armarinhos_lima não encontrada no org alvo; seed necessário antes do teste.");
@@ -169,22 +167,18 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
     expect(auditoria).toBeDefined();
   });
 
-  it("exige ID externo para marketplace e permite WhatsApp sem ID", async () => {
+  it("exige ID externo e rejeita o canal WhatsApp removido", async () => {
     await expect(criarContaCanalConfiguracao(ctxAdmin, {
       brandId,
       tipo: "olist",
       nome: "Marketplace sem ID",
     })).rejects.toThrow(/ID externo/);
 
-    const conta = await criarContaCanalConfiguracao(ctxAdmin, {
-      brandId: brandSemWhatsAppId,
+    await expect(criarContaCanalConfiguracao(ctxAdmin, {
+      brandId,
       tipo: "whatsapp",
-      nome: `WhatsApp sem ID ${randomUUID()}`,
-    });
-    contasParaLimpar.push(conta.id);
-
-    await db.delete(channelAccount).where(eq(channelAccount.id, conta.id));
-    contasParaLimpar.splice(contasParaLimpar.indexOf(conta.id), 1);
+      nome: "Canal removido",
+    } as never)).rejects.toThrow();
   });
 
   it("expõe no wizard a origem e divergência do ID externo", async () => {

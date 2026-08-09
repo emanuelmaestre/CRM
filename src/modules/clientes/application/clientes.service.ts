@@ -301,7 +301,7 @@ export async function registrarConsentimento(
     clienteId: z.string().uuid(),
     brandId: z.string().uuid(),
     finalidade: z.enum(["marketing", "avaliacao", "suporte", "cobranca"]),
-    canal: z.enum(["whatsapp", "instagram", "facebook", "email", "mercadolivre", "shopee", "tiktokshop", "olist", "manual"]),
+    canal: z.enum(["instagram", "facebook", "email", "mercadolivre", "shopee", "tiktokshop", "olist", "manual"]),
     origem: z.string().trim().min(1).max(120),
     prova: z.string().trim().max(500).optional(),
   }).parse(input);

@@ -25,11 +25,6 @@ sintéticos dentro de transações revertidas e valida default deny, isolamento 
 
 `checkPerfil()` em `src/shared/lib/auth.ts` — validado em toda operação de escrita.
 
-## Webhook Z-API
-
-Header `x-api-token` validado contra `ZAPI_WEBHOOK_TOKEN` env var antes de qualquer processamento.
-Payload validado com Zod (`ZApiWebhookSchema`) antes de tocar o banco.
-
 ## LGPD
 
 - Tabela `consentimento` registra opt-in com data, canal e validade

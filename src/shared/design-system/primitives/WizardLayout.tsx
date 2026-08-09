@@ -25,7 +25,7 @@ export function WizardLayout({
   const progress = ((currentStep + 1) / steps.length) * 100;
 
   return (
-    <div className="fixed inset-0 z-[200] bg-background flex flex-col">
+    <div className="fixed inset-0 z-[200] flex min-h-0 flex-col bg-background pt-[env(safe-area-inset-top)]">
       {/* Barra de progresso superior */}
       <div className="h-1 bg-border relative overflow-hidden">
         <div
@@ -38,17 +38,17 @@ export function WizardLayout({
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
+      <div className="grid grid-cols-[minmax(44px,1fr)_minmax(0,2fr)_minmax(44px,1fr)] items-center gap-2 border-b border-border bg-card px-3 py-3 sm:px-6 sm:py-4">
         <button
           onClick={onBack ?? (() => router.push(cancelHref))}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="flex min-h-11 min-w-11 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft size={16} />
-          {onBack ? appConfig.wizard.back : appConfig.wizard.cancel}
+          <span className="hidden sm:inline">{onBack ? appConfig.wizard.back : appConfig.wizard.cancel}</span>
         </button>
 
-        <div className="text-center">
-          <p className="text-sm font-semibold text-foreground">{title}</p>
+        <div className="min-w-0 text-center">
+          <p className="truncate text-sm font-semibold text-foreground">{title}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {appConfig.wizard.step} {currentStep + 1} {appConfig.wizard.of} {steps.length} — {steps[currentStep]}
           </p>
@@ -56,14 +56,15 @@ export function WizardLayout({
 
         <button
           onClick={() => router.push(cancelHref)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={appConfig.wizard.cancel}
+          className="ml-auto flex min-h-11 min-w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
         >
           <X size={18} />
         </button>
       </div>
 
       {/* Steps indicator */}
-      <div className="flex items-center justify-center gap-2 py-4 border-b border-border bg-card/50">
+      <div className="table-scroll flex shrink-0 items-center justify-start gap-2 border-b border-border bg-card/50 px-4 py-3 sm:justify-center sm:py-4">
         {steps.map((step, i) => (
           <div key={step} className="flex items-center gap-2">
             <div className="flex items-center gap-1.5">
@@ -88,15 +89,15 @@ export function WizardLayout({
               </span>
             </div>
             {i < steps.length - 1 && (
-              <div className={`w-8 h-px transition-colors duration-300 ${i < currentStep ? "bg-[#1F8A4C]" : "bg-border"}`} />
+              <div className={`h-px w-5 shrink-0 transition-colors sm:w-8 ${i < currentStep ? "bg-[#1F8A4C]" : "bg-border"}`} />
             )}
           </div>
         ))}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-6 py-10">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
           {children}
         </div>
       </div>
@@ -123,7 +124,7 @@ export function WizardActions({
   submitLabel?: string;
 }) {
   return (
-    <div className="flex gap-3 pt-8">
+    <div className="flex flex-col-reverse gap-3 pt-8 sm:flex-row">
       {onBack && (
         <button
           type="button"

@@ -148,6 +148,52 @@ export class MercadoLivreProvider implements ChannelProvider {
     return res.json() as Promise<T>;
   }
 
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.creds.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) {
+      const detail = (await res.text()).replace(/[\r\n]+/g, " ").slice(0, 300);
+      throw new Error(`Mercado Livre HTTP ${res.status} em ${path}: ${detail}`);
+    }
+    return res.json() as Promise<T>;
+  }
+
+  async responderPergunta(questionId: string, texto: string): Promise<{ questionId: string; status: string }> {
+    const questionIdNumber = Number(questionId);
+    if (!Number.isSafeInteger(questionIdNumber) || questionIdNumber <= 0) {
+      throw new Error("ID da pergunta do Mercado Livre inválido.");
+    }
+    const resposta = await this.post<{ id?: number; status?: string }>("/answers", {
+      question_id: questionIdNumber,
+      text: texto,
+    });
+    return { questionId: String(resposta.id ?? questionIdNumber), status: resposta.status ?? "ANSWERED" };
+  }
+
+  async enviarMensagemPosVenda(input: {
+    packId: string;
+    sellerId: string;
+    texto: string;
+  }): Promise<{ providerMessageId: string }> {
+    const path = `/messages/packs/${encodeURIComponent(input.packId)}/sellers/${encodeURIComponent(input.sellerId)}?tag=post_sale`;
+    const resposta = await this.post<{ message_id?: string; id?: string }>(path, {
+      from: { user_id: input.sellerId },
+      // Desde 02/02/2026, o fluxo MLB intermediado usa o agente de mensageria.
+      to: { user_id: "3037675074" },
+      text: input.texto,
+    });
+    const providerMessageId = resposta.message_id ?? resposta.id;
+    if (!providerMessageId) throw new Error("Mercado Livre não retornou o ID da mensagem enviada.");
+    return { providerMessageId };
+  }
+
   async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
     const me = await this.get<{ id: string }>("/users/me");
     const data = await this.get<{

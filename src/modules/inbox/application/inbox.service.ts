@@ -1,9 +1,9 @@
-import { eq, and, desc, like, inArray, getTableColumns } from "drizzle-orm";
+import { eq, and, desc, like, notLike, inArray, getTableColumns } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { channelAccount, conversa, mensagem } from "@/shared/lib/db/schema";
 import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
 import { validarTransicaoConversa, reabrirSeNecessario, type ConversaStatus } from "../domain/state-machine";
-import { criarZApiProvider } from "@/modules/canais/infrastructure/zapi.provider";
+import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { brand } from "@/shared/lib/db/schema";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { executarComRetry } from "@/modules/canais/application/retry";
@@ -131,7 +131,10 @@ export async function avancarStatusConversa(
 }
 
 export async function listarConversas(orgId: string, opts: { brandId?: string; status?: string; limit?: number } = {}) {
-  const conditions = [eq(conversa.orgId, orgId)];
+  const conditions = [
+    eq(conversa.orgId, orgId),
+    notLike(conversa.externalId, `%${PERGUNTA_EXTERNAL_ID_MARKER}%`),
+  ];
   if (opts.brandId) conditions.push(eq(conversa.brandId, opts.brandId));
   if (opts.status) conditions.push(eq(conversa.status, opts.status as never));
 
@@ -163,45 +166,38 @@ export async function enviarMensagem(
   conteudo: string
 ): Promise<{ mensagemId: string }> {
   const conversaRow = await db
-    .select({ conversa, canalTipo: channelAccount.tipo })
+    .select({ conversa, canalTipo: channelAccount.tipo, brandSlug: brand.slug })
     .from(conversa)
     .innerJoin(channelAccount, and(
       eq(channelAccount.id, conversa.channelAccountId),
       eq(channelAccount.orgId, conversa.orgId),
     ))
+    .innerJoin(brand, and(eq(brand.id, conversa.brandId), eq(brand.orgId, conversa.orgId)))
     .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)))
     .then((r) => r[0]);
   if (!conversaRow) throw new Error("Conversa não encontrada.");
 
-  if (conversaRow.canalTipo !== "whatsapp") {
+  if (conversaRow.canalTipo !== "mercadolivre") {
     throw new Error(`Envio pelo canal ${conversaRow.canalTipo} ainda não está habilitado pelo provider oficial.`);
   }
   if (process.env.EXTERNAL_SENDS_ENABLED !== "true") {
     throw new Error("Envios externos desabilitados até a liberação de go-live.");
   }
 
-  const brandRow = await db
-    .select({ slug: brand.slug })
-    .from(brand)
-    .where(and(
-      eq(brand.id, conversaRow.conversa.brandId),
-      eq(brand.orgId, ctx.orgId),
-      eq(brand.active, true),
-    ))
-    .then((r) => r[0]);
-  if (!brandRow) throw new Error("Marca não encontrada.");
+  if (!isBrandSlug(conversaRow.brandSlug)) throw new Error("Marca Mercado Livre inválida.");
+  const ultimaEntrada = await db.select().from(mensagem).where(and(
+    eq(mensagem.orgId, ctx.orgId),
+    eq(mensagem.conversaId, conversaId),
+    eq(mensagem.direcao, "entrada"),
+  )).orderBy(desc(mensagem.createdAt)).limit(1).then((rows) => rows[0]);
+  const meta = (ultimaEntrada?.meta ?? {}) as Record<string, unknown>;
+  const packId = typeof meta.packId === "string" ? meta.packId : null;
+  const sellerId = typeof meta.sellerId === "string" ? meta.sellerId : null;
+  if (!packId || !sellerId) throw new Error("Conversa sem pack_id/seller_id do Mercado Livre.");
 
-  if (!isBrandSlug(brandRow.slug)) {
-    throw new Error("Marca sem provider de mensageria configurado.");
-  }
-  const slug = brandRow.slug;
-  const provider = criarZApiProvider(slug);
-
-  const telefone = conversaRow.conversa.externalId ?? "";
-  if (!telefone) throw new Error("Conversa sem telefone de destino.");
-
+  const provider = await criarMLProvider(conversaRow.brandSlug);
   const { providerMessageId } = await executarComRetry(
-    () => provider.enviarMensagem({ para: telefone, conteudo }),
+    () => provider.enviarMensagemPosVenda({ packId, sellerId, texto: conteudo }),
     { tentativas: 3, atrasoInicialMs: 500 },
   );
 
@@ -213,7 +209,8 @@ export async function enviarMensagem(
       direcao: "saida",
       tipo: "texto",
       conteudo,
-      providerMessageId,
+      providerMessageId: `ml-message:${providerMessageId}`,
+      meta: { canal: "mercadolivre", packId, sellerId, enviadoNaPlataforma: true },
     })
     .returning();
 
@@ -284,19 +281,33 @@ export async function responderPergunta(
   conteudo: string,
 ): Promise<{ mensagemId: string }> {
   const conversaRow = await db
-    .select()
+    .select({ conversa, brandSlug: brand.slug })
     .from(conversa)
+    .innerJoin(brand, and(eq(brand.id, conversa.brandId), eq(brand.orgId, conversa.orgId)))
     .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)))
     .then((r) => r[0]);
   if (!conversaRow) throw new Error("Pergunta não encontrada.");
-  if (!conversaRow.externalId?.includes(PERGUNTA_EXTERNAL_ID_MARKER)) {
+  if (!conversaRow.conversa.externalId?.includes(PERGUNTA_EXTERNAL_ID_MARKER)) {
     throw new Error("Esta conversa não é uma pergunta pré-venda de marketplace.");
   }
 
-  // O envio de resposta pela API oficial de cada marketplace depende de
-  // homologação de política e escopo de escrita (ver docs/PRD-GAP-REVIEW).
-  // A resposta é registrada como resolução interna/auditável; o disparo real
-  // à API do marketplace é trabalho futuro, não uma credencial ausente.
+  if (process.env.EXTERNAL_SENDS_ENABLED !== "true") {
+    throw new Error("Envios externos desabilitados até a liberação de go-live.");
+  }
+  if (!isBrandSlug(conversaRow.brandSlug)) throw new Error("Marca Mercado Livre inválida.");
+  const pergunta = await db.select().from(mensagem).where(and(
+    eq(mensagem.orgId, ctx.orgId),
+    eq(mensagem.conversaId, conversaId),
+    eq(mensagem.direcao, "entrada"),
+  )).orderBy(mensagem.createdAt).limit(1).then((rows) => rows[0]);
+  const meta = (pergunta?.meta ?? {}) as Record<string, unknown>;
+  const questionId = typeof meta.questionId === "string" ? meta.questionId : null;
+  if (!questionId) throw new Error("Pergunta sem question_id do Mercado Livre.");
+  const provider = await criarMLProvider(conversaRow.brandSlug);
+  const resultado = await executarComRetry(
+    () => provider.responderPergunta(questionId, conteudo),
+    { tentativas: 3, atrasoInicialMs: 500 },
+  );
   const [novaMensagem] = await db
     .insert(mensagem)
     .values({
@@ -305,7 +316,8 @@ export async function responderPergunta(
       direcao: "saida",
       tipo: "texto",
       conteudo,
-      meta: { respostaInterna: true },
+      providerMessageId: `ml-answer:${resultado.questionId}`,
+      meta: { canal: "mercadolivre", questionId, statusExterno: resultado.status, enviadoNaPlataforma: true },
     })
     .returning();
 

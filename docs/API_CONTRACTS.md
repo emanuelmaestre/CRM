@@ -42,12 +42,6 @@ validacao, erro visivel e isolamento por org/marca.
 | `/api/webhooks/olist` | `POST` | Eventos Olist | Valida resource oficial e seller configurado antes de persistir. |
 | `/api/tiktok-verify` | `GET` | Verificacao TikTok | Responde challenge/verify token conforme politica do provedor. |
 
-## WhatsApp Z-API
-
-| Rota | Metodo | Uso | Contrato |
-|---|---|---|---|
-| `/api/webhooks/zapi` | `POST` | Mensagens WhatsApp | Valida token de webhook por marca, normaliza telefone e cria conversa/mensagem. |
-
 ## Server Actions Internas
 
 As paginas do App Router usam server actions em vez de rotas REST publicas para CRUDs internos.

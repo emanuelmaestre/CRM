@@ -2,18 +2,16 @@ import { and, desc, eq, inArray, isNotNull, or } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, eventoDominio, jobRun } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
-import { criarZApiProvider } from "../infrastructure/zapi.provider";
 import { criarShopeeProvider } from "../infrastructure/shopee.provider";
 import { criarMLProvider } from "../infrastructure/mercadolivre.provider";
 import { criarTikTokShopProvider } from "../infrastructure/tiktokshop.provider";
 import { criarOlistProvider } from "../infrastructure/olist.provider";
-import type { ChannelProvider, MessagingProvider } from "../domain/ports";
+import type { ChannelProvider } from "../domain/ports";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
-async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<ChannelProvider | MessagingProvider | null> {
+async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<ChannelProvider | null> {
   try {
     switch (tipo) {
-      case "whatsapp":     return criarZApiProvider(brandSlug);
       case "shopee":       return criarShopeeProvider(brandSlug);
       case "mercadolivre": return await criarMLProvider(brandSlug);
       case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
@@ -113,7 +111,7 @@ const CORE_ENV = [
 const INNGEST_ENV = ["INNGEST_SIGNING_KEY", "INNGEST_EVENT_KEY"];
 const OPENAI_ENV = ["OPENAI_API_KEY"];
 const STORAGE_BUCKET = "documentos";
-const CANAIS_GO_LIVE = ["mercadolivre", "shopee", "tiktokshop", "olist", "whatsapp"] as const;
+const CANAIS_GO_LIVE = ["mercadolivre", "shopee", "tiktokshop", "olist"] as const;
 
 function configured(name: string): boolean {
   const value = process.env[name]?.trim();

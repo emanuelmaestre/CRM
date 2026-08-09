@@ -67,7 +67,7 @@
     "newAction": "+ Novo cliente",
     "searchPlaceholder": "Buscar por nome, e-mail ou telefone…",
     "sectionTitle": "Base de clientes",
-    "columns": ["Nome", "E-mail", "WhatsApp", ""],
+    "columns": ["Nome", "E-mail", "Telefone", ""],
     "empty": {
       "title": "Nenhum cliente cadastrado",
       "description": "Importe sua base ou adicione o primeiro cliente manualmente.",
@@ -115,7 +115,7 @@
       "nextPurchaseLabel": "Previsão de recompra",
       "repurchaseProbabilityLabel": "Probabilidade de recompra em 30 dias",
       "orderPrefix": "Pedido",
-      "fields": { "name": "Nome", "document": "CPF / CNPJ", "email": "E-mail", "phone": "WhatsApp" },
+      "fields": { "name": "Nome", "document": "CPF / CNPJ", "email": "E-mail", "phone": "Telefone" },
       "metrics": { "orders": "Pedidos", "tasks": "Tarefas" },
       "actions": { "back": "Voltar aos clientes", "edit": "Editar", "cancel": "Cancelar edição", "save": "Salvar alterações", "saving": "Salvando…", "archive": "Arquivar", "addNote": "Adicionar anotação", "savingNote": "Salvando…" },
       "messages": {
@@ -400,11 +400,12 @@
   "inbox": {
     "metadataTitle": "Mensagens",
     "title": "Mensagens",
-    "description": "Conversas unificadas de WhatsApp, Shopee, Mercado Livre e TikTok Shop",
-    "pageDescription": "Conversas e perguntas dos seus clientes em um só lugar",
+    "description": "Perguntas e mensagens pós-venda do Mercado Livre",
+    "pageDescription": "Atendimento completo do Mercado Livre em um só lugar",
     "tabs": [
       { "id": "conversas", "label": "Conversas", "icon": "MessageSquare" },
-      { "id": "perguntas", "label": "Perguntas", "icon": "HelpCircle" }
+      { "id": "perguntas", "label": "Perguntas", "icon": "HelpCircle" },
+      { "id": "avaliacoes", "label": "Avaliações", "icon": "Star" }
     ],
     "status": {
       "nova": { "label": "Nova", "color": "#E3131B" },
@@ -438,7 +439,7 @@
           "normal": "#9B30D9",
           "ok": "#1F8A4C"
         },
-      "platformOrder": ["mercadolivre", "shopee", "tiktok"],
+      "platformOrder": ["mercadolivre"],
       "platforms": {
         "mercadolivre": {
           "label": "Mercado Livre",
@@ -449,28 +450,6 @@
             "Sim, temos disponível! ✅",
             "Enviamos para todo o Brasil via Correios.",
             "Parcelamos em até 12× sem juros."
-          ]
-        },
-        "shopee": {
-          "label": "Shopee",
-          "shortLabel": "Shopee",
-          "stripe": "#EE4D2D",
-          "charLimit": 1000,
-          "quickReplies": [
-            "Olá! Estamos verificando e já te retorno. 😊",
-            "Prazo de envio: 1–2 dias úteis após confirmação.",
-            "Produto com garantia de 90 dias de fábrica."
-          ]
-        },
-        "tiktok": {
-          "label": "TikTok Shop",
-          "shortLabel": "TikTok",
-          "stripe": "#00C2CB",
-          "charLimit": 500,
-          "quickReplies": [
-            "Oi! Pode conferir as fotos no anúncio. 👀",
-            "Entregamos com rastreio em todo o Brasil.",
-            "Tem dúvida? Chama a gente por aqui mesmo!"
           ]
         }
       },

@@ -10,7 +10,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { actionListarPerguntas, actionResponderPergunta } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
-type Plataforma = "mercadolivre" | "shopee" | "tiktok";
+type Plataforma = "mercadolivre";
 type Status = "pendente" | "respondida";
 /** Copy e limites por plataforma. A logo NÃO vem daqui: quem resolve é o
  *  ChannelLogo, a partir de channels.json (fonte única das identidades visuais). */
@@ -39,8 +39,7 @@ const PLAT = copy.platforms as Record<Plataforma, PlatformConfig>;
 const PLATFORM_TABS = ["todos", ...copy.platformOrder] as Array<Plataforma | "todos">;
 
 function normalizarPlataforma(canal: string): Plataforma {
-  if (canal === "tiktokshop" || canal === "tiktok") return "tiktok";
-  if (canal === "shopee") return "shopee";
+  void canal;
   return "mercadolivre";
 }
 
@@ -286,7 +285,7 @@ export function InboxPerguntas() {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
-      className="flex gap-3 h-[calc(100vh-13rem)]"
+      className="flex h-[max(32rem,calc(100dvh-13rem))] max-h-[calc(100dvh-7rem)] gap-3"
     >
       {/* ── Sidebar ── */}
       <AnimatePresence initial={false} mode="wait">

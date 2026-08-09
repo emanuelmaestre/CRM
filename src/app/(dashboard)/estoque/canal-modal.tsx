@@ -124,7 +124,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-4"
         style={{ background: "rgba(14,15,19,0.6)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       >
@@ -133,32 +133,34 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.97 }}
           transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-          className="w-full max-w-lg bg-card rounded-[1.25rem] shadow-[0_8px_40px_rgba(14,15,19,.18)] overflow-hidden"
+          role="dialog"
+          aria-modal="true"
+          className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-[1.25rem] bg-card shadow-[0_8px_40px_rgba(14,15,19,.18)]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-            <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-2.5">
               <div className="w-8 h-8 rounded-[0.5rem] flex items-center justify-center text-base"
                    style={{ background: "var(--gradient-signature)" }}>
                 <Link2 size={15} color="white" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground leading-tight">{copy.title}</p>
-                <p className="text-xs text-muted-foreground">{produtoNome}</p>
+                <p className="truncate text-xs text-muted-foreground">{produtoNome}</p>
               </div>
             </div>
             <button
               onClick={onClose}
               aria-label={copy.close}
-              className="w-8 h-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <X size={16} />
             </button>
           </div>
 
           {/* Body */}
-          <div className="px-6 py-5 space-y-5">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
 
             {/* Mapeamentos existentes */}
             <div>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ExternalLink, Link2, Loader2, Plus, Search, SearchX, Star } from "lucide-react";
+import { Check, ExternalLink, Link2, Loader2, Plus, Search, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import settingsConfig from "@/config/settings.json";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
@@ -32,8 +32,6 @@ interface CatalogItem {
   status: string;
   permalink: string | null;
   mappedProductId: string | null;
-  ratingAverage: number | null;
-  reviewsTotal: number | null;
 }
 
 interface CatalogResponse {
@@ -341,16 +339,6 @@ export function MLCatalogMappingSection({
                         }`}>
                           {item.externalSku ? `SKU: ${item.externalSku}` : config.missingSku}
                         </span>
-                        {item.ratingAverage !== null && (
-                          <span
-                            className="inline-flex h-6 items-center gap-1 rounded-md bg-muted px-2 text-[11px] font-semibold tabular-nums text-foreground"
-                            title={item.reviewsTotal !== null ? `${item.reviewsTotal} ${config.reviewsSuffix}` : undefined}
-                          >
-                            <Star size={11} className="fill-[#FFB900] text-[#FFB900]" />
-                            {item.ratingAverage.toFixed(1)}
-                            {item.reviewsTotal !== null && ` (${item.reviewsTotal})`}
-                          </span>
-                        )}
                       </div>
                     </div>
 

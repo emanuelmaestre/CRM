@@ -22,8 +22,8 @@
 │  └────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────┘
          │                    │                │
-    Supabase            Inngest Cloud      Z-API (WhatsApp)
-    (Postgres+RLS)      (job orchestration) (uma instância por operação)
+    Supabase            Inngest Cloud      APIs de marketplaces
+    (Postgres+RLS)      (job orchestration) (contas por operação)
          │
     Upstash Redis       OpenAI API
     (cache/rate-limit)  (gpt-4.1 / gpt-4.1-mini)
@@ -35,7 +35,7 @@
 src/modules/<modulo>/
   domain/        ← entidades, value objects, state machines, regras puras
   application/   ← serviços, use cases, orquestradores
-  infrastructure/← providers externos (DB, Z-API, OpenAI)
+  infrastructure/← providers externos (DB, Mercado Livre, OpenAI)
   ui/            ← componentes React específicos do módulo
 ```
 
@@ -57,7 +57,7 @@ KARZI, WUWU e Armarinhos Lima compartilham o tenant administrativo atual (`org_i
 fronteiras operacionais independentes por `brand_id`.
 Isolamento garantido por `brand_id` em:
 - Templates de mensagem
-- Instâncias Z-API (1 por marca)
+- Contas Mercado Livre independentes por marca
 - Gate 3 da régua (invariante crítica #1)
 - Senders externos
 

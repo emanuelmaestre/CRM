@@ -4,10 +4,11 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { InboxCliente } from "./inbox-cliente";
 import { InboxPerguntas } from "./inbox-perguntas";
+import { InboxAvaliacoes } from "./inbox-avaliacoes";
 import pagesConfig from "@/config/pages.json";
 import { getIcon } from "@/shared/config/icon-registry";
 
-type Aba = "conversas" | "perguntas";
+type Aba = "conversas" | "perguntas" | "avaliacoes";
 const copy = pagesConfig.inbox;
 const ABAS = copy.tabs as Array<{ id: Aba; label: string; icon: string }>;
 
@@ -62,7 +63,7 @@ export default function InboxPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
       >
-        {aba === "conversas" ? <InboxCliente /> : <InboxPerguntas />}
+        {aba === "conversas" ? <InboxCliente /> : aba === "perguntas" ? <InboxPerguntas /> : <InboxAvaliacoes />}
       </motion.div>
     </div>
   );

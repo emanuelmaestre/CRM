@@ -45,6 +45,15 @@
   /* Radius */
   --radius: 0.75rem;
   --radius-card: 1.25rem;
+
+  /* Elevação — sombras ambientes "feather-light" */
+  --shadow-card: 0 4px 20px rgba(14, 15, 19, 0.03);
+  --shadow-card-hover: 0 8px 28px rgba(14, 15, 19, 0.06);
+
+  /* Gráficos (lidos via getComputedStyle no canvas) */
+  --chart-grid: rgba(14, 15, 19, 0.07);
+  --chart-bar: rgba(14, 15, 19, 0.07);
+  --chart-axis: rgba(14, 15, 19, 0.45);
 }
 
 .dark {
@@ -64,6 +73,13 @@
   --primary-foreground: #15171C;
   --secondary: #262A33;
   --secondary-foreground: #F2F3F5;
+
+  /* Elevação e gráficos no tema escuro */
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);
+  --shadow-card-hover: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --chart-grid: rgba(242, 243, 245, 0.08);
+  --chart-bar: rgba(242, 243, 245, 0.12);
+  --chart-axis: rgba(242, 243, 245, 0.45);
 }
 
 @theme inline {
@@ -88,9 +104,22 @@
 
 * {
   border-color: var(--border);
+  min-width: 0;
+}
+
+html {
+  max-width: 100%;
+  overflow-x: clip;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-width: 100%;
+  overflow-x: clip;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter), system-ui, sans-serif;
@@ -98,6 +127,37 @@ body {
 
 h1, h2, h3, h4 {
   font-family: var(--font-sora), system-ui, sans-serif;
+}
+
+img, svg, video, canvas {
+  max-width: 100%;
+}
+
+p, li, dd, dt, label, button, a {
+  overflow-wrap: anywhere;
+}
+
+button, input, select, textarea {
+  max-width: 100%;
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (pointer: coarse) {
+  button, a, input, select, textarea, summary {
+    min-height: 44px;
+  }
 }
 
 /* ── Keyframes globais (Apple motion — apenas os necessários) ── */
@@ -120,6 +180,67 @@ h1, h2, h3, h4 {
 .animate-fade-up  { animation: fade-up 0.24s cubic-bezier(0,0,0.2,1) both; }
 .animate-bar-grow { animation: bar-grow 0.5s cubic-bezier(0,0,0.2,1) both; }
 
+/* ── Escala tipográfica ──
+   Hierarquia de painel: título de página, título de card, número em destaque
+   e rótulo em caixa alta. Headings mantêm Sora (design system Sinal Duplo). */
+.text-headline-lg {
+  font-family: var(--font-sora), system-ui, sans-serif;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+@media (min-width: 640px) {
+  .text-headline-lg { font-size: 28px; line-height: 36px; }
+}
+
+.text-headline-md {
+  font-family: var(--font-sora), system-ui, sans-serif;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.text-stat-lg {
+  font-family: var(--font-sora), system-ui, sans-serif;
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-label-md {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* Corpo de texto denso (listas, tabelas) — tracking levemente positivo para legibilidade em tamanho pequeno. */
+.text-body-sm {
+  font-size: 13px;
+  line-height: 20px;
+  letter-spacing: 0.01em;
+}
+
+/* ── Superfície de card ──
+   Camada tonal com borda de 1px e sombra ambiente. O hover escurece a borda
+   em vez de elevar o card, mantendo a leitura estável em painéis densos. */
+.card-surface {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s cubic-bezier(0,0,0.2,1),
+              box-shadow 0.2s cubic-bezier(0,0,0.2,1);
+}
+.card-surface:hover {
+  border-color: color-mix(in srgb, var(--muted-foreground) 45%, transparent);
+  box-shadow: var(--shadow-card-hover);
+}
+
 .card-hover {
   transition: transform 0.2s cubic-bezier(0,0,0.2,1),
               box-shadow 0.2s cubic-bezier(0,0,0.2,1);
@@ -135,9 +256,48 @@ h1, h2, h3, h4 {
   animation: shimmer 1.4s infinite linear;
 }
 
+/* ── Resposta instantânea ──
+   Feedback ao toque começa no pointerdown (:active), não no release.
+   Duração curta para não competir com a percepção de "grudado no dedo". */
+.press-feedback {
+  transition: transform 0.1s cubic-bezier(0,0,0.2,1);
+}
+.press-feedback:active {
+  transform: scale(0.97);
+}
+
+/* ── Materiais translúcidos ──
+   Camadas flutuantes (toolbars, sheets, popovers) em vez de blocos opacos.
+   "thin" para elementos interativos pequenos, "thick" para regiões estruturais. */
+.material-thin {
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.material-thick {
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  box-shadow: var(--shadow-card-hover);
+}
+
+@media (prefers-contrast: more), (prefers-reduced-transparency: reduce) {
+  .material-thin, .material-thick {
+    background: var(--card);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+  .press-feedback:active {
+    transform: none;
   }
 }

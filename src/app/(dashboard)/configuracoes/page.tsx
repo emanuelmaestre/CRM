@@ -90,12 +90,12 @@ function StatusBadge({ connected }: { connected: boolean }) {
 function CadastrarContaCanalForm({ canais, onDone }: { canais: CanalConfiguracao[]; onDone: () => void }) {
   const marcas = useMemo(() => Array.from(new Map(canais.map((item) => [item.brandId, item])).values()), [canais]);
   const [brandId, setBrandId] = useState(marcas[0]?.brandId ?? "");
-  const [tipo, setTipo] = useState("whatsapp");
+  const [tipo, setTipo] = useState("mercadolivre");
   const [nome, setNome] = useState("");
   const [externalAccountId, setExternalAccountId] = useState("");
   const [pending, startTransition] = useTransition();
   const selectedBrandId = brandId || marcas[0]?.brandId || "";
-  const marketplace = tipo !== "whatsapp";
+  const marketplace = true;
 
   function idConhecido(nextBrandId: string, nextTipo: string) {
     return canais.find((item) => item.brandId === nextBrandId && item.canal === nextTipo)?.externalAccountId ?? "";
@@ -143,7 +143,7 @@ function CadastrarContaCanalForm({ canais, onDone }: { canais: CanalConfiguracao
           }}
           className={inputClass}
         >
-          {["whatsapp", "mercadolivre", "shopee", "tiktokshop", "olist"].map((item) => <option key={item} value={item}>{item}</option>)}
+          {["mercadolivre", "shopee", "tiktokshop", "olist"].map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
       </Field>
       <Field label="Nome interno">

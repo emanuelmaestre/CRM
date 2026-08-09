@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../cn";
+import { springs } from "../motion-variants";
 import {
   ClientsIllustration, ConversationIllustration, ReportsIllustration, GenericIllustration,
 } from "./illustrations";
@@ -54,14 +55,14 @@ export function EmptyState({
     <motion.div
       initial={{ opacity: 0, y: 4, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+      transition={springs.settleFast}
       className={cn("flex flex-col items-center justify-center py-14 px-4 text-center", className)}
     >
       {Illustration ? (
         <motion.div
-          initial={{ opacity: 0, scale: 0.92 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.04, duration: 0.28, ease: [0, 0, 0.2, 1] }}
+          transition={{ ...springs.settle, delay: 0.04 }}
           className="mb-4"
         >
           <Illustration />
@@ -79,7 +80,7 @@ export function EmptyState({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
+          transition={{ ...springs.settleFast, delay: 0.2 }}
           className="mt-5"
         >
           {action}

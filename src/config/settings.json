@@ -18,7 +18,6 @@
     "title": "Integrações",
     "icon": "Plug",
     "items": [
-      { "name": "WhatsApp (Z-API)", "statusSource": "channel:whatsapp" },
       { "name": "Mercado Livre", "description": "Gerencie anúncios e vendas", "href": "https://www.mercadolivre.com.br/vendas", "color": "#FFE600", "statusSource": "channel:mercadolivre" },
       { "name": "Inngest", "statusSource": "readiness:inngest" },
       { "name": "OpenAI", "statusSource": "readiness:openai" }

@@ -37,7 +37,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
       initial={false}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.28, ease: [0, 0, 0.2, 1] }}
-      className="fixed top-0 inset-x-0 z-30 h-14 bg-card/90 backdrop-blur-md border-b border-border flex items-center px-4 sm:px-6 gap-4"
+      className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 overflow-hidden border-b border-border bg-card/90 px-[clamp(1rem,2vw,1.5rem)] backdrop-blur-md xl:gap-4"
     >
       {/* Logo */}
       <Link href={navigationConfig.homeHref} className="flex items-center shrink-0 group" aria-label={appConfig.logo.homeAriaLabel}>
@@ -51,7 +51,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
       </Link>
 
       {/* Nav links */}
-      <nav className="hidden md:flex items-center gap-0 flex-1">
+      <nav className="hidden min-w-0 flex-1 items-center justify-center md:flex">
         {items.map((item, i) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = getIcon(item.icon);
@@ -65,7 +65,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
               <Link
                 href={item.href}
                 className={cn(
-                  "relative flex items-center gap-1.5 px-3 text-sm font-medium transition-colors h-14",
+                  "relative flex h-14 min-w-10 items-center justify-center gap-1.5 px-2 text-sm font-medium transition-colors xl:px-3",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -75,7 +75,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
                 >
                   <Icon size={14} strokeWidth={active ? 2.25 : 1.75} />
                 </motion.span>
-                {item.label}
+                <span className="hidden whitespace-nowrap xl:inline">{item.label}</span>
 
                 {/* Active underline com shared layout animation */}
                 {active && (
@@ -99,7 +99,8 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.96 }}
           onClick={() => setBell(b => !b)}
-          className="hidden md:flex relative w-8 h-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label={navigationConfig.utilities.notifications.label}
+          className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
         >
           <BellIcon size={15} strokeWidth={1.75} />
           <AnimatePresence>
@@ -121,7 +122,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
               href={navigationConfig.utilities.settings.href}
               aria-label={navigationConfig.utilities.settings.label}
               className={cn(
-                "hidden md:flex w-8 h-8 items-center justify-center rounded-lg transition-colors",
+                "hidden h-10 w-10 items-center justify-center rounded-lg transition-colors md:flex",
                 pathname === navigationConfig.utilities.settings.href
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -139,7 +140,8 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
           title={`${nome} · ${nomePerfil(perfil)} · ${navigationConfig.utilities.logout.label}`}
-          className="flex items-center gap-2 h-8 pl-1 pr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label={`${nome} · ${navigationConfig.utilities.logout.label}`}
+          className="flex h-10 min-w-10 items-center gap-2 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <div className="relative">
             <div

@@ -1,7 +1,7 @@
 {
   "locale": "pt-BR",
   "currency": "BRL",
-  "channels": { "shopee": "Shopee", "mercadolivre": "Mercado Livre", "tiktokshop": "TikTok Shop", "whatsapp": "WhatsApp", "manual": "Manual" },
+  "channels": { "shopee": "Shopee", "mercadolivre": "Mercado Livre", "tiktokshop": "TikTok Shop", "manual": "Manual" },
   "filters": {
     "allBrands": "Todas as marcas",
     "periods": [

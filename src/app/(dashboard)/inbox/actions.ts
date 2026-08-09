@@ -25,7 +25,7 @@ export async function actionListarMensagens(conversaId: string) {
 export async function actionEnviarMensagem(conversaId: string, conteudo: string) {
   const ctx = await getCrudContext();
   z.string().uuid().parse(conversaId);
-  z.string().trim().min(1).max(4096).parse(conteudo);
+  z.string().trim().min(1).max(350).parse(conteudo);
   return enviarMensagem(ctx, conversaId, conteudo.trim());
 }
 

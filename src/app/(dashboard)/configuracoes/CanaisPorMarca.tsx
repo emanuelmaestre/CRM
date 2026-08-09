@@ -40,7 +40,7 @@ function resumoLinha(item: CanalConfiguracao) {
     return `${n} credencia${n === 1 ? "l" : "is"} pendente${n === 1 ? "" : "s"}`;
   }
   if (!item.channelAccountId) return "conta não cadastrada";
-  if (item.skusMapeados === 0 && item.canal !== "whatsapp") return "sem SKUs mapeados";
+  if (item.skusMapeados === 0) return "sem SKUs mapeados";
   return `${item.skusMapeados} SKU${item.skusMapeados === 1 ? "" : "s"} · ${formatarData(item.ultimaVerificacao)}`;
 }
 
@@ -189,7 +189,7 @@ function ContaCanalEditForm({ item, onCancel, onSaved }: {
         <button
           type="button"
           onClick={salvar}
-          disabled={pending || nome.trim().length < 2 || (item.canal !== "whatsapp" && !externalAccountId.trim())}
+          disabled={pending || nome.trim().length < 2 || !externalAccountId.trim()}
           className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
           style={{ background: "var(--gradient-signature)" }}
         >

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "../cn";
+import { springs } from "../motion-variants";
 
 interface PageHeaderProps {
   title: string;
@@ -15,11 +16,14 @@ export function PageHeader({ title, description, actions, className }: PageHeade
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
-      className={cn("flex items-start justify-between gap-4 mb-6", className)}
+      transition={springs.settleFast}
+      className={cn("mb-6 flex min-w-0 flex-col items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between", className)}
     >
-      <div>
-        <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
+      <div className="min-w-0">
+        <h1
+          className="text-[clamp(1.35rem,3vw,1.5rem)] font-bold leading-tight text-foreground"
+          style={{ fontFamily: "var(--font-sora)", letterSpacing: "-0.02em" }}
+        >
           {title}
         </h1>
         {description && (
@@ -30,8 +34,8 @@ export function PageHeader({ title, description, actions, className }: PageHeade
         <motion.div
           initial={{ opacity: 0, x: 4 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.08, duration: 0.2, ease: [0, 0, 0.2, 1] }}
-          className="flex items-center gap-2 shrink-0"
+          transition={{ ...springs.settleFast, delay: 0.08 }}
+          className="flex min-w-0 flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end"
         >
           {actions}
         </motion.div>

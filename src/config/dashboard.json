@@ -20,7 +20,7 @@
     "icon": "Zap",
     "eyebrow": "Ação necessária",
     "title": "Conecte seus canais",
-    "description": "Ative WhatsApp, Shopee e TikTok para dados em tempo real",
+    "description": "Ative Mercado Livre, Shopee e TikTok para dados em tempo real",
     "href": "/configuracoes",
     "action": "Configurar agora"
   },
@@ -50,7 +50,6 @@
     "connectedIcon": "Wifi",
     "disconnectedIcon": "WifiOff",
     "items": [
-      { "name": "WhatsApp (Z-API)", "connected": false },
       { "name": "Mercado Livre", "connected": false },
       { "name": "Shopee", "connected": false },
       { "name": "TikTok Shop", "connected": false }

@@ -67,6 +67,7 @@
     "read-excel-file": "^9.3.5",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",
+    "vaul": "^1.1.2",
     "write-excel-file": "^2.3.10",
     "zod": "^4.4.3"
   },

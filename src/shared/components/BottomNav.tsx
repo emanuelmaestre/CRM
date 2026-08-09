@@ -77,9 +77,9 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 12, opacity: 0 }}
               transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-              className="fixed inset-x-0 bottom-[var(--bottom-nav-h,64px)] z-50 border-t border-border bg-card p-2 pb-3 shadow-[0_-8px_28px_rgba(14,15,19,.12)]"
+              className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-h,64px)+env(safe-area-inset-bottom))] z-50 max-h-[calc(100dvh-5rem-env(safe-area-inset-top))] overflow-y-auto border-t border-border bg-card p-2 pb-3 shadow-[0_-8px_28px_rgba(14,15,19,.12)]"
             >
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-2 gap-1 min-[380px]:grid-cols-3">
                 {noMais.map((item) => {
                   const Icon = getIcon(item.icon);
                   const on = ativo(item.href);
@@ -104,7 +104,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-around px-2 py-1">
+      <div className="grid grid-cols-5 items-center px-1 py-1">
         {fixos.map((item) => {
           const on = ativo(item.href);
           const Icon = getIcon(item.icon);
@@ -113,7 +113,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
               key={item.href}
               href={item.href}
               aria-current={on ? "page" : undefined}
-              className="relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 px-3 py-2"
+              className="relative flex min-h-[48px] min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-center"
             >
               <AnimatePresence>
                 {on && (
@@ -134,7 +134,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
               </motion.span>
 
               <span className={cn(
-                "relative z-10 text-[10px] font-medium transition-colors",
+                "relative z-10 max-w-full truncate text-[10px] font-medium transition-colors",
                 on ? "text-foreground" : "text-muted-foreground",
               )}>
                 {item.label}
@@ -150,7 +150,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
             aria-expanded={maisAberto}
             aria-label={MORE.label}
             data-testid="bottom-nav-mais"
-            className="relative flex min-h-[44px] min-w-[44px] flex-col items-center justify-center gap-0.5 px-3 py-2"
+            className="relative flex min-h-[48px] min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-center"
           >
             {(maisAberto || algumDoMaisAtivo) && (
               <span className="absolute inset-x-1 inset-y-1 rounded-xl bg-muted" />

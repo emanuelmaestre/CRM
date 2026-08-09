@@ -28,7 +28,7 @@ criado ──────┬──→ pago ──→ separado ──→ enviado 
 
 Transições inválidas lançam `Error` — nunca são silenciadas.
 
-## Conversa (inbox WhatsApp)
+## Conversa (inbox Mercado Livre)
 
 ```
 nova ──→ em_atendimento ──⇄──→ aguardando_cliente
