@@ -148,6 +148,13 @@
       "when": 1786018526432,
       "tag": "0020_add_estoque_divergencia",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786281997926,
+      "tag": "0021_rls_estoque_divergencia",
+      "breakpoints": true
     }
   ]
 }
