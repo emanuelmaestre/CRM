@@ -115,7 +115,7 @@ export async function receberMensagem(input: {
  *  depender exclusivamente do webhook, que só reage a eventos a partir do
  *  momento em que passa a estar no ar. Idempotente: reaproveita a mesma
  *  dedupe por providerMessageId do webhook (receberMensagem). */
-export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroativos = 30): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
+export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroativos = 90): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
   const contas = await db
     .select({
       channelAccountId: channelAccount.id,
@@ -138,6 +138,7 @@ export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroa
     try {
       const provider = await criarMLProvider(conta.brandSlug);
       const mensagens = await provider.buscarMensagensPosVendaRecentes(desde);
+      console.log(`[inbox] sincronização de conversas: ${conta.brandSlug} retornou ${mensagens.length} mensagem(ns) pós-venda dos últimos ${diasRetroativos} dias`);
       for (const msg of mensagens) {
         if (msg.deVendedor) continue; // mesma regra do webhook: só entrada vira conversa nova
         const antes = await db.select({ id: mensagem.id }).from(mensagem).where(and(

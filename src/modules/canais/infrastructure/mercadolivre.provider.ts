@@ -391,6 +391,7 @@ export class MercadoLivreProvider implements ChannelProvider {
       const packId = String(order.pack_id ?? order.id);
       if (!packsUnicos.has(packId)) packsUnicos.set(packId, String(order.id));
     }
+    console.log(`[ml-provider] ${results.length} pedido(s) desde ${desde.toISOString()}, ${packsUnicos.size} pack(s) único(s)`);
 
     const porPack = await Promise.all([...packsUnicos.entries()].map(async ([packId, orderId]) => {
       try {
