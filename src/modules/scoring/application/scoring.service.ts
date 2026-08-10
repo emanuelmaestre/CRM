@@ -162,9 +162,12 @@ export async function recalcularScoreProduto(orgId: string, produtoId: string): 
       .then((r) => Number(r[0]?.totalVendido ?? 0)),
   ]);
 
-  const diasSemVenda = ultimaVendaRow
-    ? Math.floor((Date.now() - ultimaVendaRow.getTime()) / 86_400_000)
-    : 999;
+  // Sem venda concluída, a régua é a data de cadastro do produto — mesmo
+  // ajuste feito no A7-encalhe e em listarProdutosParados (estoque.service):
+  // um valor fixo (era 999) fazia todo produto recém-importado nascer com
+  // risco de encalhe máximo no primeiro cálculo noturno.
+  const referencia = ultimaVendaRow ?? produtoRow.createdAt;
+  const diasSemVenda = Math.floor((Date.now() - referencia.getTime()) / 86_400_000);
 
   const resultado = calcularScoreProduto({
     diasSemVenda,

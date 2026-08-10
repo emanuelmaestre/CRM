@@ -9,17 +9,31 @@ export const A14_scoresProduto = inngest.createFunction(
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
 
-    const produtos = await step.run("listar-produtos", () =>
-      db.select({ id: produto.id })
-        .from(produto)
-        .where(and(eq(produto.orgId, orgId), isNull(produto.deletedAt), eq(produto.ativo, true)))
-        .limit(500)
-    );
-
+    // Paginado em vez de um único limit(500): a importação de catálogo do ML
+    // (ver actionImportarCatalogoEstoque) traz centenas de SKUs de uma vez —
+    // um teto fixo deixava os produtos além dele sem score recalculado toda
+    // noite, silenciosamente.
     let processados = 0;
-    for (const p of produtos) {
-      await step.run(`score-produto-${p.id}`, () => recalcularScoreProduto(orgId, p.id));
-      processados++;
+    let offset = 0;
+    const TAMANHO_LOTE = 200;
+    while (true) {
+      const lote = await step.run(`listar-produtos-${offset}`, () =>
+        db.select({ id: produto.id })
+          .from(produto)
+          .where(and(eq(produto.orgId, orgId), isNull(produto.deletedAt), eq(produto.ativo, true)))
+          .orderBy(produto.id)
+          .limit(TAMANHO_LOTE)
+          .offset(offset)
+      );
+      if (lote.length === 0) break;
+
+      for (const p of lote) {
+        await step.run(`score-produto-${p.id}`, () => recalcularScoreProduto(orgId, p.id));
+        processados++;
+      }
+
+      if (lote.length < TAMANHO_LOTE) break;
+      offset += TAMANHO_LOTE;
     }
 
     return { processados };
