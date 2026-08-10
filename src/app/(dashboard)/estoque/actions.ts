@@ -6,6 +6,7 @@ import {
   criarProduto, editarProduto, listarProdutos, listarProdutosParados, registrarMovimento,
   listarDivergenciasEstoque, resolverDivergenciaEstoque,
 } from "@/modules/estoque/application/estoque.service";
+import { importarCatalogoMercadoLivre } from "@/modules/estoque/application/importar-catalogo.service";
 import { z } from "zod";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
@@ -52,6 +53,13 @@ export async function actionListarProdutos(brandId?: string, busca?: string) {
       );
     }),
   };
+}
+
+export async function actionImportarCatalogoEstoque() {
+  const ctx = await getCrudContext();
+  const result = await importarCatalogoMercadoLivre(ctx);
+  revalidatePath("/estoque");
+  return result;
 }
 
 export async function actionListarProdutosParados() {

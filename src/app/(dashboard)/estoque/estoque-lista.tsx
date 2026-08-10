@@ -4,13 +4,13 @@ import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link2, Loader2 } from "lucide-react";
+import { Link2, Loader2, RefreshCw } from "lucide-react";
 import { MovimentoModal } from "./movimento-modal";
 import { EditarProdutoModal } from "./editar-produto-modal";
 import { CanalModal } from "./canal-modal";
 import {
   actionListarMarcasEstoque, actionListarProdutos, actionListarProdutosParados,
-  actionListarDivergenciasEstoque, actionResolverDivergenciaEstoque,
+  actionListarDivergenciasEstoque, actionResolverDivergenciaEstoque, actionImportarCatalogoEstoque,
 } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -209,6 +209,7 @@ export function EstoqueLista() {
   const [, startTransition]       = useTransition();
   const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
   const [marcas, setMarcas] = useState<Awaited<ReturnType<typeof actionListarMarcasEstoque>>>([]);
+  const [sincronizando, setSincronizando] = useState(false);
 
   useEffect(() => {
     actionListarMarcasEstoque().then(setMarcas).catch(() => setMarcas([]));
@@ -238,6 +239,23 @@ export function EstoqueLista() {
     return () => clearTimeout(timer);
   }, [brandId, busca, carregar]);
 
+  async function sincronizar() {
+    setSincronizando(true);
+    try {
+      const resultado = await actionImportarCatalogoEstoque();
+      if (resultado.produtosCriados > 0) {
+        toast.success(copy.syncSuccess.replace("{criados}", String(resultado.produtosCriados)));
+        carregar(brandId, busca);
+      } else {
+        toast.info(copy.syncNothingNew);
+      }
+    } catch {
+      toast.error(copy.syncError);
+    } finally {
+      setSincronizando(false);
+    }
+  }
+
   return (
     <div>
       <motion.div
@@ -252,15 +270,29 @@ export function EstoqueLista() {
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">{copy.description}</p>
         </div>
-        {canManage && <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => router.push("/estoque/novo")}
-          className="h-10 px-4 rounded-[0.75rem] text-sm font-semibold text-white shadow-[0_4px_14px_rgba(227,19,27,.3)]"
-          style={{ background: "var(--gradient-signature)" }}
-        >
-          {copy.newAction}
-        </motion.button>}
+        {canManage && (
+          <div className="flex items-center gap-2">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={sincronizar}
+              disabled={sincronizando}
+              className="h-10 px-4 inline-flex items-center gap-2 rounded-[0.75rem] border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+            >
+              <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
+              {sincronizando ? copy.syncingAction : copy.syncAction}
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => router.push("/estoque/novo")}
+              className="h-10 px-4 rounded-[0.75rem] text-sm font-semibold text-white shadow-[0_4px_14px_rgba(227,19,27,.3)]"
+              style={{ background: "var(--gradient-signature)" }}
+            >
+              {copy.newAction}
+            </motion.button>
+          </div>
+        )}
       </motion.div>
 
       <ProdutosParadosPanel />
@@ -305,15 +337,27 @@ export function EstoqueLista() {
                 description={copy.empty.description}
                 action={
                   canManage ? (
-                  <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => router.push("/estoque/novo")}
-                    className="h-10 px-5 rounded-[0.75rem] text-sm font-semibold text-white"
-                    style={{ background: "var(--gradient-signature)" }}
-                  >
-                    {copy.newAction}
-                  </motion.button>
+                  <div className="flex items-center gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={sincronizar}
+                      disabled={sincronizando}
+                      className="h-10 px-5 inline-flex items-center gap-2 rounded-[0.75rem] border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+                    >
+                      <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
+                      {sincronizando ? copy.syncingAction : copy.syncAction}
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => router.push("/estoque/novo")}
+                      className="h-10 px-5 rounded-[0.75rem] text-sm font-semibold text-white"
+                      style={{ background: "var(--gradient-signature)" }}
+                    >
+                      {copy.newAction}
+                    </motion.button>
+                  </div>
                   ) : undefined
                 }
               />
