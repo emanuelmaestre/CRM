@@ -7,16 +7,18 @@ import pagesConfig from "@/config/pages.json";
 
 const copy = pagesConfig.estoque.edit;
 
+// O estoque mínimo saiu daqui de propósito: ele é editável direto na linha da
+// lista (e em lote), porque configurá-lo produto a produto por modal inviabiliza
+// um catálogo inteiro — ver MinimoInput em estoque-lista.tsx.
 interface Props {
   produtoId: string;
   produtoNome: string;
   preco: string;
   custo?: string | null;
-  estoqueMinimo: number;
   onSuccess: () => void;
 }
 
-export function EditarProdutoModal({ produtoId, produtoNome, preco, custo, estoqueMinimo, onSuccess }: Props) {
+export function EditarProdutoModal({ produtoId, produtoNome, preco, custo, onSuccess }: Props) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -26,7 +28,6 @@ export function EditarProdutoModal({ produtoId, produtoNome, preco, custo, estoq
     const nome = fd.get("nome") as string;
     const precoValor = fd.get("preco") as string;
     const custoValor = fd.get("custo") as string;
-    const estoqueMinimoValor = fd.get("estoqueMinimo") as string;
 
     startTransition(async () => {
       try {
@@ -35,7 +36,6 @@ export function EditarProdutoModal({ produtoId, produtoNome, preco, custo, estoq
           nome,
           precoValor,
           custoValor || undefined,
-          estoqueMinimoValor ? Number(estoqueMinimoValor) : undefined,
         );
         toast.success(copy.success);
         setOpen(false);
@@ -95,18 +95,6 @@ export function EditarProdutoModal({ produtoId, produtoNome, preco, custo, estoq
                   step="0.01"
                   min="0"
                   defaultValue={custo ?? ""}
-                  className="w-full h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.minStock}</label>
-                <input
-                  name="estoqueMinimo"
-                  type="number"
-                  step="1"
-                  min="0"
-                  defaultValue={estoqueMinimo}
                   className="w-full h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>

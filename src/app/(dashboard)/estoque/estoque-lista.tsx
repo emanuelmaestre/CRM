@@ -4,16 +4,21 @@ import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link2, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, Hourglass, Link2, Loader2, PackageX, RefreshCw, Scale } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { MovimentoModal } from "./movimento-modal";
 import { EditarProdutoModal } from "./editar-produto-modal";
 import { CanalModal } from "./canal-modal";
 import {
   actionListarMarcasEstoque, actionListarProdutos, actionListarProdutosParados,
   actionListarDivergenciasEstoque, actionResolverDivergenciaEstoque, actionImportarCatalogoEstoque,
+  actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote,
 } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
+import { SectionCard } from "@/shared/design-system/primitives/SectionCard";
+import { springs } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig } from "@/shared/config/brands";
@@ -23,94 +28,84 @@ type Produto = {
   estoqueMinimo: number; brandId: string; brandName: string; brandSlug: string; saldo?: number;
 };
 
-const copy = pagesConfig.estoque;
+type Filtro = "todos" | "abaixo_minimo" | "sem_estoque" | "parados" | "sem_minimo";
 
-function brandLabel(produto: Produto) {
-  return {
-    label: produto.brandName,
-    color: getBrandConfig(produto.brandSlug)?.color ?? "var(--muted-foreground)",
-  };
-}
-
+type Indicadores = Awaited<ReturnType<typeof actionIndicadoresEstoque>>;
 type ProdutoParado = Awaited<ReturnType<typeof actionListarProdutosParados>>[number];
-
-function ProdutosParadosPanel() {
-  const pc = copy.parados;
-  const [aberto, setAberto] = useState(false);
-  const [parados, setParados] = useState<ProdutoParado[] | null>(null);
-
-  useEffect(() => {
-    if (aberto && parados === null) {
-      actionListarProdutosParados().then(setParados).catch(() => setParados([]));
-    }
-  }, [aberto, parados]);
-
-  return (
-    <div className="mb-4">
-      <button
-        type="button"
-        onClick={() => setAberto((value) => !value)}
-        className="min-h-11 text-sm font-medium text-primary"
-        data-testid="toggle-produtos-parados"
-      >
-        {aberto ? pc.toggleHide : pc.toggleShow}
-      </button>
-
-      {aberto && (
-        <section className="mt-3 rounded-[1.25rem] border border-border bg-card overflow-hidden" data-testid="produtos-parados-painel">
-          <div className="px-5 py-4 border-b border-border">
-            <h2 className="text-sm font-semibold">{pc.title}</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{pc.subtitle}</p>
-          </div>
-          <div className="divide-y divide-border">
-            {parados === null ? (
-              <SkeletonRow />
-            ) : parados.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-muted-foreground">{pc.empty}</p>
-            ) : (
-              parados.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                  <div>
-                    <p className="font-medium">{item.nome}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 font-mono">{item.sku}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">{item.diasSemVenda} {pc.daysSuffix}</p>
-                    <p className="text-xs font-semibold mt-0.5">{pc.capitalLabel}: R$ {item.capitalParado.toFixed(2)}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
-
 type Divergencia = Awaited<ReturnType<typeof actionListarDivergenciasEstoque>>[number];
+
+const copy = pagesConfig.estoque;
+const PAGINA = 50;
+
+const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+function brandColor(slug: string) {
+  return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
+}
 
 function canalLabel(canal: string) {
   const items = channelsConfig.items as Record<string, { label?: string }>;
   return items[canal]?.label ?? canal;
 }
 
-function DivergenciasEstoquePanel() {
-  const dc = pagesConfig.estoque.divergencias;
-  const [aberto, setAberto] = useState(false);
+/* ── Cartão de alerta ──────────────────────────────────────────
+   Cada indicador é também o filtro dele: o número que assusta é o
+   mesmo botão que mostra quais SKUs causaram o susto. */
+function AlertCard({ label, valor, sub, icon: Icon, tom, ativo, onClick }: {
+  label: string;
+  valor: number;
+  sub?: string;
+  icon: LucideIcon;
+  tom: "danger" | "warning" | "neutro";
+  ativo: boolean;
+  onClick: () => void;
+}) {
+  const cor = tom === "danger" ? "#C21820" : tom === "warning" ? "#B57A00" : "var(--muted-foreground)";
+  const destaque = valor > 0 && tom !== "neutro";
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
+      transition={springs.settleFast}
+      aria-pressed={ativo}
+      className="rounded-[1.25rem] bg-card p-4 text-left shadow-[0_2px_16px_rgba(14,15,19,.07)] transition-[box-shadow,border-color] border-2"
+      style={{
+        borderColor: ativo ? cor : "transparent",
+        background: destaque ? `color-mix(in srgb, ${cor} 7%, var(--card))` : undefined,
+      }}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <Icon size={15} strokeWidth={1.75} style={{ color: destaque ? cor : "var(--muted-foreground)" }} />
+        <span className="text-xs font-semibold" style={{ color: destaque ? cor : "var(--muted-foreground)" }}>
+          {label}
+        </span>
+      </div>
+      <p
+        className="text-[26px] font-bold leading-none tabular-nums tracking-[-0.02em]"
+        style={{ color: destaque ? cor : "var(--foreground)" }}
+      >
+        {valor}
+      </p>
+      {sub && <p className="mt-1.5 text-[11px] text-muted-foreground">{sub}</p>}
+    </motion.button>
+  );
+}
+
+/* ── Divergências ──────────────────────────────────────────────
+   Reconciliação noturna (A5) marca, humano decide — a correção nunca
+   é automática. Só aparece quando existe algo pendente: painel que
+   vive dizendo "nada aqui" só rouba espaço. */
+function DivergenciasPanel({ onResolvida }: { onResolvida: () => void }) {
+  const dc = copy.divergencias;
   const [divergencias, setDivergencias] = useState<Divergencia[] | null>(null);
   const [resolvendo, setResolvendo] = useState<{ id: string; decisao: "aplicar_canal" | "ignorar" } | null>(null);
 
-  const carregar = useCallback(() => {
-    actionListarDivergenciasEstoque().then(setDivergencias).catch(() => {
-      setDivergencias([]);
-      toast.error(dc.loadError);
-    });
-  }, [dc.loadError]);
-
   useEffect(() => {
-    if (aberto && divergencias === null) carregar();
-  }, [aberto, divergencias, carregar]);
+    actionListarDivergenciasEstoque().then(setDivergencias).catch(() => setDivergencias([]));
+  }, []);
 
   async function resolver(id: string, decisao: "aplicar_canal" | "ignorar") {
     setResolvendo({ id, decisao });
@@ -118,6 +113,7 @@ function DivergenciasEstoquePanel() {
       await actionResolverDivergenciaEstoque(id, decisao);
       toast.success(decisao === "aplicar_canal" ? dc.applySuccess : dc.ignoreSuccess);
       setDivergencias((atual) => atual?.filter((item) => item.id !== id) ?? atual);
+      onResolvida();
     } catch {
       toast.error(decisao === "aplicar_canal" ? dc.applyError : dc.ignoreError);
     } finally {
@@ -125,73 +121,141 @@ function DivergenciasEstoquePanel() {
     }
   }
 
-  const pendentes = divergencias?.length ?? 0;
+  if (divergencias === null || divergencias.length === 0) return null;
 
   return (
-    <div className="mb-4">
-      <button
-        type="button"
-        onClick={() => setAberto((value) => !value)}
-        className="min-h-11 text-sm font-medium text-primary"
-        data-testid="toggle-divergencias-estoque"
-      >
-        {aberto ? dc.toggleHide : dc.toggleShow}
-        {pendentes > 0 ? ` (${pendentes})` : ""}
-      </button>
+    // O testid fica no wrapper: SectionCard não repassa props extras ao DOM.
+    <div data-testid="divergencias-estoque-painel">
+    <SectionCard
+      title={dc.title}
+      description={dc.subtitle}
+      icon={Scale}
+      className="mb-4"
+    >
+      <div className="divide-y divide-border -my-2">
+        {divergencias.map((item) => {
+          const ocupado = resolvendo?.id === item.id;
+          return (
+            <div key={item.id} className="flex flex-col gap-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">{item.produtoNome}</p>
+                <p className="font-mono text-xs text-muted-foreground mt-0.5">{item.produtoSku} · {canalLabel(item.canal)}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {dc.localLabel}: <span className="font-semibold text-foreground">{item.saldoLocal}</span>
+                  {"  ·  "}
+                  {dc.channelLabel}: <span className="font-semibold text-foreground">{item.saldoCanal}</span>
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => resolver(item.id, "ignorar")}
+                  className="min-h-9 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
+                >
+                  {resolvendo?.decisao === "ignorar" && ocupado ? <Loader2 size={13} className="animate-spin" /> : dc.ignoreAction}
+                </button>
+                <button
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => resolver(item.id, "aplicar_canal")}
+                  className="min-h-9 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-60"
+                  style={{ background: "var(--gradient-signature)" }}
+                >
+                  {resolvendo?.decisao === "aplicar_canal" && ocupado && <Loader2 size={13} className="animate-spin" />}
+                  {resolvendo?.decisao === "aplicar_canal" && ocupado ? dc.applyingAction : dc.applyAction}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </SectionCard>
+    </div>
+  );
+}
 
-      {aberto && (
-        <section className="mt-3 rounded-[1.25rem] border border-border bg-card overflow-hidden" data-testid="divergencias-estoque-painel">
-          <div className="px-5 py-4 border-b border-border">
-            <h2 className="text-sm font-semibold">{dc.title}</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{dc.subtitle}</p>
-          </div>
-          <div className="divide-y divide-border">
-            {divergencias === null ? (
-              <SkeletonRow />
-            ) : divergencias.length === 0 ? (
-              <p className="px-5 py-4 text-sm text-muted-foreground">{dc.empty}</p>
-            ) : (
-              divergencias.map((item) => {
-                const aplicando = resolvendo?.id === item.id && resolvendo.decisao === "aplicar_canal";
-                const ignorando = resolvendo?.id === item.id && resolvendo.decisao === "ignorar";
-                const ocupado = resolvendo?.id === item.id;
-                return (
-                  <div key={item.id} className="flex flex-col gap-3 px-5 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground">{item.produtoNome}</p>
-                      <p className="font-mono text-xs text-muted-foreground mt-0.5">{item.produtoSku} · {canalLabel(item.canal)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {dc.localLabel}: <span className="font-semibold text-foreground">{item.saldoLocal}</span>
-                        {"  ·  "}
-                        {dc.channelLabel}: <span className="font-semibold text-foreground">{item.saldoCanal}</span>
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={ocupado}
-                        onClick={() => resolver(item.id, "ignorar")}
-                        className="min-h-9 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
-                      >
-                        {ignorando ? <Loader2 size={13} className="animate-spin" /> : dc.ignoreAction}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={ocupado}
-                        onClick={() => resolver(item.id, "aplicar_canal")}
-                        className="min-h-9 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-60"
-                        style={{ background: "var(--gradient-signature)" }}
-                      >
-                        {aplicando && <Loader2 size={13} className="animate-spin" />}
-                        {aplicando ? dc.applyingAction : dc.applyAction}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
+/* ── Campo de mínimo ───────────────────────────────────────────
+   Editável na própria linha: é o número que liga o alerta do A6, e
+   escondê-lo dentro de um modal por produto inviabiliza um catálogo
+   inteiro. Salva ao sair do campo ou no Enter. */
+function MinimoInput({ produto, onSalvo }: { produto: Produto; onSalvo: (valor: number) => void }) {
+  const [valor, setValor] = useState(String(produto.estoqueMinimo || ""));
+  const [salvando, setSalvando] = useState(false);
+  const [minimoSincronizado, setMinimoSincronizado] = useState(produto.estoqueMinimo);
+
+  // Ajuste de estado durante o render (padrão recomendado do React para
+  // "estado derivado de prop"): quando o lote muda o mínimo por fora, o campo
+  // acompanha sem passar por um efeito e um render extra.
+  if (minimoSincronizado !== produto.estoqueMinimo) {
+    setMinimoSincronizado(produto.estoqueMinimo);
+    setValor(String(produto.estoqueMinimo || ""));
+  }
+
+  async function salvar() {
+    const numero = valor.trim() === "" ? 0 : Number(valor);
+    if (!Number.isInteger(numero) || numero < 0 || numero === produto.estoqueMinimo) {
+      setValor(String(produto.estoqueMinimo || ""));
+      return;
+    }
+    setSalvando(true);
+    try {
+      await actionDefinirEstoqueMinimoEmLote([produto.id], numero);
+      onSalvo(numero);
+      toast.success(copy.minimum.saved);
+    } catch {
+      toast.error(copy.minimum.error);
+      setValor(String(produto.estoqueMinimo || ""));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <input
+        type="number"
+        min="0"
+        step="1"
+        inputMode="numeric"
+        value={valor}
+        disabled={salvando}
+        placeholder={copy.minimum.placeholder}
+        aria-label={`${copy.minimum.columnLabel} — ${produto.nome}`}
+        onChange={(event) => setValor(event.target.value)}
+        onBlur={salvar}
+        onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
+        className="h-9 w-[68px] rounded-lg border border-border bg-background px-2 text-sm tabular-nums text-foreground text-right focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] disabled:opacity-50"
+      />
+      {salvando && <Loader2 size={12} className="animate-spin absolute -left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />}
+    </div>
+  );
+}
+
+/* ── Saldo com leitura relativa ────────────────────────────────
+   A barra compara saldo × mínimo: dá o veredito antes de a pessoa
+   ler o número. Sem mínimo definido não há régua, então não há barra. */
+function SaldoCelula({ saldo, minimo, testId }: { saldo: number; minimo: number; testId: string }) {
+  const zerado = saldo <= 0;
+  const abaixo = !zerado && minimo > 0 && saldo <= minimo;
+  const cor = zerado ? "#B57A00" : abaixo ? "#C21820" : "#1F8A4C";
+  const proporcao = minimo > 0 ? Math.min(saldo / (minimo * 2), 1) : 1;
+
+  return (
+    <div className="w-[72px] ml-auto">
+      <p data-testid={testId} className="text-[15px] font-bold tabular-nums leading-none text-right" style={{ color: zerado || abaixo ? cor : "var(--foreground)" }}>
+        {saldo}
+      </p>
+      {minimo > 0 && (
+        <div className="mt-1.5 h-[3px] rounded-full bg-muted overflow-hidden">
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: zerado ? 0 : proporcao }}
+            transition={springs.settle}
+            className="h-full rounded-full origin-left"
+            style={{ background: cor, width: "100%" }}
+          />
+        </div>
       )}
     </div>
   );
@@ -202,29 +266,47 @@ export function EstoqueLista() {
   const [produtos, setProdutos]   = useState<Produto[]>([]);
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
+  const [carregandoMais, setCarregandoMais] = useState(false);
   const [busca, setBusca]         = useState("");
   const [brandId, setBrandId]     = useState("");
+  const [filtro, setFiltro]       = useState<Filtro>("todos");
   const [canManage, setCanManage] = useState(false);
   const requestId = useRef(0);
   const [, startTransition]       = useTransition();
   const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
   const [marcas, setMarcas] = useState<Awaited<ReturnType<typeof actionListarMarcasEstoque>>>([]);
   const [sincronizando, setSincronizando] = useState(false);
+  const [indicadores, setIndicadores] = useState<Indicadores | null>(null);
+  const [parados, setParados] = useState<Map<string, ProdutoParado>>(new Map());
+  const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(new Set());
+  const [minimoLote, setMinimoLote] = useState("");
+  const [aplicandoLote, setAplicandoLote] = useState(false);
 
   useEffect(() => {
     actionListarMarcasEstoque().then(setMarcas).catch(() => setMarcas([]));
   }, []);
 
-  const carregar = useCallback((marca?: string, termo?: string) => {
+  const carregarIndicadores = useCallback((marca?: string) => {
+    actionIndicadoresEstoque(marca || undefined)
+      .then(setIndicadores)
+      .catch(() => setIndicadores(null));
+  }, []);
+
+  const carregar = useCallback((marca?: string, termo?: string, estado?: Filtro) => {
     const currentRequest = ++requestId.current;
     startTransition(async () => {
       setLoading(true);
       try {
-        const res = await actionListarProdutos(marca || undefined, termo || undefined);
+        const res = await actionListarProdutos({
+          brandId: marca || undefined,
+          busca: termo || undefined,
+          estado: estado && estado !== "todos" ? estado : undefined,
+        });
         if (currentRequest !== requestId.current) return;
         setProdutos(res.data as Produto[]);
         setTotal(res.total);
         setCanManage(res.permissions.canManage);
+        setSelecionados(new Set());
       } catch {
         if (currentRequest !== requestId.current) return;
         toast.error(copy.messages.loadError);
@@ -235,9 +317,40 @@ export function EstoqueLista() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => carregar(brandId, busca), busca ? 300 : 0);
+    const timer = setTimeout(() => carregar(brandId, busca, filtro), busca ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [brandId, busca, carregar]);
+  }, [brandId, busca, filtro, carregar]);
+
+  useEffect(() => { carregarIndicadores(brandId); }, [brandId, carregarIndicadores]);
+
+  // Detalhe de encalhe (dias parado, capital preso) só interessa quando a
+  // pessoa está olhando justamente esses produtos.
+  useEffect(() => {
+    if (filtro !== "parados") return;
+    let cancelado = false;
+    actionListarProdutosParados()
+      .then((itens) => { if (!cancelado) setParados(new Map(itens.map((item) => [item.id, item]))); })
+      .catch(() => { if (!cancelado) setParados(new Map()); });
+    return () => { cancelado = true; };
+  }, [filtro]);
+
+  async function carregarMais() {
+    setCarregandoMais(true);
+    try {
+      const res = await actionListarProdutos({
+        brandId: brandId || undefined,
+        busca: busca || undefined,
+        estado: filtro !== "todos" ? filtro : undefined,
+        offset: produtos.length,
+      });
+      setProdutos((atual) => [...atual, ...(res.data as Produto[])]);
+      setTotal(res.total);
+    } catch {
+      toast.error(copy.messages.loadError);
+    } finally {
+      setCarregandoMais(false);
+    }
+  }
 
   async function sincronizar() {
     setSincronizando(true);
@@ -245,7 +358,8 @@ export function EstoqueLista() {
       const resultado = await actionImportarCatalogoEstoque();
       if (resultado.produtosCriados > 0) {
         toast.success(copy.syncSuccess.replace("{criados}", String(resultado.produtosCriados)));
-        carregar(brandId, busca);
+        carregar(brandId, busca, filtro);
+        carregarIndicadores(brandId);
       } else {
         toast.info(copy.syncNothingNew);
       }
@@ -256,22 +370,64 @@ export function EstoqueLista() {
     }
   }
 
+  function alternarSelecao(id: string) {
+    setSelecionados((atual) => {
+      const proximo = new Set(atual);
+      if (proximo.has(id)) proximo.delete(id);
+      else proximo.add(id);
+      return proximo;
+    });
+  }
+
+  function alternarTodos() {
+    setSelecionados((atual) => atual.size === produtos.length ? new Set() : new Set(produtos.map((p) => p.id)));
+  }
+
+  async function aplicarMinimoEmLote() {
+    const numero = Number(minimoLote);
+    if (!Number.isInteger(numero) || numero < 0) return;
+    setAplicandoLote(true);
+    try {
+      const ids = [...selecionados];
+      await actionDefinirEstoqueMinimoEmLote(ids, numero);
+      setProdutos((atual) => atual.map((p) => selecionados.has(p.id) ? { ...p, estoqueMinimo: numero } : p));
+      setSelecionados(new Set());
+      setMinimoLote("");
+      toast.success(copy.bulk.success.replace("{n}", String(ids.length)));
+      carregarIndicadores(brandId);
+    } catch {
+      toast.error(copy.bulk.error);
+    } finally {
+      setAplicandoLote(false);
+    }
+  }
+
+  function aoSalvarMinimo(produtoId: string, valor: number) {
+    setProdutos((atual) => atual.map((p) => p.id === produtoId ? { ...p, estoqueMinimo: valor } : p));
+    carregarIndicadores(brandId);
+  }
+
+  function trocarFiltro(proximo: Filtro) {
+    setFiltro((atual) => atual === proximo ? "todos" : proximo);
+  }
+
+  const chips: Array<{ id: Filtro; label: string; contagem?: number }> = [
+    { id: "todos", label: copy.filters.all, contagem: indicadores?.total },
+    { id: "abaixo_minimo", label: copy.filters.belowMin, contagem: indicadores?.abaixoMinimo },
+    { id: "sem_estoque", label: copy.filters.outOfStock, contagem: indicadores?.semEstoque },
+    { id: "parados", label: copy.filters.stalled, contagem: indicadores?.parados },
+    { id: "sem_minimo", label: copy.filters.noMin, contagem: indicadores?.semMinimo },
+  ];
+
+  const filtrando = filtro !== "todos" || busca.trim() !== "" || brandId !== "";
+
   return (
     <div>
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
-      >
-        <div>
-          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-            {copy.title}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{copy.description}</p>
-        </div>
-        {canManage && (
-          <div className="flex items-center gap-2">
+      <PageHeader
+        title={copy.title}
+        description={copy.description}
+        actions={canManage ? (
+          <>
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
@@ -291,28 +447,154 @@ export function EstoqueLista() {
             >
               {copy.newAction}
             </motion.button>
-          </div>
-        )}
-      </motion.div>
+          </>
+        ) : undefined}
+      />
 
-      <ProdutosParadosPanel />
-      {canManage && <DivergenciasEstoquePanel />}
+      {/* Faixa de alertas — os números do PRD (mínimo atingido, encalhe,
+          divergência) deixam de ser link escondido e viram ponto de partida. */}
+      <div className="grid gap-3 mb-5 grid-cols-2 lg:grid-cols-4">
+        <AlertCard
+          label={copy.indicators.belowMin}
+          valor={indicadores?.abaixoMinimo ?? 0}
+          icon={AlertTriangle}
+          tom="danger"
+          ativo={filtro === "abaixo_minimo"}
+          onClick={() => trocarFiltro("abaixo_minimo")}
+        />
+        <AlertCard
+          label={copy.indicators.outOfStock}
+          valor={indicadores?.semEstoque ?? 0}
+          icon={PackageX}
+          tom="warning"
+          ativo={filtro === "sem_estoque"}
+          onClick={() => trocarFiltro("sem_estoque")}
+        />
+        <AlertCard
+          label={copy.indicators.stalled}
+          valor={indicadores?.parados ?? 0}
+          sub={indicadores && indicadores.capitalParado > 0
+            ? `${dinheiro.format(indicadores.capitalParado)} ${copy.indicators.capitalPrefix}`
+            : undefined}
+          icon={Hourglass}
+          tom="neutro"
+          ativo={filtro === "parados"}
+          onClick={() => trocarFiltro("parados")}
+        />
+        <AlertCard
+          label={copy.indicators.divergences}
+          valor={indicadores?.divergencias ?? 0}
+          icon={Scale}
+          tom="neutro"
+          ativo={false}
+          onClick={() => document.querySelector("[data-testid=divergencias-estoque-painel]")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+        />
+      </div>
 
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] mb-4">
-        <input value={busca} onChange={(event) => setBusca(event.target.value)} placeholder={copy.searchPlaceholder} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
-        <select value={brandId} onChange={(event) => setBrandId(event.target.value)} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm">
+      {canManage && <DivergenciasPanel onResolvida={() => carregarIndicadores(brandId)} />}
+
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] mb-3">
+        <input
+          value={busca}
+          onChange={(event) => setBusca(event.target.value)}
+          placeholder={copy.searchPlaceholder}
+          className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow]"
+        />
+        <select
+          value={brandId}
+          onChange={(event) => setBrandId(event.target.value)}
+          className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm"
+        >
           <option value="">{copy.allBrands}</option>
           {marcas.map((marca) => <option key={marca.id} value={marca.id}>{marca.name}</option>)}
         </select>
       </div>
 
+      <div className="flex flex-wrap gap-2 mb-4">
+        {chips.map((chip) => {
+          const ativo = filtro === chip.id;
+          return (
+            <motion.button
+              key={chip.id}
+              type="button"
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setFiltro(chip.id)}
+              aria-pressed={ativo}
+              className={`min-h-9 rounded-full px-3.5 text-xs font-semibold transition-colors ${
+                ativo
+                  ? "text-white"
+                  : "border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+              style={ativo ? { background: "var(--gradient-signature)" } : undefined}
+            >
+              {chip.label}
+              {chip.contagem !== undefined && (
+                <span className="ml-1.5 tabular-nums opacity-70">{chip.contagem}</span>
+              )}
+            </motion.button>
+          );
+        })}
+      </div>
+
+      {/* Barra de ação em massa — é o que torna um catálogo de centenas de
+          SKUs configurável: define o mínimo de todos os selecionados de uma vez. */}
+      <AnimatePresence>
+        {canManage && selecionados.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            transition={springs.settleFast}
+            className="mb-3 overflow-hidden"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1rem] border border-[rgba(37,99,235,.25)] bg-[rgba(37,99,235,.06)] px-4 py-3">
+              <span className="text-sm font-semibold text-[#2563EB]">
+                {selecionados.size === 1
+                  ? copy.bulk.selectedSingular
+                  : copy.bulk.selectedPlural.replace("{n}", String(selecionados.size))}
+              </span>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-[#2563EB]">{copy.bulk.setMinimum}</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="numeric"
+                  value={minimoLote}
+                  onChange={(event) => setMinimoLote(event.target.value)}
+                  className="h-9 w-[72px] rounded-lg border border-border bg-background px-2 text-sm tabular-nums text-right"
+                />
+                <button
+                  type="button"
+                  onClick={aplicarMinimoEmLote}
+                  disabled={aplicandoLote || minimoLote.trim() === ""}
+                  className="min-h-9 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
+                  style={{ background: "var(--gradient-signature)" }}
+                >
+                  {aplicandoLote && <Loader2 size={13} className="animate-spin" />}
+                  {aplicandoLote ? copy.bulk.applying : copy.bulk.apply}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelecionados(new Set())}
+                  className="min-h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  {copy.bulk.clear}
+                </button>
+              </div>
+            </div>
+            <p className="mt-1.5 px-1 text-[11px] text-muted-foreground">{copy.minimum.hint}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.1 }}
+        transition={springs.settleFast}
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
       >
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
           <motion.span
             key={total}
@@ -327,154 +609,238 @@ export function EstoqueLista() {
         <AnimatePresence mode="wait">
           {loading ? (
             <motion.div key="loading" exit={{ opacity: 0 }}>
-              {[...Array(4)].map((_, i) => <SkeletonRow key={i} />)}
+              {[...Array(5)].map((_, i) => <SkeletonRow key={i} />)}
             </motion.div>
           ) : produtos.length === 0 ? (
             <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <EmptyState
-                illustration="products"
-                title={copy.empty.title}
-                description={copy.empty.description}
+                illustration={filtrando ? "slowMoving" : "restock"}
+                title={filtrando ? copy.emptyFiltered.title : copy.empty.title}
+                description={filtrando ? copy.emptyFiltered.description : copy.empty.description}
                 action={
-                  canManage ? (
-                  <div className="flex items-center gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={sincronizar}
-                      disabled={sincronizando}
-                      className="h-10 px-5 inline-flex items-center gap-2 rounded-[0.75rem] border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-60"
-                    >
-                      <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
-                      {sincronizando ? copy.syncingAction : copy.syncAction}
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => router.push("/estoque/novo")}
-                      className="h-10 px-5 rounded-[0.75rem] text-sm font-semibold text-white"
-                      style={{ background: "var(--gradient-signature)" }}
-                    >
-                      {copy.newAction}
-                    </motion.button>
-                  </div>
+                  canManage && !filtrando ? (
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={sincronizar}
+                        disabled={sincronizando}
+                        className="h-10 px-5 inline-flex items-center gap-2 rounded-[0.75rem] border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+                      >
+                        <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
+                        {sincronizando ? copy.syncingAction : copy.syncAction}
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => router.push("/estoque/novo")}
+                        className="h-10 px-5 rounded-[0.75rem] text-sm font-semibold text-white"
+                        style={{ background: "var(--gradient-signature)" }}
+                      >
+                        {copy.newAction}
+                      </motion.button>
+                    </div>
                   ) : undefined
                 }
               />
             </motion.div>
           ) : (
-            <motion.div key="table" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <motion.div key="lista" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {/* Mobile: cartão com os campos que decidem — saldo e mínimo */}
               <div className="md:hidden divide-y divide-border" data-testid="estoque-cards">
                 {produtos.map((p) => {
-                  const brand = brandLabel(p);
                   const saldo = p.saldo ?? 0;
-                  const alerta = saldo <= p.estoqueMinimo;
+                  const parado = filtro === "parados" ? parados.get(p.id) : undefined;
                   return (
                     <article key={p.id} className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-3">
-                        <div><p className="font-semibold text-foreground">{p.nome}</p><p className="font-mono text-xs text-muted-foreground mt-1">{p.sku}</p></div>
-                        <span className="text-xs px-2 py-1 rounded-full font-semibold" style={{ background: `${brand.color}20`, color: brand.color }}>{brand.label}</span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground">{p.nome}</p>
+                          <p className="mt-1 font-mono text-xs text-muted-foreground">
+                            {p.sku} · <span style={{ color: brandColor(p.brandSlug) }}>{p.brandName}</span>
+                          </p>
+                          {parado && (
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              {parado.diasSemVenda} {copy.parados.daysSuffix} · {dinheiro.format(parado.capitalParado)}
+                            </p>
+                          )}
+                        </div>
+                        {canManage && (
+                          <input
+                            type="checkbox"
+                            checked={selecionados.has(p.id)}
+                            onChange={() => alternarSelecao(p.id)}
+                            aria-label={`Selecionar ${p.nome}`}
+                            className="mt-1 h-4 w-4 shrink-0 accent-[#9B30D9]"
+                          />
+                        )}
                       </div>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div><p className="text-xs text-muted-foreground">{copy.mobile.balance}</p><p data-testid={`saldo-${p.sku}`} className={alerta ? "font-bold text-destructive" : "font-bold"}>{saldo}{alerta ? ` ${copy.minimumIndicator}` : ""}</p></div>
-                        <div><p className="text-xs text-muted-foreground">{copy.mobile.price}</p><p className="font-semibold">R$ {Number(p.preco).toFixed(2)}</p></div>
+                      <div className="grid grid-cols-3 gap-3 text-sm items-end">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{copy.mobile.balance}</p>
+                          <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} />
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{copy.minimum.columnLabel}</p>
+                          {canManage
+                            ? <MinimoInput produto={p} onSalvo={(valor) => aoSalvarMinimo(p.id, valor)} />
+                            : <p className="font-semibold tabular-nums">{p.estoqueMinimo || "—"}</p>}
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">{copy.mobile.price}</p>
+                          <p className="font-semibold tabular-nums">{dinheiro.format(Number(p.preco))}</p>
+                        </div>
                       </div>
-                      {canManage && <div className="flex min-h-11 items-center justify-end gap-2">
-                        <EditarProdutoModal produtoId={p.id} produtoNome={p.nome} preco={p.preco} custo={p.custo} estoqueMinimo={p.estoqueMinimo} onSuccess={() => carregar(brandId, busca)} />
-                        <button type="button" onClick={() => setCanalProduto({ id: p.id, nome: p.nome })} className="min-h-11 px-3 inline-flex items-center gap-2 text-sm text-muted-foreground"><Link2 size={15} /> {copy.mobile.channels}</button>
-                        <MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={saldo} onSuccess={() => carregar(brandId, busca)} />
-                      </div>}
+                      {canManage && (
+                        <div className="flex min-h-11 items-center justify-end gap-2">
+                          <EditarProdutoModal produtoId={p.id} produtoNome={p.nome} preco={p.preco} custo={p.custo} onSuccess={() => carregar(brandId, busca, filtro)} />
+                          <button type="button" onClick={() => setCanalProduto({ id: p.id, nome: p.nome })} className="min-h-11 px-3 inline-flex items-center gap-2 text-sm text-muted-foreground">
+                            <Link2 size={15} /> {copy.mobile.channels}
+                          </button>
+                          <MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={saldo} onSuccess={() => { carregar(brandId, busca, filtro); carregarIndicadores(brandId); }} />
+                        </div>
+                      )}
                     </article>
                   );
                 })}
               </div>
+
               <div className="hidden md:block overflow-x-auto" data-testid="estoque-table">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    {copy.columns.map((h, i) => (
-                      <th key={i} className={`text-left px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide ${
-                        i === 2 ? "hidden sm:table-cell" : i === 4 ? "hidden md:table-cell text-right" : i === 3 ? "text-right" : ""
-                      }`}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {produtos.map((p, i) => {
-                    const brand   = brandLabel(p);
-                    const saldo   = p.saldo ?? 0;
-                    const alerta  = saldo <= p.estoqueMinimo;
-                    return (
-                      <motion.tr
-                        key={p.id}
-                        initial={{ opacity: 0, x: -6 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.03, duration: 0.22, ease: [0, 0, 0.2, 1] }}
-                        whileHover={{ backgroundColor: "rgba(0,0,0,0.018)" }}
-                        className="border-b border-border last:border-0"
-                      >
-                        <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground">{p.sku}</td>
-                        <td className="px-5 py-3.5 font-medium text-foreground">{p.nome}</td>
-                        <td className="px-5 py-3.5 hidden sm:table-cell">
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                            style={{ background: brand.color + "20", color: brand.color }}
-                          >
-                            {brand.label}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          <span data-testid={`saldo-${p.sku}`} className={alerta ? "text-[#C21820] font-semibold" : "text-foreground font-semibold"}>
-                            {saldo}
-                          </span>
-                          {alerta && (
-                            <span
-                              className="ml-1.5 text-[10px] text-[#C21820]"
-                            >
-                              {copy.minimumIndicator}
-                            </span>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      {canManage && (
+                        <th className="w-10 px-5 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selecionados.size > 0 && selecionados.size === produtos.length}
+                            onChange={alternarTodos}
+                            aria-label="Selecionar todos"
+                            className="h-4 w-4 accent-[#9B30D9]"
+                          />
+                        </th>
+                      )}
+                      {copy.columns.map((h, i) => (
+                        <th
+                          key={i}
+                          className={`px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide ${
+                            i === 0 ? "text-left" : i === 3 ? "hidden lg:table-cell text-right" : "text-right"
+                          }`}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {produtos.map((p, i) => {
+                      const saldo = p.saldo ?? 0;
+                      const parado = filtro === "parados" ? parados.get(p.id) : undefined;
+                      const selecionado = selecionados.has(p.id);
+                      return (
+                        <motion.tr
+                          key={p.id}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: Math.min(i, 12) * 0.02, duration: 0.2, ease: [0, 0, 0.2, 1] }}
+                          className={`border-b border-border last:border-0 transition-colors ${selecionado ? "bg-[rgba(37,99,235,.05)]" : "hover:bg-muted/40"}`}
+                        >
+                          {canManage && (
+                            <td className="px-5 py-3.5">
+                              <input
+                                type="checkbox"
+                                checked={selecionado}
+                                onChange={() => alternarSelecao(p.id)}
+                                aria-label={`Selecionar ${p.nome}`}
+                                className="h-4 w-4 accent-[#9B30D9]"
+                              />
+                            </td>
                           )}
-                        </td>
-                        <td className="px-5 py-3.5 text-right text-muted-foreground hidden md:table-cell">
-                          R$ {Number(p.preco).toFixed(2)}
-                        </td>
-                        <td className="px-5 py-3.5 text-right">
-                          {canManage && <div className="flex items-center justify-end gap-2">
-                            <EditarProdutoModal
-                              produtoId={p.id}
-                              produtoNome={p.nome}
-                              preco={p.preco}
-                              custo={p.custo}
-                              estoqueMinimo={p.estoqueMinimo}
-                              onSuccess={() => carregar(brandId, busca)}
-                            />
-                            <button
-                              onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                              title={pagesConfig.estoque.channels.mapTitle}
-                            >
-                              <Link2 size={15} />
-                            </button>
-                            <MovimentoModal
-                              produtoId={p.id}
-                              produtoNome={p.nome}
-                              saldoAtual={saldo}
-                              onSuccess={() => carregar(brandId, busca)}
-                            />
-                          </div>}
-                        </td>
-                      </motion.tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          <td className="px-5 py-3.5">
+                            <p className="font-medium text-foreground">{p.nome}</p>
+                            <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                              {p.sku} · <span style={{ color: brandColor(p.brandSlug) }}>{p.brandName}</span>
+                            </p>
+                            {parado && (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {parado.diasSemVenda} {copy.parados.daysSuffix} · {dinheiro.format(parado.capitalParado)} {copy.indicators.capitalPrefix}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} />
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex justify-end">
+                              {canManage
+                                ? <MinimoInput produto={p} onSalvo={(valor) => aoSalvarMinimo(p.id, valor)} />
+                                : <span className="tabular-nums text-muted-foreground">{p.estoqueMinimo || "—"}</span>}
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 text-right text-muted-foreground tabular-nums hidden lg:table-cell">
+                            {dinheiro.format(Number(p.preco))}
+                          </td>
+                          <td className="px-5 py-3.5 text-right">
+                            {canManage && (
+                              <div className="flex items-center justify-end gap-2">
+                                <EditarProdutoModal
+                                  produtoId={p.id}
+                                  produtoNome={p.nome}
+                                  preco={p.preco}
+                                  custo={p.custo}
+                                  onSuccess={() => carregar(brandId, busca, filtro)}
+                                />
+                                <button
+                                  onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
+                                  className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                  title={copy.channels.mapTitle}
+                                >
+                                  <Link2 size={15} />
+                                </button>
+                                <MovimentoModal
+                                  produtoId={p.id}
+                                  produtoNome={p.nome}
+                                  saldoAtual={saldo}
+                                  onSuccess={() => { carregar(brandId, busca, filtro); carregarIndicadores(brandId); }}
+                                />
+                              </div>
+                            )}
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
+
+              {/* Paginação — sem isto, um catálogo de centenas de SKUs fica
+                  inacessível depois do quinquagésimo item. */}
+              {produtos.length < total && (
+                <div className="border-t border-border px-5 py-4 text-center">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={carregarMais}
+                    disabled={carregandoMais}
+                    className="min-h-10 inline-flex items-center gap-2 rounded-[0.75rem] border border-border px-5 text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-60"
+                  >
+                    {carregandoMais && <Loader2 size={14} className="animate-spin" />}
+                    {carregandoMais
+                      ? copy.pagination.loadingMore
+                      : `${copy.pagination.loadMore} ${Math.min(PAGINA, total - produtos.length)}`}
+                  </motion.button>
+                  <p className="mt-2 text-[11px] text-muted-foreground tabular-nums">
+                    {copy.pagination.showing
+                      .replace("{carregados}", String(produtos.length))
+                      .replace("{total}", String(total))}
+                  </p>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
+
       {canalProduto && (
         <CanalModal
           produtoId={canalProduto.id}

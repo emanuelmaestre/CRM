@@ -142,12 +142,50 @@
     "searchPlaceholder": "Buscar por SKU ou produto…",
     "allBrands": "Todas as marcas",
     "sectionTitle": "Produtos e saldos",
-    "columns": ["SKU", "Produto", "Marca", "Saldo", "Preço", ""],
+    "columns": ["Produto", "Saldo", "Mínimo", "Preço", ""],
     "loading": "Carregando produtos…",
     "empty": { "title": "Nenhum produto cadastrado", "description": "Importe seu catálogo do Mercado Livre ou adicione o primeiro produto manualmente." },
+    "emptyFiltered": { "title": "Nenhum produto com esses filtros", "description": "Ajuste a busca, a marca ou o estado do saldo para ver os produtos." },
     "messages": { "loadError": "Erro ao carregar produtos." },
     "mobile": { "balance": "Saldo", "price": "Preço", "channels": "Canais" },
     "minimumIndicator": "▼ mín",
+    "indicators": {
+      "belowMin": "Abaixo do mínimo",
+      "outOfStock": "Sem estoque",
+      "stalled": "Parados",
+      "divergences": "Divergências",
+      "capitalPrefix": "parados",
+      "loadError": "Erro ao carregar indicadores."
+    },
+    "filters": {
+      "all": "Todos",
+      "belowMin": "Abaixo do mínimo",
+      "outOfStock": "Sem estoque",
+      "stalled": "Parados",
+      "noMin": "Sem mínimo"
+    },
+    "minimum": {
+      "columnLabel": "Mínimo",
+      "hint": "O sistema avisa quando o saldo chega neste número.",
+      "placeholder": "—",
+      "saved": "Estoque mínimo atualizado.",
+      "error": "Erro ao salvar o estoque mínimo."
+    },
+    "bulk": {
+      "selectedSingular": "1 selecionado",
+      "selectedPlural": "{n} selecionados",
+      "setMinimum": "Definir mínimo",
+      "apply": "Aplicar",
+      "applying": "Aplicando…",
+      "clear": "Limpar seleção",
+      "success": "Mínimo definido para {n} produto(s).",
+      "error": "Erro ao definir o mínimo em lote."
+    },
+    "pagination": {
+      "loadMore": "Carregar mais",
+      "loadingMore": "Carregando…",
+      "showing": "Mostrando {carregados} de {total}"
+    },
     "parados": {
       "title": "Produtos parados",
       "subtitle": "Sem saída há 30 dias ou mais, com risco de encalhe",

@@ -105,16 +105,43 @@ export async function editarProduto(ctx: CrudContext, produtoId: string, input: 
   return resultado.produto;
 }
 
+/** Estados que a tela de Estoque usa como filtro e como contador de alerta.
+ *  São mutuamente exclusivos de propósito: um SKU zerado aparece só em
+ *  "sem_estoque", nunca também em "abaixo_minimo" — contadores que se
+ *  sobrepõem somam mais que o total e destroem a confiança no número. */
+export type EstadoEstoque = "abaixo_minimo" | "sem_estoque" | "sem_minimo";
+
+const SALDO = sql<number>`coalesce(${estoqueSaldo.saldo}, 0)`;
+
+function condicaoEstado(estado: EstadoEstoque): SQL {
+  if (estado === "sem_estoque") return sql`${SALDO} <= 0`;
+  if (estado === "sem_minimo") return sql`${produto.estoqueMinimo} <= 0`;
+  return sql`${SALDO} > 0 and ${produto.estoqueMinimo} > 0 and ${SALDO} <= ${produto.estoqueMinimo}`;
+}
+
 export async function listarProdutos(
   ctx: CrudContext,
-  opts: { brandId?: string; busca?: string; limit?: number; offset?: number } = {},
+  opts: {
+    brandId?: string;
+    busca?: string;
+    estado?: EstadoEstoque;
+    ids?: string[];
+    limit?: number;
+    offset?: number;
+  } = {},
 ) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
   const { limit = 50, offset = 0 } = opts;
   const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
   if (opts.brandId) filters.push(eq(produto.brandId, opts.brandId));
   if (opts.busca) filters.push(ilike(sql`${produto.sku} || ' ' || ${produto.nome}`, `%${opts.busca}%`));
+  if (opts.estado) filters.push(condicaoEstado(opts.estado));
+  // Lista vazia significa "nenhum produto casa" (ex.: filtro de parados sem
+  // resultado) — sem o guarda, inArray com [] geraria SQL inválido.
+  if (opts.ids) filters.push(opts.ids.length > 0 ? inArray(produto.id, opts.ids) : sql`false`);
 
+  // A contagem repete o join de saldo porque os filtros de estado leem a
+  // coluna de saldo — sem o join aqui, o total divergiria da lista.
   const [rows, totalRows] = await Promise.all([
     ctx.db
       .select({
@@ -131,7 +158,7 @@ export async function listarProdutos(
         ativo: produto.ativo,
         createdAt: produto.createdAt,
         updatedAt: produto.updatedAt,
-        saldo: sql<number>`coalesce(${estoqueSaldo.saldo}, 0)`,
+        saldo: SALDO,
       })
       .from(produto)
       .innerJoin(brand, and(
@@ -146,10 +173,95 @@ export async function listarProdutos(
       .orderBy(produto.nome)
       .limit(limit)
       .offset(offset),
-    ctx.db.select({ total: count() }).from(produto).where(and(...filters)),
+    ctx.db
+      .select({ total: count() })
+      .from(produto)
+      .leftJoin(estoqueSaldo, and(
+        eq(estoqueSaldo.produtoId, produto.id),
+        eq(estoqueSaldo.orgId, ctx.orgId),
+      ))
+      .where(and(...filters)),
   ]);
 
   return { data: rows, total: totalRows[0]?.total ?? 0, limit, offset };
+}
+
+/** Alimenta a faixa de alertas do topo da tela. Uma varredura só, agregando
+ *  os três estados de saldo de uma vez — três COUNT separados fariam o
+ *  mesmo scan três vezes. */
+export async function contarIndicadoresEstoque(ctx: CrudContext, opts: { brandId?: string } = {}) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+  const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
+  if (opts.brandId) filters.push(eq(produto.brandId, opts.brandId));
+
+  const [linha] = await ctx.db
+    .select({
+      total: count(),
+      abaixoMinimo: sql<number>`count(*) filter (where ${condicaoEstado("abaixo_minimo")})`,
+      semEstoque: sql<number>`count(*) filter (where ${condicaoEstado("sem_estoque")})`,
+      semMinimo: sql<number>`count(*) filter (where ${condicaoEstado("sem_minimo")})`,
+    })
+    .from(produto)
+    .leftJoin(estoqueSaldo, and(
+      eq(estoqueSaldo.produtoId, produto.id),
+      eq(estoqueSaldo.orgId, ctx.orgId),
+    ))
+    .where(and(...filters));
+
+  return {
+    total: Number(linha?.total ?? 0),
+    abaixoMinimo: Number(linha?.abaixoMinimo ?? 0),
+    semEstoque: Number(linha?.semEstoque ?? 0),
+    semMinimo: Number(linha?.semMinimo ?? 0),
+  };
+}
+
+/** Define o mesmo estoque mínimo para vários SKUs de uma vez. Sem isso, um
+ *  catálogo importado (centenas de produtos com mínimo 0) nunca chega a ter
+ *  alerta útil — o A6 só dispararia com saldo zerado. */
+export async function definirEstoqueMinimoEmLote(
+  ctx: CrudContext,
+  produtoIds: string[],
+  estoqueMinimo: number,
+): Promise<{ atualizados: number }> {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  if (produtoIds.length === 0) return { atualizados: 0 };
+  if (!Number.isInteger(estoqueMinimo) || estoqueMinimo < 0) {
+    throw new Error("Estoque mínimo deve ser um número inteiro igual ou maior que zero.");
+  }
+
+  const atualizados = await ctx.db.transaction(async (tx) => {
+    const alvos = await tx
+      .select({ id: produto.id, brandId: produto.brandId, estoqueMinimo: produto.estoqueMinimo })
+      .from(produto)
+      .where(and(
+        eq(produto.orgId, ctx.orgId),
+        isNull(produto.deletedAt),
+        inArray(produto.id, produtoIds),
+      ));
+    if (alvos.length === 0) return [];
+
+    await tx
+      .update(produto)
+      .set({ estoqueMinimo, updatedAt: new Date() })
+      .where(and(eq(produto.orgId, ctx.orgId), inArray(produto.id, alvos.map((item) => item.id))));
+
+    await tx.insert(auditLog).values(alvos.map((alvo) => ({
+      orgId: ctx.orgId,
+      brandId: alvo.brandId,
+      autorId: ctx.userId,
+      autorTipo: ctx.userId ? ("usuario" as const) : ("sistema" as const),
+      entidade: "produto",
+      entidadeId: alvo.id,
+      acao: "update",
+      antes: { estoqueMinimo: alvo.estoqueMinimo },
+      depois: { estoqueMinimo },
+    })));
+
+    return alvos;
+  });
+
+  return { atualizados: atualizados.length };
 }
 
 // Mesma fórmula de risco do job A7-encalhe (src/modules/jobs/A7-encalhe.ts),

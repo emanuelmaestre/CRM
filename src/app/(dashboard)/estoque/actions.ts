@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   criarProduto, editarProduto, listarProdutos, listarProdutosParados, registrarMovimento,
-  listarDivergenciasEstoque, resolverDivergenciaEstoque,
+  listarDivergenciasEstoque, resolverDivergenciaEstoque, contarIndicadoresEstoque,
+  definirEstoqueMinimoEmLote, type EstadoEstoque,
 } from "@/modules/estoque/application/estoque.service";
 import { importarCatalogoMercadoLivre } from "@/modules/estoque/application/importar-catalogo.service";
 import { z } from "zod";
@@ -36,10 +37,34 @@ export async function actionCriarProduto(formData: FormData) {
   return result;
 }
 
-export async function actionListarProdutos(brandId?: string, busca?: string) {
+const EstadoSchema = z.enum(["abaixo_minimo", "sem_estoque", "sem_minimo", "parados"]);
+
+export async function actionListarProdutos(opts: {
+  brandId?: string;
+  busca?: string;
+  estado?: string;
+  offset?: number;
+} = {}) {
   const ctx = await getCrudContext();
-  const brandIdValidado = brandId ? BrandIdSchema.parse(brandId) : undefined;
-  const result = await listarProdutos(ctx, { brandId: brandIdValidado, busca: busca?.trim(), limit: 50 });
+  const brandIdValidado = opts.brandId ? BrandIdSchema.parse(opts.brandId) : undefined;
+  const estado = opts.estado ? EstadoSchema.parse(opts.estado) : undefined;
+  const offset = Math.max(0, Math.trunc(opts.offset ?? 0));
+
+  // "Parados" não é uma condição SQL sobre saldo: depende do cálculo de risco
+  // de encalhe (dias sem venda × capital parado). Resolvemos os IDs primeiro e
+  // passamos como filtro, para a lista continuar com uma consulta só.
+  const idsParados = estado === "parados"
+    ? await listarProdutosParados(ctx).then((itens) => itens.map((item) => item.id))
+    : undefined;
+
+  const result = await listarProdutos(ctx, {
+    brandId: brandIdValidado,
+    busca: opts.busca?.trim(),
+    estado: estado === "parados" ? undefined : (estado as EstadoEstoque | undefined),
+    ids: idsParados,
+    limit: 50,
+    offset,
+  });
   const permissions = { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" };
 
   if (ctx.perfil !== "vendedor") return { ...result, permissions };
@@ -53,6 +78,32 @@ export async function actionListarProdutos(brandId?: string, busca?: string) {
       );
     }),
   };
+}
+
+export async function actionIndicadoresEstoque(brandId?: string) {
+  const ctx = await getCrudContext();
+  const brandIdValidado = brandId ? BrandIdSchema.parse(brandId) : undefined;
+  const [contagens, parados, divergencias] = await Promise.all([
+    contarIndicadoresEstoque(ctx, { brandId: brandIdValidado }),
+    listarProdutosParados(ctx),
+    ctx.perfil === "vendedor" ? Promise.resolve([]) : listarDivergenciasEstoque(ctx),
+  ]);
+
+  return {
+    ...contagens,
+    parados: parados.length,
+    capitalParado: parados.reduce((soma, item) => soma + item.capitalParado, 0),
+    divergencias: divergencias.length,
+  };
+}
+
+export async function actionDefinirEstoqueMinimoEmLote(produtoIds: string[], estoqueMinimo: number) {
+  const ctx = await getCrudContext();
+  const ids = z.array(z.string().uuid()).min(1).max(500).parse(produtoIds);
+  const minimo = z.number().int().min(0).max(1_000_000).parse(estoqueMinimo);
+  const result = await definirEstoqueMinimoEmLote(ctx, ids, minimo);
+  revalidatePath("/estoque");
+  return result;
 }
 
 export async function actionImportarCatalogoEstoque() {
