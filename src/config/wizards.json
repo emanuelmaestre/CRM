@@ -18,27 +18,6 @@
     "actions": { "submit": "Cadastrar cliente", "submitting": "Cadastrando…" },
     "messages": { "nameInvalid": "Nome deve ter ao menos 2 caracteres", "emailInvalid": "E-mail inválido", "success": "Cliente criado com sucesso!", "error": "Erro ao criar cliente." }
   },
-  "produto": {
-    "title": "Novo produto",
-    "cancelHref": "/estoque",
-    "steps": ["Produto", "Preço e estoque", "Confirmar"],
-    "sections": [
-      { "title": "Dados do produto", "description": "Identidade do produto no estoque" },
-      { "title": "Preço e estoque", "description": "Valores e controle de estoque mínimo" },
-      { "title": "Confirmar produto", "description": "Revise os dados antes de salvar" }
-    ],
-    "fields": {
-      "brandId": { "label": "Marca", "placeholder": "Selecione a marca" },
-      "nome": { "label": "Nome do produto", "placeholder": "Ex: Caixa Organizadora 40L" },
-      "sku": { "label": "SKU", "placeholder": "Ex: KZ-001" },
-      "preco": { "label": "Preço de venda", "placeholder": "0,00" },
-      "custo": { "label": "Custo", "placeholder": "0,00" },
-      "estoqueMinimo": { "label": "Estoque mínimo", "placeholder": "0" }
-    },
-    "reviewLabels": { "brandId": "Marca", "nome": "Nome", "sku": "SKU", "preco": "Preço", "custo": "Custo", "estoqueMinimo": "Estoque mínimo" },
-    "actions": { "submit": "Cadastrar produto", "submitting": "Cadastrando…" },
-    "messages": { "nameRequired": "Nome é obrigatório", "skuRequired": "SKU é obrigatório", "brandRequired": "Selecione a marca", "priceInvalid": "Preço deve ser maior que zero", "success": "Produto criado com sucesso!", "error": "Erro ao criar produto." }
-  },
   "importacao": {
     "title": "Importar clientes",
     "cancelHref": "/clientes",

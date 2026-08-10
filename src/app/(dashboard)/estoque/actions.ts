@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
-  criarProduto, editarProduto, listarProdutos, listarProdutosParados, registrarMovimento,
+  editarProduto, listarProdutos, listarProdutosParados, registrarMovimento,
   listarDivergenciasEstoque, resolverDivergenciaEstoque, contarIndicadoresEstoque,
   definirEstoqueMinimoEmLote, contarProdutosPorCanal, type EstadoEstoque,
 } from "@/modules/estoque/application/estoque.service";
@@ -21,21 +21,6 @@ const MovimentoSchema = z.object({
   quantidade: z.number().int().positive(),
   observacao: z.string().trim().max(500).optional(),
 });
-
-export async function actionCriarProduto(formData: FormData) {
-  const ctx = await getCrudContext();
-  const result = await criarProduto(ctx, {
-    brandId: formData.get("brandId") as string,
-    sku: formData.get("sku") as string,
-    nome: formData.get("nome") as string,
-    preco: formData.get("preco") as string,
-    custo: (formData.get("custo") as string) || undefined,
-    estoqueMinimo: Number(formData.get("estoqueMinimo") || 0),
-    ativo: true,
-  });
-  revalidatePath("/estoque");
-  return result;
-}
 
 const EstadoSchema = z.enum(["abaixo_minimo", "sem_estoque", "sem_minimo", "parados"]);
 const CanalVendaSchema = z.enum(["mercadolivre", "shopee", "tiktokshop"]);

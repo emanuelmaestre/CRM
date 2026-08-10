@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Hourglass, Link2, Loader2, PackageX, PlugZap2, RefreshCw, Scale } from "lucide-react";
@@ -311,7 +310,6 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
 }
 
 export function EstoqueLista() {
-  const router = useRouter();
   const [produtos, setProdutos]   = useState<Produto[]>([]);
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
@@ -482,27 +480,19 @@ export function EstoqueLista() {
         title={copy.title}
         description={copy.description}
         actions={canManage ? (
-          <>
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={sincronizar}
-              disabled={sincronizando}
-              className="h-10 px-4 inline-flex items-center gap-2 rounded-[0.75rem] border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-60"
-            >
-              <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
-              {sincronizando ? copy.syncingAction : copy.syncAction}
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => router.push("/estoque/novo")}
-              className="h-10 px-4 rounded-[0.75rem] text-sm font-semibold text-white shadow-[0_4px_14px_rgba(227,19,27,.3)]"
-              style={{ background: "var(--gradient-signature)" }}
-            >
-              {copy.newAction}
-            </motion.button>
-          </>
+          // Sincronizar é a única forma de produto entrar no catálogo: tudo
+          // aqui existe porque existe no Mercado Livre — nunca o contrário.
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={sincronizar}
+            disabled={sincronizando}
+            className="h-10 px-4 inline-flex items-center gap-2 rounded-[0.75rem] text-sm font-semibold text-white shadow-[0_4px_14px_rgba(227,19,27,.3)] disabled:opacity-60"
+            style={{ background: "var(--gradient-signature)" }}
+          >
+            <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
+            {sincronizando ? copy.syncingAction : copy.syncAction}
+          </motion.button>
         ) : undefined}
       />
 
@@ -696,27 +686,17 @@ export function EstoqueLista() {
                 description={filtrando ? copy.emptyFiltered.description : copy.empty.description}
                 action={
                   canManage && !filtrando ? (
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={sincronizar}
-                        disabled={sincronizando}
-                        className="h-10 px-5 inline-flex items-center gap-2 rounded-[0.75rem] border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-60"
-                      >
-                        <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
-                        {sincronizando ? copy.syncingAction : copy.syncAction}
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => router.push("/estoque/novo")}
-                        className="h-10 px-5 rounded-[0.75rem] text-sm font-semibold text-white"
-                        style={{ background: "var(--gradient-signature)" }}
-                      >
-                        {copy.newAction}
-                      </motion.button>
-                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={sincronizar}
+                      disabled={sincronizando}
+                      className="h-10 px-5 inline-flex items-center gap-2 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60"
+                      style={{ background: "var(--gradient-signature)" }}
+                    >
+                      <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
+                      {sincronizando ? copy.syncingAction : copy.syncAction}
+                    </motion.button>
                   ) : undefined
                 }
               />

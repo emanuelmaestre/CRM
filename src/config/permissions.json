@@ -18,8 +18,7 @@
     { "prefix": "/auditoria", "profiles": ["admin"] },
     { "prefix": "/configuracoes", "profiles": ["admin"] },
     { "prefix": "/relatorios", "profiles": ["admin", "gestor"] },
-    { "prefix": "/importacao", "profiles": ["admin", "gestor"] },
-    { "prefix": "/estoque/novo", "profiles": ["admin", "gestor"] }
+    { "prefix": "/importacao", "profiles": ["admin", "gestor"] }
   ],
   "messages": {
     "restrictedEyebrow": "Acesso restrito",

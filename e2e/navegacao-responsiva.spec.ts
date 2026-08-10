@@ -12,7 +12,6 @@ const paginas = [
   { rota: "/clientes", titulo: "Clientes" },
   { rota: "/clientes/novo", titulo: "Novo cliente" },
   { rota: "/estoque", titulo: "Estoque" },
-  { rota: "/estoque/novo", titulo: "Novo produto" },
   { rota: "/vendas", titulo: "Vendas" },
   { rota: "/vendas/nova", titulo: "Nova venda" },
   { rota: "/vendas/pedidos", titulo: "Pedidos" },

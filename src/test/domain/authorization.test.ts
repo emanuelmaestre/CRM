@@ -31,8 +31,6 @@ describe("Autorização por perfil", () => {
     ["vendedor", "/relatorios", false],
     ["gestor", "/importacao", true],
     ["vendedor", "/importacao", false],
-    ["gestor", "/estoque/novo", true],
-    ["vendedor", "/estoque/novo", false],
     ["vendedor", "/clientes", true],
   ] as const)("aplica %s em %s", (perfil, pathname, permitido) => {
     expect(perfilPodeAcessar(perfil, pathname)).toBe(permitido);

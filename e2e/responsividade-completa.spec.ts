@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 const rotas = [
-  "/dashboard", "/clientes", "/clientes/novo", "/estoque", "/estoque/novo",
+  "/dashboard", "/clientes", "/clientes/novo", "/estoque",
   "/vendas", "/vendas/nova", "/vendas/pedidos", "/tarefas", "/agenda",
   "/auditoria", "/automacoes/historico", "/importacao", "/inbox", "/relatorios",
   "/configuracoes", "/admin/saude", "/admin/lgpd", "/admin/consumo-ia",
