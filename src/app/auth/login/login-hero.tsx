@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
+import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
 
 export function LoginHero() {
   return (
@@ -30,7 +30,7 @@ export function LoginHero() {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       >
-        <BrandLogoGroup height={36} className="gap-4" />
+        <ElisaLimaLogo variant="login" />
       </motion.div>
     </div>
   );

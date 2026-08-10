@@ -10,7 +10,7 @@ import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
 import appConfig from "@/config/app.json";
 import { nomePerfil, type Perfil } from "@/shared/lib/auth/authorization";
-import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
+import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
 
 const BellIcon = getIcon(navigationConfig.utilities.notifications.icon);
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
@@ -46,7 +46,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
           className="flex items-center"
         >
-          <BrandLogoGroup height={18} />
+          <ElisaLimaLogo />
         </motion.span>
       </Link>
 
