@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gt, ilike, inArray, isNull, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import {
-  auditLog, brand, channelAccount, produto, estoqueDivergencia, estoqueSaldo, estoqueMovimento,
+  auditLog, brand, channelAccount, produto, produtoCanal, estoqueDivergencia, estoqueSaldo, estoqueMovimento,
 } from "@/shared/lib/db/schema";
 import { despacharEvento, despacharEventosPendentes, persistirEvento } from "@/shared/events";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
@@ -119,12 +119,28 @@ function condicaoEstado(estado: EstadoEstoque): SQL {
   return sql`${SALDO} > 0 and ${produto.estoqueMinimo} > 0 and ${SALDO} <= ${produto.estoqueMinimo}`;
 }
 
+/** SKU tem no máximo um mapeamento ativo por tipo de canal (um produto pode
+ *  estar em vários anúncios do mesmo canal, mas "está no Mercado Livre" é
+ *  binário) — por isso EXISTS em vez de JOIN, que duplicaria a linha do
+ *  produto por anúncio mapeado. */
+function condicaoCanal(orgId: string, canalTipo: string): SQL {
+  return sql`exists (
+    select 1 from ${produtoCanal}
+    inner join ${channelAccount} on ${channelAccount.id} = ${produtoCanal.channelAccountId}
+    where ${produtoCanal.produtoId} = ${produto.id}
+      and ${produtoCanal.orgId} = ${orgId}
+      and ${produtoCanal.ativo} = true
+      and ${channelAccount.tipo} = ${canalTipo}
+  )`;
+}
+
 export async function listarProdutos(
   ctx: CrudContext,
   opts: {
     brandId?: string;
     busca?: string;
     estado?: EstadoEstoque;
+    canalTipo?: string;
     ids?: string[];
     limit?: number;
     offset?: number;
@@ -136,6 +152,7 @@ export async function listarProdutos(
   if (opts.brandId) filters.push(eq(produto.brandId, opts.brandId));
   if (opts.busca) filters.push(ilike(sql`${produto.sku} || ' ' || ${produto.nome}`, `%${opts.busca}%`));
   if (opts.estado) filters.push(condicaoEstado(opts.estado));
+  if (opts.canalTipo) filters.push(condicaoCanal(ctx.orgId, opts.canalTipo));
   // Lista vazia significa "nenhum produto casa" (ex.: filtro de parados sem
   // resultado) — sem o guarda, inArray com [] geraria SQL inválido.
   if (opts.ids) filters.push(opts.ids.length > 0 ? inArray(produto.id, opts.ids) : sql`false`);
@@ -189,10 +206,14 @@ export async function listarProdutos(
 /** Alimenta a faixa de alertas do topo da tela. Uma varredura só, agregando
  *  os três estados de saldo de uma vez — três COUNT separados fariam o
  *  mesmo scan três vezes. */
-export async function contarIndicadoresEstoque(ctx: CrudContext, opts: { brandId?: string } = {}) {
+export async function contarIndicadoresEstoque(
+  ctx: CrudContext,
+  opts: { brandId?: string; canalTipo?: string } = {},
+) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
   const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
   if (opts.brandId) filters.push(eq(produto.brandId, opts.brandId));
+  if (opts.canalTipo) filters.push(condicaoCanal(ctx.orgId, opts.canalTipo));
 
   const [linha] = await ctx.db
     .select({
@@ -214,6 +235,44 @@ export async function contarIndicadoresEstoque(ctx: CrudContext, opts: { brandId
     semEstoque: Number(linha?.semEstoque ?? 0),
     semMinimo: Number(linha?.semMinimo ?? 0),
   };
+}
+
+// Ordem de venda fechada do PRD (§M3): Mercado Livre, Shopee, TikTok Shop —
+// Olist fica de fora do seletor porque não é canal de anúncio próprio (é hub).
+const CANAIS_VENDA = ["mercadolivre", "shopee", "tiktokshop"] as const;
+
+/** Alimenta o seletor de canal no topo da tela. Cada entrada diz se a conta
+ *  está de fato conectada (não apenas cadastrada) e quantos SKUs têm anúncio
+ *  mapeado nela — sem isso o seletor não sabe o que desabilitar nem o que
+ *  mostrar como contagem na pílula. */
+export async function contarProdutosPorCanal(ctx: CrudContext) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+
+  const contas = await ctx.db
+    .select({ tipo: channelAccount.tipo, status: channelAccount.status })
+    .from(channelAccount)
+    .where(eq(channelAccount.orgId, ctx.orgId));
+
+  const conectadoPorTipo = new Map<string, boolean>();
+  for (const conta of contas) {
+    if (conta.status === "conectado") conectadoPorTipo.set(conta.tipo, true);
+    else if (!conectadoPorTipo.has(conta.tipo)) conectadoPorTipo.set(conta.tipo, false);
+  }
+
+  const contagens = await ctx.db
+    .select({ tipo: channelAccount.tipo, total: sql<number>`count(distinct ${produtoCanal.produtoId})` })
+    .from(produtoCanal)
+    .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
+    .innerJoin(produto, and(eq(produto.id, produtoCanal.produtoId), isNull(produto.deletedAt)))
+    .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.ativo, true)))
+    .groupBy(channelAccount.tipo);
+  const totalPorTipo = new Map(contagens.map((linha) => [linha.tipo, Number(linha.total)]));
+
+  return CANAIS_VENDA.map((tipo) => ({
+    tipo,
+    conectado: conectadoPorTipo.get(tipo) ?? false,
+    total: totalPorTipo.get(tipo) ?? 0,
+  }));
 }
 
 /** Define o mesmo estoque mínimo para vários SKUs de uma vez. Sem isso, um
@@ -273,7 +332,7 @@ export async function listarProdutosParados(ctx: CrudContext) {
   const candidatos = await ctx.db
     .select({
       id: produto.id, sku: produto.sku, nome: produto.nome, custo: produto.custo,
-      saldo: estoqueSaldo.saldo,
+      saldo: estoqueSaldo.saldo, criadoEm: produto.createdAt,
     })
     .from(produto)
     .innerJoin(estoqueSaldo, eq(estoqueSaldo.produtoId, produto.id))
@@ -295,10 +354,12 @@ export async function listarProdutosParados(ctx: CrudContext) {
 
   return candidatos
     .map((item) => {
+      // Sem venda registrada, a régua é a data de cadastro — produto que
+      // entrou ontem não está encalhado, só é novo. Fixar um valor acima do
+      // limite fazia um catálogo recém-importado nascer inteiro como parado.
       const ultimaVenda = ultimaVendaPorProduto.get(item.id);
-      const diasSemVenda = ultimaVenda
-        ? Math.floor((Date.now() - new Date(ultimaVenda).getTime()) / 86_400_000)
-        : DIAS_SEM_VENDA_ENCALHE + 1;
+      const referencia = ultimaVenda ?? item.criadoEm;
+      const diasSemVenda = Math.floor((Date.now() - new Date(referencia).getTime()) / 86_400_000);
       if (diasSemVenda < DIAS_SEM_VENDA_ENCALHE) return null;
 
       const score = calcularScoreProduto({

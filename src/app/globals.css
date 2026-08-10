@@ -292,6 +292,20 @@ button, input, select, textarea {
   }
 }
 
+/* Campo numérico sem as setinhas de incremento: em campos estreitos elas
+   comem metade da largura útil e convidam a um clique que ninguém quer —
+   digitar o número é sempre mais rápido que subir de um em um. */
+.no-spinner {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

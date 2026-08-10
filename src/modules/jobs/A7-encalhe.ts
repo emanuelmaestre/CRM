@@ -20,7 +20,10 @@ export const A7_encalhe = inngest.createFunction(
 
     const candidatos = await step.run("buscar-candidatos", () =>
       db
-        .select({ id: produto.id, sku: produto.sku, custo: produto.custo, brandId: produto.brandId })
+        .select({
+          id: produto.id, sku: produto.sku, custo: produto.custo, brandId: produto.brandId,
+          criadoEm: produto.createdAt,
+        })
         .from(produto)
         .innerJoin(estoqueSaldo, eq(estoqueSaldo.produtoId, produto.id))
         .where(and(
@@ -47,9 +50,11 @@ export const A7_encalhe = inngest.createFunction(
           .then((r) => r[0]?.criado ?? null)
       );
 
-      const diasSemVenda = ultimaVenda
-        ? Math.floor((Date.now() - new Date(ultimaVenda).getTime()) / 86400000)
-        : DIAS_SEM_VENDA + 1;
+      // Quem nunca vendeu conta o tempo desde o cadastro, não um valor fixo
+      // acima do limite: senão todo produto recém-importado nasce encalhado,
+      // e o alerta vira ruído no dia seguinte a uma importação de catálogo.
+      const referencia = ultimaVenda ?? prod.criadoEm;
+      const diasSemVenda = Math.floor((Date.now() - new Date(referencia).getTime()) / 86400000);
 
       if (diasSemVenda < DIAS_SEM_VENDA) continue;
 

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { ArrowLeftRight } from "lucide-react";
 import { actionRegistrarMovimento } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
@@ -41,8 +42,9 @@ export function MovimentoModal({ produtoId, produtoNome, saldoAtual, onSuccess }
     <>
       <button
         onClick={() => setOpen(true)}
-        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-semibold text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-[rgba(155,48,217,.4)] hover:bg-muted active:scale-[.97]"
       >
+        <ArrowLeftRight size={13} strokeWidth={2} />
         {copy.button.replace("+ ", "")}
       </button>
 

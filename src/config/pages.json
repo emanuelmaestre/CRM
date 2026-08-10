@@ -141,6 +141,11 @@
     "syncError": "Não foi possível sincronizar com o Mercado Livre.",
     "searchPlaceholder": "Buscar por SKU ou produto…",
     "allBrands": "Todas as marcas",
+    "channelSelector": {
+      "label": "Canal",
+      "disconnectedHint": "{canal} ainda não está conectado — conecte em Automações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Automações para liberar o filtro."
+    },
     "sectionTitle": "Produtos e saldos",
     "columns": ["Produto", "Saldo", "Mínimo", "Preço", ""],
     "loading": "Carregando produtos…",
@@ -167,7 +172,7 @@
     "minimum": {
       "columnLabel": "Mínimo",
       "hint": "O sistema avisa quando o saldo chega neste número.",
-      "placeholder": "—",
+      "placeholder": "",
       "saved": "Estoque mínimo atualizado.",
       "error": "Erro ao salvar o estoque mínimo."
     },

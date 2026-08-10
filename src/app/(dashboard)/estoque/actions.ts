@@ -5,7 +5,7 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   criarProduto, editarProduto, listarProdutos, listarProdutosParados, registrarMovimento,
   listarDivergenciasEstoque, resolverDivergenciaEstoque, contarIndicadoresEstoque,
-  definirEstoqueMinimoEmLote, type EstadoEstoque,
+  definirEstoqueMinimoEmLote, contarProdutosPorCanal, type EstadoEstoque,
 } from "@/modules/estoque/application/estoque.service";
 import { importarCatalogoMercadoLivre } from "@/modules/estoque/application/importar-catalogo.service";
 import { z } from "zod";
@@ -38,16 +38,19 @@ export async function actionCriarProduto(formData: FormData) {
 }
 
 const EstadoSchema = z.enum(["abaixo_minimo", "sem_estoque", "sem_minimo", "parados"]);
+const CanalVendaSchema = z.enum(["mercadolivre", "shopee", "tiktokshop"]);
 
 export async function actionListarProdutos(opts: {
   brandId?: string;
   busca?: string;
   estado?: string;
+  canalTipo?: string;
   offset?: number;
 } = {}) {
   const ctx = await getCrudContext();
   const brandIdValidado = opts.brandId ? BrandIdSchema.parse(opts.brandId) : undefined;
   const estado = opts.estado ? EstadoSchema.parse(opts.estado) : undefined;
+  const canalTipo = opts.canalTipo ? CanalVendaSchema.parse(opts.canalTipo) : undefined;
   const offset = Math.max(0, Math.trunc(opts.offset ?? 0));
 
   // "Parados" não é uma condição SQL sobre saldo: depende do cálculo de risco
@@ -61,6 +64,7 @@ export async function actionListarProdutos(opts: {
     brandId: brandIdValidado,
     busca: opts.busca?.trim(),
     estado: estado === "parados" ? undefined : (estado as EstadoEstoque | undefined),
+    canalTipo,
     ids: idsParados,
     limit: 50,
     offset,
@@ -80,11 +84,12 @@ export async function actionListarProdutos(opts: {
   };
 }
 
-export async function actionIndicadoresEstoque(brandId?: string) {
+export async function actionIndicadoresEstoque(brandId?: string, canalTipo?: string) {
   const ctx = await getCrudContext();
   const brandIdValidado = brandId ? BrandIdSchema.parse(brandId) : undefined;
+  const canalValidado = canalTipo ? CanalVendaSchema.parse(canalTipo) : undefined;
   const [contagens, parados, divergencias] = await Promise.all([
-    contarIndicadoresEstoque(ctx, { brandId: brandIdValidado }),
+    contarIndicadoresEstoque(ctx, { brandId: brandIdValidado, canalTipo: canalValidado }),
     listarProdutosParados(ctx),
     ctx.perfil === "vendedor" ? Promise.resolve([]) : listarDivergenciasEstoque(ctx),
   ]);
@@ -95,6 +100,11 @@ export async function actionIndicadoresEstoque(brandId?: string) {
     capitalParado: parados.reduce((soma, item) => soma + item.capitalParado, 0),
     divergencias: divergencias.length,
   };
+}
+
+export async function actionContarProdutosPorCanal() {
+  const ctx = await getCrudContext();
+  return contarProdutosPorCanal(ctx);
 }
 
 export async function actionDefinirEstoqueMinimoEmLote(produtoIds: string[], estoqueMinimo: number) {

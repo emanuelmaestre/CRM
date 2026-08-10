@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, Hourglass, Link2, Loader2, PackageX, RefreshCw, Scale } from "lucide-react";
+import { AlertTriangle, Hourglass, Link2, Loader2, PackageX, PlugZap2, RefreshCw, Scale } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { MovimentoModal } from "./movimento-modal";
 import { EditarProdutoModal } from "./editar-produto-modal";
@@ -12,12 +12,13 @@ import { CanalModal } from "./canal-modal";
 import {
   actionListarMarcasEstoque, actionListarProdutos, actionListarProdutosParados,
   actionListarDivergenciasEstoque, actionResolverDivergenciaEstoque, actionImportarCatalogoEstoque,
-  actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote,
+  actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote, actionContarProdutosPorCanal,
 } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { SectionCard } from "@/shared/design-system/primitives/SectionCard";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { springs } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
@@ -29,6 +30,7 @@ type Produto = {
 };
 
 type Filtro = "todos" | "abaixo_minimo" | "sem_estoque" | "parados" | "sem_minimo";
+type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 
 type Indicadores = Awaited<ReturnType<typeof actionIndicadoresEstoque>>;
 type ProdutoParado = Awaited<ReturnType<typeof actionListarProdutosParados>>[number];
@@ -225,7 +227,7 @@ function MinimoInput({ produto, onSalvo }: { produto: Produto; onSalvo: (valor: 
         onChange={(event) => setValor(event.target.value)}
         onBlur={salvar}
         onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
-        className="h-9 w-[68px] rounded-lg border border-border bg-background px-2 text-sm tabular-nums text-foreground text-right focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] disabled:opacity-50"
+        className="h-9 w-[68px] rounded-lg border border-border bg-background px-2 text-sm tabular-nums text-foreground text-right no-spinner focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] disabled:opacity-50"
       />
       {salvando && <Loader2 size={12} className="animate-spin absolute -left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />}
     </div>
@@ -261,6 +263,53 @@ function SaldoCelula({ saldo, minimo, testId }: { saldo: number; minimo: number;
   );
 }
 
+/* ── Seletor de canal ─────────────────────────────────────────
+   Separa "de quem é o dado" por canal de venda (Mercado Livre, Shopee,
+   TikTok Shop — ordem fechada do PRD §M3), não por marca: o saldo
+   continua único, só muda quais SKUs a lista mostra. Canal sem conta
+   conectada fica visível mas travado, com o motivo à vista. */
+function CanalPill({ tipo, total, conectado, ativo, onClick }: {
+  tipo: CanalVenda;
+  total: number;
+  conectado: boolean;
+  ativo: boolean;
+  onClick: () => void;
+}) {
+  const label = (channelsConfig.items as Record<string, { label?: string }>)[tipo]?.label ?? tipo;
+
+  return (
+    <motion.button
+      type="button"
+      onClick={conectado ? onClick : undefined}
+      disabled={!conectado}
+      whileHover={conectado ? { y: -1 } : undefined}
+      whileTap={conectado ? { scale: 0.97 } : undefined}
+      aria-pressed={ativo}
+      title={conectado ? undefined : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
+      className={`inline-flex h-[38px] items-center gap-2 rounded-full px-3.5 transition-colors ${
+        !conectado
+          ? "border border-border opacity-50 cursor-not-allowed"
+          : ativo
+            ? "text-white"
+            : "border border-border bg-card hover:bg-muted"
+      }`}
+      style={ativo && conectado ? { background: "var(--gradient-signature)" } : undefined}
+    >
+      <ChannelLogo canal={tipo} size="xs" variant="logo" />
+      <span className={`text-[13px] font-semibold ${ativo && conectado ? "text-white" : "text-foreground"}`}>
+        {label}
+      </span>
+      {conectado ? (
+        <span className={`text-[11px] tabular-nums ${ativo ? "text-white/75" : "text-muted-foreground"}`}>
+          {total}
+        </span>
+      ) : (
+        <PlugZap2 size={13} className="text-muted-foreground" />
+      )}
+    </motion.button>
+  );
+}
+
 export function EstoqueLista() {
   const router = useRouter();
   const [produtos, setProdutos]   = useState<Produto[]>([]);
@@ -269,6 +318,8 @@ export function EstoqueLista() {
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [busca, setBusca]         = useState("");
   const [brandId, setBrandId]     = useState("");
+  const [canal, setCanal]         = useState<CanalVenda | "">("");
+  const [canais, setCanais]       = useState<Awaited<ReturnType<typeof actionContarProdutosPorCanal>>>([]);
   const [filtro, setFiltro]       = useState<Filtro>("todos");
   const [canManage, setCanManage] = useState(false);
   const requestId = useRef(0);
@@ -284,15 +335,16 @@ export function EstoqueLista() {
 
   useEffect(() => {
     actionListarMarcasEstoque().then(setMarcas).catch(() => setMarcas([]));
+    actionContarProdutosPorCanal().then(setCanais).catch(() => setCanais([]));
   }, []);
 
-  const carregarIndicadores = useCallback((marca?: string) => {
-    actionIndicadoresEstoque(marca || undefined)
+  const carregarIndicadores = useCallback((marca?: string, canalAtual?: string) => {
+    actionIndicadoresEstoque(marca || undefined, canalAtual || undefined)
       .then(setIndicadores)
       .catch(() => setIndicadores(null));
   }, []);
 
-  const carregar = useCallback((marca?: string, termo?: string, estado?: Filtro) => {
+  const carregar = useCallback((marca?: string, termo?: string, estado?: Filtro, canalAtual?: string) => {
     const currentRequest = ++requestId.current;
     startTransition(async () => {
       setLoading(true);
@@ -301,6 +353,7 @@ export function EstoqueLista() {
           brandId: marca || undefined,
           busca: termo || undefined,
           estado: estado && estado !== "todos" ? estado : undefined,
+          canalTipo: canalAtual || undefined,
         });
         if (currentRequest !== requestId.current) return;
         setProdutos(res.data as Produto[]);
@@ -317,11 +370,11 @@ export function EstoqueLista() {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => carregar(brandId, busca, filtro), busca ? 300 : 0);
+    const timer = setTimeout(() => carregar(brandId, busca, filtro, canal), busca ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [brandId, busca, filtro, carregar]);
+  }, [brandId, busca, filtro, canal, carregar]);
 
-  useEffect(() => { carregarIndicadores(brandId); }, [brandId, carregarIndicadores]);
+  useEffect(() => { carregarIndicadores(brandId, canal); }, [brandId, canal, carregarIndicadores]);
 
   // Detalhe de encalhe (dias parado, capital preso) só interessa quando a
   // pessoa está olhando justamente esses produtos.
@@ -341,6 +394,7 @@ export function EstoqueLista() {
         brandId: brandId || undefined,
         busca: busca || undefined,
         estado: filtro !== "todos" ? filtro : undefined,
+        canalTipo: canal || undefined,
         offset: produtos.length,
       });
       setProdutos((atual) => [...atual, ...(res.data as Produto[])]);
@@ -358,8 +412,9 @@ export function EstoqueLista() {
       const resultado = await actionImportarCatalogoEstoque();
       if (resultado.produtosCriados > 0) {
         toast.success(copy.syncSuccess.replace("{criados}", String(resultado.produtosCriados)));
-        carregar(brandId, busca, filtro);
-        carregarIndicadores(brandId);
+        carregar(brandId, busca, filtro, canal);
+        carregarIndicadores(brandId, canal);
+        actionContarProdutosPorCanal().then(setCanais).catch(() => {});
       } else {
         toast.info(copy.syncNothingNew);
       }
@@ -394,7 +449,7 @@ export function EstoqueLista() {
       setSelecionados(new Set());
       setMinimoLote("");
       toast.success(copy.bulk.success.replace("{n}", String(ids.length)));
-      carregarIndicadores(brandId);
+      carregarIndicadores(brandId, canal);
     } catch {
       toast.error(copy.bulk.error);
     } finally {
@@ -404,7 +459,7 @@ export function EstoqueLista() {
 
   function aoSalvarMinimo(produtoId: string, valor: number) {
     setProdutos((atual) => atual.map((p) => p.id === produtoId ? { ...p, estoqueMinimo: valor } : p));
-    carregarIndicadores(brandId);
+    carregarIndicadores(brandId, canal);
   }
 
   function trocarFiltro(proximo: Filtro) {
@@ -419,7 +474,7 @@ export function EstoqueLista() {
     { id: "sem_minimo", label: copy.filters.noMin, contagem: indicadores?.semMinimo },
   ];
 
-  const filtrando = filtro !== "todos" || busca.trim() !== "" || brandId !== "";
+  const filtrando = filtro !== "todos" || busca.trim() !== "" || brandId !== "" || canal !== "";
 
   return (
     <div>
@@ -491,7 +546,26 @@ export function EstoqueLista() {
         />
       </div>
 
-      {canManage && <DivergenciasPanel onResolvida={() => carregarIndicadores(brandId)} />}
+      {canManage && <DivergenciasPanel onResolvida={() => carregarIndicadores(brandId, canal)} />}
+
+      <div className="mb-4">
+        <p className="mb-1.5 text-xs font-medium text-muted-foreground">{copy.channelSelector.label}</p>
+        <div className="flex flex-wrap gap-2">
+          {canais.map((item) => (
+            <CanalPill
+              key={item.tipo}
+              tipo={item.tipo}
+              total={item.total}
+              conectado={item.conectado}
+              ativo={canal === item.tipo}
+              onClick={() => setCanal((atual) => atual === item.tipo ? "" : item.tipo)}
+            />
+          ))}
+        </div>
+        {canais.some((item) => !item.conectado) && (
+          <p className="mt-1.5 text-[11px] text-muted-foreground">{copy.channelSelector.disconnectedFootnote}</p>
+        )}
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px] mb-3">
         <input
@@ -562,7 +636,7 @@ export function EstoqueLista() {
                   inputMode="numeric"
                   value={minimoLote}
                   onChange={(event) => setMinimoLote(event.target.value)}
-                  className="h-9 w-[72px] rounded-lg border border-border bg-background px-2 text-sm tabular-nums text-right"
+                  className="h-9 w-[72px] rounded-lg border border-border bg-background px-2 text-sm tabular-nums text-right no-spinner"
                 />
                 <button
                   type="button"
@@ -596,11 +670,14 @@ export function EstoqueLista() {
       >
         <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
+          {/* Contador em pílula com a fórmula de chip do PRD (fundo 10% +
+              texto 100% do tom) — é um dado, não legenda: merece peso. */}
           <motion.span
             key={total}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-xs text-muted-foreground tabular-nums"
+            transition={springs.settleFast}
+            className="rounded-full bg-[#9B30D9]/10 px-2.5 py-1 text-xs font-bold text-[#9B30D9] tabular-nums"
           >
             {total} {total === 1 ? "produto" : "produtos"}
           </motion.span>
@@ -693,11 +770,15 @@ export function EstoqueLista() {
                       </div>
                       {canManage && (
                         <div className="flex min-h-11 items-center justify-end gap-2">
-                          <EditarProdutoModal produtoId={p.id} produtoNome={p.nome} preco={p.preco} custo={p.custo} onSuccess={() => carregar(brandId, busca, filtro)} />
-                          <button type="button" onClick={() => setCanalProduto({ id: p.id, nome: p.nome })} className="min-h-11 px-3 inline-flex items-center gap-2 text-sm text-muted-foreground">
-                            <Link2 size={15} /> {copy.mobile.channels}
+                          <EditarProdutoModal produtoId={p.id} produtoNome={p.nome} preco={p.preco} custo={p.custo} onSuccess={() => carregar(brandId, busca, filtro, canal)} />
+                          <button
+                            type="button"
+                            onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
+                            className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] active:scale-[.97]"
+                          >
+                            <Link2 size={14} /> {copy.mobile.channels}
                           </button>
-                          <MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={saldo} onSuccess={() => { carregar(brandId, busca, filtro); carregarIndicadores(brandId); }} />
+                          <MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={saldo} onSuccess={() => { carregar(brandId, busca, filtro, canal); carregarIndicadores(brandId, canal); }} />
                         </div>
                       )}
                     </article>
@@ -777,7 +858,7 @@ export function EstoqueLista() {
                                 : <span className="tabular-nums text-muted-foreground">{p.estoqueMinimo || "—"}</span>}
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 text-right text-muted-foreground tabular-nums hidden lg:table-cell">
+                          <td className="px-5 py-3.5 text-right font-semibold text-foreground tabular-nums hidden lg:table-cell">
                             {dinheiro.format(Number(p.preco))}
                           </td>
                           <td className="px-5 py-3.5 text-right">
@@ -788,20 +869,21 @@ export function EstoqueLista() {
                                   produtoNome={p.nome}
                                   preco={p.preco}
                                   custo={p.custo}
-                                  onSuccess={() => carregar(brandId, busca, filtro)}
+                                  onSuccess={() => carregar(brandId, busca, filtro, canal)}
                                 />
                                 <button
                                   onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
-                                  className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-[rgba(155,48,217,.4)] hover:bg-muted hover:text-foreground active:scale-[.97]"
                                   title={copy.channels.mapTitle}
+                                  aria-label={copy.channels.mapTitle}
                                 >
-                                  <Link2 size={15} />
+                                  <Link2 size={14} />
                                 </button>
                                 <MovimentoModal
                                   produtoId={p.id}
                                   produtoNome={p.nome}
                                   saldoAtual={saldo}
-                                  onSuccess={() => { carregar(brandId, busca, filtro); carregarIndicadores(brandId); }}
+                                  onSuccess={() => { carregar(brandId, busca, filtro, canal); carregarIndicadores(brandId, canal); }}
                                 />
                               </div>
                             )}
