@@ -302,6 +302,26 @@ export function InboxAvaliacoes() {
   const [nota, setNota] = useState<FiltroNota>("todas");
   const [abertos, setAbertos] = useState<ReadonlySet<string>>(new Set());
 
+  /* Carregamento normal lê o cache mantido pelo cron A28 no banco — uma
+     consulta só, sem tocar na API do ML, por isso é instantâneo. O botão
+     "Atualizar" é a exceção: aí sim vale a pena esperar a consulta ao vivo,
+     porque a pessoa está pedindo o dado mais fresco possível. */
+  const carregarDoCache = useCallback(async () => {
+    const response = await fetch("/api/ml/avaliacoes");
+    const body = await response.json() as { items?: Avaliacao[]; error?: string };
+    if (!response.ok || !body.items) throw new Error(body.error ?? "Não foi possível carregar as avaliações.");
+    return body.items;
+  }, []);
+
+  const carregarAoVivo = useCallback(async () => {
+    const resultados = await Promise.allSettled(marcas.map((item) => carregarMarca(item.slug, item.label)));
+    const sucesso = resultados.flatMap((resultado) => resultado.status === "fulfilled" ? resultado.value : []);
+    const falhas = resultados.filter((resultado) => resultado.status === "rejected").length;
+    if (falhas === resultados.length) throw new Error("Nenhuma conta do Mercado Livre respondeu.");
+    if (falhas > 0) toast.warning(`${falhas} conta(s) não puderam ser consultadas.`);
+    return sucesso;
+  }, []);
+
   const carregar = useCallback(async (forcar = false) => {
     if (!forcar && cacheValido() && cacheAvaliacoes) {
       setItens(cacheAvaliacoes.itens);
@@ -310,19 +330,15 @@ export function InboxAvaliacoes() {
     }
     setCarregando(true);
     try {
-      const resultados = await Promise.allSettled(marcas.map((item) => carregarMarca(item.slug, item.label)));
-      const sucesso = resultados.flatMap((resultado) => resultado.status === "fulfilled" ? resultado.value : []);
-      setItens(sucesso);
-      cacheAvaliacoes = { itens: sucesso, buscadoEm: Date.now() };
-      const falhas = resultados.filter((resultado) => resultado.status === "rejected").length;
-      if (falhas === resultados.length) throw new Error("Nenhuma conta do Mercado Livre respondeu.");
-      if (falhas > 0) toast.warning(`${falhas} conta(s) não puderam ser consultadas.`);
+      const itens = forcar ? await carregarAoVivo() : await carregarDoCache();
+      setItens(itens);
+      cacheAvaliacoes = { itens, buscadoEm: Date.now() };
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível carregar as avaliações.");
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [carregarAoVivo, carregarDoCache]);
 
   useEffect(() => {
     const task = window.setTimeout(() => void carregar(), 0);

@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex,
+  pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, real, integer,
 } from "drizzle-orm/pg-core";
 import { org, brand } from "./org";
 
@@ -30,4 +30,26 @@ export const channelAccount = pgTable("channel_account", {
   index("idx_channel_org").on(t.orgId),
   index("idx_channel_brand").on(t.brandId),
   uniqueIndex("uq_channel_account_org_brand_tipo").on(t.orgId, t.brandId, t.tipo),
+]);
+
+/** Cache de notas/opiniões do Mercado Livre por anúncio ativo, mantido por um
+ *  cron (ver A28-sync-avaliacoes-ml). A API do ML não tem endpoint de nota em
+ *  lote — 1 requisição por anúncio — então a tela de Avaliações lê daqui em
+ *  vez de consultar o ML na hora que a pessoa abre a aba. */
+export const mlAvaliacaoAnuncio = pgTable("ml_avaliacao_anuncio", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  brandId: uuid("brand_id").notNull().references(() => brand.id),
+  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
+  listingId: text("listing_id").notNull(),
+  title: text("title").notNull(),
+  permalink: text("permalink"),
+  ratingAverage: real("rating_average"),
+  reviewsTotal: integer("reviews_total"),
+  ratingLevels: jsonb("rating_levels"),
+  opinioes: jsonb("opinioes").notNull().default([]),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_ml_avaliacao_org_listing").on(t.orgId, t.listingId),
+  index("idx_ml_avaliacao_brand").on(t.brandId),
 ]);
