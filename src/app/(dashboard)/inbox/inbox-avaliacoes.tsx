@@ -432,10 +432,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
       <section className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.06)]">
         <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center">
           <div className="flex-1">
-            <h2 className="text-base font-bold text-foreground">Opiniões por anúncio</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Toque em um anúncio para ler o que os compradores escreveram.
-            </p>
+            <h2 className="text-base font-bold text-foreground">Opiniões</h2>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <label className="relative min-w-[210px] flex-1">
@@ -448,11 +445,11 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
               />
             </label>
             <select value={marca} onChange={(e) => setMarca(e.target.value)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm">
-              <option value="todas">Todas as marcas</option>
+              <option value="todas">Marcas</option>
               {marcas.map((item) => <option key={item.slug} value={item.slug}>{item.label}</option>)}
             </select>
             <select value={nota} onChange={(e) => setNota(e.target.value as FiltroNota)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm">
-              <option value="todas">Todas as notas</option>
+              <option value="todas">Notas</option>
               <option value="excelentes">4,5 ou mais</option>
               <option value="atencao">Abaixo de 4,0</option>
               <option value="sem_avaliacao">Sem avaliação</option>

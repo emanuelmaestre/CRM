@@ -117,7 +117,7 @@ describe("contratos JSON da interface", () => {
     expect(pagesConfig.terms.sections).toHaveLength(6);
     expect(pagesConfig.system.loading.ariaLabel).not.toHaveLength(0);
     expect(pagesConfig.system.dashboardError.title).not.toHaveLength(0);
-    expect(appConfig.logo.alt).toContain("Armarinhos Lima");
+    expect(appConfig.logo.alt).toContain("ARMARINHOS LIMA");
   });
 
   it("mantém a massa sintética cobrindo todas as marcas configuradas", () => {

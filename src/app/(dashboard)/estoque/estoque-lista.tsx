@@ -600,8 +600,8 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
         !conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
-            ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)]"
-            : "border border-border bg-card hover:bg-muted"
+            ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.12)]"
+            : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
     >
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
@@ -656,8 +656,8 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
           : ativo
-            ? "border-2 bg-card"
-            : "border border-border bg-card hover:bg-muted"
+            ? "border-2 bg-card/70"
+            : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
       style={ativo ? { borderColor: brandColor(slug) } : undefined}
     >

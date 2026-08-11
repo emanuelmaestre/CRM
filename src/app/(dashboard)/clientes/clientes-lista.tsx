@@ -112,8 +112,8 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
         !conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
-            ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)]"
-            : "border border-border bg-card hover:bg-muted"
+            ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.12)]"
+            : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
     >
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
@@ -157,8 +157,8 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
           : ativo
-            ? "border-2 bg-card"
-            : "border border-border bg-card hover:bg-muted"
+            ? "border-2 bg-card/70"
+            : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
       style={ativo ? { borderColor: brandColor(slug) } : undefined}
     >
@@ -259,7 +259,7 @@ export function ClientesLista() {
           própria (ícone + rótulo por seção) em vez de só replicar o texto de
           instrução do Estoque — aqui o convite é visual, não escrito. */}
       <div className="mb-5 flex justify-center">
-        <div className="w-full max-w-4xl rounded-[1.75rem] border border-border/60 bg-card px-8 py-7 shadow-[0_4px_24px_rgba(14,15,19,.06)] sm:px-10">
+        <div className="w-full max-w-4xl px-8 py-7 sm:px-10">
           <div className="flex flex-col items-center gap-7 lg:flex-row lg:justify-center lg:gap-10">
             <div data-tour="clientes-empresa" className="flex min-w-0 flex-col items-center">
               <div className="mb-3 flex items-center gap-2 text-muted-foreground">

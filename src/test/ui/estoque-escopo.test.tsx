@@ -10,7 +10,7 @@ import pagesConfig from "@/config/pages.json";
 const MARCAS = [
   { brandId: "10000000-0000-4000-8000-000000000001", name: "KARZI", slug: "karzi", total: 312 },
   { brandId: "10000000-0000-4000-8000-000000000002", name: "WUWU", slug: "wuwu", total: 148 },
-  { brandId: "10000000-0000-4000-8000-000000000003", name: "Armarinhos Lima", slug: "armarinhos_lima", total: 0 },
+  { brandId: "10000000-0000-4000-8000-000000000003", name: "ARMARINHOS LIMA", slug: "armarinhos_lima", total: 0 },
 ];
 
 const CANAIS = [
@@ -118,11 +118,11 @@ describe("Estoque — escopo por empresa", () => {
     expect(await screen.findByRole("button", { name: "WUWU" })).toHaveTextContent("148");
 
     // Empresa sem produto no canal ativo fica travada, com o motivo no title.
-    const vazia = await screen.findByRole("button", { name: "Armarinhos Lima" });
+    const vazia = await screen.findByRole("button", { name: "ARMARINHOS LIMA" });
     expect(vazia).toBeDisabled();
     expect(vazia).toHaveAttribute(
       "title",
-      pagesConfig.estoque.brandSelector.emptyHint.replace("{marca}", "Armarinhos Lima"),
+      pagesConfig.estoque.brandSelector.emptyHint.replace("{marca}", "ARMARINHOS LIMA"),
     );
   });
 

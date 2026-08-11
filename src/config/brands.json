@@ -26,7 +26,7 @@
     "environmentKey": "NEXT_PUBLIC_BRAND_ID_WUWU"
   },
   "armarinhos_lima": {
-    "label": "Armarinhos Lima",
+    "label": "ARMARINHOS LIMA",
     "color": "var(--armarinhos-lima)",
     "logo": "/logos/armarinhos-lima.svg",
     "logoSize": { "width": 1439, "height": 718 },

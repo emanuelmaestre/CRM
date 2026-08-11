@@ -23,7 +23,7 @@
     "sections": [
       {
         "title": "1. Descrição do serviço",
-        "content": "Este sistema de CRM integra pedidos, clientes e estoque das operações KARZI, WUWU e Armarinhos Lima, administradas no mesmo ambiente, a partir de canais de venda como TikTok Shop, Mercado Livre e Shopee. O acesso é restrito a usuários autorizados."
+        "content": "Este sistema de CRM integra pedidos, clientes e estoque das operações KARZI, WUWU e ARMARINHOS LIMA, administradas no mesmo ambiente, a partir de canais de venda como TikTok Shop, Mercado Livre e Shopee. O acesso é restrito a usuários autorizados."
       },
       {
         "title": "2. Uso dos dados",
@@ -49,7 +49,7 @@
   },
   "login": {
     "title": "Entrar",
-    "subtitle": "KARZI · WUWU · Armarinhos Lima",
+    "subtitle": "KARZI · WUWU · ARMARINHOS LIMA",
     "fields": {
       "email": { "label": "E-mail", "placeholder": "voce@plastleo.com.br" },
       "password": { "label": "Senha", "placeholder": "••••••••" }

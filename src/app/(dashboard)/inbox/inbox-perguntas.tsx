@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package } from "lucide-react";
+import { HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -82,6 +82,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
 }) {
   const [filtroStatus, setFiltroStatus] = useState<Status | "todos">("todos");
   const [selecionada, setSelecionada]   = useState<Pergunta | null>(null);
+  const [atalhosAbertos, setAtalhosAbertos] = useState(false);
   const [resposta, setResposta]         = useState("");
   const [enviando, setEnviando]         = useState(false);
   const [perguntas, setPerguntas]       = useState<Pergunta[]>([]);
@@ -221,7 +222,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                         <motion.button
                           key={p.id}
                           variants={cardVariant}
-                          onClick={() => { setSelecionada(p); setResposta(""); }}
+                          onClick={() => { setSelecionada(p); setResposta(""); setAtalhosAbertos(false); }}
                           className={`w-full text-left border-b border-border last:border-0 relative flex items-stretch transition-colors ${
                             isActive ? "bg-muted/60" : "hover:bg-muted/30"
                           } ${isAnswered ? "opacity-55" : ""}`}
@@ -251,28 +252,27 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                           />
 
                           {/* Body */}
-                          <span className="flex-1 min-w-0 px-3 py-3">
-                            <span className="block text-[12px] font-bold text-foreground truncate mb-0.5">
-                              {p.cliente}
+                          <span className="flex-1 min-w-0 px-3 py-2.5">
+                            <span className="flex items-center justify-between gap-2 mb-1">
+                              <span className="text-[12px] font-bold text-foreground truncate">
+                                {p.cliente}
+                              </span>
+                              <span className="flex items-center gap-1 flex-shrink-0">
+                                <motion.span
+                                  animate={urg === "urgent" && !isAnswered ? {
+                                    scale: [1, 1.3, 1],
+                                    opacity: [1, 0.6, 1],
+                                  } : {}}
+                                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                  style={{ background: URGENCY_COLOR[urg] }}
+                                />
+                                <span className="text-[10px] text-muted-foreground tabular-nums">{p.tempo}</span>
+                              </span>
                             </span>
-                            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[.04em] text-muted-foreground truncate mb-1">
-                              <Package size={10} strokeWidth={2} className="flex-shrink-0 opacity-70" />
-                              <span className="truncate">{p.produto}</span>
-                            </span>
-                            <span className="block text-[13px] text-foreground leading-snug line-clamp-2 mb-1.5">
-                              {p.pergunta}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <motion.span
-                                animate={urg === "urgent" && !isAnswered ? {
-                                  scale: [1, 1.3, 1],
-                                  opacity: [1, 0.6, 1],
-                                } : {}}
-                                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                style={{ background: URGENCY_COLOR[urg] }}
-                              />
-                              <span className="text-[10px] text-muted-foreground tabular-nums">{p.tempo}</span>
+                            <span className="flex items-start gap-1 text-[10px] font-semibold uppercase tracking-[.04em] text-muted-foreground">
+                              <Package size={10} strokeWidth={2} className="flex-shrink-0 opacity-70 mt-[1px]" />
+                              <span className="leading-snug">{p.produto}</span>
                             </span>
                           </span>
                         </motion.button>
@@ -413,28 +413,70 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                   transition={{ delay: 0.1, duration: 0.2 }}
                   className="border-t border-border px-4 py-4 flex flex-col gap-3"
                 >
-                  {/* Quick reply chips */}
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground mb-2">
-                      {copy.quickReply}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PLAT[selecionada.plataforma].quickReplies.map((chip) => (
-                        <motion.button
-                          key={chip}
-                          onClick={() => usarChip(chip)}
-                          whileHover={{ scale: 1.02, borderColor: "#9B30D9" }}
-                          whileTap={{ scale: 0.97 }}
-                          className="text-[12px] font-medium px-3 py-1.5 rounded-full border border-border text-muted-foreground bg-muted/40 hover:text-foreground hover:bg-[rgba(155,48,217,.06)] transition-colors text-left leading-snug"
-                        >
-                          {chip}
-                        </motion.button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Textarea row */}
                   <div className="flex items-end gap-2">
+                    {/* Atalho de respostas rápidas — mesmo lugar/gesto do
+                        clipe do WhatsApp: fica ao lado do campo, some quando
+                        não está em uso, e não empurra o layout do resto do
+                        dock pra baixo toda vez que a conversa muda. */}
+                    <div className="relative flex-shrink-0">
+                      <motion.button
+                        type="button"
+                        onClick={() => setAtalhosAbertos((v) => !v)}
+                        whileHover={{ scale: 1.06 }}
+                        whileTap={{ scale: 0.94 }}
+                        title={copy.quickReply}
+                        aria-label={copy.quickReply}
+                        aria-expanded={atalhosAbertos}
+                        className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-colors ${
+                          atalhosAbertos
+                            ? "text-[#9B30D9] bg-[rgba(155,48,217,.1)]"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <Zap size={17} strokeWidth={2} />
+                      </motion.button>
+
+                      <AnimatePresence>
+                        {atalhosAbertos && (
+                          <>
+                            <motion.div
+                              key="backdrop"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="fixed inset-0 z-40"
+                              onClick={() => setAtalhosAbertos(false)}
+                            />
+                            <motion.div
+                              key="menu"
+                              initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-[0.875rem] border border-border bg-card p-2 shadow-[0_8px_24px_rgba(14,15,19,.14)]"
+                            >
+                              <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground">
+                                {copy.quickReply}
+                              </p>
+                              <div className="flex flex-col gap-0.5">
+                                {PLAT[selecionada.plataforma].quickReplies.map((chip) => (
+                                  <button
+                                    key={chip}
+                                    type="button"
+                                    onClick={() => { usarChip(chip); setAtalhosAbertos(false); }}
+                                    className="rounded-lg px-2.5 py-1.5 text-left text-[12px] leading-snug text-foreground transition-colors hover:bg-[rgba(155,48,217,.08)]"
+                                  >
+                                    {chip}
+                                  </button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
                     <textarea
                       className="flex-1 resize-none rounded-[10px] border border-border bg-muted/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] min-h-[62px] max-h-[120px] leading-relaxed"
                       placeholder={copy.replyPlaceholder}

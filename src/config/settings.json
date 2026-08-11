@@ -28,7 +28,7 @@
     "brands": [
       { "slug": "karzi", "label": "KARZI" },
       { "slug": "wuwu", "label": "WUWU" },
-      { "slug": "armarinhos_lima", "label": "Armarinhos Lima" }
+      { "slug": "armarinhos_lima", "label": "ARMARINHOS LIMA" }
     ],
     "labels": {
       "loading": "Verificando…",

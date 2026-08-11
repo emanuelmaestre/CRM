@@ -18,9 +18,11 @@ export default function InboxPage() {
   const [marcasAtivas, setMarcasAtivas] = useState<ReadonlySet<string>>(new Set());
   const [canaisAtivos, setCanaisAtivos] = useState<ReadonlySet<string>>(new Set());
 
-  // Cada aba reporta suas próprias contagens por empresa/canal; a barra soma
-  // as três — é um indicador de atividade agregada, não a contagem de uma
-  // aba isolada (conversa, pergunta e anúncio são naturezas diferentes).
+  // Cada aba reporta suas próprias contagens por empresa/canal. A barra
+  // mostra as contagens da aba ativa no momento — antes somava as três
+  // juntas, o que fazia o número da pílula não bater com o que a lista
+  // embaixo realmente mostrava (ex.: "Karzi 14" enquanto Conversas só tinha
+  // 1 item de outra marca, porque o 14 vinha só de Avaliações).
   const [contagens, setContagens] = useState<Record<Aba, { marcas: Record<string, number>; canais: Record<string, number> }>>({
     conversas: { marcas: {}, canais: {} },
     perguntas: { marcas: {}, canais: {} },
@@ -30,16 +32,6 @@ export default function InboxPage() {
   const reportarContagens = useCallback((tab: Aba, valores: { marcas: Record<string, number>; canais: Record<string, number> }) => {
     setContagens((atual) => ({ ...atual, [tab]: valores }));
   }, []);
-
-  function somarContagens(campo: "marcas" | "canais"): Record<string, number> {
-    const soma: Record<string, number> = {};
-    for (const tab of Object.values(contagens)) {
-      for (const [chave, valor] of Object.entries(tab[campo])) {
-        soma[chave] = (soma[chave] ?? 0) + valor;
-      }
-    }
-    return soma;
-  }
 
   function alternarMarca(slug: string) {
     setMarcasAtivas((atual) => {
@@ -62,7 +54,7 @@ export default function InboxPage() {
       {/* Header + Tabs — compacto de propósito: a conversa é o conteúdo, não
           o cabeçalho, então título, filtro e abas dividem uma linha só sempre
           que a largura permitir, em vez de empilhar e comer altura útil. */}
-      <div className="flex flex-nowrap items-center justify-start gap-2">
+      <div className="flex flex-nowrap items-center justify-center gap-3">
         {/* Barra de escopo única — vale pras três abas ao mesmo tempo, em vez
             de cada uma ter a sua. Rola por dentro em vez de quebrar linha,
             pra não empurrar a tab bar pra baixo em telas mais estreitas. */}
@@ -72,8 +64,8 @@ export default function InboxPage() {
             canaisAtivos={canaisAtivos}
             onToggleMarca={alternarMarca}
             onToggleCanal={alternarCanal}
-            contagemMarca={somarContagens("marcas")}
-            contagemCanal={somarContagens("canais")}
+            contagemMarca={contagens[aba].marcas}
+            contagemCanal={contagens[aba].canais}
           />
         </div>
 

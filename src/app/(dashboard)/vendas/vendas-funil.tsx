@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
-import { FileText, Trash2 } from "lucide-react";
+import { FileText, Trash2, Building2, Inbox } from "lucide-react";
 import {
   actionAnalisarGargalosFunil, actionCriarEtapasPadrao, actionExcluirOportunidade, actionGerarPropostaOportunidade,
   actionListarFunil, actionListarReferenciasFunil, actionMoverOportunidade,
@@ -102,12 +102,12 @@ function MarcaPill({ marca, total, ativo, onClick }: { marca: MarcaRef; total: n
       aria-pressed={ativo}
       aria-label={marca.nome}
       title={bloqueada ? copy.brandSelector.emptyHint.replace("{marca}", marca.nome) : undefined}
-      className={`inline-flex h-[38px] items-center gap-2 rounded-full px-3.5 transition-colors ${
+      className={`inline-flex h-9 items-center gap-2 rounded-full px-3.5 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
           : ativo
-            ? "border-2 bg-card"
-            : "border border-border bg-card hover:bg-muted"
+            ? "border-2 bg-card/70"
+            : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
       style={ativo ? { borderColor: cor } : undefined}
     >
@@ -187,6 +187,8 @@ export function VendasFunil() {
   const [loading, setLoading] = useState(true);
   const [canConfigure, setCanConfigure] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
+  const [dragOverEtapaId, setDragOverEtapaId] = useState<string | null>(null);
+  const [arrastando, setArrastando] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const carregar = useCallback(() => {
@@ -300,13 +302,8 @@ export function VendasFunil() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6"
+        className="flex justify-end mb-6"
       >
-        <div>
-          <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-            {copy.title}
-          </h1>
-        </div>
         <motion.button
           whileHover={{ scale: 1.03 }}
           whileTap={{ scale: 0.97 }}
@@ -321,19 +318,19 @@ export function VendasFunil() {
       {!loading && etapas.length > 0 && <GargalosFunil />}
 
       {!loading && etapas.length > 0 && marcasRef.length > 1 && (
-        <div className="mb-4">
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">{copy.brandSelector.label}</p>
-          <div className="flex flex-wrap gap-2">
-            {marcasRef.map((marca) => (
-              <MarcaPill
-                key={marca.id}
-                marca={marca}
-                total={contagemPorMarca.get(marca.id) ?? 0}
-                ativo={brandId === marca.id}
-                onClick={() => setBrandId((atual) => atual === marca.id ? "" : marca.id)}
-              />
-            ))}
-          </div>
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-full border border-border/60 bg-card/40 px-3.5 py-2 w-fit">
+          <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <Building2 size={12} strokeWidth={2.25} /> {copy.brandSelector.label}
+          </span>
+          {marcasRef.map((marca) => (
+            <MarcaPill
+              key={marca.id}
+              marca={marca}
+              total={contagemPorMarca.get(marca.id) ?? 0}
+              ativo={brandId === marca.id}
+              onClick={() => setBrandId((atual) => atual === marca.id ? "" : marca.id)}
+            />
+          ))}
         </div>
       )}
 
@@ -349,38 +346,62 @@ export function VendasFunil() {
           />
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {etapas.map((etapa) => {
+        // Grid em vez de trilho com scroll horizontal: a partir de lg, as
+        // colunas dividem a largura disponível em frações iguais (1fr cada)
+        // e cabem todas de uma vez, sem barra de rolagem. Abaixo de lg — onde
+        // squeezar 5 colunas ficaria ilegível — mantém o scroll horizontal
+        // por toque, que é o padrão esperado num board em tela pequena.
+        <div
+          className="flex gap-4 overflow-x-auto pb-4 lg:grid lg:overflow-visible lg:pb-0"
+          style={{ gridTemplateColumns: `repeat(${etapas.length}, minmax(0, 1fr))` }}
+        >
+          {etapas.map((etapa, indice) => {
             const ops = oportunidadesFiltradas.filter((o) => o.etapaId === etapa.id);
             const total = ops.reduce((s, o) => s + (o.valor ? Number(o.valor) : 0), 0);
             const ehPerdida = etapa.nome.trim().toLowerCase() === "perdida";
+            const emFoco = dragOverEtapaId === etapa.id;
+            const cor = etapa.cor || "var(--muted-foreground)";
             return (
-              <div
+              <motion.div
                 key={etapa.id}
-                className="flex-shrink-0 w-[85vw] sm:w-72 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
-                onDragOver={(e) => e.preventDefault()}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: indice * 0.04 }}
+                className="min-w-[85vw] sm:min-w-72 lg:min-w-0 flex-shrink-0 lg:flex-shrink rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] transition-[box-shadow,outline-color] outline outline-2"
+                style={{ outlineColor: emFoco ? cor : "transparent", boxShadow: emFoco ? `0 4px 20px ${cor}26` : "0 2px 16px rgba(14,15,19,.07)" }}
+                onDragOver={(e) => { e.preventDefault(); setDragOverEtapaId(etapa.id); }}
+                onDragLeave={() => setDragOverEtapaId((atual) => atual === etapa.id ? null : atual)}
                 onDrop={(e) => {
                   e.preventDefault();
+                  setDragOverEtapaId(null);
                   const opId = e.dataTransfer.getData("opId");
                   if (opId) mover(opId, etapa.id);
                 }}
               >
                 {/* Cabeçalho da etapa */}
                 <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-2 h-2 rounded-full"
-                      style={{ background: etapa.cor || "var(--muted-foreground)" }}
-                    />
-                    <span className="text-sm font-semibold text-foreground">{etapa.nome}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cor }} />
+                    <span className="text-sm font-semibold text-foreground truncate">{etapa.nome}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{ops.length}</span>
+                  <span
+                    className="flex-shrink-0 text-[11px] font-semibold tabular-nums rounded-full px-1.5 py-0.5"
+                    style={{ background: cor + "1a", color: cor }}
+                  >
+                    {ops.length}
+                  </span>
                 </div>
 
                 {/* Cards */}
-                <div className="p-3 space-y-2 min-h-[120px]">
+                <div className="p-3 space-y-2 min-h-[140px]">
                   {ops.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-4">{copy.dropHint}</p>
+                    <motion.div
+                      animate={emFoco ? { scale: 1.02, borderColor: cor } : { scale: 1 }}
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-[0.75rem] border-2 border-dashed border-border py-7 text-center"
+                    >
+                      <Inbox size={18} strokeWidth={1.5} className="text-muted-foreground/60" />
+                      <p className="text-xs text-muted-foreground px-3">{copy.dropHint}</p>
+                    </motion.div>
                   ) : (
                     ops.map((op) => {
                       const brand = brandLabel(op);
@@ -395,8 +416,11 @@ export function VendasFunil() {
                           data-testid={`oportunidade-${op.id}`}
                           onDragStartCapture={(e: React.DragEvent<HTMLDivElement>) => {
                             e.dataTransfer.setData("opId", op.id);
+                            setArrastando(op.id);
                           }}
-                          className="rounded-[0.75rem] bg-background border border-border p-3 cursor-grab"
+                          onDragEnd={() => setArrastando(null)}
+                          className="rounded-[0.75rem] bg-background border border-border p-3 cursor-grab active:cursor-grabbing"
+                          style={{ opacity: arrastando === op.id ? 0.4 : 1 }}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium text-foreground leading-tight">{op.titulo}</p>
@@ -460,7 +484,7 @@ export function VendasFunil() {
                     </span>
                   </div>
                 )}
-              </div>
+              </motion.div>
             );
           })}
         </div>

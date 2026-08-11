@@ -1,7 +1,7 @@
 {
   "name": "CRM",
-  "fullName": "CRM — KARZI, WUWU & Armarinhos Lima",
-  "description": "CRM operacional para KARZI, WUWU e Armarinhos Lima",
+  "fullName": "CRM — KARZI, WUWU & ARMARINHOS LIMA",
+  "description": "CRM operacional para KARZI, WUWU e ARMARINHOS LIMA",
   "locale": "pt-BR",
   "metadata": {
     "titleTemplate": "%s | CRM",
@@ -18,7 +18,7 @@
   },
   "identityLabel": "CRM LEO",
   "logo": {
-    "alt": "KARZI | WUWU | Armarinhos Lima",
+    "alt": "KARZI | WUWU | ARMARINHOS LIMA",
     "homeAriaLabel": "Início"
   },
   "brandOrder": ["karzi", "wuwu", "armarinhos_lima"],
