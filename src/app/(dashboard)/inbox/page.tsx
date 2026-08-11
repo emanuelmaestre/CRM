@@ -87,7 +87,7 @@ export default function InboxPage() {
                 key={a.id}
                 onClick={() => setAba(a.id)}
                 whileTap={{ scale: 0.97 }}
-                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-[0.625rem] text-[13px] font-medium transition-colors whitespace-nowrap"
+                className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-[0.625rem] text-sm font-medium transition-colors whitespace-nowrap"
                 style={{ color: active ? "var(--foreground)" : "var(--muted-foreground)" }}
               >
                 {active && (
@@ -97,7 +97,7 @@ export default function InboxPage() {
                     transition={{ type: "spring", stiffness: 380, damping: 32 }}
                   />
                 )}
-                <Icon size={14} strokeWidth={active ? 2.25 : 1.75} className="relative z-10" />
+                <Icon size={15} strokeWidth={active ? 2.25 : 1.75} className="relative z-10" />
                 <span className="relative z-10">{a.label}</span>
               </motion.button>
             );

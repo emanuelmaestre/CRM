@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { HelpCircle, Send, CheckCircle2, Loader2, ChevronLeft, ChevronRight, GripVertical, Package } from "lucide-react";
+import { HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -37,7 +37,6 @@ type Pergunta = {
 
 const copy = pagesConfig.inbox.questions;
 const PLAT = copy.platforms as Record<Plataforma, PlatformConfig>;
-const PLATFORM_TABS = ["todos", ...copy.platformOrder] as Array<Plataforma | "todos">;
 
 function normalizarPlataforma(canal: string): Plataforma {
   void canal;
@@ -75,141 +74,12 @@ function urgency(h: number, status: Status): "urgent" | "normal" | "ok" {
 
 const URGENCY_COLOR = copy.urgencyColors;
 
-/* ── Platform Tab (logo-only, no text) ─────────────────── */
-function PlatTab({
-  plat, active, pendingCount, onClick,
-}: {
-  plat: Plataforma | "todos";
-  active: boolean;
-  pendingCount: number;
-  onClick: () => void;
-}) {
-  const stripe = plat !== "todos" ? PLAT[plat].stripe : undefined;
-
-  return (
-    <motion.button
-      onClick={onClick}
-      whileTap={{ scale: 0.94 }}
-      title={plat === "todos" ? copy.allPlatforms : PLAT[plat].label}
-      className={`relative flex-1 flex flex-col items-center justify-center py-2.5 px-1 transition-all duration-160 ${
-        active
-          ? "bg-card"
-          : "hover:bg-muted/60"
-      }`}
-      style={active ? {
-        borderBottom: `2.5px solid ${stripe ?? "var(--foreground)"}`,
-        boxShadow: stripe ? `0 2px 12px ${stripe}33` : undefined,
-      } : {
-        borderBottom: "2.5px solid transparent",
-      }}
-    >
-      {plat === "todos" ? (
-        <motion.span
-          animate={{ opacity: active ? 1 : 0.45 }}
-          className="text-[20px] leading-none"
-        >
-          ◎
-        </motion.span>
-      ) : (
-        <motion.span
-          className="flex items-center justify-center"
-          animate={{ opacity: active ? 1 : 0.5, scale: active ? 1 : 0.92 }}
-          transition={{ duration: 0.16 }}
-        >
-          <ChannelLogo canal={plat} size="sm" variant="logo" />
-        </motion.span>
-      )}
-
-      <AnimatePresence>
-        {pendingCount > 0 && (
-          <motion.span
-            key="badge"
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.5, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 28 }}
-            className="absolute top-1 right-2 min-w-[16px] h-[16px] flex items-center justify-center bg-[#E3131B] text-white text-[8px] font-bold rounded-full px-1 leading-none shadow-[0_1px_4px_rgba(227,19,27,.4)]"
-          >
-            {pendingCount}
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </motion.button>
-  );
-}
-
-/* ── Collapsed icon strip ──────────────────────────────── */
-function CollapsedStrip({
-  filtroPlat, setFiltroPlat, pendentesTotais, pendentesPorPlat, onExpand,
-}: {
-  filtroPlat: Plataforma | "todos";
-  setFiltroPlat: (p: Plataforma | "todos") => void;
-  pendentesTotais: number;
-  pendentesPorPlat: (p: Plataforma) => number;
-  onExpand: () => void;
-}) {
-  return (
-    <motion.div
-      key="collapsed"
-      initial={{ opacity: 0, x: -10 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -10 }}
-      transition={{ duration: 0.2 }}
-      className="flex flex-col items-center py-2 gap-1 h-full rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
-    >
-      {/* Expand button */}
-      <motion.button
-        onClick={onExpand}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.93 }}
-        className="w-8 h-8 mt-1 mb-1 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        title={copy.actions.expand}
-      >
-        <ChevronRight size={16} strokeWidth={2} />
-      </motion.button>
-
-      <div className="w-6 h-px bg-border mx-auto" />
-
-      {PLATFORM_TABS.map((p) => {
-        const count = p === "todos" ? pendentesTotais : pendentesPorPlat(p);
-        const active = filtroPlat === p;
-        const stripe = p !== "todos" ? PLAT[p].stripe : undefined;
-        return (
-          <motion.button
-            key={p}
-            onClick={() => { setFiltroPlat(p); onExpand(); }}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.93 }}
-            title={p === "todos" ? copy.allPlatforms : PLAT[p].label}
-            className={`relative w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
-              active ? "bg-muted" : "hover:bg-muted/50"
-            }`}
-            style={active && stripe ? { borderLeft: `3px solid ${stripe}` } : {}}
-          >
-            {p === "todos" ? (
-              <span className="text-[16px] leading-none opacity-60">◎</span>
-            ) : (
-              <ChannelLogo canal={p} size="xs" variant="logo" />
-            )}
-            {count > 0 && (
-              <span className="absolute top-0.5 right-0.5 min-w-[13px] h-[13px] flex items-center justify-center bg-[#E3131B] text-white text-[7px] font-bold rounded-full px-0.5 leading-none">
-                {count}
-              </span>
-            )}
-          </motion.button>
-        );
-      })}
-    </motion.div>
-  );
-}
-
 /* ── Main ──────────────────────────────────────────────── */
 export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
   marcasAtivas: ReadonlySet<string>;
   canaisAtivos: ReadonlySet<string>;
   onContagens: (valores: { marcas: Record<string, number>; canais: Record<string, number> }) => void;
 }) {
-  const [filtroPlat, setFiltroPlat]     = useState<Plataforma | "todos">("todos");
   const [filtroStatus, setFiltroStatus] = useState<Status | "todos">("todos");
   const [selecionada, setSelecionada]   = useState<Pergunta | null>(null);
   const [resposta, setResposta]         = useState("");
@@ -217,9 +87,9 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
   const [perguntas, setPerguntas]       = useState<Pergunta[]>([]);
   const [carregando, setCarregando]     = useState(true);
 
-  // Sidebar resize + collapse
+  // Sidebar resize — plataforma e empresa agora filtram pela barra de escopo
+  // compartilhada (page.tsx), então o que sobrou aqui é só a largura.
   const [sideWidth, setSideWidth] = useState(304);
-  const [collapsed, setCollapsed] = useState(false);
   const dragState = useRef<{ startX: number; startW: number } | null>(null);
 
   const carregarPerguntas = useCallback(() => {
@@ -262,16 +132,11 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
   }, [perguntas]);
 
   const filtradas = perguntas.filter((p) => {
-    if (filtroPlat !== "todos" && p.plataforma !== filtroPlat) return false;
     if (filtroStatus !== "todos" && p.status !== filtroStatus) return false;
     if (marcasAtivas.size > 0 && !marcasAtivas.has(p.brandSlug ?? "")) return false;
     if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
     return true;
   });
-
-  const pendentesTotais  = perguntas.filter((p) => p.status === "pendente").length;
-  const pendentesPorPlat = (pl: Plataforma) =>
-    perguntas.filter((p) => p.plataforma === pl && p.status === "pendente").length;
 
   const limit = selecionada
     ? PLAT[selecionada.plataforma].charLimit
@@ -308,50 +173,10 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
       className="flex h-[max(32rem,calc(100dvh-13rem))] max-h-[calc(100dvh-7rem)] gap-3"
     >
       {/* ── Sidebar ── */}
-      <AnimatePresence initial={false} mode="wait">
-        {collapsed ? (
-          <CollapsedStrip
-            key="collapsed"
-            filtroPlat={filtroPlat}
-            setFiltroPlat={setFiltroPlat}
-            pendentesTotais={pendentesTotais}
-            pendentesPorPlat={pendentesPorPlat}
-            onExpand={() => setCollapsed(false)}
-          />
-        ) : (
-          <motion.div
-            key="expanded"
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.2 }}
-            style={{ width: sideWidth, flexShrink: 0 }}
-            className="relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col"
-          >
-            {/* Platform tabs bar */}
-            <div className="flex gap-0 border-b border-border bg-muted/20">
-              {PLATFORM_TABS.map((p) => (
-                <PlatTab
-                  key={p}
-                  plat={p}
-                  active={filtroPlat === p}
-                  pendingCount={p === "todos" ? pendentesTotais : pendentesPorPlat(p)}
-                  onClick={() => setFiltroPlat(p)}
-                />
-              ))}
-
-              {/* Collapse button */}
-              <motion.button
-                onClick={() => setCollapsed(true)}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.93 }}
-                className="flex-shrink-0 w-9 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border-l border-border"
-                title={copy.actions.collapse}
-              >
-                <ChevronLeft size={14} strokeWidth={2} />
-              </motion.button>
-            </div>
-
+      <motion.div
+        style={{ width: sideWidth, flexShrink: 0 }}
+        className="relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col"
+      >
             {/* Status filter row */}
             <div className="flex gap-1 px-3 py-2 border-b border-border bg-muted/10">
               {(["todos", "pendente", "respondida"] as const).map((s) => (
@@ -471,9 +296,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 className="absolute text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
               />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </motion.div>
 
       {/* ── Right panel ── */}
       <div className="flex-1 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col min-w-0">
