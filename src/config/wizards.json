@@ -47,27 +47,6 @@
       "errorMessage": "Erro ao processar o arquivo."
     }
   },
-  "oportunidade": {
-    "title": "Nova oportunidade",
-    "cancelHref": "/vendas",
-    "steps": ["Oportunidade", "Funil e valor", "Confirmar"],
-    "sections": [
-      { "title": "Dados da oportunidade", "description": "Descreva o negócio que está sendo acompanhado" },
-      { "title": "Funil e valor", "description": "Em qual etapa está e qual o valor estimado" },
-      { "title": "Confirmar oportunidade", "description": "Revise os dados antes de salvar" }
-    ],
-    "fields": {
-      "titulo": { "label": "Título", "placeholder": "Ex: Pedido atacado 50 caixas — Mercado" },
-      "brandId": { "label": "Marca", "placeholder": "Selecione a marca" },
-      "etapaId": { "label": "Etapa do funil", "placeholder": "Selecione a etapa" },
-      "valor": { "label": "Valor estimado", "placeholder": "0,00" },
-      "clienteId": { "label": "Cliente", "placeholder": "Sem cliente vinculado" },
-      "responsavelId": { "label": "Responsável", "placeholder": "Usar usuário atual" }
-    },
-    "reviewLabels": { "titulo": "Título", "brandId": "Marca", "etapaId": "Etapa", "valor": "Valor estimado", "clienteId": "Cliente", "responsavelId": "Responsável" },
-    "actions": { "submit": "Criar oportunidade", "submitting": "Criando…" },
-    "messages": { "titleRequired": "Título é obrigatório", "brandRequired": "Selecione a marca", "stageRequired": "Selecione a etapa do funil", "success": "Oportunidade criada!", "error": "Erro ao criar oportunidade.", "stagesError": "Erro ao carregar etapas do funil.", "referencesError": "Erro ao carregar clientes, marcas e responsáveis." }
-  },
   "estoque": {
     "title": "Configurar alertas de estoque",
     "cancelHref": "/estoque",

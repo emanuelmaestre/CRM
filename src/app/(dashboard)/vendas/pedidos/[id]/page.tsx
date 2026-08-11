@@ -75,7 +75,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
   return (
     <div className="mx-auto max-w-5xl">
       <Link
-        href="/vendas/pedidos"
+        href="/vendas"
         className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft size={15} strokeWidth={2} /> {copy.back}

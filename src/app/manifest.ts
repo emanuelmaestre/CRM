@@ -20,7 +20,7 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       { name: "Clientes", short_name: "Clientes", url: "/clientes", description: "Abrir lista de clientes" },
       { name: "Inbox", short_name: "Inbox", url: "/inbox", description: "Abrir inbox unificado" },
-      { name: "Vendas", short_name: "Vendas", url: "/vendas", description: "Abrir funil de vendas" },
+      { name: "Vendas", short_name: "Vendas", url: "/vendas", description: "Abrir pedidos" },
     ],
   };
 }

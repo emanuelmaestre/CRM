@@ -1,9 +1,11 @@
-import { VendasFunil } from "./vendas-funil";
-import { VendasTabs } from "./vendas-tabs";
 import pagesConfig from "@/config/pages.json";
+import { requirePageAuth } from "@/shared/lib/auth/session";
+import { PedidosLista } from "./pedidos/pedidos-lista";
 
-export const metadata = { title: pagesConfig.vendas.metadataTitle };
+export const metadata = { title: pagesConfig.pedidos.metadataTitle };
 
-export default function VendasPage() {
-  return <><VendasTabs active="funil" /><VendasFunil /></>;
+export default async function VendasPage() {
+  await requirePageAuth();
+
+  return <PedidosLista />;
 }

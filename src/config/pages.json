@@ -347,61 +347,6 @@
       }
     }
   },
-  "vendas": {
-    "navigationAriaLabel": "Operação comercial",
-    "metadataTitle": "Vendas",
-    "title": "Vendas",
-    "tabs": [
-      { "id": "funil", "href": "/vendas", "label": "Funil" },
-      { "id": "pedidos", "href": "/vendas/pedidos", "label": "Pedidos" }
-    ],
-    "newAction": "+ Nova oportunidade",
-    "loading": "Carregando funil…",
-    "empty": { "title": "Funil vazio", "description": "Configure as etapas do funil e comece a registrar oportunidades." },
-    "dropHint": "Arraste oportunidades aqui",
-    "noClient": "Sem cliente",
-    "brandSelector": {
-      "label": "Marca",
-      "emptyHint": "{marca} não tem oportunidade no funil ainda."
-    },
-    "stageAge": {
-      "today": "hoje",
-      "suffix": "nesta etapa"
-    },
-    "lossModal": {
-      "title": "Por que esta oportunidade foi perdida?",
-      "description": "O motivo fica registrado e visível no card, para o time aprender com as perdas em vez de só contá-las.",
-      "reasonLabel": "Motivo da perda",
-      "reasonPlaceholder": "Ex: preço, concorrência, sem resposta…",
-      "confirm": "Marcar como perdida",
-      "cancel": "Cancelar",
-      "lossReasonLabel": "Motivo"
-    },
-    "gargalos": {
-      "title": "Gargalos do funil",
-      "subtitle": "Etapas com oportunidades paradas há mais tempo",
-      "stuckSuffix": "parada(s)",
-      "avgLabel": "média",
-      "maxLabel": "máx"
-    },
-    "actions": {
-      "setup": "Criar funil padrão",
-      "move": "Mover oportunidade",
-      "delete": "Excluir oportunidade",
-      "deleteConfirm": "Excluir \"{title}\"?",
-      "generateProposal": "Gerar proposta (PDF)"
-    },
-    "messages": {
-      "loadError": "Erro ao carregar funil.",
-      "moveError": "Erro ao mover oportunidade.",
-      "proposalSuccess": "Proposta gerada.",
-      "proposalError": "Erro ao gerar proposta.",
-      "setupSuccess": "Funil padrão criado.",
-      "setupError": "Erro ao criar o funil padrão.",
-      "deleteSuccess": "Oportunidade excluída.",
-      "deleteError": "Erro ao excluir oportunidade."
-    }
-  },
   "pedidos": {
     "metadataTitle": "Pedidos",
     "title": "Pedidos conectados",

@@ -65,8 +65,7 @@ describe("contratos JSON da interface", () => {
     }
   });
 
-  it("mantém funil, tarefas e agenda na operação comercial", () => {
-    expect(pagesConfig.vendas.tabs.map((tab) => tab.href)).toEqual(["/vendas", "/vendas/pedidos"]);
+  it("mantém tarefas e agenda na operação comercial", () => {
     expect(pagesConfig.tarefas.tabs.map((tab) => tab.href)).toEqual(["/tarefas", "/agenda"]);
     expect(pagesConfig.auditoria.origins).toHaveProperty("sistema");
   });
