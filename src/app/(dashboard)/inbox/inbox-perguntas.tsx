@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { HelpCircle, Send, CheckCircle2, Loader2, ChevronLeft, ChevronRight, GripVertical } from "lucide-react";
+import { HelpCircle, Send, CheckCircle2, Loader2, ChevronLeft, ChevronRight, GripVertical, Package } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -25,6 +25,7 @@ type PlatformConfig = {
 type Pergunta = {
   id: string;
   plataforma: Plataforma;
+  brandSlug: string | null;
   produto: string;
   pergunta: string;
   cliente: string;
@@ -55,6 +56,7 @@ function mapearPergunta(item: Awaited<ReturnType<typeof actionListarPerguntas>>[
   return {
     id: item.id,
     plataforma: normalizarPlataforma(item.canal),
+    brandSlug: item.brandSlug,
     produto: item.produto,
     pergunta: item.pergunta,
     cliente: item.cliente,
@@ -202,7 +204,11 @@ function CollapsedStrip({
 }
 
 /* ── Main ──────────────────────────────────────────────── */
-export function InboxPerguntas() {
+export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
+  marcasAtivas: ReadonlySet<string>;
+  canaisAtivos: ReadonlySet<string>;
+  onContagens: (valores: { marcas: Record<string, number>; canais: Record<string, number> }) => void;
+}) {
   const [filtroPlat, setFiltroPlat]     = useState<Plataforma | "todos">("todos");
   const [filtroStatus, setFiltroStatus] = useState<Status | "todos">("todos");
   const [selecionada, setSelecionada]   = useState<Pergunta | null>(null);
@@ -243,9 +249,23 @@ export function InboxPerguntas() {
     window.addEventListener("mouseup", onUp);
   }
 
+  // Reporta as contagens pra barra de escopo compartilhada (page.tsx), que
+  // soma com as outras abas. Perguntas só existe pro canal Mercado Livre por
+  // enquanto, então o total de canal cai inteiro em "mercadolivre".
+  useEffect(() => {
+    const marcasCount: Record<string, number> = {};
+    for (const p of perguntas) {
+      if (p.brandSlug) marcasCount[p.brandSlug] = (marcasCount[p.brandSlug] ?? 0) + 1;
+    }
+    onContagens({ marcas: marcasCount, canais: { mercadolivre: perguntas.length } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perguntas]);
+
   const filtradas = perguntas.filter((p) => {
     if (filtroPlat !== "todos" && p.plataforma !== filtroPlat) return false;
     if (filtroStatus !== "todos" && p.status !== filtroStatus) return false;
+    if (marcasAtivas.size > 0 && !marcasAtivas.has(p.brandSlug ?? "")) return false;
+    if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
     return true;
   });
 
@@ -350,6 +370,7 @@ export function InboxPerguntas() {
               ))}
             </div>
 
+
             {/* Card list */}
             <div className="overflow-y-auto flex-1 scrollbar-thin">
               <AnimatePresence initial={false}>
@@ -406,8 +427,12 @@ export function InboxPerguntas() {
 
                           {/* Body */}
                           <span className="flex-1 min-w-0 px-3 py-3">
-                            <span className="block text-[10px] font-bold uppercase tracking-[.06em] text-muted-foreground truncate mb-1">
-                              {p.produto}
+                            <span className="block text-[12px] font-bold text-foreground truncate mb-0.5">
+                              {p.cliente}
+                            </span>
+                            <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[.04em] text-muted-foreground truncate mb-1">
+                              <Package size={10} strokeWidth={2} className="flex-shrink-0 opacity-70" />
+                              <span className="truncate">{p.produto}</span>
                             </span>
                             <span className="block text-[13px] text-foreground leading-snug line-clamp-2 mb-1.5">
                               {p.pergunta}
@@ -497,9 +522,12 @@ export function InboxPerguntas() {
 
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] font-bold text-foreground truncate leading-tight">
-                    {selecionada.produto}
+                    {selecionada.cliente}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{selecionada.cliente}</p>
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground mt-1 truncate">
+                    <Package size={11} strokeWidth={2} className="flex-shrink-0 opacity-70" />
+                    <span className="truncate">{selecionada.produto}</span>
+                  </p>
                 </div>
 
                 <span className="text-[11px] text-muted-foreground tabular-nums flex-shrink-0">

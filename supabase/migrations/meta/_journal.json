@@ -169,6 +169,20 @@
       "when": 1786323400000,
       "tag": "0023_rls_ml_avaliacao_anuncio",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786399966123,
+      "tag": "0024_cliente_endereco_nome_completo",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786415721818,
+      "tag": "0025_remove_produto_custo",
+      "breakpoints": true
     }
   ]
 }

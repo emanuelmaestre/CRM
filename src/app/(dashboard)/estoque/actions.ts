@@ -5,7 +5,8 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   editarProduto, listarProdutos, listarProdutosParados, registrarMovimento,
   listarDivergenciasEstoque, resolverDivergenciaEstoque, contarIndicadoresEstoque,
-  definirEstoqueMinimoEmLote, contarProdutosPorCanal, type EstadoEstoque,
+  definirEstoqueMinimoEmLote, contarProdutosPorCanal, contarProdutosPorMarca,
+  simularReguaEstoque, aplicarReguaEstoque, buscarProdutoDetalhe, type EstadoEstoque,
 } from "@/modules/estoque/application/estoque.service";
 import { importarCatalogoMercadoLivre } from "@/modules/estoque/application/importar-catalogo.service";
 import { z } from "zod";
@@ -26,16 +27,16 @@ const EstadoSchema = z.enum(["abaixo_minimo", "sem_estoque", "sem_minimo", "para
 const CanalVendaSchema = z.enum(["mercadolivre", "shopee", "tiktokshop"]);
 
 export async function actionListarProdutos(opts: {
-  brandId?: string;
+  brandIds?: string[];
   busca?: string;
   estado?: string;
-  canalTipo?: string;
+  canalTipos?: string[];
   offset?: number;
 } = {}) {
   const ctx = await getCrudContext();
-  const brandIdValidado = opts.brandId ? BrandIdSchema.parse(opts.brandId) : undefined;
+  const brandIdsValidados = opts.brandIds?.length ? z.array(BrandIdSchema).parse(opts.brandIds) : undefined;
   const estado = opts.estado ? EstadoSchema.parse(opts.estado) : undefined;
-  const canalTipo = opts.canalTipo ? CanalVendaSchema.parse(opts.canalTipo) : undefined;
+  const canalTiposValidados = opts.canalTipos?.length ? z.array(CanalVendaSchema).parse(opts.canalTipos) : undefined;
   const offset = Math.max(0, Math.trunc(opts.offset ?? 0));
 
   // "Parados" não é uma condição SQL sobre saldo: depende do cálculo de risco
@@ -46,35 +47,24 @@ export async function actionListarProdutos(opts: {
     : undefined;
 
   const result = await listarProdutos(ctx, {
-    brandId: brandIdValidado,
+    brandIds: brandIdsValidados,
     busca: opts.busca?.trim(),
     estado: estado === "parados" ? undefined : (estado as EstadoEstoque | undefined),
-    canalTipo,
+    canalTipos: canalTiposValidados,
     ids: idsParados,
     limit: 50,
     offset,
   });
   const permissions = { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" };
-
-  if (ctx.perfil !== "vendedor") return { ...result, permissions };
-
-  return {
-    ...result,
-    permissions,
-    data: result.data.map((produto) => {
-      return Object.fromEntries(
-        Object.entries(produto).filter(([field]) => field !== "custo"),
-      );
-    }),
-  };
+  return { ...result, permissions };
 }
 
-export async function actionIndicadoresEstoque(brandId?: string, canalTipo?: string) {
+export async function actionIndicadoresEstoque(brandIds?: string[], canalTipos?: string[]) {
   const ctx = await getCrudContext();
-  const brandIdValidado = brandId ? BrandIdSchema.parse(brandId) : undefined;
-  const canalValidado = canalTipo ? CanalVendaSchema.parse(canalTipo) : undefined;
+  const brandIdsValidados = brandIds?.length ? z.array(BrandIdSchema).parse(brandIds) : undefined;
+  const canalTiposValidados = canalTipos?.length ? z.array(CanalVendaSchema).parse(canalTipos) : undefined;
   const [contagens, parados, divergencias] = await Promise.all([
-    contarIndicadoresEstoque(ctx, { brandId: brandIdValidado, canalTipo: canalValidado }),
+    contarIndicadoresEstoque(ctx, { brandIds: brandIdsValidados, canalTipos: canalTiposValidados }),
     listarProdutosParados(ctx),
     ctx.perfil === "vendedor" ? Promise.resolve([]) : listarDivergenciasEstoque(ctx),
   ]);
@@ -87,9 +77,16 @@ export async function actionIndicadoresEstoque(brandId?: string, canalTipo?: str
   };
 }
 
-export async function actionContarProdutosPorCanal() {
+export async function actionContarProdutosPorCanal(brandIds?: string[]) {
   const ctx = await getCrudContext();
-  return contarProdutosPorCanal(ctx);
+  const brandIdsValidados = brandIds?.length ? z.array(BrandIdSchema).parse(brandIds) : undefined;
+  return contarProdutosPorCanal(ctx, { brandIds: brandIdsValidados });
+}
+
+export async function actionContarProdutosPorMarca(canalTipos?: string[]) {
+  const ctx = await getCrudContext();
+  const canalTiposValidados = canalTipos?.length ? z.array(CanalVendaSchema).parse(canalTipos) : undefined;
+  return contarProdutosPorMarca(ctx, { canalTipos: canalTiposValidados });
 }
 
 export async function actionDefinirEstoqueMinimoEmLote(produtoIds: string[], estoqueMinimo: number) {
@@ -97,6 +94,46 @@ export async function actionDefinirEstoqueMinimoEmLote(produtoIds: string[], est
   const ids = z.array(z.string().uuid()).min(1).max(500).parse(produtoIds);
   const minimo = z.number().int().min(0).max(1_000_000).parse(estoqueMinimo);
   const result = await definirEstoqueMinimoEmLote(ctx, ids, minimo);
+  revalidatePath("/estoque");
+  return result;
+}
+
+/* ── Régua de alertas (wizard /estoque/alertas) ──────────────────────────── */
+
+const EscopoReguaSchema = z.object({
+  brandId: BrandIdSchema.optional(),
+  canalTipo: CanalVendaSchema.optional(),
+  somenteSemMinimo: z.boolean().optional(),
+});
+
+// O mínimo tem o mesmo teto do lote manual — o que entra pela régua não pode
+// gravar valores que a edição campo a campo recusaria.
+const MinimoSchema = z.number().int().min(0).max(1_000_000);
+
+const ReguaSchema = z.discriminatedUnion("tipo", [
+  z.object({ tipo: z.literal("fixo"), minimo: MinimoSchema }),
+  z.object({
+    tipo: z.literal("giro"),
+    faixas: z.array(z.object({
+      vendaMensalMinima: z.number().int().min(0).max(1_000_000),
+      minimo: MinimoSchema,
+    })).min(1).max(10),
+  }),
+]);
+
+export async function actionSimularReguaEstoque(escopo: unknown, regua: unknown) {
+  const ctx = await getCrudContext();
+  return simularReguaEstoque(ctx, EscopoReguaSchema.parse(escopo), ReguaSchema.parse(regua));
+}
+
+export async function actionAplicarReguaEstoque(escopo: unknown, regua: unknown, excluirIds: string[] = []) {
+  const ctx = await getCrudContext();
+  const result = await aplicarReguaEstoque(
+    ctx,
+    EscopoReguaSchema.parse(escopo),
+    ReguaSchema.parse(regua),
+    z.array(z.string().uuid()).max(1000).parse(excluirIds),
+  );
   revalidatePath("/estoque");
   return result;
 }
@@ -223,14 +260,18 @@ export async function actionEditarProduto(
   produtoId: string,
   nome: string,
   preco: string,
-  custo?: string,
-  estoqueMinimo?: number,
 ) {
   const ctx = await getCrudContext();
   const id = z.string().uuid().parse(produtoId);
-  const result = await editarProduto(ctx, id, { nome, preco, custo: custo || undefined, estoqueMinimo });
+  const result = await editarProduto(ctx, id, { nome, preco });
   revalidatePath("/estoque");
   return result;
+}
+
+export async function actionBuscarProdutoDetalhe(produtoId: string) {
+  const ctx = await getCrudContext();
+  const id = z.string().uuid().parse(produtoId);
+  return buscarProdutoDetalhe(ctx, id);
 }
 
 export async function actionListarDivergenciasEstoque() {

@@ -10,7 +10,7 @@
     },
     "vendedor": {
       "label": "Vendedor",
-      "description": "Clientes, atendimento, vendas e consulta de estoque sem custo ou margem."
+      "description": "Clientes, atendimento, vendas e consulta de estoque."
     }
   },
   "routes": [
@@ -18,7 +18,8 @@
     { "prefix": "/auditoria", "profiles": ["admin"] },
     { "prefix": "/configuracoes", "profiles": ["admin"] },
     { "prefix": "/relatorios", "profiles": ["admin", "gestor"] },
-    { "prefix": "/importacao", "profiles": ["admin", "gestor"] }
+    { "prefix": "/importacao", "profiles": ["admin", "gestor"] },
+    { "prefix": "/estoque/alertas", "profiles": ["admin", "gestor"] }
   ],
   "messages": {
     "restrictedEyebrow": "Acesso restrito",

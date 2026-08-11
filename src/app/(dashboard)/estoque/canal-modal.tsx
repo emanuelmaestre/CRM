@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { X, Plus, Trash2, Link2 } from "lucide-react";
+import { X, Plus, Trash2, Link2, Radio, Check, Pencil } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import {
   actionListarContasCanal,
@@ -11,13 +11,21 @@ import {
   actionSalvarMapeamentoCanal,
   actionRemoverMapeamentoCanal,
 } from "./actions";
-import { inputClass, selectClass } from "@/shared/design-system/primitives/WizardLayout";
+import { inputClass } from "@/shared/design-system/primitives/WizardLayout";
+import { analisarTituloProduto } from "@/shared/lib/produto-titulo";
+import channelsConfig from "@/config/channels.json";
 import pagesConfig from "@/config/pages.json";
 
 const copy = pagesConfig.estoque.channels;
 
 type ContaCanal = { id: string; tipo: string; nome: string; status: string; brandId: string };
 type Mapeamento = { id: string; channelAccountId: string; externalListingId: string; externalSkuId: string | null; externalWarehouseId: string | null; ativo: boolean; contaTipo: string; contaNome: string };
+
+function accentDoCanal(tipo: string): string {
+  const key = tipo.toLowerCase();
+  const item = (channelsConfig.items as Record<string, { accent: string }>)[key];
+  return item?.accent ?? channelsConfig.fallback.accent;
+}
 
 async function buscarMapeamentos(produtoId: string) {
   return Promise.all([
@@ -40,7 +48,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
   const [novoListingId, setNovoListingId] = useState("");
   const [novoSkuId, setNovoSkuId] = useState("");
   const [novoWarehouseId, setNovoWarehouseId] = useState("");
-  const [, startTransition]           = useTransition();
+  const [pending, startTransition]    = useTransition();
 
   const carregar = useCallback(() => {
     setLoading(true);
@@ -117,6 +125,8 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
   const contasDisponiveis = contas.filter(
     (c) => !mapeamentos.some((m) => m.channelAccountId === c.id && m.ativo),
   );
+  const contaSelecionada = contas.find((item) => item.id === novaContaId);
+  const nomeExibicao = analisarTituloProduto(produtoNome).produto;
 
   return (
     <AnimatePresence>
@@ -141,19 +151,19 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
           {/* Header */}
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
             <div className="flex min-w-0 items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[0.5rem] flex items-center justify-center text-base"
+              <div className="w-8 h-8 rounded-[0.5rem] flex items-center justify-center shrink-0"
                    style={{ background: "var(--gradient-signature)" }}>
                 <Link2 size={15} color="white" />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground leading-tight">{copy.title}</p>
-                <p className="truncate text-xs text-muted-foreground">{produtoNome}</p>
+                <p className="truncate text-xs text-muted-foreground">{nomeExibicao}</p>
               </div>
             </div>
             <button
               onClick={onClose}
               aria-label={copy.close}
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <X size={16} />
             </button>
@@ -170,11 +180,12 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
               {loading ? (
                 <div className="space-y-2">
                   {[1,2].map(i => (
-                    <div key={i} className="h-12 rounded-[0.75rem] bg-muted animate-pulse" />
+                    <div key={i} className="h-14 rounded-[0.75rem] bg-muted animate-pulse" />
                   ))}
                 </div>
               ) : mapeamentos.filter(m => m.ativo).length === 0 ? (
                 <div className="rounded-[0.75rem] border border-dashed border-border py-6 text-center">
+                  <Radio size={18} className="mx-auto mb-2 text-muted-foreground" strokeWidth={1.75} />
                   <p className="text-sm text-muted-foreground">{copy.emptyTitle}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{copy.emptyDescription}</p>
                 </div>
@@ -185,7 +196,8 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                       key={m.id}
                       initial={{ opacity: 0, x: -6 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center gap-3 px-4 py-3 rounded-[0.75rem] bg-muted/50 border border-border"
+                      className="flex items-center gap-3 pl-3 pr-2 py-3 rounded-[0.75rem] bg-muted/50 border border-border"
+                      style={{ borderLeft: `3px solid ${accentDoCanal(m.contaTipo)}` }}
                     >
                       <ChannelLogo canal={m.contaTipo} size="sm" variant="logo" />
                       <div className="flex-1 min-w-0">
@@ -195,8 +207,10 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                       </div>
                       <button
                         onClick={() => remover(m.id)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-[#C21820] hover:bg-[#C2182014] transition-colors"
+                        disabled={pending}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-[#C21820] hover:bg-[#C2182014] transition-colors disabled:opacity-50"
                         title={copy.removeTitle}
+                        aria-label={`${copy.removeTitle} — ${m.contaNome}`}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -213,60 +227,123 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                   {copy.addTitle}
                 </p>
                 <div className="space-y-3">
-                  <select
-                    className={selectClass}
-                    value={novaContaId}
-                    onChange={(e) => setNovaContaId(e.target.value)}
-                  >
-                    <option value="">{copy.accountPlaceholder}</option>
-                    {contasDisponiveis.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nome} ({c.tipo})
-                        {c.status !== "conectado" ? ` ${copy.disconnectedSuffix}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    className={inputClass}
-                    placeholder={copy.listingPlaceholder}
-                    value={novoListingId}
-                    onChange={(e) => setNovoListingId(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && salvar()}
-                  />
-                  {(contas.find((item) => item.id === novaContaId)?.tipo === "tiktokshop" || contas.find((item) => item.id === novaContaId)?.tipo === "shopee") && (
-                    <input
-                      className={inputClass}
-                      placeholder={copy.skuPlaceholder}
-                      value={novoSkuId}
-                      onChange={(e) => setNovoSkuId(e.target.value)}
-                    />
-                  )}
-                  {contas.find((item) => item.id === novaContaId)?.tipo === "tiktokshop" && (
-                    <input
-                      className={inputClass}
-                      placeholder={copy.warehousePlaceholder}
-                      value={novoWarehouseId}
-                      onChange={(e) => setNovoWarehouseId(e.target.value)}
-                    />
-                  )}
+                  <div>
+                    <label className="block text-[11px] font-medium text-muted-foreground mb-2">{copy.accountFieldLabel}</label>
+
+                    {/* Depois de escolhida, a conta vira um resumo de uma linha —
+                        a grade inteira ficando aberta só empurrava os campos de
+                        digitação (ID do anúncio etc.) pra fora da tela. */}
+                    {contaSelecionada ? (
+                      <div
+                        className="flex items-center gap-2.5 rounded-[0.75rem] border px-3 py-2.5"
+                        style={{ borderColor: "#9B30D9", background: "rgba(155,48,217,.07)" }}
+                      >
+                        <ChannelLogo canal={contaSelecionada.tipo} size="sm" variant="logo" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-foreground truncate">{contaSelecionada.nome}</p>
+                          {contaSelecionada.status !== "conectado" && (
+                            <p className="text-[10px] text-[#C21820]">{copy.disconnectedSuffix.replace("— ", "")}</p>
+                          )}
+                        </div>
+                        <Check size={14} className="shrink-0" style={{ color: "#9B30D9" }} strokeWidth={2.5} />
+                        <button
+                          type="button"
+                          onClick={() => setNovaContaId("")}
+                          className="inline-flex items-center gap-1 shrink-0 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Pencil size={11} /> {copy.changeAccount}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className={`grid gap-2 ${contasDisponiveis.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+                        {contasDisponiveis.map((c) => {
+                          const desconectada = c.status !== "conectado";
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => setNovaContaId(c.id)}
+                              className="flex items-center gap-2.5 rounded-[0.75rem] border border-border px-3 py-2.5 text-left transition-colors hover:border-[rgba(155,48,217,.4)] hover:bg-muted"
+                            >
+                              <ChannelLogo canal={c.tipo} size="sm" variant="logo" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-foreground truncate">{c.nome}</p>
+                                {desconectada && (
+                                  <p className="text-[10px] text-[#C21820]">{copy.disconnectedSuffix.replace("— ", "")}</p>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <AnimatePresence>
+                    {novaContaId && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-3 overflow-hidden"
+                      >
+                        <div>
+                          <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">{copy.listingFieldLabel}</label>
+                          <input
+                            className={inputClass}
+                            placeholder={copy.listingPlaceholder}
+                            value={novoListingId}
+                            onChange={(e) => setNovoListingId(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && salvar()}
+                            autoFocus
+                          />
+                        </div>
+                        {(contaSelecionada?.tipo === "tiktokshop" || contaSelecionada?.tipo === "shopee") && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">{copy.skuFieldLabel}</label>
+                            <input
+                              className={inputClass}
+                              placeholder={copy.skuPlaceholder}
+                              value={novoSkuId}
+                              onChange={(e) => setNovoSkuId(e.target.value)}
+                            />
+                          </div>
+                        )}
+                        {contaSelecionada?.tipo === "tiktokshop" && (
+                          <div>
+                            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">{copy.warehouseFieldLabel}</label>
+                            <input
+                              className={inputClass}
+                              placeholder={copy.warehousePlaceholder}
+                              value={novoWarehouseId}
+                              onChange={(e) => setNovoWarehouseId(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.97 }}
+                    whileHover={pending || !novaContaId ? undefined : { scale: 1.02 }}
+                    whileTap={pending || !novaContaId ? undefined : { scale: 0.97 }}
                     onClick={salvar}
-                    className="w-full h-10 flex items-center justify-center gap-2 rounded-[0.75rem] text-sm font-semibold text-white"
+                    disabled={pending || !novaContaId}
+                    className="w-full h-11 flex items-center justify-center gap-2 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-40"
                     style={{ background: "var(--gradient-signature)" }}
                   >
                     <Plus size={15} />
-                    {copy.save}
+                    {pending ? copy.saving : copy.save}
                   </motion.button>
                 </div>
               </div>
             )}
 
             {contasDisponiveis.length === 0 && !loading && (
-              <p className="text-xs text-muted-foreground text-center py-2">
-                {copy.allMapped}
-              </p>
+              <div className="rounded-[0.75rem] border border-dashed border-border py-6 text-center px-4">
+                <Link2 size={18} className="mx-auto mb-2 text-muted-foreground" strokeWidth={1.75} />
+                <p className="text-xs text-muted-foreground">{copy.allMapped}</p>
+              </div>
             )}
           </div>
         </motion.div>

@@ -32,6 +32,12 @@ describe("Autorização por perfil", () => {
     ["gestor", "/importacao", true],
     ["vendedor", "/importacao", false],
     ["vendedor", "/clientes", true],
+    // Vendedor consulta estoque, mas configurar a régua de alertas grava
+    // estoque mínimo em lote — é operação gerencial.
+    ["vendedor", "/estoque", true],
+    ["gestor", "/estoque/alertas", true],
+    ["admin", "/estoque/alertas", true],
+    ["vendedor", "/estoque/alertas", false],
   ] as const)("aplica %s em %s", (perfil, pathname, permitido) => {
     expect(perfilPodeAcessar(perfil, pathname)).toBe(permitido);
   });

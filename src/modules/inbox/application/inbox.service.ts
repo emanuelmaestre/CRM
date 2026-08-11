@@ -1,6 +1,8 @@
 import { eq, and, or, desc, isNull, like, notLike, inArray, getTableColumns } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { channelAccount, conversa, mensagem } from "@/shared/lib/db/schema";
+import { channelAccount, conversa, mensagem, cliente } from "@/shared/lib/db/schema";
+import { clienteIdentidade } from "@/shared/lib/db/schema/clientes";
+import { produto, produtoCanal } from "@/shared/lib/db/schema/estoque";
 import { despacharEvento, persistirEvento, type PersistedDomainEvent } from "@/shared/events";
 import { validarTransicaoConversa, reabrirSeNecessario, type ConversaStatus } from "../domain/state-machine";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
@@ -11,6 +13,24 @@ import { isBrandSlug } from "@/shared/config/brands";
 
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
+}
+
+// A ligação canal+externalId → cliente é criada quando um pedido é
+// sincronizado (ingestao-pedido.service). Webhooks de mensagem/pergunta
+// consultam essa mesma tabela para exibir o nome do cliente no Inbox em vez
+// do ID técnico do comprador.
+export async function resolverClientePorIdentidade(orgId: string, canal: string, externalId?: string | number | null): Promise<string | undefined> {
+  if (externalId === undefined || externalId === null || externalId === "") return undefined;
+  const identidade = await db
+    .select({ clienteId: clienteIdentidade.clienteId })
+    .from(clienteIdentidade)
+    .where(and(
+      eq(clienteIdentidade.orgId, orgId),
+      eq(clienteIdentidade.canal, canal as never),
+      eq(clienteIdentidade.externalId, String(externalId)),
+    ))
+    .then((r) => r[0]);
+  return identidade?.clienteId;
 }
 
 export async function receberMensagem(input: {
@@ -56,8 +76,11 @@ export async function receberMensagem(input: {
 
     if (conversaRow) {
       const novoStatus = reabrirSeNecessario(conversaRow.status as ConversaStatus);
-      if (novoStatus !== conversaRow.status) {
-        await tx.update(conversa).set({ status: novoStatus, updatedAt: new Date() }).where(and(
+      const patch: Partial<typeof conversa.$inferInsert> = {};
+      if (novoStatus !== conversaRow.status) patch.status = novoStatus;
+      if (!conversaRow.clienteId && input.clienteId) patch.clienteId = input.clienteId;
+      if (Object.keys(patch).length > 0) {
+        await tx.update(conversa).set({ ...patch, updatedAt: new Date() }).where(and(
           eq(conversa.id, conversaRow.id),
           eq(conversa.orgId, input.orgId),
         ));
@@ -146,10 +169,12 @@ export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroa
           eq(mensagem.providerMessageId, `ml-message:${msg.providerMessageId}`),
         )).then((r) => r[0]);
         if (antes) continue;
+        const clienteId = await resolverClientePorIdentidade(orgId, "mercadolivre", msg.remetenteId ?? undefined);
         await receberMensagem({
           orgId,
           brandId: conta.brandId,
           channelAccountId: conta.channelAccountId,
+          clienteId,
           externalConversaId: `ml-pack:${msg.packId}`,
           providerMessageId: `ml-message:${msg.providerMessageId}`,
           conteudo: msg.texto,
@@ -158,6 +183,8 @@ export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroa
             canal: "mercadolivre",
             topic: "messages",
             remetenteId: msg.remetenteId,
+            remetenteNome: clienteId ? undefined : (msg.remetenteNome ?? undefined),
+            produtos: msg.produtos.length ? msg.produtos : undefined,
             sellerId: msg.destinatarioId === null ? undefined : String(msg.destinatarioId),
             packId: msg.packId,
             orderId: msg.orderId,
@@ -205,18 +232,57 @@ export async function listarConversas(orgId: string, opts: { brandId?: string; s
   if (opts.brandId) conditions.push(eq(conversa.brandId, opts.brandId));
   if (opts.status) conditions.push(eq(conversa.status, opts.status as never));
 
-  return db
+  const conversas = await db
     .select({
       ...getTableColumns(conversa),
       canalTipo: channelAccount.tipo,
       brandSlug: brand.slug,
+      clienteNome: cliente.nome,
+      clienteNomeCompleto: cliente.nomeCompleto,
     })
     .from(conversa)
     .leftJoin(channelAccount, eq(conversa.channelAccountId, channelAccount.id))
     .leftJoin(brand, eq(conversa.brandId, brand.id))
+    .leftJoin(cliente, eq(conversa.clienteId, cliente.id))
     .where(and(...conditions))
     .orderBy(desc(conversa.updatedAt))
     .limit(opts.limit ?? 50);
+
+  if (conversas.length === 0) return conversas.map((c) => ({ ...c, remetenteNome: undefined as string | undefined, produtoResumo: undefined as string | undefined }));
+
+  // Sem cliente vinculado ainda (comprador sem pedido sincronizado), caímos
+  // no nome capturado direto do canal na hora da mensagem (ver
+  // buscarNomeCompradorML no webhook e buyer.nickname na sincronização ativa).
+  const mensagensEntrada = await db
+    .select({ conversaId: mensagem.conversaId, meta: mensagem.meta })
+    .from(mensagem)
+    .where(and(
+      eq(mensagem.orgId, orgId),
+      eq(mensagem.direcao, "entrada"),
+      inArray(mensagem.conversaId, conversas.map((c) => c.id)),
+    ))
+    .orderBy(mensagem.createdAt);
+  // Nome do produto no lugar do número de pacote — o título já vem pronto
+  // direto do pedido no ML (order_items[].item.title), sem depender de bater
+  // com o SKU do nosso Estoque (que pode estar desatualizado ou ausente).
+  const nomePorConversa = new Map<string, string>();
+  const produtoResumoPorConversa = new Map<string, string>();
+  for (const m of mensagensEntrada) {
+    const meta = m.meta as { remetenteNome?: string; produtos?: string[] } | null;
+    if (meta?.remetenteNome) nomePorConversa.set(m.conversaId, meta.remetenteNome);
+    if (meta?.produtos?.length) {
+      produtoResumoPorConversa.set(
+        m.conversaId,
+        meta.produtos.length > 1 ? `${meta.produtos[0]} +${meta.produtos.length - 1}` : meta.produtos[0],
+      );
+    }
+  }
+
+  return conversas.map((c) => ({
+    ...c,
+    remetenteNome: nomePorConversa.get(c.id),
+    produtoResumo: produtoResumoPorConversa.get(c.id),
+  }));
 }
 
 export async function listarMensagens(orgId: string, conversaId: string) {
@@ -306,11 +372,16 @@ export async function listarPerguntas(orgId: string, opts: { brandId?: string } 
       externalId: conversa.externalId,
       status: conversa.status,
       brandId: conversa.brandId,
+      brandSlug: brand.slug,
       canalTipo: channelAccount.tipo,
       updatedAt: conversa.updatedAt,
+      clienteNome: cliente.nome,
+      clienteNomeCompleto: cliente.nomeCompleto,
     })
     .from(conversa)
     .leftJoin(channelAccount, eq(conversa.channelAccountId, channelAccount.id))
+    .leftJoin(brand, eq(conversa.brandId, brand.id))
+    .leftJoin(cliente, eq(conversa.clienteId, cliente.id))
     .where(and(...conditions))
     .orderBy(desc(conversa.updatedAt))
     .limit(100);
@@ -323,18 +394,34 @@ export async function listarPerguntas(orgId: string, opts: { brandId?: string } 
     .where(and(eq(mensagem.orgId, orgId), inArray(mensagem.conversaId, conversas.map((c) => c.id))))
     .orderBy(mensagem.createdAt);
 
+  const itemIds = Array.from(new Set(
+    mensagens
+      .map((m) => (m.meta as { itemId?: string } | null)?.itemId)
+      .filter((v): v is string => !!v),
+  ));
+  const produtos = itemIds.length
+    ? await db
+        .select({ externalListingId: produtoCanal.externalListingId, nome: produto.nome })
+        .from(produtoCanal)
+        .innerJoin(produto, eq(produtoCanal.produtoId, produto.id))
+        .where(and(eq(produtoCanal.orgId, orgId), inArray(produtoCanal.externalListingId, itemIds)))
+    : [];
+  const nomeProdutoPorItemId = new Map(produtos.map((p) => [p.externalListingId, p.nome]));
+
   return conversas.map((c) => {
     const doConversa = mensagens.filter((m) => m.conversaId === c.id);
     const pergunta = doConversa.find((m) => m.direcao === "entrada");
     const resposta = [...doConversa].reverse().find((m) => m.direcao === "saida");
-    const meta = (pergunta?.meta ?? {}) as { canal?: string; itemId?: string; remetenteId?: number };
+    const meta = (pergunta?.meta ?? {}) as { canal?: string; itemId?: string; remetenteId?: number; remetenteNome?: string };
+    const nomeProduto = meta.itemId ? nomeProdutoPorItemId.get(meta.itemId) : undefined;
 
     return {
       id: c.id,
       status: (resposta ? "respondida" : "pendente") as "pendente" | "respondida",
       canal: meta.canal ?? c.canalTipo ?? "mercadolivre",
-      produto: meta.itemId ? `Item ${meta.itemId}` : "Item não identificado",
-      cliente: meta.remetenteId ? `Comprador #${meta.remetenteId}` : "Comprador",
+      brandSlug: c.brandSlug,
+      produto: nomeProduto ?? (meta.itemId ? `Item ${meta.itemId}` : "Item não identificado"),
+      cliente: c.clienteNomeCompleto || c.clienteNome || meta.remetenteNome || (meta.remetenteId ? `Comprador #${meta.remetenteId}` : "Comprador"),
       pergunta: pergunta?.conteudo ?? "",
       resposta: resposta?.conteudo,
       criadoEm: pergunta?.createdAt ?? c.updatedAt,

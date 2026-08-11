@@ -55,29 +55,29 @@ describe("Scoring RFM — fórmulas auditáveis (Camada A, sem IA)", () => {
 
 describe("Scoring Encalhe — fórmulas auditáveis (Camada A, sem IA)", () => {
   it("produto parado há muito tempo tem risco_encalhe alto", () => {
-    const r = calcularScoreProduto({ diasSemVenda: 60, giroMensalMedio: 0, saldoAtual: 50, custoUnitario: 30 });
+    const r = calcularScoreProduto({ diasSemVenda: 60, giroMensalMedio: 0, saldoAtual: 50, precoUnitario: 30 });
     expect(r.riscoEncalhe).toBeGreaterThan(60);
   });
 
   it("produto vendendo regularmente tem risco baixo", () => {
-    const r = calcularScoreProduto({ diasSemVenda: 3, giroMensalMedio: 20, saldoAtual: 10, custoUnitario: 10 });
+    const r = calcularScoreProduto({ diasSemVenda: 3, giroMensalMedio: 20, saldoAtual: 10, precoUnitario: 10 });
     expect(r.riscoEncalhe).toBeLessThan(30);
   });
 
   it("capital_parado é calculado corretamente", () => {
-    const r = calcularScoreProduto({ diasSemVenda: 10, giroMensalMedio: 5, saldoAtual: 100, custoUnitario: 15 });
+    const r = calcularScoreProduto({ diasSemVenda: 10, giroMensalMedio: 5, saldoAtual: 100, precoUnitario: 15 });
     expect(r.capitalParado).toBe(1500);
   });
 
   it("risco entre 0 e 100", () => {
-    const r = calcularScoreProduto({ diasSemVenda: 999, giroMensalMedio: 0, saldoAtual: 1000, custoUnitario: 100 });
+    const r = calcularScoreProduto({ diasSemVenda: 999, giroMensalMedio: 0, saldoAtual: 1000, precoUnitario: 100 });
     expect(r.riscoEncalhe).toBeGreaterThanOrEqual(0);
     expect(r.riscoEncalhe).toBeLessThanOrEqual(100);
   });
 
   it("agrava queda de tendência e identifica a fórmula v2", () => {
-    const estavel = calcularScoreProduto({ diasSemVenda: 15, giroMensalMedio: 4, saldoAtual: 10, custoUnitario: 10, tendenciaVendasPercentual: 0 });
-    const queda = calcularScoreProduto({ diasSemVenda: 15, giroMensalMedio: 4, saldoAtual: 10, custoUnitario: 10, tendenciaVendasPercentual: -60 });
+    const estavel = calcularScoreProduto({ diasSemVenda: 15, giroMensalMedio: 4, saldoAtual: 10, precoUnitario: 10, tendenciaVendasPercentual: 0 });
+    const queda = calcularScoreProduto({ diasSemVenda: 15, giroMensalMedio: 4, saldoAtual: 10, precoUnitario: 10, tendenciaVendasPercentual: -60 });
     expect(queda.riscoEncalhe).toBeGreaterThan(estavel.riscoEncalhe);
     expect(queda.versaoFormula).toBe("v2");
   });
@@ -154,7 +154,7 @@ describe("Probabilidade de recompra em 30 dias (item 05)", () => {
 describe("Desconto mínimo e calibração sintética", () => {
   it("nunca ultrapassa o limite de margem", () => {
     const r = calcularDescontoMinimo({
-      precoAtual: 100, custoUnitario: 60, margemMinimaPercentual: 20,
+      precoAtual: 100, descontoMaximoPercentual: 25,
       conversaoSemDesconto: 0.02, conversaoComDesconto: 0.04, descontoHistoricoPercentual: 30,
     });
     expect(r.descontoRecomendadoPercentual).toBeLessThanOrEqual(r.descontoMaximoPelaMargemPercentual);

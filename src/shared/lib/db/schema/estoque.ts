@@ -16,7 +16,6 @@ export const produto = pgTable("produto", {
   brandId: uuid("brand_id").notNull().references(() => brand.id),
   sku: text("sku").notNull(),
   nome: text("nome").notNull(),
-  custo: numeric("custo", { precision: 12, scale: 2 }),
   preco: numeric("preco", { precision: 12, scale: 2 }).notNull(),
   estoqueMinimo: integer("estoque_minimo").notNull().default(0),
   ativo: boolean("ativo").notNull().default(true),

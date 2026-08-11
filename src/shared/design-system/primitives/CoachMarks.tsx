@@ -23,8 +23,16 @@ function useTargetRect(selector: string | null) {
   useEffect(() => {
     const update = () => {
       if (!selector) { setRect(null); return; }
-      const el = document.querySelector(selector);
-      setRect(el ? el.getBoundingClientRect() : null);
+      // Telas responsivas costumam ter o mesmo alvo duas vezes (variante mobile
+      // e variante desktop, uma delas com display:none). querySelector pegaria
+      // a primeira do DOM, que pode ser justamente a oculta — e o anel do tour
+      // apareceria colado no canto, com tamanho zero. Fica com a que está de
+      // fato renderizada.
+      const alvos = Array.from(document.querySelectorAll(selector));
+      const visivel = alvos
+        .map((el) => el.getBoundingClientRect())
+        .find((r) => r.width > 0 && r.height > 0);
+      setRect(visivel ?? null);
     };
     update();
     window.addEventListener("resize", update);

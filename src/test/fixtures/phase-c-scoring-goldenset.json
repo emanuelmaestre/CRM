@@ -87,7 +87,7 @@
         "diasSemVenda": 5,
         "giroMensalMedio": 15,
         "saldoAtual": 20,
-        "custoUnitario": 10,
+        "precoUnitario": 10,
         "tendenciaVendasPercentual": 10
       },
       "riscoMinimo": 0,
@@ -99,7 +99,7 @@
         "diasSemVenda": 45,
         "giroMensalMedio": 0.5,
         "saldoAtual": 50,
-        "custoUnitario": 20,
+        "precoUnitario": 20,
         "tendenciaVendasPercentual": -60
       },
       "riscoMinimo": 90,
@@ -111,7 +111,7 @@
         "diasSemVenda": 20,
         "giroMensalMedio": 3,
         "saldoAtual": 30,
-        "custoUnitario": 15,
+        "precoUnitario": 15,
         "tendenciaVendasPercentual": -25
       },
       "riscoMinimo": 55,

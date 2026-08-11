@@ -9,7 +9,6 @@ export const ProdutoSchema = z.object({
   brandId: z.string().uuid(),
   sku: z.string().trim().min(1).max(80).transform((value) => value.toUpperCase()),
   nome: z.string().trim().min(2).max(160),
-  custo: MoneySchema.nullable(),
   preco: MoneySchema.refine((value) => Number(value) > 0, "Preço deve ser maior que zero"),
   estoqueMinimo: z.number().int().min(0),
   ativo: z.boolean(),
@@ -20,13 +19,13 @@ export const ProdutoSchema = z.object({
 
 export const CreateProdutoSchema = ProdutoSchema.omit({
   id: true, orgId: true, deletedAt: true, createdAt: true, updatedAt: true,
-}).partial({ custo: true, estoqueMinimo: true });
+}).partial({ estoqueMinimo: true });
 
 // SKU e brandId ficam de fora: trocar o identificador externo ou a marca de
 // um produto já mapeado em canais quebraria os vínculos de produto_canal.
 export const UpdateProdutoSchema = ProdutoSchema.pick({
-  nome: true, custo: true, preco: true, estoqueMinimo: true,
-}).partial({ custo: true, estoqueMinimo: true });
+  nome: true, preco: true, estoqueMinimo: true,
+}).partial({ estoqueMinimo: true });
 
 export type Produto = z.infer<typeof ProdutoSchema>;
 export type CreateProdutoDTO = z.infer<typeof CreateProdutoSchema>;

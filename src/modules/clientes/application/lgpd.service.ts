@@ -183,6 +183,19 @@ export async function anonimizarSolicitacaoLgpd(ctx: CrudContext, input: unknown
       telefone: null,
       cpfCnpj: null,
       dataNascimento: null,
+      // Enriquecimento vindo do endereço de entrega do Mercado Livre (nome
+      // completo, endereço, geolocalização) — mesmo dado pessoal que os
+      // campos acima, tem que sumir junto na anonimização.
+      nomeCompleto: null,
+      enderecoRua: null,
+      enderecoNumero: null,
+      enderecoComplemento: null,
+      enderecoBairro: null,
+      enderecoCidade: null,
+      enderecoEstado: null,
+      enderecoCep: null,
+      enderecoLatitude: null,
+      enderecoLongitude: null,
       deletedAt: now,
       updatedAt: now,
     }).where(and(eq(cliente.id, solicitacao.clienteId), eq(cliente.orgId, ctx.orgId)));

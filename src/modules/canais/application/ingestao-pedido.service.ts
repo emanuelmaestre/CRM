@@ -135,10 +135,82 @@ export async function ingerirPedido(
 
     if (identidade) {
       clienteId = identidade.clienteId;
+
+      // Comprador recorrente: o primeiro pedido do Mercado Livre às vezes chega
+      // sem e-mail (a API omite o campo em parte dos fluxos de privacidade), mas
+      // um pedido seguinte pode trazer o dado. Sem este backfill, o cadastro
+      // ficava com e-mail vazio para sempre — a primeira chance era a única.
+      // O pré-checa evita colidir com a constraint de unicidade (org, email):
+      // um pedido não pode falhar por causa de um enriquecimento de cadastro.
+      if (p.clienteEmail) {
+        const emailEmUso = await tx
+          .select({ id: cliente.id })
+          .from(cliente)
+          .where(and(
+            eq(cliente.orgId, orgId),
+            eq(cliente.email, p.clienteEmail),
+            isNull(cliente.deletedAt),
+          ))
+          .then((rows) => rows[0]);
+        if (!emailEmUso) {
+          await tx
+            .update(cliente)
+            .set({ email: p.clienteEmail, updatedAt: new Date() })
+            .where(and(eq(cliente.id, clienteId), eq(cliente.orgId, orgId), isNull(cliente.email)));
+        }
+      }
+
+      // Mesma lógica para nome completo e endereço de entrega, com uma
+      // diferença: endereço nunca é sobrescrito, mesmo que já exista um valor
+      // preenchido (o backfill de e-mail e nome completo verifica só se está
+      // vazio — endereço poderia legitimamente já ter outro valor de um
+      // pedido anterior, e um comprador recorrente pode enviar para um
+      // endereço diferente a cada compra. Sobrescrever silenciosamente
+      // trocaria o endereço "correto" pelo do pedido mais recente, o que é
+      // mais enganoso do que só não preencher — por isso o gate aqui é
+      // idêntico ao de cima (`isNull`), sem exceção.
+      if (p.clienteEndereco?.nomeDestinatario) {
+        await tx
+          .update(cliente)
+          .set({ nomeCompleto: p.clienteEndereco.nomeDestinatario, updatedAt: new Date() })
+          .where(and(eq(cliente.id, clienteId), eq(cliente.orgId, orgId), isNull(cliente.nomeCompleto)));
+      }
+      if (p.clienteEndereco?.cep) {
+        await tx
+          .update(cliente)
+          .set({
+            enderecoRua: p.clienteEndereco.rua,
+            enderecoNumero: p.clienteEndereco.numero,
+            enderecoComplemento: p.clienteEndereco.complemento,
+            enderecoBairro: p.clienteEndereco.bairro,
+            enderecoCidade: p.clienteEndereco.cidade,
+            enderecoEstado: p.clienteEndereco.estado,
+            enderecoCep: p.clienteEndereco.cep,
+            enderecoLatitude: p.clienteEndereco.latitude,
+            enderecoLongitude: p.clienteEndereco.longitude,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(cliente.id, clienteId), eq(cliente.orgId, orgId), isNull(cliente.enderecoCep)));
+      }
     } else {
       const [novoCliente] = await tx
         .insert(cliente)
-        .values({ orgId, nome: p.clienteNome, email: p.clienteEmail, telefone: p.clienteTelefone })
+        .values({
+          orgId,
+          nome: p.clienteNome,
+          email: p.clienteEmail,
+          telefone: p.clienteTelefone,
+          nomeCompleto: p.clienteEndereco?.nomeDestinatario,
+          enderecoRua: p.clienteEndereco?.rua,
+          enderecoNumero: p.clienteEndereco?.numero,
+          enderecoComplemento: p.clienteEndereco?.complemento,
+          enderecoBairro: p.clienteEndereco?.bairro,
+          enderecoCidade: p.clienteEndereco?.cidade,
+          enderecoEstado: p.clienteEndereco?.estado,
+          enderecoCep: p.clienteEndereco?.cep,
+          enderecoLatitude: p.clienteEndereco?.latitude,
+          enderecoLongitude: p.clienteEndereco?.longitude,
+        })
         .returning({ id: cliente.id });
       clienteId = novoCliente.id;
 

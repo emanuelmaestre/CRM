@@ -24,7 +24,6 @@ const criarProdutoTeste = async () => {
     sku: `TESTE-EDIT-${randomUUID().slice(0, 8)}`,
     nome: "Produto original",
     preco: "10.00",
-    custo: "5.00",
     estoqueMinimo: 3,
   }).returning();
   await db.insert(estoqueSaldo).values({ orgId, produtoId: produtoRow.id, saldo: 20 });
@@ -61,7 +60,7 @@ describe.sequential("edição de produto", () => {
     const produtoRow = await criarProdutoTeste();
 
     const atualizado = await editarProduto(ctxAdmin, produtoRow.id, {
-      nome: "Produto renomeado", preco: "15.50", custo: "6.00", estoqueMinimo: 5,
+      nome: "Produto renomeado", preco: "15.50", estoqueMinimo: 5,
     });
     expect(atualizado).toMatchObject({ nome: "Produto renomeado", preco: "15.50" });
 
@@ -81,11 +80,11 @@ describe.sequential("edição de produto", () => {
     expect(eventos[0].payload).toMatchObject({ nome: "Produto renomeado", preco: "15.50" });
   });
 
-  it("não emite produto.atualizado quando só custo/estoqueMinimo mudam (nome e preço iguais)", async () => {
+  it("não emite produto.atualizado quando só estoqueMinimo muda (nome e preço iguais)", async () => {
     const produtoRow = await criarProdutoTeste();
 
     await editarProduto(ctxAdmin, produtoRow.id, {
-      nome: produtoRow.nome, preco: produtoRow.preco, custo: "9.00", estoqueMinimo: 10,
+      nome: produtoRow.nome, preco: produtoRow.preco, estoqueMinimo: 10,
     });
 
     const eventos = await db.select().from(eventoDominio).where(and(
@@ -96,7 +95,7 @@ describe.sequential("edição de produto", () => {
     expect(eventos).toHaveLength(0);
 
     const [linha] = await db.select().from(produto).where(eq(produto.id, produtoRow.id));
-    expect(linha).toMatchObject({ custo: "9.00", estoqueMinimo: 10 });
+    expect(linha).toMatchObject({ estoqueMinimo: 10 });
   });
 
   it("rejeita editar produto inexistente ou de outra organização", async () => {

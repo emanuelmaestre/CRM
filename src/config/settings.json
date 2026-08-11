@@ -67,7 +67,7 @@
       "creating": "Criando produto…",
       "mapped": "Mapeado",
       "mappedSuccess": "Vínculo salvo. O pedido e a sincronização de estoque já podem usar este SKU.",
-      "createdSuccess": "Produto criado com saldo inicial zero e vínculo salvo. Revise custo e estoque antes de liberar a sincronização.",
+      "createdSuccess": "Produto criado com saldo inicial zero e vínculo salvo. Revise o estoque antes de liberar a sincronização.",
       "missingSku": "Este anúncio não possui SELLER_SKU. Cadastre o SKU no Mercado Livre antes de vinculá-lo.",
       "loadError": "Não foi possível consultar os anúncios do Mercado Livre.",
       "mapError": "Não foi possível salvar o vínculo.",

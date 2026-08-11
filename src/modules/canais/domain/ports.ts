@@ -1,3 +1,19 @@
+/** Endereço de entrega do pedido. Opcional e por enquanto só o Mercado Livre
+ *  preenche (ver mercadolivre.provider.ts) — Shopee/TikTok continuam mandando
+ *  só o que já mandavam, sem quebrar nada. */
+export interface EnderecoEntregaNormalizado {
+  nomeDestinatario?: string;
+  rua?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface PedidoNormalizado {
   providerOrderId: string;
   canal: string;
@@ -5,6 +21,7 @@ export interface PedidoNormalizado {
   clienteNome: string;
   clienteEmail?: string;
   clienteTelefone?: string;
+  clienteEndereco?: EnderecoEntregaNormalizado;
   status: string;
   total: string;
   frete?: string;

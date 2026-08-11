@@ -176,6 +176,49 @@ export function ComplaintsIllustration() {
   );
 }
 
+/* Estoque sem régua: as caixas existem, o limiar não. A linha tracejada é o
+   estoque mínimo que ninguém definiu — sem ela o alerta nunca dispara. Usada no
+   filtro "Sem mínimo" e no vazio do wizard de alertas. */
+export function NoThresholdIllustration() {
+  return (
+    <svg width="88" height="64" viewBox="0 0 88 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="6" y="52" width="76" height="4" rx="2" fill="var(--muted)" />
+      <rect x="10" y="30" width="18" height="22" rx="4" fill="var(--muted)" />
+      <rect x="32" y="38" width="18" height="14" rx="4" fill="var(--muted)" />
+      <rect x="54" y="26" width="18" height="26" rx="4" fill="var(--muted)" />
+      <path d="M6 18h68" stroke="url(#nothreshold-grad)" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 6" />
+      <circle cx="80" cy="18" r="3.5" fill="var(--card)" stroke="url(#nothreshold-grad)" strokeWidth="2" />
+      <defs>
+        <linearGradient id="nothreshold-grad" x1="6" y1="14" x2="80" y2="24" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#E3131B" />
+          <stop offset="1" stopColor="#9B30D9" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+/* Contraponto da anterior: régua definida e nada abaixo dela. Vazio aqui é boa
+   notícia, então não pode reusar a ilustração de "ajuste seus filtros". */
+export function HealthyStockIllustration() {
+  return (
+    <svg width="88" height="64" viewBox="0 0 88 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="6" y="52" width="76" height="4" rx="2" fill="var(--muted)" />
+      <rect x="10" y="28" width="18" height="24" rx="4" fill="var(--muted)" />
+      <rect x="32" y="34" width="18" height="18" rx="4" fill="var(--muted)" />
+      <rect x="54" y="24" width="18" height="28" rx="4" fill="var(--card)" stroke="url(#healthy-grad)" strokeWidth="2" />
+      <path d="M6 18h56" stroke="url(#healthy-grad)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M68 14.5l3.6 4L80 9" stroke="url(#healthy-grad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <defs>
+        <linearGradient id="healthy-grad" x1="6" y1="9" x2="80" y2="22" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#E3131B" />
+          <stop offset="1" stopColor="#9B30D9" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 export function GenericIllustration() {
   return (
     <svg width="88" height="64" viewBox="0 0 88 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

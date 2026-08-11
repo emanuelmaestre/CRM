@@ -5,7 +5,9 @@ import { ChevronDown, ExternalLink, Loader2, RefreshCw, Search, Star } from "luc
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { springs } from "@/shared/design-system/motion-variants";
+import { getBrandConfig } from "@/shared/config/brands";
 import settingsConfig from "@/config/settings.json";
 import type { MLDistribuicaoNotas, MLOpiniao } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
@@ -212,13 +214,16 @@ function LinhaAnuncio({ item, aberta, onAlternar }: {
         className="press-feedback flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
       >
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-[#FFE600]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-foreground">
-              {item.brandLabel}
+          <h3 className="truncate text-sm font-semibold text-foreground">{item.title}</h3>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            <span className="font-mono text-[11px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">Anúncio: {item.listingId}</span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              Empresa: <span className="font-semibold" style={{ color: getBrandConfig(item.brand)?.color ?? "var(--muted-foreground)" }}>{item.brandLabel}</span>
             </span>
-            <span className="truncate text-[10px] tabular-nums text-muted-foreground">{item.listingId}</span>
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              Canal: <ChannelLogo canal="mercadolivre" size="xs" variant="logo" />
+            </span>
           </div>
-          <h3 className="mt-1 truncate text-sm font-semibold text-foreground">{item.title}</h3>
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
@@ -294,7 +299,11 @@ function LinhaAnuncio({ item, aberta, onAlternar }: {
   );
 }
 
-export function InboxAvaliacoes() {
+export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
+  marcasAtivas: ReadonlySet<string>;
+  canaisAtivos: ReadonlySet<string>;
+  onContagens: (valores: { marcas: Record<string, number>; canais: Record<string, number> }) => void;
+}) {
   const [itens, setItens] = useState<Avaliacao[]>(() => cacheAvaliacoes?.itens ?? []);
   const [carregando, setCarregando] = useState(() => !cacheValido());
   const [busca, setBusca] = useState("");
@@ -354,15 +363,26 @@ export function InboxAvaliacoes() {
     });
   }, []);
 
+  // Reporta as contagens pra barra de escopo compartilhada (page.tsx), que
+  // soma com as outras abas. Avaliações só existe pro canal Mercado Livre.
+  useEffect(() => {
+    const marcasCount: Record<string, number> = {};
+    for (const item of itens) marcasCount[item.brand] = (marcasCount[item.brand] ?? 0) + 1;
+    onContagens({ marcas: marcasCount, canais: { mercadolivre: itens.length } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itens]);
+
   const filtrados = useMemo(() => itens.filter((item) => {
     if (marca !== "todas" && item.brand !== marca) return false;
+    if (marcasAtivas.size > 0 && !marcasAtivas.has(item.brand)) return false;
+    if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     if (termo && !item.title.toLocaleLowerCase("pt-BR").includes(termo) && !item.listingId.toLowerCase().includes(termo)) return false;
     if (nota === "excelentes" && (item.ratingAverage ?? 0) < 4.5) return false;
     if (nota === "atencao" && (item.ratingAverage === null || item.ratingAverage >= 4)) return false;
     if (nota === "sem_avaliacao" && item.ratingAverage !== null) return false;
     return true;
-  }), [itens, marca, busca, nota]);
+  }), [itens, marca, busca, nota, marcasAtivas, canaisAtivos]);
 
   // O resumo acompanha o filtro: senão o topo diz uma coisa e a lista outra.
   const distribuicao = useMemo(() => somarDistribuicoes(filtrados), [filtrados]);

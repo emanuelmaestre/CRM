@@ -25,7 +25,7 @@ export async function actionListarSolicitacoesLgpd() {
 
 export async function actionListarClientesLgpd() {
   const result = await listarClientes(await getCrudContext(), { limit: 200 });
-  return result.data.map((item) => ({
+  return (result.data as Record<string, unknown>[]).map((item) => ({
     id: String(item.id),
     nome: String(item.nome),
     email: item.email ? String(item.email) : null,

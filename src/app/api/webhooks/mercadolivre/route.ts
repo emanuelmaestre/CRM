@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { obterTokenMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { receberMensagem } from "@/modules/inbox/application/inbox.service";
+import { receberMensagem, resolverClientePorIdentidade } from "@/modules/inbox/application/inbox.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
@@ -29,6 +29,48 @@ async function buscarRecursoML<T>(resource: string, accessToken: string): Promis
   });
   if (!res.ok) throw new Error(`Mercado Livre API ${res.status} em ${path}`);
   return res.json() as Promise<T>;
+}
+
+// Fallback de identificação: quando o comprador ainda não tem cliente
+// vinculado (nenhum pedido sincronizado ainda), buscamos o nome dele
+// diretamente na API pública do ML pra não deixar o Inbox mostrando só o
+// ID técnico do pacote/pergunta. Best-effort — se falhar, segue sem nome.
+async function buscarNomeCompradorML(userId: number | undefined, accessToken: string): Promise<string | undefined> {
+  if (!userId) return undefined;
+  try {
+    const usuario = await buscarRecursoML<{
+      nickname?: string;
+      first_name?: string;
+      last_name?: string;
+      address?: { city?: string; state?: string };
+    }>(`/users/${userId}`, accessToken);
+    const nomeCompleto = [usuario.first_name, usuario.last_name].filter(Boolean).join(" ").trim();
+    if (nomeCompleto) return nomeCompleto;
+    // Pré-venda (sem pedido ainda): a API pública do ML não expõe nome real
+    // por privacidade, só o apelido — por isso ele vem rotulado, e a
+    // cidade/estado (também público) entra como complemento pra identificar
+    // melhor. Assim que um pedido for sincronizado, isso é substituído pelo
+    // nome completo real do destinatário da entrega.
+    if (!usuario.nickname) return undefined;
+    const estado = usuario.address?.state?.replace(/^BR-/, "");
+    const local = [usuario.address?.city, estado].filter(Boolean).join("/");
+    return local ? `${usuario.nickname} (apelido) · ${local}` : `${usuario.nickname} (apelido)`;
+  } catch {
+    return undefined;
+  }
+}
+
+// Identifica o(s) produto(s) do pedido pra exibir no Inbox no lugar do
+// número de pacote cru (ver seller_sku ↔ produto.sku em ingestao-pedido.service).
+// Best-effort — se falhar, a conversa cai de volta pro "Pacote X".
+async function buscarProdutosPedidoML(orderId: string | number | undefined, accessToken: string): Promise<string[]> {
+  if (!orderId) return [];
+  try {
+    const order = await buscarRecursoML<{ order_items?: Array<{ item?: { title?: string } }> }>(`/orders/${orderId}`, accessToken);
+    return (order.order_items ?? []).map((i) => i.item?.title).filter((t): t is string => !!t);
+  } catch {
+    return [];
+  }
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -106,10 +148,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (String(message.from?.user_id ?? "") === sellerId) {
         return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem-de-saida" });
       }
+      const clienteId = await resolverClientePorIdentidade(conta.orgId, "mercadolivre", message.from?.user_id);
+      const remetenteNome = clienteId ? undefined : await buscarNomeCompradorML(message.from?.user_id, accessToken);
+      const produtos = await buscarProdutosPedidoML(message.order_id, accessToken);
       const inbox = await receberMensagem({
         orgId: conta.orgId,
         brandId: conta.brandId,
         channelAccountId: conta.channelAccountId,
+        clienteId,
         externalConversaId: message.conversation_id ?? `ml-pack:${packId}`,
         providerMessageId: `ml-message:${messageId}`,
         conteudo,
@@ -118,6 +164,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           canal: "mercadolivre",
           topic,
           remetenteId: message.from?.user_id,
+          remetenteNome,
+          produtos: produtos.length ? produtos : undefined,
           destinatarioId: message.from?.user_id === undefined ? undefined : String(message.from.user_id),
           sellerId,
           packId,
@@ -139,10 +187,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (!question.text) {
         return NextResponse.json({ ok: true, ignorado: true, motivo: "pergunta-sem-texto" });
       }
+      const clienteIdPergunta = await resolverClientePorIdentidade(conta.orgId, "mercadolivre", question.from?.id);
+      const remetenteNomePergunta = clienteIdPergunta ? undefined : await buscarNomeCompradorML(question.from?.id, accessToken);
       const inbox = await receberMensagem({
         orgId: conta.orgId,
         brandId: conta.brandId,
         channelAccountId: conta.channelAccountId,
+        clienteId: clienteIdPergunta,
         externalConversaId: `ml-question:${question.id ?? resource}`,
         providerMessageId: `ml-question:${question.id ?? resource}`,
         conteudo: question.text,
@@ -153,6 +204,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           itemId: question.item_id,
           questionId: String(question.id ?? resource.split("/").filter(Boolean).at(-1) ?? ""),
           remetenteId: question.from?.id,
+          remetenteNome: remetenteNomePergunta,
           recebidaEm: question.date_created,
         },
       });
@@ -165,7 +217,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       id: number;
       status: string;
       total_amount: number;
-      shipping?: { cost?: number };
+      shipping?: { id?: number; cost?: number };
       buyer: { id: number; nickname: string; email?: string };
       order_items: Array<{
         item: { seller_sku?: string };
@@ -175,12 +227,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       date_created: string;
     }>(resource, accessToken);
 
+    // Nome completo e endereço só vêm numa chamada separada a /shipments/{id}
+    // — mesma lógica de buscarEnderecoEntrega() em mercadolivre.provider.ts.
+    // Enriquecimento nunca pode derrubar o pedido: falha aqui é engolida.
+    const endereco = pedidoML.shipping?.id
+      ? await buscarRecursoML<{ receiver_address?: {
+          receiver_name?: string; street_name?: string; street_number?: string; comment?: string | null;
+          neighborhood?: { name?: string | null }; city?: { name?: string | null }; state?: { name?: string | null };
+          zip_code?: string; latitude?: number; longitude?: number;
+        } }>(`/shipments/${pedidoML.shipping.id}`, accessToken)
+          .then((envio) => envio.receiver_address ?? null)
+          .catch(() => null)
+      : null;
+
     const pedido = await ingerirPedido(conta.orgId, conta.brandId, conta.channelAccountId, {
       providerOrderId: String(pedidoML.id),
       canal: "mercadolivre",
       clienteExternalId: String(pedidoML.buyer.id),
       clienteNome: pedidoML.buyer.nickname,
       clienteEmail: pedidoML.buyer.email,
+      clienteEndereco: endereco ? {
+        nomeDestinatario: endereco.receiver_name || undefined,
+        rua: endereco.street_name || undefined,
+        numero: endereco.street_number || undefined,
+        complemento: endereco.comment || undefined,
+        bairro: endereco.neighborhood?.name || undefined,
+        cidade: endereco.city?.name || undefined,
+        estado: endereco.state?.name || undefined,
+        cep: endereco.zip_code || undefined,
+        latitude: endereco.latitude,
+        longitude: endereco.longitude,
+      } : undefined,
       status: pedidoML.status,
       total: String(pedidoML.total_amount),
       frete: pedidoML.shipping?.cost === undefined ? undefined : String(pedidoML.shipping.cost),

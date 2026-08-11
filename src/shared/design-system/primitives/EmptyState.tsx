@@ -3,7 +3,7 @@
 import {
   Users, Package, Filter, Inbox, MessageSquare, ClipboardList,
   BarChart2, AlertTriangle, CircleOff, ShieldOff, TrendingUp, TrendingDown,
-  ShoppingBag, Hourglass, LucideIcon,
+  ShoppingBag, Hourglass, Ruler, CheckCircle2, LucideIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../cn";
@@ -12,6 +12,7 @@ import {
   ClientsIllustration, ConversationIllustration, ReportsIllustration, GenericIllustration,
   RevenueIllustration, BestSellersIllustration, RestockIllustration,
   SlowMovingIllustration, DeadStockIllustration, ComplaintsIllustration,
+  NoThresholdIllustration, HealthyStockIllustration,
 } from "./illustrations";
 
 const icons: Record<string, LucideIcon> = {
@@ -31,6 +32,8 @@ const icons: Record<string, LucideIcon> = {
   slowMoving:   TrendingDown,
   deadStock:    Hourglass,
   complaints:   AlertTriangle,
+  noThreshold:  Ruler,
+  healthyStock: CheckCircle2,
 };
 
 // Ilustrações SVG customizadas para os tipos mais visíveis (dashboard, inbox,
@@ -48,6 +51,8 @@ const illustrations: Partial<Record<string, () => React.ReactElement>> = {
   slowMoving: SlowMovingIllustration,
   deadStock: DeadStockIllustration,
   complaints: ComplaintsIllustration,
+  noThreshold: NoThresholdIllustration,
+  healthyStock: HealthyStockIllustration,
 };
 
 export type IllustrationType = keyof typeof icons;

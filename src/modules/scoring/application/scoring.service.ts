@@ -173,7 +173,7 @@ export async function recalcularScoreProduto(orgId: string, produtoId: string): 
     diasSemVenda,
     giroMensalMedio: giroRow,
     saldoAtual: saldoRow.saldo,
-    custoUnitario: parseFloat(produtoRow.custo ?? "0"),
+    precoUnitario: parseFloat(produtoRow.preco ?? "0"),
   });
 
   await db

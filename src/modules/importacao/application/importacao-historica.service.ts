@@ -468,6 +468,23 @@ async function importarItemHistorico(
           createdAt: new Date(payload.criadoEm),
         }).returning({ id: cliente.id });
         clienteId = novoCliente.id;
+      } else {
+        // Mesmo backfill do fluxo em tempo real (ingestao-pedido.service.ts):
+        // um pedido histórico mais recente pode trazer e-mail que o registro
+        // já existente não tinha. Pré-checa contra a constraint de unicidade
+        // antes de gravar, para o lote inteiro não falhar por uma colisão.
+        if (payload.clienteEmail) {
+          const emailEmUso = await tx
+            .select({ id: cliente.id })
+            .from(cliente)
+            .where(and(eq(cliente.orgId, lote.orgId), eq(cliente.email, payload.clienteEmail), isNull(cliente.deletedAt)))
+            .then((rows) => rows[0]);
+          if (!emailEmUso) {
+            await tx.update(cliente)
+              .set({ email: payload.clienteEmail, updatedAt: new Date() })
+              .where(and(eq(cliente.id, clienteId), eq(cliente.orgId, lote.orgId), isNull(cliente.email)));
+          }
+        }
       }
       if (!clienteId) throw new Error("Nao foi possivel identificar o cliente do pedido historico.");
       await tx.insert(clienteIdentidade).values({

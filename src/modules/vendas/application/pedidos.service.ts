@@ -1,7 +1,7 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, count, desc, asc, sql, SQL } from "drizzle-orm";
 import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
-import { pedido, pedidoItem } from "@/shared/lib/db/schema";
+import { brand, channelAccount, cliente, pedido, pedidoItem } from "@/shared/lib/db/schema";
 import { despacharEvento, emitirEvento, persistirEvento } from "@/shared/events";
 import { validarTransicaoPedido, type PedidoStatus } from "../domain/state-machine";
 
@@ -110,4 +110,117 @@ export async function listarPedidos(ctx: CrudContext, opts: { clienteId?: string
   if (opts.clienteId) filters.push(eq(pedido.clienteId, opts.clienteId));
   if (opts.brandId) filters.push(eq(pedido.brandId, opts.brandId));
   return crudPedido.list(ctx, { filters, limit: opts.limit, offset: opts.offset });
+}
+
+/** Alimenta a tela de Pedidos: junta cliente/marca (a fábrica de CRUD genérica
+ *  não faz join, só devolveria a linha crua de `pedido`) e aceita os mesmos
+ *  filtros que a pessoa vê na tela — marca, canal, status — com paginação de
+ *  verdade. A página antiga fazia uma consulta sem filtro nenhum, travada em
+ *  200 linhas: passado isso, o resto dos pedidos ficava simplesmente invisível,
+ *  sem qualquer aviso de que a lista estava cortada. */
+export async function listarPedidosDetalhados(
+  ctx: CrudContext,
+  opts: { brandId?: string; canal?: string; status?: PedidoStatus; limit?: number; offset?: number } = {},
+) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+  const { limit = 50, offset = 0 } = opts;
+
+  const filters: SQL[] = [eq(pedido.orgId, ctx.orgId)];
+  if (opts.brandId) filters.push(eq(pedido.brandId, opts.brandId));
+  if (opts.canal) filters.push(eq(pedido.canal, opts.canal));
+  if (opts.status) filters.push(eq(pedido.status, opts.status));
+
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: pedido.id,
+        providerOrderId: pedido.providerOrderId,
+        clienteNome: cliente.nome,
+        brandId: pedido.brandId,
+        brandNome: brand.name,
+        brandSlug: brand.slug,
+        canal: pedido.canal,
+        status: pedido.status,
+        total: pedido.total,
+        createdAt: pedido.createdAt,
+      })
+      .from(pedido)
+      .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
+      .innerJoin(brand, eq(brand.id, pedido.brandId))
+      .where(and(...filters))
+      .orderBy(desc(pedido.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ total: count() }).from(pedido).where(and(...filters)),
+  ]);
+
+  return { data: rows, total: totalRows[0]?.total ?? 0, limit, offset };
+}
+
+/** Alimenta as pílulas de marca/canal no topo da tela de Pedidos — mesmo
+ *  espírito de `contarProdutosPorMarca`/`contarProdutosPorCanal` do Estoque:
+ *  cada dimensão é contada já cruzada com a outra, para a pílula nunca
+ *  prometer um número que a lista não entrega. */
+export async function contarPedidosPorMarca(ctx: CrudContext, opts: { canal?: string } = {}) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+  const filters: SQL[] = [eq(pedido.orgId, ctx.orgId)];
+  if (opts.canal) filters.push(eq(pedido.canal, opts.canal));
+
+  return db
+    .select({
+      brandId: brand.id,
+      nome: brand.name,
+      slug: brand.slug,
+      total: sql<number>`count(${pedido.id})`,
+    })
+    .from(brand)
+    .leftJoin(pedido, and(eq(pedido.brandId, brand.id), ...filters))
+    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
+    .groupBy(brand.id, brand.name, brand.slug)
+    .orderBy(desc(sql`count(${pedido.id})`), asc(brand.name))
+    .then((linhas) => linhas.map((linha) => ({ ...linha, total: Number(linha.total) })));
+}
+
+export async function contarPedidosPorCanal(ctx: CrudContext, opts: { brandId?: string } = {}) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+
+  const contas = await db
+    .select({ tipo: channelAccount.tipo, status: channelAccount.status })
+    .from(channelAccount)
+    .where(eq(channelAccount.orgId, ctx.orgId));
+  const conectadoPorTipo = new Map<string, boolean>();
+  for (const conta of contas) {
+    if (conta.status === "conectado") conectadoPorTipo.set(conta.tipo, true);
+    else if (!conectadoPorTipo.has(conta.tipo)) conectadoPorTipo.set(conta.tipo, false);
+  }
+
+  const filters: SQL[] = [eq(pedido.orgId, ctx.orgId)];
+  if (opts.brandId) filters.push(eq(pedido.brandId, opts.brandId));
+  const contagens = await db
+    .select({ canal: pedido.canal, total: count() })
+    .from(pedido)
+    .where(and(...filters))
+    .groupBy(pedido.canal);
+  const totalPorCanal = new Map(contagens.map((linha) => [linha.canal, Number(linha.total)]));
+
+  // Lista fechada de canais de venda do PRD (§M3) — o mesmo conjunto que o
+  // seletor de canal do Estoque usa, então "canal" significa a mesma coisa
+  // nas duas telas.
+  return (["mercadolivre", "shopee", "tiktokshop"] as const).map((tipo) => ({
+    tipo,
+    conectado: conectadoPorTipo.get(tipo) ?? false,
+    total: totalPorCanal.get(tipo) ?? 0,
+  }));
+}
+
+/** Cancela um pedido — a única transição de status hoje disparável por uma
+ *  pessoa (as demais vêm da sincronização com o canal). `podeCancelar` decide
+ *  se o botão aparece na tela; a validação de verdade continua sendo
+ *  `avancarStatusPedido`, que também tranca contra corrida otimista. */
+export async function cancelarPedido(ctx: CrudContext, pedidoId: string, motivo: string) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  if (motivo.trim().length < 3) {
+    throw new Error("Informe o motivo do cancelamento (mín. 3 caracteres).");
+  }
+  return avancarStatusPedido(ctx, pedidoId, "cancelado", motivo.trim());
 }

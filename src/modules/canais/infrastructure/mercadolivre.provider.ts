@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
-import type { AnuncioCanalDados, ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import type {
+  AnuncioCanalDados, ChannelProvider, EnderecoEntregaNormalizado, EstoqueCanalRef, PedidoNormalizado, SaudeConector,
+} from "../domain/ports";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 interface MLCredentials {
@@ -40,15 +42,35 @@ interface MLOrderDetail {
   id: number;
   status: string;
   total_amount: number;
-  shipping?: { cost?: number };
+  // O search de pedidos só traz o id do envio — o endereço em si exige uma
+  // segunda chamada a /shipments/{id} (ver buscarEnderecoEntrega abaixo).
+  shipping?: { id?: number; cost?: number };
   buyer: { id: number; nickname: string; email?: string };
   order_items: Array<{
-    item: { seller_sku?: string };
+    item: { seller_sku?: string; title?: string };
     quantity: number;
     unit_price: number;
   }>;
   date_created: string;
   pack_id?: number | null;
+}
+
+/** Resposta de GET /shipments/{id} — só o campo receiver_address importa aqui.
+ *  Verificado com um pedido real (scripts/inspecionar-pedido-ml.mjs): nome e
+ *  endereço completo vêm sem máscara nenhuma; só receiver_phone é mascarado
+ *  ("XXXXXXX"), por isso ele nem entra neste tipo — não vale a pena capturar
+ *  um valor que a própria API já esconde. */
+interface MLReceiverAddress {
+  receiver_name?: string;
+  street_name?: string;
+  street_number?: string;
+  comment?: string | null;
+  neighborhood?: { name?: string | null };
+  city?: { name?: string | null };
+  state?: { name?: string | null };
+  zip_code?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 /** Mensagem bruta de GET /messages/packs/{packId}/sellers/{sellerId}. */
@@ -71,6 +93,8 @@ export interface MLMensagemPosVenda {
   providerMessageId: string;
   texto: string;
   remetenteId: number | null;
+  remetenteNome: string | null;
+  produtos: string[];
   destinatarioId: number | null;
   criadaEm: string | null;
   deVendedor: boolean;
@@ -284,13 +308,36 @@ export function normalizarCatalogoMercadoLivre(items: MLItemDetail[], ratings: M
   });
 }
 
-export function normalizarPedidoMercadoLivre(order: MLOrderDetail): PedidoNormalizado {
+/** Fica pura de propósito (sem I/O) — quem busca o endereço é o chamador
+ *  (buscarPedidos/listarPedidosHistoricos, via buscarEnderecoEntrega), que
+ *  passa o resultado já resolvido aqui. Isso mantém a função testável sem
+ *  mock de rede (webhook-mercadolivre.test.ts chama sem o segundo argumento)
+ *  e deixa explícito que buscar o endereço é opcional — uma falha nele nunca
+ *  pode impedir o pedido em si de ser sincronizado. */
+export function normalizarPedidoMercadoLivre(
+  order: MLOrderDetail,
+  endereco?: MLReceiverAddress | null,
+): PedidoNormalizado {
+  const clienteEndereco: EnderecoEntregaNormalizado | undefined = endereco ? {
+    nomeDestinatario: endereco.receiver_name || undefined,
+    rua: endereco.street_name || undefined,
+    numero: endereco.street_number || undefined,
+    complemento: endereco.comment || undefined,
+    bairro: endereco.neighborhood?.name || undefined,
+    cidade: endereco.city?.name || undefined,
+    estado: endereco.state?.name || undefined,
+    cep: endereco.zip_code || undefined,
+    latitude: endereco.latitude,
+    longitude: endereco.longitude,
+  } : undefined;
+
   return {
     providerOrderId: String(order.id),
     canal: "mercadolivre",
     clienteExternalId: String(order.buyer.id),
     clienteNome: order.buyer.nickname,
     clienteEmail: order.buyer.email,
+    clienteEndereco,
     status: order.status,
     total: String(order.total_amount),
     frete: order.shipping?.cost === undefined ? undefined : String(order.shipping.cost),
@@ -363,13 +410,29 @@ export class MercadoLivreProvider implements ChannelProvider {
     return { providerMessageId };
   }
 
+  /** Nome completo e endereço do destinatário não vêm no /orders/search — só
+   *  o id do envio. Esta segunda chamada busca o endereço de fato. Falha
+   *  aqui é enriquecimento perdido, não motivo pra descartar o pedido: por
+   *  isso engole o erro e devolve null em vez de propagar. */
+  private async buscarEnderecoEntrega(shippingId: number): Promise<MLReceiverAddress | null> {
+    try {
+      const envio = await this.get<{ receiver_address?: MLReceiverAddress }>(`/shipments/${shippingId}`);
+      return envio.receiver_address ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
     const me = await this.get<{ id: string }>("/users/me");
     const data = await this.get<{
       results?: MLOrderDetail[];
     }>(`/orders/search?seller=${me.id}&order.date_created.from=${encodeURIComponent(desde.toISOString())}&limit=50`);
 
-    return (data.results ?? []).map(normalizarPedidoMercadoLivre);
+    return Promise.all((data.results ?? []).map(async (order) => {
+      const endereco = order.shipping?.id ? await this.buscarEnderecoEntrega(order.shipping.id) : null;
+      return normalizarPedidoMercadoLivre(order, endereco);
+    }));
   }
 
   /** Busca ativa das mensagens pós-venda (chat dentro de um pedido já
@@ -386,14 +449,28 @@ export class MercadoLivreProvider implements ChannelProvider {
     );
     const results = orders.results ?? [];
 
-    const packsUnicos = new Map<string, string>();
+    const packsUnicos = new Map<string, { orderId: string; shippingId?: number; nickname: string | null; produtos: string[] }>();
     for (const order of results) {
       const packId = String(order.pack_id ?? order.id);
-      if (!packsUnicos.has(packId)) packsUnicos.set(packId, String(order.id));
+      if (!packsUnicos.has(packId)) {
+        const produtos = order.order_items.map((item) => item.item.title).filter((t): t is string => !!t);
+        packsUnicos.set(packId, { orderId: String(order.id), shippingId: order.shipping?.id, nickname: order.buyer?.nickname ?? null, produtos });
+      }
     }
     console.log(`[ml-provider] ${results.length} pedido(s) desde ${desde.toISOString()}, ${packsUnicos.size} pack(s) único(s)`);
 
-    const porPack = await Promise.all([...packsUnicos.entries()].map(async ([packId, orderId]) => {
+    // Mesmo endereço de entrega usado em buscarPedidos: dá o nome real do
+    // destinatário, bem melhor que o apelido do ML que sobra quando ainda
+    // não existe cliente sincronizado pra esse comprador.
+    const buyerNomes = await Promise.all([...packsUnicos.entries()].map(async ([packId, { shippingId, nickname }]) => {
+      const endereco = shippingId ? await this.buscarEnderecoEntrega(shippingId) : null;
+      const nome = endereco?.receiver_name || (nickname ? `${nickname} (apelido)` : null);
+      return [packId, nome] as const;
+    }));
+    const buyerNomePorPack = new Map(buyerNomes);
+
+    const porPack = await Promise.all([...packsUnicos.entries()].map(async ([packId, { orderId, produtos }]) => {
+      const buyerNome = buyerNomePorPack.get(packId) ?? null;
       try {
         const mensagens = await this.get<MLPackMessageRaw[] | { messages?: MLPackMessageRaw[] }>(
           `/messages/packs/${encodeURIComponent(packId)}/sellers/${sellerId}?tag=post_sale&limit=50`,
@@ -407,6 +484,8 @@ export class MercadoLivreProvider implements ChannelProvider {
             providerMessageId: String(m.message_id ?? m.id ?? ""),
             texto: (m.text ?? m.subject ?? "").trim(),
             remetenteId: m.from?.user_id ?? null,
+            remetenteNome: m.from?.user_id === sellerId ? null : buyerNome,
+            produtos,
             destinatarioId: m.to?.user_id ?? null,
             criadaEm: m.message_date?.received ?? m.message_date?.available ?? m.message_date?.created ?? null,
             deVendedor: m.from?.user_id === sellerId,
@@ -443,7 +522,11 @@ export class MercadoLivreProvider implements ChannelProvider {
     }>(`/orders/search?${params.toString()}`);
 
     return {
-      pedidos: (data.results ?? []).map(normalizarPedidoMercadoLivre),
+      // Sem busca de endereço aqui de propósito: importação histórica processa
+      // volumes grandes de uma vez, e não vale multiplicar por uma chamada
+      // extra de API por pedido para um dado que é enriquecimento, não o
+      // pedido em si. Fica só no fluxo de sincronização em tempo real acima.
+      pedidos: (data.results ?? []).map((order) => normalizarPedidoMercadoLivre(order)),
       total: data.paging?.total ?? data.results?.length ?? 0,
       offset: data.paging?.offset ?? offset,
       limit: data.paging?.limit ?? limit,
@@ -625,6 +708,15 @@ export class MercadoLivreProvider implements ChannelProvider {
       variations?: Array<{ id: number; available_quantity: number }>;
     }>(`/items/${referencia.listingId}`);
     const variationId = referencia.warehouseId ? Number(referencia.warehouseId) : null;
+    // Anúncio com variações: o Mercado Livre sempre retorna available_quantity=0
+    // no nível do item — o saldo real só existe dentro de cada variação. Sem um
+    // variationId mapeado não dá pra saber qual variação ler, então tratamos como
+    // erro de configuração em vez de reportar 0 como se fosse saldo real.
+    if (!variationId && item.variations && item.variations.length > 0) {
+      throw new Error(
+        `Anúncio ${referencia.listingId} tem variações no Mercado Livre, mas o mapeamento do produto não define a variação (externalWarehouseId). Configure a variação correta antes de reconciliar o saldo.`,
+      );
+    }
     const saldo = variationId
       ? item.variations?.find((variation) => variation.id === variationId)?.available_quantity
       : item.available_quantity;

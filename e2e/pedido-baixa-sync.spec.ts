@@ -16,7 +16,11 @@ test("pedido pago reflete baixa de estoque no livro-razão", async ({ page }) =>
   const sku = await primeiroItem.getAttribute("data-sku");
   expect(sku).toBeTruthy();
 
+  // O Estoque abre sem escopo (uma empresa por vez, nunca as três misturadas),
+  // então a lista só existe depois de definir o que olhar. Buscar o SKU é o
+  // caminho mais direto — e é o próprio SKU que este teste quer conferir.
   await page.goto("/estoque");
+  await page.getByPlaceholder(/buscar por SKU/i).fill(sku!);
   const saldo = page.getByTestId(`saldo-${sku}`).first();
   await expect(saldo).toBeVisible();
 });

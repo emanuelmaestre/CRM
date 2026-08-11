@@ -1,10 +1,11 @@
-import { and, count, desc, eq, gt, ilike, inArray, isNull, SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNull, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import {
   auditLog, brand, channelAccount, produto, produtoCanal, estoqueDivergencia, estoqueSaldo, estoqueMovimento,
 } from "@/shared/lib/db/schema";
 import { despacharEvento, despacharEventosPendentes, persistirEvento } from "@/shared/events";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
+import { CANAIS_VENDA } from "@/shared/config/canais-venda";
 import {
   validarMovimento, calcularNovoSaldo, type MovimentoTipo, CreateProdutoSchema, UpdateProdutoSchema,
 } from "../domain/entities";
@@ -50,8 +51,8 @@ export async function criarProduto(ctx: CrudContext, input: unknown) {
   return novo;
 }
 
-// Só nome/preço mudam o que é anunciado nos canais — custo e estoqueMinimo
-// são internos e não disparam sincronização de anúncio.
+// Só nome/preço mudam o que é anunciado nos canais — estoqueMinimo é interno
+// e não dispara sincronização de anúncio.
 const CAMPOS_SINCRONIZAVEIS = ["nome", "preco"] as const;
 
 export async function editarProduto(ctx: CrudContext, produtoId: string, input: unknown) {
@@ -69,7 +70,6 @@ export async function editarProduto(ctx: CrudContext, produtoId: string, input: 
     const [depois] = await tx.update(produto).set({
       nome: data.nome,
       preco: data.preco,
-      custo: data.custo,
       estoqueMinimo: data.estoqueMinimo,
       updatedAt: new Date(),
     }).where(eq(produto.id, produtoId)).returning();
@@ -122,25 +122,28 @@ function condicaoEstado(estado: EstadoEstoque): SQL {
 /** SKU tem no máximo um mapeamento ativo por tipo de canal (um produto pode
  *  estar em vários anúncios do mesmo canal, mas "está no Mercado Livre" é
  *  binário) — por isso EXISTS em vez de JOIN, que duplicaria a linha do
- *  produto por anúncio mapeado. */
-function condicaoCanal(orgId: string, canalTipo: string): SQL {
+ *  produto por anúncio mapeado. Aceita um canal ou vários: com mais de um
+ *  marcado, o produto entra se estiver em qualquer um deles (OR, via IN) —
+ *  os canais se somam, não se cruzam entre si. */
+function condicaoCanal(orgId: string, canalTipos: string | readonly string[]): SQL {
+  const tipos = Array.isArray(canalTipos) ? canalTipos : [canalTipos as string];
   return sql`exists (
     select 1 from ${produtoCanal}
     inner join ${channelAccount} on ${channelAccount.id} = ${produtoCanal.channelAccountId}
     where ${produtoCanal.produtoId} = ${produto.id}
       and ${produtoCanal.orgId} = ${orgId}
       and ${produtoCanal.ativo} = true
-      and ${channelAccount.tipo} = ${canalTipo}
+      and ${inArray(channelAccount.tipo, tipos)}
   )`;
 }
 
 export async function listarProdutos(
   ctx: CrudContext,
   opts: {
-    brandId?: string;
+    brandIds?: string[];
     busca?: string;
     estado?: EstadoEstoque;
-    canalTipo?: string;
+    canalTipos?: string[];
     ids?: string[];
     limit?: number;
     offset?: number;
@@ -149,10 +152,18 @@ export async function listarProdutos(
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
   const { limit = 50, offset = 0 } = opts;
   const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
-  if (opts.brandId) filters.push(eq(produto.brandId, opts.brandId));
-  if (opts.busca) filters.push(ilike(sql`${produto.sku} || ' ' || ${produto.nome}`, `%${opts.busca}%`));
+  if (opts.brandIds && opts.brandIds.length > 0) filters.push(inArray(produto.brandId, opts.brandIds));
+  // "Capa cinza" deve achar "Capa Carro Forrada ... Cinza" mesmo sem as
+  // palavras estarem juntas — cada termo digitado precisa aparecer em algum
+  // lugar do SKU+nome, não necessariamente na mesma ordem ou adjacentes.
+  if (opts.busca) {
+    const termos = opts.busca.trim().split(/\s+/).filter(Boolean);
+    for (const termo of termos) {
+      filters.push(ilike(sql`${produto.sku} || ' ' || ${produto.nome}`, `%${termo}%`));
+    }
+  }
   if (opts.estado) filters.push(condicaoEstado(opts.estado));
-  if (opts.canalTipo) filters.push(condicaoCanal(ctx.orgId, opts.canalTipo));
+  if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanal(ctx.orgId, opts.canalTipos));
   // Lista vazia significa "nenhum produto casa" (ex.: filtro de parados sem
   // resultado) — sem o guarda, inArray com [] geraria SQL inválido.
   if (opts.ids) filters.push(opts.ids.length > 0 ? inArray(produto.id, opts.ids) : sql`false`);
@@ -169,13 +180,21 @@ export async function listarProdutos(
         brandSlug: brand.slug,
         sku: produto.sku,
         nome: produto.nome,
-        custo: produto.custo,
         preco: produto.preco,
         estoqueMinimo: produto.estoqueMinimo,
         ativo: produto.ativo,
         createdAt: produto.createdAt,
         updatedAt: produto.updatedAt,
         saldo: SALDO,
+        // Canais em que o produto está anunciado agora — subquery correlacionada
+        // em vez de JOIN porque um produto pode ter vários mapeamentos ativos
+        // (inclusive mais de um no mesmo canal) e um JOIN duplicaria a linha.
+        canais: sql<string[]>`coalesce((
+          select array_agg(distinct ${channelAccount.tipo})
+          from ${produtoCanal}
+          inner join ${channelAccount} on ${channelAccount.id} = ${produtoCanal.channelAccountId}
+          where ${produtoCanal.produtoId} = ${produto.id} and ${produtoCanal.ativo} = true
+        ), '{}')`,
       })
       .from(produto)
       .innerJoin(brand, and(
@@ -208,12 +227,12 @@ export async function listarProdutos(
  *  mesmo scan três vezes. */
 export async function contarIndicadoresEstoque(
   ctx: CrudContext,
-  opts: { brandId?: string; canalTipo?: string } = {},
+  opts: { brandIds?: string[]; canalTipos?: string[] } = {},
 ) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
   const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
-  if (opts.brandId) filters.push(eq(produto.brandId, opts.brandId));
-  if (opts.canalTipo) filters.push(condicaoCanal(ctx.orgId, opts.canalTipo));
+  if (opts.brandIds && opts.brandIds.length > 0) filters.push(inArray(produto.brandId, opts.brandIds));
+  if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanal(ctx.orgId, opts.canalTipos));
 
   const [linha] = await ctx.db
     .select({
@@ -237,15 +256,11 @@ export async function contarIndicadoresEstoque(
   };
 }
 
-// Ordem de venda fechada do PRD (§M3): Mercado Livre, Shopee, TikTok Shop —
-// Olist fica de fora do seletor porque não é canal de anúncio próprio (é hub).
-const CANAIS_VENDA = ["mercadolivre", "shopee", "tiktokshop"] as const;
-
 /** Alimenta o seletor de canal no topo da tela. Cada entrada diz se a conta
  *  está de fato conectada (não apenas cadastrada) e quantos SKUs têm anúncio
  *  mapeado nela — sem isso o seletor não sabe o que desabilitar nem o que
  *  mostrar como contagem na pílula. */
-export async function contarProdutosPorCanal(ctx: CrudContext) {
+export async function contarProdutosPorCanal(ctx: CrudContext, opts: { brandIds?: string[] } = {}) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
 
   const contas = await ctx.db
@@ -263,7 +278,14 @@ export async function contarProdutosPorCanal(ctx: CrudContext) {
     .select({ tipo: channelAccount.tipo, total: sql<number>`count(distinct ${produtoCanal.produtoId})` })
     .from(produtoCanal)
     .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
-    .innerJoin(produto, and(eq(produto.id, produtoCanal.produtoId), isNull(produto.deletedAt)))
+    .innerJoin(produto, and(
+      eq(produto.id, produtoCanal.produtoId),
+      isNull(produto.deletedAt),
+      // Espelha o cruzamento de contarProdutosPorMarca: com empresas ativas, a
+      // pílula do canal conta os SKUs daquelas empresas (OR entre elas), não
+      // do catálogo inteiro.
+      ...(opts.brandIds && opts.brandIds.length > 0 ? [inArray(produto.brandId, opts.brandIds)] : []),
+    ))
     .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.ativo, true)))
     .groupBy(channelAccount.tipo);
   const totalPorTipo = new Map(contagens.map((linha) => [linha.tipo, Number(linha.total)]));
@@ -273,6 +295,38 @@ export async function contarProdutosPorCanal(ctx: CrudContext) {
     conectado: conectadoPorTipo.get(tipo) ?? false,
     total: totalPorTipo.get(tipo) ?? 0,
   }));
+}
+
+/** Alimenta o seletor de marca no topo da tela, ao lado do de canal. Recebe o
+ *  canal ativo porque as duas dimensões se cruzam: com o Mercado Livre
+ *  selecionado, a contagem de cada marca tem que ser a de SKUs anunciados
+ *  naquele canal — não a do catálogo inteiro. Marca que zera no canal ativo
+ *  aparece esmaecida, do mesmo jeito que canal sem conta conectada. */
+export async function contarProdutosPorMarca(
+  ctx: CrudContext,
+  opts: { canalTipos?: string[] } = {},
+) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+
+  const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
+  if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanal(ctx.orgId, opts.canalTipos));
+
+  // LEFT JOIN a partir da marca: marca sem nenhum produto no canal ativo
+  // precisa continuar na lista, com zero — some-la mudaria o conjunto de
+  // pílulas a cada clique e a barra de filtros "dançaria".
+  return ctx.db
+    .select({
+      brandId: brand.id,
+      name: brand.name,
+      slug: brand.slug,
+      total: sql<number>`count(${produto.id})`,
+    })
+    .from(brand)
+    .leftJoin(produto, and(eq(produto.brandId, brand.id), ...filters))
+    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
+    .groupBy(brand.id, brand.name, brand.slug)
+    .orderBy(desc(sql`count(${produto.id})`), asc(brand.name))
+    .then((linhas) => linhas.map((linha) => ({ ...linha, total: Number(linha.total) })));
 }
 
 /** Define o mesmo estoque mínimo para vários SKUs de uma vez. Sem isso, um
@@ -323,6 +377,254 @@ export async function definirEstoqueMinimoEmLote(
   return { atualizados: atualizados.length };
 }
 
+/* ── Régua de estoque mínimo ────────────────────────────────────────────────
+   Um catálogo importado nasce inteiro com estoqueMinimo = 0, e mínimo 0 é o
+   mesmo que alerta desligado: o A6 nunca dispara e "abaixo do mínimo" fica
+   permanentemente em zero. Definir isso SKU por SKU é inviável em centenas de
+   itens, então a régua transforma a configuração numa decisão só — fixa, ou
+   proporcional ao giro de cada produto. */
+
+/** Faixa de giro → estoque mínimo. `vendaMensalMinima` é o piso da faixa; o
+ *  primeiro piso que o giro do SKU alcança define o mínimo dele. */
+export type FaixaGiro = { vendaMensalMinima: number; minimo: number };
+
+export type ReguaEstoque =
+  | { tipo: "fixo"; minimo: number }
+  | { tipo: "giro"; faixas: FaixaGiro[] };
+
+export type EscopoRegua = {
+  brandId?: string;
+  canalTipo?: string;
+  /** Só toca em quem ainda não tem régua — o padrão do wizard, para não
+   *  sobrescrever mínimos que alguém já ajustou à mão. */
+  somenteSemMinimo?: boolean;
+};
+
+const DIAS_JANELA_GIRO = 90;
+const MESES_JANELA_GIRO = DIAS_JANELA_GIRO / 30;
+/** A prévia do wizard lista SKUs para revisão humana; acima disso a lista deixa
+ *  de ser revisável e só engorda o payload. Os contadores continuam vindo do
+ *  escopo inteiro. */
+const LIMITE_PREVIA_REGUA = 200;
+
+export const FAIXAS_GIRO_PADRAO: FaixaGiro[] = [
+  { vendaMensalMinima: 10, minimo: 12 },
+  { vendaMensalMinima: 3, minimo: 4 },
+  { vendaMensalMinima: 1, minimo: 2 },
+  { vendaMensalMinima: 0, minimo: 0 },
+];
+
+export function minimoPelaRegua(regua: ReguaEstoque, giroMensal: number): number {
+  if (regua.tipo === "fixo") return regua.minimo;
+  // As faixas podem chegar em qualquer ordem; a decisão precisa ser
+  // determinística, então ordenamos aqui em vez de confiar no payload.
+  const faixas = [...regua.faixas].sort((a, b) => b.vendaMensalMinima - a.vendaMensalMinima);
+  for (const faixa of faixas) {
+    if (giroMensal >= faixa.vendaMensalMinima) return faixa.minimo;
+  }
+  return 0;
+}
+
+/** Mesma exclusividade de `condicaoEstado`: um SKU zerado é "sem estoque", nunca
+ *  também "abaixo do mínimo" — se a prévia divergisse disso, os números do
+ *  wizard não bateriam com os da tela depois de aplicar. */
+function estadoComRegua(saldo: number, minimo: number) {
+  if (saldo <= 0) return "sem_estoque" as const;
+  if (minimo > 0 && saldo <= minimo) return "abaixo_minimo" as const;
+  if (minimo <= 0) return "sem_alerta" as const;
+  return "ok" as const;
+}
+
+function filtrosEscopo(ctx: CrudContext, escopo: EscopoRegua): SQL[] {
+  const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
+  if (escopo.brandId) filters.push(eq(produto.brandId, escopo.brandId));
+  if (escopo.canalTipo) filters.push(condicaoCanal(ctx.orgId, escopo.canalTipo));
+  if (escopo.somenteSemMinimo) filters.push(condicaoEstado("sem_minimo"));
+  return filters;
+}
+
+/** Calcula o mínimo que cada SKU do escopo receberia, sem gravar nada. É o que
+ *  permite ao wizard mostrar a consequência ("34 SKUs entrariam em alerta hoje")
+ *  antes de a pessoa confirmar. */
+export async function simularReguaEstoque(
+  ctx: CrudContext,
+  escopo: EscopoRegua,
+  regua: ReguaEstoque,
+) {
+  assertPerfil(ctx, ["admin", "gestor"]);
+
+  const alvos = await ctx.db
+    .select({
+      id: produto.id,
+      sku: produto.sku,
+      nome: produto.nome,
+      brandName: brand.name,
+      brandSlug: brand.slug,
+      estoqueMinimo: produto.estoqueMinimo,
+      saldo: SALDO,
+    })
+    .from(produto)
+    .innerJoin(brand, and(eq(brand.id, produto.brandId), eq(brand.orgId, ctx.orgId)))
+    .leftJoin(estoqueSaldo, and(
+      eq(estoqueSaldo.produtoId, produto.id),
+      eq(estoqueSaldo.orgId, ctx.orgId),
+    ))
+    .where(and(...filtrosEscopo(ctx, escopo)))
+    .orderBy(produto.nome);
+
+  const vazio = {
+    resumo: { total: 0, monitorados: 0, semAlerta: 0, alertariam: 0, semEstoque: 0, alterados: 0 },
+    previaAlerta: [] as Array<{
+      id: string; sku: string; nome: string; brandName: string; brandSlug: string;
+      saldo: number; minimoAtual: number; minimoProposto: number; giroMensal: number;
+    }>,
+    previaTruncada: false,
+  };
+  if (alvos.length === 0) return vazio;
+
+  // Giro real do período: uma agregação só para todo o escopo. Movimento de
+  // saída é a única evidência de venda no livro-razão.
+  const corte = new Date(Date.now() - DIAS_JANELA_GIRO * 86_400_000);
+  const saidas = await ctx.db
+    .select({
+      produtoId: estoqueMovimento.produtoId,
+      quantidade: sql<number>`sum(${estoqueMovimento.quantidade})`,
+    })
+    .from(estoqueMovimento)
+    .where(and(
+      eq(estoqueMovimento.orgId, ctx.orgId),
+      eq(estoqueMovimento.tipo, "saida"),
+      gte(estoqueMovimento.createdAt, corte),
+      inArray(estoqueMovimento.produtoId, alvos.map((item) => item.id)),
+    ))
+    .groupBy(estoqueMovimento.produtoId);
+  const saidaPorProduto = new Map(saidas.map((linha) => [linha.produtoId, Number(linha.quantidade)]));
+
+  const resumo = { total: alvos.length, monitorados: 0, semAlerta: 0, alertariam: 0, semEstoque: 0, alterados: 0 };
+  const previaAlerta: typeof vazio.previaAlerta = [];
+
+  for (const alvo of alvos) {
+    const saldo = Number(alvo.saldo ?? 0);
+    const giroMensal = (saidaPorProduto.get(alvo.id) ?? 0) / MESES_JANELA_GIRO;
+    const minimoProposto = minimoPelaRegua(regua, giroMensal);
+
+    if (minimoProposto > 0) resumo.monitorados += 1;
+    else resumo.semAlerta += 1;
+    if (minimoProposto !== alvo.estoqueMinimo) resumo.alterados += 1;
+
+    const estado = estadoComRegua(saldo, minimoProposto);
+    if (estado === "sem_estoque") resumo.semEstoque += 1;
+    if (estado === "abaixo_minimo") {
+      resumo.alertariam += 1;
+      if (previaAlerta.length < LIMITE_PREVIA_REGUA) {
+        previaAlerta.push({
+          id: alvo.id,
+          sku: alvo.sku,
+          nome: alvo.nome,
+          brandName: alvo.brandName,
+          brandSlug: alvo.brandSlug,
+          saldo,
+          minimoAtual: alvo.estoqueMinimo,
+          minimoProposto,
+          giroMensal: Math.round(giroMensal * 10) / 10,
+        });
+      }
+    }
+  }
+
+  return { resumo, previaAlerta, previaTruncada: resumo.alertariam > previaAlerta.length };
+}
+
+/** Aplica a régua. Recalcula o mínimo no servidor em vez de aceitar os valores
+ *  que o cliente já viu na prévia: a prévia é informativa, a decisão de quanto
+ *  gravar é sempre daqui. */
+export async function aplicarReguaEstoque(
+  ctx: CrudContext,
+  escopo: EscopoRegua,
+  regua: ReguaEstoque,
+  excluirIds: string[] = [],
+): Promise<{ atualizados: number; inalterados: number }> {
+  assertPerfil(ctx, ["admin", "gestor"]);
+
+  const alvos = await ctx.db
+    .select({
+      id: produto.id,
+      brandId: produto.brandId,
+      estoqueMinimo: produto.estoqueMinimo,
+    })
+    .from(produto)
+    .leftJoin(estoqueSaldo, and(
+      eq(estoqueSaldo.produtoId, produto.id),
+      eq(estoqueSaldo.orgId, ctx.orgId),
+    ))
+    .where(and(...filtrosEscopo(ctx, escopo)));
+
+  const excluidos = new Set(excluirIds);
+  const candidatos = alvos.filter((alvo) => !excluidos.has(alvo.id));
+  if (candidatos.length === 0) return { atualizados: 0, inalterados: 0 };
+
+  const corte = new Date(Date.now() - DIAS_JANELA_GIRO * 86_400_000);
+  const saidas = await ctx.db
+    .select({
+      produtoId: estoqueMovimento.produtoId,
+      quantidade: sql<number>`sum(${estoqueMovimento.quantidade})`,
+    })
+    .from(estoqueMovimento)
+    .where(and(
+      eq(estoqueMovimento.orgId, ctx.orgId),
+      eq(estoqueMovimento.tipo, "saida"),
+      gte(estoqueMovimento.createdAt, corte),
+      inArray(estoqueMovimento.produtoId, candidatos.map((item) => item.id)),
+    ))
+    .groupBy(estoqueMovimento.produtoId);
+  const saidaPorProduto = new Map(saidas.map((linha) => [linha.produtoId, Number(linha.quantidade)]));
+
+  // Agrupa por valor: com faixas de giro há no máximo um UPDATE por faixa,
+  // em vez de um por SKU.
+  const porMinimo = new Map<number, typeof candidatos>();
+  let inalterados = 0;
+  for (const alvo of candidatos) {
+    const giroMensal = (saidaPorProduto.get(alvo.id) ?? 0) / MESES_JANELA_GIRO;
+    const minimoProposto = minimoPelaRegua(regua, giroMensal);
+    if (minimoProposto === alvo.estoqueMinimo) { inalterados += 1; continue; }
+    const grupo = porMinimo.get(minimoProposto);
+    if (grupo) grupo.push(alvo);
+    else porMinimo.set(minimoProposto, [alvo]);
+  }
+  if (porMinimo.size === 0) return { atualizados: 0, inalterados };
+
+  const LOTE_AUDITORIA = 500;
+  const atualizados = await ctx.db.transaction(async (tx) => {
+    let total = 0;
+    for (const [minimo, grupo] of porMinimo) {
+      const ids = grupo.map((item) => item.id);
+      await tx
+        .update(produto)
+        .set({ estoqueMinimo: minimo, updatedAt: new Date() })
+        .where(and(eq(produto.orgId, ctx.orgId), inArray(produto.id, ids)));
+
+      const linhas = grupo.map((alvo) => ({
+        orgId: ctx.orgId,
+        brandId: alvo.brandId,
+        autorId: ctx.userId,
+        autorTipo: ctx.userId ? ("usuario" as const) : ("sistema" as const),
+        entidade: "produto",
+        entidadeId: alvo.id,
+        acao: "update",
+        antes: { estoqueMinimo: alvo.estoqueMinimo },
+        depois: { estoqueMinimo: minimo, origem: regua.tipo === "giro" ? "regua_giro" : "regua_fixa" },
+      }));
+      for (let i = 0; i < linhas.length; i += LOTE_AUDITORIA) {
+        await tx.insert(auditLog).values(linhas.slice(i, i + LOTE_AUDITORIA));
+      }
+      total += ids.length;
+    }
+    return total;
+  });
+
+  return { atualizados, inalterados };
+}
+
 // Mesma fórmula de risco do job A7-encalhe (src/modules/jobs/A7-encalhe.ts),
 // mas calculada em lote e sob demanda para alimentar o indicador da tela de
 // Estoque — o job noturno só emite o evento, não persiste um status.
@@ -331,7 +633,7 @@ export async function listarProdutosParados(ctx: CrudContext) {
 
   const candidatos = await ctx.db
     .select({
-      id: produto.id, sku: produto.sku, nome: produto.nome, custo: produto.custo,
+      id: produto.id, sku: produto.sku, nome: produto.nome, preco: produto.preco,
       saldo: estoqueSaldo.saldo, criadoEm: produto.createdAt,
     })
     .from(produto)
@@ -363,7 +665,7 @@ export async function listarProdutosParados(ctx: CrudContext) {
       if (diasSemVenda < DIAS_SEM_VENDA_ENCALHE) return null;
 
       const score = calcularScoreProduto({
-        diasSemVenda, giroMensalMedio: 0, saldoAtual: item.saldo, custoUnitario: parseFloat(item.custo ?? "0"),
+        diasSemVenda, giroMensalMedio: 0, saldoAtual: item.saldo, precoUnitario: parseFloat(item.preco ?? "0"),
       });
       if (score.riscoEncalhe < LIMITE_RISCO_ENCALHE) return null;
 
@@ -526,6 +828,47 @@ export async function registrarMovimento(
   };
 }
 
+/** Alimenta a página cheia de produto (/estoque/produtos/[id]), no mesmo
+ *  espírito do Cliente 360: uma tela própria em vez de um modal, com edição
+ *  entrando por um lápis dentro dela — não um botão de editar disputando
+ *  espaço na linha da tabela. */
+export async function buscarProdutoDetalhe(ctx: CrudContext, produtoId: string) {
+  const produtoRow = await ctx.db
+    .select({ ...getTableColumns(produto), brandSlug: brand.slug, brandName: brand.name })
+    .from(produto)
+    .innerJoin(brand, eq(brand.id, produto.brandId))
+    .where(and(eq(produto.id, produtoId), eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)))
+    .then((rows) => rows[0]);
+  if (!produtoRow) throw new Error("Produto não encontrado.");
+
+  const [saldoRow, canaisVinculados, movimentos] = await Promise.all([
+    ctx.db
+      .select({ saldo: estoqueSaldo.saldo })
+      .from(estoqueSaldo)
+      .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, produtoId)))
+      .then((rows) => rows[0]?.saldo ?? 0),
+    ctx.db
+      .select({
+        id: produtoCanal.id,
+        externalListingId: produtoCanal.externalListingId,
+        externalSkuId: produtoCanal.externalSkuId,
+        ativo: produtoCanal.ativo,
+        canalTipo: channelAccount.tipo,
+      })
+      .from(produtoCanal)
+      .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
+      .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.produtoId, produtoId))),
+    ctx.db
+      .select()
+      .from(estoqueMovimento)
+      .where(and(eq(estoqueMovimento.orgId, ctx.orgId), eq(estoqueMovimento.produtoId, produtoId)))
+      .orderBy(desc(estoqueMovimento.createdAt))
+      .limit(20),
+  ]);
+
+  return { produto: produtoRow, saldo: saldoRow, canais: canaisVinculados, movimentos };
+}
+
 export async function consultarSaldo(ctx: CrudContext, produtoId: string) {
   return ctx.db
     .select()
@@ -549,6 +892,7 @@ export async function listarDivergenciasEstoque(ctx: CrudContext) {
       channelAccountId: estoqueDivergencia.channelAccountId,
       canal: channelAccount.tipo,
       brandSlug: brand.slug,
+      brandName: brand.name,
       saldoLocal: estoqueDivergencia.saldoLocal,
       saldoCanal: estoqueDivergencia.saldoCanal,
       createdAt: estoqueDivergencia.createdAt,

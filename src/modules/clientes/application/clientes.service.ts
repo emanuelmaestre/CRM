@@ -1,11 +1,14 @@
-import { eq, and, or, isNull, ilike, ne, desc } from "drizzle-orm";
+import { eq, and, or, isNull, ilike, ne, desc, inArray, sql, SQL, asc } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { z } from "zod";
 import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import {
-  auditLog, brand, cliente, clienteTag, consentimento, interacao, pedido, scoreCliente, tag, tarefa,
+  auditLog, brand, channelAccount, cliente, clienteIdentidade, clienteTag, consentimento, interacao, pedido,
+  scoreCliente, tag, tarefa,
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
+import { CANAIS_VENDA } from "@/shared/config/canais-venda";
 import {
   CreateClienteSchema, UpdateClienteSchema, CriarAnotacaoSchema, TIPO_INTERACAO_ANOTACAO,
   type CreateClienteDTO, type UpdateClienteDTO, type CriarAnotacaoDTO,
@@ -66,7 +69,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
   const clienteAtual = await crudCliente.getById(ctx, id) as typeof cliente.$inferSelect | null;
   if (!clienteAtual) throw new Error("Cliente não encontrado.");
 
-  const [interacoes, pedidos, tarefasCliente, consentimentos, tagsCliente, scoreRow] = await Promise.all([
+  const [interacoes, pedidos, tarefasCliente, consentimentos, tagsCliente, identidades, scoreRow] = await Promise.all([
     ctx.db
       .select()
       .from(interacao)
@@ -96,6 +99,10 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
       .innerJoin(tag, eq(tag.id, clienteTag.tagId))
       .where(and(eq(tag.orgId, ctx.orgId), eq(clienteTag.clienteId, id))),
     ctx.db
+      .select({ canal: clienteIdentidade.canal })
+      .from(clienteIdentidade)
+      .where(and(eq(clienteIdentidade.orgId, ctx.orgId), eq(clienteIdentidade.clienteId, id))),
+    ctx.db
       .select({
         churnRisk: scoreCliente.churnRisk,
         segmento: scoreCliente.segmento,
@@ -112,6 +119,11 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
   const anotacoes = interacoes.filter((item) => item.tipo === TIPO_INTERACAO_ANOTACAO);
   const timelineInteracoes = interacoes.filter((item) => item.tipo !== TIPO_INTERACAO_ANOTACAO);
 
+  // Canais únicos e ordenados: um cliente pode ter mais de uma identidade no
+  // mesmo canal (ex.: dois pedidos com IDs de comprador diferentes), e a
+  // bandeirinha do 360 mostra cada canal uma vez só.
+  const canais = [...new Set(identidades.map((item) => item.canal))];
+
   return {
     cliente: clienteAtual,
     interacoes: timelineInteracoes,
@@ -120,6 +132,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
     tarefas: tarefasCliente,
     consentimentos,
     tags: tagsCliente,
+    canais,
     score: scoreRow,
   };
 }
@@ -183,9 +196,40 @@ export async function exportarDadosCliente(ctx: CrudContext, id: string) {
   };
 }
 
+/** Cliente não tem coluna de marca própria — quem carrega essa relação é o
+ *  pedido (todo pedido nasce com brandId). "Empresa do cliente" então é lida
+ *  como "empresa de quem ele já comprou", via EXISTS: um cliente com pedidos
+ *  em mais de uma marca entra no filtro se qualquer uma delas estiver
+ *  marcada, o mesmo OR-entre-marcas usado no seletor do Estoque. */
+function condicaoMarcaCliente(orgId: string, brandIds: readonly string[]): SQL {
+  return sql`exists (
+    select 1 from ${pedido}
+    where ${pedido.clienteId} = ${cliente.id}
+      and ${pedido.orgId} = ${orgId}
+      and ${inArray(pedido.brandId, brandIds)}
+  )`;
+}
+
+/** Espelha condicaoCanal do Estoque, mas em cima de cliente_identidade em vez
+ *  de produto_canal: cliente entra se tiver identidade em qualquer um dos
+ *  canais marcados. Recebe a coluna de clienteId a correlacionar porque é
+ *  usada em dois contextos de query diferentes — listarClientes tem `cliente`
+ *  no FROM, mas contarClientesPorMarca parte de `brand`/`pedido` sem juntar
+ *  `cliente`; fixar a referência em `cliente.id` ali quebrava a consulta com
+ *  "invalid reference to FROM-clause entry for table cliente" (engolido pelo
+ *  catch do front, que então esvaziava a barra de Empresa inteira). */
+function condicaoCanalCliente(orgId: string, canalTipos: readonly string[], clienteIdCol: SQL | AnyPgColumn = cliente.id): SQL {
+  return sql`exists (
+    select 1 from ${clienteIdentidade}
+    where ${clienteIdentidade.clienteId} = ${clienteIdCol}
+      and ${clienteIdentidade.orgId} = ${orgId}
+      and ${inArray(clienteIdentidade.canal, canalTipos as (typeof CANAIS_VENDA)[number][])}
+  )`;
+}
+
 export async function listarClientes(
   ctx: CrudContext,
-  opts: { busca?: string; limit?: number; offset?: number } = {}
+  opts: { busca?: string; brandIds?: string[]; canalTipos?: string[]; limit?: number; offset?: number } = {}
 ) {
   const filters = [];
 
@@ -193,17 +237,107 @@ export async function listarClientes(
     filters.push(
       or(
         ilike(cliente.nome, `%${opts.busca}%`),
+        // nome_completo é o nome real do destinatário (Mercado Livre); nome
+        // sozinho é só o apelido do comprador — sem isto, buscar pelo nome de
+        // verdade de alguém não encontraria o cadastro.
+        ilike(cliente.nomeCompleto, `%${opts.busca}%`),
         ilike(cliente.email, `%${opts.busca}%`),
         ilike(cliente.telefone, `%${opts.busca}%`)
       )!
     );
   }
+  if (opts.brandIds && opts.brandIds.length > 0) filters.push(condicaoMarcaCliente(ctx.orgId, opts.brandIds));
+  if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanalCliente(ctx.orgId, opts.canalTipos));
 
-  return crudCliente.list(ctx, {
+  const result = await crudCliente.list(ctx, {
     limit: opts.limit,
     offset: opts.offset,
     filters,
   });
+
+  const linhas = result.data as Array<Record<string, unknown> & { id: string }>;
+  const ids = linhas.map((item) => item.id);
+  if (ids.length === 0) return { ...result, data: linhas as Array<Record<string, unknown> & { id: string; canais: string[] }> };
+
+  // Bandeirinha discreta ao lado do nome: uma consulta leve à parte, em vez de
+  // juntar cliente_identidade na busca principal — o join duplicaria a linha
+  // do cliente por canal e quebraria o limit/offset da paginação.
+  const identidades = await ctx.db
+    .select({ clienteId: clienteIdentidade.clienteId, canal: clienteIdentidade.canal })
+    .from(clienteIdentidade)
+    .where(and(eq(clienteIdentidade.orgId, ctx.orgId), inArray(clienteIdentidade.clienteId, ids)));
+
+  const canaisPorCliente = new Map<string, string[]>();
+  for (const item of identidades) {
+    const atual = canaisPorCliente.get(item.clienteId) ?? [];
+    if (!atual.includes(item.canal)) atual.push(item.canal);
+    canaisPorCliente.set(item.clienteId, atual);
+  }
+
+  return {
+    ...result,
+    data: (result.data as Array<Record<string, unknown> & { id: string }>).map((item) => ({
+      ...item,
+      canais: canaisPorCliente.get(item.id) ?? [],
+    })),
+  };
+}
+
+/** Alimenta o seletor de canal da barra de escopo em Clientes, espelhando
+ *  contarProdutosPorCanal do Estoque: mesma leitura de conexão por conta,
+ *  mesma contagem cruzada com a marca ativa (quando houver). */
+export async function contarClientesPorCanal(ctx: CrudContext, opts: { brandIds?: string[] } = {}) {
+  const contas = await ctx.db
+    .select({ tipo: channelAccount.tipo, status: channelAccount.status })
+    .from(channelAccount)
+    .where(eq(channelAccount.orgId, ctx.orgId));
+
+  const conectadoPorTipo = new Map<string, boolean>();
+  for (const conta of contas) {
+    if (conta.status === "conectado") conectadoPorTipo.set(conta.tipo, true);
+    else if (!conectadoPorTipo.has(conta.tipo)) conectadoPorTipo.set(conta.tipo, false);
+  }
+
+  const filtroMarca = opts.brandIds && opts.brandIds.length > 0
+    ? [condicaoMarcaCliente(ctx.orgId, opts.brandIds)]
+    : [];
+
+  const contagens = await ctx.db
+    .select({ tipo: clienteIdentidade.canal, total: sql<number>`count(distinct ${clienteIdentidade.clienteId})` })
+    .from(clienteIdentidade)
+    .innerJoin(cliente, and(eq(cliente.id, clienteIdentidade.clienteId), isNull(cliente.deletedAt), ...filtroMarca))
+    .where(eq(clienteIdentidade.orgId, ctx.orgId))
+    .groupBy(clienteIdentidade.canal);
+  const totalPorTipo = new Map(contagens.map((linha) => [linha.tipo, Number(linha.total)]));
+
+  return CANAIS_VENDA.map((tipo) => ({
+    tipo,
+    conectado: conectadoPorTipo.get(tipo) ?? false,
+    total: totalPorTipo.get(tipo) ?? 0,
+  }));
+}
+
+/** Alimenta o seletor de marca da barra de escopo em Clientes, espelhando
+ *  contarProdutosPorMarca do Estoque — mesmo LEFT JOIN a partir da marca
+ *  (marca sem cliente no canal ativo continua na lista, com zero). */
+export async function contarClientesPorMarca(ctx: CrudContext, opts: { canalTipos?: string[] } = {}) {
+  const filtroCanal = opts.canalTipos && opts.canalTipos.length > 0
+    ? [condicaoCanalCliente(ctx.orgId, opts.canalTipos, pedido.clienteId)]
+    : [];
+
+  return ctx.db
+    .select({
+      brandId: brand.id,
+      name: brand.name,
+      slug: brand.slug,
+      total: sql<number>`count(distinct ${pedido.clienteId})`,
+    })
+    .from(brand)
+    .leftJoin(pedido, and(eq(pedido.brandId, brand.id), eq(pedido.orgId, ctx.orgId), ...filtroCanal))
+    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
+    .groupBy(brand.id, brand.name, brand.slug)
+    .orderBy(desc(sql`count(distinct ${pedido.clienteId})`), asc(brand.name))
+    .then((linhas) => linhas.map((linha) => ({ ...linha, total: Number(linha.total) })));
 }
 
 export async function atualizarCliente(ctx: CrudContext, id: string, input: UpdateClienteDTO) {

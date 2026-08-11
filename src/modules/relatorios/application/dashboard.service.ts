@@ -248,7 +248,6 @@ export async function obterDashboardData(
         id: produto.id,
         sku: produto.sku,
         nome: produto.nome,
-        custo: produto.custo,
         preco: produto.preco,
         estoqueMinimo: produto.estoqueMinimo,
         saldo: estoqueSaldo.saldo,
@@ -327,9 +326,8 @@ export async function obterDashboardData(
     marcaLabel: brandLabel(item.marca),
   });
 
-  /** Capital imobilizado: custo quando cadastrado, senão preço de venda. */
-  const valorUnitario = (item: typeof produtosAtivos[number]): number =>
-    parseMoney(item.custo) || parseMoney(item.preco);
+  /** Capital imobilizado: preço de venda × saldo. */
+  const valorUnitario = (item: typeof produtosAtivos[number]): number => parseMoney(item.preco);
 
   /* ── 1. Produtos que vendem mais ── */
   const rankingVendas = produtosAtivos

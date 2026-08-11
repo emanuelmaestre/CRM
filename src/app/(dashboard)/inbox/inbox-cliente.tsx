@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package } from "lucide-react";
+import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package, Search } from "lucide-react";
 import {
   actionListarConversas,
   actionListarMensagens,
@@ -34,16 +34,31 @@ function formatarData(iso: Date | string): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
-function iniciais(externalId?: string | null): string {
+function iniciais(nome?: string | null, externalId?: string | null): string {
+  if (nome) {
+    const partes = nome.trim().split(/\s+/);
+    return partes.length > 1
+      ? (partes[0][0] + partes[partes.length - 1][0]).toUpperCase()
+      : nome.slice(0, 2).toUpperCase();
+  }
   if (!externalId) return "?";
   return externalId.slice(0, 2).toUpperCase();
 }
 
-function formatarContato(externalId?: string | null): string {
+function formatarPacote(externalId?: string | null): string {
   if (!externalId) return "Desconhecido";
   return externalId.startsWith("ml-pack:")
     ? `Pacote ${externalId.slice("ml-pack:".length)}`
     : externalId;
+}
+
+function formatarContato(c: {
+  externalId?: string | null;
+  clienteNome?: string | null;
+  clienteNomeCompleto?: string | null;
+  remetenteNome?: string | null;
+}): string {
+  return c.clienteNomeCompleto || c.clienteNome || c.remetenteNome || formatarPacote(c.externalId);
 }
 
 /* ── Animation variants ──────────────────────────────────── */
@@ -56,7 +71,7 @@ const msgIn = (saida: boolean) => ({
 /* ── Avatar ───────────────────────────────────────────────── */
 function ContactAvatar({ c, size = "md" }: { c: Conversa; size?: "sm" | "md" }) {
   const s  = size === "sm" ? "w-8 h-8 text-[11px]" : "w-10 h-10 text-xs";
-  const ini = iniciais(c.externalId);
+  const ini = iniciais(c.clienteNomeCompleto || c.clienteNome || c.remetenteNome, c.externalId);
   return (
     <div
       className={`${s} rounded-full flex items-center justify-center font-bold flex-shrink-0 select-none`}
@@ -84,8 +99,13 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+
 /* ── Main ────────────────────────────────────────────────── */
-export function InboxCliente() {
+export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
+  marcasAtivas: ReadonlySet<string>;
+  canaisAtivos: ReadonlySet<string>;
+  onContagens: (valores: { marcas: Record<string, number>; canais: Record<string, number> }) => void;
+}) {
   const [conversas, setConversas]     = useState<Conversa[]>([]);
   const [mensagens, setMensagens]     = useState<Mensagem[]>([]);
   const [selecionada, setSelecionada] = useState<Conversa | null>(null);
@@ -94,6 +114,7 @@ export function InboxCliente() {
   const [enviando, setEnviando]       = useState(false);
   const [texto, setTexto]             = useState("");
   const [isMobile, setIsMobile]       = useState(false);
+  const [busca, setBusca]             = useState("");
   const [, startTransition]           = useTransition();
   const textareaRef                   = useRef<HTMLTextAreaElement>(null);
   const msgEndRef                     = useRef<HTMLDivElement>(null);
@@ -133,6 +154,27 @@ export function InboxCliente() {
   }, []);
 
   useEffect(() => { carregarConversas(); }, [carregarConversas]);
+
+  // Reporta as contagens por empresa/canal pra barra de escopo compartilhada
+  // (que vive em page.tsx e soma com as outras abas) toda vez que a lista
+  // de conversas muda.
+  useEffect(() => {
+    const marcasCount: Record<string, number> = {};
+    const canaisCount: Record<string, number> = {};
+    for (const c of conversas) {
+      if (c.brandSlug) marcasCount[c.brandSlug] = (marcasCount[c.brandSlug] ?? 0) + 1;
+      if (c.canalTipo) canaisCount[c.canalTipo] = (canaisCount[c.canalTipo] ?? 0) + 1;
+    }
+    onContagens({ marcas: marcasCount, canais: canaisCount });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversas]);
+
+  const conversasFiltradas = conversas.filter((c) => {
+    if (marcasAtivas.size > 0 && !marcasAtivas.has(c.brandSlug ?? "")) return false;
+    if (canaisAtivos.size > 0 && !canaisAtivos.has(c.canalTipo ?? "")) return false;
+    if (busca.trim() && !formatarContato(c).toLowerCase().includes(busca.trim().toLowerCase())) return false;
+    return true;
+  });
 
   useEffect(() => {
     msgEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -281,7 +323,7 @@ export function InboxCliente() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-foreground truncate">
-                      {formatarContato(selecionada.externalId)}
+                      {formatarContato(selecionada)}
                     </p>
                     {selecionada.canalTipo && (
                       <ChannelLogo canal={selecionada.canalTipo} size="xs" variant="logo" />
@@ -290,6 +332,12 @@ export function InboxCliente() {
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <StatusPill status={selecionada.status} />
                   </div>
+                  {(selecionada.clienteNomeCompleto || selecionada.clienteNome || selecionada.remetenteNome) && (
+                    <p className="flex items-center gap-1 text-[11px] text-muted-foreground truncate mt-0.5">
+                      <Package size={11} strokeWidth={2} className="flex-shrink-0 opacity-70" />
+                      <span className="truncate">{selecionada.produtoResumo ?? formatarPacote(selecionada.externalId)}</span>
+                    </p>
+                  )}
                 </div>
 
                 {selecionada.status !== "resolvida" && selecionada.status !== "arquivada" && (
@@ -399,26 +447,48 @@ export function InboxCliente() {
   );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.26 }}
-      className="flex h-[max(32rem,calc(100dvh-10rem))] max-h-[calc(100dvh-7rem)] gap-4"
-    >
-      {/* ── Conversation list ── */}
-      <div className="w-full lg:w-80 flex-shrink-0 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <p className="text-sm font-semibold text-foreground">
-            {conversas.length} {conversas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
+    <div className="flex flex-col gap-4">
+      <motion.div
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.26 }}
+        className="flex h-[max(32rem,calc(100dvh-8.5rem))] max-h-[calc(100dvh-6rem)] gap-4"
+      >
+      {/* ── Conversation list — mais larga que antes (w-80 → w-[26rem]) para
+          a caixa de conversas ocupar de fato a maior parte da tela, que era
+          o pedido: essa lista é a informação principal da página, o painel
+          de mensagens só se preenche depois que algo é selecionado. ── */}
+      <div className="w-full lg:w-[26rem] flex-shrink-0 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-foreground whitespace-nowrap">
+            {conversasFiltradas.length} {conversasFiltradas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
           </p>
-          <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded-full">
+          <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded-full whitespace-nowrap">
             {conversationCopy.channelSummary}
           </span>
         </div>
 
+        <div className="px-3 py-2.5 border-b border-border">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por contato…"
+              className="w-full h-9 rounded-lg border border-border bg-muted/40 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow]"
+            />
+          </div>
+        </div>
+
         <div className="overflow-y-auto flex-1 scrollbar-thin">
+          {conversasFiltradas.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-2 py-12 text-muted-foreground">
+              <Search size={18} strokeWidth={1.5} />
+              <p className="text-xs">Nenhuma conversa encontrada com esse filtro.</p>
+            </div>
+          ) : (
           <motion.div variants={stagger} initial="hidden" animate="show">
-            {conversas.map((c) => (
+            {conversasFiltradas.map((c) => (
               <motion.button
                 key={c.id}
                 variants={listItem}
@@ -455,19 +525,28 @@ export function InboxCliente() {
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center justify-between gap-1">
                     <p className="text-xs font-semibold text-foreground truncate">
-                      {formatarContato(c.externalId)}
+                      {formatarContato(c)}
                     </p>
                     <span className="text-[10px] text-muted-foreground flex-shrink-0 tabular-nums">
                       {formatarData(c.updatedAt)}
                     </span>
                   </div>
-                  <StatusPill status={c.status} />
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <StatusPill status={c.status} />
+                  </div>
+                  {(c.clienteNomeCompleto || c.clienteNome || c.remetenteNome) && (
+                    <p className="flex items-center gap-1 text-[10px] text-muted-foreground truncate mt-1">
+                      <Package size={10} strokeWidth={2} className="flex-shrink-0 opacity-70" />
+                      <span className="truncate">{c.produtoResumo ?? formatarPacote(c.externalId)}</span>
+                    </p>
+                  )}
                 </div>
               </motion.button>
             ))}
           </motion.div>
+          )}
         </div>
       </div>
 
@@ -486,6 +565,7 @@ export function InboxCliente() {
           {conversationContent}
         </Sheet>
       )}
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }

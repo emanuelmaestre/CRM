@@ -21,7 +21,7 @@ export const A7_encalhe = inngest.createFunction(
     const candidatos = await step.run("buscar-candidatos", () =>
       db
         .select({
-          id: produto.id, sku: produto.sku, custo: produto.custo, brandId: produto.brandId,
+          id: produto.id, sku: produto.sku, preco: produto.preco, brandId: produto.brandId,
           criadoEm: produto.createdAt,
         })
         .from(produto)
@@ -72,7 +72,7 @@ export const A7_encalhe = inngest.createFunction(
         diasSemVenda,
         giroMensalMedio: 0,
         saldoAtual: saldoRow.saldo,
-        custoUnitario: parseFloat(prod.custo ?? "0"),
+        precoUnitario: parseFloat(prod.preco ?? "0"),
       });
 
       if (score.riscoEncalhe >= 30) {

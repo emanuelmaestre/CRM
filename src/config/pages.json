@@ -64,13 +64,23 @@
     "metadataTitle": "Clientes",
     "title": "Clientes",
     "description": "Gerencie todos os seus clientes em um só lugar",
-    "newAction": "+ Novo cliente",
-    "searchPlaceholder": "Buscar por nome, e-mail ou telefone…",
-    "sectionTitle": "Base de clientes",
-    "columns": ["Nome", "E-mail", "Telefone", ""],
+    "searchPlaceholder": "Buscar por nome…",
+    "sectionTitle": "Clientes",
+    "columns": ["Data", "Apelido", "Nome completo", "Endereço completo", ""],
+    "channelSelector": {
+      "label": "Canal",
+      "multiHint": "Selecione um ou mais",
+      "disconnectedHint": "{canal} ainda não está conectado — conecte em Automações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Automações para liberar o filtro."
+    },
+    "brandSelector": {
+      "label": "Empresa",
+      "multiHint": "Selecione uma ou mais",
+      "emptyHint": "{marca} não tem cliente com o filtro de canal atual."
+    },
     "empty": {
       "title": "Nenhum cliente cadastrado",
-      "description": "Importe sua base ou adicione o primeiro cliente manualmente.",
+      "description": "Clientes entram na base automaticamente pela sincronização dos canais de venda.",
       "searchTitle": "Nenhum cliente encontrado",
       "searchDescription": "Tente outro termo de busca."
     },
@@ -101,9 +111,9 @@
     },
     "detail": {
       "emptyValue": "Não informado",
-      "timelineTitle": "Timeline unificada",
+      "timelineTitle": "Histórico",
       "timelineEmpty": "Nenhuma interação ou pedido registrado.",
-      "tasksTitle": "Tarefas e lembretes",
+      "tasksTitle": "Tarefas/Lembretes",
       "tasksEmpty": "Nenhuma tarefa vinculada.",
       "consentsTitle": "Consentimentos",
       "consentsEmpty": "Nenhum consentimento registrado.",
@@ -116,6 +126,14 @@
       "repurchaseProbabilityLabel": "Probabilidade de recompra em 30 dias",
       "orderPrefix": "Pedido",
       "fields": { "name": "Nome", "document": "CPF / CNPJ", "email": "E-mail", "phone": "Telefone" },
+      "address": {
+        "title": "Endereço de entrega",
+        "subtitle": "Vindo do último pedido do Mercado Livre com endereço disponível",
+        "pendingField": "Aguardando envio",
+        "pendingSubtitle": "Nenhum dado de entrega ainda — assim que o Mercado Livre liberar o envio deste pedido, o endereço aparece aqui automaticamente.",
+        "viewOnMap": "Ver no mapa",
+        "nicknameLabel": "Apelido"
+      },
       "metrics": { "orders": "Pedidos", "tasks": "Tarefas" },
       "actions": { "back": "Voltar aos clientes", "edit": "Editar", "cancel": "Cancelar edição", "save": "Salvar alterações", "saving": "Salvando…", "archive": "Arquivar", "addNote": "Adicionar anotação", "savingNote": "Salvando…" },
       "messages": {
@@ -132,26 +150,70 @@
   "estoque": {
     "metadataTitle": "Estoque",
     "title": "Estoque",
-    "description": "Controle de produtos e saldos por marca",
-    "syncAction": "Sincronizar com Mercado Livre",
+    "description": "",
+    "syncAction": "Sincronizar",
     "syncingAction": "Sincronizando…",
     "syncSuccess": "{criados} produto(s) importado(s) do Mercado Livre.",
     "syncNothingNew": "Catálogo já está em dia — nenhum anúncio novo encontrado.",
     "syncError": "Não foi possível sincronizar com o Mercado Livre.",
     "searchPlaceholder": "Buscar por SKU ou produto…",
-    "allBrands": "Todas as marcas",
     "channelSelector": {
       "label": "Canal",
+      "multiHint": "Selecione um ou mais",
       "disconnectedHint": "{canal} ainda não está conectado — conecte em Automações para liberar o filtro.",
       "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Automações para liberar o filtro."
     },
-    "sectionTitle": "Produtos e saldos",
-    "columns": ["Produto", "Saldo", "Mínimo", "Preço", ""],
+    "brandSelector": {
+      "label": "Empresa",
+      "multiHint": "Selecione uma ou mais",
+      "emptyHint": "{marca} não tem produto com o filtro de canal atual.",
+      "countLabel": "{n} produtos"
+    },
+    "escolha": {
+      "title": "Escolha uma empresa para começar",
+      "loadingHint": "Carregando…",
+      "readyHint": "Pronto"
+    },
+    "sectionTitle": "Produtos",
+    "health": {
+      "loading": "Verificando o catálogo…",
+      "setupTitle": "Seu estoque ainda não avisa nada",
+      "setupDescription": "{semMinimo} de {total} SKUs estão sem mínimo definido. Sem essa régua, “abaixo do mínimo” será sempre 0 e o alerta automático não dispara.",
+      "setupAction": "Configurar alertas",
+      "partialTitle": "Parte do catálogo ainda não avisa",
+      "partialDescription": "{semMinimo} de {total} SKUs seguem sem mínimo definido — esses não entram em nenhum alerta.",
+      "calmTitle": "Catálogo em ordem",
+      "calmDescription": "{monitorados} SKUs monitorados · nada abaixo do mínimo · nada sem estoque",
+      "divergenceSuffix": "· {n} divergência a decidir",
+      "divergenceSuffixPlural": "· {n} divergências a decidir",
+      "divergenceAction": "Ver divergências",
+      "reviewAction": "Rever régua"
+    },
+    "rail": { "label": "Ver", "noRule": "Sem régua" },
+    "saldoCell": { "minPrefix": "mín", "outOfStock": "sem estoque", "noRule": "sem régua" },
+    "coach": {
+      "storageKey": "crm-leo:coachmarks:estoque:v1",
+      "steps": [
+        {
+          "title": "Escolha as empresas",
+          "description": "A tela abre limpa e você marca de quem quer ver o estoque — uma, duas ou as três juntas. Clicar numa empresa ativa desmarca. O canal ao lado também aceita mais de um e estreita ainda mais."
+        },
+        {
+          "title": "Mínimo é a régua do alerta",
+          "description": "Quando o saldo chega neste número, o sistema avisa. Dá para digitar direto na linha, ou configurar o catálogo inteiro em “Configurar alertas”."
+        },
+        {
+          "title": "Divergência é decisão sua",
+          "description": "Quando o saldo do canal não bate com o daqui, a reconciliação noturna marca e espera. O sistema nunca corrige sozinho."
+        }
+      ]
+    },
+    "columns": ["Produto", "Saldo local", "Mínimo", "Preço", ""],
     "loading": "Carregando produtos…",
     "empty": { "title": "Nenhum produto cadastrado", "description": "Importe seu catálogo do Mercado Livre para começar a controlar o estoque." },
     "emptyFiltered": { "title": "Nenhum produto com esses filtros", "description": "Ajuste a busca, a marca ou o estado do saldo para ver os produtos." },
     "messages": { "loadError": "Erro ao carregar produtos." },
-    "mobile": { "balance": "Saldo", "price": "Preço", "channels": "Canais" },
+    "mobile": { "balance": "Saldo local", "price": "Preço", "channels": "Canais" },
     "minimumIndicator": "▼ mín",
     "indicators": {
       "belowMin": "Abaixo do mínimo",
@@ -171,7 +233,7 @@
     "minimum": {
       "columnLabel": "Mínimo",
       "hint": "O sistema avisa quando o saldo chega neste número.",
-      "placeholder": "",
+      "placeholder": "definir",
       "saved": "Estoque mínimo atualizado.",
       "error": "Erro ao salvar o estoque mínimo."
     },
@@ -223,9 +285,7 @@
       "fields": {
         "name": "Nome",
         "price": "Preço",
-        "cost": "Custo",
-        "minStock": "Estoque mínimo",
-        "optional": "Opcional"
+        "minStock": "Estoque mínimo"
       },
       "cancel": "Cancelar",
       "submit": "Salvar",
@@ -238,8 +298,14 @@
       "button": "+ Movimento",
       "title": "Registrar movimento",
       "balancePrefix": "saldo atual",
-      "fields": { "type": "Tipo", "quantity": "Quantidade", "note": "Observação", "notePlaceholder": "Opcional" },
-      "types": { "entrada": "Entrada (compra/recebimento)", "saida": "Saída (venda/perda)", "ajuste": "Ajuste (inventário)" },
+      "resultPrefix": "novo saldo",
+      "fields": { "type": "Tipo de movimento", "quantity": "Quantidade", "note": "Observação", "notePlaceholder": "Opcional — ex.: nota fiscal, motivo da perda…" },
+      "types": {
+        "entrada": { "label": "Entrada", "description": "Compra ou recebimento" },
+        "saida": { "label": "Saída", "description": "Venda ou perda" },
+        "ajuste": { "label": "Ajuste", "description": "Corrige para um valor exato" }
+      },
+      "insufficientBalance": "Saldo insuficiente para essa saída.",
       "cancel": "Cancelar",
       "submit": "Registrar",
       "submitting": "Registrando…",
@@ -256,12 +322,18 @@
       "skuPrefix": "SKU:",
       "removeTitle": "Remover mapeamento",
       "addTitle": "Adicionar canal",
+      "accountFieldLabel": "Conta de canal",
+      "changeAccount": "Trocar",
       "accountPlaceholder": "Selecione a conta de canal…",
       "disconnectedSuffix": "— desconectado",
+      "listingFieldLabel": "ID do anúncio (listingId)",
       "listingPlaceholder": "ID do anúncio no canal (listingId)",
+      "skuFieldLabel": "SKU / modelo externo",
       "skuPlaceholder": "ID externo do SKU / modelo",
+      "warehouseFieldLabel": "Warehouse (TikTok Shop)",
       "warehousePlaceholder": "ID do warehouse no TikTok Shop",
       "save": "Salvar mapeamento",
+      "saving": "Salvando…",
       "allMapped": "Todos os canais disponíveis já estão mapeados para este produto.",
       "messages": {
         "loadError": "Erro ao carregar mapeamentos.",
@@ -279,7 +351,6 @@
     "navigationAriaLabel": "Operação comercial",
     "metadataTitle": "Vendas",
     "title": "Vendas",
-    "description": "Funil de vendas e oportunidades",
     "tabs": [
       { "id": "funil", "href": "/vendas", "label": "Funil" },
       { "id": "pedidos", "href": "/vendas/pedidos", "label": "Pedidos" }
@@ -289,8 +360,22 @@
     "empty": { "title": "Funil vazio", "description": "Configure as etapas do funil e comece a registrar oportunidades." },
     "dropHint": "Arraste oportunidades aqui",
     "noClient": "Sem cliente",
-    "labels": {
-      "lossReasonPrompt": "Por que esta oportunidade foi perdida?"
+    "brandSelector": {
+      "label": "Marca",
+      "emptyHint": "{marca} não tem oportunidade no funil ainda."
+    },
+    "stageAge": {
+      "today": "hoje",
+      "suffix": "nesta etapa"
+    },
+    "lossModal": {
+      "title": "Por que esta oportunidade foi perdida?",
+      "description": "O motivo fica registrado e visível no card, para o time aprender com as perdas em vez de só contá-las.",
+      "reasonLabel": "Motivo da perda",
+      "reasonPlaceholder": "Ex: preço, concorrência, sem resposta…",
+      "confirm": "Marcar como perdida",
+      "cancel": "Cancelar",
+      "lossReasonLabel": "Motivo"
     },
     "gargalos": {
       "title": "Gargalos do funil",
@@ -309,7 +394,6 @@
     "messages": {
       "loadError": "Erro ao carregar funil.",
       "moveError": "Erro ao mover oportunidade.",
-      "lossReasonRequired": "Informe um motivo (mín. 3 caracteres) para marcar como perdida.",
       "proposalSuccess": "Proposta gerada.",
       "proposalError": "Erro ao gerar proposta.",
       "setupSuccess": "Funil padrão criado.",
@@ -324,6 +408,34 @@
     "description": "Pedidos recebidos dos marketplaces e canais integrados",
     "columns": ["Pedido", "Cliente", "Marca", "Canal", "Status", "Total", "Recebido em"],
     "empty": "Nenhum pedido recebido pelos conectores.",
+    "emptyFiltered": {
+      "title": "Nenhum pedido com esses filtros",
+      "description": "Ajuste a marca, o canal ou o status para ver os pedidos."
+    },
+    "loadError": "Erro ao carregar pedidos.",
+    "brandSelector": { "label": "Marca", "emptyHint": "{marca} não tem pedido com o filtro atual." },
+    "channelSelector": {
+      "label": "Canal",
+      "disconnectedHint": "{canal} ainda não está conectado — conecte em Automações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Automações para liberar o filtro."
+    },
+    "statusFilter": { "label": "Status", "all": "Todos" },
+    "statusLabels": {
+      "criado": "Criado",
+      "pago": "Pago",
+      "separado": "Separado",
+      "enviado": "Enviado",
+      "entregue": "Entregue",
+      "avaliacao_solicitada": "Avaliação solicitada",
+      "concluido": "Concluído",
+      "cancelado": "Cancelado",
+      "devolvido": "Devolvido"
+    },
+    "pagination": {
+      "loadMore": "Carregar mais",
+      "loadingMore": "Carregando…",
+      "showing": "Mostrando {carregados} de {total}"
+    },
     "detail": {
       "back": "Voltar aos pedidos",
       "orderPrefix": "Pedido #",
@@ -337,7 +449,17 @@
       "emptyItems": "Nenhum item persistido para este pedido.",
       "quantity": "Quantidade",
       "unitPrice": "Preço unitário",
-      "total": "Total"
+      "total": "Total",
+      "cancelAction": "Cancelar pedido",
+      "cancelTitle": "Cancelar este pedido?",
+      "cancelDescription": "Informe o motivo do cancelamento. Pedidos enviados ou concluídos não podem mais ser cancelados por aqui.",
+      "cancelReasonPlaceholder": "Ex: cliente desistiu, item sem estoque…",
+      "cancelReasonRequired": "Informe um motivo (mín. 3 caracteres).",
+      "cancelConfirm": "Confirmar cancelamento",
+      "cancelCancel": "Voltar",
+      "cancelSuccess": "Pedido cancelado.",
+      "cancelError": "Erro ao cancelar o pedido.",
+      "canceledReasonLabel": "Motivo do cancelamento"
     }
   },
   "automacoes": {

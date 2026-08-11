@@ -6,9 +6,12 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   atualizarCliente, buscarCliente360, criarCliente, listarClientes, arquivarCliente,
   exportarDadosCliente, revogarConsentimento, criarAnotacaoCliente,
+  contarClientesPorCanal, contarClientesPorMarca,
 } from "@/modules/clientes/application/clientes.service";
 
 const ClienteIdSchema = z.string().uuid();
+const BrandIdSchema = z.string().uuid();
+const CanalVendaSchema = z.enum(["mercadolivre", "shopee", "tiktokshop"]);
 
 export async function actionCriarCliente(formData: FormData) {
   const ctx = await getCrudContext();
@@ -22,13 +25,32 @@ export async function actionCriarCliente(formData: FormData) {
   return result;
 }
 
-export async function actionListarClientes(busca?: string) {
+export async function actionListarClientes(busca?: string, brandIds?: string[], canalTipos?: string[]) {
   const ctx = await getCrudContext();
-  const result = await listarClientes(ctx, { busca: busca?.trim(), limit: 50 });
+  const brandIdsValidados = brandIds?.length ? z.array(BrandIdSchema).parse(brandIds) : undefined;
+  const canalTiposValidados = canalTipos?.length ? z.array(CanalVendaSchema).parse(canalTipos) : undefined;
+  const result = await listarClientes(ctx, {
+    busca: busca?.trim(),
+    brandIds: brandIdsValidados,
+    canalTipos: canalTiposValidados,
+    limit: 50,
+  });
   return {
     ...result,
     permissions: { canArchive: ctx.perfil === "admin" || ctx.perfil === "gestor" },
   };
+}
+
+export async function actionContarClientesPorCanal(brandIds?: string[]) {
+  const ctx = await getCrudContext();
+  const brandIdsValidados = brandIds?.length ? z.array(BrandIdSchema).parse(brandIds) : undefined;
+  return contarClientesPorCanal(ctx, { brandIds: brandIdsValidados });
+}
+
+export async function actionContarClientesPorMarca(canalTipos?: string[]) {
+  const ctx = await getCrudContext();
+  const canalTiposValidados = canalTipos?.length ? z.array(CanalVendaSchema).parse(canalTipos) : undefined;
+  return contarClientesPorMarca(ctx, { canalTipos: canalTiposValidados });
 }
 
 export async function actionArquivarCliente(id: string) {

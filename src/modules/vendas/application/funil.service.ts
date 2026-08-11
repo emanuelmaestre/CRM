@@ -40,6 +40,8 @@ export async function listarFunil(ctx: CrudContext) {
         valor: oportunidade.valor,
         clienteNome: cliente.nome,
         responsavelNome: appUser.nome,
+        entrouEtapaEm: oportunidade.entrouEtapaEm,
+        motivoPerda: oportunidade.motivoPerda,
         createdAt: oportunidade.createdAt,
         updatedAt: oportunidade.updatedAt,
       })
@@ -60,7 +62,7 @@ export async function listarReferenciasFunil(ctx: CrudContext) {
     : and(eq(appUser.orgId, ctx.orgId), eq(appUser.ativo, true));
 
   const [marcas, clientes, responsaveis] = await Promise.all([
-    ctx.db.select({ id: brand.id, nome: brand.name }).from(brand)
+    ctx.db.select({ id: brand.id, nome: brand.name, slug: brand.slug }).from(brand)
       .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
       .orderBy(asc(brand.name)),
     ctx.db.select({ id: cliente.id, nome: cliente.nome }).from(cliente)

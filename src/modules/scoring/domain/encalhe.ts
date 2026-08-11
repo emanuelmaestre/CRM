@@ -2,7 +2,7 @@ export interface DadosEncalhe {
   diasSemVenda: number;
   giroMensalMedio: number;
   saldoAtual: number;
-  custoUnitario: number;
+  precoUnitario: number;
   tendenciaVendasPercentual?: number;
 }
 
@@ -17,7 +17,7 @@ const VERSAO_FORMULA = "v2";
 const LIMITE_DIAS_PARADO = 30;
 
 export function calcularScoreProduto(dados: DadosEncalhe): ResultadoScoreProduto {
-  const capitalParado = dados.saldoAtual * dados.custoUnitario;
+  const capitalParado = dados.saldoAtual * dados.precoUnitario;
 
   // Risco base por dias sem venda
   const riscoBase = Math.min(100, Math.floor((dados.diasSemVenda / LIMITE_DIAS_PARADO) * 60));

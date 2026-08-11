@@ -1,7 +1,7 @@
-import { eq, and, gte, sum, desc, gt, count, sql, isNotNull } from "drizzle-orm";
+import { eq, and, gte, sum, desc, gt, count, sql } from "drizzle-orm";
 import type { ZodType } from "zod";
 import { db } from "@/shared/lib/db";
-import { llmRun, sugestaoCampanha, insight, scoreCliente, produto } from "@/shared/lib/db/schema";
+import { llmRun, sugestaoCampanha, insight, scoreCliente } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import {
   MODELOS, calcularCusto,
@@ -147,29 +147,6 @@ async function chamarOpenAIEstruturado<T>(opts: {
   throw new Error("Saída da IA inválida após uma tentativa de reparo.");
 }
 
-const MARGEM_MINIMA_PADRAO = 0.15;
-
-// Teto de desconto que preserva a margem mínima, com base no custo/preço
-// médio real dos produtos ativos da org. A IA sugere um desconto livremente,
-// mas nunca é persistido acima deste teto — sem isso, nada impede a IA de
-// sugerir um desconto que vende abaixo do custo.
-async function obterTetoDescontoPelaMargem(orgId: string): Promise<number | null> {
-  const [agregado] = await db
-    .select({
-      custoMedio: sql<string>`avg(${produto.custo})`,
-      precoMedio: sql<string>`avg(${produto.preco})`,
-    })
-    .from(produto)
-    .where(and(eq(produto.orgId, orgId), eq(produto.ativo, true), isNotNull(produto.custo)));
-
-  const custoMedio = parseFloat(agregado?.custoMedio ?? "");
-  const precoMedio = parseFloat(agregado?.precoMedio ?? "");
-  if (!Number.isFinite(custoMedio) || !Number.isFinite(precoMedio) || precoMedio <= 0) return null;
-
-  const precoMinimo = custoMedio / (1 - MARGEM_MINIMA_PADRAO);
-  return Math.max(0, Math.min(100, (1 - precoMinimo / precoMedio) * 100));
-}
-
 export async function gerarSugestoesCampanha(orgId: string): Promise<{ gerado: boolean; motivo?: string; id?: string }> {
   const clientes_em_risco = await db
     .select({ clienteId: scoreCliente.clienteId, churnRisk: scoreCliente.churnRisk, explicacao: scoreCliente.explicacao })
@@ -201,16 +178,13 @@ Sugira uma campanha de reativação concisa e objetiva.`;
     ],
   });
 
-  const tetoMargem = await obterTetoDescontoPelaMargem(orgId);
-  const descontoFinal = tetoMargem != null ? Math.min(output.descontoMinimo, tetoMargem) : output.descontoMinimo;
-
   const [nova] = await db.insert(sugestaoCampanha).values({
     orgId,
     titulo: output.titulo,
     segmentoDescricao: output.segmentoDescricao,
     oferta: output.oferta,
     momentoSugerido: output.momentoSugerido,
-    descontoMinimo: descontoFinal.toFixed(2),
+    descontoMinimo: output.descontoMinimo.toFixed(2),
     status: "sugerida",
     modeloUsado: MODELOS.triagem,
     promptVersion,

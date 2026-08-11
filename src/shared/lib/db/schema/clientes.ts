@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, date, pgEnum, jsonb, index, uniqueIndex,
+  pgTable, uuid, text, timestamp, date, pgEnum, jsonb, index, uniqueIndex, doublePrecision,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { org, brand } from "./org";
@@ -34,6 +34,21 @@ export const cliente = pgTable("cliente", {
   telefone: text("telefone"),
   cpfCnpj: text("cpf_cnpj"),
   dataNascimento: date("data_nascimento"),
+  // Enriquecimento vindo do endereço de entrega do pedido (hoje só Mercado
+  // Livre — ver mercadolivre.provider.ts). nome_completo é o nome do
+  // destinatário da entrega, não necessariamente o dono da conta no canal;
+  // por isso fica separado de `nome` (que continua sendo o identificador
+  // estável do comprador) em vez de sobrescrevê-lo.
+  nomeCompleto: text("nome_completo"),
+  enderecoRua: text("endereco_rua"),
+  enderecoNumero: text("endereco_numero"),
+  enderecoComplemento: text("endereco_complemento"),
+  enderecoBairro: text("endereco_bairro"),
+  enderecoCidade: text("endereco_cidade"),
+  enderecoEstado: text("endereco_estado"),
+  enderecoCep: text("endereco_cep"),
+  enderecoLatitude: doublePrecision("endereco_latitude"),
+  enderecoLongitude: doublePrecision("endereco_longitude"),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),

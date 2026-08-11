@@ -1,23 +1,4 @@
 {
-  "cliente": {
-    "title": "Novo cliente",
-    "cancelHref": "/clientes",
-    "steps": ["Dados pessoais", "Contato", "Revisar"],
-    "sections": [
-      { "title": "Dados pessoais", "description": "Informações principais do cliente" },
-      { "title": "Contato", "description": "Como entrar em contato com o cliente" },
-      { "title": "Confirmar cadastro", "description": "Revise os dados antes de salvar" }
-    ],
-    "fields": {
-      "nome": { "label": "Nome completo", "placeholder": "Ex: Maria da Silva" },
-      "cpfCnpj": { "label": "CPF / CNPJ", "placeholder": "000.000.000-00 ou 00.000.000/0001-00" },
-      "email": { "label": "E-mail", "placeholder": "cliente@exemplo.com" },
-      "telefone": { "label": "Telefone", "placeholder": "(11) 99999-9999" }
-    },
-    "reviewLabels": { "nome": "Nome", "cpfCnpj": "CPF / CNPJ", "email": "E-mail", "telefone": "Telefone" },
-    "actions": { "submit": "Cadastrar cliente", "submitting": "Cadastrando…" },
-    "messages": { "nameInvalid": "Nome deve ter ao menos 2 caracteres", "emailInvalid": "E-mail inválido", "success": "Cliente criado com sucesso!", "error": "Erro ao criar cliente." }
-  },
   "importacao": {
     "title": "Importar clientes",
     "cancelHref": "/clientes",
@@ -86,5 +67,69 @@
     "reviewLabels": { "titulo": "Título", "brandId": "Marca", "etapaId": "Etapa", "valor": "Valor estimado", "clienteId": "Cliente", "responsavelId": "Responsável" },
     "actions": { "submit": "Criar oportunidade", "submitting": "Criando…" },
     "messages": { "titleRequired": "Título é obrigatório", "brandRequired": "Selecione a marca", "stageRequired": "Selecione a etapa do funil", "success": "Oportunidade criada!", "error": "Erro ao criar oportunidade.", "stagesError": "Erro ao carregar etapas do funil.", "referencesError": "Erro ao carregar clientes, marcas e responsáveis." }
+  },
+  "estoque": {
+    "title": "Configurar alertas de estoque",
+    "cancelHref": "/estoque",
+    "steps": ["Escopo", "Régua", "Revisar"],
+    "sections": [
+      { "title": "Quais produtos entram?", "description": "O estoque mínimo é o número que liga o alerta. Escolha onde aplicá-lo." },
+      { "title": "Como saber que o saldo está baixo?", "description": "Defina a régua e veja, ao lado, o que ela faria hoje." },
+      { "title": "Revisar e aplicar", "description": "Confira quem passa a alertar antes de gravar." }
+    ],
+    "escopo": {
+      "channelLabel": "Canal",
+      "allChannels": "Todos os canais",
+      "brandLabel": "Marca",
+      "allBrands": "Todas as marcas",
+      "onlyWithoutLabel": "Somente produtos sem mínimo definido",
+      "onlyWithoutHint": "Recomendado: preserva os mínimos que você já ajustou à mão.",
+      "scopeCount": "{n} produto(s) no escopo",
+      "scopeEmpty": "Nenhum produto neste escopo — ajuste o canal ou a marca.",
+      "loading": "Contando produtos…"
+    },
+    "regua": {
+      "fixedTitle": "Mesmo mínimo para todos",
+      "fixedDescription": "Um número só. Simples, mas trata um SKU que vende 40 por mês igual a um que vende 1.",
+      "fixedFieldLabel": "Estoque mínimo",
+      "giroTitle": "Por giro dos últimos 90 dias",
+      "giroRecommended": "recomendado",
+      "giroDescription": "O mínimo acompanha a velocidade de venda de cada SKU. Ajuste as faixas abaixo.",
+      "tierPrefix": "Vende",
+      "tierSuffix": "ou mais por mês",
+      "tierZero": "Sem venda nos últimos 90 dias",
+      "tierMinimum": "mínimo",
+      "tierNoAlert": "não alertar",
+      "previewTitle": "Com esta régua, hoje",
+      "previewAlerting": "entrariam em “abaixo do mínimo”",
+      "previewOutOfStock": "já estão sem estoque",
+      "previewNoAlert": "ficam sem alerta (giro zero)",
+      "previewMonitored": "passam a ser monitorados",
+      "previewLoading": "Calculando…",
+      "previewError": "Não foi possível calcular a prévia.",
+      "minimumInvalid": "Informe um mínimo inteiro igual ou maior que zero."
+    },
+    "revisar": {
+      "summaryTitle": "Resumo",
+      "summaryScope": "Produtos no escopo",
+      "summaryMonitored": "Passam a ser monitorados",
+      "summaryChanged": "Terão o mínimo alterado",
+      "summaryAlerting": "Entram em alerta hoje",
+      "listTitle": "Entram em alerta assim que você aplicar",
+      "listHint": "Desmarque um SKU para deixá-lo de fora — ele fica sem mínimo e não alerta.",
+      "listTruncated": "Mostrando os primeiros {mostrados} de {total}. Os demais também recebem a régua.",
+      "listEmpty": "Nenhum produto entra em alerta com esta régua — só a régua é gravada.",
+      "excludedCount": "{n} SKU(s) fora",
+      "balanceLabel": "saldo",
+      "minimumLabel": "mín",
+      "turnoverLabel": "giro/mês"
+    },
+    "actions": { "submit": "Aplicar régua", "submitting": "Aplicando…" },
+    "messages": {
+      "success": "Régua aplicada a {n} produto(s).",
+      "nothingChanged": "Nenhum produto precisou de alteração — a régua já estava em vigor.",
+      "error": "Erro ao aplicar a régua de alertas.",
+      "scopeError": "Erro ao carregar marcas e canais."
+    }
   }
 }
