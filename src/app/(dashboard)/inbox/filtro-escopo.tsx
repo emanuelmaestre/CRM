@@ -17,13 +17,13 @@ function EmpresaPill({ nome, slug, total, ativo, onClick }: {
       type="button"
       onClick={onClick}
       aria-pressed={ativo}
-      className={`inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 transition-colors ${
+      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         ativo ? "border-2 bg-card" : "border border-border bg-card hover:bg-muted"
       }`}
       style={ativo ? { borderColor: getBrandConfig(slug)?.color ?? "var(--primary)" } : undefined}
     >
-      {temIdentidade ? <BrandLogo brand={slug} height={11} /> : <span className="text-[11px] font-semibold text-foreground">{nome}</span>}
-      <span className="text-[10px] tabular-nums text-muted-foreground">{total}</span>
+      {temIdentidade ? <BrandLogo brand={slug} height={13} /> : <span className="text-[13px] font-semibold text-foreground">{nome}</span>}
+      <span className="text-[11px] tabular-nums text-muted-foreground">{total}</span>
     </button>
   );
 }
@@ -37,13 +37,13 @@ function CanalFiltroPill({ tipo, total, ativo, onClick }: {
       type="button"
       onClick={onClick}
       aria-pressed={ativo}
-      className={`inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 transition-colors ${
+      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         ativo ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)]" : "border border-border bg-card hover:bg-muted"
       }`}
     >
       <ChannelLogo canal={tipo} size="xs" variant="logo" />
-      <span className="text-[11px] font-semibold text-foreground">{label}</span>
-      <span className="text-[10px] tabular-nums text-muted-foreground">{total}</span>
+      <span className="text-[13px] font-semibold text-foreground">{label}</span>
+      <span className="text-[11px] tabular-nums text-muted-foreground">{total}</span>
     </button>
   );
 }
@@ -66,9 +66,9 @@ export function FiltroEscopoBar({
   contagemCanal: Record<string, number>;
 }) {
   return (
-    <div className="flex flex-nowrap items-center gap-1.5 rounded-full border border-border/60 bg-card px-3 py-1.5 shadow-[0_2px_10px_rgba(14,15,19,.04)] w-fit">
-      <span className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <Building2 size={11} strokeWidth={2.25} /> Empresa
+    <div className="flex flex-nowrap items-center gap-2 rounded-full border border-border/60 bg-card px-3.5 py-2 shadow-[0_2px_10px_rgba(14,15,19,.04)] w-fit">
+      <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <Building2 size={12} strokeWidth={2.25} /> Empresa
       </span>
       {BRAND_SLUGS.map((slug) => (
         <EmpresaPill
@@ -83,8 +83,8 @@ export function FiltroEscopoBar({
 
       <span aria-hidden="true" className="h-5 w-px bg-border flex-shrink-0" />
 
-      <span className="inline-flex flex-shrink-0 items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <Radio size={11} strokeWidth={2.25} /> Canal
+      <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <Radio size={12} strokeWidth={2.25} /> Canal
       </span>
       {CANAIS_VENDA.map((tipo) => (
         <CanalFiltroPill

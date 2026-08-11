@@ -62,7 +62,7 @@ export default function InboxPage() {
       {/* Header + Tabs — compacto de propósito: a conversa é o conteúdo, não
           o cabeçalho, então título, filtro e abas dividem uma linha só sempre
           que a largura permitir, em vez de empilhar e comer altura útil. */}
-      <div className="flex flex-nowrap items-center justify-between gap-3">
+      <div className="flex flex-nowrap items-center justify-start gap-2">
         {/* Barra de escopo única — vale pras três abas ao mesmo tempo, em vez
             de cada uma ter a sua. Rola por dentro em vez de quebrar linha,
             pra não empurrar a tab bar pra baixo em telas mais estreitas. */}
