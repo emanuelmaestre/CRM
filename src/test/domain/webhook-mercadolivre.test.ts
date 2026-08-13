@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   obterTokenMercadoLivre: vi.fn(),
   ingerirPedido: vi.fn(),
   receberMensagem: vi.fn(),
+  // sem identidade cadastrada: a rota cai no fallback de buscar o nome do comprador
+  resolverClientePorIdentidade: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/modules/canais/application/webhook-account.service", () => ({
@@ -19,6 +21,7 @@ vi.mock("@/modules/canais/application/ingestao-pedido.service", () => ({
 }));
 vi.mock("@/modules/inbox/application/inbox.service", () => ({
   receberMensagem: mocks.receberMensagem,
+  resolverClientePorIdentidade: mocks.resolverClientePorIdentidade,
 }));
 
 const { POST } = await import("@/app/api/webhooks/mercadolivre/route");
