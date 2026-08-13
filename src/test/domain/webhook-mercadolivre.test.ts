@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   obterTokenMercadoLivre: vi.fn(),
   ingerirPedido: vi.fn(),
   receberMensagem: vi.fn(),
+  resolverClientePorIdentidade: vi.fn(),
 }));
 
 vi.mock("@/modules/canais/application/webhook-account.service", () => ({
@@ -19,6 +20,7 @@ vi.mock("@/modules/canais/application/ingestao-pedido.service", () => ({
 }));
 vi.mock("@/modules/inbox/application/inbox.service", () => ({
   receberMensagem: mocks.receberMensagem,
+  resolverClientePorIdentidade: mocks.resolverClientePorIdentidade,
 }));
 
 const { POST } = await import("@/app/api/webhooks/mercadolivre/route");

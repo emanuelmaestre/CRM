@@ -28,7 +28,8 @@
     "db:ci:seed-e2e": "node scripts/seed-ci-e2e.mjs",
     "test:seed-synthetic": "node scripts/test-seed-synthetic.mjs",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "estoque:coletar": "node --env-file=.env.local --import tsx scripts/coletar-estoque.mts"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.3",
