@@ -1,14 +1,12 @@
-import { and, asc, count, desc, eq, getTableColumns, gt, gte, ilike, inArray, isNull, SQL, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, gte, ilike, inArray, isNull, notInArray, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import {
-  auditLog, brand, channelAccount, produto, produtoCanal, estoqueDivergencia, estoqueSaldo, estoqueMovimento,
+  auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo, pedido, pedidoItem,
 } from "@/shared/lib/db/schema";
-import { despacharEvento, despacharEventosPendentes, persistirEvento } from "@/shared/events";
+import { despacharEvento, persistirEvento } from "@/shared/events";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
-import {
-  validarMovimento, calcularNovoSaldo, type MovimentoTipo, CreateProdutoSchema, UpdateProdutoSchema,
-} from "../domain/entities";
+import { CreateProdutoSchema, UpdateProdutoSchema } from "../domain/entities";
 
 const DIAS_SEM_VENDA_ENCALHE = 30;
 const LIMITE_RISCO_ENCALHE = 30;
@@ -26,7 +24,6 @@ export async function criarProduto(ctx: CrudContext, input: unknown) {
 
   const novo = await ctx.db.transaction(async (tx) => {
     const [created] = await tx.insert(produto).values({ ...data, orgId: ctx.orgId }).returning();
-    await tx.insert(estoqueSaldo).values({ orgId: ctx.orgId, produtoId: created.id, saldo: 0 });
     await tx.insert(auditLog).values({
       orgId: ctx.orgId,
       brandId: created.brandId,
@@ -111,12 +108,81 @@ export async function editarProduto(ctx: CrudContext, produtoId: string, input: 
  *  sobrepõem somam mais que o total e destroem a confiança no número. */
 export type EstadoEstoque = "abaixo_minimo" | "sem_estoque" | "sem_minimo";
 
-const SALDO = sql<number>`coalesce(${estoqueSaldo.saldo}, 0)`;
+/** Saldo do produto, derivado do que os canais informam.
+ *
+ *  É o MAIOR saldo entre os canais, não a soma: o mesmo lote físico é
+ *  anunciado nos três, então somar contaria a mesma peça várias vezes.
+ *
+ *  Subquery correlacionada em vez de JOIN porque o saldo é 1:N por produto —
+ *  um JOIN duplicaria a linha do produto por canal mapeado. Produto sem
+ *  nenhum canal coletado cai em 0, que é o mesmo que a UI já tratava como
+ *  "sem estoque".
+ *
+ *  Com filtro de canal ativo, o saldo passa a ser o daqueles canais apenas —
+ *  a pergunta na tela deixa de ser "quanto tenho" e vira "quanto tenho ali". */
+function saldoExpr(orgId: string, canalTipos?: readonly string[]): SQL<number> {
+  const filtroCanal = canalTipos && canalTipos.length > 0
+    ? sql`and ${channelAccount.tipo} in ${canalTipos}`
+    : sql``;
+  return sql<number>`coalesce((
+    select max(${estoqueCanalSaldo.saldo})
+    from ${estoqueCanalSaldo}
+    inner join ${channelAccount} on ${channelAccount.id} = ${estoqueCanalSaldo.channelAccountId}
+    where ${estoqueCanalSaldo.produtoId} = ${produto.id}
+      and ${estoqueCanalSaldo.orgId} = ${orgId}
+      ${filtroCanal}
+  ), 0)`;
+}
 
-function condicaoEstado(estado: EstadoEstoque): SQL {
-  if (estado === "sem_estoque") return sql`${SALDO} <= 0`;
+/** Saldo de cada canal separadamente, para a tela mostrar lado a lado em vez
+ *  de um número só. Vem como json para não multiplicar a linha do produto. */
+function saldosPorCanalExpr(orgId: string): SQL<Array<{ canal: string; saldo: number; verificadoEm: string }>> {
+  return sql`coalesce((
+    select json_agg(json_build_object(
+      'canal', ${channelAccount.tipo},
+      'saldo', ${estoqueCanalSaldo.saldo},
+      'verificadoEm', ${estoqueCanalSaldo.verificadoEm}
+    ) order by ${channelAccount.tipo})
+    from ${estoqueCanalSaldo}
+    inner join ${channelAccount} on ${channelAccount.id} = ${estoqueCanalSaldo.channelAccountId}
+    where ${estoqueCanalSaldo.produtoId} = ${produto.id}
+      and ${estoqueCanalSaldo.orgId} = ${orgId}
+  ), '[]'::json)`;
+}
+
+/** Quantidade vendida por produto desde uma data.
+ *
+ *  Antes vinha do livro-razão (movimento de saída), que deixou de existir
+ *  junto com o saldo local. A evidência de venda agora é o próprio pedido —
+ *  fonte mais direta, aliás, porque o livro-razão era um reflexo dele.
+ *  Cancelado e devolvido ficam de fora: não consumiram estoque. */
+async function vendasPorProduto(
+  ctx: CrudContext,
+  produtoIds: string[],
+  desde: Date,
+): Promise<Map<string, number>> {
+  if (produtoIds.length === 0) return new Map();
+  const linhas = await ctx.db
+    .select({
+      produtoId: pedidoItem.produtoId,
+      quantidade: sql<number>`sum(${pedidoItem.quantidade})`,
+    })
+    .from(pedidoItem)
+    .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
+    .where(and(
+      eq(pedido.orgId, ctx.orgId),
+      notInArray(pedido.status, ["cancelado", "devolvido"]),
+      gte(pedido.createdAt, desde),
+      inArray(pedidoItem.produtoId, produtoIds),
+    ))
+    .groupBy(pedidoItem.produtoId);
+  return new Map(linhas.map((linha) => [linha.produtoId, Number(linha.quantidade)]));
+}
+
+function condicaoEstado(estado: EstadoEstoque, saldo: SQL<number>): SQL {
+  if (estado === "sem_estoque") return sql`${saldo} <= 0`;
   if (estado === "sem_minimo") return sql`${produto.estoqueMinimo} <= 0`;
-  return sql`${SALDO} > 0 and ${produto.estoqueMinimo} > 0 and ${SALDO} <= ${produto.estoqueMinimo}`;
+  return sql`${saldo} > 0 and ${produto.estoqueMinimo} > 0 and ${saldo} <= ${produto.estoqueMinimo}`;
 }
 
 /** SKU tem no máximo um mapeamento ativo por tipo de canal (um produto pode
@@ -162,14 +228,13 @@ export async function listarProdutos(
       filters.push(ilike(sql`${produto.sku} || ' ' || ${produto.nome}`, `%${termo}%`));
     }
   }
-  if (opts.estado) filters.push(condicaoEstado(opts.estado));
+  const SALDO = saldoExpr(ctx.orgId, opts.canalTipos);
+  if (opts.estado) filters.push(condicaoEstado(opts.estado, SALDO));
   if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanal(ctx.orgId, opts.canalTipos));
   // Lista vazia significa "nenhum produto casa" (ex.: filtro de parados sem
   // resultado) — sem o guarda, inArray com [] geraria SQL inválido.
   if (opts.ids) filters.push(opts.ids.length > 0 ? inArray(produto.id, opts.ids) : sql`false`);
 
-  // A contagem repete o join de saldo porque os filtros de estado leem a
-  // coluna de saldo — sem o join aqui, o total divergiria da lista.
   const [rows, totalRows] = await Promise.all([
     ctx.db
       .select({
@@ -186,6 +251,7 @@ export async function listarProdutos(
         createdAt: produto.createdAt,
         updatedAt: produto.updatedAt,
         saldo: SALDO,
+        saldosCanais: saldosPorCanalExpr(ctx.orgId),
         // Canais em que o produto está anunciado agora — subquery correlacionada
         // em vez de JOIN porque um produto pode ter vários mapeamentos ativos
         // (inclusive mais de um no mesmo canal) e um JOIN duplicaria a linha.
@@ -201,10 +267,6 @@ export async function listarProdutos(
         eq(brand.id, produto.brandId),
         eq(brand.orgId, ctx.orgId),
       ))
-      .leftJoin(estoqueSaldo, and(
-        eq(estoqueSaldo.produtoId, produto.id),
-        eq(estoqueSaldo.orgId, ctx.orgId),
-      ))
       .where(and(...filters))
       .orderBy(produto.nome)
       .limit(limit)
@@ -212,10 +274,6 @@ export async function listarProdutos(
     ctx.db
       .select({ total: count() })
       .from(produto)
-      .leftJoin(estoqueSaldo, and(
-        eq(estoqueSaldo.produtoId, produto.id),
-        eq(estoqueSaldo.orgId, ctx.orgId),
-      ))
       .where(and(...filters)),
   ]);
 
@@ -234,18 +292,15 @@ export async function contarIndicadoresEstoque(
   if (opts.brandIds && opts.brandIds.length > 0) filters.push(inArray(produto.brandId, opts.brandIds));
   if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanal(ctx.orgId, opts.canalTipos));
 
+  const SALDO = saldoExpr(ctx.orgId, opts.canalTipos);
   const [linha] = await ctx.db
     .select({
       total: count(),
-      abaixoMinimo: sql<number>`count(*) filter (where ${condicaoEstado("abaixo_minimo")})`,
-      semEstoque: sql<number>`count(*) filter (where ${condicaoEstado("sem_estoque")})`,
-      semMinimo: sql<number>`count(*) filter (where ${condicaoEstado("sem_minimo")})`,
+      abaixoMinimo: sql<number>`count(*) filter (where ${condicaoEstado("abaixo_minimo", SALDO)})`,
+      semEstoque: sql<number>`count(*) filter (where ${condicaoEstado("sem_estoque", SALDO)})`,
+      semMinimo: sql<number>`count(*) filter (where ${condicaoEstado("sem_minimo", SALDO)})`,
     })
     .from(produto)
-    .leftJoin(estoqueSaldo, and(
-      eq(estoqueSaldo.produtoId, produto.id),
-      eq(estoqueSaldo.orgId, ctx.orgId),
-    ))
     .where(and(...filters));
 
   return {
@@ -439,7 +494,7 @@ function filtrosEscopo(ctx: CrudContext, escopo: EscopoRegua): SQL[] {
   const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
   if (escopo.brandId) filters.push(eq(produto.brandId, escopo.brandId));
   if (escopo.canalTipo) filters.push(condicaoCanal(ctx.orgId, escopo.canalTipo));
-  if (escopo.somenteSemMinimo) filters.push(condicaoEstado("sem_minimo"));
+  if (escopo.somenteSemMinimo) filters.push(condicaoEstado("sem_minimo", saldoExpr(ctx.orgId, escopo.canalTipo ? [escopo.canalTipo] : undefined)));
   return filters;
 }
 
@@ -461,14 +516,10 @@ export async function simularReguaEstoque(
       brandName: brand.name,
       brandSlug: brand.slug,
       estoqueMinimo: produto.estoqueMinimo,
-      saldo: SALDO,
+      saldo: saldoExpr(ctx.orgId, escopo.canalTipo ? [escopo.canalTipo] : undefined),
     })
     .from(produto)
     .innerJoin(brand, and(eq(brand.id, produto.brandId), eq(brand.orgId, ctx.orgId)))
-    .leftJoin(estoqueSaldo, and(
-      eq(estoqueSaldo.produtoId, produto.id),
-      eq(estoqueSaldo.orgId, ctx.orgId),
-    ))
     .where(and(...filtrosEscopo(ctx, escopo)))
     .orderBy(produto.nome);
 
@@ -482,23 +533,10 @@ export async function simularReguaEstoque(
   };
   if (alvos.length === 0) return vazio;
 
-  // Giro real do período: uma agregação só para todo o escopo. Movimento de
-  // saída é a única evidência de venda no livro-razão.
+  // Giro real do período: uma agregação só para todo o escopo, lida dos
+  // pedidos do intervalo.
   const corte = new Date(Date.now() - DIAS_JANELA_GIRO * 86_400_000);
-  const saidas = await ctx.db
-    .select({
-      produtoId: estoqueMovimento.produtoId,
-      quantidade: sql<number>`sum(${estoqueMovimento.quantidade})`,
-    })
-    .from(estoqueMovimento)
-    .where(and(
-      eq(estoqueMovimento.orgId, ctx.orgId),
-      eq(estoqueMovimento.tipo, "saida"),
-      gte(estoqueMovimento.createdAt, corte),
-      inArray(estoqueMovimento.produtoId, alvos.map((item) => item.id)),
-    ))
-    .groupBy(estoqueMovimento.produtoId);
-  const saidaPorProduto = new Map(saidas.map((linha) => [linha.produtoId, Number(linha.quantidade)]));
+  const saidaPorProduto = await vendasPorProduto(ctx, alvos.map((item) => item.id), corte);
 
   const resumo = { total: alvos.length, monitorados: 0, semAlerta: 0, alertariam: 0, semEstoque: 0, alterados: 0 };
   const previaAlerta: typeof vazio.previaAlerta = [];
@@ -553,10 +591,6 @@ export async function aplicarReguaEstoque(
       estoqueMinimo: produto.estoqueMinimo,
     })
     .from(produto)
-    .leftJoin(estoqueSaldo, and(
-      eq(estoqueSaldo.produtoId, produto.id),
-      eq(estoqueSaldo.orgId, ctx.orgId),
-    ))
     .where(and(...filtrosEscopo(ctx, escopo)));
 
   const excluidos = new Set(excluirIds);
@@ -564,20 +598,7 @@ export async function aplicarReguaEstoque(
   if (candidatos.length === 0) return { atualizados: 0, inalterados: 0 };
 
   const corte = new Date(Date.now() - DIAS_JANELA_GIRO * 86_400_000);
-  const saidas = await ctx.db
-    .select({
-      produtoId: estoqueMovimento.produtoId,
-      quantidade: sql<number>`sum(${estoqueMovimento.quantidade})`,
-    })
-    .from(estoqueMovimento)
-    .where(and(
-      eq(estoqueMovimento.orgId, ctx.orgId),
-      eq(estoqueMovimento.tipo, "saida"),
-      gte(estoqueMovimento.createdAt, corte),
-      inArray(estoqueMovimento.produtoId, candidatos.map((item) => item.id)),
-    ))
-    .groupBy(estoqueMovimento.produtoId);
-  const saidaPorProduto = new Map(saidas.map((linha) => [linha.produtoId, Number(linha.quantidade)]));
+  const saidaPorProduto = await vendasPorProduto(ctx, candidatos.map((item) => item.id), corte);
 
   // Agrupa por valor: com faixas de giro há no máximo um UPDATE por faixa,
   // em vez de um por SKU.
@@ -631,26 +652,32 @@ export async function aplicarReguaEstoque(
 export async function listarProdutosParados(ctx: CrudContext) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
 
+  const SALDO = saldoExpr(ctx.orgId);
   const candidatos = await ctx.db
     .select({
       id: produto.id, sku: produto.sku, nome: produto.nome, preco: produto.preco,
-      saldo: estoqueSaldo.saldo, criadoEm: produto.createdAt,
+      saldo: SALDO, criadoEm: produto.createdAt,
     })
     .from(produto)
-    .innerJoin(estoqueSaldo, eq(estoqueSaldo.produtoId, produto.id))
-    .where(and(eq(produto.orgId, ctx.orgId), eq(produto.ativo, true), isNull(produto.deletedAt), gt(estoqueSaldo.saldo, 0)));
+    .where(and(
+      eq(produto.orgId, ctx.orgId),
+      eq(produto.ativo, true),
+      isNull(produto.deletedAt),
+      sql`${SALDO} > 0`,
+    ));
 
   if (candidatos.length === 0) return [];
 
   const ultimasVendas = await ctx.db
-    .select({ produtoId: estoqueMovimento.produtoId, ultimaVenda: sql<string>`max(${estoqueMovimento.createdAt})` })
-    .from(estoqueMovimento)
+    .select({ produtoId: pedidoItem.produtoId, ultimaVenda: sql<string>`max(${pedido.createdAt})` })
+    .from(pedidoItem)
+    .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
     .where(and(
-      eq(estoqueMovimento.orgId, ctx.orgId),
-      eq(estoqueMovimento.tipo, "saida"),
-      inArray(estoqueMovimento.produtoId, candidatos.map((item) => item.id)),
+      eq(pedido.orgId, ctx.orgId),
+      notInArray(pedido.status, ["cancelado", "devolvido"]),
+      inArray(pedidoItem.produtoId, candidatos.map((item) => item.id)),
     ))
-    .groupBy(estoqueMovimento.produtoId);
+    .groupBy(pedidoItem.produtoId);
 
   const ultimaVendaPorProduto = new Map(ultimasVendas.map((item) => [item.produtoId, item.ultimaVenda]));
 
@@ -679,155 +706,6 @@ export async function listarProdutosParados(ctx: CrudContext) {
     .sort((a, b) => b.riscoEncalhe - a.riscoEncalhe);
 }
 
-export async function registrarMovimento(
-  ctx: CrudContext,
-  input: {
-    produtoId: string;
-    tipo: MovimentoTipo;
-    quantidade: number;
-    referenciaId?: string;
-    referenciaTipo?: string;
-    observacao?: string;
-  }
-) {
-  assertPerfil(ctx, ["admin", "gestor"]);
-
-  const resultado = await ctx.db.transaction(async (tx) => {
-    const produtoRow = await tx
-      .select({ id: produto.id, brandId: produto.brandId, estoqueMinimo: produto.estoqueMinimo })
-      .from(produto)
-      .where(and(eq(produto.orgId, ctx.orgId), eq(produto.id, input.produtoId), isNull(produto.deletedAt)))
-      .then((rows) => rows[0]);
-    if (!produtoRow) throw new Error("Produto não encontrado.");
-
-    const saldoRow = await tx
-      .select()
-      .from(estoqueSaldo)
-      .where(and(
-        eq(estoqueSaldo.orgId, ctx.orgId),
-        eq(estoqueSaldo.produtoId, input.produtoId),
-      ))
-      .for("update")
-      .then((rows) => rows[0]);
-
-    if (!saldoRow) throw new Error("Produto sem saldo cadastrado.");
-
-    // O lock do saldo serializa consumidores concorrentes do mesmo produto.
-    // A checagem após o lock enxerga o movimento confirmado pelo primeiro job.
-    if (input.referenciaId && input.referenciaTipo) {
-      const existente = await tx
-        .select()
-        .from(estoqueMovimento)
-        .where(and(
-          eq(estoqueMovimento.orgId, ctx.orgId),
-          eq(estoqueMovimento.produtoId, input.produtoId),
-          eq(estoqueMovimento.referenciaId, input.referenciaId),
-          eq(estoqueMovimento.referenciaTipo, input.referenciaTipo),
-        ))
-        .then((rows) => rows[0]);
-
-      if (existente) {
-        return {
-          movimento: existente, novoSaldo: saldoRow.saldo, idempotente: true,
-          eventoBaixa: null, eventoSaldo: null, eventoMinimo: null,
-        };
-      }
-    }
-
-    validarMovimento(saldoRow.saldo, input.tipo, input.quantidade);
-    const novoSaldo = calcularNovoSaldo(saldoRow.saldo, input.tipo, input.quantidade);
-
-    const [movimento] = await tx
-      .insert(estoqueMovimento)
-      .values({
-        orgId: ctx.orgId,
-        produtoId: input.produtoId,
-        tipo: input.tipo,
-        quantidade: input.quantidade,
-        referenciaId: input.referenciaId,
-        referenciaTipo: input.referenciaTipo,
-        observacao: input.observacao,
-      })
-      .returning();
-
-    await tx.insert(auditLog).values({
-      orgId: ctx.orgId,
-      brandId: produtoRow.brandId,
-      autorId: ctx.userId,
-      autorTipo: ctx.userId ? "usuario" : "sistema",
-      entidade: "estoque_movimento",
-      entidadeId: movimento.id,
-      acao: "registrado",
-      depois: movimento,
-    });
-
-    await tx
-      .update(estoqueSaldo)
-      .set({ saldo: novoSaldo, updatedAt: new Date() })
-      .where(and(
-        eq(estoqueSaldo.orgId, ctx.orgId),
-        eq(estoqueSaldo.produtoId, input.produtoId),
-      ));
-
-    const eventoBaixa = input.tipo === "saida"
-      ? await persistirEvento({
-          tipo: "estoque.baixa_automatica",
-          orgId: ctx.orgId,
-          entidade: "estoque_movimento",
-          entidadeId: movimento.id,
-          payload: { produtoId: input.produtoId, tipo: input.tipo, quantidade: input.quantidade, novoSaldo },
-        }, tx)
-      : null;
-
-    // Emitido para qualquer tipo de movimento — permite A4 sincronizar o saldo nos canais.
-    const eventoSaldo = await persistirEvento({
-      tipo: "estoque.saldo_atualizado",
-      orgId: ctx.orgId,
-      entidade: "estoque_saldo",
-      entidadeId: input.produtoId,
-      payload: { produtoId: input.produtoId, novoSaldo, tipoMovimento: input.tipo },
-    }, tx);
-
-    await persistirEvento({
-      tipo: "estoque.movimento_registrado",
-      orgId: ctx.orgId,
-      brandId: produtoRow.brandId,
-      entidade: "estoque_movimento",
-      entidadeId: movimento.id,
-      payload: { produtoId: input.produtoId, tipo: input.tipo, quantidade: input.quantidade, novoSaldo },
-    }, tx);
-
-    const eventoMinimo = saldoRow.saldo > produtoRow.estoqueMinimo && novoSaldo <= produtoRow.estoqueMinimo
-      ? await persistirEvento({
-          tipo: "estoque.minimo_atingido",
-          orgId: ctx.orgId,
-          brandId: produtoRow.brandId,
-          entidade: "produto",
-          entidadeId: produtoRow.id,
-          payload: { produtoId: produtoRow.id, estoqueMinimo: produtoRow.estoqueMinimo, novoSaldo },
-        }, tx)
-      : null;
-
-    return { movimento, novoSaldo, idempotente: false, eventoBaixa, eventoSaldo, eventoMinimo };
-  });
-
-  if (resultado.eventoBaixa) await despacharEvento(resultado.eventoBaixa);
-  if (resultado.eventoSaldo) await despacharEvento(resultado.eventoSaldo);
-  if (resultado.eventoMinimo) await despacharEvento(resultado.eventoMinimo);
-  if (resultado.idempotente) {
-    const recuperacao = await despacharEventosPendentes(ctx.orgId, 100);
-    if (recuperacao.falhas > 0) {
-      throw new Error(`Falha ao republicar ${recuperacao.falhas} evento(s) pendente(s) de estoque.`);
-    }
-  }
-
-  return {
-    movimento: resultado.movimento,
-    novoSaldo: resultado.novoSaldo,
-    idempotente: resultado.idempotente,
-  };
-}
-
 /** Alimenta a página cheia de produto (/estoque/produtos/[id]), no mesmo
  *  espírito do Cliente 360: uma tela própria em vez de um modal, com edição
  *  entrando por um lápis dentro dela — não um botão de editar disputando
@@ -841,179 +719,25 @@ export async function buscarProdutoDetalhe(ctx: CrudContext, produtoId: string) 
     .then((rows) => rows[0]);
   if (!produtoRow) throw new Error("Produto não encontrado.");
 
-  const [saldoRow, canaisVinculados, movimentos] = await Promise.all([
-    ctx.db
-      .select({ saldo: estoqueSaldo.saldo })
-      .from(estoqueSaldo)
-      .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, produtoId)))
-      .then((rows) => rows[0]?.saldo ?? 0),
-    ctx.db
-      .select({
-        id: produtoCanal.id,
-        externalListingId: produtoCanal.externalListingId,
-        externalSkuId: produtoCanal.externalSkuId,
-        ativo: produtoCanal.ativo,
-        canalTipo: channelAccount.tipo,
-      })
-      .from(produtoCanal)
-      .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
-      .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.produtoId, produtoId))),
-    ctx.db
-      .select()
-      .from(estoqueMovimento)
-      .where(and(eq(estoqueMovimento.orgId, ctx.orgId), eq(estoqueMovimento.produtoId, produtoId)))
-      .orderBy(desc(estoqueMovimento.createdAt))
-      .limit(20),
-  ]);
-
-  return { produto: produtoRow, saldo: saldoRow, canais: canaisVinculados, movimentos };
-}
-
-export async function consultarSaldo(ctx: CrudContext, produtoId: string) {
-  return ctx.db
-    .select()
-    .from(estoqueSaldo)
-    .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, produtoId)))
-    .then((r) => r[0] ?? null);
-}
-
-// Divergências vêm da reconciliação noturna (job A5-reconciliacao-saldo): o
-// saldo do canal (ex.: Mercado Livre) não bate com o saldo local. A correção
-// nunca é automática — fica pendente até um admin decidir aplicar o valor do
-// canal ou ignorar a diferença.
-export async function listarDivergenciasEstoque(ctx: CrudContext) {
-  assertPerfil(ctx, ["admin", "gestor"]);
-  return ctx.db
+  // O saldo por canal substitui tanto o saldo local quanto o extrato de
+  // movimentos: cada linha diz quanto aquele canal informa e quando foi lido.
+  const canaisVinculados = await ctx.db
     .select({
-      id: estoqueDivergencia.id,
-      produtoId: estoqueDivergencia.produtoId,
-      produtoSku: produto.sku,
-      produtoNome: produto.nome,
-      channelAccountId: estoqueDivergencia.channelAccountId,
-      canal: channelAccount.tipo,
-      brandSlug: brand.slug,
-      brandName: brand.name,
-      saldoLocal: estoqueDivergencia.saldoLocal,
-      saldoCanal: estoqueDivergencia.saldoCanal,
-      createdAt: estoqueDivergencia.createdAt,
+      id: produtoCanal.id,
+      externalListingId: produtoCanal.externalListingId,
+      externalSkuId: produtoCanal.externalSkuId,
+      ativo: produtoCanal.ativo,
+      canalTipo: channelAccount.tipo,
+      saldo: estoqueCanalSaldo.saldo,
+      verificadoEm: estoqueCanalSaldo.verificadoEm,
     })
-    .from(estoqueDivergencia)
-    .innerJoin(produto, eq(produto.id, estoqueDivergencia.produtoId))
-    .innerJoin(channelAccount, eq(channelAccount.id, estoqueDivergencia.channelAccountId))
-    .innerJoin(brand, eq(brand.id, channelAccount.brandId))
-    .where(and(
-      eq(estoqueDivergencia.orgId, ctx.orgId),
-      eq(estoqueDivergencia.status, "pendente"),
-    ))
-    .orderBy(desc(estoqueDivergencia.createdAt));
-}
+    .from(produtoCanal)
+    .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
+    .leftJoin(estoqueCanalSaldo, eq(estoqueCanalSaldo.produtoCanalId, produtoCanal.id))
+    .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.produtoId, produtoId)));
 
-export async function resolverDivergenciaEstoque(
-  ctx: CrudContext,
-  divergenciaId: string,
-  decisao: "aplicar_canal" | "ignorar",
-) {
-  assertPerfil(ctx, ["admin", "gestor"]);
+  // Mesmo lote anunciado em vários canais: o saldo do produto é o maior deles.
+  const saldo = canaisVinculados.reduce((maior, item) => Math.max(maior, item.saldo ?? 0), 0);
 
-  const resultado = await ctx.db.transaction(async (tx) => {
-    const divergenciaRow = await tx
-      .select()
-      .from(estoqueDivergencia)
-      .where(and(
-        eq(estoqueDivergencia.id, divergenciaId),
-        eq(estoqueDivergencia.orgId, ctx.orgId),
-        eq(estoqueDivergencia.status, "pendente"),
-      ))
-      .for("update")
-      .then((rows) => rows[0]);
-    if (!divergenciaRow) throw new Error("Divergência não encontrada ou já resolvida.");
-
-    if (decisao === "ignorar") {
-      await tx.update(estoqueDivergencia).set({
-        status: "ignorada",
-        resolvidoPorId: ctx.userId,
-        resolvidoEm: new Date(),
-      }).where(eq(estoqueDivergencia.id, divergenciaId));
-
-      await tx.insert(auditLog).values({
-        orgId: ctx.orgId,
-        autorId: ctx.userId,
-        autorTipo: ctx.userId ? "usuario" : "sistema",
-        entidade: "estoque_divergencia",
-        entidadeId: divergenciaId,
-        acao: "ignorada",
-        antes: { saldoLocal: divergenciaRow.saldoLocal, saldoCanal: divergenciaRow.saldoCanal },
-      });
-      return { status: "ignorada" as const, eventoSaldo: null };
-    }
-
-    const produtoRow = await tx
-      .select({ id: produto.id, brandId: produto.brandId })
-      .from(produto)
-      .where(and(eq(produto.orgId, ctx.orgId), eq(produto.id, divergenciaRow.produtoId), isNull(produto.deletedAt)))
-      .then((rows) => rows[0]);
-    if (!produtoRow) throw new Error("Produto não encontrado.");
-
-    const saldoRow = await tx
-      .select()
-      .from(estoqueSaldo)
-      .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, divergenciaRow.produtoId)))
-      .for("update")
-      .then((rows) => rows[0]);
-    if (!saldoRow) throw new Error("Produto sem saldo cadastrado.");
-
-    const novoSaldo = divergenciaRow.saldoCanal;
-    if (novoSaldo < 0) throw new Error("Saldo do canal inválido para aplicar.");
-
-    // O banco tem um check constraint (chk_movimento_quantidade_positiva) que
-    // proíbe quantidade = 0 em estoque_movimento para qualquer tipo — inclusive
-    // "ajuste". Quando o canal está zerado (anúncio esgotado), não há como
-    // representar isso como um movimento; o audit_log abaixo já registra o
-    // antes/depois, então só pulamos a linha de movimento nesse caso.
-    const movimento = novoSaldo > 0
-      ? await tx.insert(estoqueMovimento).values({
-          orgId: ctx.orgId,
-          produtoId: divergenciaRow.produtoId,
-          tipo: "ajuste",
-          quantidade: novoSaldo,
-          referenciaId: divergenciaRow.id,
-          referenciaTipo: "reconciliacao_estoque",
-          observacao: `Aplicado saldo do canal após divergência (local ${saldoRow.saldo} → canal ${novoSaldo}).`,
-        }).returning().then((rows) => rows[0])
-      : null;
-
-    await tx.update(estoqueSaldo).set({ saldo: novoSaldo, updatedAt: new Date() })
-      .where(and(eq(estoqueSaldo.orgId, ctx.orgId), eq(estoqueSaldo.produtoId, divergenciaRow.produtoId)));
-
-    await tx.update(estoqueDivergencia).set({
-      status: "aplicada",
-      resolvidoPorId: ctx.userId,
-      resolvidoEm: new Date(),
-    }).where(eq(estoqueDivergencia.id, divergenciaId));
-
-    await tx.insert(auditLog).values({
-      orgId: ctx.orgId,
-      brandId: produtoRow.brandId,
-      autorId: ctx.userId,
-      autorTipo: ctx.userId ? "usuario" : "sistema",
-      entidade: "estoque_divergencia",
-      entidadeId: divergenciaId,
-      acao: "aplicada",
-      antes: { saldoLocal: saldoRow.saldo },
-      depois: { saldoLocal: novoSaldo, movimentoId: movimento?.id ?? null },
-    });
-
-    const eventoSaldo = await persistirEvento({
-      tipo: "estoque.saldo_atualizado",
-      orgId: ctx.orgId,
-      entidade: "estoque_saldo",
-      entidadeId: divergenciaRow.produtoId,
-      payload: { produtoId: divergenciaRow.produtoId, novoSaldo, tipoMovimento: "ajuste" },
-    }, tx);
-
-    return { status: "aplicada" as const, novoSaldo, eventoSaldo };
-  });
-
-  if (resultado.eventoSaldo) await despacharEvento(resultado.eventoSaldo);
-  return resultado;
+  return { produto: produtoRow, saldo, canais: canaisVinculados };
 }

@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
-import { auditLog, brand, channelAccount, produto, produtoCanal, estoqueSaldo } from "@/shared/lib/db/schema";
+import { auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo } from "@/shared/lib/db/schema";
 import { persistirEvento, despacharEvento } from "@/shared/events";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { isBrandSlug } from "@/shared/config/brands";
@@ -70,13 +70,7 @@ export async function importarCatalogoMercadoLivre(ctx: CrudContext): Promise<{
                 ativo: true,
               }).returning();
 
-              await tx.insert(estoqueSaldo).values({
-                orgId: ctx.orgId,
-                produtoId: criado.id,
-                saldo: item.availableQuantity,
-              });
-
-              await tx.insert(produtoCanal).values({
+              const [vinculo] = await tx.insert(produtoCanal).values({
                 orgId: ctx.orgId,
                 produtoId: criado.id,
                 channelAccountId: conta.channelAccountId,
@@ -84,6 +78,16 @@ export async function importarCatalogoMercadoLivre(ctx: CrudContext): Promise<{
                 externalSkuId: item.externalSku,
                 externalWarehouseId: item.variationId,
                 ativo: true,
+              }).returning();
+
+              // O anúncio já traz o saldo do canal — semeia aqui para o produto
+              // não nascer zerado esperando a coleta noturna (A5).
+              await tx.insert(estoqueCanalSaldo).values({
+                orgId: ctx.orgId,
+                produtoId: criado.id,
+                channelAccountId: conta.channelAccountId,
+                produtoCanalId: vinculo.id,
+                saldo: item.availableQuantity,
               });
 
               await tx.insert(auditLog).values({

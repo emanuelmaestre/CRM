@@ -2,7 +2,7 @@ import { eq, and, desc, sql, gte } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import {
   scoreCliente, scoreProduto, scoreHistorico, pedido, pedidoItem,
-  estoqueSaldo, produto,
+  estoqueCanalSaldo, produto,
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { calcularScoreCliente } from "../domain/rfm";
@@ -135,9 +135,15 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
 
 export async function recalcularScoreProduto(orgId: string, produtoId: string): Promise<void> {
   const produtoRow = await db.select().from(produto).where(eq(produto.id, produtoId)).then((r) => r[0]);
-  const saldoRow = await db.select().from(estoqueSaldo).where(eq(estoqueSaldo.produtoId, produtoId)).then((r) => r[0]);
+  // Saldo do produto = maior entre os canais: o mesmo lote é anunciado em
+  // todos, então somar contaria a mesma peça mais de uma vez.
+  const saldoAtual = await db
+    .select({ saldo: sql<number>`coalesce(max(${estoqueCanalSaldo.saldo}), 0)` })
+    .from(estoqueCanalSaldo)
+    .where(and(eq(estoqueCanalSaldo.orgId, orgId), eq(estoqueCanalSaldo.produtoId, produtoId)))
+    .then((r) => Number(r[0]?.saldo ?? 0));
 
-  if (!produtoRow || !saldoRow) return;
+  if (!produtoRow) return;
 
   const trintaDiasAtras = new Date(Date.now() - 30 * 86_400_000);
 
@@ -172,7 +178,7 @@ export async function recalcularScoreProduto(orgId: string, produtoId: string): 
   const resultado = calcularScoreProduto({
     diasSemVenda,
     giroMensalMedio: giroRow,
-    saldoAtual: saldoRow.saldo,
+    saldoAtual,
     precoUnitario: parseFloat(produtoRow.preco ?? "0"),
   });
 

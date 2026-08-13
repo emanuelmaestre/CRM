@@ -8,7 +8,6 @@
     { "id": "dashboard", "href": "/dashboard", "label": "Painel", "icon": "LayoutDashboard", "mobilePriority": 1, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "clientes", "href": "/clientes", "label": "Clientes", "icon": "Users", "mobilePriority": 2, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "inbox", "href": "/inbox", "label": "Mensagens", "icon": "MessageSquare", "mobilePriority": 3, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "tarefas", "href": "/tarefas", "label": "Tarefas", "icon": "CheckSquare", "mobilePriority": 4, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "vendas", "href": "/vendas", "label": "Vendas", "icon": "ShoppingCart", "mobilePriority": 5, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "estoque", "href": "/estoque", "label": "Estoque", "icon": "Package", "mobilePriority": 6, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "profiles": ["admin", "gestor"] },

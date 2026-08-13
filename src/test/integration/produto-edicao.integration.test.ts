@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
-import { auditLog, brand, eventoDominio, produto, estoqueSaldo } from "@/shared/lib/db/schema";
+import { auditLog, brand, eventoDominio, produto } from "@/shared/lib/db/schema";
 import { editarProduto } from "@/modules/estoque/application/estoque.service";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -26,7 +26,6 @@ const criarProdutoTeste = async () => {
     preco: "10.00",
     estoqueMinimo: 3,
   }).returning();
-  await db.insert(estoqueSaldo).values({ orgId, produtoId: produtoRow.id, saldo: 20 });
   produtosParaLimpar.push(produtoRow.id);
   return produtoRow;
 };
@@ -43,7 +42,6 @@ afterAll(async () => {
   for (const id of produtosParaLimpar) {
     await db.delete(eventoDominio).where(eq(eventoDominio.entidadeId, id)).catch(() => undefined);
     await db.delete(auditLog).where(eq(auditLog.entidadeId, id)).catch(() => undefined);
-    await db.delete(estoqueSaldo).where(eq(estoqueSaldo.produtoId, id));
     await db.delete(produto).where(eq(produto.id, id));
   }
 });

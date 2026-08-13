@@ -5,16 +5,15 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, ArrowLeftRight, ArrowRight, Building2, Check, Eye, Hourglass, Link2, Loader2, PackageX, Pencil, PlugZap2,
-  Radio, RefreshCw, Scale, Search, SlidersHorizontal,
+  AlertTriangle, ArrowLeftRight, Building2, Check, Eye, Hourglass, Link2, Loader2, PackageX, Pencil, PlugZap2,
+  Radio, RefreshCw, Search, SlidersHorizontal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { MovimentoModal } from "./movimento-modal";
 import { EditarProdutoModal } from "./editar-produto-modal";
 import { CanalModal } from "./canal-modal";
 import {
   actionListarProdutos, actionListarProdutosParados,
-  actionListarDivergenciasEstoque, actionResolverDivergenciaEstoque, actionImportarCatalogoEstoque,
+  actionImportarCatalogoEstoque,
   actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote, actionContarProdutosPorCanal,
   actionContarProdutosPorMarca,
 } from "./actions";
@@ -31,9 +30,12 @@ import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 
+type SaldoCanal = { canal: string; saldo: number; verificadoEm: string };
+
 type Produto = {
   id: string; sku: string; nome: string; preco: string;
   estoqueMinimo: number; brandId: string; brandName: string; brandSlug: string; saldo?: number;
+  saldosCanais?: SaldoCanal[];
   canais?: string[];
 };
 
@@ -42,7 +44,6 @@ type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 
 type Indicadores = Awaited<ReturnType<typeof actionIndicadoresEstoque>>;
 type ProdutoParado = Awaited<ReturnType<typeof actionListarProdutosParados>>[number];
-type Divergencia = Awaited<ReturnType<typeof actionListarDivergenciasEstoque>>[number];
 
 const copy = pagesConfig.estoque;
 const PAGINA = 50;
@@ -55,15 +56,9 @@ function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
 }
 
-function canalLabel(canal: string) {
-  const items = channelsConfig.items as Record<string, { label?: string }>;
-  return items[canal]?.label ?? canal;
-}
-
 const TOUR: CoachMarkStep[] = [
   { target: "[data-tour=estoque-empresa]", ...copy.coach.steps[0] },
   { target: "[data-tour=estoque-minimo]", ...copy.coach.steps[1] },
-  { target: "[data-tour=estoque-divergencias]", ...copy.coach.steps[2] },
 ];
 
 /* ── Estado de uma linha ───────────────────────────────────────
@@ -139,12 +134,10 @@ function AlertCard({ label, valor, sub, icon: Icon, tom, ativo, onClick }: {
    numa linha e devolve a altura para a lista de produtos — que é o trabalho
    real da tela. Enquanto não sabemos os números, não afirmamos nada: mostrar
    "0" enquanto carrega é dizer "tudo em ordem" antes de conferir. */
-function FaixaSaude({ indicadores, filtro, onFiltro, onVerDivergencias, temDivergenciasVisiveis }: {
+function FaixaSaude({ indicadores, filtro, onFiltro }: {
   indicadores: Indicadores | null;
   filtro: Filtro;
   onFiltro: (proximo: Filtro) => void;
-  onVerDivergencias: () => void;
-  temDivergenciasVisiveis: boolean;
 }) {
   const hc = copy.health;
 
@@ -192,22 +185,6 @@ function FaixaSaude({ indicadores, filtro, onFiltro, onVerDivergencias, temDiver
   const semRegua = indicadores.semMinimo;
   const monitorados = Math.max(indicadores.total - semRegua, 0);
 
-  const sufixoDivergencia = indicadores.divergencias > 0
-    ? " " + (indicadores.divergencias === 1 ? hc.divergenceSuffix : hc.divergenceSuffixPlural)
-        .replace("{n}", String(indicadores.divergencias))
-    : "";
-
-  const acaoDivergencia = indicadores.divergencias > 0 && temDivergenciasVisiveis ? (
-    <button
-      type="button"
-      onClick={onVerDivergencias}
-      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[0.75rem] border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-    >
-      <Scale size={13} strokeWidth={1.75} />
-      {hc.divergenceAction}
-    </button>
-  ) : null;
-
   return (
     <div data-tour="estoque-saude" className="mb-4 flex flex-col gap-3">
       {cards.length > 0 && (
@@ -241,23 +218,11 @@ function FaixaSaude({ indicadores, filtro, onFiltro, onVerDivergencias, temDiver
             <p className="text-sm font-bold text-foreground">{copy.health.calmTitle}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {copy.health.calmDescription.replace("{monitorados}", String(monitorados))}
-              {sufixoDivergencia}
             </p>
           </div>
-          {acaoDivergencia}
         </div>
       )}
 
-      {/* Com card ou faixa de régua ocupando o topo, a divergência não some:
-          vira uma linha discreta, porque continua exigindo decisão humana. */}
-      {(cards.length > 0 || semRegua > 0) && sufixoDivergencia && (
-        <div className="flex items-center justify-between gap-3 px-1">
-          <p className="text-xs text-muted-foreground">
-            {sufixoDivergencia.replace(/^ ·\s*/, "")}
-          </p>
-          {acaoDivergencia}
-        </div>
-      )}
     </div>
   );
 }
@@ -322,110 +287,6 @@ function TrilhoEstado({ indicadores, filtro, onFiltro }: {
    Reconciliação noturna (A5) marca, humano decide — a correção nunca
    é automática. Só aparece quando existe algo pendente: painel que
    vive dizendo "nada aqui" só rouba espaço. */
-function DivergenciasPanel({ onResolvida }: { onResolvida: () => void }) {
-  const dc = copy.divergencias;
-  const reduzir = useReducedMotion();
-  const [divergencias, setDivergencias] = useState<Divergencia[] | null>(null);
-  const [resolvendo, setResolvendo] = useState<{ id: string; decisao: "aplicar_canal" | "ignorar" } | null>(null);
-
-  useEffect(() => {
-    actionListarDivergenciasEstoque().then(setDivergencias).catch(() => setDivergencias([]));
-  }, []);
-
-  async function resolver(id: string, decisao: "aplicar_canal" | "ignorar") {
-    setResolvendo({ id, decisao });
-    try {
-      await actionResolverDivergenciaEstoque(id, decisao);
-      toast.success(decisao === "aplicar_canal" ? dc.applySuccess : dc.ignoreSuccess);
-      setDivergencias((atual) => atual?.filter((item) => item.id !== id) ?? atual);
-      onResolvida();
-    } catch {
-      toast.error(decisao === "aplicar_canal" ? dc.applyError : dc.ignoreError);
-    } finally {
-      setResolvendo(null);
-    }
-  }
-
-  if (divergencias === null || divergencias.length === 0) return null;
-
-  return (
-    // O testid fica no wrapper: SectionCard não repassa props extras ao DOM.
-    <motion.div
-      data-testid="divergencias-estoque-painel"
-      data-tour="estoque-divergencias"
-      // Shake curto 1× quando o painel aparece (PRD §14.5, "alerta crítico").
-      // É por montagem, não por divergência nova: enquanto houver pendência,
-      // cada visita à tela chama a atenção uma vez e para — não fica pulsando
-      // enquanto a pessoa lê nem exige rastrear o que ela já viu.
-      initial={reduzir ? false : { x: 0 }}
-      animate={reduzir ? undefined : { x: [0, -5, 5, -3, 0] }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-    >
-    <SectionCard
-      title={dc.title}
-      description={dc.subtitle}
-      icon={Scale}
-      className="mb-4"
-    >
-      <div className="divide-y divide-border -my-2">
-        {divergencias.map((item) => {
-          const ocupado = resolvendo?.id === item.id;
-          return (
-            <div key={item.id} className="flex flex-col gap-3 py-3.5 text-sm sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="font-medium text-foreground truncate">{item.produtoNome}</p>
-                <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                  <span className="font-mono text-[11px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">SKU: {item.produtoSku}</span>
-                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    Canal:
-                    <ChannelLogo canal={item.canal} size="xs" variant="logo" />
-                    {canalLabel(item.canal)}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                    Empresa: <span className="font-semibold" style={{ color: brandColor(item.brandSlug) }}>{item.brandName}</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-semibold text-foreground">
-                    {dc.localLabel}: <span className="tabular-nums">{item.saldoLocal}</span>
-                  </span>
-                  <ArrowRight size={13} className="text-muted-foreground shrink-0" />
-                  <span
-                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold"
-                    style={{ background: `color-mix(in srgb, ${COR.critico} 12%, var(--card))`, color: COR.critico }}
-                  >
-                    {dc.channelLabel}: <span className="tabular-nums">{item.saldoCanal}</span>
-                  </span>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  disabled={ocupado}
-                  onClick={() => resolver(item.id, "ignorar")}
-                  className="min-h-9 rounded-lg border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
-                >
-                  {resolvendo?.decisao === "ignorar" && ocupado ? <Loader2 size={13} className="animate-spin" /> : dc.ignoreAction}
-                </button>
-                <button
-                  type="button"
-                  disabled={ocupado}
-                  onClick={() => resolver(item.id, "aplicar_canal")}
-                  className="min-h-9 inline-flex items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold disabled:opacity-60"
-                  style={{ borderColor: COR.critico, color: COR.critico }}
-                >
-                  {resolvendo?.decisao === "aplicar_canal" && ocupado && <Loader2 size={13} className="animate-spin" />}
-                  {resolvendo?.decisao === "aplicar_canal" && ocupado ? dc.applyingAction : dc.applyAction}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </SectionCard>
-    </motion.div>
-  );
-}
 
 /* ── Campo de mínimo ───────────────────────────────────────────
    Editável na própria linha: é o número que liga o alerta do A6, e
@@ -524,7 +385,12 @@ function MinimoInput({ produto, onSalvo }: { produto: Produto; onSalvo: (valor: 
    entre duas colunas distantes ficava por conta de quem lê. Quem não tem régua
    ganha trilho tracejado: é visivelmente configurável, não visivelmente
    quebrado. */
-function SaldoCelula({ saldo, minimo, testId }: { saldo: number; minimo: number; testId: string }) {
+function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
+  saldo: number;
+  minimo: number;
+  testId: string;
+  saldosCanais?: SaldoCanal[];
+}) {
   const reduzir = useReducedMotion();
   const estado = estadoLinha(saldo, minimo);
   const cor = CORES_ESTADO[estado];
@@ -537,7 +403,7 @@ function SaldoCelula({ saldo, minimo, testId }: { saldo: number; minimo: number;
       : `${copy.saldoCell.minPrefix} ${minimo}`;
 
   return (
-    <div className="w-[78px] ml-auto">
+    <div className="w-[104px] ml-auto">
       <p
         data-testid={testId}
         className="text-[15px] font-bold tabular-nums leading-none text-right"
@@ -567,6 +433,22 @@ function SaldoCelula({ saldo, minimo, testId }: { saldo: number; minimo: number;
           className="mt-1.5 h-[3px] rounded-full"
           style={{ background: "repeating-linear-gradient(90deg, var(--border) 0 3px, transparent 3px 6px)" }}
         />
+      )}
+
+      {/* O número grande é o maior saldo entre os canais — o mesmo lote está
+          anunciado em todos. Aqui embaixo fica de onde ele veio, para a
+          diferença entre canais ficar visível em vez de escondida no máximo. */}
+      {saldosCanais && saldosCanais.length > 0 && (
+        <div className="mt-1.5 flex flex-col gap-0.5">
+          {saldosCanais.map((item) => (
+            <div key={item.canal} className="flex items-center justify-end gap-1">
+              <ChannelLogo canal={item.canal} size="xs" variant="logo" />
+              <span className="text-[10px] leading-none tabular-nums text-muted-foreground">
+                {item.saldo}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -931,12 +813,6 @@ export function EstoqueLista() {
     });
   }
 
-  function verDivergencias() {
-    document
-      .querySelector("[data-testid=divergencias-estoque-painel]")
-      ?.scrollIntoView({ behavior: reduzir ? "auto" : "smooth", block: "center" });
-  }
-
   const filtrando = filtro !== "todos" || busca.trim() !== "" || brandIds.size > 0 || canaisSelecionados.size > 0;
 
   // Vazio depois de filtrar não é sempre a mesma notícia: "nada abaixo do
@@ -1006,11 +882,7 @@ export function EstoqueLista() {
         indicadores={indicadores}
         filtro={filtro}
         onFiltro={trocarFiltro}
-        onVerDivergencias={verDivergencias}
-        temDivergenciasVisiveis={canManage}
       />
-
-      {canManage && <DivergenciasPanel onResolvida={() => carregarIndicadores(brandIdsArray, canaisArray)} />}
 
       {/* Barra de escopo — as duas perguntas lado a lado: de quem é o estoque
           e em que canal ele está anunciado. Empresa vem primeiro porque é a
@@ -1270,7 +1142,7 @@ export function EstoqueLista() {
                       <div className="grid grid-cols-3 gap-3 text-sm items-end">
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">{copy.mobile.balance}</p>
-                          <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} />
+                          <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} saldosCanais={p.saldosCanais} />
                         </div>
                         <div data-tour={p === produtos[0] ? "estoque-minimo" : undefined}>
                           <p className="text-xs text-muted-foreground mb-1">{copy.minimum.columnLabel}</p>
@@ -1300,7 +1172,6 @@ export function EstoqueLista() {
                           >
                             <Link2 size={14} /> {copy.mobile.channels}
                           </button>
-                          <MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={saldo} onSuccess={() => { carregar(brandIdsArray, busca, filtro, canaisArray); carregarIndicadores(brandIdsArray, canaisArray); }} />
                         </div>
                       )}
                     </article>
@@ -1407,7 +1278,7 @@ export function EstoqueLista() {
                             )}
                           </td>
                           <td className="px-5 py-3.5">
-                            <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} />
+                            <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} saldosCanais={p.saldosCanais} />
                           </td>
                           <td className="px-5 py-3.5" data-tour={i === 0 ? "estoque-minimo" : undefined}>
                             <div className="flex justify-end">
@@ -1438,12 +1309,6 @@ export function EstoqueLista() {
                                 >
                                   <Link2 size={14} />
                                 </button>
-                                <MovimentoModal
-                                  produtoId={p.id}
-                                  produtoNome={p.nome}
-                                  saldoAtual={saldo}
-                                  onSuccess={() => { carregar(brandIdsArray, busca, filtro, canaisArray); carregarIndicadores(brandIdsArray, canaisArray); }}
-                                />
                               </div>
                             )}
                           </td>

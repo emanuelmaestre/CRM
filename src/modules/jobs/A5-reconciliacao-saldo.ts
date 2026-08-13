@@ -1,15 +1,21 @@
 import { and, eq } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
-import { brand, channelAccount, estoqueDivergencia, estoqueSaldo, produtoCanal } from "@/shared/lib/db/schema";
+import { brand, channelAccount, estoqueCanalSaldo, produtoCanal } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { executarComRetry } from "@/modules/canais/application/retry";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 
-export const A5_reconciliacaoSaldo = inngest.createFunction(
+/** Coleta o saldo que cada canal informa para os anúncios mapeados.
+ *
+ *  Substitui a antiga reconciliação, que confrontava um saldo local único
+ *  contra N canais e por construção sempre acusava divergência em algum deles.
+ *  Aqui não há comparação nem decisão: o canal diz quanto tem, e o sistema
+ *  registra. O estoque do produto é derivado desses números na leitura. */
+export const A5_coletaSaldoCanais = inngest.createFunction(
   {
     id: "A5-reconciliacao-saldo",
-    name: "A5 — Reconciliação noturna de saldo local × canais",
+    name: "A5 — Coleta de saldo de estoque por canal",
     concurrency: { limit: 1 },
     triggers: [{ cron: "0 3 * * *" }],
   },
@@ -28,7 +34,6 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
           status: channelAccount.status,
           brandId: channelAccount.brandId,
           brandSlug: brand.slug,
-          saldoLocal: estoqueSaldo.saldo,
         })
         .from(produtoCanal)
         .innerJoin(channelAccount, and(
@@ -39,10 +44,6 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
           eq(brand.id, channelAccount.brandId),
           eq(brand.orgId, channelAccount.orgId),
         ))
-        .innerJoin(estoqueSaldo, and(
-          eq(estoqueSaldo.produtoId, produtoCanal.produtoId),
-          eq(estoqueSaldo.orgId, produtoCanal.orgId),
-        ))
         .where(and(
           eq(produtoCanal.orgId, orgId),
           eq(produtoCanal.ativo, true),
@@ -52,9 +53,7 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
     const resultados: Array<{
       produtoId: string;
       channelAccountId: string;
-      saldoLocal: number;
       saldoCanal?: number;
-      divergente: boolean;
       erro?: string;
     }> = [];
 
@@ -63,8 +62,6 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
         resultados.push({
           produtoId: item.produtoId,
           channelAccountId: item.channelAccountId,
-          saldoLocal: item.saldoLocal,
-          divergente: false,
           erro: `conta-${item.status}`,
         });
         continue;
@@ -84,74 +81,33 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
             { tentativas: 2, atrasoInicialMs: 250 },
           ),
         );
-        const divergente = saldoCanal !== item.saldoLocal;
+
+        await step.run(`registrar-saldo-${item.produtoCanalId}`, () =>
+          db
+            .insert(estoqueCanalSaldo)
+            .values({
+              orgId,
+              produtoId: item.produtoId,
+              channelAccountId: item.channelAccountId,
+              produtoCanalId: item.produtoCanalId,
+              saldo: saldoCanal,
+              verificadoEm: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: estoqueCanalSaldo.produtoCanalId,
+              set: { saldo: saldoCanal, verificadoEm: new Date() },
+            }),
+        );
+
         resultados.push({
           produtoId: item.produtoId,
           channelAccountId: item.channelAccountId,
-          saldoLocal: item.saldoLocal,
           saldoCanal,
-          divergente,
         });
-
-        if (divergente) {
-          await step.run(`persistir-divergencia-${item.produtoCanalId}`, async () => {
-            const pendenteExistente = await db
-              .select({ id: estoqueDivergencia.id })
-              .from(estoqueDivergencia)
-              .where(and(
-                eq(estoqueDivergencia.produtoCanalId, item.produtoCanalId),
-                eq(estoqueDivergencia.status, "pendente"),
-              ))
-              .then((rows) => rows[0]);
-
-            if (pendenteExistente) {
-              await db.update(estoqueDivergencia).set({
-                saldoLocal: item.saldoLocal,
-                saldoCanal,
-              }).where(eq(estoqueDivergencia.id, pendenteExistente.id));
-            } else {
-              await db.insert(estoqueDivergencia).values({
-                orgId,
-                produtoId: item.produtoId,
-                channelAccountId: item.channelAccountId,
-                produtoCanalId: item.produtoCanalId,
-                saldoLocal: item.saldoLocal,
-                saldoCanal,
-              });
-            }
-          });
-
-          await emitirEvento({
-            tipo: "estoque.divergencia_detectada",
-            orgId,
-            brandId: item.brandId,
-            entidade: "produto_canal",
-            entidadeId: item.produtoCanalId,
-            payload: {
-              produtoId: item.produtoId,
-              channelAccountId: item.channelAccountId,
-              externalListingId: item.externalListingId,
-              saldoLocal: item.saldoLocal,
-              saldoCanal,
-              acao: "alertar_sem_corrigir",
-            },
-          });
-        } else {
-          // O saldo voltou a bater — descarta qualquer divergência pendente
-          // ainda aberta pra esse mapeamento, pra não deixar alerta obsoleto.
-          await step.run(`limpar-divergencia-${item.produtoCanalId}`, () =>
-            db.delete(estoqueDivergencia).where(and(
-              eq(estoqueDivergencia.produtoCanalId, item.produtoCanalId),
-              eq(estoqueDivergencia.status, "pendente"),
-            )),
-          );
-        }
       } catch (error) {
         resultados.push({
           produtoId: item.produtoId,
           channelAccountId: item.channelAccountId,
-          saldoLocal: item.saldoLocal,
-          divergente: false,
           erro: String(error),
         });
         await emitirEvento({
@@ -160,17 +116,19 @@ export const A5_reconciliacaoSaldo = inngest.createFunction(
           brandId: item.brandId,
           entidade: "channel_account",
           entidadeId: item.channelAccountId,
-          payload: { motivo: "falha-reconciliacao-estoque", erro: String(error) },
+          payload: { motivo: "falha-coleta-estoque", erro: String(error) },
         });
       }
     }
 
     const resumo = {
-      verificados: resultados.filter((item) => item.saldoCanal !== undefined).length,
-      divergencias: resultados.filter((item) => item.divergente).length,
+      coletados: resultados.filter((item) => item.saldoCanal !== undefined).length,
       falhas: resultados.filter((item) => item.erro).length,
       resultados,
     };
+    // Uma conta desconectada ou um anúncio problemático não pode impedir que os
+    // demais saldos coletados sejam registrados — por isso o erro só sobe ao
+    // final, depois de todos os mapeamentos terem sido tentados.
     if (resumo.falhas > 0) {
       throw new Error(`A5 falhou ao consultar ${resumo.falhas} mapeamento(s) de estoque.`);
     }

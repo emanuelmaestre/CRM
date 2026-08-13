@@ -3,12 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Car, Check, Link2, Pencil, Ruler, TrendingDown, TrendingUp, Wrench, X } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Car, Check, Link2, Pencil, Ruler, X } from "lucide-react";
 import { actionEditarProduto } from "../../actions";
-import { MovimentoModal } from "../../movimento-modal";
 import { CanalModal } from "../../canal-modal";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import channelsConfig from "@/config/channels.json";
 import { getBrandConfig } from "@/shared/config/brands";
 import { analisarTituloProduto } from "@/shared/lib/produto-titulo";
 import pagesConfig from "@/config/pages.json";
@@ -22,21 +21,17 @@ type ProdutoData = {
     estoqueMinimo: number; brandSlug: string; brandName: string;
   };
   saldo: number;
-  canais: Array<{ id: string; externalListingId: string; externalSkuId?: string | null; ativo: boolean; canalTipo: string }>;
-  movimentos: Array<{ id: string; tipo: string; quantidade: number; observacao: string | null; createdAt: Date | string }>;
+  canais: Array<{ id: string; externalListingId: string; externalSkuId?: string | null; ativo: boolean; canalTipo: string; saldo: number | null; verificadoEm: Date | string | null }>;
 };
 
 function formatDate(value: Date | string): string {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
-const MOVIMENTO_INFO: Record<string, { label: string; color: string; icon: LucideIcon; sinal: string }> = {
-  entrada: { label: "Entrada", color: "#1F8A4C", icon: TrendingUp, sinal: "+" },
-  saida: { label: "Saída", color: "#C21820", icon: TrendingDown, sinal: "−" },
-  ajuste: { label: "Ajuste", color: "#2563EB", icon: Wrench, sinal: "" },
-  reserva: { label: "Reserva", color: "#B57A00", icon: Wrench, sinal: "" },
-  estorno: { label: "Estorno", color: "#B57A00", icon: Wrench, sinal: "" },
-};
+function canalLabel(canal: string) {
+  const items = channelsConfig.items as Record<string, { label: string }>;
+  return items[canal]?.label ?? canal;
+}
 
 function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
@@ -79,7 +74,6 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
         </button>
         {canManage && (
           <div className="flex items-center gap-2">
-            <MovimentoModal produtoId={p.id} produtoNome={p.nome} saldoAtual={data.saldo} onSuccess={() => router.refresh()} />
             <button
               type="button"
               onClick={() => setEditando((v) => !v)}
@@ -191,32 +185,26 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
-          <h2 className="font-semibold px-5 py-4 border-b border-border">Movimentações</h2>
+          <h2 className="font-semibold px-5 py-4 border-b border-border">Estoque por canal</h2>
           <div className="divide-y divide-border">
-            {data.movimentos.length === 0 ? (
-              <p className="p-5 text-sm text-muted-foreground">Nenhuma movimentação registrada ainda.</p>
+            {data.canais.length === 0 ? (
+              <p className="p-5 text-sm text-muted-foreground">Produto ainda não está anunciado em nenhum canal.</p>
             ) : (
-              data.movimentos.map((m) => {
-                const info = MOVIMENTO_INFO[m.tipo] ?? MOVIMENTO_INFO.ajuste;
-                const Icon = info.icon;
-                return (
-                  <div key={m.id} className="px-5 py-3.5 flex items-center gap-3">
-                    <span
-                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0"
-                      style={{ color: info.color, background: `${info.color}18` }}
-                    >
-                      <Icon size={11} strokeWidth={2.5} /> {info.label}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground tabular-nums">
-                        {info.sinal}{m.quantidade}
-                      </p>
-                      {m.observacao && <p className="text-xs text-muted-foreground mt-0.5 truncate">{m.observacao}</p>}
-                    </div>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(m.createdAt)}</span>
+              data.canais.map((c) => (
+                <div key={c.id} className="px-5 py-3.5 flex items-center gap-3">
+                  <ChannelLogo canal={c.canalTipo} size="xs" variant="logo" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{canalLabel(c.canalTipo)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{c.externalListingId}</p>
                   </div>
-                );
-              })
+                  <div className="text-right shrink-0">
+                    <p className="text-lg font-semibold tabular-nums text-foreground">{c.saldo ?? "—"}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {c.verificadoEm ? formatDate(c.verificadoEm) : "nunca lido"}
+                    </p>
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </section>

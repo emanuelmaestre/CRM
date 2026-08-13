@@ -10,175 +10,1052 @@
     "cnpj": "synthetic-000000000001"
   },
   "brands": [
-    { "key": "karzi", "id": "10000000-0000-4000-8000-000000000001", "name": "KARZI", "slug": "karzi" },
-    { "key": "wuwu", "id": "10000000-0000-4000-8000-000000000002", "name": "WUWU", "slug": "wuwu" },
-    { "key": "armarinhos_lima", "id": "10000000-0000-4000-8000-000000000003", "name": "Armarinhos Lima", "slug": "armarinhos_lima" }
+    {
+      "key": "karzi",
+      "id": "10000000-0000-4000-8000-000000000001",
+      "name": "KARZI",
+      "slug": "karzi"
+    },
+    {
+      "key": "wuwu",
+      "id": "10000000-0000-4000-8000-000000000002",
+      "name": "WUWU",
+      "slug": "wuwu"
+    },
+    {
+      "key": "armarinhos_lima",
+      "id": "10000000-0000-4000-8000-000000000003",
+      "name": "Armarinhos Lima",
+      "slug": "armarinhos_lima"
+    }
   ],
   "users": [
-    { "key": "admin", "id": "20000000-0000-4000-8000-000000000001", "email": "admin.crm@example.invalid", "name": "Ana Administradora", "profile": "admin" },
-    { "key": "manager", "id": "20000000-0000-4000-8000-000000000002", "email": "gestor.crm@example.invalid", "name": "Guilherme Gestor", "profile": "gestor" },
-    { "key": "seller", "id": "20000000-0000-4000-8000-000000000003", "email": "vendedor.crm@example.invalid", "name": "Valentina Vendedora", "profile": "vendedor" }
+    {
+      "key": "admin",
+      "id": "20000000-0000-4000-8000-000000000001",
+      "email": "admin.crm@example.invalid",
+      "name": "Ana Administradora",
+      "profile": "admin"
+    },
+    {
+      "key": "manager",
+      "id": "20000000-0000-4000-8000-000000000002",
+      "email": "gestor.crm@example.invalid",
+      "name": "Guilherme Gestor",
+      "profile": "gestor"
+    },
+    {
+      "key": "seller",
+      "id": "20000000-0000-4000-8000-000000000003",
+      "email": "vendedor.crm@example.invalid",
+      "name": "Valentina Vendedora",
+      "profile": "vendedor"
+    }
   ],
   "channelAccounts": [
-    { "key": "karzi_whatsapp", "id": "30000000-0000-4000-8000-000000000001", "brand": "karzi", "type": "whatsapp", "name": "WhatsApp KARZI — sintético", "status": "desconectado", "vaultKey": "synthetic/disabled/karzi/whatsapp" },
-    { "key": "karzi_ml", "id": "30000000-0000-4000-8000-000000000002", "brand": "karzi", "type": "mercadolivre", "name": "Mercado Livre KARZI — sintético", "status": "desconectado", "vaultKey": "synthetic/disabled/karzi/mercadolivre" },
-    { "key": "wuwu_instagram", "id": "30000000-0000-4000-8000-000000000003", "brand": "wuwu", "type": "instagram", "name": "Instagram WUWU — sintético", "status": "desconectado", "vaultKey": "synthetic/disabled/wuwu/instagram" },
-    { "key": "wuwu_shopee", "id": "30000000-0000-4000-8000-000000000004", "brand": "wuwu", "type": "shopee", "name": "Shopee WUWU — sintético", "status": "desconectado", "vaultKey": "synthetic/disabled/wuwu/shopee" },
-    { "key": "armarinhos_ml", "id": "30000000-0000-4000-8000-000000000005", "brand": "armarinhos_lima", "type": "mercadolivre", "name": "Mercado Livre Armarinhos Lima — sintético", "status": "desconectado", "vaultKey": "synthetic/disabled/armarinhos_lima/mercadolivre" },
-    { "key": "armarinhos_shopee", "id": "30000000-0000-4000-8000-000000000006", "brand": "armarinhos_lima", "type": "shopee", "name": "Shopee Armarinhos Lima — sintético", "status": "desconectado", "vaultKey": "synthetic/disabled/armarinhos_lima/shopee" },
-    { "key": "armarinhos_tiktok", "id": "30000000-0000-4000-8000-000000000007", "brand": "armarinhos_lima", "type": "tiktokshop", "name": "TikTok Shop Armarinhos Lima — sintético", "status": "desconectado", "vaultKey": "synthetic/disabled/armarinhos_lima/tiktokshop" }
+    {
+      "key": "karzi_whatsapp",
+      "id": "30000000-0000-4000-8000-000000000001",
+      "brand": "karzi",
+      "type": "whatsapp",
+      "name": "WhatsApp KARZI — sintético",
+      "status": "desconectado",
+      "vaultKey": "synthetic/disabled/karzi/whatsapp"
+    },
+    {
+      "key": "karzi_ml",
+      "id": "30000000-0000-4000-8000-000000000002",
+      "brand": "karzi",
+      "type": "mercadolivre",
+      "name": "Mercado Livre KARZI — sintético",
+      "status": "desconectado",
+      "vaultKey": "synthetic/disabled/karzi/mercadolivre"
+    },
+    {
+      "key": "wuwu_instagram",
+      "id": "30000000-0000-4000-8000-000000000003",
+      "brand": "wuwu",
+      "type": "instagram",
+      "name": "Instagram WUWU — sintético",
+      "status": "desconectado",
+      "vaultKey": "synthetic/disabled/wuwu/instagram"
+    },
+    {
+      "key": "wuwu_shopee",
+      "id": "30000000-0000-4000-8000-000000000004",
+      "brand": "wuwu",
+      "type": "shopee",
+      "name": "Shopee WUWU — sintético",
+      "status": "desconectado",
+      "vaultKey": "synthetic/disabled/wuwu/shopee"
+    },
+    {
+      "key": "armarinhos_ml",
+      "id": "30000000-0000-4000-8000-000000000005",
+      "brand": "armarinhos_lima",
+      "type": "mercadolivre",
+      "name": "Mercado Livre Armarinhos Lima — sintético",
+      "status": "desconectado",
+      "vaultKey": "synthetic/disabled/armarinhos_lima/mercadolivre"
+    },
+    {
+      "key": "armarinhos_shopee",
+      "id": "30000000-0000-4000-8000-000000000006",
+      "brand": "armarinhos_lima",
+      "type": "shopee",
+      "name": "Shopee Armarinhos Lima — sintético",
+      "status": "desconectado",
+      "vaultKey": "synthetic/disabled/armarinhos_lima/shopee"
+    },
+    {
+      "key": "armarinhos_tiktok",
+      "id": "30000000-0000-4000-8000-000000000007",
+      "brand": "armarinhos_lima",
+      "type": "tiktokshop",
+      "name": "TikTok Shop Armarinhos Lima — sintético",
+      "status": "desconectado",
+      "vaultKey": "synthetic/disabled/armarinhos_lima/tiktokshop"
+    }
   ],
   "clients": [
-    { "key": "alice", "id": "40000000-0000-4000-8000-000000000001", "name": "Alice Exemplo", "email": "alice@example.invalid", "phone": "+5500000000001", "birthDate": "1991-04-12", "createdDaysAgo": 24 },
-    { "key": "bruno", "id": "40000000-0000-4000-8000-000000000002", "name": "Bruno Exemplo", "email": "bruno@example.invalid", "phone": "+5500000000002", "birthDate": "1988-09-03", "createdDaysAgo": 18 },
-    { "key": "carla", "id": "40000000-0000-4000-8000-000000000003", "name": "Carla Exemplo", "email": "carla@example.invalid", "phone": "+5500000000003", "birthDate": "1997-01-25", "createdDaysAgo": 12 },
-    { "key": "diego", "id": "40000000-0000-4000-8000-000000000004", "name": "Diego Exemplo", "email": "diego@example.invalid", "phone": "+5500000000004", "birthDate": "1985-06-18", "createdDaysAgo": 8 },
-    { "key": "elisa", "id": "40000000-0000-4000-8000-000000000005", "name": "Elisa Exemplo", "email": "elisa@example.invalid", "phone": "+5500000000005", "birthDate": "1993-11-07", "createdDaysAgo": 4 },
-    { "key": "fabio", "id": "40000000-0000-4000-8000-000000000006", "name": "Fábio Exemplo", "email": "fabio@example.invalid", "phone": "+5500000000006", "birthDate": "1990-02-14", "createdDaysAgo": 2 },
-    { "key": "gabriela", "id": "40000000-0000-4000-8000-000000000007", "name": "Gabriela Exemplo", "email": "gabriela@example.invalid", "phone": "+5500000000007", "birthDate": "1995-08-21", "createdDaysAgo": 6 }
+    {
+      "key": "alice",
+      "id": "40000000-0000-4000-8000-000000000001",
+      "name": "Alice Exemplo",
+      "email": "alice@example.invalid",
+      "phone": "+5500000000001",
+      "birthDate": "1991-04-12",
+      "createdDaysAgo": 24
+    },
+    {
+      "key": "bruno",
+      "id": "40000000-0000-4000-8000-000000000002",
+      "name": "Bruno Exemplo",
+      "email": "bruno@example.invalid",
+      "phone": "+5500000000002",
+      "birthDate": "1988-09-03",
+      "createdDaysAgo": 18
+    },
+    {
+      "key": "carla",
+      "id": "40000000-0000-4000-8000-000000000003",
+      "name": "Carla Exemplo",
+      "email": "carla@example.invalid",
+      "phone": "+5500000000003",
+      "birthDate": "1997-01-25",
+      "createdDaysAgo": 12
+    },
+    {
+      "key": "diego",
+      "id": "40000000-0000-4000-8000-000000000004",
+      "name": "Diego Exemplo",
+      "email": "diego@example.invalid",
+      "phone": "+5500000000004",
+      "birthDate": "1985-06-18",
+      "createdDaysAgo": 8
+    },
+    {
+      "key": "elisa",
+      "id": "40000000-0000-4000-8000-000000000005",
+      "name": "Elisa Exemplo",
+      "email": "elisa@example.invalid",
+      "phone": "+5500000000005",
+      "birthDate": "1993-11-07",
+      "createdDaysAgo": 4
+    },
+    {
+      "key": "fabio",
+      "id": "40000000-0000-4000-8000-000000000006",
+      "name": "Fábio Exemplo",
+      "email": "fabio@example.invalid",
+      "phone": "+5500000000006",
+      "birthDate": "1990-02-14",
+      "createdDaysAgo": 2
+    },
+    {
+      "key": "gabriela",
+      "id": "40000000-0000-4000-8000-000000000007",
+      "name": "Gabriela Exemplo",
+      "email": "gabriela@example.invalid",
+      "phone": "+5500000000007",
+      "birthDate": "1995-08-21",
+      "createdDaysAgo": 6
+    }
   ],
   "clientIdentities": [
-    { "id": "41000000-0000-4000-8000-000000000001", "client": "alice", "channel": "whatsapp", "externalId": "synthetic-wa-001" },
-    { "id": "41000000-0000-4000-8000-000000000002", "client": "bruno", "channel": "mercadolivre", "externalId": "synthetic-ml-002" },
-    { "id": "41000000-0000-4000-8000-000000000003", "client": "carla", "channel": "instagram", "externalId": "synthetic-ig-003" },
-    { "id": "41000000-0000-4000-8000-000000000004", "client": "diego", "channel": "shopee", "externalId": "synthetic-sh-004" },
-    { "id": "41000000-0000-4000-8000-000000000005", "client": "gabriela", "channel": "tiktokshop", "externalId": "synthetic-tt-005" }
+    {
+      "id": "41000000-0000-4000-8000-000000000001",
+      "client": "alice",
+      "channel": "whatsapp",
+      "externalId": "synthetic-wa-001"
+    },
+    {
+      "id": "41000000-0000-4000-8000-000000000002",
+      "client": "bruno",
+      "channel": "mercadolivre",
+      "externalId": "synthetic-ml-002"
+    },
+    {
+      "id": "41000000-0000-4000-8000-000000000003",
+      "client": "carla",
+      "channel": "instagram",
+      "externalId": "synthetic-ig-003"
+    },
+    {
+      "id": "41000000-0000-4000-8000-000000000004",
+      "client": "diego",
+      "channel": "shopee",
+      "externalId": "synthetic-sh-004"
+    },
+    {
+      "id": "41000000-0000-4000-8000-000000000005",
+      "client": "gabriela",
+      "channel": "tiktokshop",
+      "externalId": "synthetic-tt-005"
+    }
   ],
   "consents": [
-    { "id": "42000000-0000-4000-8000-000000000001", "client": "alice", "brand": "karzi", "purpose": "suporte", "channel": "whatsapp", "status": "ativo", "origin": "synthetic-seed" },
-    { "id": "42000000-0000-4000-8000-000000000002", "client": "carla", "brand": "wuwu", "purpose": "marketing", "channel": "instagram", "status": "ativo", "origin": "synthetic-seed" },
-    { "id": "42000000-0000-4000-8000-000000000003", "client": "diego", "brand": "wuwu", "purpose": "avaliacao", "channel": "email", "status": "revogado", "origin": "synthetic-seed" },
-    { "id": "42000000-0000-4000-8000-000000000004", "client": "gabriela", "brand": "armarinhos_lima", "purpose": "suporte", "channel": "tiktokshop", "status": "ativo", "origin": "synthetic-seed" }
+    {
+      "id": "42000000-0000-4000-8000-000000000001",
+      "client": "alice",
+      "brand": "karzi",
+      "purpose": "suporte",
+      "channel": "whatsapp",
+      "status": "ativo",
+      "origin": "synthetic-seed"
+    },
+    {
+      "id": "42000000-0000-4000-8000-000000000002",
+      "client": "carla",
+      "brand": "wuwu",
+      "purpose": "marketing",
+      "channel": "instagram",
+      "status": "ativo",
+      "origin": "synthetic-seed"
+    },
+    {
+      "id": "42000000-0000-4000-8000-000000000003",
+      "client": "diego",
+      "brand": "wuwu",
+      "purpose": "avaliacao",
+      "channel": "email",
+      "status": "revogado",
+      "origin": "synthetic-seed"
+    },
+    {
+      "id": "42000000-0000-4000-8000-000000000004",
+      "client": "gabriela",
+      "brand": "armarinhos_lima",
+      "purpose": "suporte",
+      "channel": "tiktokshop",
+      "status": "ativo",
+      "origin": "synthetic-seed"
+    }
   ],
   "tags": [
-    { "key": "vip", "id": "43000000-0000-4000-8000-000000000001", "name": "VIP", "color": "#7c3aed" },
-    { "key": "new", "id": "43000000-0000-4000-8000-000000000002", "name": "Novo cliente", "color": "#0891b2" },
-    { "key": "risk", "id": "43000000-0000-4000-8000-000000000003", "name": "Risco de churn", "color": "#dc2626" }
+    {
+      "key": "vip",
+      "id": "43000000-0000-4000-8000-000000000001",
+      "name": "VIP",
+      "color": "#7c3aed"
+    },
+    {
+      "key": "new",
+      "id": "43000000-0000-4000-8000-000000000002",
+      "name": "Novo cliente",
+      "color": "#0891b2"
+    },
+    {
+      "key": "risk",
+      "id": "43000000-0000-4000-8000-000000000003",
+      "name": "Risco de churn",
+      "color": "#dc2626"
+    }
   ],
   "clientTags": [
-    { "client": "alice", "tag": "vip" },
-    { "client": "carla", "tag": "new" },
-    { "client": "elisa", "tag": "new" },
-    { "client": "bruno", "tag": "risk" }
+    {
+      "client": "alice",
+      "tag": "vip"
+    },
+    {
+      "client": "carla",
+      "tag": "new"
+    },
+    {
+      "client": "elisa",
+      "tag": "new"
+    },
+    {
+      "client": "bruno",
+      "tag": "risk"
+    }
   ],
   "segments": [
-    { "id": "44000000-0000-4000-8000-000000000001", "name": "Clientes recorrentes", "filters": { "minOrders": 2, "synthetic": true } },
-    { "id": "44000000-0000-4000-8000-000000000002", "name": "Sem compra há 30 dias", "filters": { "daysWithoutOrder": 30, "synthetic": true } }
+    {
+      "id": "44000000-0000-4000-8000-000000000001",
+      "name": "Clientes recorrentes",
+      "filters": {
+        "minOrders": 2,
+        "synthetic": true
+      }
+    },
+    {
+      "id": "44000000-0000-4000-8000-000000000002",
+      "name": "Sem compra há 30 dias",
+      "filters": {
+        "daysWithoutOrder": 30,
+        "synthetic": true
+      }
+    }
   ],
   "interactions": [
-    { "id": "45000000-0000-4000-8000-000000000001", "client": "alice", "brand": "karzi", "type": "atendimento", "channel": "whatsapp", "summary": "Cliente pediu detalhes do produto sintético.", "author": "seller", "daysAgo": 3 },
-    { "id": "45000000-0000-4000-8000-000000000002", "client": "bruno", "brand": "karzi", "type": "pos_venda", "channel": "mercadolivre", "summary": "Acompanhamento fictício de entrega.", "author": "manager", "daysAgo": 6 },
-    { "id": "45000000-0000-4000-8000-000000000003", "client": "gabriela", "brand": "armarinhos_lima", "type": "atendimento", "channel": "tiktokshop", "summary": "Atendimento sintético da Armarinhos Lima.", "author": "seller", "daysAgo": 2 }
+    {
+      "id": "45000000-0000-4000-8000-000000000001",
+      "client": "alice",
+      "brand": "karzi",
+      "type": "atendimento",
+      "channel": "whatsapp",
+      "summary": "Cliente pediu detalhes do produto sintético.",
+      "author": "seller",
+      "daysAgo": 3
+    },
+    {
+      "id": "45000000-0000-4000-8000-000000000002",
+      "client": "bruno",
+      "brand": "karzi",
+      "type": "pos_venda",
+      "channel": "mercadolivre",
+      "summary": "Acompanhamento fictício de entrega.",
+      "author": "manager",
+      "daysAgo": 6
+    },
+    {
+      "id": "45000000-0000-4000-8000-000000000003",
+      "client": "gabriela",
+      "brand": "armarinhos_lima",
+      "type": "atendimento",
+      "channel": "tiktokshop",
+      "summary": "Atendimento sintético da Armarinhos Lima.",
+      "author": "seller",
+      "daysAgo": 2
+    }
   ],
   "products": [
-    { "key": "karzi_bag", "id": "50000000-0000-4000-8000-000000000001", "balanceId": "51000000-0000-4000-8000-000000000001", "brand": "karzi", "sku": "SYN-KAR-001", "name": "Bolsa KARZI Sintética", "cost": "120.00", "price": "249.90", "minimumStock": 5, "balance": 18 },
-    { "key": "karzi_wallet", "id": "50000000-0000-4000-8000-000000000002", "balanceId": "51000000-0000-4000-8000-000000000002", "brand": "karzi", "sku": "SYN-KAR-002", "name": "Carteira KARZI Sintética", "cost": "38.00", "price": "89.90", "minimumStock": 8, "balance": 4 },
-    { "key": "wuwu_backpack", "id": "50000000-0000-4000-8000-000000000003", "balanceId": "51000000-0000-4000-8000-000000000003", "brand": "wuwu", "sku": "SYN-WUW-001", "name": "Mochila WUWU Sintética", "cost": "95.00", "price": "199.90", "minimumStock": 6, "balance": 27 },
-    { "key": "wuwu_case", "id": "50000000-0000-4000-8000-000000000004", "balanceId": "51000000-0000-4000-8000-000000000004", "brand": "wuwu", "sku": "SYN-WUW-002", "name": "Estojo WUWU Sintético", "cost": "22.00", "price": "54.90", "minimumStock": 10, "balance": 9 },
-    { "key": "armarinhos_kit", "id": "50000000-0000-4000-8000-000000000005", "balanceId": "51000000-0000-4000-8000-000000000005", "brand": "armarinhos_lima", "sku": "SYN-ALI-001", "name": "Kit Armarinhos Lima Sintético", "cost": "28.00", "price": "69.90", "minimumStock": 12, "balance": 21 },
-    { "key": "armarinhos_fita", "id": "50000000-0000-4000-8000-000000000006", "balanceId": "51000000-0000-4000-8000-000000000006", "brand": "armarinhos_lima", "sku": "SYN-ALI-002", "name": "Fita Armarinhos Lima Sintética", "cost": "8.00", "price": "19.90", "minimumStock": 20, "balance": 14 }
+    {
+      "key": "karzi_bag",
+      "id": "50000000-0000-4000-8000-000000000001",
+      "balanceId": "51000000-0000-4000-8000-000000000001",
+      "brand": "karzi",
+      "sku": "SYN-KAR-001",
+      "name": "Bolsa KARZI Sintética",
+      "cost": "120.00",
+      "price": "249.90",
+      "minimumStock": 5,
+      "balance": 18
+    },
+    {
+      "key": "karzi_wallet",
+      "id": "50000000-0000-4000-8000-000000000002",
+      "balanceId": "51000000-0000-4000-8000-000000000002",
+      "brand": "karzi",
+      "sku": "SYN-KAR-002",
+      "name": "Carteira KARZI Sintética",
+      "cost": "38.00",
+      "price": "89.90",
+      "minimumStock": 8,
+      "balance": 4
+    },
+    {
+      "key": "wuwu_backpack",
+      "id": "50000000-0000-4000-8000-000000000003",
+      "balanceId": "51000000-0000-4000-8000-000000000003",
+      "brand": "wuwu",
+      "sku": "SYN-WUW-001",
+      "name": "Mochila WUWU Sintética",
+      "cost": "95.00",
+      "price": "199.90",
+      "minimumStock": 6,
+      "balance": 27
+    },
+    {
+      "key": "wuwu_case",
+      "id": "50000000-0000-4000-8000-000000000004",
+      "balanceId": "51000000-0000-4000-8000-000000000004",
+      "brand": "wuwu",
+      "sku": "SYN-WUW-002",
+      "name": "Estojo WUWU Sintético",
+      "cost": "22.00",
+      "price": "54.90",
+      "minimumStock": 10,
+      "balance": 9
+    },
+    {
+      "key": "armarinhos_kit",
+      "id": "50000000-0000-4000-8000-000000000005",
+      "balanceId": "51000000-0000-4000-8000-000000000005",
+      "brand": "armarinhos_lima",
+      "sku": "SYN-ALI-001",
+      "name": "Kit Armarinhos Lima Sintético",
+      "cost": "28.00",
+      "price": "69.90",
+      "minimumStock": 12,
+      "balance": 21
+    },
+    {
+      "key": "armarinhos_fita",
+      "id": "50000000-0000-4000-8000-000000000006",
+      "balanceId": "51000000-0000-4000-8000-000000000006",
+      "brand": "armarinhos_lima",
+      "sku": "SYN-ALI-002",
+      "name": "Fita Armarinhos Lima Sintética",
+      "cost": "8.00",
+      "price": "19.90",
+      "minimumStock": 20,
+      "balance": 14
+    }
   ],
   "stockMovements": [
-    { "id": "52000000-0000-4000-8000-000000000001", "product": "karzi_bag", "type": "entrada", "quantity": 20, "referenceType": "synthetic_seed", "note": "Carga inicial fictícia", "daysAgo": 20 },
-    { "id": "52000000-0000-4000-8000-000000000002", "product": "karzi_bag", "type": "saida", "quantity": 2, "referenceType": "synthetic_seed", "note": "Venda fictícia", "daysAgo": 5 },
-    { "id": "52000000-0000-4000-8000-000000000003", "product": "karzi_wallet", "type": "entrada", "quantity": 5, "referenceType": "synthetic_seed", "note": "Carga inicial fictícia", "daysAgo": 18 },
-    { "id": "52000000-0000-4000-8000-000000000004", "product": "karzi_wallet", "type": "saida", "quantity": 1, "referenceType": "synthetic_seed", "note": "Venda fictícia", "daysAgo": 4 },
-    { "id": "52000000-0000-4000-8000-000000000005", "product": "wuwu_backpack", "type": "entrada", "quantity": 30, "referenceType": "synthetic_seed", "note": "Carga inicial fictícia", "daysAgo": 16 },
-    { "id": "52000000-0000-4000-8000-000000000006", "product": "wuwu_backpack", "type": "saida", "quantity": 3, "referenceType": "synthetic_seed", "note": "Venda fictícia", "daysAgo": 3 },
-    { "id": "52000000-0000-4000-8000-000000000007", "product": "wuwu_case", "type": "entrada", "quantity": 10, "referenceType": "synthetic_seed", "note": "Carga inicial fictícia", "daysAgo": 14 },
-    { "id": "52000000-0000-4000-8000-000000000008", "product": "wuwu_case", "type": "saida", "quantity": 1, "referenceType": "synthetic_seed", "note": "Venda fictícia", "daysAgo": 2 },
-    { "id": "52000000-0000-4000-8000-000000000009", "product": "armarinhos_kit", "type": "entrada", "quantity": 24, "referenceType": "synthetic_seed", "note": "Carga inicial fictícia", "daysAgo": 12 },
-    { "id": "52000000-0000-4000-8000-000000000010", "product": "armarinhos_kit", "type": "saida", "quantity": 3, "referenceType": "synthetic_seed", "note": "Venda fictícia", "daysAgo": 2 },
-    { "id": "52000000-0000-4000-8000-000000000011", "product": "armarinhos_fita", "type": "entrada", "quantity": 16, "referenceType": "synthetic_seed", "note": "Carga inicial fictícia", "daysAgo": 10 },
-    { "id": "52000000-0000-4000-8000-000000000012", "product": "armarinhos_fita", "type": "saida", "quantity": 2, "referenceType": "synthetic_seed", "note": "Venda fictícia", "daysAgo": 1 }
+    {
+      "id": "52000000-0000-4000-8000-000000000001",
+      "product": "karzi_bag",
+      "type": "entrada",
+      "quantity": 20,
+      "referenceType": "synthetic_seed",
+      "note": "Carga inicial fictícia",
+      "daysAgo": 20
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000002",
+      "product": "karzi_bag",
+      "type": "saida",
+      "quantity": 2,
+      "referenceType": "synthetic_seed",
+      "note": "Venda fictícia",
+      "daysAgo": 5
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000003",
+      "product": "karzi_wallet",
+      "type": "entrada",
+      "quantity": 5,
+      "referenceType": "synthetic_seed",
+      "note": "Carga inicial fictícia",
+      "daysAgo": 18
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000004",
+      "product": "karzi_wallet",
+      "type": "saida",
+      "quantity": 1,
+      "referenceType": "synthetic_seed",
+      "note": "Venda fictícia",
+      "daysAgo": 4
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000005",
+      "product": "wuwu_backpack",
+      "type": "entrada",
+      "quantity": 30,
+      "referenceType": "synthetic_seed",
+      "note": "Carga inicial fictícia",
+      "daysAgo": 16
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000006",
+      "product": "wuwu_backpack",
+      "type": "saida",
+      "quantity": 3,
+      "referenceType": "synthetic_seed",
+      "note": "Venda fictícia",
+      "daysAgo": 3
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000007",
+      "product": "wuwu_case",
+      "type": "entrada",
+      "quantity": 10,
+      "referenceType": "synthetic_seed",
+      "note": "Carga inicial fictícia",
+      "daysAgo": 14
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000008",
+      "product": "wuwu_case",
+      "type": "saida",
+      "quantity": 1,
+      "referenceType": "synthetic_seed",
+      "note": "Venda fictícia",
+      "daysAgo": 2
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000009",
+      "product": "armarinhos_kit",
+      "type": "entrada",
+      "quantity": 24,
+      "referenceType": "synthetic_seed",
+      "note": "Carga inicial fictícia",
+      "daysAgo": 12
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000010",
+      "product": "armarinhos_kit",
+      "type": "saida",
+      "quantity": 3,
+      "referenceType": "synthetic_seed",
+      "note": "Venda fictícia",
+      "daysAgo": 2
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000011",
+      "product": "armarinhos_fita",
+      "type": "entrada",
+      "quantity": 16,
+      "referenceType": "synthetic_seed",
+      "note": "Carga inicial fictícia",
+      "daysAgo": 10
+    },
+    {
+      "id": "52000000-0000-4000-8000-000000000012",
+      "product": "armarinhos_fita",
+      "type": "saida",
+      "quantity": 2,
+      "referenceType": "synthetic_seed",
+      "note": "Venda fictícia",
+      "daysAgo": 1
+    }
   ],
   "productChannels": [
-    { "id": "53000000-0000-4000-8000-000000000001", "product": "karzi_bag", "channelAccount": "karzi_ml", "externalListingId": "SYNTHETIC-ML-KAR-001" },
-    { "id": "53000000-0000-4000-8000-000000000002", "product": "wuwu_backpack", "channelAccount": "wuwu_shopee", "externalListingId": "SYNTHETIC-SH-WUW-001" },
-    { "id": "53000000-0000-4000-8000-000000000003", "product": "armarinhos_kit", "channelAccount": "armarinhos_ml", "externalListingId": "SYNTHETIC-ML-ALI-001" },
-    { "id": "53000000-0000-4000-8000-000000000004", "product": "armarinhos_kit", "channelAccount": "armarinhos_shopee", "externalListingId": "SYNTHETIC-SH-ALI-001" },
-    { "id": "53000000-0000-4000-8000-000000000005", "product": "armarinhos_fita", "channelAccount": "armarinhos_tiktok", "externalListingId": "SYNTHETIC-TT-ALI-002", "externalSkuId": "SYNTHETIC-TT-SKU-ALI-002", "externalWarehouseId": "SYNTHETIC-TT-WH-ALI" }
+    {
+      "id": "53000000-0000-4000-8000-000000000001",
+      "product": "karzi_bag",
+      "channelAccount": "karzi_ml",
+      "externalListingId": "SYNTHETIC-ML-KAR-001"
+    },
+    {
+      "id": "53000000-0000-4000-8000-000000000002",
+      "product": "wuwu_backpack",
+      "channelAccount": "wuwu_shopee",
+      "externalListingId": "SYNTHETIC-SH-WUW-001"
+    },
+    {
+      "id": "53000000-0000-4000-8000-000000000003",
+      "product": "armarinhos_kit",
+      "channelAccount": "armarinhos_ml",
+      "externalListingId": "SYNTHETIC-ML-ALI-001"
+    },
+    {
+      "id": "53000000-0000-4000-8000-000000000004",
+      "product": "armarinhos_kit",
+      "channelAccount": "armarinhos_shopee",
+      "externalListingId": "SYNTHETIC-SH-ALI-001"
+    },
+    {
+      "id": "53000000-0000-4000-8000-000000000005",
+      "product": "armarinhos_fita",
+      "channelAccount": "armarinhos_tiktok",
+      "externalListingId": "SYNTHETIC-TT-ALI-002",
+      "externalSkuId": "SYNTHETIC-TT-SKU-ALI-002",
+      "externalWarehouseId": "SYNTHETIC-TT-WH-ALI"
+    }
   ],
   "funnelStages": [
-    { "key": "lead", "id": "60000000-0000-4000-8000-000000000001", "name": "Novo lead", "order": 1, "color": "#64748b" },
-    { "key": "contact", "id": "60000000-0000-4000-8000-000000000002", "name": "Em contato", "order": 2, "color": "#0284c7" },
-    { "key": "proposal", "id": "60000000-0000-4000-8000-000000000003", "name": "Proposta", "order": 3, "color": "#d97706" },
-    { "key": "won", "id": "60000000-0000-4000-8000-000000000004", "name": "Ganho", "order": 4, "color": "#16a34a" }
+    {
+      "key": "lead",
+      "id": "60000000-0000-4000-8000-000000000001",
+      "name": "Novo lead",
+      "order": 1,
+      "color": "#64748b"
+    },
+    {
+      "key": "contact",
+      "id": "60000000-0000-4000-8000-000000000002",
+      "name": "Em contato",
+      "order": 2,
+      "color": "#0284c7"
+    },
+    {
+      "key": "proposal",
+      "id": "60000000-0000-4000-8000-000000000003",
+      "name": "Proposta",
+      "order": 3,
+      "color": "#d97706"
+    },
+    {
+      "key": "won",
+      "id": "60000000-0000-4000-8000-000000000004",
+      "name": "Ganho",
+      "order": 4,
+      "color": "#16a34a"
+    }
   ],
   "orders": [
-    { "key": "order1", "id": "61000000-0000-4000-8000-000000000001", "brand": "karzi", "client": "alice", "channelAccount": "karzi_ml", "providerOrderId": "SYN-ML-1001", "channel": "mercadolivre", "status": "entregue", "total": "249.90", "shipping": "15.00", "discount": "0.00", "daysAgo": 20 },
-    { "key": "order2", "id": "61000000-0000-4000-8000-000000000002", "brand": "wuwu", "client": "bruno", "channelAccount": "wuwu_shopee", "providerOrderId": "SYN-SH-1002", "channel": "shopee", "status": "enviado", "total": "199.90", "shipping": "12.00", "discount": "10.00", "daysAgo": 13 },
-    { "key": "order3", "id": "61000000-0000-4000-8000-000000000003", "brand": "karzi", "client": "carla", "providerOrderId": "SYN-MAN-1003", "channel": "manual", "status": "pago", "total": "89.90", "shipping": "0.00", "discount": "0.00", "daysAgo": 8 },
-    { "key": "order4", "id": "61000000-0000-4000-8000-000000000004", "brand": "wuwu", "client": "diego", "channelAccount": "wuwu_instagram", "providerOrderId": "SYN-IG-1004", "channel": "instagram", "status": "concluido", "total": "254.80", "shipping": "18.00", "discount": "0.00", "daysAgo": 5 },
-    { "key": "order5", "id": "61000000-0000-4000-8000-000000000005", "brand": "karzi", "client": "elisa", "channelAccount": "karzi_whatsapp", "providerOrderId": "SYN-WA-1005", "channel": "whatsapp", "status": "criado", "total": "249.90", "shipping": "15.00", "discount": "20.00", "daysAgo": 2 },
-    { "key": "order6", "id": "61000000-0000-4000-8000-000000000006", "brand": "wuwu", "client": "fabio", "channelAccount": "wuwu_shopee", "providerOrderId": "SYN-SH-1006", "channel": "shopee", "status": "cancelado", "total": "54.90", "shipping": "9.00", "discount": "0.00", "daysAgo": 1, "cancelReason": "Cancelamento sintético para demonstração" },
-    { "key": "order7", "id": "61000000-0000-4000-8000-000000000007", "brand": "armarinhos_lima", "client": "gabriela", "channelAccount": "armarinhos_ml", "providerOrderId": "SYN-ML-ALI-1007", "channel": "mercadolivre", "status": "pago", "total": "69.90", "shipping": "11.00", "discount": "0.00", "daysAgo": 3 },
-    { "key": "order8", "id": "61000000-0000-4000-8000-000000000008", "brand": "armarinhos_lima", "client": "alice", "channelAccount": "armarinhos_shopee", "providerOrderId": "SYN-SH-ALI-1008", "channel": "shopee", "status": "criado", "total": "39.80", "shipping": "8.00", "discount": "0.00", "daysAgo": 1 }
+    {
+      "key": "order1",
+      "id": "61000000-0000-4000-8000-000000000001",
+      "brand": "karzi",
+      "client": "alice",
+      "channelAccount": "karzi_ml",
+      "providerOrderId": "SYN-ML-1001",
+      "channel": "mercadolivre",
+      "status": "entregue",
+      "total": "249.90",
+      "shipping": "15.00",
+      "discount": "0.00",
+      "daysAgo": 20
+    },
+    {
+      "key": "order2",
+      "id": "61000000-0000-4000-8000-000000000002",
+      "brand": "wuwu",
+      "client": "bruno",
+      "channelAccount": "wuwu_shopee",
+      "providerOrderId": "SYN-SH-1002",
+      "channel": "shopee",
+      "status": "enviado",
+      "total": "199.90",
+      "shipping": "12.00",
+      "discount": "10.00",
+      "daysAgo": 13
+    },
+    {
+      "key": "order3",
+      "id": "61000000-0000-4000-8000-000000000003",
+      "brand": "karzi",
+      "client": "carla",
+      "providerOrderId": "SYN-MAN-1003",
+      "channel": "manual",
+      "status": "pago",
+      "total": "89.90",
+      "shipping": "0.00",
+      "discount": "0.00",
+      "daysAgo": 8
+    },
+    {
+      "key": "order4",
+      "id": "61000000-0000-4000-8000-000000000004",
+      "brand": "wuwu",
+      "client": "diego",
+      "channelAccount": "wuwu_instagram",
+      "providerOrderId": "SYN-IG-1004",
+      "channel": "instagram",
+      "status": "concluido",
+      "total": "254.80",
+      "shipping": "18.00",
+      "discount": "0.00",
+      "daysAgo": 5
+    },
+    {
+      "key": "order5",
+      "id": "61000000-0000-4000-8000-000000000005",
+      "brand": "karzi",
+      "client": "elisa",
+      "channelAccount": "karzi_whatsapp",
+      "providerOrderId": "SYN-WA-1005",
+      "channel": "whatsapp",
+      "status": "criado",
+      "total": "249.90",
+      "shipping": "15.00",
+      "discount": "20.00",
+      "daysAgo": 2
+    },
+    {
+      "key": "order6",
+      "id": "61000000-0000-4000-8000-000000000006",
+      "brand": "wuwu",
+      "client": "fabio",
+      "channelAccount": "wuwu_shopee",
+      "providerOrderId": "SYN-SH-1006",
+      "channel": "shopee",
+      "status": "cancelado",
+      "total": "54.90",
+      "shipping": "9.00",
+      "discount": "0.00",
+      "daysAgo": 1,
+      "cancelReason": "Cancelamento sintético para demonstração"
+    },
+    {
+      "key": "order7",
+      "id": "61000000-0000-4000-8000-000000000007",
+      "brand": "armarinhos_lima",
+      "client": "gabriela",
+      "channelAccount": "armarinhos_ml",
+      "providerOrderId": "SYN-ML-ALI-1007",
+      "channel": "mercadolivre",
+      "status": "pago",
+      "total": "69.90",
+      "shipping": "11.00",
+      "discount": "0.00",
+      "daysAgo": 3
+    },
+    {
+      "key": "order8",
+      "id": "61000000-0000-4000-8000-000000000008",
+      "brand": "armarinhos_lima",
+      "client": "alice",
+      "channelAccount": "armarinhos_shopee",
+      "providerOrderId": "SYN-SH-ALI-1008",
+      "channel": "shopee",
+      "status": "criado",
+      "total": "39.80",
+      "shipping": "8.00",
+      "discount": "0.00",
+      "daysAgo": 1
+    }
   ],
   "orderItems": [
-    { "id": "62000000-0000-4000-8000-000000000001", "order": "order1", "product": "karzi_bag", "quantity": 1, "unitPrice": "249.90" },
-    { "id": "62000000-0000-4000-8000-000000000002", "order": "order2", "product": "wuwu_backpack", "quantity": 1, "unitPrice": "199.90" },
-    { "id": "62000000-0000-4000-8000-000000000003", "order": "order3", "product": "karzi_wallet", "quantity": 1, "unitPrice": "89.90" },
-    { "id": "62000000-0000-4000-8000-000000000004", "order": "order4", "product": "wuwu_backpack", "quantity": 1, "unitPrice": "199.90" },
-    { "id": "62000000-0000-4000-8000-000000000005", "order": "order4", "product": "wuwu_case", "quantity": 1, "unitPrice": "54.90" },
-    { "id": "62000000-0000-4000-8000-000000000006", "order": "order5", "product": "karzi_bag", "quantity": 1, "unitPrice": "249.90" },
-    { "id": "62000000-0000-4000-8000-000000000007", "order": "order6", "product": "wuwu_case", "quantity": 1, "unitPrice": "54.90" },
-    { "id": "62000000-0000-4000-8000-000000000008", "order": "order7", "product": "armarinhos_kit", "quantity": 1, "unitPrice": "69.90" },
-    { "id": "62000000-0000-4000-8000-000000000009", "order": "order8", "product": "armarinhos_fita", "quantity": 2, "unitPrice": "19.90" }
+    {
+      "id": "62000000-0000-4000-8000-000000000001",
+      "order": "order1",
+      "product": "karzi_bag",
+      "quantity": 1,
+      "unitPrice": "249.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000002",
+      "order": "order2",
+      "product": "wuwu_backpack",
+      "quantity": 1,
+      "unitPrice": "199.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000003",
+      "order": "order3",
+      "product": "karzi_wallet",
+      "quantity": 1,
+      "unitPrice": "89.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000004",
+      "order": "order4",
+      "product": "wuwu_backpack",
+      "quantity": 1,
+      "unitPrice": "199.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000005",
+      "order": "order4",
+      "product": "wuwu_case",
+      "quantity": 1,
+      "unitPrice": "54.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000006",
+      "order": "order5",
+      "product": "karzi_bag",
+      "quantity": 1,
+      "unitPrice": "249.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000007",
+      "order": "order6",
+      "product": "wuwu_case",
+      "quantity": 1,
+      "unitPrice": "54.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000008",
+      "order": "order7",
+      "product": "armarinhos_kit",
+      "quantity": 1,
+      "unitPrice": "69.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000009",
+      "order": "order8",
+      "product": "armarinhos_fita",
+      "quantity": 2,
+      "unitPrice": "19.90"
+    }
   ],
   "opportunities": [
-    { "id": "63000000-0000-4000-8000-000000000001", "brand": "karzi", "client": "alice", "stage": "contact", "owner": "seller", "title": "Reposição fictícia de coleção", "value": "499.80", "daysAgo": 4 },
-    { "id": "63000000-0000-4000-8000-000000000002", "brand": "wuwu", "client": "carla", "stage": "proposal", "owner": "manager", "title": "Kit sintético para viagem", "value": "254.80", "daysAgo": 3 },
-    { "id": "63000000-0000-4000-8000-000000000003", "brand": "karzi", "client": "elisa", "stage": "lead", "owner": "seller", "title": "Primeiro contato fictício", "value": "89.90", "daysAgo": 1 },
-    { "id": "63000000-0000-4000-8000-000000000004", "brand": "armarinhos_lima", "client": "gabriela", "stage": "contact", "owner": "seller", "title": "Atendimento Armarinhos Lima sintético", "value": "139.80", "daysAgo": 2 }
-  ],
-  "tasks": [
-    { "id": "64000000-0000-4000-8000-000000000001", "client": "alice", "owner": "seller", "title": "Retornar contato sintético", "description": "Confirmar interesse sem efetuar envio externo.", "status": "pendente", "dueDaysFromNow": 1 },
-    { "id": "64000000-0000-4000-8000-000000000002", "client": "carla", "owner": "manager", "title": "Revisar proposta sintética", "description": "Validar valores usados na demonstração.", "status": "em_andamento", "dueDaysFromNow": 2 },
-    { "id": "64000000-0000-4000-8000-000000000003", "client": "bruno", "owner": "seller", "title": "Registrar acompanhamento fictício", "description": "Tarefa concluída para compor o histórico.", "status": "concluida", "dueDaysFromNow": -2 },
-    { "id": "64000000-0000-4000-8000-000000000004", "client": "gabriela", "owner": "seller", "title": "Retorno Armarinhos Lima sintético", "description": "Validar atendimento sem realizar envio externo.", "status": "pendente", "dueDaysFromNow": 2 }
-  ],
-  "calendarEvents": [
-    { "id": "65000000-0000-4000-8000-000000000001", "client": "alice", "owner": "seller", "title": "Demonstração com Alice Exemplo", "startsDaysFromNow": 1, "durationMinutes": 30 },
-    { "id": "65000000-0000-4000-8000-000000000002", "client": "carla", "owner": "manager", "title": "Revisão de proposta fictícia", "startsDaysFromNow": 3, "durationMinutes": 45 },
-    { "id": "65000000-0000-4000-8000-000000000003", "client": "gabriela", "owner": "seller", "title": "Demonstração Armarinhos Lima", "startsDaysFromNow": 2, "durationMinutes": 30 }
+    {
+      "id": "63000000-0000-4000-8000-000000000001",
+      "brand": "karzi",
+      "client": "alice",
+      "stage": "contact",
+      "owner": "seller",
+      "title": "Reposição fictícia de coleção",
+      "value": "499.80",
+      "daysAgo": 4
+    },
+    {
+      "id": "63000000-0000-4000-8000-000000000002",
+      "brand": "wuwu",
+      "client": "carla",
+      "stage": "proposal",
+      "owner": "manager",
+      "title": "Kit sintético para viagem",
+      "value": "254.80",
+      "daysAgo": 3
+    },
+    {
+      "id": "63000000-0000-4000-8000-000000000003",
+      "brand": "karzi",
+      "client": "elisa",
+      "stage": "lead",
+      "owner": "seller",
+      "title": "Primeiro contato fictício",
+      "value": "89.90",
+      "daysAgo": 1
+    },
+    {
+      "id": "63000000-0000-4000-8000-000000000004",
+      "brand": "armarinhos_lima",
+      "client": "gabriela",
+      "stage": "contact",
+      "owner": "seller",
+      "title": "Atendimento Armarinhos Lima sintético",
+      "value": "139.80",
+      "daysAgo": 2
+    }
   ],
   "conversations": [
-    { "key": "conversation1", "id": "70000000-0000-4000-8000-000000000001", "brand": "karzi", "client": "alice", "channelAccount": "karzi_whatsapp", "owner": "seller", "status": "em_atendimento", "externalId": "synthetic-conversation-001", "daysAgo": 3 },
-    { "key": "conversation2", "id": "70000000-0000-4000-8000-000000000002", "brand": "wuwu", "client": "carla", "channelAccount": "wuwu_instagram", "owner": "manager", "status": "nova", "externalId": "synthetic-conversation-002", "daysAgo": 1 },
-    { "key": "conversation3", "id": "70000000-0000-4000-8000-000000000003", "brand": "armarinhos_lima", "client": "gabriela", "channelAccount": "armarinhos_shopee", "owner": "seller", "status": "em_atendimento", "externalId": "synthetic-conversation-003", "daysAgo": 1 }
+    {
+      "key": "conversation1",
+      "id": "70000000-0000-4000-8000-000000000001",
+      "brand": "karzi",
+      "client": "alice",
+      "channelAccount": "karzi_whatsapp",
+      "owner": "seller",
+      "status": "em_atendimento",
+      "externalId": "synthetic-conversation-001",
+      "daysAgo": 3
+    },
+    {
+      "key": "conversation2",
+      "id": "70000000-0000-4000-8000-000000000002",
+      "brand": "wuwu",
+      "client": "carla",
+      "channelAccount": "wuwu_instagram",
+      "owner": "manager",
+      "status": "nova",
+      "externalId": "synthetic-conversation-002",
+      "daysAgo": 1
+    },
+    {
+      "key": "conversation3",
+      "id": "70000000-0000-4000-8000-000000000003",
+      "brand": "armarinhos_lima",
+      "client": "gabriela",
+      "channelAccount": "armarinhos_shopee",
+      "owner": "seller",
+      "status": "em_atendimento",
+      "externalId": "synthetic-conversation-003",
+      "daysAgo": 1
+    }
   ],
   "messages": [
-    { "id": "71000000-0000-4000-8000-000000000001", "conversation": "conversation1", "direction": "entrada", "content": "Olá, esta é uma mensagem fictícia. A bolsa está disponível?", "providerMessageId": "synthetic-message-001", "delivered": true, "read": true, "daysAgo": 3 },
-    { "id": "71000000-0000-4000-8000-000000000002", "conversation": "conversation1", "direction": "saida", "content": "Sim. Esta resposta também é sintética e nenhum envio externo foi realizado.", "providerMessageId": "synthetic-message-002", "delivered": true, "read": true, "daysAgo": 3 },
-    { "id": "71000000-0000-4000-8000-000000000003", "conversation": "conversation2", "direction": "entrada", "content": "Mensagem fictícia sobre prazo de entrega.", "providerMessageId": "synthetic-message-003", "delivered": true, "read": false, "daysAgo": 1 },
-    { "id": "71000000-0000-4000-8000-000000000004", "conversation": "conversation3", "direction": "entrada", "content": "Mensagem sintética para a Armarinhos Lima.", "providerMessageId": "synthetic-message-004", "delivered": true, "read": true, "daysAgo": 1 },
-    { "id": "71000000-0000-4000-8000-000000000005", "conversation": "conversation3", "direction": "saida", "content": "Resposta sintética sem envio externo.", "providerMessageId": "synthetic-message-005", "delivered": true, "read": true, "daysAgo": 1 }
+    {
+      "id": "71000000-0000-4000-8000-000000000001",
+      "conversation": "conversation1",
+      "direction": "entrada",
+      "content": "Olá, esta é uma mensagem fictícia. A bolsa está disponível?",
+      "providerMessageId": "synthetic-message-001",
+      "delivered": true,
+      "read": true,
+      "daysAgo": 3
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000002",
+      "conversation": "conversation1",
+      "direction": "saida",
+      "content": "Sim. Esta resposta também é sintética e nenhum envio externo foi realizado.",
+      "providerMessageId": "synthetic-message-002",
+      "delivered": true,
+      "read": true,
+      "daysAgo": 3
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000003",
+      "conversation": "conversation2",
+      "direction": "entrada",
+      "content": "Mensagem fictícia sobre prazo de entrega.",
+      "providerMessageId": "synthetic-message-003",
+      "delivered": true,
+      "read": false,
+      "daysAgo": 1
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000004",
+      "conversation": "conversation3",
+      "direction": "entrada",
+      "content": "Mensagem sintética para a Armarinhos Lima.",
+      "providerMessageId": "synthetic-message-004",
+      "delivered": true,
+      "read": true,
+      "daysAgo": 1
+    },
+    {
+      "id": "71000000-0000-4000-8000-000000000005",
+      "conversation": "conversation3",
+      "direction": "saida",
+      "content": "Resposta sintética sem envio externo.",
+      "providerMessageId": "synthetic-message-005",
+      "delivered": true,
+      "read": true,
+      "daysAgo": 1
+    }
   ],
   "clientScores": [
-    { "id": "90000000-0000-4000-8000-000000000001", "client": "alice", "churnRisk": 18, "recency": 5, "frequency": 4, "value": "749.70", "nextPurchaseDays": 18, "explanation": "Score sintético: cliente recorrente." },
-    { "id": "90000000-0000-4000-8000-000000000002", "client": "bruno", "churnRisk": 76, "recency": 1, "frequency": 2, "value": "289.80", "nextPurchaseDays": 35, "explanation": "Score sintético: recência elevada." },
-    { "id": "90000000-0000-4000-8000-000000000003", "client": "carla", "churnRisk": 34, "recency": 4, "frequency": 3, "value": "344.70", "nextPurchaseDays": 21, "explanation": "Score sintético para demonstração." },
-    { "id": "90000000-0000-4000-8000-000000000004", "client": "gabriela", "churnRisk": 22, "recency": 2, "frequency": 2, "value": "109.70", "nextPurchaseDays": 16, "explanation": "Score sintético da operação Armarinhos Lima." }
+    {
+      "id": "90000000-0000-4000-8000-000000000001",
+      "client": "alice",
+      "churnRisk": 18,
+      "recency": 5,
+      "frequency": 4,
+      "value": "749.70",
+      "nextPurchaseDays": 18,
+      "explanation": "Score sintético: cliente recorrente."
+    },
+    {
+      "id": "90000000-0000-4000-8000-000000000002",
+      "client": "bruno",
+      "churnRisk": 76,
+      "recency": 1,
+      "frequency": 2,
+      "value": "289.80",
+      "nextPurchaseDays": 35,
+      "explanation": "Score sintético: recência elevada."
+    },
+    {
+      "id": "90000000-0000-4000-8000-000000000003",
+      "client": "carla",
+      "churnRisk": 34,
+      "recency": 4,
+      "frequency": 3,
+      "value": "344.70",
+      "nextPurchaseDays": 21,
+      "explanation": "Score sintético para demonstração."
+    },
+    {
+      "id": "90000000-0000-4000-8000-000000000004",
+      "client": "gabriela",
+      "churnRisk": 22,
+      "recency": 2,
+      "frequency": 2,
+      "value": "109.70",
+      "nextPurchaseDays": 16,
+      "explanation": "Score sintético da operação Armarinhos Lima."
+    }
   ],
   "productScores": [
-    { "id": "91000000-0000-4000-8000-000000000001", "product": "karzi_wallet", "stagnationRisk": 72, "daysWithoutSale": 38, "idleCapital": "152.00", "suggestedAction": "Campanha sintética de giro." },
-    { "id": "91000000-0000-4000-8000-000000000002", "product": "wuwu_case", "stagnationRisk": 55, "daysWithoutSale": 22, "idleCapital": "198.00", "suggestedAction": "Oferta fictícia em conjunto." },
-    { "id": "91000000-0000-4000-8000-000000000003", "product": "armarinhos_fita", "stagnationRisk": 48, "daysWithoutSale": 18, "idleCapital": "112.00", "suggestedAction": "Ação sintética da Armarinhos Lima." }
+    {
+      "id": "91000000-0000-4000-8000-000000000001",
+      "product": "karzi_wallet",
+      "stagnationRisk": 72,
+      "daysWithoutSale": 38,
+      "idleCapital": "152.00",
+      "suggestedAction": "Campanha sintética de giro."
+    },
+    {
+      "id": "91000000-0000-4000-8000-000000000002",
+      "product": "wuwu_case",
+      "stagnationRisk": 55,
+      "daysWithoutSale": 22,
+      "idleCapital": "198.00",
+      "suggestedAction": "Oferta fictícia em conjunto."
+    },
+    {
+      "id": "91000000-0000-4000-8000-000000000003",
+      "product": "armarinhos_fita",
+      "stagnationRisk": 48,
+      "daysWithoutSale": 18,
+      "idleCapital": "112.00",
+      "suggestedAction": "Ação sintética da Armarinhos Lima."
+    }
   ],
   "campaignSuggestions": [
-    { "id": "91500000-0000-4000-8000-000000000001", "title": "Reativação sintética A", "segment": "Clientes sintéticos em risco de churn", "offer": "Frete grátis em pedido elegível", "minimumDiscount": "0.00" },
-    { "id": "91500000-0000-4000-8000-000000000002", "title": "Reativação sintética B", "segment": "Clientes sintéticos sem compra recente", "offer": "Benefício de retorno controlado", "minimumDiscount": "5.00" },
-    { "id": "91500000-0000-4000-8000-000000000003", "title": "Reativação sintética C", "segment": "Clientes sintéticos com histórico recorrente", "offer": "Condição especial sujeita à aprovação", "minimumDiscount": "5.00" },
-    { "id": "91500000-0000-4000-8000-000000000004", "title": "Reativação sintética D", "segment": "Clientes sintéticos inativos", "offer": "Oferta de homologação sem envio externo", "minimumDiscount": "0.00" }
+    {
+      "id": "91500000-0000-4000-8000-000000000001",
+      "title": "Reativação sintética A",
+      "segment": "Clientes sintéticos em risco de churn",
+      "offer": "Frete grátis em pedido elegível",
+      "minimumDiscount": "0.00"
+    },
+    {
+      "id": "91500000-0000-4000-8000-000000000002",
+      "title": "Reativação sintética B",
+      "segment": "Clientes sintéticos sem compra recente",
+      "offer": "Benefício de retorno controlado",
+      "minimumDiscount": "5.00"
+    },
+    {
+      "id": "91500000-0000-4000-8000-000000000003",
+      "title": "Reativação sintética C",
+      "segment": "Clientes sintéticos com histórico recorrente",
+      "offer": "Condição especial sujeita à aprovação",
+      "minimumDiscount": "5.00"
+    },
+    {
+      "id": "91500000-0000-4000-8000-000000000004",
+      "title": "Reativação sintética D",
+      "segment": "Clientes sintéticos inativos",
+      "offer": "Oferta de homologação sem envio externo",
+      "minimumDiscount": "0.00"
+    }
   ],
   "insights": [
-    { "id": "92000000-0000-4000-8000-000000000001", "type": "funil", "title": "Insight sintético de conversão", "content": "O canal manual possui uma oportunidade de melhoria nesta massa fictícia.", "sourceNumbers": { "orders": 6, "synthetic": true }, "confidence": "0.820", "validDays": 30 },
-    { "id": "92000000-0000-4000-8000-000000000002", "type": "estoque", "title": "Insight sintético de estoque", "content": "A carteira KARZI está abaixo do estoque mínimo na demonstração.", "sourceNumbers": { "sku": "SYN-KAR-002", "synthetic": true }, "confidence": "0.910", "validDays": 30 }
+    {
+      "id": "92000000-0000-4000-8000-000000000001",
+      "type": "funil",
+      "title": "Insight sintético de conversão",
+      "content": "O canal manual possui uma oportunidade de melhoria nesta massa fictícia.",
+      "sourceNumbers": {
+        "orders": 6,
+        "synthetic": true
+      },
+      "confidence": "0.820",
+      "validDays": 30
+    },
+    {
+      "id": "92000000-0000-4000-8000-000000000002",
+      "type": "estoque",
+      "title": "Insight sintético de estoque",
+      "content": "A carteira KARZI está abaixo do estoque mínimo na demonstração.",
+      "sourceNumbers": {
+        "sku": "SYN-KAR-002",
+        "synthetic": true
+      },
+      "confidence": "0.910",
+      "validDays": 30
+    }
   ],
   "auditLogs": [
-    { "id": "a0000000-0000-4000-8000-000000000001", "brand": "karzi", "author": "admin", "entity": "cliente", "entityRef": "alice", "action": "synthetic_seed.created", "after": { "synthetic": true }, "daysAgo": 24 },
-    { "id": "a0000000-0000-4000-8000-000000000002", "brand": "wuwu", "author": "manager", "entity": "pedido", "entityRef": "order4", "action": "synthetic_seed.created", "after": { "synthetic": true }, "daysAgo": 5 },
-    { "id": "a0000000-0000-4000-8000-000000000003", "brand": "armarinhos_lima", "author": "admin", "entity": "pedido", "entityRef": "order7", "action": "synthetic_seed.created", "after": { "synthetic": true }, "daysAgo": 3 }
+    {
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "brand": "karzi",
+      "author": "admin",
+      "entity": "cliente",
+      "entityRef": "alice",
+      "action": "synthetic_seed.created",
+      "after": {
+        "synthetic": true
+      },
+      "daysAgo": 24
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000002",
+      "brand": "wuwu",
+      "author": "manager",
+      "entity": "pedido",
+      "entityRef": "order4",
+      "action": "synthetic_seed.created",
+      "after": {
+        "synthetic": true
+      },
+      "daysAgo": 5
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "brand": "armarinhos_lima",
+      "author": "admin",
+      "entity": "pedido",
+      "entityRef": "order7",
+      "action": "synthetic_seed.created",
+      "after": {
+        "synthetic": true
+      },
+      "daysAgo": 3
+    }
   ]
 }

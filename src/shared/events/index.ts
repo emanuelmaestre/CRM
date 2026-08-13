@@ -15,27 +15,19 @@ export type DomainEventType =
   | "cliente.segmento_excluido"
   | "produto.criado"
   | "produto.atualizado"
-  | "estoque.movimento_registrado"
   | "usuario.perfil_atualizado"
   | "oportunidade.criada"
   | "oportunidade.movida"
   | "oportunidade.excluida"
-  | "tarefa.criada"
-  | "tarefa.status_alterado"
-  | "agenda.evento_criado"
-  | "agenda.evento_excluido"
   | "pedido.recebido"
   | "pedido.pago"
   | "pedido.enviado"
   | "pedido.entregue"
   | "pedido.cancelado"
   | "pedido.devolvido"
-  | "estoque.baixa_automatica"
-  | "estoque.saldo_atualizado"
   | "estoque.sincronizado"
   | "estoque.minimo_atingido"
   | "estoque.parado_detectado"
-  | "estoque.divergencia_detectada"
   | "conversa.recebida"
   | "conversa.sem_resposta_24h"
   | "mensagem.falhou"
@@ -83,8 +75,6 @@ const INNGEST_EVENT_MAP: Partial<Record<DomainEventType, string>> = {
   "pedido.pago":                      "pedido/pago",
   "pedido.entregue":                  "pedido/entregue",
   "pedido.cancelado":                 "pedido/cancelado",
-  "estoque.baixa_automatica":         "estoque/baixa-automatica",
-  "estoque.saldo_atualizado":         "estoque/saldo.atualizado",
   "produto.atualizado":               "produto/atualizado",
   "cliente.consentimento_revogado":   "cliente/consentimento-revogado",
 };

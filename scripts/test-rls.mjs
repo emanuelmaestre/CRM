@@ -32,13 +32,10 @@ const PHASE_A_TABLES = [
   "interacao",
   "produto",
   "produto_canal",
-  "estoque_movimento",
-  "estoque_saldo",
+  "estoque_canal_saldo",
   "pedido",
   "pedido_item",
   "oportunidade",
-  "tarefa",
-  "evento_agenda",
   "audit_log",
 ];
 
@@ -471,13 +468,18 @@ async function testCrossTenantOrderItemDenied() {
   });
 }
 
-async function testCrossTenantStockMovementDenied() {
-  await expectPolicyDenied("estoque_movimento com produto de outro tenant", async (tx) => {
+async function testCrossTenantStockBalanceDenied() {
+  await expectPolicyDenied("estoque_canal_saldo com produto de outro tenant", async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
     await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
+    const vinculo = await tx`
+      insert into public.produto_canal (org_id, produto_id, channel_account_id, external_listing_id)
+      values (${fixtures.orgA}, ${fixtures.productA}, ${fixtures.channelA}, 'MLB-RLS-1')
+      returning id
+    `;
     await tx`
-      insert into public.estoque_movimento (org_id, produto_id, tipo, quantidade)
-      values (${fixtures.orgA}, ${fixtures.productB}, 'entrada', 1)
+      insert into public.estoque_canal_saldo (org_id, produto_id, channel_account_id, produto_canal_id, saldo)
+      values (${fixtures.orgA}, ${fixtures.productB}, ${fixtures.channelA}, ${vinculo[0].id}, 5)
     `;
   });
 }
@@ -609,26 +611,36 @@ async function testProductCostConfidentiality() {
   });
 }
 
-async function testStockMutationByProfile() {
-  await expectPolicyDenied("vendedor não movimenta estoque", async (tx) => {
+async function testStockBalanceMutationByProfile() {
+  await expectPolicyDenied("vendedor não grava saldo de canal", async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
+    const vinculo = await tx`
+      insert into public.produto_canal (org_id, produto_id, channel_account_id, external_listing_id)
+      values (${fixtures.orgA}, ${fixtures.productA}, ${fixtures.channelA}, 'MLB-RLS-2')
+      returning id
+    `;
     await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
     await tx`
-      insert into public.estoque_movimento (org_id, produto_id, tipo, quantidade)
-      values (${fixtures.orgA}, ${fixtures.productA}, 'entrada', 1)
+      insert into public.estoque_canal_saldo (org_id, produto_id, channel_account_id, produto_canal_id, saldo)
+      values (${fixtures.orgA}, ${fixtures.productA}, ${fixtures.channelA}, ${vinculo[0].id}, 5)
     `;
   });
 
-  await testWithRollback("gestor movimenta estoque", async (tx) => {
+  await testWithRollback("gestor grava saldo de canal", async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
-    const inserted = await tx`
-      insert into public.estoque_movimento (org_id, produto_id, tipo, quantidade)
-      values (${fixtures.orgA}, ${fixtures.productA}, 'entrada', 1)
+    const vinculo = await tx`
+      insert into public.produto_canal (org_id, produto_id, channel_account_id, external_listing_id)
+      values (${fixtures.orgA}, ${fixtures.productA}, ${fixtures.channelA}, 'MLB-RLS-3')
       returning id
     `;
-    assert(inserted.length === 1, "Gestor não conseguiu movimentar estoque.");
-    record("gestor movimenta estoque", "INSERT permitido no próprio tenant");
+    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
+    const inserted = await tx`
+      insert into public.estoque_canal_saldo (org_id, produto_id, channel_account_id, produto_canal_id, saldo)
+      values (${fixtures.orgA}, ${fixtures.productA}, ${fixtures.channelA}, ${vinculo[0].id}, 5)
+      returning id
+    `;
+    assert(inserted.length === 1, "Gestor não conseguiu gravar saldo de canal.");
+    record("gestor grava saldo de canal", "INSERT permitido no próprio tenant");
   });
 }
 
@@ -661,83 +673,6 @@ async function testCrossBrandOrderAccountDenied() {
   });
 }
 
-async function testTaskAgendaOwnershipByProfile() {
-  await testWithRollback("vendedor vê somente tarefas e agenda próprias", async (tx) => {
-    const fixtures = await createRelationalFixtures(tx);
-    const ownTask = randomUUID();
-    const teamTask = randomUUID();
-    const ownEvent = randomUUID();
-    const teamEvent = randomUUID();
-    await tx`
-      insert into public.tarefa (id, org_id, cliente_id, responsavel_id, titulo)
-      values
-        (${ownTask}, ${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorA}, 'Tarefa própria'),
-        (${teamTask}, ${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Tarefa da equipe')
-    `;
-    await tx`
-      insert into public.evento_agenda (id, org_id, cliente_id, responsavel_id, titulo, inicio)
-      values
-        (${ownEvent}, ${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorA}, 'Evento próprio', now()),
-        (${teamEvent}, ${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Evento da equipe', now())
-    `;
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
-    const tasks = await tx`select id from public.tarefa order by id`;
-    const events = await tx`select id from public.evento_agenda order by id`;
-    assert(tasks.length === 1 && tasks[0].id === ownTask, "Vendedor visualizou tarefa de outro responsável.");
-    assert(events.length === 1 && events[0].id === ownEvent, "Vendedor visualizou evento de outro responsável.");
-    record("vendedor vê somente tarefas e agenda próprias", "1 tarefa e 1 evento do próprio responsável");
-  });
-
-  await testWithRollback("gestor vê tarefas e agenda da equipe", async (tx) => {
-    const fixtures = await createRelationalFixtures(tx);
-    await tx`
-      insert into public.tarefa (org_id, cliente_id, responsavel_id, titulo)
-      values
-        (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorA}, 'Tarefa do vendedor'),
-        (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Tarefa do gestor')
-    `;
-    await tx`
-      insert into public.evento_agenda (org_id, cliente_id, responsavel_id, titulo, inicio)
-      values
-        (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorA}, 'Evento do vendedor', now()),
-        (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Evento do gestor', now())
-    `;
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
-    const tasks = await tx`select id from public.tarefa`;
-    const events = await tx`select id from public.evento_agenda`;
-    assert(tasks.length === 2 && events.length === 2, "Gestor não visualizou a operação da equipe.");
-    record("gestor vê tarefas e agenda da equipe", "2 tarefas e 2 eventos visíveis");
-  });
-
-  await expectPolicyDenied("vendedor não atribui tarefa a outro responsável", async (tx) => {
-    const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
-    await tx`
-      insert into public.tarefa (org_id, cliente_id, responsavel_id, titulo)
-      values (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.gestorA}, 'Atribuição indevida')
-    `;
-  });
-}
-
-async function testTaskAgendaCrossTenantDenied() {
-  await expectDatabaseDenied("tarefa não referencia cliente de outro tenant", ["23503"], async (tx) => {
-    const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
-    await tx`
-      insert into public.tarefa (org_id, cliente_id, responsavel_id, titulo)
-      values (${fixtures.orgA}, ${fixtures.clientB}, ${fixtures.adminA}, 'Referência cruzada')
-    `;
-  });
-  await expectDatabaseDenied("agenda não referencia responsável de outro tenant", ["23503"], async (tx) => {
-    const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
-    await tx`
-      insert into public.evento_agenda (org_id, cliente_id, responsavel_id, titulo, inicio)
-      values (${fixtures.orgA}, ${fixtures.clientA}, ${fixtures.vendedorB}, 'Referência cruzada', now())
-    `;
-  });
-}
-
 async function testAuditImmutableForBackend() {
   await expectDatabaseDenied("auditoria imutável para backend", ["P0001"], async (tx) => {
     const fixtures = await createFixtures(tx);
@@ -764,7 +699,7 @@ try {
   await testAuditInsertDenied();
   await testCrossTenantClientTagDenied();
   await testCrossTenantOrderItemDenied();
-  await testCrossTenantStockMovementDenied();
+  await testCrossTenantStockBalanceDenied();
   await testCrossTenantProductChannelDenied();
   await testCrossBrandProductChannelDenied();
   await testCrossBrandOrderAccountDenied();
@@ -772,9 +707,7 @@ try {
   await testOnlyAdminManagesUsers();
   await testOnlyAdminManagesOrganization();
   await testProductCostConfidentiality();
-  await testStockMutationByProfile();
-  await testTaskAgendaOwnershipByProfile();
-  await testTaskAgendaCrossTenantDenied();
+  await testStockBalanceMutationByProfile();
   await testAuditImmutableForBackend();
 
   const failed = results.filter((result) => result.status === "failed");

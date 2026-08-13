@@ -14,10 +14,6 @@ export const pedidoStatusEnum = pgEnum("pedido_status", [
   "avaliacao_solicitada", "concluido", "cancelado", "devolvido",
 ]);
 
-export const tarefaStatusEnum = pgEnum("tarefa_status", [
-  "pendente", "em_andamento", "concluida", "cancelada",
-]);
-
 export const pedido = pgTable("pedido", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull().references(() => org.id),
@@ -96,35 +92,3 @@ export const oportunidade = pgTable("oportunidade", {
   index("idx_oportunidade_cliente").on(t.clienteId),
 ]);
 
-export const tarefa = pgTable("tarefa", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").notNull().references(() => org.id),
-  clienteId: uuid("cliente_id").references(() => cliente.id),
-  responsavelId: uuid("responsavel_id").references(() => appUser.id),
-  titulo: text("titulo").notNull(),
-  descricao: text("descricao"),
-  status: tarefaStatusEnum("status").notNull().default("pendente"),
-  vencimentoEm: timestamp("vencimento_em", { withTimezone: true }),
-  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index("idx_tarefa_org").on(t.orgId),
-  index("idx_tarefa_responsavel").on(t.responsavelId),
-  index("idx_tarefa_vencimento").on(t.vencimentoEm),
-  index("idx_tarefa_status").on(t.status),
-]);
-
-export const eventoAgenda = pgTable("evento_agenda", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").notNull().references(() => org.id),
-  clienteId: uuid("cliente_id").references(() => cliente.id),
-  responsavelId: uuid("responsavel_id").references(() => appUser.id),
-  titulo: text("titulo").notNull(),
-  inicio: timestamp("inicio", { withTimezone: true }).notNull(),
-  fim: timestamp("fim", { withTimezone: true }),
-  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index("idx_evento_agenda_org").on(t.orgId),
-  index("idx_evento_agenda_inicio").on(t.inicio),
-  index("idx_evento_agenda_responsavel").on(t.responsavelId),
-]);

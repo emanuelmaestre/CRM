@@ -1,7 +1,7 @@
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
-import { produto, estoqueSaldo, estoqueMovimento } from "@/shared/lib/db/schema";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { produto, estoqueCanalSaldo, pedido, pedidoItem } from "@/shared/lib/db/schema";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { emitirEvento } from "@/shared/events";
 
@@ -18,34 +18,44 @@ export const A7_encalhe = inngest.createFunction(
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
     const limiteData = new Date(Date.now() - DIAS_SEM_VENDA * 24 * 60 * 60 * 1000);
 
+    // Saldo do produto = maior saldo entre os canais (mesmo lote anunciado em
+    // todos eles). Uma agregação só, em vez de uma consulta por produto.
     const candidatos = await step.run("buscar-candidatos", () =>
       db
         .select({
           id: produto.id, sku: produto.sku, preco: produto.preco, brandId: produto.brandId,
           criadoEm: produto.createdAt,
+          saldo: sql<number>`max(${estoqueCanalSaldo.saldo})`,
         })
         .from(produto)
-        .innerJoin(estoqueSaldo, eq(estoqueSaldo.produtoId, produto.id))
+        .innerJoin(estoqueCanalSaldo, and(
+          eq(estoqueCanalSaldo.produtoId, produto.id),
+          eq(estoqueCanalSaldo.orgId, produto.orgId),
+        ))
         .where(and(
           eq(produto.orgId, orgId),
           eq(produto.ativo, true),
-          gt(estoqueSaldo.saldo, sql`0`),
         ))
+        .groupBy(produto.id, produto.sku, produto.preco, produto.brandId, produto.createdAt)
+        .having(sql`max(${estoqueCanalSaldo.saldo}) > 0`)
     );
 
     const alertas: string[] = [];
 
     for (const prod of candidatos) {
+      // A venda passou a ser lida do pedido: o livro-razão de movimentos, que
+      // era um reflexo dele, deixou de existir com o saldo local.
       const ultimaVenda = await step.run(`ultima-venda-${prod.id}`, () =>
         db
-          .select({ criado: estoqueMovimento.createdAt })
-          .from(estoqueMovimento)
+          .select({ criado: pedido.createdAt })
+          .from(pedidoItem)
+          .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
           .where(and(
-            eq(estoqueMovimento.orgId, orgId),
-            eq(estoqueMovimento.produtoId, prod.id),
-            eq(estoqueMovimento.tipo, "saida"),
+            eq(pedido.orgId, orgId),
+            eq(pedidoItem.produtoId, prod.id),
+            notInArray(pedido.status, ["cancelado", "devolvido"]),
           ))
-          .orderBy(sql`${estoqueMovimento.createdAt} desc`)
+          .orderBy(sql`${pedido.createdAt} desc`)
           .limit(1)
           .then((r) => r[0]?.criado ?? null)
       );
@@ -58,20 +68,10 @@ export const A7_encalhe = inngest.createFunction(
 
       if (diasSemVenda < DIAS_SEM_VENDA) continue;
 
-      const saldoRow = await step.run(`saldo-${prod.id}`, () =>
-        db
-          .select({ saldo: estoqueSaldo.saldo })
-          .from(estoqueSaldo)
-          .where(and(eq(estoqueSaldo.orgId, orgId), eq(estoqueSaldo.produtoId, prod.id)))
-          .then((r) => r[0])
-      );
-
-      if (!saldoRow || saldoRow.saldo <= 0) continue;
-
       const score = calcularScoreProduto({
         diasSemVenda,
         giroMensalMedio: 0,
-        saldoAtual: saldoRow.saldo,
+        saldoAtual: Number(prod.saldo),
         precoUnitario: parseFloat(prod.preco ?? "0"),
       });
 

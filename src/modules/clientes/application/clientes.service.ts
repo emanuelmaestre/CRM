@@ -5,7 +5,7 @@ import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/
 import { db } from "@/shared/lib/db";
 import {
   auditLog, brand, channelAccount, cliente, clienteIdentidade, clienteTag, consentimento, interacao, pedido,
-  scoreCliente, tag, tarefa,
+  scoreCliente, tag,
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
@@ -69,7 +69,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
   const clienteAtual = await crudCliente.getById(ctx, id) as typeof cliente.$inferSelect | null;
   if (!clienteAtual) throw new Error("Cliente não encontrado.");
 
-  const [interacoes, pedidos, tarefasCliente, consentimentos, tagsCliente, identidades, scoreRow] = await Promise.all([
+  const [interacoes, pedidos, consentimentos, tagsCliente, identidades, scoreRow] = await Promise.all([
     ctx.db
       .select()
       .from(interacao)
@@ -81,12 +81,6 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
       .from(pedido)
       .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id)))
       .orderBy(desc(pedido.createdAt))
-      .limit(50),
-    ctx.db
-      .select()
-      .from(tarefa)
-      .where(and(eq(tarefa.orgId, ctx.orgId), eq(tarefa.clienteId, id)))
-      .orderBy(desc(tarefa.createdAt))
       .limit(50),
     ctx.db
       .select()
@@ -129,7 +123,6 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
     interacoes: timelineInteracoes,
     anotacoes,
     pedidos,
-    tarefas: tarefasCliente,
     consentimentos,
     tags: tagsCliente,
     canais,

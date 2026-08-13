@@ -14,8 +14,6 @@ const paginas = [
   { rota: "/estoque", titulo: "Estoque" },
   { rota: "/vendas", titulo: "Pedidos" },
   { rota: "/vendas/pedidos", titulo: "Pedidos (redirect)" },
-  { rota: "/tarefas", titulo: "Tarefas" },
-  { rota: "/agenda", titulo: "Agenda" },
   { rota: "/auditoria", titulo: "Auditoria" },
   { rota: "/automacoes/historico", titulo: "Automações" },
   { rota: "/importacao", titulo: "Importação" },

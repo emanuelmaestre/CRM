@@ -1,10 +1,9 @@
-import { and, eq, gte, isNull, max, ne } from "drizzle-orm";
+import { and, eq, gte, isNull, max, ne, notInArray, sql } from "drizzle-orm";
 import { startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
-  estoqueMovimento,
-  estoqueSaldo,
+  estoqueCanalSaldo,
   pedido,
   pedidoItem,
   produto,
@@ -250,18 +249,18 @@ export async function obterDashboardData(
         nome: produto.nome,
         preco: produto.preco,
         estoqueMinimo: produto.estoqueMinimo,
-        saldo: estoqueSaldo.saldo,
+        saldo: sql<number>`coalesce((select max(${estoqueCanalSaldo.saldo}) from ${estoqueCanalSaldo} where ${estoqueCanalSaldo.produtoId} = ${produto.id} and ${estoqueCanalSaldo.orgId} = ${ctx.orgId}), 0)`,
         marca: brand.slug,
       })
       .from(produto)
       .innerJoin(brand, eq(brand.id, produto.brandId))
-      .leftJoin(estoqueSaldo, eq(estoqueSaldo.produtoId, produto.id))
       .where(and(...condicoesProduto)),
     ctx.db
-      .select({ produtoId: estoqueMovimento.produtoId, ultima: max(estoqueMovimento.createdAt) })
-      .from(estoqueMovimento)
-      .where(and(eq(estoqueMovimento.orgId, ctx.orgId), eq(estoqueMovimento.tipo, "saida")))
-      .groupBy(estoqueMovimento.produtoId),
+      .select({ produtoId: pedidoItem.produtoId, ultima: max(pedido.createdAt) })
+      .from(pedidoItem)
+      .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
+      .where(and(eq(pedido.orgId, ctx.orgId), notInArray(pedido.status, ["cancelado", "devolvido"])))
+      .groupBy(pedidoItem.produtoId),
   ]);
 
   /* ── Faturamento ── */

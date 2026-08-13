@@ -1,31 +1,59 @@
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
-import { produto } from "@/shared/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { estoqueCanalSaldo, produto } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 
+/** Alerta de estoque mínimo.
+ *
+ *  Antes reagia à baixa automática do saldo local, evento que deixou de existir
+ *  junto com o livro-razão. Agora varre o estoque logo depois da coleta dos
+ *  canais (A5, 3h): o saldo do produto é o maior entre os canais, porque o mesmo
+ *  lote físico é anunciado em todos eles. */
 export const A6_alertaMinimo = inngest.createFunction(
-  { id: "A6-alerta-minimo", name: "A6 — Alerta de estoque mínimo", triggers: [{ event: "estoque/baixa-automatica" }] },
-  async ({ event, step }) => {
-    const { produtoId, orgId, novoSaldo } = event.data as { produtoId: string; orgId: string; novoSaldo: number };
+  {
+    id: "A6-alerta-minimo",
+    name: "A6 — Alerta de estoque mínimo",
+    concurrency: { limit: 1 },
+    triggers: [{ cron: "30 3 * * *" }],
+  },
+  async ({ step }) => {
+    const orgId = process.env.DEFAULT_ORG_ID ?? "";
 
-    const produtoRow = await step.run("verificar-minimo", () =>
-      db.select().from(produto).where(eq(produto.id, produtoId)).then((r) => r[0])
+    const abaixoDoMinimo = await step.run("buscar-abaixo-do-minimo", () =>
+      db
+        .select({
+          produtoId: produto.id,
+          sku: produto.sku,
+          brandId: produto.brandId,
+          minimo: produto.estoqueMinimo,
+          saldo: sql<number>`max(${estoqueCanalSaldo.saldo})`,
+        })
+        .from(produto)
+        .innerJoin(estoqueCanalSaldo, and(
+          eq(estoqueCanalSaldo.produtoId, produto.id),
+          eq(estoqueCanalSaldo.orgId, produto.orgId),
+        ))
+        .where(and(
+          eq(produto.orgId, orgId),
+          eq(produto.ativo, true),
+          isNull(produto.deletedAt),
+        ))
+        .groupBy(produto.id, produto.sku, produto.brandId, produto.estoqueMinimo)
+        .having(sql`max(${estoqueCanalSaldo.saldo}) <= ${produto.estoqueMinimo}`),
     );
 
-    if (!produtoRow) return { alertado: false };
-
-    if (novoSaldo <= produtoRow.estoqueMinimo) {
+    for (const item of abaixoDoMinimo) {
       await emitirEvento({
         tipo: "estoque.minimo_atingido",
         orgId,
+        brandId: item.brandId,
         entidade: "produto",
-        entidadeId: produtoId,
-        payload: { sku: produtoRow.sku, saldoAtual: novoSaldo, minimo: produtoRow.estoqueMinimo },
+        entidadeId: item.produtoId,
+        payload: { sku: item.sku, saldoAtual: item.saldo, minimo: item.minimo },
       });
-      return { alertado: true, sku: produtoRow.sku, saldo: novoSaldo };
     }
 
-    return { alertado: false };
-  }
+    return { alertados: abaixoDoMinimo.length };
+  },
 );

@@ -25,7 +25,6 @@ type ClienteData = {
     id: string; canal: string; status: string; total: string; frete?: string | null;
     providerOrderId?: string | null; createdAt: Date | string;
   }>;
-  tarefas: Array<{ id: string; titulo: string; status: string; vencimentoEm: Date | string | null }>;
   consentimentos: Array<{ id: string; finalidade: string; canal: string; status: string }>;
   tags: Array<{ id: string; nome: string; cor: string | null }>;
   canais?: string[];
@@ -205,9 +204,8 @@ export function Cliente360({
               </div>
               <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <span key={tag.id} className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ color: tag.cor ?? undefined, background: `${tag.cor ?? "#64748b"}20` }}>{tag.nome}</span>)}</div>
             </div>
-            <dl className="grid gap-3 sm:grid-cols-2 mt-5 text-sm">
+            <dl className="grid gap-3 mt-5 text-sm">
               <div><dt className="text-muted-foreground">{copy.metrics.orders}</dt><dd className="font-semibold text-lg mt-1">{data.pedidos.length}</dd></div>
-              <div><dt className="text-muted-foreground">{copy.metrics.tasks}</dt><dd className="font-semibold text-lg mt-1">{data.tarefas.length}</dd></div>
             </dl>
             {(() => {
               const partes = partesEndereco(cliente);
@@ -324,12 +322,6 @@ export function Cliente360({
           </div>
         </section>
 
-        <div className="space-y-6">
-          <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
-            <h2 className="font-semibold px-5 py-4 border-b border-border">{copy.tasksTitle}</h2>
-            <div className="divide-y divide-border">{data.tarefas.map((item) => <div key={item.id} className="px-5 py-3"><p className="text-sm font-medium">{item.titulo}</p><p className="text-xs text-muted-foreground mt-1">{item.status} · {formatDate(item.vencimentoEm)}</p></div>)}{data.tarefas.length === 0 && <p className="p-5 text-sm text-muted-foreground">{copy.tasksEmpty}</p>}</div>
-          </section>
-        </div>
       </div>
     </div>
   );

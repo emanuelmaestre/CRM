@@ -113,8 +113,6 @@
       "emptyValue": "Não informado",
       "timelineTitle": "Histórico",
       "timelineEmpty": "Nenhuma interação ou pedido registrado.",
-      "tasksTitle": "Tarefas/Lembretes",
-      "tasksEmpty": "Nenhuma tarefa vinculada.",
       "consentsTitle": "Consentimentos",
       "consentsEmpty": "Nenhum consentimento registrado.",
       "notesTitle": "Anotações",
@@ -134,7 +132,7 @@
         "viewOnMap": "Ver no mapa",
         "nicknameLabel": "Apelido"
       },
-      "metrics": { "orders": "Pedidos", "tasks": "Tarefas" },
+      "metrics": { "orders": "Pedidos" },
       "actions": { "back": "Voltar aos clientes", "edit": "Editar", "cancel": "Cancelar edição", "save": "Salvar alterações", "saving": "Salvando…", "archive": "Arquivar", "addNote": "Adicionar anotação", "savingNote": "Salvando…" },
       "messages": {
         "updateSuccess": "Cliente atualizado.",
@@ -184,9 +182,6 @@
       "partialDescription": "{semMinimo} de {total} SKUs seguem sem mínimo definido — esses não entram em nenhum alerta.",
       "calmTitle": "Catálogo em ordem",
       "calmDescription": "{monitorados} SKUs monitorados · nada abaixo do mínimo · nada sem estoque",
-      "divergenceSuffix": "· {n} divergência a decidir",
-      "divergenceSuffixPlural": "· {n} divergências a decidir",
-      "divergenceAction": "Ver divergências",
       "reviewAction": "Rever régua"
     },
     "rail": { "label": "Ver", "noRule": "Sem régua" },
@@ -201,19 +196,15 @@
         {
           "title": "Mínimo é a régua do alerta",
           "description": "Quando o saldo chega neste número, o sistema avisa. Dá para digitar direto na linha, ou configurar o catálogo inteiro em “Configurar alertas”."
-        },
-        {
-          "title": "Divergência é decisão sua",
-          "description": "Quando o saldo do canal não bate com o daqui, a reconciliação noturna marca e espera. O sistema nunca corrige sozinho."
         }
       ]
     },
-    "columns": ["Produto", "Saldo local", "Mínimo", "Preço", ""],
+    "columns": ["Produto", "Estoque", "Mínimo", "Preço", ""],
     "loading": "Carregando produtos…",
     "empty": { "title": "Nenhum produto cadastrado", "description": "Importe seu catálogo do Mercado Livre para começar a controlar o estoque." },
     "emptyFiltered": { "title": "Nenhum produto com esses filtros", "description": "Ajuste a busca, a marca ou o estado do saldo para ver os produtos." },
     "messages": { "loadError": "Erro ao carregar produtos." },
-    "mobile": { "balance": "Saldo local", "price": "Preço", "channels": "Canais" },
+    "mobile": { "balance": "Estoque nos canais", "price": "Preço", "channels": "Canais" },
     "minimumIndicator": "▼ mín",
     "indicators": {
       "belowMin": "Abaixo do mínimo",
@@ -260,24 +251,6 @@
       "empty": "Nenhum produto parado no momento.",
       "daysSuffix": "dias sem venda",
       "capitalLabel": "Capital parado"
-    },
-    "divergencias": {
-      "title": "Divergências de estoque",
-      "subtitle": "Saldo do canal diferente do saldo local, detectado na reconciliação noturna",
-      "toggleShow": "Ver divergências pendentes",
-      "toggleHide": "Ocultar divergências",
-      "empty": "Nenhuma divergência pendente no momento.",
-      "localLabel": "Local",
-      "channelLabel": "Canal",
-      "applyAction": "Aplicar valor do canal",
-      "applyingAction": "Aplicando…",
-      "ignoreAction": "Ignorar",
-      "ignoringAction": "Ignorando…",
-      "applySuccess": "Saldo atualizado com o valor do canal.",
-      "applyError": "Erro ao aplicar o valor do canal.",
-      "ignoreSuccess": "Divergência ignorada.",
-      "ignoreError": "Erro ao ignorar a divergência.",
-      "loadError": "Erro ao carregar divergências."
     },
     "edit": {
       "button": "Editar",
@@ -414,79 +387,6 @@
     "columns": ["Quando", "Régua", "Cliente", "Marca", "Status", "Gate", "Motivo"],
     "empty": "Nenhuma execução de automação registrada."
   },
-  "tarefas": {
-    "metadataTitle": "Tarefas",
-    "title": "Tarefas",
-    "description": "Acompanhamentos, lembretes e pendências comerciais",
-    "navigationAriaLabel": "Tarefas e agenda",
-    "tabs": [
-      { "id": "tarefas", "href": "/tarefas", "label": "Tarefas" },
-      { "id": "agenda", "href": "/agenda", "label": "Agenda" }
-    ],
-    "newAction": "+ Nova tarefa",
-    "loading": "Carregando tarefas…",
-    "searchPlaceholder": "Buscar por título ou descrição…",
-    "lembretes": {
-      "title": "Lembretes",
-      "subtitle": "Tarefas e compromissos das próximas 72h",
-      "empty": "Nada vencendo nos próximos 3 dias.",
-      "overdue": "Atrasada",
-      "eventLabel": "Evento",
-      "taskLabel": "Tarefa",
-      "noClient": "Sem cliente"
-    },
-    "allStatuses": "Todos os status",
-    "allOwners": "Toda a equipe",
-    "empty": { "title": "Nenhuma tarefa encontrada", "description": "Crie uma tarefa ou ajuste os filtros da lista." },
-    "fields": {
-      "title": "Título",
-      "description": "Descrição",
-      "client": "Cliente",
-      "owner": "Responsável",
-      "dueAt": "Vencimento",
-      "optional": "Opcional"
-    },
-    "status": {
-      "pendente": "Pendente",
-      "em_andamento": "Em andamento",
-      "concluida": "Concluída",
-      "cancelada": "Cancelada"
-    },
-    "labels": {
-      "overdue": "Atrasada",
-      "noDueDate": "Sem vencimento",
-      "noClient": "Sem cliente",
-      "status": "Status",
-      "statusAria": "Status de {title}"
-    },
-    "actions": { "save": "Criar tarefa", "saving": "Criando…", "cancel": "Cancelar", "cancelTask": "Cancelar tarefa" },
-    "messages": {
-      "loadError": "Erro ao carregar tarefas.",
-      "createSuccess": "Tarefa criada.",
-      "createError": "Erro ao criar tarefa.",
-      "statusSuccess": "Status atualizado.",
-      "statusError": "Erro ao atualizar status."
-    }
-  },
-  "agenda": {
-    "metadataTitle": "Agenda",
-    "title": "Agenda",
-    "description": "Compromissos e lembretes comerciais da equipe",
-    "newAction": "+ Novo evento",
-    "loading": "Carregando agenda…",
-    "allOwners": "Toda a equipe",
-    "empty": { "title": "Nenhum evento no período", "description": "Crie um compromisso ou amplie o intervalo exibido." },
-    "fields": { "title": "Título", "client": "Cliente", "owner": "Responsável", "start": "Início", "end": "Fim", "optional": "Opcional" },
-    "labels": { "noClient": "Sem cliente", "until": "até" },
-    "actions": { "save": "Criar evento", "saving": "Criando…", "cancel": "Cancelar", "delete": "Excluir", "deleteConfirm": "Excluir \"{title}\"?" },
-    "messages": {
-      "loadError": "Erro ao carregar a agenda.",
-      "createSuccess": "Evento criado.",
-      "createError": "Erro ao criar evento.",
-      "deleteSuccess": "Evento excluído.",
-      "deleteError": "Erro ao excluir evento."
-    }
-  },
   "auditoria": {
     "metadataTitle": "Auditoria",
     "title": "Trilha de auditoria",
@@ -495,7 +395,7 @@
     "searchPlaceholder": "Buscar por entidade, ação ou autor…",
     "allEntities": "Todas as entidades",
     "allOrigins": "Todas as origens",
-    "entities": ["cliente", "produto", "estoque_movimento", "oportunidade", "funil_etapa", "tarefa", "evento_agenda", "app_user"],
+    "entities": ["cliente", "produto", "oportunidade", "funil_etapa", "app_user"],
     "empty": { "title": "Nenhum evento de auditoria", "description": "Ajuste os filtros para consultar outro período." },
     "columns": ["Quando", "Autor / origem", "Entidade", "Ação", "Marca", "Detalhes"],
     "origins": { "usuario": "Manual", "usuario_sintetico": "Seed sintético", "sistema": "Sistema", "job": "Job", "ia": "IA", "webhook": "Webhook" },

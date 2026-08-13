@@ -1,14 +1,9 @@
 import {
-  pgTable, uuid, text, timestamp, numeric, integer, boolean, pgEnum, index, uniqueIndex,
+  pgTable, uuid, text, timestamp, numeric, integer, boolean, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { org, brand } from "./org";
 import { channelAccount } from "./canais";
-import { appUser } from "./users";
-
-export const movimentoTipoEnum = pgEnum("movimento_tipo", [
-  "entrada", "saida", "ajuste", "reserva", "estorno",
-]);
 
 export const produto = pgTable("produto", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -29,65 +24,8 @@ export const produto = pgTable("produto", {
     .where(sql`${t.deletedAt} is null`),
 ]);
 
-export const estoqueSaldo = pgTable("estoque_saldo", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").notNull().references(() => org.id),
-  produtoId: uuid("produto_id").notNull().references(() => produto.id).unique(),
-  saldo: integer("saldo").notNull().default(0),
-  updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index("idx_saldo_produto").on(t.produtoId),
-]);
-
-export const estoqueMovimento = pgTable("estoque_movimento", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").notNull().references(() => org.id),
-  produtoId: uuid("produto_id").notNull().references(() => produto.id),
-  tipo: movimentoTipoEnum("tipo").notNull(),
-  quantidade: integer("quantidade").notNull(),
-  referenciaId: uuid("referencia_id"),
-  referenciaTipo: text("referencia_tipo"),
-  observacao: text("observacao"),
-  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index("idx_movimento_produto").on(t.produtoId),
-  index("idx_movimento_criado").on(t.createdAt),
-  uniqueIndex("uq_movimento_referencia")
-    .on(t.orgId, t.produtoId, t.referenciaTipo, t.referenciaId)
-    .where(sql`${t.referenciaTipo} is not null and ${t.referenciaId} is not null`),
-]);
-
-export const estoqueDivergenciaStatusEnum = pgEnum("estoque_divergencia_status", [
-  "pendente", "aplicada", "ignorada",
-]);
-
-// Registro de divergências entre o saldo local e o saldo real no canal,
-// detectadas pela reconciliação noturna (job A5). Fica pendente até um admin
-// decidir aplicar o valor do canal (gera ajuste em estoque_movimento) ou
-// ignorar — a correção nunca é automática, é sempre uma decisão humana.
-export const estoqueDivergencia = pgTable("estoque_divergencia", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id").notNull().references(() => org.id),
-  produtoId: uuid("produto_id").notNull().references(() => produto.id),
-  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
-  produtoCanalId: uuid("produto_canal_id").notNull(),
-  saldoLocal: integer("saldo_local").notNull(),
-  saldoCanal: integer("saldo_canal").notNull(),
-  status: estoqueDivergenciaStatusEnum("status").notNull().default("pendente"),
-  resolvidoPorId: uuid("resolvido_por_id").references(() => appUser.id),
-  resolvidoEm: timestamp("resolvido_em", { withTimezone: true }),
-  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => [
-  index("idx_estoque_divergencia_org").on(t.orgId),
-  index("idx_estoque_divergencia_produto").on(t.produtoId),
-  index("idx_estoque_divergencia_status").on(t.status),
-  uniqueIndex("uq_estoque_divergencia_pendente")
-    .on(t.produtoCanalId)
-    .where(sql`${t.status} = 'pendente'`),
-]);
-
-// Mapeamento produto ↔ anúncio por canal. Permite A4 passar o listingId correto
-// ao sincronizar estoque (o canal usa o ID do anúncio, não o SKU interno).
+// Mapeamento produto ↔ anúncio por canal. Guarda o listingId que o canal usa
+// (o canal não conhece o SKU interno), e é a chave do saldo por canal.
 export const produtoCanal = pgTable("produto_canal", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id").notNull().references(() => org.id),
@@ -103,4 +41,28 @@ export const produtoCanal = pgTable("produto_canal", {
   index("idx_produto_canal_produto").on(t.produtoId),
   index("idx_produto_canal_conta").on(t.channelAccountId),
   uniqueIndex("uq_produto_canal").on(t.produtoId, t.channelAccountId),
+]);
+
+// Saldo que cada canal informa para o anúncio mapeado. É a única fonte de
+// estoque do sistema: não existe saldo local nem livro-razão de movimentos.
+//
+// Como o mesmo lote físico é anunciado nos três canais, os números se repetem
+// em vez de se somar — o saldo do produto é o MAIOR entre os canais, nunca a
+// soma. Somar contaria a mesma peça três vezes.
+export const estoqueCanalSaldo = pgTable("estoque_canal_saldo", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  produtoId: uuid("produto_id").notNull().references(() => produto.id),
+  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
+  produtoCanalId: uuid("produto_canal_id").notNull()
+    .references(() => produtoCanal.id, { onDelete: "cascade" }),
+  saldo: integer("saldo").notNull(),
+  // Quando o canal foi consultado pela última vez. O estoque tem a idade desta
+  // marca — a UI precisa dela para não apresentar número velho como atual.
+  verificadoEm: timestamp("verificado_em", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_estoque_canal_saldo_mapeamento").on(t.produtoCanalId),
+  index("idx_estoque_canal_saldo_produto").on(t.orgId, t.produtoId),
+  index("idx_estoque_canal_saldo_conta").on(t.channelAccountId),
 ]);

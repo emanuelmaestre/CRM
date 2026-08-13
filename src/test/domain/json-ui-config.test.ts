@@ -20,7 +20,7 @@ describe("contratos JSON da interface", () => {
 
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(hrefs).size).toBe(hrefs.length);
-    expect(navigationConfig.items.filter((item) => item.mobilePriority)).toHaveLength(6);
+    expect(navigationConfig.items.filter((item) => item.mobilePriority)).toHaveLength(5);
   });
 
   it("registra todos os ícones referenciados pelos arquivos JSON", () => {
@@ -65,8 +65,7 @@ describe("contratos JSON da interface", () => {
     }
   });
 
-  it("mantém tarefas e agenda na operação comercial", () => {
-    expect(pagesConfig.tarefas.tabs.map((tab) => tab.href)).toEqual(["/tarefas", "/agenda"]);
+  it("mantém a auditoria na operação comercial", () => {
     expect(pagesConfig.auditoria.origins).toHaveProperty("sistema");
   });
 
@@ -109,7 +108,6 @@ describe("contratos JSON da interface", () => {
       expect.arrayContaining(["A23", "A24", "A25", "A26"]),
     );
     expect(pagesConfig.inbox.conversation.statusUpdated).toContain("{status}");
-    expect(pagesConfig.tarefas.labels.statusAria).toContain("{title}");
   });
 
   it("mantém páginas institucionais e estados do sistema configurados", () => {

@@ -8,7 +8,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const ID_COLLECTIONS = [
   "brands", "users", "channelAccounts", "clients", "clientIdentities", "consents", "tags",
   "segments", "interactions", "products", "stockMovements", "productChannels", "funnelStages",
-  "orders", "orderItems", "opportunities", "tasks", "calendarEvents", "conversations", "messages",
+  "orders", "orderItems", "opportunities", "conversations", "messages",
   "clientScores", "productScores", "campaignSuggestions", "insights", "auditLogs",
 ];
 
@@ -428,38 +428,6 @@ export async function applySyntheticCatalog(tx, catalog, anchor) {
         etapa_id = excluded.etapa_id, responsavel_id = excluded.responsavel_id,
         titulo = excluded.titulo, valor = excluded.valor, criado_em = excluded.criado_em,
         atualizado_em = excluded.atualizado_em
-    `;
-  }
-
-  for (const item of catalog.tasks) {
-    const dueAt = atOffset(anchor, item.dueDaysFromNow, 15);
-    await tx`
-      insert into public.tarefa
-        (id, org_id, cliente_id, responsavel_id, titulo, descricao, status, vencimento_em, atualizado_em)
-      values
-        (${item.id}, ${orgId}, ${clients.get(item.client).id}, ${users.get(item.owner).id},
-         ${item.title}, ${item.description}, ${item.status}, ${dueAt}, ${anchor})
-      on conflict (id) do update set
-        org_id = excluded.org_id, cliente_id = excluded.cliente_id,
-        responsavel_id = excluded.responsavel_id, titulo = excluded.titulo,
-        descricao = excluded.descricao, status = excluded.status,
-        vencimento_em = excluded.vencimento_em, atualizado_em = excluded.atualizado_em
-    `;
-  }
-
-  for (const item of catalog.calendarEvents) {
-    const startsAt = atOffset(anchor, item.startsDaysFromNow, 14);
-    const endsAt = new Date(startsAt.getTime() + item.durationMinutes * 60_000);
-    await tx`
-      insert into public.evento_agenda
-        (id, org_id, cliente_id, responsavel_id, titulo, inicio, fim)
-      values
-        (${item.id}, ${orgId}, ${clients.get(item.client).id}, ${users.get(item.owner).id},
-         ${item.title}, ${startsAt}, ${endsAt})
-      on conflict (id) do update set
-        org_id = excluded.org_id, cliente_id = excluded.cliente_id,
-        responsavel_id = excluded.responsavel_id, titulo = excluded.titulo,
-        inicio = excluded.inicio, fim = excluded.fim
     `;
   }
 

@@ -3,8 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
-  editarProduto, listarProdutos, listarProdutosParados, registrarMovimento,
-  listarDivergenciasEstoque, resolverDivergenciaEstoque, contarIndicadoresEstoque,
+  editarProduto, listarProdutos, listarProdutosParados, contarIndicadoresEstoque,
   definirEstoqueMinimoEmLote, contarProdutosPorCanal, contarProdutosPorMarca,
   simularReguaEstoque, aplicarReguaEstoque, buscarProdutoDetalhe, type EstadoEstoque,
 } from "@/modules/estoque/application/estoque.service";
@@ -16,13 +15,6 @@ import { brand, produto, produtoCanal, channelAccount } from "@/shared/lib/db/sc
 import { assertPerfil } from "@/shared/lib/crud-factory";
 
 const BrandIdSchema = z.string().uuid();
-const MovimentoSchema = z.object({
-  produtoId: z.string().uuid(),
-  tipo: z.enum(["entrada", "saida", "ajuste"]),
-  quantidade: z.number().int().positive(),
-  observacao: z.string().trim().max(500).optional(),
-});
-
 const EstadoSchema = z.enum(["abaixo_minimo", "sem_estoque", "sem_minimo", "parados"]);
 const CanalVendaSchema = z.enum(["mercadolivre", "shopee", "tiktokshop"]);
 
@@ -63,17 +55,15 @@ export async function actionIndicadoresEstoque(brandIds?: string[], canalTipos?:
   const ctx = await getCrudContext();
   const brandIdsValidados = brandIds?.length ? z.array(BrandIdSchema).parse(brandIds) : undefined;
   const canalTiposValidados = canalTipos?.length ? z.array(CanalVendaSchema).parse(canalTipos) : undefined;
-  const [contagens, parados, divergencias] = await Promise.all([
+  const [contagens, parados] = await Promise.all([
     contarIndicadoresEstoque(ctx, { brandIds: brandIdsValidados, canalTipos: canalTiposValidados }),
     listarProdutosParados(ctx),
-    ctx.perfil === "vendedor" ? Promise.resolve([]) : listarDivergenciasEstoque(ctx),
   ]);
 
   return {
     ...contagens,
     parados: parados.length,
     capitalParado: parados.reduce((soma, item) => soma + item.capitalParado, 0),
-    divergencias: divergencias.length,
   };
 }
 
@@ -274,32 +264,3 @@ export async function actionBuscarProdutoDetalhe(produtoId: string) {
   return buscarProdutoDetalhe(ctx, id);
 }
 
-export async function actionListarDivergenciasEstoque() {
-  const ctx = await getCrudContext();
-  return listarDivergenciasEstoque(ctx);
-}
-
-export async function actionResolverDivergenciaEstoque(
-  divergenciaId: string,
-  decisao: "aplicar_canal" | "ignorar",
-) {
-  const ctx = await getCrudContext();
-  const id = z.string().uuid().parse(divergenciaId);
-  const decisaoValidada = z.enum(["aplicar_canal", "ignorar"]).parse(decisao);
-  const result = await resolverDivergenciaEstoque(ctx, id, decisaoValidada);
-  revalidatePath("/estoque");
-  return result;
-}
-
-export async function actionRegistrarMovimento(
-  produtoId: string,
-  tipo: "entrada" | "saida" | "ajuste",
-  quantidade: number,
-  observacao?: string
-) {
-  const ctx = await getCrudContext();
-  const input = MovimentoSchema.parse({ produtoId, tipo, quantidade, observacao });
-  const result = await registrarMovimento(ctx, input);
-  revalidatePath("/estoque");
-  return result;
-}
