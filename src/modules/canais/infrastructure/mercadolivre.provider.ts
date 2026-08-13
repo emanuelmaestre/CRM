@@ -350,18 +350,65 @@ export function normalizarPedidoMercadoLivre(
   };
 }
 
+/** Teto de chamadas simultâneas à API do Mercado Livre.
+ *
+ *  Vários pontos deste provider fazem fan-out com Promise.all sobre a página
+ *  inteira de pedidos (até 50 packs → 50 requisições disparadas no mesmo tick).
+ *  Rajadas assim são o que o Mercado Livre pune com 429 e, se insistirem, com
+ *  bloqueio temporário da aplicação. O semáforo mantém a vazão alta sem a
+ *  rajada: as chamadas continuam concorrentes, só que em janelas de 6. */
+const MAX_CHAMADAS_SIMULTANEAS = 6;
+
+let emVoo = 0;
+const fila: Array<() => void> = [];
+
+async function comLimiteDeConcorrencia<T>(tarefa: () => Promise<T>): Promise<T> {
+  if (emVoo >= MAX_CHAMADAS_SIMULTANEAS) {
+    await new Promise<void>((resolve) => fila.push(resolve));
+  }
+  emVoo += 1;
+  try {
+    return await tarefa();
+  } finally {
+    emVoo -= 1;
+    fila.shift()?.();
+  }
+}
+
+const espera = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** O Mercado Livre manda o tempo de espera no header Retry-After em 429.
+ *  Ignorar isso e repetir na hora é o caminho mais curto para o bloqueio. */
+function atrasoDaResposta(res: Response, tentativa: number): number {
+  const retryAfter = Number(res.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return Math.min(retryAfter * 1000, 10_000);
+  return Math.min(500 * 2 ** tentativa, 4_000);
+}
+
 export class MercadoLivreProvider implements ChannelProvider {
   private readonly baseUrl = "https://api.mercadolibre.com";
 
   constructor(private readonly creds: MLCredentials) {}
 
   private async get<T>(path: string): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      headers: { Authorization: `Bearer ${this.creds.accessToken}` },
-      signal: AbortSignal.timeout(10_000),
+    return comLimiteDeConcorrencia(async () => {
+      // 429 e 5xx são transitórios: recuar e repetir preserva a saúde da
+      // integração. Os demais status são erro de fato e sobem na hora, sem
+      // gastar tentativa à toa.
+      for (let tentativa = 0; ; tentativa += 1) {
+        const res = await fetch(`${this.baseUrl}${path}`, {
+          headers: { Authorization: `Bearer ${this.creds.accessToken}` },
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (res.ok) return res.json() as Promise<T>;
+
+        const transitorio = res.status === 429 || res.status >= 500;
+        if (!transitorio || tentativa >= 2) {
+          throw new Error(`Mercado Livre HTTP ${res.status} em ${path}`);
+        }
+        await espera(atrasoDaResposta(res, tentativa));
+      }
     });
-    if (!res.ok) throw new Error(`Mercado Livre HTTP ${res.status} em ${path}`);
-    return res.json() as Promise<T>;
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

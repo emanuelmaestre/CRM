@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
@@ -12,7 +13,11 @@ import { perfilPermitido, perfilPodeAcessar, type Perfil } from "./authorization
 
 const OrgIdSchema = z.string().uuid();
 
-export async function getAuthContext(): Promise<AuthContext> {
+/** Memoizado por requisição: o layout do dashboard, cada página e cada server
+ *  action chamavam isto de novo, e cada chamada custava uma validação de JWT
+ *  mais um SELECT em app_user na mesma conexão. O cache do React é escopado à
+ *  requisição, então não vaza sessão entre usuários. */
+export const getAuthContext = cache(async function getAuthContext(): Promise<AuthContext> {
   const orgId = OrgIdSchema.parse(process.env.DEFAULT_ORG_ID);
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
@@ -48,7 +53,7 @@ export async function getAuthContext(): Promise<AuthContext> {
     usuarioBd,
     orgId,
   );
-}
+});
 
 export async function requirePageAuth(permitidos?: readonly Perfil[]): Promise<AuthContext> {
   let contexto: AuthContext;

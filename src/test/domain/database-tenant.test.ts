@@ -31,7 +31,7 @@ describe("Conexão tenant do Postgres", () => {
       max: 1,
       idle_timeout: 10,
       connect_timeout: 10,
-      max_lifetime: 60,
+      max_lifetime: 60 * 30,
       prepare: false,
     });
   });

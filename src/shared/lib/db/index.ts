@@ -43,10 +43,20 @@ export function buildTenantConnectionString(connectionString: string, orgId: str
 export function getDatabaseClientOptions() {
   return {
     prepare: false,
+    // O RLS lê app.current_org_id de um parâmetro de conexão (ver
+    // buildTenantConnectionString), o que obriga o pooler em session mode.
+    // Nesse modo cada conexão aqui segura uma conexão real do Postgres, e o
+    // total é multiplicado por instância serverless — subir `max` é o caminho
+    // curto para esgotar o banco. Fica em 1 de propósito; para ganhar
+    // paralelismo é preciso antes mover o GUC para dentro da transação
+    // (set_config(..., true)) e migrar para transaction mode.
     max: 1,
     idle_timeout: 10,
     connect_timeout: 10,
-    max_lifetime: 60,
+    // Conexão ociosa já é fechada por idle_timeout. O teto de 60s só derrubava
+    // conexões em uso ativo, forçando novo handshake TLS no meio de uma rajada
+    // de navegação. 30 min corta essa reconexão sem segurar nada parado.
+    max_lifetime: 60 * 30,
   } as const;
 }
 
