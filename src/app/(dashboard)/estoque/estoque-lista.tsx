@@ -132,12 +132,32 @@ function AlertCard({ label, valor, sub, icon: Icon, tom, ativo, onClick }: {
    numa linha e devolve a altura para a lista de produtos — que é o trabalho
    real da tela. Enquanto não sabemos os números, não afirmamos nada: mostrar
    "0" enquanto carrega é dizer "tudo em ordem" antes de conferir. */
-function FaixaSaude({ indicadores, filtro, onFiltro }: {
+function FaixaSaude({ indicadores, erro, onTentarNovamente, filtro, onFiltro }: {
   indicadores: Indicadores | null;
+  erro: boolean;
+  onTentarNovamente: () => void;
   filtro: Filtro;
   onFiltro: (proximo: Filtro) => void;
 }) {
   const hc = copy.health;
+
+  if (erro) {
+    return (
+      <div
+        data-tour="estoque-saude"
+        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] bg-card px-5 py-4 shadow-[0_2px_16px_rgba(14,15,19,.07)]"
+      >
+        <span className="text-sm text-muted-foreground">Não foi possível verificar o catálogo agora.</span>
+        <button
+          type="button"
+          onClick={onTentarNovamente}
+          className="press-feedback rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
+        >
+          Tentar de novo
+        </button>
+      </div>
+    );
+  }
 
   if (!indicadores) {
     return (
@@ -569,6 +589,7 @@ export function EstoqueLista() {
   const [marcas, setMarcas] = useState<Awaited<ReturnType<typeof actionContarProdutosPorMarca>>>([]);
   const [sincronizando, setSincronizando] = useState(false);
   const [indicadores, setIndicadores] = useState<Indicadores | null>(null);
+  const [erroIndicadores, setErroIndicadores] = useState(false);
   const [parados, setParados] = useState<Map<string, ProdutoParado>>(new Map());
   const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(new Set());
   const [minimoLote, setMinimoLote] = useState("");
@@ -647,9 +668,16 @@ export function EstoqueLista() {
       actionIndicadoresEstoque(marcas?.length ? marcas : undefined, canaisAtuais?.length ? canaisAtuais : undefined),
       semResposta,
     ])
-      .then(setIndicadores)
+      .then((resultado) => {
+        setIndicadores(resultado);
+        setErroIndicadores(false);
+      })
       .catch(() => {
+        // erro !== "ainda carregando": sem essa distinção o card ficava preso
+        // no mesmo texto "Verificando…" mesmo depois de desistir, porque
+        // indicadores===null é o estado inicial E o de falha.
         setIndicadores(null);
+        setErroIndicadores(true);
         toast.error("Não foi possível verificar o catálogo. Tente atualizar a página.", { id: "estoque-indicadores" });
       });
   }, []);
@@ -889,6 +917,8 @@ export function EstoqueLista() {
 
       <FaixaSaude
         indicadores={indicadores}
+        erro={erroIndicadores}
+        onTentarNovamente={() => carregarIndicadores(brandIdsArray, canaisArray)}
         filtro={filtro}
         onFiltro={trocarFiltro}
       />
