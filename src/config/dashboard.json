@@ -1,5 +1,4 @@
 {
-  "header": { "title": "Painel", "description": "O que precisa da sua atenção hoje" },
   "granularities": [
     { "value": "dia", "label": "Diário" },
     { "value": "semana", "label": "Semanal" },

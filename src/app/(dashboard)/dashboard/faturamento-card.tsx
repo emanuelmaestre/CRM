@@ -65,11 +65,12 @@ function GraficoSerie({ serie, aoFocar }: {
   );
 }
 
-export function FaturamentoCard({ dados, granularidade, onGranularidade, carregando }: {
+export function FaturamentoCard({ dados, granularidade, onGranularidade, carregando, scope }: {
   dados: FaturamentoResumo;
   granularidade: Granularidade;
   onGranularidade: (valor: Granularidade) => void;
   carregando: boolean;
+  scope?: React.ReactNode;
 }) {
   const [focado, setFocado] = useState<number | null>(null);
   const Icon = getIcon(copy.icon);
@@ -87,13 +88,16 @@ export function FaturamentoCard({ dados, granularidade, onGranularidade, carrega
         icon={Icon}
         accent={copy.accent}
         trailing={
-          <Segmented
-            layoutId="dashboard-granularidade"
-            value={granularidade}
-            options={GRANULARIDADES}
-            onChange={onGranularidade}
-            disabled={carregando}
-          />
+          <div className="flex items-center gap-2">
+            {scope}
+            <Segmented
+              layoutId="dashboard-granularidade"
+              value={granularidade}
+              options={GRANULARIDADES}
+              onChange={onGranularidade}
+              disabled={carregando}
+            />
+          </div>
         }
       />
 

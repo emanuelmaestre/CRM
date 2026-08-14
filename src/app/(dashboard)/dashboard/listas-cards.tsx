@@ -59,7 +59,7 @@ function LinhaProduto({ nome, sku, marca, destaque, destaqueCor, contexto, medid
 }
 
 /* ── Casca de card de lista ───────────────────────────────────── */
-function ListaCard({ titulo, subtitulo, icone, acento, vazio, ilustracao, vazioTitulo, vazioDescricao, children }: {
+function ListaCard({ titulo, subtitulo, icone, acento, vazio, ilustracao, vazioTitulo, vazioDescricao, scope, children }: {
   titulo: string;
   subtitulo: string;
   icone: string;
@@ -68,12 +68,13 @@ function ListaCard({ titulo, subtitulo, icone, acento, vazio, ilustracao, vazioT
   ilustracao: IllustrationType;
   vazioTitulo: string;
   vazioDescricao: string;
+  scope?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const Icon = getIcon(icone);
   return (
     <Card>
-      <CardHead title={titulo} subtitle={subtitulo} icon={Icon} accent={acento} />
+      <CardHead title={titulo} subtitle={subtitulo} icon={Icon} accent={acento} trailing={scope} />
       {vazio ? (
         <EmptyState illustration={ilustracao} title={vazioTitulo} description={vazioDescricao} />
       ) : (
@@ -88,7 +89,7 @@ function ListaCard({ titulo, subtitulo, icone, acento, vazio, ilustracao, vazioT
 /* ── 1. Vendem mais ───────────────────────────────────────────── */
 const copyVendidos = dashboardConfig.cards.maisVendidos;
 
-export function MaisVendidosCard({ itens }: { itens: ProdutoMaisVendido[] }) {
+export function MaisVendidosCard({ itens, scope }: { itens: ProdutoMaisVendido[]; scope?: React.ReactNode }) {
   return (
     <ListaCard
       titulo={copyVendidos.title}
@@ -99,6 +100,7 @@ export function MaisVendidosCard({ itens }: { itens: ProdutoMaisVendido[] }) {
       ilustracao="bestSellers"
       vazioTitulo={copyVendidos.emptyTitle}
       vazioDescricao={copyVendidos.emptyDescription}
+      scope={scope}
     >
       {itens.map((item) => (
         <LinhaProduto
@@ -120,7 +122,7 @@ export function MaisVendidosCard({ itens }: { itens: ProdutoMaisVendido[] }) {
 /* ── 2. Repor em breve ────────────────────────────────────────── */
 const copyReposicao = dashboardConfig.cards.reposicao;
 
-export function ReposicaoCard({ itens }: { itens: ProdutoReposicao[] }) {
+export function ReposicaoCard({ itens, scope }: { itens: ProdutoReposicao[]; scope?: React.ReactNode }) {
   return (
     <ListaCard
       titulo={copyReposicao.title}
@@ -131,6 +133,7 @@ export function ReposicaoCard({ itens }: { itens: ProdutoReposicao[] }) {
       ilustracao="restock"
       vazioTitulo={copyReposicao.emptyTitle}
       vazioDescricao={copyReposicao.emptyDescription}
+      scope={scope}
     >
       {itens.map((item) => (
         <LinhaProduto
@@ -154,7 +157,7 @@ export function ReposicaoCard({ itens }: { itens: ProdutoReposicao[] }) {
 /* ── 3. Giro baixo ────────────────────────────────────────────── */
 const copyGiro = dashboardConfig.cards.giroBaixo;
 
-export function GiroBaixoCard({ itens }: { itens: ProdutoGiroBaixo[] }) {
+export function GiroBaixoCard({ itens, scope }: { itens: ProdutoGiroBaixo[]; scope?: React.ReactNode }) {
   return (
     <ListaCard
       titulo={copyGiro.title}
@@ -165,6 +168,7 @@ export function GiroBaixoCard({ itens }: { itens: ProdutoGiroBaixo[] }) {
       ilustracao="slowMoving"
       vazioTitulo={copyGiro.emptyTitle}
       vazioDescricao={copyGiro.emptyDescription}
+      scope={scope}
     >
       {itens.map((item) => (
         <LinhaProduto
@@ -186,7 +190,7 @@ export function GiroBaixoCard({ itens }: { itens: ProdutoGiroBaixo[] }) {
 /* ── 4. Estoque parado ────────────────────────────────────────── */
 const copyParados = dashboardConfig.cards.parados;
 
-export function ParadosCard({ itens }: { itens: ProdutoParado[] }) {
+export function ParadosCard({ itens, scope }: { itens: ProdutoParado[]; scope?: React.ReactNode }) {
   return (
     <ListaCard
       titulo={copyParados.title}
@@ -197,6 +201,7 @@ export function ParadosCard({ itens }: { itens: ProdutoParado[] }) {
       ilustracao="deadStock"
       vazioTitulo={copyParados.emptyTitle}
       vazioDescricao={copyParados.emptyDescription}
+      scope={scope}
     >
       {itens.map((item) => (
         <LinhaProduto

@@ -1,21 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { SkeletonCard } from "@/shared/design-system/primitives/Skeleton";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
-import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { stagger } from "@/shared/design-system/motion-variants";
-import dashboardConfig from "@/config/dashboard.json";
-import pagesConfig from "@/config/pages.json";
-import channelsConfig from "@/config/channels.json";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { SectionLabel } from "./card-primitives";
 import { FaturamentoCard } from "./faturamento-card";
 import { GiroBaixoCard, MaisVendidosCard, ParadosCard, ReposicaoCard } from "./listas-cards";
 import { ReclamacoesCard } from "./reclamacoes-card";
+import { ScopeChip, type CardFiltro, type ScopeMarca, type ScopeCanal } from "./scope-chip";
 import { actionObterDashboardData, actionObterReclamacoes } from "./actions";
 import { actionContarPedidosPorMarca, actionContarPedidosPorCanal } from "../vendas/actions";
 import type {
@@ -24,12 +19,7 @@ import type {
 } from "@/modules/relatorios/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/relatorios/application/reclamacoes.service";
 
-const copy = dashboardConfig;
-const pedidosCopy = pagesConfig.pedidos;
-
-type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
-type Marca = Awaited<ReturnType<typeof actionContarPedidosPorMarca>>[number];
-type Canal = Awaited<ReturnType<typeof actionContarPedidosPorCanal>>[number];
+const FILTRO_PADRAO: CardFiltro = { brandId: "", canal: "" };
 
 const TOUR: CoachMarkStep[] = [
   {
@@ -44,6 +34,49 @@ const TOUR: CoachMarkStep[] = [
   },
 ];
 
+function chaveFiltro(granularidade: Granularidade, filtro: CardFiltro) {
+  return `${granularidade}|${filtro.brandId}|${filtro.canal}`;
+}
+
+/* ── Busca por card, com cache compartilhado ─────────────────────
+   Cada card filtra de forma independente, mas a maioria começa sem
+   filtro — então em vez de um card = uma busca sempre, cards com a
+   mesma combinação (granularidade, marca, canal) dividem a mesma
+   promessa. Só quem de fato diverge do padrão paga uma busca extra. */
+function useDadosDoCard(cache: React.MutableRefObject<Map<string, Promise<DashboardData>>>, granularidade: Granularidade, filtro: CardFiltro) {
+  const chave = chaveFiltro(granularidade, filtro);
+  // A chave do último resultado recebido acompanha o dado — enquanto ela não
+  // bater com a chave atual, o card está carregando. Evita guardar
+  // "carregando" como estado à parte, o que exigiria setState síncrono no
+  // corpo do efeito a cada troca de filtro.
+  const [resultado, setResultado] = useState<{ chave: string; dados: DashboardData | null }>({ chave: "", dados: null });
+
+  useEffect(() => {
+    let ativo = true;
+    let promessa = cache.current.get(chave);
+    if (!promessa) {
+      promessa = actionObterDashboardData({
+        granularidade,
+        brandId: filtro.brandId || undefined,
+        canal: filtro.canal || undefined,
+      });
+      cache.current.set(chave, promessa);
+      promessa.catch(() => cache.current.delete(chave));
+    }
+    promessa
+      .then((dados) => { if (ativo) setResultado({ chave, dados }); })
+      .catch(() => {
+        if (ativo) {
+          setResultado({ chave, dados: null });
+          toast.error("Não foi possível carregar este card.", { id: chave });
+        }
+      });
+    return () => { ativo = false; };
+  }, [cache, chave, granularidade, filtro.brandId, filtro.canal]);
+
+  return { dados: resultado.chave === chave ? resultado.dados : null, carregando: resultado.chave !== chave };
+}
+
 function EsqueletoPainel() {
   return (
     <div className="flex flex-col gap-5">
@@ -54,111 +87,35 @@ function EsqueletoPainel() {
   );
 }
 
-/* ── Barra de escopo — mesmo padrão compacto de Vendas/Pedidos: marca e
-   canal lado a lado numa linha só, sem rótulo escrito (a separação visual
-   entre os dois grupos já basta). */
-function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; onClick: () => void }) {
-  const reduzir = useReducedMotion();
-  const { slug } = marca;
-  const vazia = marca.total === 0;
-  const bloqueada = vazia && !ativo;
-  const temIdentidade = isBrandSlug(slug);
-
-  return (
-    <motion.button
-      type="button"
-      onClick={bloqueada ? undefined : onClick}
-      disabled={bloqueada}
-      whileHover={!bloqueada && !reduzir ? { y: -1 } : undefined}
-      whileTap={!bloqueada && !reduzir ? { scale: 0.97 } : undefined}
-      aria-pressed={ativo}
-      aria-label={marca.nome}
-      title={bloqueada ? pedidosCopy.brandSelector.emptyHint.replace("{marca}", marca.nome) : undefined}
-      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
-        bloqueada
-          ? "border border-border opacity-40 cursor-not-allowed"
-          : ativo
-            ? "border-2 bg-card/70"
-            : "border border-border/80 bg-card/40 hover:bg-card/70"
-      }`}
-      style={ativo ? { borderColor: getBrandConfig(slug)?.color ?? "var(--primary)" } : undefined}
-    >
-      {temIdentidade
-        ? <BrandLogo brand={slug} height={13} />
-        : <span className="text-[13px] font-semibold text-foreground">{marca.nome}</span>}
-      <span className="text-[11px] tabular-nums text-muted-foreground">{marca.total}</span>
-    </motion.button>
-  );
-}
-
-function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; onClick: () => void }) {
-  const reduzir = useReducedMotion();
-  const label = (channelsConfig.items as Record<string, { label?: string }>)[canal.tipo]?.label ?? canal.tipo;
-
-  return (
-    <motion.button
-      type="button"
-      onClick={canal.conectado ? onClick : undefined}
-      disabled={!canal.conectado}
-      whileHover={canal.conectado && !reduzir ? { y: -1 } : undefined}
-      whileTap={canal.conectado && !reduzir ? { scale: 0.97 } : undefined}
-      aria-pressed={ativo}
-      title={canal.conectado ? undefined : pedidosCopy.channelSelector.disconnectedHint.replace("{canal}", label)}
-      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
-        !canal.conectado
-          ? "border border-border opacity-50 cursor-not-allowed"
-          : ativo
-            ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)]"
-            : "border border-border/80 bg-card/40 hover:bg-card/70"
-      }`}
-    >
-      <ChannelLogo canal={canal.tipo} size="xs" variant="logo" />
-      <span className="text-[13px] font-semibold text-foreground">{label}</span>
-      <span className="text-[11px] tabular-nums text-muted-foreground">{canal.total}</span>
-    </motion.button>
-  );
-}
-
 export default function DashboardPage() {
-  const [dados, setDados] = useState<DashboardData | null>(null);
   const [granularidade, setGranularidade] = useState<Granularidade>("dia");
-  const [brandId, setBrandId] = useState("");
-  const [canal, setCanal] = useState<CanalVenda | "">("");
-  const [marcas, setMarcas] = useState<Marca[]>([]);
-  const [canais, setCanais] = useState<Canal[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
+  const [marcas, setMarcas] = useState<ScopeMarca[]>([]);
+  const [canais, setCanais] = useState<ScopeCanal[]>([]);
+  const cache = useRef(new Map<string, Promise<DashboardData>>());
+
+  const [filtroFaturamento, setFiltroFaturamento] = useState<CardFiltro>(FILTRO_PADRAO);
+  const [filtroReposicao, setFiltroReposicao] = useState<CardFiltro>(FILTRO_PADRAO);
+  const [filtroReclamacoes, setFiltroReclamacoes] = useState<CardFiltro>(FILTRO_PADRAO);
+  const [filtroMaisVendidos, setFiltroMaisVendidos] = useState<CardFiltro>(FILTRO_PADRAO);
+  const [filtroGiroBaixo, setFiltroGiroBaixo] = useState<CardFiltro>(FILTRO_PADRAO);
+  const [filtroParados, setFiltroParados] = useState<CardFiltro>(FILTRO_PADRAO);
+
+  const faturamento = useDadosDoCard(cache, granularidade, filtroFaturamento);
+  const reposicao = useDadosDoCard(cache, granularidade, filtroReposicao);
+  const maisVendidos = useDadosDoCard(cache, granularidade, filtroMaisVendidos);
+  const giroBaixo = useDadosDoCard(cache, granularidade, filtroGiroBaixo);
+  const parados = useDadosDoCard(cache, granularidade, filtroParados);
 
   const [reclamacoes, setReclamacoes] = useState<ReclamacoesResultado | null>(null);
   const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
 
   useEffect(() => {
-    actionContarPedidosPorMarca(canal || undefined).then(setMarcas).catch(() => setMarcas([]));
-  }, [canal]);
-
-  useEffect(() => {
-    actionContarPedidosPorCanal(brandId || undefined).then(setCanais).catch(() => setCanais([]));
-  }, [brandId]);
-
-  useEffect(() => {
-    let ativo = true;
-    actionObterDashboardData({ granularidade, brandId: brandId || undefined, canal: canal || undefined })
-      .then((resultado) => {
-        if (!ativo) return;
-        setDados(resultado);
-        setErro(null);
-      })
-      .catch((error: unknown) => {
-        if (!ativo) return;
-        setErro(error instanceof Error ? error.message : "Não foi possível carregar o painel.");
-      })
-      .finally(() => {
-        if (ativo) setCarregando(false);
-      });
-    return () => { ativo = false; };
-  }, [granularidade, brandId, canal]);
+    actionContarPedidosPorMarca().then(setMarcas).catch(() => setMarcas([]));
+    actionContarPedidosPorCanal().then(setCanais).catch(() => setCanais([]));
+  }, []);
 
   // Independente do painel: depende da API do Mercado Livre, que é lenta.
+  // Não tem recorte por canal (o ML não separa reclamação por canal de venda).
   useEffect(() => {
     let ativo = true;
     actionObterReclamacoes()
@@ -170,80 +127,60 @@ export default function DashboardPage() {
     return () => { ativo = false; };
   }, []);
 
-  const marcaSlugSelecionada = useMemo(
-    () => marcas.find((item) => item.brandId === brandId)?.slug,
-    [marcas, brandId],
+  const marcaSlugReclamacoes = useMemo(
+    () => marcas.find((item) => item.brandId === filtroReclamacoes.brandId)?.slug,
+    [marcas, filtroReclamacoes.brandId],
   );
-
-  // O filtro de marca vale para o painel inteiro, inclusive para o que veio da API.
   const reclamacoesVisiveis = useMemo<ReclamacoesResultado | null>(() => {
-    if (!reclamacoes || !marcaSlugSelecionada) return reclamacoes;
-    const itens = reclamacoes.itens.filter((item) => item.marca === marcaSlugSelecionada);
+    if (!reclamacoes || !marcaSlugReclamacoes) return reclamacoes;
+    const itens = reclamacoes.itens.filter((item) => item.marca === marcaSlugReclamacoes);
     return { ...reclamacoes, itens, total: itens.length };
-  }, [reclamacoes, marcaSlugSelecionada]);
+  }, [reclamacoes, marcaSlugReclamacoes]);
 
   const trocarGranularidade = useCallback((valor: Granularidade) => {
-    setCarregando(true);
     setGranularidade(valor);
   }, []);
 
-  const pendencias = (dados?.reposicao.length ?? 0) + (reclamacoesVisiveis?.total ?? 0);
+  const pendencias = (reposicao.dados?.reposicao.length ?? 0) + (reclamacoesVisiveis?.total ?? 0);
+  const carregandoInicial = !faturamento.dados && !reposicao.dados;
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
-      {!carregando && dados && <CoachMarks storageKey="crm-leo:coachmarks:dashboard:v2" steps={TOUR} />}
+      {!carregandoInicial && <CoachMarks storageKey="crm-leo:coachmarks:dashboard:v2" steps={TOUR} />}
 
-      <PageHeader title={copy.header.title} description={copy.header.description} />
-
-      <div className="flex flex-wrap items-center justify-center gap-2 rounded-full border border-border/60 bg-card/40 px-3.5 py-2 w-fit mx-auto">
-        {marcas.map((marca) => (
-          <MarcaPill
-            key={marca.brandId}
-            marca={marca}
-            ativo={brandId === marca.brandId}
-            onClick={() => setBrandId((atual) => atual === marca.brandId ? "" : marca.brandId)}
-          />
-        ))}
-
-        <span aria-hidden="true" className="h-5 w-px bg-border" />
-
-        {canais.map((item) => (
-          <CanalPill
-            key={item.tipo}
-            canal={item}
-            ativo={canal === item.tipo}
-            onClick={() => setCanal((atual) => atual === item.tipo ? "" : item.tipo)}
-          />
-        ))}
-      </div>
-
-      {erro && (
-        <div className="rounded-xl border border-[#C21820]/20 bg-[#C21820]/10 px-4 py-3 text-sm text-[#C21820]">
-          {erro}
-        </div>
-      )}
-
-      {!dados ? (
+      {carregandoInicial ? (
         <EsqueletoPainel />
       ) : (
         <>
           {/* Ato 1 — como estamos */}
           <section className="flex flex-col gap-3" data-coachmark="dashboard-resultado">
             <SectionLabel>Resultado</SectionLabel>
-            <FaturamentoCard
-              dados={dados.faturamento}
-              granularidade={granularidade}
-              onGranularidade={trocarGranularidade}
-              carregando={carregando}
-            />
+            {faturamento.dados && (
+              <FaturamentoCard
+                dados={faturamento.dados.faturamento}
+                granularidade={granularidade}
+                onGranularidade={trocarGranularidade}
+                carregando={faturamento.carregando}
+                scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroFaturamento} onChange={setFiltroFaturamento} />}
+              />
+            )}
           </section>
 
           {/* Ato 2 — o que pede decisão agora */}
           <section className="flex flex-col gap-3" data-coachmark="dashboard-acao">
             <SectionLabel count={pendencias}>Precisa de ação</SectionLabel>
             <div className="flex flex-col gap-5">
-              <ReposicaoCard itens={dados.reposicao} />
-              <ReclamacoesCard dados={reclamacoesVisiveis} carregando={carregandoReclamacoes} />
+              {reposicao.dados && (
+                <ReposicaoCard
+                  itens={reposicao.dados.reposicao}
+                  scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroReposicao} onChange={setFiltroReposicao} />}
+                />
+              )}
+              <ReclamacoesCard
+                dados={reclamacoesVisiveis}
+                carregando={carregandoReclamacoes}
+                scope={<ScopeChip marcas={marcas} canais={[]} filtro={filtroReclamacoes} onChange={setFiltroReclamacoes} />}
+              />
             </div>
           </section>
 
@@ -251,9 +188,24 @@ export default function DashboardPage() {
           <section className="flex flex-col gap-3">
             <SectionLabel>Comportamento do catálogo</SectionLabel>
             <div className="flex flex-col gap-5">
-              <MaisVendidosCard itens={dados.maisVendidos} />
-              <GiroBaixoCard itens={dados.giroBaixo} />
-              <ParadosCard itens={dados.parados} />
+              {maisVendidos.dados && (
+                <MaisVendidosCard
+                  itens={maisVendidos.dados.maisVendidos}
+                  scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroMaisVendidos} onChange={setFiltroMaisVendidos} />}
+                />
+              )}
+              {giroBaixo.dados && (
+                <GiroBaixoCard
+                  itens={giroBaixo.dados.giroBaixo}
+                  scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroGiroBaixo} onChange={setFiltroGiroBaixo} />}
+                />
+              )}
+              {parados.dados && (
+                <ParadosCard
+                  itens={parados.dados.parados}
+                  scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroParados} onChange={setFiltroParados} />}
+                />
+              )}
             </div>
           </section>
         </>
