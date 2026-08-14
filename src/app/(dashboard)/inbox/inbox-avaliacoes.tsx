@@ -307,7 +307,6 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
   const [itens, setItens] = useState<Avaliacao[]>(() => cacheAvaliacoes?.itens ?? []);
   const [carregando, setCarregando] = useState(() => !cacheValido());
   const [busca, setBusca] = useState("");
-  const [marca, setMarca] = useState("todas");
   const [nota, setNota] = useState<FiltroNota>("todas");
   const [abertos, setAbertos] = useState<ReadonlySet<string>>(new Set());
 
@@ -373,7 +372,6 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
   }, [itens]);
 
   const filtrados = useMemo(() => itens.filter((item) => {
-    if (marca !== "todas" && item.brand !== marca) return false;
     if (marcasAtivas.size > 0 && !marcasAtivas.has(item.brand)) return false;
     if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
@@ -382,7 +380,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
     if (nota === "atencao" && (item.ratingAverage === null || item.ratingAverage >= 4)) return false;
     if (nota === "sem_avaliacao" && item.ratingAverage !== null) return false;
     return true;
-  }), [itens, marca, busca, nota, marcasAtivas, canaisAtivos]);
+  }), [itens, busca, nota, marcasAtivas, canaisAtivos]);
 
   // O resumo acompanha o filtro: senão o topo diz uma coisa e a lista outra.
   const distribuicao = useMemo(() => somarDistribuicoes(filtrados), [filtrados]);
@@ -431,23 +429,16 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
 
       <section className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.06)]">
         <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center">
-          <div className="flex-1">
-            <h2 className="text-base font-bold text-foreground">Opiniões</h2>
-          </div>
+          <label className="relative min-w-[210px] flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar anúncio…"
+              className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[rgba(155,48,217,.5)]"
+            />
+          </label>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="relative min-w-[210px] flex-1">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar anúncio…"
-                className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[rgba(155,48,217,.5)]"
-              />
-            </label>
-            <select value={marca} onChange={(e) => setMarca(e.target.value)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm">
-              <option value="todas">Marcas</option>
-              {marcas.map((item) => <option key={item.slug} value={item.slug}>{item.label}</option>)}
-            </select>
             <select value={nota} onChange={(e) => setNota(e.target.value as FiltroNota)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm">
               <option value="todas">Notas</option>
               <option value="excelentes">4,5 ou mais</option>
