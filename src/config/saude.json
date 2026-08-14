@@ -36,48 +36,205 @@
       "title": "Backup e Integridade",
       "icon": "Shield",
       "rows": [
-        { "label": "Último backup automático", "value": "—" },
-        { "label": "Último teste de restauração", "value": "—" },
-        { "label": "RPO alvo", "value": "24 horas" },
-        { "label": "RTO alvo", "value": "4 horas" }
+        {
+          "label": "Último backup automático",
+          "value": "—"
+        },
+        {
+          "label": "Último teste de restauração",
+          "value": "—"
+        },
+        {
+          "label": "RPO alvo",
+          "value": "24 horas"
+        },
+        {
+          "label": "RTO alvo",
+          "value": "4 horas"
+        }
       ]
     }
   },
   "status": {
-    "conectado": { "label": "Conectado", "color": "#1F8A4C" },
-    "degradado": { "label": "Degradado", "color": "#B57A00" },
-    "desconectado": { "label": "Desconectado", "color": "#C21820" },
-    "ok": { "label": "OK", "color": "#1F8A4C" },
-    "pendente": { "label": "Pendente", "color": "#B57A00" },
-    "falhou": { "label": "Falhou", "color": "#C21820" },
-    "rodando": { "label": "Rodando", "color": "#2563EB" }
+    "conectado": {
+      "label": "Conectado",
+      "color": "#1F8A4C"
+    },
+    "degradado": {
+      "label": "Degradado",
+      "color": "#B57A00"
+    },
+    "desconectado": {
+      "label": "Desconectado",
+      "color": "#C21820"
+    },
+    "ok": {
+      "label": "OK",
+      "color": "#1F8A4C"
+    },
+    "pendente": {
+      "label": "Pendente",
+      "color": "#B57A00"
+    },
+    "falhou": {
+      "label": "Falhou",
+      "color": "#C21820"
+    },
+    "rodando": {
+      "label": "Rodando",
+      "color": "#2563EB"
+    }
   },
   "automacoes": [
-    { "id": "A1", "nome": "Ingestão de pedidos", "disparo": "Evento webhook", "cron": null },
-    { "id": "A2", "nome": "Baixa de estoque", "disparo": "pedido.pago", "cron": null },
-    { "id": "A3", "nome": "Estorno de estoque", "disparo": "pedido.cancelado", "cron": null },
-    { "id": "A4", "nome": "Sync de saldo", "disparo": "estoque.saldo.atualizado", "cron": null },
-    { "id": "A5", "nome": "Reconciliação de saldo", "disparo": "Cron", "cron": "0 3 * * *" },
-    { "id": "A6", "nome": "Alerta de mínimo", "disparo": "saldo ≤ limiar", "cron": null },
-    { "id": "A7", "nome": "Detecção de encalhe", "disparo": "Cron", "cron": "0 2 * * *" },
-    { "id": "A8", "nome": "Régua: avaliação", "disparo": "pedido.entregue", "cron": null },
-    { "id": "A9", "nome": "Régua: aniversário", "disparo": "Cron", "cron": "0 9 * * *" },
-    { "id": "A10", "nome": "Régua: reativação", "disparo": "Cron", "cron": "0 10 * * *" },
-    { "id": "A11", "nome": "Cancelar por opt-out", "disparo": "consentimento_revogado", "cron": null },
-    { "id": "A12", "nome": "Aviso conversa parada", "disparo": "Cron", "cron": "0 * * * *" },
-    { "id": "A13", "nome": "Scores de cliente", "disparo": "Cron", "cron": "0 1 * * *" },
-    { "id": "A14", "nome": "Scores de produto", "disparo": "Cron", "cron": "0 1 * * *" },
-    { "id": "A15", "nome": "Insights do funil (IA)", "disparo": "Cron", "cron": "0 6 * * 1" },
-    { "id": "A16", "nome": "Sugestões de campanha (IA)", "disparo": "Cron", "cron": "0 7 * * 1" },
-    { "id": "A17", "nome": "Documentos executivos automáticos", "disparo": "ia/documento.solicitado", "cron": null },
-    { "id": "A18", "nome": "Saúde dos conectores", "disparo": "Cron", "cron": "*/15 * * * *" },
-    { "id": "A19", "nome": "Notificações internas", "disparo": "Cron", "cron": "0 8 * * *" },
-    { "id": "A20", "nome": "Integridade e backup", "disparo": "Cron", "cron": "0 4 * * *" },
-    { "id": "A21", "nome": "Guarda de consumo de IA", "disparo": "Cron", "cron": "0 */6 * * *" },
-    { "id": "A22", "nome": "Retenção LGPD", "disparo": "Cron", "cron": "0 3 1 * *" },
-    { "id": "A23", "nome": "Renovação de tokens Mercado Livre", "disparo": "Cron", "cron": "0 * * * *" },
-    { "id": "A24", "nome": "Contingência de pedidos", "disparo": "Cron", "cron": "*/4 * * * *" },
-    { "id": "A25", "nome": "Preparar importação histórica", "disparo": "importacao/historica.preparar", "cron": null },
-    { "id": "A26", "nome": "Promover histórico validado", "disparo": "importacao/historica.confirmar", "cron": null }
+    {
+      "id": "A1",
+      "nome": "Ingestão de pedidos",
+      "disparo": "Evento webhook",
+      "cron": null
+    },
+    {
+      "id": "A5",
+      "nome": "Coleta de saldo por canal",
+      "disparo": "Cron",
+      "cron": "0 * * * *"
+    },
+    {
+      "id": "A6",
+      "nome": "Alerta de mínimo",
+      "disparo": "saldo ≤ limiar",
+      "cron": null
+    },
+    {
+      "id": "A7",
+      "nome": "Detecção de encalhe",
+      "disparo": "Cron",
+      "cron": "0 2 * * *"
+    },
+    {
+      "id": "A8",
+      "nome": "Régua: avaliação",
+      "disparo": "pedido.entregue",
+      "cron": null
+    },
+    {
+      "id": "A9",
+      "nome": "Régua: aniversário",
+      "disparo": "Cron",
+      "cron": "0 9 * * *"
+    },
+    {
+      "id": "A10",
+      "nome": "Régua: reativação",
+      "disparo": "Cron",
+      "cron": "0 10 * * *"
+    },
+    {
+      "id": "A11",
+      "nome": "Cancelar por opt-out",
+      "disparo": "consentimento_revogado",
+      "cron": null
+    },
+    {
+      "id": "A12",
+      "nome": "Aviso conversa parada",
+      "disparo": "Cron",
+      "cron": "0 * * * *"
+    },
+    {
+      "id": "A13",
+      "nome": "Scores de cliente",
+      "disparo": "Cron",
+      "cron": "0 1 * * *"
+    },
+    {
+      "id": "A14",
+      "nome": "Scores de produto",
+      "disparo": "Cron",
+      "cron": "0 1 * * *"
+    },
+    {
+      "id": "A15",
+      "nome": "Insights do funil (IA)",
+      "disparo": "Cron",
+      "cron": "0 6 * * 1"
+    },
+    {
+      "id": "A16",
+      "nome": "Sugestões de campanha (IA)",
+      "disparo": "Cron",
+      "cron": "0 7 * * 1"
+    },
+    {
+      "id": "A17",
+      "nome": "Documentos executivos automáticos",
+      "disparo": "ia/documento.solicitado",
+      "cron": null
+    },
+    {
+      "id": "A18",
+      "nome": "Saúde dos conectores",
+      "disparo": "Cron",
+      "cron": "*/15 * * * *"
+    },
+    {
+      "id": "A20",
+      "nome": "Integridade e backup",
+      "disparo": "Cron",
+      "cron": "0 4 * * *"
+    },
+    {
+      "id": "A21",
+      "nome": "Guarda de consumo de IA",
+      "disparo": "Cron",
+      "cron": "0 */6 * * *"
+    },
+    {
+      "id": "A22",
+      "nome": "Retenção LGPD",
+      "disparo": "Cron",
+      "cron": "0 3 1 * *"
+    },
+    {
+      "id": "A23",
+      "nome": "Renovação de tokens Mercado Livre",
+      "disparo": "Cron",
+      "cron": "0 * * * *"
+    },
+    {
+      "id": "A24",
+      "nome": "Contingência de pedidos",
+      "disparo": "Cron",
+      "cron": "*/4 * * * *"
+    },
+    {
+      "id": "A25",
+      "nome": "Preparar importação histórica",
+      "disparo": "importacao/historica.preparar",
+      "cron": null
+    },
+    {
+      "id": "A26",
+      "nome": "Promover histórico validado",
+      "disparo": "importacao/historica.confirmar",
+      "cron": null
+    },
+    {
+      "id": "A27",
+      "nome": "Sync de titulo/preco do anuncio",
+      "disparo": "produto/atualizado",
+      "cron": null
+    },
+    {
+      "id": "A28",
+      "nome": "Sync de avaliacoes do ML",
+      "disparo": "Cron",
+      "cron": "*/20 * * * *"
+    },
+    {
+      "id": "A29",
+      "nome": "Recoleta de estoque por venda",
+      "disparo": "pedido/pago",
+      "cron": null
+    }
   ]
 }

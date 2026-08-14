@@ -24,6 +24,7 @@ import { A25_prepararImportacaoHistorica } from "@/modules/jobs/A25-importacao-h
 import { A26_importarHistorico } from "@/modules/jobs/A26-importar-historico";
 import { A27_syncAnuncio } from "@/modules/jobs/A27-sync-anuncio";
 import { A28_syncAvaliacoesML } from "@/modules/jobs/A28-sync-avaliacoes-ml";
+import { A29_recoletaPorVenda } from "@/modules/jobs/A29-recoleta-por-venda";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -52,5 +53,6 @@ export const { GET, POST, PUT } = serve({
     A26_importarHistorico,
     A27_syncAnuncio,
     A28_syncAvaliacoesML,
+    A29_recoletaPorVenda,
   ],
 });

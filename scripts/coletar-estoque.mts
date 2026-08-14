@@ -8,7 +8,7 @@
 // token do banco, respeita o teto de chamadas simultâneas e faz backoff lendo o
 // Retry-After. Reimplementar a chamada aqui perderia tudo isso.
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 // Import por namespace e não nomeado: os módulos do projeto são transpilados
 // para CJS aqui, e o schema reexporta com `export *`, que o carregador ESM do
@@ -46,53 +46,66 @@ const mapeamentos = await db
 
 console.log(`${mapeamentos.length} mapeamento(s) ativo(s) para coletar.`);
 
+const TAMANHO_DO_LOTE = 50;
 let coletados = 0;
 const falhas: Array<{ listing: string; erro: string }> = [];
 
-for (const [indice, item] of mapeamentos.entries()) {
-  if (item.status !== "conectado") {
-    falhas.push({ listing: item.externalListingId, erro: `conta-${item.status}` });
-    continue;
-  }
+const conectados = mapeamentos.filter((item) => {
+  if (item.status === "conectado") return true;
+  falhas.push({ listing: item.externalListingId, erro: `conta-${item.status}` });
+  return false;
+});
 
-  try {
-    const provider = await resolverChannelProvider(item.tipo, item.brandSlug);
-    if (!provider) throw new Error(`Provider ${item.tipo}/${item.brandSlug} não suportado.`);
+for (let inicio = 0; inicio < conectados.length; inicio += TAMANHO_DO_LOTE) {
+  const lote = conectados.slice(inicio, inicio + TAMANHO_DO_LOTE);
 
-    const saldo = await executarComRetry(
-      () => provider.consultarEstoque({
-        listingId: item.externalListingId,
-        skuId: item.externalSkuId,
-        warehouseId: item.externalWarehouseId,
-      }),
-      { tentativas: 2, atrasoInicialMs: 250 },
-    );
+  // Em paralelo: o provider já limita as chamadas simultâneas e faz backoff
+  // pelo Retry-After, então o lote inteiro pode ser disparado de uma vez.
+  const saldos = await Promise.all(lote.map(async (item) => {
+    try {
+      const provider = await resolverChannelProvider(item.tipo, item.brandSlug);
+      if (!provider) throw new Error(`Provider ${item.tipo}/${item.brandSlug} não suportado.`);
+      const saldo = await executarComRetry(
+        () => provider.consultarEstoque({
+          listingId: item.externalListingId,
+          skuId: item.externalSkuId,
+          warehouseId: item.externalWarehouseId,
+        }),
+        { tentativas: 2, atrasoInicialMs: 250 },
+      );
+      return { item, saldo, erro: null as string | null };
+    } catch (error) {
+      return { item, saldo: null, erro: String(error) };
+    }
+  }));
 
+  const linhas = saldos
+    .filter((linha): linha is typeof linha & { saldo: number } => linha.saldo !== null)
+    .map((linha) => ({
+      orgId,
+      produtoId: linha.item.produtoId,
+      channelAccountId: linha.item.channelAccountId,
+      produtoCanalId: linha.item.produtoCanalId,
+      saldo: linha.saldo,
+      verificadoEm: new Date(),
+    }));
+
+  if (linhas.length > 0) {
     await db
       .insert(estoqueCanalSaldo)
-      .values({
-        orgId,
-        produtoId: item.produtoId,
-        channelAccountId: item.channelAccountId,
-        produtoCanalId: item.produtoCanalId,
-        saldo,
-        verificadoEm: new Date(),
-      })
+      .values(linhas)
       .onConflictDoUpdate({
         target: estoqueCanalSaldo.produtoCanalId,
-        set: { saldo, verificadoEm: new Date() },
+        set: { saldo: sql`excluded.saldo`, verificadoEm: sql`excluded.verificado_em` },
       });
-
-    coletados++;
-  } catch (error) {
-    falhas.push({ listing: item.externalListingId, erro: String(error) });
   }
 
-  // Uma linha por bloco de 50 em vez de por item: o objetivo é acompanhar o
-  // avanço de uma coleta de vários minutos sem inundar o terminal.
-  if ((indice + 1) % 50 === 0 || indice === mapeamentos.length - 1) {
-    console.log(`  ${indice + 1}/${mapeamentos.length} — ${coletados} coletado(s), ${falhas.length} falha(s)`);
+  coletados += linhas.length;
+  for (const linha of saldos.filter((x) => x.erro)) {
+    falhas.push({ listing: linha.item.externalListingId, erro: linha.erro as string });
   }
+
+  console.log(`  ${Math.min(inicio + TAMANHO_DO_LOTE, conectados.length)}/${conectados.length} — ${coletados} coletado(s), ${falhas.length} falha(s)`);
 }
 
 console.log(`\nColeta concluída: ${coletados} saldo(s) registrado(s), ${falhas.length} falha(s).`);

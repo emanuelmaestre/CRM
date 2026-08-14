@@ -1,23 +1,28 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, estoqueCanalSaldo, produtoCanal } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
-import { executarComRetry } from "@/modules/canais/application/retry";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 
-/** Coleta o saldo que cada canal informa para os anúncios mapeados.
+/** Quantos mapeamentos cada passo do Inngest processa de uma vez.
  *
- *  Substitui a antiga reconciliação, que confrontava um saldo local único
- *  contra N canais e por construção sempre acusava divergência em algum deles.
- *  Aqui não há comparação nem decisão: o canal diz quanto tem, e o sistema
- *  registra. O estoque do produto é derivado desses números na leitura. */
+ *  O tamanho vem do custo de um passo: cada `step.run` é uma ida e volta HTTP
+ *  própria, então um passo por anúncio transformava uma coleta de segundos em
+ *  dezenas de horas. Em lotes, o número de passos cai de ~550 para ~11, e cada
+ *  lote ainda cabe folgado no tempo limite de execução. */
+const TAMANHO_DO_LOTE = 50;
+
 export const A5_coletaSaldoCanais = inngest.createFunction(
   {
     id: "A5-reconciliacao-saldo",
     name: "A5 — Coleta de saldo de estoque por canal",
     concurrency: { limit: 1 },
-    triggers: [{ cron: "0 3 * * *" }],
+    // De hora em hora, e não uma vez por dia: a operação vende o dia inteiro,
+    // e uma varredura completa custa ~20s e ~550 chamadas — perto de 3% do teto
+    // horário da aplicação no Mercado Livre. O alerta de mínimo passa a ter, no
+    // pior caso, uma hora de atraso em vez de um dia.
+    triggers: [{ cron: "0 * * * *" }],
   },
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
@@ -50,88 +55,103 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
         )),
     );
 
-    const resultados: Array<{
-      produtoId: string;
-      channelAccountId: string;
-      saldoCanal?: number;
-      erro?: string;
-    }> = [];
+    const conectados = mapeamentos.filter((item) => item.status === "conectado");
+    const desconectados = mapeamentos.length - conectados.length;
 
-    for (const item of mapeamentos) {
-      if (item.status !== "conectado") {
-        resultados.push({
-          produtoId: item.produtoId,
-          channelAccountId: item.channelAccountId,
-          erro: `conta-${item.status}`,
-        });
-        continue;
-      }
+    const lotes: (typeof conectados)[] = [];
+    for (let i = 0; i < conectados.length; i += TAMANHO_DO_LOTE) {
+      lotes.push(conectados.slice(i, i + TAMANHO_DO_LOTE));
+    }
 
-      try {
-        const provider = await resolverChannelProvider(item.tipo, item.brandSlug);
-        if (!provider) throw new Error(`Provider ${item.tipo}/${item.brandSlug} não suportado.`);
+    let coletados = 0;
+    const falhas: Array<{ listingId: string; erro: string }> = [];
 
-        const saldoCanal = await step.run(`consultar-${item.produtoCanalId}`, () =>
-          executarComRetry(
-            () => provider.consultarEstoque({
+    for (const [indice, lote] of lotes.entries()) {
+      const resultado = await step.run(`coletar-lote-${indice}`, async () => {
+        // Em paralelo dentro do lote: o provider do Mercado Livre já limita as
+        // chamadas simultâneas e faz backoff pelo Retry-After, então não há
+        // risco de estourar o teto disparando o lote de uma vez.
+        const saldos = await Promise.all(lote.map(async (item) => {
+          try {
+            const provider = await resolverChannelProvider(item.tipo, item.brandSlug);
+            if (!provider) throw new Error(`Provider ${item.tipo}/${item.brandSlug} não suportado.`);
+            const saldo = await provider.consultarEstoque({
               listingId: item.externalListingId,
               skuId: item.externalSkuId,
               warehouseId: item.externalWarehouseId,
-            }),
-            { tentativas: 2, atrasoInicialMs: 250 },
-          ),
-        );
+            });
+            return { item, saldo, erro: null as string | null };
+          } catch (error) {
+            return { item, saldo: null, erro: String(error) };
+          }
+        }));
 
-        await step.run(`registrar-saldo-${item.produtoCanalId}`, () =>
-          db
+        const linhas = saldos
+          .filter((linha): linha is typeof linha & { saldo: number } => linha.saldo !== null)
+          .map((linha) => ({
+            orgId,
+            produtoId: linha.item.produtoId,
+            channelAccountId: linha.item.channelAccountId,
+            produtoCanalId: linha.item.produtoCanalId,
+            saldo: linha.saldo,
+            verificadoEm: new Date(),
+          }));
+
+        // Uma escrita por lote em vez de uma por anúncio: mesma economia de
+        // ida e volta que motivou o lote na chamada ao canal.
+        if (linhas.length > 0) {
+          await db
             .insert(estoqueCanalSaldo)
-            .values({
-              orgId,
-              produtoId: item.produtoId,
-              channelAccountId: item.channelAccountId,
-              produtoCanalId: item.produtoCanalId,
-              saldo: saldoCanal,
-              verificadoEm: new Date(),
-            })
+            .values(linhas)
             .onConflictDoUpdate({
               target: estoqueCanalSaldo.produtoCanalId,
-              set: { saldo: saldoCanal, verificadoEm: new Date() },
-            }),
-        );
+              set: {
+                saldo: sql`excluded.saldo`,
+                verificadoEm: sql`excluded.verificado_em`,
+              },
+            });
+        }
 
-        resultados.push({
-          produtoId: item.produtoId,
-          channelAccountId: item.channelAccountId,
-          saldoCanal,
-        });
-      } catch (error) {
-        resultados.push({
-          produtoId: item.produtoId,
-          channelAccountId: item.channelAccountId,
-          erro: String(error),
-        });
-        await emitirEvento({
-          tipo: "canal.degradado",
-          orgId,
-          brandId: item.brandId,
-          entidade: "channel_account",
-          entidadeId: item.channelAccountId,
-          payload: { motivo: "falha-coleta-estoque", erro: String(error) },
-        });
-      }
+        return {
+          gravados: linhas.length,
+          falhas: saldos
+            .filter((linha) => linha.erro)
+            .map((linha) => ({ listingId: linha.item.externalListingId, erro: linha.erro as string })),
+        };
+      });
+
+      coletados += resultado.gravados;
+      falhas.push(...resultado.falhas);
     }
 
-    const resumo = {
-      coletados: resultados.filter((item) => item.saldoCanal !== undefined).length,
-      falhas: resultados.filter((item) => item.erro).length,
-      resultados,
+    // Falha isolada não derruba a coleta. Um anúncio com dado inconsistente do
+    // lado do canal é permanente: se ele fizesse o job falhar, a execução seria
+    // repetida sem parar e a coleta nunca fecharia uma volta. Só é tratado como
+    // erro quando nada foi coletado, o que aponta para causa sistêmica —
+    // credencial vencida, canal fora do ar.
+    if (falhas.length > 0) {
+      await emitirEvento({
+        tipo: "canal.degradado",
+        orgId,
+        entidade: "channel_account",
+        entidadeId: conectados[0]?.channelAccountId ?? orgId,
+        payload: {
+          motivo: "falha-coleta-estoque",
+          totalFalhas: falhas.length,
+          exemplos: falhas.slice(0, 10),
+        },
+      });
+    }
+
+    if (coletados === 0 && conectados.length > 0) {
+      throw new Error(`A5 não coletou nenhum dos ${conectados.length} mapeamento(s) — verifique credenciais e disponibilidade do canal.`);
+    }
+
+    return {
+      coletados,
+      falhas: falhas.length,
+      desconectados,
+      lotes: lotes.length,
     };
-    // Uma conta desconectada ou um anúncio problemático não pode impedir que os
-    // demais saldos coletados sejam registrados — por isso o erro só sobe ao
-    // final, depois de todos os mapeamentos terem sido tentados.
-    if (resumo.falhas > 0) {
-      throw new Error(`A5 falhou ao consultar ${resumo.falhas} mapeamento(s) de estoque.`);
-    }
-    return resumo;
   },
 );
