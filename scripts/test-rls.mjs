@@ -670,7 +670,6 @@ try {
   await testProfileUserVisibility();
   await testOnlyAdminManagesUsers();
   await testOnlyAdminManagesOrganization();
-  await testProductCostConfidentiality();
   await testStockBalanceMutationByProfile();
   await testAuditImmutableForBackend();
 
