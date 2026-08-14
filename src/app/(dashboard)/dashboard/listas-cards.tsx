@@ -74,8 +74,7 @@ function ListaCard({ titulo, subtitulo, icone, acento, vazio, ilustracao, vazioT
   const Icon = getIcon(icone);
   return (
     <Card>
-      <CardHead title={titulo} subtitle={subtitulo} icon={Icon} accent={acento} />
-      {scope}
+      <CardHead title={titulo} subtitle={subtitulo} icon={Icon} accent={acento} scope={scope} />
       {vazio ? (
         <EmptyState illustration={ilustracao} title={vazioTitulo} description={vazioDescricao} />
       ) : (

@@ -87,6 +87,7 @@ export function FaturamentoCard({ dados, granularidade, onGranularidade, carrega
         subtitle={dados.janelaLabel}
         icon={Icon}
         accent={copy.accent}
+        scope={scope}
         trailing={
           <Segmented
             layoutId="dashboard-granularidade"
@@ -97,8 +98,6 @@ export function FaturamentoCard({ dados, granularidade, onGranularidade, carrega
           />
         }
       />
-
-      {scope}
 
       {vazio ? (
         <EmptyState

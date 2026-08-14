@@ -239,6 +239,7 @@ export function ReclamacoesCard({ dados, carregando, scope }: {
         subtitle={copy.subtitle}
         icon={Icon}
         accent={copy.accent}
+        scope={scope}
         trailing={total > 0 ? (
           <span
             className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
@@ -248,8 +249,6 @@ export function ReclamacoesCard({ dados, carregando, scope }: {
           </span>
         ) : undefined}
       />
-
-      {scope}
 
       {carregando && <Esqueleto />}
 

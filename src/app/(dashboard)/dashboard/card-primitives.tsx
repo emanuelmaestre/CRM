@@ -27,17 +27,18 @@ export function Card({ children, className, style }: {
 /* ── Cabeçalho de card ─────────────────────────────────────────
    Ícone tonal na cor do assunto + título e subtítulo. O acento
    identifica o card de relance sem precisar ler o título. */
-export function CardHead({ title, subtitle, icon: Icon, accent, trailing, className }: {
+export function CardHead({ title, subtitle, icon: Icon, accent, scope, trailing, className }: {
   title: string;
   subtitle?: string;
   icon: React.ElementType;
   accent: string;
+  scope?: React.ReactNode;
   trailing?: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("flex items-start justify-between gap-3 px-5 pt-5", className)}>
-      <div className="flex min-w-0 items-center gap-3">
+    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 px-5 pt-5", className)}>
+      <div className="flex shrink-0 items-center gap-3">
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
           style={{ background: `${accent}18`, color: accent }}
@@ -49,7 +50,8 @@ export function CardHead({ title, subtitle, icon: Icon, accent, trailing, classN
           {subtitle && <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>}
         </div>
       </div>
-      {trailing && <div className="flex shrink-0 items-center gap-2">{trailing}</div>}
+      {scope && <div className="flex min-w-[160px] flex-1 flex-wrap items-center gap-1.5">{scope}</div>}
+      {trailing && <div className="ml-auto flex shrink-0 items-center gap-2">{trailing}</div>}
     </div>
   );
 }

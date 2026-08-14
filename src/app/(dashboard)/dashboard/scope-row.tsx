@@ -52,7 +52,7 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
   if (marcas.length === 0 && canais.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b border-border/70 px-5 py-2">
+    <>
       {marcas.map((marca) => (
         <Pilula
           key={marca.brandId}
@@ -77,6 +77,6 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
           <ChannelLogo canal={canal.tipo} size="xs" variant="logo" /> {canalLabel(canal.tipo)}
         </Pilula>
       ))}
-    </div>
+    </>
   );
 }
