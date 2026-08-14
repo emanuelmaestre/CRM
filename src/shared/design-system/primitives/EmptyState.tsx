@@ -76,7 +76,7 @@ export function EmptyState({
       initial={{ opacity: 0, y: 4, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={springs.settleFast}
-      className={cn("flex flex-col items-center justify-center py-14 px-4 text-center", className)}
+      className={cn("flex flex-col items-center justify-center px-4 py-10 text-center sm:py-14", className)}
     >
       {Illustration ? (
         <motion.div
@@ -101,7 +101,7 @@ export function EmptyState({
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ ...springs.settleFast, delay: 0.2 }}
-          className="mt-5"
+          className="mt-5 flex w-full max-w-xs justify-center [&>*]:max-w-full"
         >
           {action}
         </motion.div>

@@ -37,8 +37,8 @@ export function CardHead({ title, subtitle, icon: Icon, accent, scope, trailing,
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-2 px-5 pt-5", className)}>
-      <div className="flex shrink-0 items-center gap-3">
+    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-4 sm:px-5 sm:pt-5", className)}>
+      <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-initial">
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
           style={{ background: `${accent}18`, color: accent }}
@@ -50,8 +50,8 @@ export function CardHead({ title, subtitle, icon: Icon, accent, scope, trailing,
           {subtitle && <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>}
         </div>
       </div>
-      {scope && <div className="flex min-w-[160px] flex-1 flex-wrap items-center justify-center gap-1.5">{scope}</div>}
-      {trailing && <div className="ml-auto flex shrink-0 items-center gap-2">{trailing}</div>}
+      {scope && <div className="order-3 flex w-full flex-wrap items-center justify-start gap-1.5 sm:order-none sm:w-auto sm:min-w-40 sm:flex-1 sm:justify-center">{scope}</div>}
+      {trailing && <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">{trailing}</div>}
     </div>
   );
 }

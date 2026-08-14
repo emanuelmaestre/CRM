@@ -35,7 +35,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <MotionProvider>
             {children}
-            <Toaster richColors position="top-right" />
+            <Toaster
+              richColors
+              position="top-right"
+              mobileOffset={{ top: "max(1rem, env(safe-area-inset-top))", left: "1rem", right: "1rem" }}
+            />
           </MotionProvider>
         </ThemeProvider>
       </body>

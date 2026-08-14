@@ -6,11 +6,11 @@ export const metadata = { title: pagesConfig.login.title };
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <main className="flex min-h-dvh items-center justify-center overflow-y-auto bg-background px-4 py-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6">
       <div className="w-full max-w-sm relative">
         <LoginHero />
         <LoginForm />
       </div>
-    </div>
+    </main>
   );
 }

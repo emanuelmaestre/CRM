@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap } from "lucide-react";
+import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -173,12 +173,12 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
-      className="flex h-[max(32rem,calc(100dvh-13rem))] max-h-[calc(100dvh-7rem)] gap-3"
+      className="flex h-[max(28rem,calc(100dvh-15rem))] max-h-[calc(100dvh-7rem)] gap-3 lg:h-[max(32rem,calc(100dvh-13rem))]"
     >
       {/* ── Sidebar ── */}
       <motion.div
-        style={{ width: sideWidth, flexShrink: 0 }}
-        className="relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col"
+        style={{ width: `min(100%, ${sideWidth}px)`, flexShrink: 0 }}
+        className={`${selecionada ? "hidden lg:flex" : "flex"} relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
       >
             {/* Status filter row */}
             <div className="flex gap-1 px-3 py-2 border-b border-border bg-muted/10">
@@ -298,7 +298,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
             {/* Drag-to-resize handle */}
             <div
               onMouseDown={startResize}
-              className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group z-20"
+              className="absolute right-0 top-0 bottom-0 hidden w-3 items-center justify-center cursor-col-resize group z-20 lg:flex"
               title={copy.actions.resize}
             >
               <div className="w-[3px] h-10 rounded-full bg-border group-hover:bg-[rgba(155,48,217,.4)] transition-colors" />
@@ -311,7 +311,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
       </motion.div>
 
       {/* ── Right panel ── */}
-      <div className="flex-1 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col min-w-0">
+      <div className={`${selecionada ? "flex" : "hidden lg:flex"} flex-1 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col min-w-0`}>
         <AnimatePresence mode="wait">
           {!selecionada ? (
             <motion.div
@@ -345,7 +345,15 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
               className="flex flex-col flex-1 overflow-hidden"
             >
               {/* Context header */}
-              <div className="px-5 py-4 border-b border-border flex items-center gap-3">
+              <div className="flex items-center gap-3 border-b border-border px-3 py-3 sm:px-5 sm:py-4">
+                <button
+                  type="button"
+                  onClick={() => { setSelecionada(null); setResposta(""); setAtalhosAbertos(false); }}
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+                  aria-label="Voltar para a lista de perguntas"
+                >
+                  <ArrowLeft size={18} />
+                </button>
                 <motion.span
                   initial={{ scale: 0.85, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -371,7 +379,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
               </div>
 
               {/* Stage area */}
-              <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5 scrollbar-thin">
+              <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 scrollbar-thin sm:p-5">
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -380,7 +388,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                   <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground mb-2">
                     {copy.question}
                   </p>
-                  <div className="rounded-[4px_14px_14px_14px] border border-border bg-muted/40 px-4 py-3.5 text-[15px] text-foreground leading-relaxed max-w-[78%]">
+                  <div className="max-w-[92%] rounded-[4px_14px_14px_14px] border border-border bg-muted/40 px-4 py-3.5 text-[15px] leading-relaxed text-foreground sm:max-w-[78%]">
                     {selecionada.pergunta}
                   </div>
                 </motion.div>
@@ -396,7 +404,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                       {copy.yourAnswer}
                     </p>
                     <div
-                      className="rounded-[14px_4px_14px_14px] px-4 py-3.5 text-sm text-white leading-relaxed max-w-[78%] shadow-[0_3px_14px_rgba(227,19,27,.22)]"
+                      className="max-w-[92%] rounded-[14px_4px_14px_14px] px-4 py-3.5 text-sm leading-relaxed text-white shadow-[0_3px_14px_rgba(227,19,27,.22)] sm:max-w-[78%]"
                       style={{ background: "var(--gradient-signature)" }}
                     >
                       {selecionada.resposta}
@@ -423,7 +431,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, duration: 0.2 }}
-                  className="border-t border-border px-4 py-4 flex flex-col gap-3"
+                  className="flex flex-col gap-3 border-t border-border px-3 py-3 sm:px-4 sm:py-4"
                 >
                   {/* Textarea row */}
                   <div className="flex items-end gap-2">
@@ -466,7 +474,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 6, scale: 0.97 }}
                               transition={{ duration: 0.15 }}
-                              className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-[0.875rem] border border-border bg-card p-2 shadow-[0_8px_24px_rgba(14,15,19,.14)]"
+                              className="absolute bottom-full left-0 z-50 mb-2 w-[min(16rem,calc(100vw-5rem))] rounded-[0.875rem] border border-border bg-card p-2 shadow-[0_8px_24px_rgba(14,15,19,.14)]"
                             >
                               <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground">
                                 {copy.quickReply}

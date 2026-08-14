@@ -375,7 +375,41 @@ export function PedidosLista() {
               description={filtrando ? copy.emptyFiltered.description : undefined}
             />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <div className="divide-y divide-border md:hidden" data-testid="pedidos-cards">
+                {pedidos.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/vendas/pedidos/${item.id}`}
+                    className="block px-4 py-4 transition-colors hover:bg-muted/30 focus-visible:bg-muted/30"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-bold text-foreground">
+                          #{item.providerOrderId ?? item.id.slice(0, 8)}
+                        </span>
+                        <span className="mt-1 block truncate text-sm text-muted-foreground">{item.clienteNome}</span>
+                      </span>
+                      <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
+                        {dinheiro.format(Number(item.total))}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      <span
+                        className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                        style={{
+                          background: `color-mix(in srgb, ${CORES_STATUS[item.status] ?? "#6F6F6E"} 10%, transparent)`,
+                          color: CORES_STATUS[item.status] ?? "#6F6F6E",
+                        }}
+                      >
+                        {statusLabel(item.status)}
+                      </span>
+                      <span className="text-xs font-semibold text-[#9B30D9]">Ver detalhes</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
                   <tr>
@@ -396,7 +430,8 @@ export function PedidosLista() {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
 

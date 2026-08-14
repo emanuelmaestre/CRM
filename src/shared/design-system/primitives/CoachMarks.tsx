@@ -80,8 +80,15 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
 
   if (!mounted || !active || !step) return null;
 
-  const cardTop = rect ? Math.min(window.innerHeight - 180, rect.bottom + 12) : window.innerHeight / 2 - 80;
-  const cardLeft = rect ? Math.min(window.innerWidth - 340, Math.max(16, rect.left)) : window.innerWidth / 2 - 160;
+  const viewportGap = 16;
+  const cardWidth = Math.min(320, window.innerWidth - viewportGap * 2);
+  const estimatedCardHeight = 230;
+  const cardTop = rect
+    ? Math.max(viewportGap, Math.min(window.innerHeight - estimatedCardHeight - viewportGap, rect.bottom + 12))
+    : Math.max(viewportGap, (window.innerHeight - estimatedCardHeight) / 2);
+  const cardLeft = rect
+    ? Math.max(viewportGap, Math.min(window.innerWidth - cardWidth - viewportGap, rect.left))
+    : (window.innerWidth - cardWidth) / 2;
 
   return createPortal(
     <AnimatePresence>
@@ -116,8 +123,8 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 8, scale: 0.97 }}
         transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
-        className="fixed z-[302] w-80 rounded-[1.25rem] bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.16)]"
-        style={{ top: cardTop, left: cardLeft }}
+        className="fixed z-[302] max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[1.25rem] bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.16)] sm:p-5"
+        style={{ top: cardTop, left: cardLeft, width: cardWidth }}
         role="dialog"
         aria-live="polite"
         data-testid="coachmark-card"
@@ -126,7 +133,7 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
           type="button"
           onClick={finalizar}
           aria-label="Fechar tour"
-          className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
+          className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted sm:right-2.5 sm:top-2.5"
         >
           <X size={14} />
         </button>
@@ -135,7 +142,7 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
         </p>
         <h3 className="mt-1 text-sm font-bold text-foreground">{step.title}</h3>
         <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{step.description}</p>
-        <div className="mt-4 flex items-center justify-between">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <button
             type="button"
             onClick={finalizar}
@@ -149,7 +156,7 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
                 type="button"
                 onClick={() => setStepIndex((i) => i - 1)}
                 className={cn(
-                  "inline-flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted",
+                  "inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted",
                 )}
                 aria-label="Passo anterior"
               >
@@ -159,7 +166,7 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
             <button
               type="button"
               onClick={() => (stepIndex < steps.length - 1 ? setStepIndex((i) => i + 1) : finalizar())}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold text-white"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3.5 text-sm font-semibold text-white"
               style={{ background: "var(--gradient-signature)" }}
             >
               {stepIndex < steps.length - 1 ? "Próximo" : "Concluir"}
