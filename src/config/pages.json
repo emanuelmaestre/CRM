@@ -73,6 +73,9 @@
       "disconnectedHint": "{canal} ainda não está conectado — conecte em Configurações para liberar o filtro.",
       "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Configurações para liberar o filtro."
     },
+    "escolha": {
+      "title": "Escolha uma empresa ou canal para começar"
+    },
     "brandSelector": {
       "label": "Empresa",
       "multiHint": "Selecione uma ou mais",

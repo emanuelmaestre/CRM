@@ -371,6 +371,8 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itens]);
 
+  const semFiltro = marcasAtivas.size === 0 && canaisAtivos.size === 0;
+
   const filtrados = useMemo(() => itens.filter((item) => {
     if (marcasAtivas.size > 0 && !marcasAtivas.has(item.brand)) return false;
     if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
@@ -391,6 +393,21 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
     [filtrados],
   );
   const atencao = filtrados.filter((item) => item.ratingAverage !== null && item.ratingAverage < 4).length;
+
+  /* ── Sem filtro ── A busca ao Mercado Livre já roda em segundo plano desde
+     a entrada na página; só o resultado fica escondido até uma marca ou
+     canal ser escolhido acima. */
+  if (semFiltro) {
+    return (
+      <div className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.06)]">
+        <EmptyState
+          illustration="funnel"
+          title="Selecione um filtro"
+          description="Escolha uma marca ou canal acima para ver as opiniões."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-4">

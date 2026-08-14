@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
 import { PlugZap2, Eye } from "lucide-react";
+import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
+import { springs } from "@/shared/design-system/motion-variants";
 import { actionListarClientes, actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -223,11 +225,17 @@ export function ClientesLista() {
     });
   }, []);
 
+  // Sem marca, canal ou busca escolhidos não há o que carregar: a tela
+  // mostra o convite, e as contagens de marca/canal (rápidas) já estão
+  // aquecendo por trás para quando a escolha acontecer.
+  const escopoDefinido = brandIds.size > 0 || canaisSelecionados.size > 0 || busca.trim() !== "";
+
   useEffect(() => {
+    if (!escopoDefinido) return;
     const timer = setTimeout(() => carregar(busca || undefined, brandIdsArray, canaisArray), busca ? 300 : 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busca, brandIdsKey, canaisKey, carregar]);
+  }, [busca, brandIdsKey, canaisKey, carregar, escopoDefinido]);
 
   function handleBusca(e: React.ChangeEvent<HTMLInputElement>) {
     setBusca(e.target.value);
@@ -311,7 +319,22 @@ export function ClientesLista() {
         />
       </div>
 
-      {/* Tabela */}
+      {/* Tela limpa: sem escopo, nada de tabela — mesmo padrão do Estoque. */}
+      {!escopoDefinido ? (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springs.settleFast}
+          className="rounded-[1.25rem] bg-card px-6 py-14 text-center shadow-[0_2px_16px_rgba(14,15,19,.07)]"
+        >
+          <div className="mx-auto flex max-w-md flex-col items-center gap-4">
+            <BrandLogoGroup height={26} className="opacity-90" />
+            <p className="text-base font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
+              {copy.escolha.title}
+            </p>
+          </div>
+        </motion.div>
+      ) : (
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -419,6 +442,7 @@ export function ClientesLista() {
           </>
         )}
       </motion.div>
+      )}
     </div>
   );
 }

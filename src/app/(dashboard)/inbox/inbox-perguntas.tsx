@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap } from "lucide-react";
+import { Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -132,6 +132,8 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perguntas]);
 
+  const semFiltro = marcasAtivas.size === 0 && canaisAtivos.size === 0;
+
   const filtradas = perguntas.filter((p) => {
     if (filtroStatus !== "todos" && p.status !== filtroStatus) return false;
     if (marcasAtivas.size > 0 && !marcasAtivas.has(p.brandSlug ?? "")) return false;
@@ -203,6 +205,16 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 {carregando ? (
                   <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="divide-y divide-border">
                     <SkeletonRow /><SkeletonRow /><SkeletonRow />
+                  </motion.div>
+                ) : semFiltro ? (
+                  <motion.div
+                    key="sem-filtro"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="flex flex-col items-center justify-center py-12 text-center px-4"
+                  >
+                    <Filter size={24} strokeWidth={1.5} className="text-muted-foreground mb-2" />
+                    <p className="text-sm font-semibold text-foreground">Selecione um filtro</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Escolha uma marca ou canal acima para ver as perguntas.</p>
                   </motion.div>
                 ) : filtradas.length === 0 ? (
                   <motion.div

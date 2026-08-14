@@ -174,6 +174,8 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversas]);
 
+  const semFiltro = marcasAtivas.size === 0 && canaisAtivos.size === 0;
+
   const conversasFiltradas = conversas.filter((c) => {
     if (marcasAtivas.size > 0 && !marcasAtivas.has(c.brandSlug ?? "")) return false;
     if (canaisAtivos.size > 0 && !canaisAtivos.has(c.canalTipo ?? "")) return false;
@@ -245,6 +247,20 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
         <Loader2 size={16} className="animate-spin" />
         {copy.loadingConversations}
       </motion.div>
+    );
+  }
+
+  /* ── Sem filtro ── A busca já roda em segundo plano desde a entrada na
+     página; só a lista fica escondida até uma marca ou canal ser escolhido. */
+  if (semFiltro) {
+    return (
+      <div className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]">
+        <EmptyState
+          illustration="funnel"
+          title="Selecione um filtro"
+          description="Escolha uma marca ou canal acima para ver as conversas."
+        />
+      </div>
     );
   }
 

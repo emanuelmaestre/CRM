@@ -12,6 +12,7 @@ import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { springs } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
@@ -242,7 +243,15 @@ export function PedidosLista() {
     });
   }, []);
 
-  useEffect(() => { carregar(brandId, canal, status); }, [brandId, canal, status, carregar]);
+  // Sem marca ou canal escolhidos não há o que carregar: a tela mostra o
+  // convite, e as contagens de marca/canal (rápidas) já estão aquecendo por
+  // trás para quando a escolha acontecer.
+  const escopoDefinido = brandId !== "" || canal !== "";
+
+  useEffect(() => {
+    if (!escopoDefinido) return;
+    carregar(brandId, canal, status);
+  }, [brandId, canal, status, carregar, escopoDefinido]);
 
   async function carregarMais() {
     setCarregandoMais(true);
@@ -324,6 +333,21 @@ export function PedidosLista() {
         })}
       </div>
 
+      {!escopoDefinido ? (
+        <motion.div
+          initial={reduzir ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={springs.settleFast}
+          className="rounded-[1.25rem] bg-card px-6 py-14 text-center shadow-[0_2px_16px_rgba(14,15,19,.07)]"
+        >
+          <div className="mx-auto flex max-w-md flex-col items-center gap-4">
+            <BrandLogoGroup height={26} className="opacity-90" />
+            <p className="text-base font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
+              Escolha uma empresa ou canal para começar
+            </p>
+          </div>
+        </motion.div>
+      ) : (
       <motion.section
         initial={reduzir ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -398,6 +422,7 @@ export function PedidosLista() {
           </div>
         )}
       </motion.section>
+      )}
     </div>
   );
 }
