@@ -9,7 +9,6 @@ import {
   Radio, RefreshCw, Search, SlidersHorizontal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { EditarProdutoModal } from "./editar-produto-modal";
 import { CanalModal } from "./canal-modal";
 import {
   actionListarProdutos, actionListarProdutosParados,
@@ -19,7 +18,6 @@ import {
 } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
-import { SectionCard } from "@/shared/design-system/primitives/SectionCard";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";

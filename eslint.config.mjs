@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
     "next-env.d.ts",
+    // Cópias do repo criadas por agentes; lintar aqui só duplica erro de outro branch.
+    ".claude/worktrees/**",
   ]),
 ]);
 

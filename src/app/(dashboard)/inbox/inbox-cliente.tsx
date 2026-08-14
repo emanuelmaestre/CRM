@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback, useRef } from "react";
+import { useState, useEffect, useTransition, useCallback, useRef, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package, Search } from "lucide-react";
@@ -100,6 +100,19 @@ function StatusPill({ status }: { status: string }) {
 }
 
 
+/* ── Viewport ────────────────────────────────────────────── */
+const MOBILE_QUERY = "(max-width: 1023px)";
+
+function assinarViewport(onChange: () => void) {
+  const mq = window.matchMedia(MOBILE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+const lerViewport = () => window.matchMedia(MOBILE_QUERY).matches;
+/* No servidor não há viewport; assume desktop, igual ao estado inicial de antes. */
+const lerViewportNoServidor = () => false;
+
 /* ── Main ────────────────────────────────────────────────── */
 export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   marcasAtivas: ReadonlySet<string>;
@@ -113,19 +126,11 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [enviando, setEnviando]       = useState(false);
   const [texto, setTexto]             = useState("");
-  const [isMobile, setIsMobile]       = useState(false);
+  const isMobile                      = useSyncExternalStore(assinarViewport, lerViewport, lerViewportNoServidor);
   const [busca, setBusca]             = useState("");
   const [, startTransition]           = useTransition();
   const textareaRef                   = useRef<HTMLTextAreaElement>(null);
   const msgEndRef                     = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023px)");
-    setIsMobile(mq.matches);
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   const carregarConversas = useCallback(() => {
     startTransition(async () => {
