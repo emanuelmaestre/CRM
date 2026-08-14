@@ -1,6 +1,5 @@
 "use client";
 
-import { Building2, Radio } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { getBrandConfig, isBrandSlug, BRAND_SLUGS } from "@/shared/config/brands";
@@ -67,9 +66,6 @@ export function FiltroEscopoBar({
 }) {
   return (
     <div className="flex flex-nowrap items-center gap-2 rounded-full border border-border/60 bg-card px-3.5 py-2 shadow-[0_2px_10px_rgba(14,15,19,.04)] w-fit">
-      <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <Building2 size={12} strokeWidth={2.25} /> Empresa
-      </span>
       {BRAND_SLUGS.map((slug) => (
         <EmpresaPill
           key={slug}
@@ -83,9 +79,6 @@ export function FiltroEscopoBar({
 
       <span aria-hidden="true" className="h-5 w-px bg-border flex-shrink-0" />
 
-      <span className="inline-flex flex-shrink-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        <Radio size={12} strokeWidth={2.25} /> Canal
-      </span>
       {CANAIS_VENDA.map((tipo) => (
         <CanalFiltroPill
           key={tipo}

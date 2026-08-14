@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
-import { PlugZap2, Building2, Radio, Eye } from "lucide-react";
+import { PlugZap2, Eye } from "lucide-react";
 import { actionListarClientes, actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -262,10 +262,6 @@ export function ClientesLista() {
         <div className="w-full max-w-4xl px-8 py-7 sm:px-10">
           <div className="flex flex-col items-center gap-7 lg:flex-row lg:justify-center lg:gap-10">
             <div data-tour="clientes-empresa" className="flex min-w-0 flex-col items-center">
-              <div className="mb-3 flex items-center gap-2 text-muted-foreground">
-                <Building2 size={15} strokeWidth={2.25} />
-                <span className="text-xs font-bold uppercase tracking-wide">{copy.brandSelector.label}</span>
-              </div>
               <div className="flex flex-nowrap justify-center gap-2.5">
                 {marcas.map((marca) => (
                   <MarcaPill
@@ -288,10 +284,6 @@ export function ClientesLista() {
             <div aria-hidden="true" className="h-px w-28 lg:hidden" style={{ background: "linear-gradient(to right, transparent, var(--border), transparent)" }} />
 
             <div className="flex min-w-0 flex-col items-center">
-              <div className="mb-3 flex items-center gap-2 text-muted-foreground">
-                <Radio size={15} strokeWidth={2.25} />
-                <span className="text-xs font-bold uppercase tracking-wide">{copy.channelSelector.label}</span>
-              </div>
               <div className="flex flex-nowrap justify-center gap-2.5">
                 {canais.map((item) => (
                   <CanalPill

@@ -5,8 +5,8 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, ArrowLeftRight, Building2, Check, Eye, Hourglass, Link2, Loader2, PackageX, Pencil, PlugZap2,
-  Radio, RefreshCw, Search, SlidersHorizontal,
+  AlertTriangle, ArrowLeftRight, Check, Eye, Hourglass, Link2, Loader2, PackageX, Pencil, PlugZap2,
+  RefreshCw, Search, SlidersHorizontal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CanalModal } from "./canal-modal";
@@ -891,10 +891,6 @@ export function EstoqueLista() {
         <div className="w-full max-w-4xl rounded-[1.75rem] border border-border/60 bg-card px-8 py-7 shadow-[0_4px_24px_rgba(14,15,19,.06)] sm:px-10">
           <div className="flex flex-col items-center gap-7 lg:flex-row lg:justify-center lg:gap-10">
             <div data-tour="estoque-empresa" className="flex min-w-0 flex-col items-center">
-              <div className="mb-3 flex items-center gap-2 text-muted-foreground">
-                <Building2 size={15} strokeWidth={2.25} />
-                <span className="text-xs font-bold uppercase tracking-wide">{copy.brandSelector.label}</span>
-              </div>
               <div className="flex flex-nowrap justify-center gap-2.5">
                 {marcas.map((marca) => (
                   <MarcaPill
@@ -917,10 +913,6 @@ export function EstoqueLista() {
             <div aria-hidden="true" className="h-px w-28 lg:hidden" style={{ background: "linear-gradient(to right, transparent, var(--border), transparent)" }} />
 
             <div className="flex min-w-0 flex-col items-center">
-              <div className="mb-3 flex items-center gap-2 text-muted-foreground">
-                <Radio size={15} strokeWidth={2.25} />
-                <span className="text-xs font-bold uppercase tracking-wide">{copy.channelSelector.label}</span>
-              </div>
               <div className="flex flex-nowrap justify-center gap-2.5">
                 {canais.map((item) => (
                   <CanalPill

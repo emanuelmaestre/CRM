@@ -3,10 +3,12 @@ import { startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } f
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
+  channelAccount,
   estoqueCanalSaldo,
   pedido,
   pedidoItem,
   produto,
+  produtoCanal,
 } from "@/shared/lib/db/schema";
 import { getBrandConfig } from "@/shared/config/brands";
 
@@ -44,12 +46,8 @@ const GRANULARIDADE_LABEL: Record<Granularidade, string> = {
 
 export interface DashboardFilters {
   granularidade?: Granularidade;
-  brand?: string;
-}
-
-export interface DashboardFilterOption {
-  value: string;
-  label: string;
+  brandId?: string;
+  canal?: string;
 }
 
 export interface SeriePonto {
@@ -109,11 +107,6 @@ export interface ProdutoReposicao extends ProdutoBase {
 }
 
 export interface DashboardData {
-  filtros: {
-    granularidade: Granularidade;
-    brand: string;
-    brands: DashboardFilterOption[];
-  };
   faturamento: FaturamentoResumo;
   maisVendidos: ProdutoMaisVendido[];
   giroBaixo: ProdutoGiroBaixo[];
@@ -177,12 +170,26 @@ function montarBaldes(agora: Date, granularidade: Granularidade): Map<number, nu
 
 /* ── Consulta principal ───────────────────────────────────────── */
 
-function normalizarFiltros(filters?: DashboardFilters): Required<DashboardFilters> {
+function normalizarFiltros(filters?: DashboardFilters) {
   const granularidade = filters?.granularidade;
   return {
-    granularidade: granularidade && granularidade in JANELA_DIAS ? granularidade : "dia",
-    brand: filters?.brand ?? "todas",
+    granularidade: (granularidade && granularidade in JANELA_DIAS ? granularidade : "dia") as Granularidade,
+    brandId: filters?.brandId,
+    canal: filters?.canal,
   };
+}
+
+/** Mesmo padrão do Estoque: EXISTS em vez de JOIN, porque um produto pode ter
+ *  mais de um mapeamento ativo no mesmo canal e um JOIN duplicaria a linha. */
+function condicaoCanalProduto(orgId: string, canal: string) {
+  return sql`exists (
+    select 1 from ${produtoCanal}
+    inner join ${channelAccount} on ${channelAccount.id} = ${produtoCanal.channelAccountId}
+    where ${produtoCanal.produtoId} = ${produto.id}
+      and ${produtoCanal.orgId} = ${orgId}
+      and ${produtoCanal.ativo} = true
+      and ${channelAccount.tipo} = ${canal}
+  )`;
 }
 
 export async function obterDashboardData(
@@ -190,7 +197,7 @@ export async function obterDashboardData(
   filters?: DashboardFilters,
 ): Promise<DashboardData> {
   const agora = new Date();
-  const { granularidade, brand: brandFiltro } = normalizarFiltros(filters);
+  const { granularidade, brandId: brandFiltro, canal: canalFiltro } = normalizarFiltros(filters);
   const janelaDias = JANELA_DIAS[granularidade];
   const inicioJanela = subDays(agora, janelaDias);
   const inicioJanelaAnterior = subDays(agora, janelaDias * 2);
@@ -202,13 +209,6 @@ export async function obterDashboardData(
   // batem, mas 12 semanas < 84 dias não). Busca pedidos desde o que for mais antigo.
   const inicioBusca = inicioSerie < inicioJanelaAnterior ? inicioSerie : inicioJanelaAnterior;
 
-  const marcas = await ctx.db
-    .select({ id: brand.id, name: brand.name, slug: brand.slug })
-    .from(brand)
-    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
-    .orderBy(brand.slug);
-
-  const marcaSelecionada = marcas.find((item) => item.slug === brandFiltro);
   const limiteParado = subDays(agora, DIAS_PARA_PARADO);
 
   const condicoesPedido = [
@@ -218,14 +218,16 @@ export async function obterDashboardData(
     ne(pedido.status, "cancelado"),
     ne(pedido.status, "devolvido"),
   ];
-  if (marcaSelecionada) condicoesPedido.push(eq(pedido.brandId, marcaSelecionada.id));
+  if (brandFiltro) condicoesPedido.push(eq(pedido.brandId, brandFiltro));
+  if (canalFiltro) condicoesPedido.push(eq(pedido.canal, canalFiltro));
 
   const condicoesProduto = [
     eq(produto.orgId, ctx.orgId),
     eq(produto.ativo, true),
     isNull(produto.deletedAt),
   ];
-  if (marcaSelecionada) condicoesProduto.push(eq(produto.brandId, marcaSelecionada.id));
+  if (brandFiltro) condicoesProduto.push(eq(produto.brandId, brandFiltro));
+  if (canalFiltro) condicoesProduto.push(condicaoCanalProduto(ctx.orgId, canalFiltro));
 
   const [pedidosJanela, itensVendidos, produtosAtivos, ultimasSaidas] = await Promise.all([
     ctx.db
@@ -422,14 +424,6 @@ export async function obterDashboardData(
     .slice(0, TAMANHO_LISTA);
 
   return {
-    filtros: {
-      granularidade,
-      brand: marcaSelecionada?.slug ?? "todas",
-      brands: [
-        { value: "todas", label: "Todas as marcas" },
-        ...marcas.map((item) => ({ value: item.slug, label: item.name })),
-      ],
-    },
     faturamento,
     maisVendidos,
     giroBaixo,

@@ -1,9 +1,5 @@
 {
   "header": { "title": "Painel", "description": "O que precisa da sua atenção hoje" },
-  "filters": {
-    "allBrands": "Todas as marcas",
-    "brandLabel": "Marca"
-  },
   "granularities": [
     { "value": "dia", "label": "Diário" },
     { "value": "semana", "label": "Semanal" },
