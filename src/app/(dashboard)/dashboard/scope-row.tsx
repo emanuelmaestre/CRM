@@ -25,7 +25,7 @@ function Pilula({ ativo, desabilitado, onClick, children }: {
       onClick={desabilitado ? undefined : onClick}
       disabled={desabilitado}
       aria-pressed={ativo}
-      className={`inline-flex h-6.5 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[11px] font-semibold transition-colors ${
+      className={`inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 text-[12px] font-semibold transition-colors ${
         desabilitado
           ? "cursor-not-allowed border border-border text-muted-foreground opacity-40"
           : ativo
@@ -59,7 +59,7 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
           ativo={filtro.brandId === marca.brandId}
           onClick={() => onChange({ ...filtro, brandId: filtro.brandId === marca.brandId ? "" : marca.brandId })}
         >
-          {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={10} /> : marca.nome}
+          {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={14} /> : marca.nome}
         </Pilula>
       ))}
 

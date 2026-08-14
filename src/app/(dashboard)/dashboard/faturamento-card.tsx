@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { springs } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
@@ -65,26 +66,37 @@ function GraficoSerie({ serie, aoFocar }: {
   );
 }
 
-export function FaturamentoCard({ dados, granularidade, onGranularidade, carregando, scope }: {
-  dados: FaturamentoResumo;
+function EsqueletoFaturamento() {
+  return (
+    <div className="px-5 pb-5">
+      <Skeleton className="mt-4 h-8 w-40" />
+      <Skeleton className="mt-2 h-3.5 w-28" />
+      <Skeleton className="mt-6 h-36 w-full" />
+    </div>
+  );
+}
+
+export function FaturamentoCard({ dados, granularidade, onGranularidade, carregando, semFiltro, scope }: {
+  dados: FaturamentoResumo | null;
   granularidade: Granularidade;
   onGranularidade: (valor: Granularidade) => void;
   carregando: boolean;
+  semFiltro: boolean;
   scope?: React.ReactNode;
 }) {
   const [focado, setFocado] = useState<number | null>(null);
   const Icon = getIcon(copy.icon);
-  const valorAnimado = useContagem(dados.totalNumerico);
-  const vazio = dados.pedidos === 0 && dados.totalNumerico === 0;
-  const variacao = dados.variacaoPercentual;
+  const valorAnimado = useContagem(dados?.totalNumerico ?? 0);
+  const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
+  const variacao = dados?.variacaoPercentual ?? null;
   const positiva = (variacao ?? 0) >= 0;
-  const pontoFocado = focado === null ? null : dados.serie[focado];
+  const pontoFocado = dados && focado !== null ? dados.serie[focado] : null;
 
   return (
     <Card>
       <CardHead
         title={copy.title}
-        subtitle={dados.janelaLabel}
+        subtitle={dados?.janelaLabel ?? copy.title}
         icon={Icon}
         accent={copy.accent}
         scope={scope}
@@ -99,50 +111,60 @@ export function FaturamentoCard({ dados, granularidade, onGranularidade, carrega
         }
       />
 
-      {vazio ? (
-        <EmptyState
-          illustration="revenue"
-          title={copy.emptyTitle}
-          description={copy.emptyDescription}
-        />
-      ) : (
-        <div className="px-5 pb-5">
-          <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-2">
-            <p className="text-stat-lg text-foreground">{moeda.format(valorAnimado)}</p>
-            {variacao !== null && (
-              <motion.span
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...springs.settleFast, delay: 0.15 }}
-                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
-                style={{
-                  background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)",
-                  color: positiva ? "#1F8A4C" : "#C21820",
-                }}
-              >
-                {positiva ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
-                {positiva ? "+" : ""}{variacao}%
-              </motion.span>
-            )}
-            {variacao !== null && (
-              <span className="text-xs text-muted-foreground">{copy.comparisonLabel}</span>
-            )}
-          </div>
+      {/* Troca por crossfade, nunca desmontando o Card — evita o "piscar"
+          ao mudar de filtro. Com conteúdo anterior na tela, uma busca em
+          voo só esmaece um pouco em vez de sumir e reaparecer. */}
+      <motion.div animate={{ opacity: carregando && dados ? 0.55 : 1 }} transition={springs.settleFast}>
+        <AnimatePresence mode="wait" initial={false}>
+          {semFiltro ? (
+            <motion.div key="prompt" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast}>
+              <EmptyState illustration="revenue" title="Selecione um filtro" description="Escolha uma marca ou canal acima para ver o faturamento." />
+            </motion.div>
+          ) : carregando && !dados ? (
+            <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast}>
+              <EsqueletoFaturamento />
+            </motion.div>
+          ) : vazio ? (
+            <motion.div key="vazio" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast}>
+              <EmptyState illustration="revenue" title={copy.emptyTitle} description={copy.emptyDescription} />
+            </motion.div>
+          ) : (
+            <motion.div key="conteudo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast} className="px-5 pb-5">
+              <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+                <p className="text-stat-lg text-foreground">{moeda.format(valorAnimado)}</p>
+                {variacao !== null && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+                    style={{
+                      background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)",
+                      color: positiva ? "#1F8A4C" : "#C21820",
+                    }}
+                  >
+                    {positiva ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
+                    {positiva ? "+" : ""}{variacao}%
+                  </span>
+                )}
+                {variacao !== null && (
+                  <span className="text-xs text-muted-foreground">{copy.comparisonLabel}</span>
+                )}
+              </div>
 
-          <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
-            {dados.pedidos} {copy.ordersLabel} · {dados.ticketMedio} {copy.ticketLabel}
-          </p>
+              <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                {dados?.pedidos} {copy.ordersLabel} · {dados?.ticketMedio} {copy.ticketLabel}
+              </p>
 
-          <div className="mt-5">
-            {/* Leitura do ponto sob o cursor. Fica em posição fixa em vez de
-                tooltip flutuante: nada é cortado pela borda do card nem empurra layout. */}
-            <p className="mb-2 h-4 text-xs font-semibold tabular-nums text-muted-foreground">
-              {pontoFocado ? `${pontoFocado.label} · ${moeda.format(pontoFocado.valor)}` : ""}
-            </p>
-            <GraficoSerie serie={dados.serie} aoFocar={setFocado} />
-          </div>
-        </div>
-      )}
+              <div className="mt-5">
+                {/* Leitura do ponto sob o cursor. Fica em posição fixa em vez de
+                    tooltip flutuante: nada é cortado pela borda do card nem empurra layout. */}
+                <p className="mb-2 h-4 text-xs font-semibold tabular-nums text-muted-foreground">
+                  {pontoFocado ? `${pontoFocado.label} · ${moeda.format(pontoFocado.valor)}` : ""}
+                </p>
+                {dados && <GraficoSerie serie={dados.serie} aoFocar={setFocado} />}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </Card>
   );
 }

@@ -50,7 +50,7 @@ export function CardHead({ title, subtitle, icon: Icon, accent, scope, trailing,
           {subtitle && <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>}
         </div>
       </div>
-      {scope && <div className="flex min-w-[160px] flex-1 flex-wrap items-center gap-1.5">{scope}</div>}
+      {scope && <div className="flex min-w-[160px] flex-1 flex-wrap items-center justify-center gap-1.5">{scope}</div>}
       {trailing && <div className="ml-auto flex shrink-0 items-center gap-2">{trailing}</div>}
     </div>
   );

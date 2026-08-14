@@ -223,13 +223,14 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
   );
 }
 
-export function ReclamacoesCard({ dados, carregando, scope }: {
+export function ReclamacoesCard({ dados, carregando, semFiltro, scope }: {
   dados: ReclamacoesResultado | null;
   carregando: boolean;
+  semFiltro: boolean;
   scope?: React.ReactNode;
 }) {
   const Icon = getIcon(copy.icon);
-  const total = dados?.total ?? 0;
+  const total = !semFiltro ? (dados?.total ?? 0) : 0;
   const [aberta, setAberta] = useState<string | null>(null);
 
   return (
@@ -250,9 +251,17 @@ export function ReclamacoesCard({ dados, carregando, scope }: {
         ) : undefined}
       />
 
-      {carregando && <Esqueleto />}
+      {semFiltro && (
+        <EmptyState
+          illustration="complaints"
+          title="Selecione um filtro"
+          description="Escolha uma marca acima para ver as reclamações."
+        />
+      )}
 
-      {!carregando && dados?.semContaConectada && (
+      {!semFiltro && carregando && <Esqueleto />}
+
+      {!semFiltro && !carregando && dados?.semContaConectada && (
         <EmptyState
           illustration="complaints"
           title={copy.disconnectedTitle}
@@ -260,7 +269,7 @@ export function ReclamacoesCard({ dados, carregando, scope }: {
         />
       )}
 
-      {!carregando && dados && !dados.semContaConectada && dados.itens.length === 0 && (
+      {!semFiltro && !carregando && dados && !dados.semContaConectada && dados.itens.length === 0 && (
         <EmptyState
           illustration="complaints"
           title={copy.emptyTitle}
@@ -268,7 +277,7 @@ export function ReclamacoesCard({ dados, carregando, scope }: {
         />
       )}
 
-      {!carregando && dados && dados.itens.length > 0 && (
+      {!semFiltro && !carregando && dados && dados.itens.length > 0 && (
         <>
           {dados.marcasComFalha.length > 0 && (
             <p className="mx-5 mt-3 rounded-lg bg-[#B57A00]/10 px-3 py-2 text-[11px] font-medium text-[#B57A00]">

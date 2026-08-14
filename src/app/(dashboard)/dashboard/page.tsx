@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { SkeletonCard } from "@/shared/design-system/primitives/Skeleton";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { stagger } from "@/shared/design-system/motion-variants";
 import { SectionLabel } from "./card-primitives";
@@ -38,20 +37,24 @@ function chaveFiltro(granularidade: Granularidade, filtro: CardFiltro) {
   return `${granularidade}|${filtro.brandId}|${filtro.canal}`;
 }
 
+function semFiltroDefinido(filtro: CardFiltro) {
+  return !filtro.brandId && !filtro.canal;
+}
+
 /* ── Busca por card, com cache compartilhado ─────────────────────
-   Cada card filtra de forma independente, mas a maioria começa sem
-   filtro — então em vez de um card = uma busca sempre, cards com a
-   mesma combinação (granularidade, marca, canal) dividem a mesma
-   promessa. Só quem de fato diverge do padrão paga uma busca extra. */
+   Sem marca ou canal marcado, o card não busca nada — fica esperando
+   uma escolha em vez de assumir "todas as marcas". Cards com a mesma
+   combinação (granularidade, marca, canal) dividem a mesma promessa.
+   Ao trocar de filtro, o resultado anterior continua na tela até o
+   novo chegar — troca de conteúdo, não desmonte-remonte do card, que
+   é o que causava o card "piscar" a cada clique. */
 function useDadosDoCard(cache: React.MutableRefObject<Map<string, Promise<DashboardData>>>, granularidade: Granularidade, filtro: CardFiltro) {
   const chave = chaveFiltro(granularidade, filtro);
-  // A chave do último resultado recebido acompanha o dado — enquanto ela não
-  // bater com a chave atual, o card está carregando. Evita guardar
-  // "carregando" como estado à parte, o que exigiria setState síncrono no
-  // corpo do efeito a cada troca de filtro.
+  const semFiltro = semFiltroDefinido(filtro);
   const [resultado, setResultado] = useState<{ chave: string; dados: DashboardData | null }>({ chave: "", dados: null });
 
   useEffect(() => {
+    if (semFiltro) return;
     let ativo = true;
     let promessa = cache.current.get(chave);
     if (!promessa) {
@@ -72,19 +75,10 @@ function useDadosDoCard(cache: React.MutableRefObject<Map<string, Promise<Dashbo
         }
       });
     return () => { ativo = false; };
-  }, [cache, chave, granularidade, filtro.brandId, filtro.canal]);
+  }, [cache, chave, granularidade, filtro.brandId, filtro.canal, semFiltro]);
 
-  return { dados: resultado.chave === chave ? resultado.dados : null, carregando: resultado.chave !== chave };
-}
-
-function EsqueletoPainel() {
-  return (
-    <div className="flex flex-col gap-5">
-      {[0, 1, 2, 3, 4, 5].map((card) => (
-        <SkeletonCard key={card} />
-      ))}
-    </div>
-  );
+  if (semFiltro) return { dados: null, carregando: false, semFiltro: true };
+  return { dados: resultado.dados, carregando: resultado.chave !== chave, semFiltro: false };
 }
 
 export default function DashboardPage() {
@@ -108,6 +102,7 @@ export default function DashboardPage() {
 
   const [reclamacoes, setReclamacoes] = useState<ReclamacoesResultado | null>(null);
   const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
+  const semFiltroReclamacoes = !filtroReclamacoes.brandId;
 
   useEffect(() => {
     actionContarPedidosPorMarca().then(setMarcas).catch(() => setMarcas([]));
@@ -132,7 +127,7 @@ export default function DashboardPage() {
     [marcas, filtroReclamacoes.brandId],
   );
   const reclamacoesVisiveis = useMemo<ReclamacoesResultado | null>(() => {
-    if (!reclamacoes || !marcaSlugReclamacoes) return reclamacoes;
+    if (!reclamacoes || !marcaSlugReclamacoes) return null;
     const itens = reclamacoes.itens.filter((item) => item.marca === marcaSlugReclamacoes);
     return { ...reclamacoes, itens, total: itens.length };
   }, [reclamacoes, marcaSlugReclamacoes]);
@@ -142,74 +137,67 @@ export default function DashboardPage() {
   }, []);
 
   const pendencias = (reposicao.dados?.reposicao.length ?? 0) + (reclamacoesVisiveis?.total ?? 0);
-  const carregandoInicial = !faturamento.dados && !reposicao.dados;
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
-      {!carregandoInicial && <CoachMarks storageKey="crm-leo:coachmarks:dashboard:v2" steps={TOUR} />}
+      {marcas.length > 0 && <CoachMarks storageKey="crm-leo:coachmarks:dashboard:v2" steps={TOUR} />}
 
-      {carregandoInicial ? (
-        <EsqueletoPainel />
-      ) : (
-        <>
-          {/* Ato 1 — como estamos */}
-          <section className="flex flex-col gap-3" data-coachmark="dashboard-resultado">
-            <SectionLabel>Resultado</SectionLabel>
-            {faturamento.dados && (
-              <FaturamentoCard
-                dados={faturamento.dados.faturamento}
-                granularidade={granularidade}
-                onGranularidade={trocarGranularidade}
-                carregando={faturamento.carregando}
-                scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroFaturamento} onChange={setFiltroFaturamento} />}
-              />
-            )}
-          </section>
+      {/* Ato 1 — como estamos */}
+      <section className="flex flex-col gap-3" data-coachmark="dashboard-resultado">
+        <SectionLabel>Resultado</SectionLabel>
+        <FaturamentoCard
+          dados={faturamento.dados?.faturamento ?? null}
+          granularidade={granularidade}
+          onGranularidade={trocarGranularidade}
+          carregando={faturamento.carregando}
+          semFiltro={faturamento.semFiltro}
+          scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroFaturamento} onChange={setFiltroFaturamento} />}
+        />
+      </section>
 
-          {/* Ato 2 — o que pede decisão agora */}
-          <section className="flex flex-col gap-3" data-coachmark="dashboard-acao">
-            <SectionLabel count={pendencias}>Precisa de ação</SectionLabel>
-            <div className="flex flex-col gap-5">
-              {reposicao.dados && (
-                <ReposicaoCard
-                  itens={reposicao.dados.reposicao}
-                  scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroReposicao} onChange={setFiltroReposicao} />}
-                />
-              )}
-              <ReclamacoesCard
-                dados={reclamacoesVisiveis}
-                carregando={carregandoReclamacoes}
-                scope={<ScopeRow marcas={marcas} canais={[]} filtro={filtroReclamacoes} onChange={setFiltroReclamacoes} />}
-              />
-            </div>
-          </section>
+      {/* Ato 2 — o que pede decisão agora */}
+      <section className="flex flex-col gap-3" data-coachmark="dashboard-acao">
+        <SectionLabel count={pendencias}>Precisa de ação</SectionLabel>
+        <div className="flex flex-col gap-5">
+          <ReposicaoCard
+            itens={reposicao.dados?.reposicao ?? null}
+            carregando={reposicao.carregando}
+            semFiltro={reposicao.semFiltro}
+            scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroReposicao} onChange={setFiltroReposicao} />}
+          />
+          <ReclamacoesCard
+            dados={reclamacoesVisiveis}
+            carregando={carregandoReclamacoes}
+            semFiltro={semFiltroReclamacoes}
+            scope={<ScopeRow marcas={marcas} canais={[]} filtro={filtroReclamacoes} onChange={setFiltroReclamacoes} />}
+          />
+        </div>
+      </section>
 
-          {/* Ato 3 — como o catálogo se comporta, do que mais gira ao que não gira */}
-          <section className="flex flex-col gap-3">
-            <SectionLabel>Comportamento do catálogo</SectionLabel>
-            <div className="flex flex-col gap-5">
-              {maisVendidos.dados && (
-                <MaisVendidosCard
-                  itens={maisVendidos.dados.maisVendidos}
-                  scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroMaisVendidos} onChange={setFiltroMaisVendidos} />}
-                />
-              )}
-              {giroBaixo.dados && (
-                <GiroBaixoCard
-                  itens={giroBaixo.dados.giroBaixo}
-                  scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroGiroBaixo} onChange={setFiltroGiroBaixo} />}
-                />
-              )}
-              {parados.dados && (
-                <ParadosCard
-                  itens={parados.dados.parados}
-                  scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroParados} onChange={setFiltroParados} />}
-                />
-              )}
-            </div>
-          </section>
-        </>
-      )}
+      {/* Ato 3 — como o catálogo se comporta, do que mais gira ao que não gira */}
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Comportamento do catálogo</SectionLabel>
+        <div className="flex flex-col gap-5">
+          <MaisVendidosCard
+            itens={maisVendidos.dados?.maisVendidos ?? null}
+            carregando={maisVendidos.carregando}
+            semFiltro={maisVendidos.semFiltro}
+            scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroMaisVendidos} onChange={setFiltroMaisVendidos} />}
+          />
+          <GiroBaixoCard
+            itens={giroBaixo.dados?.giroBaixo ?? null}
+            carregando={giroBaixo.carregando}
+            semFiltro={giroBaixo.semFiltro}
+            scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroGiroBaixo} onChange={setFiltroGiroBaixo} />}
+          />
+          <ParadosCard
+            itens={parados.dados?.parados ?? null}
+            carregando={parados.carregando}
+            semFiltro={parados.semFiltro}
+            scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroParados} onChange={setFiltroParados} />}
+          />
+        </div>
+      </section>
     </motion.div>
   );
 }
