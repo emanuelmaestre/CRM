@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, ArrowLeftRight, Check, Eye, Hourglass, Link2, Loader2, PackageX, Pencil, PlugZap2,
+  AlertTriangle, Check, Eye, Hourglass, Link2, Loader2, PackageX, Pencil, PlugZap2,
   RefreshCw, Search, SlidersHorizontal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -636,9 +636,22 @@ export function EstoqueLista() {
   }, [marcas]);
 
   const carregarIndicadores = useCallback((marcas?: string[], canaisAtuais?: string[]) => {
-    actionIndicadoresEstoque(marcas?.length ? marcas : undefined, canaisAtuais?.length ? canaisAtuais : undefined)
+    // O app inteiro divide uma única conexão com o banco (RLS exige pooler em
+    // session mode — ver src/shared/lib/db/index.ts); sob rajada de webhook do
+    // Mercado Livre, esta busca pode ficar na fila. Sem um teto, o card gira
+    // pra sempre sem nenhuma pista de que travou em vez de estar a caminho.
+    const semResposta = new Promise<never>((_resolve, reject) => {
+      setTimeout(() => reject(new Error("timeout")), 20_000);
+    });
+    Promise.race([
+      actionIndicadoresEstoque(marcas?.length ? marcas : undefined, canaisAtuais?.length ? canaisAtuais : undefined),
+      semResposta,
+    ])
       .then(setIndicadores)
-      .catch(() => setIndicadores(null));
+      .catch(() => {
+        setIndicadores(null);
+        toast.error("Não foi possível verificar o catálogo. Tente atualizar a página.", { id: "estoque-indicadores" });
+      });
   }, []);
 
   const carregar = useCallback((marcas?: string[], termo?: string, estado?: Filtro, canaisAtuais?: string[]) => {
@@ -830,10 +843,11 @@ export function EstoqueLista() {
       {canManage && (
         // Sincronizar é a única forma de produto entrar no catálogo: tudo
         // aqui existe porque existe no Mercado Livre — nunca o contrário.
-        // Legenda ao lado: com Editar/Movimento/Canal virando ícone puro na
-        // linha da tabela, algo precisa dizer o que cada um faz sem exigir
-        // passar o mouse em cada um — aparece uma vez, no topo, não repetida
-        // ao lado de cada produto.
+        // Legenda ao lado: com Editar/Canal virando ícone puro na linha da
+        // tabela, algo precisa dizer o que cada um faz sem exigir passar o
+        // mouse em cada um — aparece uma vez, no topo, não repetida ao lado
+        // de cada produto. "Movimento" saiu daqui: estoque não tem mais
+        // ajuste manual, só o que os canais informam.
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3 rounded-full border border-border/60 bg-card px-3.5 py-2 shadow-[0_2px_10px_rgba(14,15,19,.04)]">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -841,9 +855,6 @@ export function EstoqueLista() {
             </span>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <Pencil size={13} strokeWidth={2} /> Editar
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ArrowLeftRight size={13} strokeWidth={2} /> Movimento
             </span>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <Link2 size={13} strokeWidth={2} /> Vincular canal
