@@ -129,10 +129,10 @@ async function createRelationalFixtures(tx) {
       (${clientB}, ${fixtures.orgB}, 'RLS Cliente B')
   `;
   await tx`
-    insert into public.produto (id, org_id, brand_id, sku, nome, custo, preco)
+    insert into public.produto (id, org_id, brand_id, sku, nome, preco)
     values
-      (${productA}, ${fixtures.orgA}, ${brandA}, ${`RLS-A-${randomUUID()}`}, 'RLS Produto A', 0.40, 1),
-      (${productB}, ${fixtures.orgB}, ${brandB}, ${`RLS-B-${randomUUID()}`}, 'RLS Produto B', 0.50, 1)
+      (${productA}, ${fixtures.orgA}, ${brandA}, ${`RLS-A-${randomUUID()}`}, 'RLS Produto A', 1),
+      (${productB}, ${fixtures.orgB}, ${brandB}, ${`RLS-B-${randomUUID()}`}, 'RLS Produto B', 1)
   `;
   await tx`
     insert into public.pedido (id, org_id, brand_id, cliente_id, canal, total)
@@ -271,24 +271,20 @@ async function testProfileMetadata() {
       and policyname like 'rls_profile_%'
       and permissive = 'RESTRICTIVE'
   `;
-  const costPrivilege = await sql`
-    select has_column_privilege('authenticated', 'public.produto', 'custo', 'SELECT') as allowed
-  `;
   const functions = await sql`
     select count(*)::int as total
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
-      and p.proname in ('current_app_user_id', 'current_app_profile', 'listar_produtos_financeiros')
+      and p.proname in ('current_app_user_id', 'current_app_profile')
   `;
 
   assert(activePolicies[0].total >= PHASE_A_TABLES.length, "Policies de identidade ativa incompletas.");
   assert(sensitivePolicies[0].total >= 10, "Policies restritivas por perfil incompletas.");
-  assert(costPrivilege[0].allowed === false, "authenticated ainda possui SELECT direto em produto.custo.");
-  assert(functions[0].total === 3, "Funções auxiliares de RLS ausentes.");
+  assert(functions[0].total === 2, "Funções auxiliares de RLS ausentes.");
   record(
     "metadados RLS por perfil",
-    `${activePolicies[0].total} policies de identidade; ${sensitivePolicies[0].total} policies por perfil; custo revogado`,
+    `${activePolicies[0].total} policies de identidade; ${sensitivePolicies[0].total} policies por perfil`,
   );
 }
 
@@ -576,38 +572,6 @@ async function testOnlyAdminManagesOrganization() {
     `;
     assert(updated.length === 1, "Admin não conseguiu alterar a organização.");
     record("admin altera organização", "UPDATE permitido no próprio tenant");
-  });
-}
-
-async function testProductCostConfidentiality() {
-  await testWithRollback("vendedor consulta produto sem custo", async (tx) => {
-    const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
-
-    const visible = await tx`select id, sku, nome, preco from public.produto`;
-    assert(visible.length === 1 && visible[0].id === fixtures.productA, "Produto do tenant não ficou visível.");
-    const financial = await tx`select * from public.listar_produtos_financeiros()`;
-    assert(financial.length === 0, "Função financeira expôs custo ao vendedor.");
-    record("vendedor consulta produto sem custo", "catálogo visível; função financeira retornou 0 linhas");
-  });
-
-  await expectPolicyDenied("vendedor não lê produto.custo", async (tx) => {
-    const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.vendedorA);
-    await tx`select custo from public.produto where id = ${fixtures.productA}`;
-  });
-
-  await testWithRollback("gestor consulta custo por acesso controlado", async (tx) => {
-    const fixtures = await createRelationalFixtures(tx);
-    await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.gestorA);
-
-    const financial = await tx`select * from public.listar_produtos_financeiros()`;
-    assert(financial.length === 1, "Gestor não recebeu o produto financeiro do tenant.");
-    assert(
-      financial[0].id === fixtures.productA && Number(financial[0].custo) === 0.4,
-      "Custo incorreto ou tenant cruzado.",
-    );
-    record("gestor consulta custo por acesso controlado", "1 produto financeiro da própria organização");
   });
 }
 

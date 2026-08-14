@@ -325,13 +325,13 @@ export async function applySyntheticCatalog(tx, catalog, anchor) {
   for (const item of catalog.products) {
     await tx`
       insert into public.produto
-        (id, org_id, brand_id, sku, nome, custo, preco, estoque_minimo, ativo, deleted_at, atualizado_em)
+        (id, org_id, brand_id, sku, nome, preco, estoque_minimo, ativo, deleted_at, atualizado_em)
       values
         (${item.id}, ${orgId}, ${brands.get(item.brand).id}, ${item.sku}, ${item.name},
-         ${item.cost}, ${item.price}, ${item.minimumStock}, true, null, ${anchor})
+         ${item.price}, ${item.minimumStock}, true, null, ${anchor})
       on conflict (id) do update set
         org_id = excluded.org_id, brand_id = excluded.brand_id, sku = excluded.sku,
-        nome = excluded.nome, custo = excluded.custo, preco = excluded.preco,
+        nome = excluded.nome, preco = excluded.preco,
         estoque_minimo = excluded.estoque_minimo, ativo = true, deleted_at = null,
         atualizado_em = excluded.atualizado_em
     `;
