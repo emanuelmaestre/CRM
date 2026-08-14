@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
+import { assertPerfil } from "@/shared/lib/crud-factory";
+import { listarHistoricoAutomacoes } from "@/modules/reguas/application/reguas.service";
 import { atualizarUsuario, listarUsuarios } from "@/modules/usuarios/application/usuarios.service";
 import {
   atualizarContaCanalConfiguracao,
@@ -35,6 +37,12 @@ export async function actionAtualizarUsuario(input: unknown) {
 
 export async function actionListarConfiguracaoCanais() {
   return listarConfiguracaoCanais(await getCrudContext());
+}
+
+export async function actionListarHistoricoAutomacoes() {
+  const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
+  return listarHistoricoAutomacoes(ctx.orgId);
 }
 
 export async function actionObterResumoConfiguracoes() {

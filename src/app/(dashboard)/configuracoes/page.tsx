@@ -16,6 +16,7 @@ import { CanaisPorMarca } from "./CanaisPorMarca";
 import { useMercadoLivreStatus } from "./useMercadoLivreStatus";
 import { MLCatalogMappingSection } from "./MLCatalogMappingSection";
 import { MLHistoricalImportSection } from "./MLHistoricalImportSection";
+import { AutomacoesSection } from "./AutomacoesSection";
 import settingsConfig from "@/config/settings.json";
 import permissionsConfig from "@/config/permissions.json";
 import {
@@ -493,6 +494,14 @@ export default function ConfiguracoesPage() {
         </Card>
 
         <SectionHeading title={settingsConfig.sections.administracao.title} icon={getIcon(settingsConfig.sections.administracao.icon)} />
+
+        <Card
+          title={settingsConfig.automacoes.title}
+          description={settingsConfig.automacoes.description}
+          icon={getIcon(settingsConfig.automacoes.icon)}
+        >
+          <AutomacoesSection />
+        </Card>
 
         {/* Tres cards identicos (auditoria, LGPD, consumo) viraram uma lista. */}
         <Card

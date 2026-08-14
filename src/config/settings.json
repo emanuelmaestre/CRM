@@ -14,6 +14,15 @@
       "updateError": "Não foi possível atualizar o perfil."
     }
   },
+  "automacoes": {
+    "title": "Automações",
+    "description": "Histórico de disparos das réguas de relacionamento",
+    "icon": "Repeat",
+    "columns": ["Quando", "Régua", "Cliente", "Marca", "Status", "Gate", "Motivo"],
+    "emptyNoRules": "Nenhuma régua cadastrada — por isso não há disparos. As réguas ainda não podem ser criadas pelo sistema.",
+    "emptyNoRuns": "Nenhum disparo registrado ainda.",
+    "loadError": "Erro ao carregar o histórico de automações."
+  },
   "integrations": {
     "title": "Integrações",
     "icon": "Plug",

@@ -10,8 +10,7 @@
     { "id": "inbox", "href": "/inbox", "label": "Mensagens", "icon": "MessageSquare", "mobilePriority": 3, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "vendas", "href": "/vendas", "label": "Vendas", "icon": "ShoppingCart", "mobilePriority": 5, "profiles": ["admin", "gestor", "vendedor"] },
     { "id": "estoque", "href": "/estoque", "label": "Estoque", "icon": "Package", "mobilePriority": 6, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "profiles": ["admin", "gestor"] },
-    { "id": "automacoes", "href": "/automacoes/historico", "label": "Automações", "icon": "Repeat", "profiles": ["admin", "gestor"] }
+    { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "profiles": ["admin", "gestor"] }
   ],
   "utilities": {
     "search": { "label": "Buscar…", "shortcut": "⌘K", "icon": "Search" },

@@ -70,8 +70,8 @@
     "channelSelector": {
       "label": "Canal",
       "multiHint": "Selecione um ou mais",
-      "disconnectedHint": "{canal} ainda não está conectado — conecte em Automações para liberar o filtro.",
-      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Automações para liberar o filtro."
+      "disconnectedHint": "{canal} ainda não está conectado — conecte em Configurações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Configurações para liberar o filtro."
     },
     "brandSelector": {
       "label": "Empresa",
@@ -158,8 +158,8 @@
     "channelSelector": {
       "label": "Canal",
       "multiHint": "Selecione um ou mais",
-      "disconnectedHint": "{canal} ainda não está conectado — conecte em Automações para liberar o filtro.",
-      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Automações para liberar o filtro."
+      "disconnectedHint": "{canal} ainda não está conectado — conecte em Configurações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Configurações para liberar o filtro."
     },
     "brandSelector": {
       "label": "Empresa",
@@ -334,8 +334,8 @@
     "brandSelector": { "label": "Marca", "emptyHint": "{marca} não tem pedido com o filtro atual." },
     "channelSelector": {
       "label": "Canal",
-      "disconnectedHint": "{canal} ainda não está conectado — conecte em Automações para liberar o filtro.",
-      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Automações para liberar o filtro."
+      "disconnectedHint": "{canal} ainda não está conectado — conecte em Configurações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Configurações para liberar o filtro."
     },
     "statusFilter": { "label": "Status", "all": "Todos" },
     "statusLabels": {
@@ -379,13 +379,6 @@
       "cancelError": "Erro ao cancelar o pedido.",
       "canceledReasonLabel": "Motivo do cancelamento"
     }
-  },
-  "automacoes": {
-    "metadataTitle": "Histórico de automações",
-    "title": "Histórico de automações",
-    "description": "Execuções, gates e resultado das réguas operacionais",
-    "columns": ["Quando", "Régua", "Cliente", "Marca", "Status", "Gate", "Motivo"],
-    "empty": "Nenhuma execução de automação registrada."
   },
   "auditoria": {
     "metadataTitle": "Auditoria",

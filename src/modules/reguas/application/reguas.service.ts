@@ -1,6 +1,6 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, count, desc, inArray } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { regua, reguaExecucao, templateMensagem, clienteIdentidade, cliente } from "@/shared/lib/db/schema";
+import { brand, regua, reguaExecucao, templateMensagem, clienteIdentidade, cliente } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { avaliarGates, type GateInput } from "../domain/gates";
 import { format } from "date-fns";
@@ -184,6 +184,41 @@ export async function cancelarExecucoesCliente(orgId: string, clienteId: string)
         inArray(reguaExecucao.status, ["elegivel", "gates_aprovados", "agendada"])
       )
     );
+}
+
+/** Histórico de disparos das réguas, com os nomes já resolvidos para exibição.
+ *
+ *  Devolve junto o total de réguas cadastradas porque isso muda o sentido de um
+ *  histórico vazio: sem nenhuma régua, não há o que executar e a lista vazia é o
+ *  estado correto — não uma falha. Hoje não existe tela para criar régua, então
+ *  esse é o caso normal. */
+export async function listarHistoricoAutomacoes(orgId: string, limite = 200) {
+  const [execucoes, reguas] = await Promise.all([
+    db
+      .select({
+        id: reguaExecucao.id,
+        createdAt: reguaExecucao.createdAt,
+        reguaNome: regua.nome,
+        clienteNome: cliente.nome,
+        brandNome: brand.name,
+        status: reguaExecucao.status,
+        gate: reguaExecucao.gateBloqueado,
+        motivo: reguaExecucao.motivoBloqueio,
+      })
+      .from(reguaExecucao)
+      .innerJoin(regua, eq(regua.id, reguaExecucao.reguaId))
+      .innerJoin(cliente, eq(cliente.id, reguaExecucao.clienteId))
+      .innerJoin(brand, eq(brand.id, regua.brandId))
+      .where(eq(reguaExecucao.orgId, orgId))
+      .orderBy(desc(reguaExecucao.createdAt))
+      .limit(limite),
+    db.select({ total: count() }).from(regua).where(eq(regua.orgId, orgId)),
+  ]);
+
+  return {
+    execucoes: execucoes.map((item) => ({ ...item, createdAt: item.createdAt.toISOString() })),
+    reguasCadastradas: reguas[0]?.total ?? 0,
+  };
 }
 
 export async function listarExecucoes(orgId: string, opts: { reguaId?: string; status?: string } = {}) {
