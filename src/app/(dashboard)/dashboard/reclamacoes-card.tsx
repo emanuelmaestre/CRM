@@ -239,20 +239,17 @@ export function ReclamacoesCard({ dados, carregando, scope }: {
         subtitle={copy.subtitle}
         icon={Icon}
         accent={copy.accent}
-        trailing={
-          <div className="flex items-center gap-2">
-            {scope}
-            {total > 0 && (
-              <span
-                className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
-                style={{ background: `${copy.accent}1A`, color: copy.accent }}
-              >
-                {total}
-              </span>
-            )}
-          </div>
-        }
+        trailing={total > 0 ? (
+          <span
+            className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+            style={{ background: `${copy.accent}1A`, color: copy.accent }}
+          >
+            {total}
+          </span>
+        ) : undefined}
       />
+
+      {scope}
 
       {carregando && <Esqueleto />}
 

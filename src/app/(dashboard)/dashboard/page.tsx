@@ -10,7 +10,7 @@ import { SectionLabel } from "./card-primitives";
 import { FaturamentoCard } from "./faturamento-card";
 import { GiroBaixoCard, MaisVendidosCard, ParadosCard, ReposicaoCard } from "./listas-cards";
 import { ReclamacoesCard } from "./reclamacoes-card";
-import { ScopeChip, type CardFiltro, type ScopeMarca, type ScopeCanal } from "./scope-chip";
+import { ScopeRow, type CardFiltro, type ScopeMarca, type ScopeCanal } from "./scope-row";
 import { actionObterDashboardData, actionObterReclamacoes } from "./actions";
 import { actionContarPedidosPorMarca, actionContarPedidosPorCanal } from "../vendas/actions";
 import type {
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                 granularidade={granularidade}
                 onGranularidade={trocarGranularidade}
                 carregando={faturamento.carregando}
-                scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroFaturamento} onChange={setFiltroFaturamento} />}
+                scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroFaturamento} onChange={setFiltroFaturamento} />}
               />
             )}
           </section>
@@ -173,13 +173,13 @@ export default function DashboardPage() {
               {reposicao.dados && (
                 <ReposicaoCard
                   itens={reposicao.dados.reposicao}
-                  scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroReposicao} onChange={setFiltroReposicao} />}
+                  scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroReposicao} onChange={setFiltroReposicao} />}
                 />
               )}
               <ReclamacoesCard
                 dados={reclamacoesVisiveis}
                 carregando={carregandoReclamacoes}
-                scope={<ScopeChip marcas={marcas} canais={[]} filtro={filtroReclamacoes} onChange={setFiltroReclamacoes} />}
+                scope={<ScopeRow marcas={marcas} canais={[]} filtro={filtroReclamacoes} onChange={setFiltroReclamacoes} />}
               />
             </div>
           </section>
@@ -191,19 +191,19 @@ export default function DashboardPage() {
               {maisVendidos.dados && (
                 <MaisVendidosCard
                   itens={maisVendidos.dados.maisVendidos}
-                  scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroMaisVendidos} onChange={setFiltroMaisVendidos} />}
+                  scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroMaisVendidos} onChange={setFiltroMaisVendidos} />}
                 />
               )}
               {giroBaixo.dados && (
                 <GiroBaixoCard
                   itens={giroBaixo.dados.giroBaixo}
-                  scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroGiroBaixo} onChange={setFiltroGiroBaixo} />}
+                  scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroGiroBaixo} onChange={setFiltroGiroBaixo} />}
                 />
               )}
               {parados.dados && (
                 <ParadosCard
                   itens={parados.dados.parados}
-                  scope={<ScopeChip marcas={marcas} canais={canais} filtro={filtroParados} onChange={setFiltroParados} />}
+                  scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroParados} onChange={setFiltroParados} />}
                 />
               )}
             </div>

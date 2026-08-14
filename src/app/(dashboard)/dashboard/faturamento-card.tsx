@@ -88,18 +88,17 @@ export function FaturamentoCard({ dados, granularidade, onGranularidade, carrega
         icon={Icon}
         accent={copy.accent}
         trailing={
-          <div className="flex items-center gap-2">
-            {scope}
-            <Segmented
-              layoutId="dashboard-granularidade"
-              value={granularidade}
-              options={GRANULARIDADES}
-              onChange={onGranularidade}
-              disabled={carregando}
-            />
-          </div>
+          <Segmented
+            layoutId="dashboard-granularidade"
+            value={granularidade}
+            options={GRANULARIDADES}
+            onChange={onGranularidade}
+            disabled={carregando}
+          />
         }
       />
+
+      {scope}
 
       {vazio ? (
         <EmptyState
