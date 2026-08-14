@@ -83,13 +83,6 @@ try {
       latest.recebido_em,
       latest.latency_seconds,
       exists (
-        select 1 from estoque_movimento em
-        where em.org_id = ${process.env.DEFAULT_ORG_ID ?? ""}
-          and em.referencia_tipo = 'pedido'
-          and em.referencia_id = latest.id
-          and em.tipo = 'saida'
-      ) as stock_decreased,
-      exists (
         select 1 from evento_dominio ed
         where ed.org_id = ${process.env.DEFAULT_ORG_ID ?? ""}
           and ed.tipo = 'estoque.sincronizado'
@@ -199,7 +192,6 @@ try {
     const latency = Number(order.latency_seconds);
     const failures = [];
     if (latency < 0 || latency > 300) failures.push(`${channel}: ingestão em ${Math.round(latency)}s (> 300s)`);
-    if (!order.stock_decreased) failures.push(`${channel}: baixa de estoque não comprovada`);
     if (!order.stock_synced) failures.push(`${channel}: sincronização remota não comprovada`);
     return failures;
   });

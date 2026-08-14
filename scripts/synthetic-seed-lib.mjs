@@ -335,29 +335,6 @@ export async function applySyntheticCatalog(tx, catalog, anchor) {
         estoque_minimo = excluded.estoque_minimo, ativo = true, deleted_at = null,
         atualizado_em = excluded.atualizado_em
     `;
-    await tx`
-      insert into public.estoque_saldo (id, org_id, produto_id, saldo, atualizado_em)
-      values (${item.balanceId}, ${orgId}, ${item.id}, ${item.balance}, ${anchor})
-      on conflict (id) do update set
-        org_id = excluded.org_id, produto_id = excluded.produto_id,
-        saldo = excluded.saldo, atualizado_em = excluded.atualizado_em
-    `;
-  }
-
-  for (const item of catalog.stockMovements) {
-    const createdAt = atOffset(anchor, -item.daysAgo);
-    await tx`
-      insert into public.estoque_movimento
-        (id, org_id, produto_id, tipo, quantidade, referencia_id, referencia_tipo, observacao, criado_em)
-      values
-        (${item.id}, ${orgId}, ${products.get(item.product).id}, ${item.type}, ${item.quantity},
-         ${item.id}, ${item.referenceType}, ${item.note}, ${createdAt})
-      on conflict (id) do update set
-        org_id = excluded.org_id, produto_id = excluded.produto_id, tipo = excluded.tipo,
-        quantidade = excluded.quantidade, referencia_id = excluded.referencia_id,
-        referencia_tipo = excluded.referencia_tipo, observacao = excluded.observacao,
-        criado_em = excluded.criado_em
-    `;
   }
 
   for (const item of catalog.productChannels) {

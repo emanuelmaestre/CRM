@@ -89,8 +89,6 @@ const tableExpectations = [
   ["segmento", catalog.segments.map((item) => item.id)],
   ["interacao", catalog.interactions.map((item) => item.id)],
   ["produto", catalog.products.map((item) => item.id)],
-  ["estoque_saldo", catalog.products.map((item) => item.balanceId)],
-  ["estoque_movimento", catalog.stockMovements.map((item) => item.id)],
   ["produto_canal", catalog.productChannels.map((item) => item.id)],
   ["funil_etapa", catalog.funnelStages.map((item) => item.id)],
   ["pedido", catalog.orders.map((item) => item.id)],
@@ -217,16 +215,6 @@ try {
     group by source
   `;
   assert.equal(wrongOrgRows.length, 0, "Todos os registros sintéticos devem permanecer no tenant configurado.");
-
-  const balances = await sql`
-    select produto_id::text, saldo
-    from public.estoque_saldo
-    where id in ${sql(catalog.products.map((item) => item.balanceId))}
-  `;
-  const expectedBalances = new Map(catalog.products.map((item) => [item.id, item.balance]));
-  for (const balance of balances) {
-    assert.equal(balance.saldo, expectedBalances.get(balance.produto_id));
-  }
 
   const legacyOrgId = randomUUID();
   const legacyStageId = randomUUID();

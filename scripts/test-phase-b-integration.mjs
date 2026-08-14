@@ -26,9 +26,6 @@ const ids = {
   contaA: randomUUID(),
   contaB: randomUUID(),
   conversa: randomUUID(),
-  produto: randomUUID(),
-  saldo: randomUUID(),
-  referencia: randomUUID(),
   orgExterna: randomUUID(),
   brandExterna: randomUUID(),
   contaExterna: randomUUID(),
@@ -40,9 +37,6 @@ async function limparFixtures() {
   await sql`delete from public.mensagem where conversa_id = ${ids.conversa}`;
   await sql`delete from public.conversa where id = ${ids.conversa}`;
   await sql`delete from public.pedido where org_id = ${ids.org}`;
-  await sql`delete from public.estoque_movimento where org_id = ${ids.org}`;
-  await sql`delete from public.estoque_saldo where id = ${ids.saldo}`;
-  await sql`delete from public.produto where id = ${ids.produto}`;
   await sql`delete from public.channel_account where id in (${ids.contaA}, ${ids.contaB})`;
   await sql`delete from public.channel_account where id = ${ids.contaExterna}`;
   await sql`delete from public.cliente where id = ${ids.cliente}`;
@@ -62,12 +56,11 @@ try {
         'uq_pedido_org_account_provider',
         'uq_pedido_org_canal_provider_legacy',
         'uq_mensagem_org_provider',
-        'uq_movimento_referencia',
         'idx_pedido_recebido',
         'idx_evento_dominio_pendente'
       )
   `;
-  assert.equal(indexes.length, 6, "Os índices de idempotência, SLA e recuperação da Fase B devem existir.");
+  assert.equal(indexes.length, 5, "Os índices de idempotência, SLA e recuperação da Fase B devem existir.");
 
   const [deliveryColumns] = await sql`
     select count(*)::int as total
@@ -188,33 +181,11 @@ try {
   `;
   assert.equal(messageCount.total, 1, "O teste de estresse não pode deixar mensagens duplicadas.");
 
-  await sql`
-    insert into public.produto (id, org_id, brand_id, sku, nome, preco)
-    values (${ids.produto}, ${ids.org}, ${ids.brand}, ${`SKU-${ids.produto}`}, 'Produto de teste', 10)
-  `;
-  await sql`
-    insert into public.estoque_saldo (id, org_id, produto_id, saldo)
-    values (${ids.saldo}, ${ids.org}, ${ids.produto}, 100)
-  `;
-  const movimentos = await Promise.all(
-    Array.from({ length: 50 }, () => sql`
-      insert into public.estoque_movimento (
-        org_id, produto_id, tipo, quantidade, referencia_id, referencia_tipo
-      ) values (
-        ${ids.org}, ${ids.produto}, 'saida', 1, ${ids.referencia}, 'pedido_item'
-      )
-      on conflict do nothing
-      returning id
-    `),
-  );
-  assert.equal(movimentos.flat().length, 1, "A baixa concorrente de estoque deve gerar um único movimento.");
-
   console.log(JSON.stringify({
     status: "passed",
     assertions: {
       accountScopedOrders: 2,
       duplicateMessagesAfter50ConcurrentAttempts: messageCount.total,
-      stockMovementsAfter50ConcurrentAttempts: movimentos.flat().length,
       automationLimitsPresent: true,
       deliverySlaTracePresent: true,
       eventOutboxRecoveryIndexPresent: true,
