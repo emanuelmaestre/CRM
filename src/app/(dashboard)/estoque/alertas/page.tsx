@@ -219,14 +219,15 @@ export default function ConfigurarAlertasEstoque() {
                   type="button"
                   onClick={() => setCanal(item.tipo)}
                   aria-pressed={canal === item.tipo}
-                  className={`inline-flex h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold transition-colors ${
+                  aria-label={canalLabel(item.tipo)}
+                  title={canalLabel(item.tipo)}
+                  className={`inline-flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold transition-colors ${
                     canal === item.tipo
                       ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.06)] text-foreground"
                       : "border border-border bg-card text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   <ChannelLogo canal={item.tipo} size="xs" variant="logo" />
-                  {canalLabel(item.tipo)}
                   <span className="tabular-nums opacity-60">{item.total}</span>
                 </button>
               ))}

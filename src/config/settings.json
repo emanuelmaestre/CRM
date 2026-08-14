@@ -193,6 +193,13 @@
         "description": "Custo, execuções e corte suave de orçamento mensal por finalidade.",
         "href": "/admin/consumo-ia",
         "action": "Abrir"
+      },
+      {
+        "title": "Alertas de reposição",
+        "icon": "SlidersHorizontal",
+        "description": "Régua de estoque mínimo por marca e canal — dispara quando o saldo se aproxima do fim.",
+        "href": "/estoque/alertas",
+        "action": "Abrir"
       }
     ]
   },

@@ -12,19 +12,53 @@ import { ReclamacoesCard } from "./reclamacoes-card";
 import { ScopeRow, type CardFiltro, type ScopeMarca, type ScopeCanal } from "./scope-row";
 import { actionObterDashboardData, actionObterReclamacoes } from "./actions";
 import { actionContarPedidosPorMarca, actionContarPedidosPorCanal } from "../vendas/actions";
-import type {
-  DashboardData,
-  Granularidade,
-} from "@/modules/relatorios/application/dashboard.service";
+import type { DashboardData } from "@/modules/relatorios/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/relatorios/application/reclamacoes.service";
 
-const FILTRO_PADRAO: CardFiltro = { brandId: "", canal: "" };
+const FILTRO_PADRAO: CardFiltro = { brandId: [], canal: [] };
+
+export interface Periodo {
+  /** yyyy-mm-dd */
+  inicio: string;
+  fim: string;
+}
+
+// Começa vazio de propósito: com value="" o calendário nativo abre já no mês
+// atual, com hoje em destaque — não precisa de data pré-marcada pra "puxar"
+// o dia de hoje. Preenchido cedo demais, o campo fica sujo antes do usuário
+// escolher algo.
+function periodoPadrao(): Periodo {
+  return { inicio: "", fim: "" };
+}
+
+// toISOString() converte pro fuso UTC — perto da meia-noite local isso troca
+// o dia (ex.: 14/08 22h em São Paulo já é 15/08 na UTC). Montar a string a
+// partir de getFullYear/Month/Date evita a troca: fica sempre o dia local.
+function paraDataInput(data: Date) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, "0");
+  const dia = String(data.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
+
+/** Período que a busca de fato usa quando o usuário ainda não escolheu
+ *  nenhuma data — os últimos 30 dias, por trás dos panos. Os campos De:/Até:
+ *  continuam em branco na tela (é assim que o usuário pediu); só a consulta
+ *  já tem uma janela sensata pra não deixar todo o painel esperando o
+ *  usuário preencher duas datas antes de mostrar qualquer coisa. */
+function periodoEfetivo(periodo: Periodo): Periodo {
+  if (periodo.inicio && periodo.fim) return periodo;
+  const fim = new Date();
+  const inicio = new Date(fim);
+  inicio.setDate(inicio.getDate() - 29);
+  return { inicio: periodo.inicio || paraDataInput(inicio), fim: periodo.fim || paraDataInput(fim) };
+}
 
 const TOUR: CoachMarkStep[] = [
   {
     target: '[data-coachmark="dashboard-resultado"]',
-    title: "Seu faturamento, na lente que quiser",
-    description: "Alterne entre diário, semanal e mensal — o painel inteiro acompanha.",
+    title: "Seu faturamento, no período que quiser",
+    description: "Escolha as datas — o painel inteiro acompanha.",
   },
   {
     target: '[data-coachmark="dashboard-acao"]',
@@ -33,23 +67,25 @@ const TOUR: CoachMarkStep[] = [
   },
 ];
 
-function chaveFiltro(granularidade: Granularidade, filtro: CardFiltro) {
-  return `${granularidade}|${filtro.brandId}|${filtro.canal}`;
+function chaveFiltro(periodo: Periodo, filtro: CardFiltro) {
+  return `${periodo.inicio}..${periodo.fim}|${[...filtro.brandId].sort().join(",")}|${[...filtro.canal].sort().join(",")}`;
 }
 
 function semFiltroDefinido(filtro: CardFiltro) {
-  return !filtro.brandId && !filtro.canal;
+  return filtro.brandId.length === 0 && filtro.canal.length === 0;
 }
 
 /* ── Busca por card, com cache compartilhado ─────────────────────
    Sem marca ou canal marcado, o card não busca nada — fica esperando
    uma escolha em vez de assumir "todas as marcas". Cards com a mesma
-   combinação (granularidade, marca, canal) dividem a mesma promessa.
-   Ao trocar de filtro, o resultado anterior continua na tela até o
+   combinação (período, marca, canal) dividem a mesma promessa. Ao
+   trocar de filtro, o resultado anterior continua na tela até o
    novo chegar — troca de conteúdo, não desmonte-remonte do card, que
-   é o que causava o card "piscar" a cada clique. */
-function useDadosDoCard(cache: React.MutableRefObject<Map<string, Promise<DashboardData>>>, granularidade: Granularidade, filtro: CardFiltro) {
-  const chave = chaveFiltro(granularidade, filtro);
+   é o que causava o card "piscar" a cada clique. Data em branco não
+   trava a busca — periodoEfetivo já resolve pros últimos 30 dias. */
+function useDadosDoCard(cache: React.MutableRefObject<Map<string, Promise<DashboardData>>>, periodo: Periodo, filtro: CardFiltro) {
+  const periodoBusca = periodoEfetivo(periodo);
+  const chave = chaveFiltro(periodoBusca, filtro);
   const semFiltro = semFiltroDefinido(filtro);
   const [resultado, setResultado] = useState<{ chave: string; dados: DashboardData | null }>({ chave: "", dados: null });
 
@@ -59,9 +95,11 @@ function useDadosDoCard(cache: React.MutableRefObject<Map<string, Promise<Dashbo
     let promessa = cache.current.get(chave);
     if (!promessa) {
       promessa = actionObterDashboardData({
-        granularidade,
-        brandId: filtro.brandId || undefined,
-        canal: filtro.canal || undefined,
+        granularidade: "dia",
+        brandId: filtro.brandId.length > 0 ? filtro.brandId : undefined,
+        canal: filtro.canal.length > 0 ? filtro.canal : undefined,
+        inicio: periodoBusca.inicio,
+        fim: periodoBusca.fim,
       });
       cache.current.set(chave, promessa);
       promessa.catch(() => cache.current.delete(chave));
@@ -75,14 +113,14 @@ function useDadosDoCard(cache: React.MutableRefObject<Map<string, Promise<Dashbo
         }
       });
     return () => { ativo = false; };
-  }, [cache, chave, granularidade, filtro.brandId, filtro.canal, semFiltro]);
+  }, [cache, chave, periodoBusca.inicio, periodoBusca.fim, filtro.brandId, filtro.canal, semFiltro]);
 
   if (semFiltro) return { dados: null, carregando: false, semFiltro: true };
   return { dados: resultado.dados, carregando: resultado.chave !== chave, semFiltro: false };
 }
 
 export default function DashboardPage() {
-  const [granularidade, setGranularidade] = useState<Granularidade>("dia");
+  const [periodo, setPeriodo] = useState<Periodo>(periodoPadrao);
   const [marcas, setMarcas] = useState<ScopeMarca[]>([]);
   const [canais, setCanais] = useState<ScopeCanal[]>([]);
   const cache = useRef(new Map<string, Promise<DashboardData>>());
@@ -94,15 +132,15 @@ export default function DashboardPage() {
   const [filtroGiroBaixo, setFiltroGiroBaixo] = useState<CardFiltro>(FILTRO_PADRAO);
   const [filtroParados, setFiltroParados] = useState<CardFiltro>(FILTRO_PADRAO);
 
-  const faturamento = useDadosDoCard(cache, granularidade, filtroFaturamento);
-  const reposicao = useDadosDoCard(cache, granularidade, filtroReposicao);
-  const maisVendidos = useDadosDoCard(cache, granularidade, filtroMaisVendidos);
-  const giroBaixo = useDadosDoCard(cache, granularidade, filtroGiroBaixo);
-  const parados = useDadosDoCard(cache, granularidade, filtroParados);
+  const faturamento = useDadosDoCard(cache, periodo, filtroFaturamento);
+  const reposicao = useDadosDoCard(cache, periodo, filtroReposicao);
+  const maisVendidos = useDadosDoCard(cache, periodo, filtroMaisVendidos);
+  const giroBaixo = useDadosDoCard(cache, periodo, filtroGiroBaixo);
+  const parados = useDadosDoCard(cache, periodo, filtroParados);
 
   const [reclamacoes, setReclamacoes] = useState<ReclamacoesResultado | null>(null);
   const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
-  const semFiltroReclamacoes = !filtroReclamacoes.brandId;
+  const semFiltroReclamacoes = filtroReclamacoes.brandId.length === 0;
 
   useEffect(() => {
     actionContarPedidosPorMarca().then(setMarcas).catch(() => setMarcas([]));
@@ -122,18 +160,18 @@ export default function DashboardPage() {
     return () => { ativo = false; };
   }, []);
 
-  const marcaSlugReclamacoes = useMemo(
-    () => marcas.find((item) => item.brandId === filtroReclamacoes.brandId)?.slug,
+  const marcasSlugReclamacoes = useMemo(
+    () => marcas.filter((item) => filtroReclamacoes.brandId.includes(item.brandId)).map((item) => item.slug),
     [marcas, filtroReclamacoes.brandId],
   );
   const reclamacoesVisiveis = useMemo<ReclamacoesResultado | null>(() => {
-    if (!reclamacoes || !marcaSlugReclamacoes) return null;
-    const itens = reclamacoes.itens.filter((item) => item.marca === marcaSlugReclamacoes);
+    if (!reclamacoes || marcasSlugReclamacoes.length === 0) return null;
+    const itens = reclamacoes.itens.filter((item) => marcasSlugReclamacoes.includes(item.marca));
     return { ...reclamacoes, itens, total: itens.length };
-  }, [reclamacoes, marcaSlugReclamacoes]);
+  }, [reclamacoes, marcasSlugReclamacoes]);
 
-  const trocarGranularidade = useCallback((valor: Granularidade) => {
-    setGranularidade(valor);
+  const trocarDatasPersonalizadas = useCallback((inicio: string, fim: string) => {
+    setPeriodo({ inicio, fim });
   }, []);
 
   const pendencias = (reposicao.dados?.reposicao.length ?? 0) + (reclamacoesVisiveis?.total ?? 0);
@@ -147,8 +185,8 @@ export default function DashboardPage() {
         <SectionLabel>Resultado</SectionLabel>
         <FaturamentoCard
           dados={faturamento.dados?.faturamento ?? null}
-          granularidade={granularidade}
-          onGranularidade={trocarGranularidade}
+          periodo={periodo}
+          onDatasPersonalizadas={trocarDatasPersonalizadas}
           carregando={faturamento.carregando}
           semFiltro={faturamento.semFiltro}
           scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroFaturamento} onChange={setFiltroFaturamento} />}
@@ -169,6 +207,9 @@ export default function DashboardPage() {
             dados={reclamacoesVisiveis}
             carregando={carregandoReclamacoes}
             semFiltro={semFiltroReclamacoes}
+            // Sem pílulas de canal aqui de propósito: o Mercado Livre não separa
+            // reclamação por canal de venda, então filtrar por canal não faria
+            // nada — pílulas clicáveis que não mudam o resultado só confundem.
             scope={<ScopeRow marcas={marcas} canais={[]} filtro={filtroReclamacoes} onChange={setFiltroReclamacoes} />}
           />
         </div>

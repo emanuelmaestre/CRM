@@ -29,6 +29,7 @@
       "title": "Repor em breve",
       "subtitle": "Ainda acima do mínimo — dá tempo de comprar",
       "accent": "#B57A00",
+      "saldoLabel": "saldo",
       "minLabel": "mín.",
       "coverageLabel": "de estoque",
       "noCoverageLabel": "sem histórico de venda",
@@ -42,7 +43,7 @@
       "accent": "#2563EB",
       "saleLabel": "venda",
       "salesLabel": "vendas",
-      "noSaleLabel": "nenhuma venda",
+      "noSaleLabel": "Sem saída",
       "stockLabel": "em estoque",
       "emptyTitle": "Todo o catálogo girando",
       "emptyDescription": "Nenhum produto ficou abaixo do limite de vendas no período."
@@ -53,7 +54,7 @@
       "subtitle": "Sem nenhuma saída há mais de 90 dias",
       "accent": "#6F6F6E",
       "daysLabel": "sem sair",
-      "neverLabel": "nunca saiu",
+      "neverLabel": "Sem histórico",
       "stuckLabel": "parado",
       "emptyTitle": "Nenhum item parado",
       "emptyDescription": "Todo o estoque teve movimento nos últimos 90 dias."

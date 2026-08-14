@@ -8,6 +8,9 @@ import { brand, channelAccount, cliente, pedido, pedidoItem, produto } from "@/s
 import { requirePageAuth } from "@/shared/lib/auth/session";
 import { SectionCard } from "@/shared/design-system/primitives/SectionCard";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { podeCancelar, type PedidoStatus } from "@/modules/vendas/domain/state-machine";
 import { CancelarPedidoModal } from "./cancelar-pedido-modal";
 
@@ -31,6 +34,18 @@ function statusLabel(status: string): string {
   return (pagesConfig.pedidos.statusLabels as Record<string, string>)[status] ?? status;
 }
 
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+
+/** "Mercado Livre KARZI" → "Mercado Livre · KARZI". contaNome vem pronto do
+ *  banco (nome + marca concatenados sem separador); em vez de tentar montar
+ *  esse texto de novo, só insere o traço no ponto onde o nome da marca
+ *  aparece — sem achar, mostra cru mesmo (não quebra, só não separa). */
+function contaComSeparador(contaNome: string, brandNome: string): string {
+  const indice = contaNome.indexOf(brandNome);
+  if (indice <= 0) return contaNome;
+  return `${contaNome.slice(0, indice).trim()} · ${contaNome.slice(indice)}`;
+}
+
 export default async function PedidoDetalhePage({ params }: { params: Promise<{ id: string }> }) {
   const [{ id }, contexto] = await Promise.all([params, requirePageAuth()]);
   const detalhe = await db
@@ -41,8 +56,11 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
       canal: pedido.canal,
       total: pedido.total,
       frete: pedido.frete,
+      criadoEm: pedido.createdAt,
+      clienteId: cliente.id,
       clienteNome: cliente.nome,
       brandNome: brand.name,
+      brandSlug: brand.slug,
       contaNome: channelAccount.nome,
       canceladoMotivo: pedido.canceladoMotivo,
     })
@@ -62,12 +80,6 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
     .where(eq(pedidoItem.pedidoId, detalhe.id));
 
   const copy = pagesConfig.pedidos.detail;
-  const detalhesGrid = [
-    [copy.customer, detalhe.clienteNome],
-    [copy.brand, detalhe.brandNome],
-    [copy.channel, detalhe.canal],
-    [copy.externalAccount, detalhe.contaNome ?? copy.legacyAccount],
-  ] as const;
 
   const canManage = contexto.perfil === "admin" || contexto.perfil === "gestor";
   const podeCancelarEsse = podeCancelar(detalhe.status as PedidoStatus);
@@ -86,7 +98,9 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
           <h1 className="text-2xl font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
             {copy.orderPrefix}{detalhe.providerOrderId ?? detalhe.id.slice(0, 8)}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground capitalize">{detalhe.canal}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            <span className="capitalize">{detalhe.canal}</span> · {dataHora.format(detalhe.criadoEm)}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -104,12 +118,37 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
       </div>
 
       <dl className="mt-6 grid gap-3 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-5 sm:grid-cols-2 lg:grid-cols-4">
-        {detalhesGrid.map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-xs text-muted-foreground">{label}</dt>
-            <dd className="mt-1 font-semibold text-foreground capitalize">{value}</dd>
-          </div>
-        ))}
+        <div>
+          <dt className="text-xs text-muted-foreground">{copy.customer}</dt>
+          <dd className="mt-1 font-semibold text-foreground">
+            <Link href={`/clientes/${detalhe.clienteId}`} className="transition-colors hover:text-[#9B30D9] hover:underline">
+              {detalhe.clienteNome}
+            </Link>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">{copy.brand}</dt>
+          <dd className="mt-1.5">
+            {isBrandSlug(detalhe.brandSlug) ? (
+              <BrandLogo brand={detalhe.brandSlug} height={16} />
+            ) : (
+              <span className="font-semibold text-foreground" style={{ color: getBrandConfig(detalhe.brandSlug)?.color }}>{detalhe.brandNome}</span>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">{copy.channel}</dt>
+          <dd className="mt-1.5 flex items-center gap-2">
+            <ChannelLogo canal={detalhe.canal} size="sm" variant="logo" />
+            <span className="font-semibold text-foreground capitalize">{detalhe.canal}</span>
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">{copy.externalAccount}</dt>
+          <dd className="mt-1 font-semibold text-foreground capitalize">
+            {detalhe.contaNome ? contaComSeparador(detalhe.contaNome, detalhe.brandNome) : copy.legacyAccount}
+          </dd>
+        </div>
       </dl>
 
       {detalhe.canceladoMotivo && (
@@ -129,7 +168,9 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
                 <div key={item.id} data-testid="pedido-item" data-sku={item.sku} className="flex items-center justify-between gap-4 px-6 py-4">
                   <div>
                     <p className="font-semibold text-foreground">{item.nome}</p>
-                    <p className="text-xs text-muted-foreground">{item.sku} · {copy.quantity}: {item.quantidade}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="text-muted-foreground/70">SKU:</span> {item.sku} · {copy.quantity}: {item.quantidade}
+                    </p>
                   </div>
                   <span className="tabular-nums text-foreground">{moeda(item.precoUnitario)}</span>
                 </div>

@@ -109,8 +109,9 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
       whileHover={conectado && !reduzir ? { y: -1 } : undefined}
       whileTap={conectado && !reduzir ? { scale: 0.97 } : undefined}
       aria-pressed={ativo}
-      title={conectado ? undefined : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
-      className={`inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
+      aria-label={label}
+      title={conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
+      className={`inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         !conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
@@ -119,7 +120,6 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
       }`}
     >
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
-      <span className="text-sm font-semibold text-foreground">{label}</span>
       {conectado ? (
         <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
       ) : (
@@ -261,61 +261,46 @@ export function ClientesLista() {
 
   return (
     <div>
-      {/* Barra de escopo — empresa e canal, ambos opcionais: ao contrário do
-          Estoque, a lista de Clientes já abre com resultado, e os filtros só
-          estreitam o que está sendo mostrado. Centralizada e com identidade
-          própria (ícone + rótulo por seção) em vez de só replicar o texto de
-          instrução do Estoque — aqui o convite é visual, não escrito. */}
-      <div className="mb-5 flex justify-center">
-        <div className="w-full max-w-4xl px-8 py-7 sm:px-10">
-          <div className="flex flex-col items-center gap-7 lg:flex-row lg:justify-center lg:gap-10">
-            <div data-tour="clientes-empresa" className="flex min-w-0 flex-col items-center">
-              <div className="flex flex-nowrap justify-center gap-2.5">
-                {marcas.map((marca) => (
-                  <MarcaPill
-                    key={marca.brandId}
-                    nome={marca.name}
-                    slug={marca.slug}
-                    total={marca.total}
-                    ativo={brandIds.has(marca.brandId)}
-                    onClick={() => alternarMarca(marca.brandId)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div
-              aria-hidden="true"
-              className="hidden h-16 w-px shrink-0 lg:block"
-              style={{ background: "linear-gradient(to bottom, transparent, var(--border), transparent)" }}
+      {/* Barra de escopo + busca — tudo numa linha só (quebra em telas
+          estreitas): empresa, canal e busca são a mesma decisão de "o que
+          estou olhando", não etapas separadas, então dividem o mesmo nível
+          visual em vez de um bloco grande em cima e a busca solta embaixo. */}
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
+        <div data-tour="clientes-empresa" className="flex flex-wrap justify-center gap-2.5">
+          {marcas.map((marca) => (
+            <MarcaPill
+              key={marca.brandId}
+              nome={marca.name}
+              slug={marca.slug}
+              total={marca.total}
+              ativo={brandIds.has(marca.brandId)}
+              onClick={() => alternarMarca(marca.brandId)}
             />
-            <div aria-hidden="true" className="h-px w-28 lg:hidden" style={{ background: "linear-gradient(to right, transparent, var(--border), transparent)" }} />
-
-            <div className="flex min-w-0 flex-col items-center">
-              <div className="flex flex-nowrap justify-center gap-2.5">
-                {canais.map((item) => (
-                  <CanalPill
-                    key={item.tipo}
-                    tipo={item.tipo}
-                    total={item.total}
-                    conectado={item.conectado}
-                    ativo={canaisSelecionados.has(item.tipo)}
-                    onClick={() => alternarCanal(item.tipo)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
-      </div>
 
-      {/* Busca */}
-      <div className="mb-4">
+        <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+
+        <div className="flex flex-wrap justify-center gap-2.5">
+          {canais.map((item) => (
+            <CanalPill
+              key={item.tipo}
+              tipo={item.tipo}
+              total={item.total}
+              conectado={item.conectado}
+              ativo={canaisSelecionados.has(item.tipo)}
+              onClick={() => alternarCanal(item.tipo)}
+            />
+          ))}
+        </div>
+
+        <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+
         <input
           value={busca}
           onChange={handleBusca}
           placeholder={copy.searchPlaceholder}
-          className="w-full sm:w-80 h-11 px-3.5 rounded-[0.75rem] border-2 border-border bg-card text-sm text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] placeholder:text-muted-foreground/80 focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow]"
+          className="h-11 w-full max-w-xs flex-1 px-3.5 rounded-[0.75rem] border-2 border-border bg-card text-sm text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] placeholder:text-muted-foreground/80 focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow]"
         />
       </div>
 
@@ -343,7 +328,9 @@ export function ClientesLista() {
       >
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
-          <span className="text-xs text-muted-foreground">{total} {total === 1 ? "cliente" : "clientes"}</span>
+          <span className="rounded-full bg-[rgba(155,48,217,.1)] px-2.5 py-1 text-xs font-bold tabular-nums text-[#9B30D9]">
+            {total} {total === 1 ? "cliente" : "clientes"}
+          </span>
         </div>
 
         {loading ? (

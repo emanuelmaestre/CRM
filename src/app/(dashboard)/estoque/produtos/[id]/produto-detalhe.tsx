@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Car, Check, Link2, Pencil, Ruler, X } from "lucide-react";
+import { ArrowLeft, Boxes, Car, Check, Layers, Link2, Pencil, Ruler, X } from "lucide-react";
 import { actionEditarProduto } from "../../actions";
 import { CanalModal } from "../../canal-modal";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -134,6 +134,24 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
                         <p className="text-sm font-bold text-foreground mt-0.5">{titulo.cor}</p>
                       </div>
                     </div>
+                    {titulo.material && (
+                      <div className="inline-flex items-center gap-2 rounded-[0.75rem] border border-border bg-muted/50 pl-2.5 pr-3 py-1.5">
+                        <Layers size={13} className="text-muted-foreground shrink-0" />
+                        <div className="leading-none">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Material</p>
+                          <p className="text-sm font-bold text-foreground mt-0.5">{titulo.material}</p>
+                        </div>
+                      </div>
+                    )}
+                    {titulo.medida && (
+                      <div className="inline-flex items-center gap-2 rounded-[0.75rem] border border-border bg-muted/50 pl-2.5 pr-3 py-1.5">
+                        <Boxes size={13} className="text-muted-foreground shrink-0" />
+                        <div className="leading-none">
+                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Medida</p>
+                          <p className="text-sm font-bold text-foreground mt-0.5">{titulo.medida}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   {titulo.compatibilidade && titulo.compatibilidade.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1.5 mt-2.5">

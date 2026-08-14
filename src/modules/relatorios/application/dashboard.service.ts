@@ -1,5 +1,5 @@
-import { and, eq, gte, isNull, max, ne, notInArray, sql } from "drizzle-orm";
-import { startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
+import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "drizzle-orm";
+import { differenceInCalendarDays, endOfDay, startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
@@ -46,8 +46,14 @@ const GRANULARIDADE_LABEL: Record<Granularidade, string> = {
 
 export interface DashboardFilters {
   granularidade?: Granularidade;
-  brandId?: string;
-  canal?: string;
+  /** Uma ou mais marcas — ao marcar várias, os resultados se somam (união, não interseção). */
+  brandId?: string | string[];
+  /** Um ou mais canais — mesma lógica de união do brandId. */
+  canal?: string | string[];
+  /** Período personalizado (ISO). Quando os dois vêm preenchidos, substitui a
+   *  janela fixa da granularidade — a série passa a ser sempre por dia. */
+  inicio?: string;
+  fim?: string;
 }
 
 export interface SeriePonto {
@@ -158,8 +164,8 @@ function rotuloDoBalde(inicio: Date, granularidade: Granularidade): string {
 
 /** Baldes vazios da janela, do mais antigo ao mais recente — garante que
  *  período sem venda apareça como vale no gráfico, não como buraco. */
-function montarBaldes(agora: Date, granularidade: Granularidade): Map<number, number> {
-  const total = PONTOS_SERIE[granularidade];
+function montarBaldes(agora: Date, granularidade: Granularidade, totalPontos?: number): Map<number, number> {
+  const total = totalPontos ?? PONTOS_SERIE[granularidade];
   const baldes = new Map<number, number>();
   for (let i = total - 1; i >= 0; i--) {
     const inicio = inicioDoBalde(recuarBaldes(agora, granularidade, i), granularidade);
@@ -170,26 +176,45 @@ function montarBaldes(agora: Date, granularidade: Granularidade): Map<number, nu
 
 /* ── Consulta principal ───────────────────────────────────────── */
 
+/** Normaliza um filtro de string|string[] opcional numa lista sem vazios; [] quando ausente. */
+function normalizarLista(valor?: string | string[]): string[] {
+  if (!valor) return [];
+  const lista = Array.isArray(valor) ? valor : [valor];
+  return lista.filter(Boolean);
+}
+
 function normalizarFiltros(filters?: DashboardFilters) {
   const granularidade = filters?.granularidade;
   return {
     granularidade: (granularidade && granularidade in JANELA_DIAS ? granularidade : "dia") as Granularidade,
-    brandId: filters?.brandId,
-    canal: filters?.canal,
+    brandIds: normalizarLista(filters?.brandId),
+    canais: normalizarLista(filters?.canal),
   };
 }
 
 /** Mesmo padrão do Estoque: EXISTS em vez de JOIN, porque um produto pode ter
  *  mais de um mapeamento ativo no mesmo canal e um JOIN duplicaria a linha. */
-function condicaoCanalProduto(orgId: string, canal: string) {
+function condicaoCanalProduto(orgId: string, canais: string[]) {
   return sql`exists (
     select 1 from ${produtoCanal}
     inner join ${channelAccount} on ${channelAccount.id} = ${produtoCanal.channelAccountId}
     where ${produtoCanal.produtoId} = ${produto.id}
       and ${produtoCanal.orgId} = ${orgId}
       and ${produtoCanal.ativo} = true
-      and ${channelAccount.tipo} = ${canal}
+      and ${channelAccount.tipo} in ${canais}
   )`;
+}
+
+/** "2026-08-14" → meia-noite local de 14/08, não de UTC. `new Date("2026-08-14")`
+ *  sozinho cairia na armadilha clássica: strings de data pura (sem hora) são
+ *  interpretadas como meia-noite em UTC pelo spec do JS, e como o servidor
+ *  roda no fuso de São Paulo (UTC-3), meia-noite UTC vira "dia anterior, 21h"
+ *  local — o período inteiro (série, janela, comparativo) aparecia um dia
+ *  atrasado. Construir a partir dos componentes ano/mês/dia evita isso: o
+ *  Date resultante já nasce à meia-noite no fuso do próprio processo. */
+function parseDataLocal(iso: string): Date {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  return new Date(ano, mes - 1, dia);
 }
 
 export async function obterDashboardData(
@@ -197,17 +222,35 @@ export async function obterDashboardData(
   filters?: DashboardFilters,
 ): Promise<DashboardData> {
   const agora = new Date();
-  const { granularidade, brandId: brandFiltro, canal: canalFiltro } = normalizarFiltros(filters);
-  const janelaDias = JANELA_DIAS[granularidade];
-  const inicioJanela = subDays(agora, janelaDias);
-  const inicioJanelaAnterior = subDays(agora, janelaDias * 2);
+  const { granularidade, brandIds: brandFiltro, canais: canalFiltro } = normalizarFiltros(filters);
+
+  // Período personalizado: as duas pontas vêm do usuário (input type=date, sem
+  // hora) e substituem a janela fixa da granularidade. A série sempre baldeia
+  // por dia aqui — semana/mês não fazem sentido num recorte arbitrário curto.
+  const periodoInicio = filters?.inicio ? startOfDay(parseDataLocal(filters.inicio)) : null;
+  const periodoFim = filters?.fim ? endOfDay(parseDataLocal(filters.fim)) : null;
+  const personalizado = periodoInicio !== null && periodoFim !== null;
+
+  const fimJanela = personalizado ? periodoFim! : agora;
+  const janelaDias = personalizado
+    ? Math.max(1, differenceInCalendarDays(fimJanela, periodoInicio!) + 1)
+    : JANELA_DIAS[granularidade];
+  const inicioJanela = personalizado ? periodoInicio! : subDays(agora, janelaDias);
+
+  // Comparativo: período anterior, de mesmo tamanho, imediatamente antes do atual.
+  const inicioJanelaAnterior = subDays(inicioJanela, janelaDias);
+  const fimJanelaAnterior = inicioJanela;
+
+  const granularidadeSerie: Granularidade = personalizado ? "dia" : granularidade;
+  const pontosSerie = personalizado ? Math.min(janelaDias, 60) : PONTOS_SERIE[granularidade];
   const inicioSerie = inicioDoBalde(
-    recuarBaldes(agora, granularidade, PONTOS_SERIE[granularidade] - 1),
-    granularidade,
+    recuarBaldes(fimJanela, granularidadeSerie, pontosSerie - 1),
+    granularidadeSerie,
   );
   // A série pode olhar mais para trás que a janela de produto (12 meses vs 365 dias
   // batem, mas 12 semanas < 84 dias não). Busca pedidos desde o que for mais antigo.
   const inicioBusca = inicioSerie < inicioJanelaAnterior ? inicioSerie : inicioJanelaAnterior;
+  const fimBusca = fimJanela;
 
   const limiteParado = subDays(agora, DIAS_PARA_PARADO);
 
@@ -218,16 +261,17 @@ export async function obterDashboardData(
     ne(pedido.status, "cancelado"),
     ne(pedido.status, "devolvido"),
   ];
-  if (brandFiltro) condicoesPedido.push(eq(pedido.brandId, brandFiltro));
-  if (canalFiltro) condicoesPedido.push(eq(pedido.canal, canalFiltro));
+  if (personalizado) condicoesPedido.push(lte(pedido.createdAt, fimBusca));
+  if (brandFiltro.length > 0) condicoesPedido.push(inArray(pedido.brandId, brandFiltro));
+  if (canalFiltro.length > 0) condicoesPedido.push(inArray(pedido.canal, canalFiltro));
 
   const condicoesProduto = [
     eq(produto.orgId, ctx.orgId),
     eq(produto.ativo, true),
     isNull(produto.deletedAt),
   ];
-  if (brandFiltro) condicoesProduto.push(eq(produto.brandId, brandFiltro));
-  if (canalFiltro) condicoesProduto.push(condicaoCanalProduto(ctx.orgId, canalFiltro));
+  if (brandFiltro.length > 0) condicoesProduto.push(inArray(produto.brandId, brandFiltro));
+  if (canalFiltro.length > 0) condicoesProduto.push(condicaoCanalProduto(ctx.orgId, canalFiltro));
 
   const [pedidosJanela, itensVendidos, produtosAtivos, ultimasSaidas] = await Promise.all([
     ctx.db
@@ -266,20 +310,21 @@ export async function obterDashboardData(
   ]);
 
   /* ── Faturamento ── */
-  const baldes = montarBaldes(agora, granularidade);
+  const baldes = montarBaldes(fimJanela, granularidadeSerie, personalizado ? pontosSerie : undefined);
   let totalJanela = 0;
   let pedidosNaJanela = 0;
   let totalJanelaAnterior = 0;
 
   for (const item of pedidosJanela) {
     const valor = parseMoney(item.total);
-    const chave = inicioDoBalde(item.createdAt, granularidade).getTime();
+    const chave = inicioDoBalde(item.createdAt, granularidadeSerie).getTime();
     if (baldes.has(chave)) baldes.set(chave, (baldes.get(chave) ?? 0) + valor);
 
-    if (item.createdAt >= inicioJanela) {
+    if (item.createdAt >= inicioJanela && item.createdAt <= fimJanela) {
       totalJanela += valor;
       pedidosNaJanela += 1;
-    } else if (item.createdAt >= inicioJanelaAnterior) {
+    }
+    if (item.createdAt >= inicioJanelaAnterior && item.createdAt <= fimJanelaAnterior) {
       totalJanelaAnterior += valor;
     }
   }
@@ -287,7 +332,7 @@ export async function obterDashboardData(
   const valoresSerie = [...baldes.values()];
   const maiorValor = Math.max(...valoresSerie, 0);
   const serie: SeriePonto[] = [...baldes.entries()].map(([chave, valor]) => ({
-    label: rotuloDoBalde(new Date(chave), granularidade),
+    label: rotuloDoBalde(new Date(chave), granularidadeSerie),
     valor,
     altura: maiorValor > 0 ? Math.max(2, Math.round((valor / maiorValor) * 100)) : 0,
   }));
@@ -302,7 +347,9 @@ export async function obterDashboardData(
     pedidos: pedidosNaJanela,
     ticketMedio: formatCurrency(pedidosNaJanela > 0 ? totalJanela / pedidosNaJanela : 0),
     serie,
-    janelaLabel: GRANULARIDADE_LABEL[granularidade],
+    janelaLabel: personalizado
+      ? `${diaMes.format(inicioJanela)} – ${diaMes.format(fimJanela)}`
+      : GRANULARIDADE_LABEL[granularidade],
   };
 
   /* ── Agregação de vendas por produto ── */

@@ -2,19 +2,104 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { CalendarRange, TrendingDown, TrendingUp } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { springs } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
-import { Card, CardHead, Segmented, useContagem } from "./card-primitives";
-import type { FaturamentoResumo, Granularidade } from "@/modules/relatorios/application/dashboard.service";
+import { Card, CardHead, useContagem } from "./card-primitives";
+import type { FaturamentoResumo } from "@/modules/relatorios/application/dashboard.service";
+import type { Periodo } from "./page";
 
 const copy = dashboardConfig.cards.faturamento;
-const GRANULARIDADES = dashboardConfig.granularities as ReadonlyArray<{ value: Granularidade; label: string }>;
+
+function paraDataInput(data: Date) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+const hoje = paraDataInput(new Date());
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+/** Um botão só com o ícone de calendário — sem "dd/mm/aaaa" nem a data
+ *  escrita ao lado. O valor escolhido vira o `title` (aparece no hover) e o
+ *  `aria-label`, já que não tem mais texto visível pra mostrar pra ninguém.
+ *  O input de verdade fica por cima, invisível e do tamanho do botão
+ *  inteiro — é ele quem abre o calendário nativo ao clicar; a digitação
+ *  continua desligada (só o calendário escolhe a data). */
+function CampoData({ rotulo, valor, min, max, onChange, disabled, atraso = 0 }: {
+  rotulo: string;
+  valor: string;
+  min?: string;
+  max?: string;
+  onChange: (valor: string) => void;
+  disabled?: boolean;
+  atraso?: number;
+}) {
+  const rotuloCompleto = valor ? `${rotulo} ${diaMesAno.format(new Date(`${valor}T00:00:00`))}` : rotulo;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -4, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ ...springs.settleFast, delay: atraso }}
+      whileHover={disabled ? undefined : { scale: 1.06 }}
+      whileTap={disabled ? undefined : { scale: 0.95 }}
+      title={rotuloCompleto}
+      className="group relative inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-[0.75rem] border border-border bg-muted shadow-[0_1px_2px_rgba(14,15,19,.04)] transition-all duration-200 hover:border-[rgba(155,48,217,.4)] hover:bg-card focus-within:border-[#9B30D9] focus-within:bg-card focus-within:shadow-[0_0_0_3px_rgba(155,48,217,.12)]"
+    >
+      <CalendarRange
+        size={15}
+        strokeWidth={2}
+        aria-hidden="true"
+        className="pointer-events-none shrink-0 text-muted-foreground transition-all duration-200 group-hover:scale-110 group-hover:text-[#9B30D9] group-focus-within:scale-110 group-focus-within:text-[#9B30D9]"
+      />
+      <input
+        type="date"
+        aria-label={rotuloCompleto}
+        value={valor}
+        min={min}
+        max={max}
+        disabled={disabled}
+        onChange={(evento) => onChange(evento.target.value)}
+        onKeyDown={(evento) => evento.preventDefault()}
+        onPaste={(evento) => evento.preventDefault()}
+        className="absolute inset-0 h-full w-full cursor-pointer bg-transparent text-transparent outline-none ring-0 focus:outline-none disabled:opacity-50 [color-scheme:light] dark:[color-scheme:dark] invalid:outline-none invalid:shadow-none invalid:ring-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0"
+      />
+    </motion.div>
+  );
+}
+
+/* ── Seletor de período ───────────────────────────────────────
+   Dois campos de calendário separados, "De:" e "Até:", cada um com seu
+   próprio rótulo e contorno — não uma pílula com as duas datas juntas. */
+function SeletorPeriodo({ periodo, onDatas, disabled }: {
+  periodo: Periodo;
+  onDatas: (inicio: string, fim: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <CampoData
+        rotulo="De:"
+        valor={periodo.inicio}
+        max={periodo.fim || hoje}
+        onChange={(inicio) => onDatas(inicio, periodo.fim)}
+        disabled={disabled}
+      />
+      <CampoData
+        rotulo="Até:"
+        valor={periodo.fim}
+        min={periodo.inicio}
+        max={hoje}
+        onChange={(fim) => onDatas(periodo.inicio, fim)}
+        disabled={disabled}
+        atraso={0.04}
+      />
+    </div>
+  );
+}
 
 /* ── Gráfico ───────────────────────────────────────────────────
    Barras em scaleY (propriedade de compositor, não força layout) com
@@ -76,10 +161,10 @@ function EsqueletoFaturamento() {
   );
 }
 
-export function FaturamentoCard({ dados, granularidade, onGranularidade, carregando, semFiltro, scope }: {
+export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carregando, semFiltro, scope }: {
   dados: FaturamentoResumo | null;
-  granularidade: Granularidade;
-  onGranularidade: (valor: Granularidade) => void;
+  periodo: Periodo;
+  onDatasPersonalizadas: (inicio: string, fim: string) => void;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
@@ -96,19 +181,11 @@ export function FaturamentoCard({ dados, granularidade, onGranularidade, carrega
     <Card>
       <CardHead
         title={copy.title}
-        subtitle={dados?.janelaLabel ?? copy.title}
+        subtitle={dados?.janelaLabel}
         icon={Icon}
         accent={copy.accent}
         scope={scope}
-        trailing={
-          <Segmented
-            layoutId="dashboard-granularidade"
-            value={granularidade}
-            options={GRANULARIDADES}
-            onChange={onGranularidade}
-            disabled={carregando}
-          />
-        }
+        trailing={<SeletorPeriodo periodo={periodo} onDatas={onDatasPersonalizadas} disabled={carregando} />}
       />
 
       {/* Troca por crossfade, nunca desmontando o Card — evita o "piscar"
@@ -118,7 +195,11 @@ export function FaturamentoCard({ dados, granularidade, onGranularidade, carrega
         <AnimatePresence mode="wait" initial={false}>
           {semFiltro ? (
             <motion.div key="prompt" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast}>
-              <EmptyState illustration="revenue" title="Selecione um filtro" description="Escolha uma marca ou canal acima para ver o faturamento." />
+              <EmptyState
+                illustration="revenue"
+                title="Selecione um filtro"
+                description="Escolha uma marca ou canal acima para ver o faturamento."
+              />
             </motion.div>
           ) : carregando && !dados ? (
             <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast}>

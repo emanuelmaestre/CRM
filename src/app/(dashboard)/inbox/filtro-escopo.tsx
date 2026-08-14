@@ -1,6 +1,6 @@
 "use client";
 
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { getBrandConfig, isBrandSlug, BRAND_SLUGS } from "@/shared/config/brands";
 import channelsConfig from "@/config/channels.json";
@@ -16,13 +16,16 @@ function EmpresaPill({ nome, slug, total, ativo, onClick }: {
       type="button"
       onClick={onClick}
       aria-pressed={ativo}
-      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
-        ativo ? "border-2 bg-card" : "border border-border bg-card hover:bg-muted"
+      className={`inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 transition-colors ${
+        ativo ? "border-2" : "border border-border bg-card hover:bg-muted"
       }`}
-      style={ativo ? { borderColor: getBrandConfig(slug)?.color ?? "var(--primary)" } : undefined}
+      style={ativo ? (() => {
+        const cor = getBrandConfig(slug)?.color ?? "var(--primary)";
+        return { borderColor: cor, background: `color-mix(in srgb, ${cor} 8%, transparent)` };
+      })() : undefined}
     >
-      {temIdentidade ? <BrandLogo brand={slug} height={13} /> : <span className="text-[13px] font-semibold text-foreground">{nome}</span>}
-      <span className="text-[11px] tabular-nums text-muted-foreground">{total}</span>
+      {temIdentidade ? <BrandLogo brand={slug} height={17} /> : <span className="text-sm font-semibold text-foreground">{nome}</span>}
+      <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
     </button>
   );
 }
@@ -36,13 +39,15 @@ function CanalFiltroPill({ tipo, total, ativo, onClick }: {
       type="button"
       onClick={onClick}
       aria-pressed={ativo}
-      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
-        ativo ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)]" : "border border-border bg-card hover:bg-muted"
+      aria-label={label}
+      title={label}
+      style={ativo ? { borderColor: channelAccent(tipo), background: `color-mix(in srgb, ${channelAccent(tipo)} 8%, transparent)` } : undefined}
+      className={`inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
+        ativo ? "border-2" : "border border-border bg-card hover:bg-muted"
       }`}
     >
-      <ChannelLogo canal={tipo} size="xs" variant="logo" />
-      <span className="text-[13px] font-semibold text-foreground">{label}</span>
-      <span className="text-[11px] tabular-nums text-muted-foreground">{total}</span>
+      <ChannelLogo canal={tipo} size="sm" variant="logo" />
+      <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
     </button>
   );
 }
@@ -65,7 +70,7 @@ export function FiltroEscopoBar({
   contagemCanal: Record<string, number>;
 }) {
   return (
-    <div className="flex flex-nowrap items-center gap-2 rounded-full border border-border/60 bg-card px-3.5 py-2 shadow-[0_2px_10px_rgba(14,15,19,.04)] w-fit">
+    <div className="flex flex-nowrap items-center gap-2 w-fit">
       {BRAND_SLUGS.map((slug) => (
         <EmpresaPill
           key={slug}
@@ -77,7 +82,7 @@ export function FiltroEscopoBar({
         />
       ))}
 
-      <span aria-hidden="true" className="h-5 w-px bg-border flex-shrink-0" />
+      <span aria-hidden="true" className="h-7 w-px bg-border flex-shrink-0" />
 
       {CANAIS_VENDA.map((tipo) => (
         <CanalFiltroPill

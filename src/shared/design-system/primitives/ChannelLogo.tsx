@@ -45,6 +45,13 @@ function normalizeKey(canal: string): string {
   return channelsConfig.aliases[lower as keyof typeof channelsConfig.aliases] ?? lower;
 }
 
+/** Cor de identidade do canal (ex.: amarelo do Mercado Livre, laranja da Shopee),
+ *  para pílulas/filtros tingirem de acordo com o canal em vez de uma cor fixa. */
+export function channelAccent(canal: string): string {
+  const cfg = CHANNELS[normalizeKey(canal)];
+  return cfg?.accent ?? channelsConfig.fallback.accent;
+}
+
 interface Props {
   canal: Channel;
   size?: Size;

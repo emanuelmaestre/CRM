@@ -24,6 +24,7 @@ import {
   obterLoteHistorico,
 } from "@/modules/importacao/application/importacao-historica.service";
 import { inngest } from "@/shared/lib/inngest/client";
+import { dispararSincronizacaoConta, obterUltimaSincronizacaoConta } from "@/modules/canais/application/sincronizacao.service";
 
 export async function actionListarUsuarios() {
   return listarUsuarios(await getCrudContext());
@@ -37,6 +38,15 @@ export async function actionAtualizarUsuario(input: unknown) {
 
 export async function actionListarConfiguracaoCanais() {
   return listarConfiguracaoCanais(await getCrudContext());
+}
+
+export async function actionDispararSincronizacaoConta(channelAccountId: string) {
+  const execucao = await dispararSincronizacaoConta(await getCrudContext(), channelAccountId);
+  return execucao;
+}
+
+export async function actionObterUltimaSincronizacaoConta(channelAccountId: string) {
+  return obterUltimaSincronizacaoConta(await getCrudContext(), channelAccountId);
 }
 
 export async function actionListarHistoricoAutomacoes() {

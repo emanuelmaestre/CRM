@@ -7,6 +7,7 @@ import { listItem, springs, stagger } from "@/shared/design-system/motion-varian
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead } from "./card-primitives";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import type {
   ProdutoGiroBaixo,
   ProdutoMaisVendido,
@@ -16,32 +17,42 @@ import type {
 
 /* ── Linha de produto ──────────────────────────────────────────
    Nome e SKU à esquerda, número que importa à direita. O medidor
-   opcional dá a proporção sem gastar uma coluna de texto. */
-function LinhaProduto({ nome, sku, marca, destaque, destaqueCor, contexto, medidor, acento }: {
+   opcional dá a proporção sem gastar uma coluna de texto. A marca vem
+   na cor de identidade dela (mesma usada nos filtros) — assim dá pra
+   escanear de qual empresa é cada item sem ler o texto todo. */
+function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueLabel, destaqueCor, contexto, medidor, acento }: {
   nome: string;
   sku: string;
   marca: string;
+  marcaSlug: string;
   destaque: string;
+  /** Rótulo curto antes do número em destaque (ex.: "saldo") — só pra quando
+   *  o número sozinho não deixa claro o que está sendo medido. */
+  destaqueLabel?: string;
   destaqueCor?: string;
   contexto: string;
   medidor?: number;
   acento: string;
 }) {
+  const corMarca = isBrandSlug(marcaSlug) ? getBrandConfig(marcaSlug)?.color : undefined;
   return (
     <motion.li variants={listItem} className="border-b border-border px-5 py-3 last:border-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{nome}</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">{sku} · {marca}</p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            <span className="text-muted-foreground/70">SKU:</span> {sku} · <span className="font-semibold" style={corMarca ? { color: corMarca } : undefined}>{marca}</span>
+          </p>
         </div>
         <div className="shrink-0 text-right">
           <p
             className="text-sm font-bold tabular-nums"
             style={{ color: destaqueCor ?? "var(--foreground)" }}
           >
+            {destaqueLabel && <span className="text-[11px] font-semibold text-muted-foreground">{destaqueLabel}: </span>}
             {destaque}
           </p>
-          <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">{contexto}</p>
+          <p className="mt-0.5 text-xs font-semibold tabular-nums text-foreground/80">{contexto}</p>
         </div>
       </div>
       {medidor !== undefined && (
@@ -153,6 +164,7 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope }: {
           nome={item.nome}
           sku={item.sku}
           marca={item.marcaLabel}
+          marcaSlug={item.marca}
           destaque={`${item.quantidade} ${copyVendidos.unitLabel}`}
           destaqueCor={copyVendidos.accent}
           contexto={item.receita}
@@ -194,7 +206,9 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope }: {
           nome={item.nome}
           sku={item.sku}
           marca={item.marcaLabel}
-          destaque={String(item.saldo)}
+          marcaSlug={item.marca}
+          destaque={`${item.saldo}`}
+          destaqueLabel={copyReposicao.saldoLabel}
           destaqueCor={copyReposicao.accent}
           contexto={item.coberturaDias !== null
             ? `${item.coberturaDias} d ${copyReposicao.coverageLabel}`
@@ -237,9 +251,11 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope }: {
           nome={item.nome}
           sku={item.sku}
           marca={item.marcaLabel}
+          marcaSlug={item.marca}
           destaque={item.quantidade === 0
             ? copyGiro.noSaleLabel
             : `${item.quantidade} ${item.quantidade === 1 ? copyGiro.saleLabel : copyGiro.salesLabel}`}
+          destaqueCor={item.quantidade === 0 ? "var(--muted-foreground)" : undefined}
           contexto={`${item.saldo} ${copyGiro.stockLabel} · ${item.valorParado}`}
           acento={copyGiro.accent}
         />
@@ -278,9 +294,11 @@ export function ParadosCard({ itens, carregando, semFiltro, scope }: {
           nome={item.nome}
           sku={item.sku}
           marca={item.marcaLabel}
+          marcaSlug={item.marca}
           destaque={item.diasParado !== null
             ? `${item.diasParado} d`
             : copyParados.neverLabel}
+          destaqueCor={item.diasParado === null ? "var(--muted-foreground)" : undefined}
           contexto={`${item.valorParado} ${copyParados.stuckLabel}`}
           acento={copyParados.accent}
         />

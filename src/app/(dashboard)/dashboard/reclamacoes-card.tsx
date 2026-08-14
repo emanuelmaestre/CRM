@@ -10,6 +10,7 @@ import { listItem, springs, stagger } from "@/shared/design-system/motion-varian
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead } from "./card-primitives";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { actionListarMensagensReclamacao, actionResponderReclamacao } from "./actions";
 import type { ReclamacaoMensagem } from "@/modules/relatorios/application/reclamacoes.service";
 import type { ReclamacoesResultado } from "@/modules/relatorios/application/reclamacoes.service";
@@ -40,6 +41,72 @@ function Esqueleto() {
   );
 }
 
+/* ── Formatação de mensagem ────────────────────────────────────
+   O assistente do Mercado Livre manda texto misturando HTML solto
+   (<strong>, <br>, <a href>, <ul>/<li>, <span class="message-badge">) com
+   **negrito** em markdown — sem tratar, aparece tudo como código cru na
+   tela. Vira negrito e link de verdade, <br> e <li> viram quebra de linha
+   e marcador, e a badge vira uma pilulazinha. Qualquer tag que sobrar
+   (uma que o ML mande e ainda não conhecemos) é removida no fim — nunca
+   aparece código cru, mesmo pra tag nova. */
+function normalizarListas(texto: string): string {
+  return texto
+    .replace(/<li>([\s\S]*?)<\/li>/g, "\n• $1")
+    .replace(/<\/?(ul|ol)>/g, "");
+}
+
+const TOKEN_FORMATACAO = /(<strong>[\s\S]*?<\/strong>|\*\*[\s\S]*?\*\*|<span class="message-badge">[\s\S]*?<\/span>|<a href="[^"]*">[\s\S]*?<\/a>|<br\s*\/?>)/g;
+
+function formatarMensagem(texto: string): React.ReactNode {
+  return normalizarListas(texto).split(TOKEN_FORMATACAO).map((trecho, indice) => {
+    if (/^<br\s*\/?>$/.test(trecho)) {
+      return <br key={indice} />;
+    }
+
+    const badge = trecho.match(/^<span class="message-badge">([\s\S]*?)<\/span>$/);
+    if (badge) {
+      return (
+        <span key={indice} className="mx-1 inline-block rounded-full bg-amber-400/20 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+          {badge[1]}
+        </span>
+      );
+    }
+
+    const link = trecho.match(/^<a href="([^"]*)">([\s\S]*?)<\/a>$/);
+    if (link) {
+      const [, href, rotulo] = link;
+      const rotuloLimpo = rotulo.replace(/<[^>]+>/g, "");
+      // As mensagens não são só do assistente do ML — o comprador também
+      // escreve nessa thread. Um href "javascript:" ou "data:" forjado por
+      // ele viraria clique-para-executar dentro do painel; só http(s) passa.
+      if (!/^https?:\/\//i.test(href)) return rotuloLimpo;
+      return (
+        <a
+          key={indice}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+          style={{ color: copy.accent }}
+        >
+          {rotuloLimpo}
+        </a>
+      );
+    }
+
+    const negritoHtml = trecho.match(/^<strong>([\s\S]*?)<\/strong>$/);
+    const negritoMarkdown = trecho.match(/^\*\*([\s\S]*?)\*\*$/);
+    const conteudoNegrito = negritoHtml?.[1] ?? negritoMarkdown?.[1];
+    if (conteudoNegrito !== undefined) {
+      return <strong key={indice} className="font-semibold">{conteudoNegrito.replace(/<[^>]+>/g, "")}</strong>;
+    }
+
+    // Rede de segurança: qualquer marcação que sobrar (tag desconhecida,
+    // não coberta acima) é removida — só o texto fica, nunca a tag crua.
+    return trecho.replace(/<[^>]+>/g, "");
+  });
+}
+
 /* ── Balão de mensagem ────────────────────────────────────────
    Mensagens do vendedor (nós) alinhadas à direita, do outro lado à
    esquerda — leitura de conversa, não de log. */
@@ -50,7 +117,7 @@ function Balao({ mensagem }: { mensagem: ReclamacaoMensagem }) {
         className="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed text-foreground"
         style={{ background: mensagem.deVendedor ? `${copy.accent}14` : "var(--muted)" }}
       >
-        <p className="whitespace-pre-line">{mensagem.texto}</p>
+        <p className="whitespace-pre-line">{formatarMensagem(mensagem.texto)}</p>
         {mensagem.criadaEm && (
           <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
             {new Date(mensagem.criadaEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
@@ -123,7 +190,8 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
             <span className="text-sm font-semibold text-foreground">{item.estagio}</span>
             {item.emMediacao && (
               <span
-                className="rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                title="Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida."
+                className="cursor-help rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                 style={{ background: `${copy.accent}1A`, color: copy.accent }}
               >
                 escalou
@@ -131,7 +199,17 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
             )}
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {item.marcaLabel}{item.motivo ? ` · ${item.motivo}` : ""}
+            <span
+              className="font-semibold"
+              style={isBrandSlug(item.marca) ? { color: getBrandConfig(item.marca)?.color } : undefined}
+            >
+              {item.marcaLabel}
+            </span>
+            {item.motivo && (
+              <span title="Código do motivo da reclamação — o Mercado Livre não devolve um texto legível para ele.">
+                {" · "}<span className="text-muted-foreground/70">Motivo:</span> {item.motivo}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex shrink-0 items-start gap-2">

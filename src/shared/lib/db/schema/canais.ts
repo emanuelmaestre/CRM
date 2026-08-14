@@ -32,6 +32,31 @@ export const channelAccount = pgTable("channel_account", {
   uniqueIndex("uq_channel_account_org_brand_tipo").on(t.orgId, t.brandId, t.tipo),
 ]);
 
+export const sincronizacaoModuloStatusEnum = pgEnum("sincronizacao_modulo_status", [
+  "pendente", "em_andamento", "concluido", "erro",
+]);
+
+/** Uma execução da "Central de Sincronização" (Configurações), disparada
+ *  manualmente por conta de canal — cada módulo (catálogo, pedidos) roda em
+ *  background via Inngest e atualiza sua própria coluna de status aqui, pra
+ *  a tela poder mostrar progresso real em vez de um spinner mudo por 20s+. */
+export const sincronizacaoExecucao = pgTable("sincronizacao_execucao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
+  catalogoStatus: sincronizacaoModuloStatusEnum("catalogo_status").notNull().default("pendente"),
+  catalogoResultado: jsonb("catalogo_resultado"),
+  catalogoErro: text("catalogo_erro"),
+  pedidosStatus: sincronizacaoModuloStatusEnum("pedidos_status").notNull().default("pendente"),
+  pedidosResultado: jsonb("pedidos_resultado"),
+  pedidosErro: text("pedidos_erro"),
+  iniciadoEm: timestamp("iniciado_em", { withTimezone: true }).notNull().defaultNow(),
+  finalizadoEm: timestamp("finalizado_em", { withTimezone: true }),
+}, (t) => [
+  index("idx_sincronizacao_org").on(t.orgId),
+  index("idx_sincronizacao_channel_account").on(t.channelAccountId),
+]);
+
 /** Cache de notas/opiniões do Mercado Livre por anúncio ativo, mantido por um
  *  cron (ver A28-sync-avaliacoes-ml). A API do ML não tem endpoint de nota em
  *  lote — 1 requisição por anúncio — então a tela de Avaliações lê daqui em

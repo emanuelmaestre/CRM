@@ -17,6 +17,7 @@ import { useMercadoLivreStatus } from "./useMercadoLivreStatus";
 import { MLCatalogMappingSection } from "./MLCatalogMappingSection";
 import { MLHistoricalImportSection } from "./MLHistoricalImportSection";
 import { AutomacoesSection } from "./AutomacoesSection";
+import { SincronizacaoSection } from "./SincronizacaoSection";
 import settingsConfig from "@/config/settings.json";
 import permissionsConfig from "@/config/permissions.json";
 import {
@@ -432,6 +433,18 @@ export default function ConfiguracoesPage() {
             onChanged={recarregarCanaisEProdutos}
             mlStatus={mlStatus}
           />
+        </Card>
+
+        <Card
+          title="Central de sincronização"
+          description="Catálogo e pedidos sob demanda, por conta — roda em segundo plano."
+          icon={getIcon("Repeat")}
+        >
+          {carregandoCanais ? (
+            <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>
+          ) : (
+            <SincronizacaoSection canais={canais} />
+          )}
         </Card>
 
         <Card title={settingsConfig.mercadoLivre.title} icon={getIcon("ShoppingBag")}>

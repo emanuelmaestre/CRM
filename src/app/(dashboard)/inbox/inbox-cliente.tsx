@@ -550,7 +550,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                     <p className="text-xs font-semibold text-foreground truncate">
                       {formatarContato(c)}
                     </p>
-                    <span className="text-[10px] text-muted-foreground flex-shrink-0 tabular-nums">
+                    <span className="text-[11px] font-semibold text-foreground/70 flex-shrink-0 tabular-nums">
                       {formatarData(c.updatedAt)}
                     </span>
                   </div>

@@ -105,8 +105,9 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
       whileHover={canal.conectado && !reduzir ? { y: -1 } : undefined}
       whileTap={canal.conectado && !reduzir ? { scale: 0.97 } : undefined}
       aria-pressed={ativo}
-      title={canal.conectado ? undefined : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
-      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
+      aria-label={label}
+      title={canal.conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
+      className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 transition-colors ${
         !canal.conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
@@ -115,7 +116,6 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
       }`}
     >
       <ChannelLogo canal={canal.tipo} size="xs" variant="logo" />
-      <span className="text-[13px] font-semibold text-foreground">{label}</span>
       <span className="text-[11px] tabular-nums text-muted-foreground">{canal.total}</span>
     </motion.button>
   );
@@ -148,6 +148,7 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
           </span>
         </td>
         <td className="px-4 py-3">{item.clienteNome}</td>
+        <td className="px-4 py-3 tabular-nums text-muted-foreground">{dataHora.format(new Date(item.createdAt))}</td>
         <td className="px-4 py-3">
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
@@ -169,7 +170,7 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
-            <td colSpan={4} className="bg-muted/20 px-4 pb-4 pt-0">
+            <td colSpan={5} className="bg-muted/20 px-4 pb-4 pt-0">
               <motion.div
                 initial={reduzir ? false : { height: 0 }}
                 animate={{ height: "auto" }}
@@ -184,7 +185,6 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
                   <span className="inline-flex items-center gap-1.5">
                     Canal: <ChannelLogo canal={item.canal} size="xs" variant="logo" /> {canalLabel(item.canal)}
                   </span>
-                  <span>Recebido em: {dataHora.format(new Date(item.createdAt))}</span>
                   <Link href={`/vendas/pedidos/${item.id}`} className="font-semibold text-[#9B30D9] hover:underline">
                     Ver detalhe completo →
                   </Link>
@@ -276,7 +276,7 @@ export function PedidosLista() {
   return (
     <div>
       {/* Barra de escopo — empresa e canal na mesma linha, centralizada. */}
-      <div className="mb-4 flex flex-wrap items-center justify-center gap-2 rounded-full border border-border/60 bg-card/40 px-3.5 py-2 w-fit mx-auto">
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-2 w-fit mx-auto">
         {marcas.map((marca) => (
           <MarcaPill
             key={marca.brandId}
@@ -389,6 +389,7 @@ export function PedidosLista() {
                           #{item.providerOrderId ?? item.id.slice(0, 8)}
                         </span>
                         <span className="mt-1 block truncate text-sm text-muted-foreground">{item.clienteNome}</span>
+                        <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">{dataHora.format(new Date(item.createdAt))}</span>
                       </span>
                       <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
                         {dinheiro.format(Number(item.total))}
@@ -415,6 +416,7 @@ export function PedidosLista() {
                   <tr>
                     <th className="px-4 py-3 font-semibold">Pedido</th>
                     <th className="px-4 py-3 font-semibold">Cliente</th>
+                    <th className="px-4 py-3 font-semibold">Data da venda</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold">Total</th>
                   </tr>

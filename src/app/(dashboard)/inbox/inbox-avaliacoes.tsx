@@ -30,7 +30,7 @@ type CatalogResponse = {
 };
 
 type Avaliacao = CatalogItem & { brand: string; brandLabel: string };
-type FiltroNota = "todas" | "excelentes" | "atencao" | "sem_avaliacao";
+type FiltroNota = "todas" | "com_avaliacao" | "sem_avaliacao";
 
 const marcas = settingsConfig.mercadoLivre.brands;
 
@@ -203,6 +203,9 @@ function LinhaAnuncio({ item, aberta, onAlternar }: {
   const temOpinioes = item.opinioes.length > 0;
   const temDetalhe = temOpinioes || item.ratingLevels !== null;
   const baixa = item.ratingAverage !== null && item.ratingAverage < 4;
+  // opinioes já vem ordenada da mais nova pra mais antiga (ver provider), então
+  // a primeira é a última opinião recebida — dá pra mostrar sem expandir a linha.
+  const ultimaOpiniaoEm = temOpinioes ? formatarData(item.opinioes[0].criadaEm) : "";
 
   return (
     <div className="border-b border-border last:border-0">
@@ -223,6 +226,9 @@ function LinhaAnuncio({ item, aberta, onAlternar }: {
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               Canal: <ChannelLogo canal="mercadolivre" size="xs" variant="logo" />
             </span>
+            {ultimaOpiniaoEm && (
+              <span className="text-xs text-muted-foreground">Última opinião: {ultimaOpiniaoEm}</span>
+            )}
           </div>
         </div>
 
@@ -378,8 +384,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
     if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
     const termo = busca.trim().toLocaleLowerCase("pt-BR");
     if (termo && !item.title.toLocaleLowerCase("pt-BR").includes(termo) && !item.listingId.toLowerCase().includes(termo)) return false;
-    if (nota === "excelentes" && (item.ratingAverage ?? 0) < 4.5) return false;
-    if (nota === "atencao" && (item.ratingAverage === null || item.ratingAverage >= 4)) return false;
+    if (nota === "com_avaliacao" && item.ratingAverage === null) return false;
     if (nota === "sem_avaliacao" && item.ratingAverage !== null) return false;
     return true;
   }), [itens, busca, nota, marcasAtivas, canaisAtivos]);
@@ -458,9 +463,8 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
           <div className="flex flex-wrap items-center gap-2">
             <select value={nota} onChange={(e) => setNota(e.target.value as FiltroNota)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm">
               <option value="todas">Notas</option>
-              <option value="excelentes">4,5 ou mais</option>
-              <option value="atencao">Abaixo de 4,0</option>
-              <option value="sem_avaliacao">Sem avaliação</option>
+              <option value="com_avaliacao">Com avaliações</option>
+              <option value="sem_avaliacao">Sem avaliações</option>
             </select>
             <button
               type="button"

@@ -335,7 +335,11 @@ export function normalizarPedidoMercadoLivre(
     providerOrderId: String(order.id),
     canal: "mercadolivre",
     clienteExternalId: String(order.buyer.id),
-    clienteNome: order.buyer.nickname,
+    // O ML não dá o nome real do comprador — só o apelido mascarado
+    // (nickname, tipo "DR20241011101108"). O nome digitado no endereço de
+    // entrega é mais legível e, quando existe, é preferido; sem endereço
+    // resolvido, cai pro apelido mesmo.
+    clienteNome: endereco?.receiver_name || order.buyer.nickname,
     clienteEmail: order.buyer.email,
     clienteEndereco,
     status: order.status,
