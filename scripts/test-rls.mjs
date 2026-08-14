@@ -465,7 +465,7 @@ async function testCrossTenantOrderItemDenied() {
 }
 
 async function testCrossTenantStockBalanceDenied() {
-  await expectPolicyDenied("estoque_canal_saldo com produto de outro tenant", async (tx) => {
+  await expectDatabaseDenied("estoque_canal_saldo com produto de outro tenant", ["23503"], async (tx) => {
     const fixtures = await createRelationalFixtures(tx);
     await assumeRole(tx, "authenticated", fixtures.orgA, fixtures.adminA);
     const vinculo = await tx`
