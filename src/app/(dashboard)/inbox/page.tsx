@@ -7,7 +7,6 @@ import { InboxPerguntas } from "./inbox-perguntas";
 import { InboxAvaliacoes } from "./inbox-avaliacoes";
 import { FiltroEscopoBar } from "./filtro-escopo";
 import pagesConfig from "@/config/pages.json";
-import { getIcon } from "@/shared/config/icon-registry";
 
 type Aba = "conversas" | "perguntas" | "avaliacoes";
 const copy = pagesConfig.inbox;
@@ -72,7 +71,6 @@ export default function InboxPage() {
         {/* Tab bar */}
         <div className="flex gap-1 p-1 rounded-[0.875rem] bg-muted w-fit flex-shrink-0">
           {ABAS.map((a) => {
-            const Icon = getIcon(a.icon);
             const active = aba === a.id;
             return (
               <motion.button
@@ -89,7 +87,6 @@ export default function InboxPage() {
                     transition={{ type: "spring", stiffness: 380, damping: 32 }}
                   />
                 )}
-                <Icon size={15} strokeWidth={active ? 2.25 : 1.75} className="relative z-10" />
                 <span className="relative z-10">{a.label}</span>
               </motion.button>
             );

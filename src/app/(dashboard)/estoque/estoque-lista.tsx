@@ -126,102 +126,24 @@ function AlertCard({ label, valor, sub, icon: Icon, tom, ativo, onClick }: {
   );
 }
 
-/* ── Falha ao verificar o catálogo ──────────────────────────────
-   A causa mais comum é a fila da conexão única com o banco sob uso
-   simultâneo (ver A5/A29) — quase sempre passageira. Em vez de um bloco
-   branco vazio pedindo clique, o próprio card tenta de novo sozinho
-   (contagem regressiva visível, barra de progresso), e só pede ação do
-   usuário se a segunda tentativa também falhar. Tom âmbar, não vermelho:
-   o resto da tela (lista de produtos, filtros) continua funcionando —
-   isto não é uma falha grave, é só um resumo que não chegou ainda. */
-function FaixaErro({ onTentarNovamente, tentativasEsgotadas }: {
-  onTentarNovamente: () => void;
-  tentativasEsgotadas: boolean;
-}) {
-  const ESPERA_S = 8;
-  const [restante, setRestante] = useState(ESPERA_S);
-
-  useEffect(() => {
-    if (tentativasEsgotadas) return;
-    const inicio = Date.now();
-    const intervalo = window.setInterval(() => {
-      const passou = (Date.now() - inicio) / 1000;
-      const falta = Math.max(0, Math.ceil(ESPERA_S - passou));
-      setRestante(falta);
-      if (falta <= 0) {
-        window.clearInterval(intervalo);
-        onTentarNovamente();
-      }
-    }, 200);
-    return () => window.clearInterval(intervalo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tentativasEsgotadas]);
-
-  return (
-    <motion.div
-      data-tour="estoque-saude"
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mb-4 overflow-hidden rounded-[1.25rem] border px-5 py-4"
-      style={{ borderColor: "color-mix(in srgb, #B57A00 25%, transparent)", background: "color-mix(in srgb, #B57A00 6%, var(--card))" }}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full" style={{ background: "color-mix(in srgb, #B57A00 15%, transparent)" }}>
-            <AlertTriangle size={15} strokeWidth={2} style={{ color: "#B57A00" }} />
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-foreground">Resumo do catálogo não chegou a tempo</p>
-            <p className="text-xs text-muted-foreground">
-              {tentativasEsgotadas
-                ? "A lista de produtos abaixo continua normal — só esse resumo falhou."
-                : `Tentando de novo em ${restante}s — a lista de produtos abaixo já está funcionando.`}
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onTentarNovamente}
-          className="press-feedback shrink-0 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted"
-        >
-          Tentar agora
-        </button>
-      </div>
-      {!tentativasEsgotadas && (
-        <div className="mt-3 h-1 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
-          <motion.div
-            key={restante === ESPERA_S ? "reset" : "run"}
-            initial={{ scaleX: 1 }}
-            animate={{ scaleX: 0 }}
-            transition={{ duration: ESPERA_S, ease: "linear" }}
-            className="h-full origin-left rounded-full"
-            style={{ background: "#B57A00" }}
-          />
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
 /* ── Faixa de saúde ────────────────────────────────────────────
    Adaptativa de propósito: o espaço segue o problema. Com alerta ativo, os
    indicadores que têm valor viram cards; sem alerta, a faixa inteira colapsa
    numa linha e devolve a altura para a lista de produtos — que é o trabalho
    real da tela. Enquanto não sabemos os números, não afirmamos nada: mostrar
    "0" enquanto carrega é dizer "tudo em ordem" antes de conferir. */
-function FaixaSaude({ indicadores, erro, tentativas, onTentarNovamente, filtro, onFiltro }: {
+function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
   indicadores: Indicadores | null;
   erro: boolean;
-  tentativas: number;
-  onTentarNovamente: () => void;
   filtro: Filtro;
   onFiltro: (proximo: Filtro) => void;
 }) {
   const hc = copy.health;
 
-  if (erro) {
-    return <FaixaErro onTentarNovamente={onTentarNovamente} tentativasEsgotadas={tentativas >= 2} />;
-  }
+  // Falha em buscar o resumo (sem_minimo/abaixo_minimo/sem_estoque/parados)
+  // não trava a tela — a lista de produtos abaixo é o que importa de
+  // verdade, e ela já carrega independente disso. Sem card de erro aqui.
+  if (erro) return null;
 
   if (!indicadores) {
     return (
@@ -654,7 +576,6 @@ export function EstoqueLista() {
   const [sincronizando, setSincronizando] = useState(false);
   const [indicadores, setIndicadores] = useState<Indicadores | null>(null);
   const [erroIndicadores, setErroIndicadores] = useState(false);
-  const [tentativasIndicadores, setTentativasIndicadores] = useState(0);
   const [parados, setParados] = useState<Map<string, ProdutoParado>>(new Map());
   const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(new Set());
   const [minimoLote, setMinimoLote] = useState("");
@@ -736,17 +657,15 @@ export function EstoqueLista() {
       .then((resultado) => {
         setIndicadores(resultado);
         setErroIndicadores(false);
-        setTentativasIndicadores(0);
       })
       .catch(() => {
         // erro !== "ainda carregando": sem essa distinção o card ficava preso
         // no mesmo texto "Verificando…" mesmo depois de desistir, porque
-        // indicadores===null é o estado inicial E o de falha. O card de erro já
-        // tenta de novo sozinho (ver FaixaErro) — toast aqui seria redundante
-        // e ainda mandaria a instrução errada ("atualize a página").
+        // indicadores===null é o estado inicial E o de falha. Falha aqui é
+        // silenciosa — sem card de erro, sem toast; a lista de produtos
+        // (o que importa de verdade) não depende disso.
         setIndicadores(null);
         setErroIndicadores(true);
-        setTentativasIndicadores((n) => n + 1);
       });
   }, []);
 
@@ -981,8 +900,6 @@ export function EstoqueLista() {
       <FaixaSaude
         indicadores={indicadores}
         erro={erroIndicadores}
-        tentativas={tentativasIndicadores}
-        onTentarNovamente={() => carregarIndicadores(brandIdsArray, canaisArray)}
         filtro={filtro}
         onFiltro={trocarFiltro}
       />

@@ -168,41 +168,6 @@
       "disabled": "Bloqueados até homologação"
     }
   },
-  "adminAreas": {
-    "title": "Áreas administrativas",
-    "icon": "ShieldCheck",
-    "description": "Telas de controle que abrem fora das configurações.",
-    "items": [
-      {
-        "title": "Trilha de auditoria",
-        "icon": "ShieldCheck",
-        "description": "Consulte quem fez cada alteração, quando e por qual origem.",
-        "href": "/auditoria",
-        "action": "Abrir"
-      },
-      {
-        "title": "Solicitações LGPD",
-        "icon": "Shield",
-        "description": "Exportação, rejeição e anonimização com trilha de auditoria.",
-        "href": "/admin/lgpd",
-        "action": "Abrir"
-      },
-      {
-        "title": "Consumo de IA",
-        "icon": "Cpu",
-        "description": "Custo, execuções e corte suave de orçamento mensal por finalidade.",
-        "href": "/admin/consumo-ia",
-        "action": "Abrir"
-      },
-      {
-        "title": "Alertas de reposição",
-        "icon": "SlidersHorizontal",
-        "description": "Régua de estoque mínimo por marca e canal — dispara quando o saldo se aproxima do fim.",
-        "href": "/estoque/alertas",
-        "action": "Abrir"
-      }
-    ]
-  },
   "sections": {
     "acesso": { "title": "Organização e acesso", "icon": "Building2" },
     "canais": { "title": "Canais e integrações", "icon": "Plug" },
@@ -221,12 +186,5 @@
       "required": "Obrigatório para marketplaces",
       "placeholder": "Seller, shop ou conta externa"
     }
-  },
-  "healthLink": {
-    "title": "Saúde operacional",
-    "description": "Conectores, jobs, falhas, backups e prontidão usam dados reais no painel de saúde.",
-    "href": "/admin/saude",
-    "action": "Abrir painel de saúde",
-    "icon": "HeartPulse"
   }
 }

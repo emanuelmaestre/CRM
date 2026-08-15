@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, Boxes, Car, Check, Layers, Link2, Pencil, Ruler, X } from "lucide-react";
 import { actionEditarProduto } from "../../actions";
-import { CanalModal } from "../../canal-modal";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig } from "@/shared/config/brands";
@@ -41,7 +40,6 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
   const router = useRouter();
   const [data, setData] = useState(initialData);
   const [editando, setEditando] = useState(false);
-  const [canalModalAberto, setCanalModalAberto] = useState(false);
   const [pending, startTransition] = useTransition();
   const p = data.produto;
 
@@ -230,18 +228,6 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
         <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <h2 className="font-semibold">Canais vinculados</h2>
-            {canManage && (
-              <button
-                type="button"
-                onClick={() => setCanalModalAberto(true)}
-                title="Anunciar este produto em outro canal de venda (Shopee, TikTok Shop...)"
-                aria-label="Anunciar este produto em outro canal de venda"
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <Link2 size={13} strokeWidth={2} />
-                Vincular a outro canal
-              </button>
-            )}
           </div>
           <div className="divide-y divide-border">
             {data.canais.length === 0 ? (
@@ -266,13 +252,6 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
         </section>
       </div>
 
-      {canalModalAberto && (
-        <CanalModal
-          produtoId={p.id}
-          produtoNome={p.nome}
-          onClose={() => { setCanalModalAberto(false); router.refresh(); }}
-        />
-      )}
     </div>
   );
 }
