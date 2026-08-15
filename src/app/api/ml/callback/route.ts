@@ -121,10 +121,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (!tokenRes.ok) {
     const body = await tokenRes.text();
+    // O corpo cru da resposta fica no log do servidor, onde é útil para
+    // depurar — e só lá. Ecoá-lo na URL de redirect levava a resposta de um
+    // endpoint de token para o histórico do navegador, os logs de acesso e o
+    // cabeçalho Referer de qualquer link seguido depois. `ml_error` sozinho já
+    // rende a mensagem de settings.json ("Erro ao trocar o código por token"),
+    // que é o que o usuário consegue acionar; o detalhe técnico não era para
+    // ele em momento nenhum.
     console.error("[ml/callback] token exchange failed", tokenRes.status, body);
-    return NextResponse.redirect(
-      `${appUrl}/configuracoes?ml_error=token_exchange_failed&ml_detail=${encodeURIComponent(body.slice(0, 200))}`
-    );
+    return NextResponse.redirect(`${appUrl}/configuracoes?ml_error=token_exchange_failed`);
   }
 
   const tokens: MLTokenResponse = await tokenRes.json();
