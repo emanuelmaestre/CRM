@@ -3,7 +3,7 @@
 import { useState, useEffect, useTransition, useCallback, useRef, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package, Search } from "lucide-react";
+import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package, Search, RefreshCw, AlertCircle } from "lucide-react";
 import {
   actionListarConversas,
   actionListarMensagens,
@@ -20,6 +20,7 @@ import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
 
 type Conversa = Awaited<ReturnType<typeof actionListarConversas>>[number];
 type Mensagem = Awaited<ReturnType<typeof actionListarMensagens>>[number];
+type FiltroStatus = "pendentes" | "resolvidas" | "todas";
 
 const copy = pagesConfig.inbox;
 const conversationCopy = copy.conversation;
@@ -123,42 +124,46 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   const [mensagens, setMensagens]     = useState<Mensagem[]>([]);
   const [selecionada, setSelecionada] = useState<Conversa | null>(null);
   const [loading, setLoading]         = useState(true);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [erroCarregamento, setErroCarregamento] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [enviando, setEnviando]       = useState(false);
   const [texto, setTexto]             = useState("");
   const isMobile                      = useSyncExternalStore(assinarViewport, lerViewport, lerViewportNoServidor);
   const [busca, setBusca]             = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("pendentes");
   const [, startTransition]           = useTransition();
   const textareaRef                   = useRef<HTMLTextAreaElement>(null);
   const msgEndRef                     = useRef<HTMLDivElement>(null);
 
-  const carregarConversas = useCallback(() => {
-    startTransition(async () => {
-      setLoading(true);
-      try {
-        setConversas(await actionListarConversas());
-      } catch {
-        toast.error(copy.messages.conversationsError);
-      } finally {
-        setLoading(false);
-      }
+  const carregarConversas = useCallback(async (sincronizar = true) => {
+    setErroCarregamento(false);
+    try {
+      setConversas(await actionListarConversas());
+    } catch {
+      setErroCarregamento(true);
+      toast.error(copy.messages.conversationsError);
+      return;
+    } finally {
+      setLoading(false);
+    }
 
-      // Sincronização ativa: busca pedidos recentes na API do ML e importa
-      // mensagens pós-venda que ainda não chegaram por webhook. Roda depois
-      // de já exibir o que está salvo, pra não segurar a tela — se achar
-      // mensagem nova, a lista é atualizada silenciosamente em seguida.
-      try {
-        const { mensagensNovas } = await actionSincronizarConversas();
-        if (mensagensNovas > 0) {
-          setConversas(await actionListarConversas());
-        }
-      } catch (error) {
-        console.error("[inbox] sincronização de conversas falhou", error);
-      }
-    });
+    if (!sincronizar) return;
+    setSincronizando(true);
+    try {
+      const { mensagensNovas } = await actionSincronizarConversas();
+      if (mensagensNovas > 0) setConversas(await actionListarConversas());
+    } catch (error) {
+      console.error("[inbox] sincronização de conversas falhou", error);
+    } finally {
+      setSincronizando(false);
+    }
   }, []);
 
-  useEffect(() => { carregarConversas(); }, [carregarConversas]);
+  useEffect(() => {
+    const task = window.setTimeout(() => void carregarConversas(), 0);
+    return () => window.clearTimeout(task);
+  }, [carregarConversas]);
 
   // Reporta as contagens por empresa/canal pra barra de escopo compartilhada
   // (que vive em page.tsx e soma com as outras abas) toda vez que a lista
@@ -177,11 +182,21 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   const semFiltro = marcasAtivas.size === 0 && canaisAtivos.size === 0;
 
   const conversasFiltradas = conversas.filter((c) => {
+    const encerrada = c.status === "resolvida" || c.status === "arquivada";
+    if (filtroStatus === "pendentes" && encerrada) return false;
+    if (filtroStatus === "resolvidas" && !encerrada) return false;
     if (marcasAtivas.size > 0 && !marcasAtivas.has(c.brandSlug ?? "")) return false;
     if (canaisAtivos.size > 0 && !canaisAtivos.has(c.canalTipo ?? "")) return false;
-    if (busca.trim() && !formatarContato(c).toLowerCase().includes(busca.trim().toLowerCase())) return false;
+    const termo = busca.trim().toLocaleLowerCase("pt-BR");
+    const pesquisavel = [
+      formatarContato(c), c.produtoResumo, formatarPacote(c.externalId), c.ultimaMensagem?.conteudo,
+    ].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR");
+    if (termo && !pesquisavel.includes(termo)) return false;
     return true;
   });
+
+  const totalPendentes = conversas.filter((c) => c.status !== "resolvida" && c.status !== "arquivada").length;
+  const totalResolvidas = conversas.length - totalPendentes;
 
   useEffect(() => {
     msgEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -247,6 +262,19 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
         <Loader2 size={16} className="animate-spin" />
         {copy.loadingConversations}
       </motion.div>
+    );
+  }
+
+  if (erroCarregamento) {
+    return (
+      <div className="rounded-[1.25rem] bg-card p-8 shadow-[0_2px_16px_rgba(14,15,19,.07)] text-center">
+        <AlertCircle className="mx-auto mb-3 text-destructive" size={24} />
+        <p className="font-semibold text-foreground">Não foi possível carregar as conversas</p>
+        <p className="mt-1 text-sm text-muted-foreground">Verifique a conexão e tente novamente.</p>
+        <button type="button" onClick={() => { setLoading(true); void carregarConversas(false); }} className="mt-4 min-h-11 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted">
+          Tentar novamente
+        </button>
+      </div>
     );
   }
 
@@ -484,9 +512,21 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
           <p className="text-sm font-semibold text-foreground whitespace-nowrap">
             {conversasFiltradas.length} {conversasFiltradas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
           </p>
-          <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded-full whitespace-nowrap">
-            {conversationCopy.channelSummary}
-          </span>
+          <button type="button" onClick={() => void carregarConversas()} disabled={sincronizando} title="Atualizar conversas" aria-label="Atualizar conversas" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+            <RefreshCw size={14} className={sincronizando ? "animate-spin" : ""} />
+          </button>
+        </div>
+
+        <div className="flex gap-1 border-b border-border bg-muted/10 px-3 py-2">
+          {([
+            ["pendentes", "Pendentes", totalPendentes],
+            ["resolvidas", "Resolvidas", totalResolvidas],
+            ["todas", "Todas", conversas.length],
+          ] as const).map(([valor, rotulo, total]) => (
+            <button key={valor} type="button" onClick={() => setFiltroStatus(valor)} className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${filtroStatus === valor ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+              {rotulo} <span className="tabular-nums opacity-75">{total}</span>
+            </button>
+          ))}
         </div>
 
         <div className="px-3 py-2.5 border-b border-border">
@@ -495,7 +535,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por contato…"
+              placeholder="Buscar contato, produto ou mensagem…"
               className="w-full h-9 rounded-lg border border-border bg-muted/40 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow]"
             />
           </div>
@@ -557,6 +597,11 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                   <div className="flex items-center gap-1.5 mt-1">
                     <StatusPill status={c.status} />
                   </div>
+                  {c.ultimaMensagem && (
+                    <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                      {c.ultimaMensagem.direcao === "saida" ? "Você: " : ""}{c.ultimaMensagem.conteudo}
+                    </p>
+                  )}
                   {(c.clienteNomeCompleto || c.clienteNome || c.remetenteNome) && (
                     <p className="flex items-center gap-1 text-[10px] text-muted-foreground truncate mt-1">
                       <Package size={10} strokeWidth={2} className="flex-shrink-0 opacity-70" />

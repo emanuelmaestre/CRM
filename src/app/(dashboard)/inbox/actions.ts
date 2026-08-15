@@ -15,7 +15,7 @@ import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
 
 export async function actionListarConversas(opts: { brandId?: string; status?: string } = {}) {
   const ctx = await getCrudContext();
-  return listarConversas(ctx.orgId, { ...opts, limit: 60 });
+  return listarConversas(ctx.orgId, { ...opts, limit: 200 });
 }
 
 export async function actionSincronizarConversas() {

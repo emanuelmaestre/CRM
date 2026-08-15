@@ -79,12 +79,13 @@ export async function receberMensagem(input: {
       const patch: Partial<typeof conversa.$inferInsert> = {};
       if (novoStatus !== conversaRow.status) patch.status = novoStatus;
       if (!conversaRow.clienteId && input.clienteId) patch.clienteId = input.clienteId;
-      if (Object.keys(patch).length > 0) {
-        await tx.update(conversa).set({ ...patch, updatedAt: new Date() }).where(and(
-          eq(conversa.id, conversaRow.id),
-          eq(conversa.orgId, input.orgId),
-        ));
-      }
+      // Mesmo sem mudança de status/cliente, a conversa precisa subir para o
+      // topo quando recebe uma mensagem nova. Antes updatedAt só mudava ao
+      // reabrir a conversa, deixando atendimentos ativos fora de ordem.
+      await tx.update(conversa).set({ ...patch, updatedAt: new Date() }).where(and(
+        eq(conversa.id, conversaRow.id),
+        eq(conversa.orgId, input.orgId),
+      ));
     } else {
       const [nova] = await tx.insert(conversa).values({
         orgId: input.orgId,
@@ -248,17 +249,27 @@ export async function listarConversas(orgId: string, opts: { brandId?: string; s
     .orderBy(desc(conversa.updatedAt))
     .limit(opts.limit ?? 50);
 
-  if (conversas.length === 0) return conversas.map((c) => ({ ...c, remetenteNome: undefined as string | undefined, produtoResumo: undefined as string | undefined }));
+  if (conversas.length === 0) return conversas.map((c) => ({
+    ...c,
+    remetenteNome: undefined as string | undefined,
+    produtoResumo: undefined as string | undefined,
+    ultimaMensagem: undefined as { conteudo: string; direcao: string; createdAt: Date } | undefined,
+  }));
 
   // Sem cliente vinculado ainda (comprador sem pedido sincronizado), caímos
   // no nome capturado direto do canal na hora da mensagem (ver
   // buscarNomeCompradorML no webhook e buyer.nickname na sincronização ativa).
-  const mensagensEntrada = await db
-    .select({ conversaId: mensagem.conversaId, meta: mensagem.meta })
+  const mensagensDaLista = await db
+    .select({
+      conversaId: mensagem.conversaId,
+      direcao: mensagem.direcao,
+      conteudo: mensagem.conteudo,
+      meta: mensagem.meta,
+      createdAt: mensagem.createdAt,
+    })
     .from(mensagem)
     .where(and(
       eq(mensagem.orgId, orgId),
-      eq(mensagem.direcao, "entrada"),
       inArray(mensagem.conversaId, conversas.map((c) => c.id)),
     ))
     .orderBy(mensagem.createdAt);
@@ -267,21 +278,28 @@ export async function listarConversas(orgId: string, opts: { brandId?: string; s
   // com o SKU do nosso Estoque (que pode estar desatualizado ou ausente).
   const nomePorConversa = new Map<string, string>();
   const produtoResumoPorConversa = new Map<string, string>();
-  for (const m of mensagensEntrada) {
+  const ultimaMensagemPorConversa = new Map<string, { conteudo: string; direcao: string; createdAt: Date }>();
+  for (const m of mensagensDaLista) {
     const meta = m.meta as { remetenteNome?: string; produtos?: string[] } | null;
-    if (meta?.remetenteNome) nomePorConversa.set(m.conversaId, meta.remetenteNome);
-    if (meta?.produtos?.length) {
+    if (m.direcao === "entrada" && meta?.remetenteNome) nomePorConversa.set(m.conversaId, meta.remetenteNome);
+    if (m.direcao === "entrada" && meta?.produtos?.length) {
       produtoResumoPorConversa.set(
         m.conversaId,
         meta.produtos.length > 1 ? `${meta.produtos[0]} +${meta.produtos.length - 1}` : meta.produtos[0],
       );
     }
+    ultimaMensagemPorConversa.set(m.conversaId, {
+      conteudo: m.conteudo,
+      direcao: m.direcao,
+      createdAt: m.createdAt,
+    });
   }
 
   return conversas.map((c) => ({
     ...c,
     remetenteNome: nomePorConversa.get(c.id),
     produtoResumo: produtoResumoPorConversa.get(c.id),
+    ultimaMensagem: ultimaMensagemPorConversa.get(c.id),
   }));
 }
 
@@ -347,12 +365,15 @@ export async function enviarMensagem(
     })
     .returning();
 
-  if (conversaRow.conversa.status === "nova" || conversaRow.conversa.status === "aguardando_cliente") {
-    await db
-      .update(conversa)
-      .set({ status: "em_atendimento", updatedAt: new Date() })
-      .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)));
-  }
+  await db
+    .update(conversa)
+    .set({
+      status: conversaRow.conversa.status === "nova" || conversaRow.conversa.status === "aguardando_cliente"
+        ? "em_atendimento"
+        : conversaRow.conversa.status,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(conversa.id, conversaId), eq(conversa.orgId, ctx.orgId)));
 
   return { mensagemId: novaMensagem.id };
 }

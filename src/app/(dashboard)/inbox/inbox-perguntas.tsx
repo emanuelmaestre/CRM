@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap } from "lucide-react";
+import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -87,6 +87,8 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
   const [enviando, setEnviando]         = useState(false);
   const [perguntas, setPerguntas]       = useState<Pergunta[]>([]);
   const [carregando, setCarregando]     = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState(false);
+  const [busca, setBusca] = useState("");
 
   // Sidebar resize — plataforma e empresa agora filtram pela barra de escopo
   // compartilhada (page.tsx), então o que sobrou aqui é só a largura.
@@ -94,13 +96,20 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
   const dragState = useRef<{ startX: number; startW: number } | null>(null);
 
   const carregarPerguntas = useCallback(() => {
+    setErroCarregamento(false);
     actionListarPerguntas()
       .then((itens) => setPerguntas(itens.map(mapearPergunta)))
-      .catch(() => toast.error(copy.loadError ?? "Não foi possível carregar as perguntas."))
+      .catch(() => {
+        setErroCarregamento(true);
+        toast.error(copy.loadError ?? "Não foi possível carregar as perguntas.");
+      })
       .finally(() => setCarregando(false));
   }, []);
 
-  useEffect(() => { carregarPerguntas(); }, [carregarPerguntas]);
+  useEffect(() => {
+    const task = window.setTimeout(carregarPerguntas, 0);
+    return () => window.clearTimeout(task);
+  }, [carregarPerguntas]);
 
   function startResize(e: React.MouseEvent) {
     e.preventDefault();
@@ -138,8 +147,14 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
     if (filtroStatus !== "todos" && p.status !== filtroStatus) return false;
     if (marcasAtivas.size > 0 && !marcasAtivas.has(p.brandSlug ?? "")) return false;
     if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
+    const termo = busca.trim().toLocaleLowerCase("pt-BR");
+    const pesquisavel = `${p.cliente} ${p.produto} ${p.pergunta} ${p.resposta ?? ""}`.toLocaleLowerCase("pt-BR");
+    if (termo && !pesquisavel.includes(termo)) return false;
     return true;
   });
+
+  const pendentes = perguntas.filter((p) => p.status === "pendente").length;
+  const respondidas = perguntas.length - pendentes;
 
   const limit = selecionada
     ? PLAT[selecionada.plataforma].charLimit
@@ -181,7 +196,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
         className={`${selecionada ? "hidden lg:flex" : "flex"} relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
       >
             {/* Status filter row */}
-            <div className="flex gap-1 px-3 py-2 border-b border-border bg-muted/10">
+            <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-muted/10">
               {(["todos", "pendente", "respondida"] as const).map((s) => (
                 <motion.button
                   key={s}
@@ -193,9 +208,19 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {copy.statusFilters[s]}
+                  {copy.statusFilters[s]} <span className="tabular-nums opacity-70">{s === "todos" ? perguntas.length : s === "pendente" ? pendentes : respondidas}</span>
                 </motion.button>
               ))}
+              <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} disabled={carregando} title="Atualizar perguntas" aria-label="Atualizar perguntas" className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+                <RefreshCw size={14} className={carregando ? "animate-spin" : ""} />
+              </button>
+            </div>
+
+            <div className="border-b border-border px-3 py-2.5">
+              <label className="relative block">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, produto ou pergunta…" className="h-9 w-full rounded-lg border border-border bg-muted/40 pl-8 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)]" />
+              </label>
             </div>
 
 
@@ -205,6 +230,12 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 {carregando ? (
                   <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="divide-y divide-border">
                     <SkeletonRow /><SkeletonRow /><SkeletonRow />
+                  </motion.div>
+                ) : erroCarregamento ? (
+                  <motion.div key="erro" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center px-4 py-12 text-center">
+                    <AlertCircle size={24} className="mb-2 text-destructive" />
+                    <p className="text-sm font-semibold text-foreground">Não foi possível carregar as perguntas</p>
+                    <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} className="mt-3 min-h-11 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted">Tentar novamente</button>
                   </motion.div>
                 ) : semFiltro ? (
                   <motion.div

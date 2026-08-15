@@ -76,6 +76,27 @@ describe.sequential("inbox — revisão dos fluxos de mensagem", () => {
     expect(mensagens).toHaveLength(2);
     // O service devolve do mais novo para o mais antigo.
     expect(mensagens[0].conteudo).toBe("Segunda");
+
+    const conversas = await listarConversas(ids.org, { brandId: ids.brand });
+    const conversa = conversas.find((item) => item.id === conversaId);
+    expect(conversa?.ultimaMensagem).toMatchObject({
+      conteudo: "Segunda",
+      direcao: "entrada",
+    });
+  });
+
+  it("move a conversa ativa para o topo quando chega uma nova mensagem", async () => {
+    const primeiraId = `ml-pack:${randomUUID()}`;
+    const segundaId = `ml-pack:${randomUUID()}`;
+    const primeira = await receberChat("Conversa mais antiga", primeiraId);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await receberChat("Outra conversa", segundaId);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await receberChat("Nova mensagem na primeira", primeiraId);
+
+    const conversas = await listarConversas(ids.org, { brandId: ids.brand });
+    expect(conversas[0].id).toBe(primeira.conversaId);
+    expect(conversas[0].ultimaMensagem?.conteudo).toBe("Nova mensagem na primeira");
   });
 
   it("é idempotente: o mesmo providerMessageId não duplica mensagem", async () => {
