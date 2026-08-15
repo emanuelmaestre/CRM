@@ -6,14 +6,7 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   cancelarPedido, contarPedidosPorCanal, contarPedidosPorMarca, listarPedidosDetalhados, resumirPedidos,
 } from "@/modules/vendas/application/pedidos.service";
-import type { PedidoStatus } from "@/modules/vendas/domain/state-machine";
-
-const BrandIdSchema = z.string().uuid();
-const CanalVendaSchema = z.enum(["mercadolivre", "shopee", "tiktokshop"]);
-const PedidoStatusSchema = z.enum([
-  "criado", "pago", "separado", "enviado", "entregue",
-  "avaliacao_solicitada", "concluido", "cancelado", "devolvido",
-]);
+import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 
 /* ── Pedidos ──────────────────────────────────────────────────────────── */
 
@@ -27,19 +20,12 @@ export async function actionListarPedidosDetalhados(opts: {
   offset?: number;
 } = {}) {
   const ctx = await getCrudContext();
-  const filtros = {
-    brandIds: opts.brandIds?.length ? z.array(BrandIdSchema).parse(opts.brandIds) : undefined,
-    canal: opts.canal ? CanalVendaSchema.parse(opts.canal) : undefined,
-    status: opts.status ? (PedidoStatusSchema.parse(opts.status) as PedidoStatus) : undefined,
-    busca: z.string().trim().max(100).optional().parse(opts.busca || undefined),
-    inicio: opts.inicio ? z.coerce.date().parse(opts.inicio) : undefined,
-    fim: opts.fim ? z.coerce.date().parse(opts.fim) : undefined,
-  };
+  const { offset, ...filtros } = normalizarConsultaPedidos(opts);
   const [result, resumo] = await Promise.all([
     listarPedidosDetalhados(ctx, {
       ...filtros,
       limit: 50,
-      offset: Math.max(0, Math.trunc(opts.offset ?? 0)),
+      offset,
     }),
     resumirPedidos(ctx, filtros),
   ]);
@@ -55,14 +41,7 @@ export async function actionListarPedidosParaPdf(opts: {
   fim?: string;
 } = {}) {
   const ctx = await getCrudContext();
-  const filtros = {
-    brandIds: opts.brandIds?.length ? z.array(BrandIdSchema).parse(opts.brandIds) : undefined,
-    canal: opts.canal ? CanalVendaSchema.parse(opts.canal) : undefined,
-    status: opts.status ? (PedidoStatusSchema.parse(opts.status) as PedidoStatus) : undefined,
-    busca: z.string().trim().max(100).optional().parse(opts.busca || undefined),
-    inicio: opts.inicio ? z.coerce.date().parse(opts.inicio) : undefined,
-    fim: opts.fim ? z.coerce.date().parse(opts.fim) : undefined,
-  };
+  const filtros = normalizarConsultaPedidos(opts);
   const [result, resumo] = await Promise.all([
     listarPedidosDetalhados(ctx, { ...filtros, limit: 5000, offset: 0 }),
     resumirPedidos(ctx, filtros),
@@ -72,12 +51,14 @@ export async function actionListarPedidosParaPdf(opts: {
 
 export async function actionContarPedidosPorMarca(canal?: string) {
   const ctx = await getCrudContext();
-  return contarPedidosPorMarca(ctx, { canal: canal ? CanalVendaSchema.parse(canal) : undefined });
+  const { canal: canalValidado } = normalizarConsultaPedidos({ canal });
+  return contarPedidosPorMarca(ctx, { canal: canalValidado });
 }
 
 export async function actionContarPedidosPorCanal(brandIds?: string[]) {
   const ctx = await getCrudContext();
-  return contarPedidosPorCanal(ctx, { brandIds: brandIds?.length ? z.array(BrandIdSchema).parse(brandIds) : undefined });
+  const { brandIds: marcasValidadas } = normalizarConsultaPedidos({ brandIds });
+  return contarPedidosPorCanal(ctx, { brandIds: marcasValidadas });
 }
 
 export async function actionCancelarPedido(pedidoId: string, motivo: string) {

@@ -46,19 +46,17 @@ export function assertPerfil(
   checkPerfil(ctx.perfil, allowed);
 }
 
-async function registrarAuditoria(opts: {
-  orgId: string;
-  userId?: string;
+async function registrarAuditoria(ctx: CrudContext, opts: {
   entidade: string;
   entidadeId: string;
   acao: string;
   antes?: unknown;
   depois?: unknown;
 }) {
-  await db.insert(auditLog).values({
-    orgId: opts.orgId,
-    autorId: opts.userId,
-    autorTipo: opts.userId ? "usuario" : "sistema",
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    autorId: ctx.userId,
+    autorTipo: ctx.userId ? "usuario" : "sistema",
     entidade: opts.entidade,
     entidadeId: opts.entidadeId,
     acao: opts.acao,
@@ -68,6 +66,13 @@ async function registrarAuditoria(opts: {
 }
 
 type Row = Record<string, unknown>;
+
+function condicoesDoTenant(cols: Record<string, SQL>, ctx: CrudContext, softDelete: boolean, id?: string): SQL[] {
+  const conditions: SQL[] = [eq(cols.orgId as never, ctx.orgId)];
+  if (id) conditions.unshift(eq(cols.id as never, id));
+  if (softDelete && cols.deletedAt) conditions.push(isNull(cols.deletedAt as never));
+  return conditions;
+}
 
 export function createCrudFactory(options: CrudFactoryOptions) {
   const { table, entityName, allowedPerfis = {}, softDelete = false } = options;
@@ -83,9 +88,7 @@ export function createCrudFactory(options: CrudFactoryOptions) {
         .values({ ...data, orgId: ctx.orgId })
         .returning() as Row[];
 
-      await registrarAuditoria({
-        orgId: ctx.orgId,
-        userId: ctx.userId,
+      await registrarAuditoria(ctx, {
         entidade: entityName,
         entidadeId: created.id as string,
         acao: "create",
@@ -98,11 +101,7 @@ export function createCrudFactory(options: CrudFactoryOptions) {
     async getById(ctx: CrudContext, id: string): Promise<Row | null> {
       checkPerfil(ctx.perfil, allowedPerfis.read);
 
-      const conditions: SQL[] = [
-        eq(cols.id as never, id),
-        eq(cols.orgId as never, ctx.orgId),
-      ];
-      if (softDelete && cols.deletedAt) conditions.push(isNull(cols.deletedAt as never));
+      const conditions = condicoesDoTenant(cols, ctx, softDelete, id);
 
       const rows = await ctx.db
         .select()
@@ -117,8 +116,7 @@ export function createCrudFactory(options: CrudFactoryOptions) {
 
       const { limit = 20, offset = 0, filters = [] } = opts;
 
-      const baseConditions: SQL[] = [eq(cols.orgId as never, ctx.orgId)];
-      if (softDelete && cols.deletedAt) baseConditions.push(isNull(cols.deletedAt as never));
+      const baseConditions = condicoesDoTenant(cols, ctx, softDelete);
 
       const allConditions = [...baseConditions, ...filters];
 
@@ -145,10 +143,7 @@ export function createCrudFactory(options: CrudFactoryOptions) {
     async update(ctx: CrudContext, id: string, data: Row): Promise<Row> {
       checkPerfil(ctx.perfil, allowedPerfis.update);
 
-      const conditions: SQL[] = [
-        eq(cols.id as never, id),
-        eq(cols.orgId as never, ctx.orgId),
-      ];
+      const conditions = condicoesDoTenant(cols, ctx, false, id);
 
       const [before] = await ctx.db
         .select()
@@ -163,9 +158,7 @@ export function createCrudFactory(options: CrudFactoryOptions) {
         .where(and(...conditions))
         .returning() as Row[];
 
-      await registrarAuditoria({
-        orgId: ctx.orgId,
-        userId: ctx.userId,
+      await registrarAuditoria(ctx, {
         entidade: entityName,
         entidadeId: id,
         acao: "update",
@@ -181,19 +174,14 @@ export function createCrudFactory(options: CrudFactoryOptions) {
 
       if (!softDelete) throw new Error(`${entityName} não suporta soft delete.`);
 
-      const conditions: SQL[] = [
-        eq(cols.id as never, id),
-        eq(cols.orgId as never, ctx.orgId),
-      ];
+      const conditions = condicoesDoTenant(cols, ctx, false, id);
 
       await ctx.db
         .update(table)
         .set({ deletedAt: new Date() })
         .where(and(...conditions));
 
-      await registrarAuditoria({
-        orgId: ctx.orgId,
-        userId: ctx.userId,
+      await registrarAuditoria(ctx, {
         entidade: entityName,
         entidadeId: id,
         acao: "soft_delete",

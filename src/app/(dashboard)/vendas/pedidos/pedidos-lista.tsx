@@ -14,7 +14,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
-import { springs } from "@/shared/design-system/motion-variants";
+import { escalonamento, fadeUp, springs, variantes } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -414,19 +414,25 @@ export function PedidosLista() {
         </motion.div>
       ) : (
       <div className="flex flex-col gap-4">
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo das vendas filtradas">
+      <motion.section
+        variants={escalonamento(reduzir)}
+        initial="hidden"
+        animate="show"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
+        aria-label="Resumo das vendas filtradas"
+      >
         {[
           { label: "Faturamento", valor: dinheiro.format(resumo.faturamento), icon: CircleDollarSign, cor: "var(--success)" },
           { label: "Pedidos", valor: resumo.totalPedidos.toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
           { label: "Ticket médio", valor: dinheiro.format(resumo.ticketMedio), icon: ReceiptText, cor: "var(--acento-2)" },
           { label: "Cancelados/devolvidos", valor: resumo.cancelados.toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
         ].map((card) => (
-          <div key={card.label} className="rounded-[1.15rem] bg-card p-4 shadow-[0_2px_14px_rgba(14,15,19,.06)]">
+          <motion.div key={card.label} variants={variantes(reduzir, fadeUp)} whileHover={reduzir ? undefined : { y: -2 }} className="rounded-[1.15rem] bg-card p-4 shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-shadow hover:shadow-[0_7px_22px_rgba(14,15,19,.09)]">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"><card.icon size={15} style={{ color: card.cor }} />{card.label}</div>
             <p className="mt-2 text-xl font-black tabular-nums text-foreground">{card.valor}</p>
-          </div>
+          </motion.div>
         ))}
-      </section>
+      </motion.section>
       <motion.section
         initial={reduzir ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

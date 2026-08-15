@@ -7,6 +7,18 @@ import { despacharEvento, persistirEvento } from "@/shared/events";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
 import { CreateProdutoSchema, UpdateProdutoSchema } from "../domain/entities";
+import {
+  classificarEstoqueComRegua,
+  minimoPelaRegua,
+  type ReguaEstoque,
+} from "../domain/regua-estoque";
+
+export {
+  FAIXAS_GIRO_PADRAO,
+  minimoPelaRegua,
+  type FaixaGiro,
+  type ReguaEstoque,
+} from "../domain/regua-estoque";
 
 const DIAS_SEM_VENDA_ENCALHE = 30;
 const LIMITE_RISCO_ENCALHE = 30;
@@ -441,12 +453,6 @@ export async function definirEstoqueMinimoEmLote(
 
 /** Faixa de giro → estoque mínimo. `vendaMensalMinima` é o piso da faixa; o
  *  primeiro piso que o giro do SKU alcança define o mínimo dele. */
-export type FaixaGiro = { vendaMensalMinima: number; minimo: number };
-
-export type ReguaEstoque =
-  | { tipo: "fixo"; minimo: number }
-  | { tipo: "giro"; faixas: FaixaGiro[] };
-
 export type EscopoRegua = {
   brandId?: string;
   canalTipo?: string;
@@ -461,34 +467,6 @@ const MESES_JANELA_GIRO = DIAS_JANELA_GIRO / 30;
  *  de ser revisável e só engorda o payload. Os contadores continuam vindo do
  *  escopo inteiro. */
 const LIMITE_PREVIA_REGUA = 200;
-
-export const FAIXAS_GIRO_PADRAO: FaixaGiro[] = [
-  { vendaMensalMinima: 10, minimo: 12 },
-  { vendaMensalMinima: 3, minimo: 4 },
-  { vendaMensalMinima: 1, minimo: 2 },
-  { vendaMensalMinima: 0, minimo: 0 },
-];
-
-export function minimoPelaRegua(regua: ReguaEstoque, giroMensal: number): number {
-  if (regua.tipo === "fixo") return regua.minimo;
-  // As faixas podem chegar em qualquer ordem; a decisão precisa ser
-  // determinística, então ordenamos aqui em vez de confiar no payload.
-  const faixas = [...regua.faixas].sort((a, b) => b.vendaMensalMinima - a.vendaMensalMinima);
-  for (const faixa of faixas) {
-    if (giroMensal >= faixa.vendaMensalMinima) return faixa.minimo;
-  }
-  return 0;
-}
-
-/** Mesma exclusividade de `condicaoEstado`: um SKU zerado é "sem estoque", nunca
- *  também "abaixo do mínimo" — se a prévia divergisse disso, os números do
- *  wizard não bateriam com os da tela depois de aplicar. */
-function estadoComRegua(saldo: number, minimo: number) {
-  if (saldo <= 0) return "sem_estoque" as const;
-  if (minimo > 0 && saldo <= minimo) return "abaixo_minimo" as const;
-  if (minimo <= 0) return "sem_alerta" as const;
-  return "ok" as const;
-}
 
 function filtrosEscopo(ctx: CrudContext, escopo: EscopoRegua): SQL[] {
   const filters: SQL[] = [eq(produto.orgId, ctx.orgId), isNull(produto.deletedAt)];
@@ -550,7 +528,7 @@ export async function simularReguaEstoque(
     else resumo.semAlerta += 1;
     if (minimoProposto !== alvo.estoqueMinimo) resumo.alterados += 1;
 
-    const estado = estadoComRegua(saldo, minimoProposto);
+    const estado = classificarEstoqueComRegua(saldo, minimoProposto);
     if (estado === "sem_estoque") resumo.semEstoque += 1;
     if (estado === "abaixo_minimo") {
       resumo.alertariam += 1;
