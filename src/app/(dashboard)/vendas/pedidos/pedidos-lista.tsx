@@ -4,30 +4,42 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown } from "lucide-react";
+import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, ReceiptText, Ban } from "lucide-react";
 import {
-  actionListarPedidosDetalhados, actionContarPedidosPorMarca, actionContarPedidosPorCanal,
+  actionListarPedidosDetalhados, actionListarPedidosParaPdf, actionContarPedidosPorMarca, actionContarPedidosPorCanal,
 } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
+import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
 import { springs } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { exportarPedidosPdf } from "./exportar-pdf";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
 type Marca = Awaited<ReturnType<typeof actionContarPedidosPorMarca>>[number];
 type Canal = Awaited<ReturnType<typeof actionContarPedidosPorCanal>>[number];
+type Resumo = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["resumo"];
 
 const copy = pagesConfig.pedidos;
 const PAGINA = 50;
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+const resumoInicial: Resumo = { totalPedidos: 0, faturamento: 0, ticketMedio: 0, cancelados: 0, freteTotal: 0, descontosTotal: 0 };
+
+function inicioDoDia(data: string): string | undefined {
+  return data ? `${data}T00:00:00-03:00` : undefined;
+}
+
+function fimDoDia(data: string): string | undefined {
+  return data ? `${data}T23:59:59.999-03:00` : undefined;
+}
 
 const CORES_STATUS: Record<string, string> = {
   criado: "var(--muted-foreground)",
@@ -202,11 +214,17 @@ export function PedidosLista() {
   const reduzir = useReducedMotion();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [total, setTotal] = useState(0);
+  const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [loading, setLoading] = useState(true);
   const [carregandoMais, setCarregandoMais] = useState(false);
-  const [brandId, setBrandId] = useState("");
+  const [brandIds, setBrandIds] = useState<string[]>([]);
   const [canal, setCanal] = useState<CanalVenda | "">("");
   const [status, setStatus] = useState("");
+  const [busca, setBusca] = useState("");
+  const [buscaAplicada, setBuscaAplicada] = useState("");
+  const [dataInicial, setDataInicial] = useState("");
+  const [dataFinal, setDataFinal] = useState("");
+  const [exportando, setExportando] = useState(false);
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [canais, setCanais] = useState<Canal[]>([]);
   const [expandido, setExpandido] = useState<string | null>(null);
@@ -218,22 +236,31 @@ export function PedidosLista() {
   }, [canal]);
 
   useEffect(() => {
-    actionContarPedidosPorCanal(brandId || undefined).then(setCanais).catch(() => setCanais([]));
-  }, [brandId]);
+    actionContarPedidosPorCanal(brandIds.length ? brandIds : undefined).then(setCanais).catch(() => setCanais([]));
+  }, [brandIds]);
 
-  const carregar = useCallback((marca?: string, canalAtual?: string, statusAtual?: string) => {
+  useEffect(() => {
+    const task = window.setTimeout(() => setBuscaAplicada(busca.trim()), 350);
+    return () => window.clearTimeout(task);
+  }, [busca]);
+
+  const carregar = useCallback((marcas?: string[], canalAtual?: string, statusAtual?: string, buscaAtual?: string, inicio?: string, fim?: string) => {
     const currentRequest = ++requestId.current;
     startTransition(async () => {
       setLoading(true);
       try {
         const res = await actionListarPedidosDetalhados({
-          brandId: marca || undefined,
+          brandIds: marcas?.length ? marcas : undefined,
           canal: canalAtual || undefined,
           status: statusAtual || undefined,
+          busca: buscaAtual || undefined,
+          inicio: inicioDoDia(inicio ?? ""),
+          fim: fimDoDia(fim ?? ""),
         });
         if (currentRequest !== requestId.current) return;
         setPedidos(res.data);
         setTotal(res.total);
+        setResumo(res.resumo);
       } catch {
         if (currentRequest !== requestId.current) return;
         toast.error(copy.loadError);
@@ -246,20 +273,24 @@ export function PedidosLista() {
   // Sem marca ou canal escolhidos não há o que carregar: a tela mostra o
   // convite, e as contagens de marca/canal (rápidas) já estão aquecendo por
   // trás para quando a escolha acontecer.
-  const escopoDefinido = brandId !== "" || canal !== "";
+  const escopoDefinido = brandIds.length > 0 || canal !== "";
 
   useEffect(() => {
     if (!escopoDefinido) return;
-    carregar(brandId, canal, status);
-  }, [brandId, canal, status, carregar, escopoDefinido]);
+    carregar(brandIds, canal, status, buscaAplicada, dataInicial, dataFinal);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandIds.join(","), canal, status, buscaAplicada, dataInicial, dataFinal, carregar, escopoDefinido]);
 
   async function carregarMais() {
     setCarregandoMais(true);
     try {
       const res = await actionListarPedidosDetalhados({
-        brandId: brandId || undefined,
+        brandIds: brandIds.length ? brandIds : undefined,
         canal: canal || undefined,
         status: status || undefined,
+        busca: buscaAplicada || undefined,
+        inicio: inicioDoDia(dataInicial),
+        fim: fimDoDia(dataFinal),
         offset: pedidos.length,
       });
       setPedidos((atual) => [...atual, ...res.data]);
@@ -271,7 +302,27 @@ export function PedidosLista() {
     }
   }
 
-  const filtrando = brandId !== "" || canal !== "" || status !== "";
+  const filtrando = brandIds.length > 0 || canal !== "" || status !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
+
+  async function exportarPdf() {
+    if (pedidos.length === 0) return;
+    setExportando(true);
+    try {
+      const relatorio = await actionListarPedidosParaPdf({
+        brandIds: brandIds.length ? brandIds : undefined,
+        canal: canal || undefined,
+        status: status || undefined,
+        busca: buscaAplicada || undefined,
+        inicio: inicioDoDia(dataInicial),
+        fim: fimDoDia(dataFinal),
+      });
+      await exportarPedidosPdf({ pedidos: relatorio.data, resumo: relatorio.resumo, total: relatorio.total, periodo: { inicio: dataInicial, fim: dataFinal } });
+    } catch {
+      toast.error("Não foi possível gerar o PDF de vendas.");
+    } finally {
+      setExportando(false);
+    }
+  }
 
   return (
     <div>
@@ -281,8 +332,10 @@ export function PedidosLista() {
           <MarcaPill
             key={marca.brandId}
             marca={marca}
-            ativo={brandId === marca.brandId}
-            onClick={() => setBrandId((atual) => atual === marca.brandId ? "" : marca.brandId)}
+            ativo={brandIds.includes(marca.brandId)}
+            onClick={() => setBrandIds((atual) => atual.includes(marca.brandId)
+              ? atual.filter((id) => id !== marca.brandId)
+              : [...atual, marca.brandId])}
           />
         ))}
 
@@ -333,6 +386,18 @@ export function PedidosLista() {
         })}
       </div>
 
+      <div className="mb-4 grid gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid-cols-[minmax(240px,1fr)_auto_auto_auto] md:items-center">
+        <label className="relative block">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido ou cliente…" className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-selecionado" />
+        </label>
+        <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
+        <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />
+        <button type="button" onClick={exportarPdf} disabled={pedidos.length === 0 || exportando} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted disabled:opacity-40">
+          {exportando ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
+        </button>
+      </div>
+
       {!escopoDefinido ? (
         <motion.div
           initial={reduzir ? false : { opacity: 0, y: 8 }}
@@ -348,6 +413,20 @@ export function PedidosLista() {
           </div>
         </motion.div>
       ) : (
+      <div className="flex flex-col gap-4">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Resumo das vendas filtradas">
+        {[
+          { label: "Faturamento", valor: dinheiro.format(resumo.faturamento), icon: CircleDollarSign, cor: "var(--success)" },
+          { label: "Pedidos", valor: resumo.totalPedidos.toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
+          { label: "Ticket médio", valor: dinheiro.format(resumo.ticketMedio), icon: ReceiptText, cor: "var(--acento-2)" },
+          { label: "Cancelados/devolvidos", valor: resumo.cancelados.toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
+        ].map((card) => (
+          <div key={card.label} className="rounded-[1.15rem] bg-card p-4 shadow-[0_2px_14px_rgba(14,15,19,.06)]">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"><card.icon size={15} style={{ color: card.cor }} />{card.label}</div>
+            <p className="mt-2 text-xl font-black tabular-nums text-foreground">{card.valor}</p>
+          </div>
+        ))}
+      </section>
       <motion.section
         initial={reduzir ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -459,6 +538,7 @@ export function PedidosLista() {
           </div>
         )}
       </motion.section>
+      </div>
       )}
     </div>
   );

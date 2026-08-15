@@ -1,4 +1,4 @@
-import { eq, and, count, desc, asc, sql, SQL } from "drizzle-orm";
+import { eq, and, or, count, desc, asc, sql, inArray, gte, lte, ilike, SQL } from "drizzle-orm";
 import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, cliente, pedido, pedidoItem } from "@/shared/lib/db/schema";
@@ -120,15 +120,34 @@ export async function listarPedidos(ctx: CrudContext, opts: { clienteId?: string
  *  sem qualquer aviso de que a lista estava cortada. */
 export async function listarPedidosDetalhados(
   ctx: CrudContext,
-  opts: { brandId?: string; canal?: string; status?: PedidoStatus; limit?: number; offset?: number } = {},
+  opts: {
+    brandIds?: string[];
+    canal?: string;
+    status?: PedidoStatus;
+    busca?: string;
+    inicio?: Date;
+    fim?: Date;
+    limit?: number;
+    offset?: number;
+  } = {},
 ) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
   const { limit = 50, offset = 0 } = opts;
 
   const filters: SQL[] = [eq(pedido.orgId, ctx.orgId)];
-  if (opts.brandId) filters.push(eq(pedido.brandId, opts.brandId));
+  if (opts.brandIds?.length) filters.push(inArray(pedido.brandId, opts.brandIds));
   if (opts.canal) filters.push(eq(pedido.canal, opts.canal));
   if (opts.status) filters.push(eq(pedido.status, opts.status));
+  if (opts.inicio) filters.push(gte(pedido.createdAt, opts.inicio));
+  if (opts.fim) filters.push(lte(pedido.createdAt, opts.fim));
+  if (opts.busca?.trim()) {
+    const termo = `%${opts.busca.trim()}%`;
+    filters.push(or(
+      ilike(pedido.providerOrderId, termo),
+      ilike(cliente.nome, termo),
+      ilike(cliente.nomeCompleto, termo),
+    )!);
+  }
 
   const [rows, totalRows] = await Promise.all([
     db
@@ -142,6 +161,10 @@ export async function listarPedidosDetalhados(
         canal: pedido.canal,
         status: pedido.status,
         total: pedido.total,
+        frete: pedido.frete,
+        desconto: pedido.desconto,
+        origemIngestao: pedido.origemIngestao,
+        receivedAt: pedido.receivedAt,
         createdAt: pedido.createdAt,
       })
       .from(pedido)
@@ -151,10 +174,55 @@ export async function listarPedidosDetalhados(
       .orderBy(desc(pedido.createdAt))
       .limit(limit)
       .offset(offset),
-    db.select({ total: count() }).from(pedido).where(and(...filters)),
+    db
+      .select({ total: count() })
+      .from(pedido)
+      .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
+      .where(and(...filters)),
   ]);
 
   return { data: rows, total: totalRows[0]?.total ?? 0, limit, offset };
+}
+
+/** Resumo financeiro da mesma seleção exibida na lista. São agregações de
+ * leitura; não disparam tarefa, alerta ou qualquer automação interna. */
+export async function resumirPedidos(
+  ctx: CrudContext,
+  opts: { brandIds?: string[]; canal?: string; status?: PedidoStatus; busca?: string; inicio?: Date; fim?: Date } = {},
+) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+  const filters: SQL[] = [eq(pedido.orgId, ctx.orgId)];
+  if (opts.brandIds?.length) filters.push(inArray(pedido.brandId, opts.brandIds));
+  if (opts.canal) filters.push(eq(pedido.canal, opts.canal));
+  if (opts.status) filters.push(eq(pedido.status, opts.status));
+  if (opts.inicio) filters.push(gte(pedido.createdAt, opts.inicio));
+  if (opts.fim) filters.push(lte(pedido.createdAt, opts.fim));
+  if (opts.busca?.trim()) {
+    const termo = `%${opts.busca.trim()}%`;
+    filters.push(or(ilike(pedido.providerOrderId, termo), ilike(cliente.nome, termo), ilike(cliente.nomeCompleto, termo))!);
+  }
+
+  const [resumo] = await db
+    .select({
+      totalPedidos: count(),
+      faturamento: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
+      ticketMedio: sql<string>`coalesce(avg(${pedido.total}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
+      cancelados: sql<number>`count(*) filter (where ${pedido.status} in ('cancelado', 'devolvido'))`,
+      freteTotal: sql<string>`coalesce(sum(${pedido.frete}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
+      descontosTotal: sql<string>`coalesce(sum(${pedido.desconto}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
+    })
+    .from(pedido)
+    .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
+    .where(and(...filters));
+
+  return {
+    totalPedidos: Number(resumo?.totalPedidos ?? 0),
+    faturamento: Number(resumo?.faturamento ?? 0),
+    ticketMedio: Number(resumo?.ticketMedio ?? 0),
+    cancelados: Number(resumo?.cancelados ?? 0),
+    freteTotal: Number(resumo?.freteTotal ?? 0),
+    descontosTotal: Number(resumo?.descontosTotal ?? 0),
+  };
 }
 
 /** Alimenta as pílulas de marca/canal no topo da tela de Pedidos — mesmo
@@ -181,7 +249,7 @@ export async function contarPedidosPorMarca(ctx: CrudContext, opts: { canal?: st
     .then((linhas) => linhas.map((linha) => ({ ...linha, total: Number(linha.total) })));
 }
 
-export async function contarPedidosPorCanal(ctx: CrudContext, opts: { brandId?: string } = {}) {
+export async function contarPedidosPorCanal(ctx: CrudContext, opts: { brandIds?: string[] } = {}) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
 
   const contas = await db
@@ -195,7 +263,7 @@ export async function contarPedidosPorCanal(ctx: CrudContext, opts: { brandId?: 
   }
 
   const filters: SQL[] = [eq(pedido.orgId, ctx.orgId)];
-  if (opts.brandId) filters.push(eq(pedido.brandId, opts.brandId));
+  if (opts.brandIds?.length) filters.push(inArray(pedido.brandId, opts.brandIds));
   const contagens = await db
     .select({ canal: pedido.canal, total: count() })
     .from(pedido)
