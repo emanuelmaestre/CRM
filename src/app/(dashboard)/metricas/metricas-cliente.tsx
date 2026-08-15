@@ -183,7 +183,7 @@ export function MetricasCliente() {
         <section className="flex flex-col gap-3">
           <SectionLabel hint="direto do Mercado Livre">Publicações</SectionLabel>
           <PublicacoesCard
-            marcas={saude.dados.marcas.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel }))}
+            marcas={saude.dados.marcas.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
             inicio={inicio ?? diasAtras(29)}
             fim={fim ?? hoje}
           />

@@ -6,6 +6,7 @@ import { TrendingDown, TrendingUp } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
@@ -177,8 +178,21 @@ export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carrega
                     {positiva ? "+" : ""}{variacao}%
                   </span>
                 )}
-                {variacao !== null && (
-                  <span className="text-xs text-muted-foreground">{copy.comparisonLabel}</span>
+                {variacao !== null && dados && (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    {copy.comparisonLabel}
+                    <CalculoPopover
+                      titulo="Variação de faturamento"
+                      formula="(total do período atual − total do período anterior) ÷ total do período anterior"
+                      resultado={`${positiva ? "+" : ""}${variacao}%`}
+                      periodoLabel={`${dados.janelaLabel} vs. ${dados.janelaAnteriorLabel}`}
+                      itens={[
+                        { label: "Período atual", valor: dados.total },
+                        { label: "Período anterior", valor: dados.totalAnterior },
+                      ]}
+                      nota="Mesma duração de dias, imediatamente anterior ao período selecionado."
+                    />
+                  </span>
                 )}
               </div>
 

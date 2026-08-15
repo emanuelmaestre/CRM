@@ -106,16 +106,28 @@ export interface SaudeMarca {
   margemLiquidaLabel: string | null;
   /** 0–100: fração da receita da marca que entrou nessa conta de margem. */
   margemCoberturaPercentual: number;
+  /** Receita (com comissão conhecida) e comissão total — numerador/denominador
+   *  exatos por trás de `margemPercentual`. */
+  margemReceitaComTaxaConhecidaLabel: string | null;
+  margemComissaoTotalLabel: string | null;
   /** 0–100: fração dos pedidos do período cancelada ou devolvida. Conta sobre
    *  TODOS os pedidos (ao contrário do resto do módulo, que os exclui) —
    *  aqui é exatamente o que se quer medir. Null sem nenhum pedido no período. */
   taxaCancelamento: number | null;
+  /** Numerador/denominador exatos por trás de `taxaCancelamento`, para a UI
+   *  poder mostrar a conta em vez de só o percentual. */
+  totalPedidosBrutos: number;
+  pedidosCanceladosOuDevolvidos: number;
   /** 0–100: quanto da receita veio dos 5 produtos mais vendidos da marca.
    *  Alto = a marca depende de poucos itens (risco se um deles faltar). */
   concentracaoTop5: number | null;
+  receitaTotalConcentracao: number;
+  receitaTop5: number;
   /** 0–100: quanto da receita veio de cliente que já tinha comprado dessa
    *  marca antes do período. Null sem receita no período. */
   taxaRecorrencia: number | null;
+  receitaTotalRecorrencia: number;
+  receitaRecorrente: number;
 }
 
 export interface SaudeLojaResultado {
@@ -471,9 +483,17 @@ export async function obterSaudeLoja(
       margemPercentual: margemMarca?.margemPercentual ?? null,
       margemLiquidaLabel: margemMarca ? moeda.format(margemMarca.margemLiquida) : null,
       margemCoberturaPercentual: margemMarca?.coberturaPercentual ?? 0,
+      margemReceitaComTaxaConhecidaLabel: margemMarca ? moeda.format(margemMarca.receitaComTaxaConhecida) : null,
+      margemComissaoTotalLabel: margemMarca ? moeda.format(margemMarca.comissaoTotal) : null,
       taxaCancelamento: crescimentoMarca?.taxaCancelamento ?? null,
+      totalPedidosBrutos: crescimentoMarca?.totalPedidosBrutos ?? 0,
+      pedidosCanceladosOuDevolvidos: crescimentoMarca?.pedidosCanceladosOuDevolvidos ?? 0,
       concentracaoTop5: crescimentoMarca?.concentracaoTop5 ?? null,
+      receitaTotalConcentracao: crescimentoMarca?.receitaTotalConcentracao ?? 0,
+      receitaTop5: crescimentoMarca?.receitaTop5 ?? 0,
       taxaRecorrencia: crescimentoMarca?.taxaRecorrencia ?? null,
+      receitaTotalRecorrencia: crescimentoMarca?.receitaTotalRecorrencia ?? 0,
+      receitaRecorrente: crescimentoMarca?.receitaRecorrente ?? 0,
     };
   });
 

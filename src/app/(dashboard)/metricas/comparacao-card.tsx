@@ -6,6 +6,7 @@ import { Crown, Scale } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
+import { CalculoPopover, type CalculoItem } from "@/shared/design-system/primitives/CalculoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
@@ -50,8 +51,27 @@ function corDaMarca(slug: string): string {
    Os outros indicadores continuam visíveis mesmo quando não são o
    critério de ordenação. É o que separa "comparar" de "olhar um
    ranking": trocar de critério não deveria esconder o resto. */
-function TiraNumeros({ marca }: { marca: SaudeMarca }) {
-  const campos = [
+const moedaCompacta = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" });
+const inteiro = new Intl.NumberFormat("pt-BR");
+
+interface CampoCalculo {
+  titulo: string;
+  formula: string;
+  resultado: string;
+  itens: CalculoItem[];
+  nota: string;
+}
+
+interface CampoNumero {
+  label: string;
+  valor: string;
+  alerta?: boolean;
+  titulo?: string;
+  calculo?: CampoCalculo | null;
+}
+
+function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel: string }) {
+  const campos: CampoNumero[] = [
     { label: "Faturamento", valor: marca.faturamentoLabel },
     { label: "Pedidos", valor: String(marca.pedidos) },
     { label: "Ticket", valor: marca.ticketMedioLabel },
@@ -69,13 +89,21 @@ function TiraNumeros({ marca }: { marca: SaudeMarca }) {
     },
     {
       // Cobertura baixa some do rótulo em vez de assustar com um "(12%)"
-      // que a maioria não vai parar para interpretar — mas o title fica
-      // disponível para quem passar o mouse e quiser saber o porquê.
+      // que a maioria não vai parar para interpretar — o popover é onde
+      // a cobertura baixa vira número, para quem quiser conferir.
       label: "Margem",
       valor: marca.margemPercentual === null ? "—" : `${marca.margemPercentual}%`,
-      titulo: marca.margemPercentual === null
-        ? "Nenhum pedido com comissão do Mercado Livre conhecida no período"
-        : `Calculada sobre ${marca.margemCoberturaPercentual}% da receita — só pedidos com comissão informada`,
+      calculo: marca.margemPercentual === null ? null : {
+        titulo: "Margem líquida",
+        formula: "(receita − comissão do Mercado Livre) ÷ receita, só nos itens com comissão informada",
+        resultado: `${marca.margemPercentual}%`,
+        itens: [
+          { label: "Margem líquida", valor: marca.margemLiquidaLabel ?? "—" },
+          { label: "Receita considerada", valor: marca.margemReceitaComTaxaConhecidaLabel ?? "—" },
+          { label: "Comissão descontada", valor: marca.margemComissaoTotalLabel ?? "—" },
+        ],
+        nota: `Cobre ${marca.margemCoberturaPercentual}% da receita da marca: só entram pedidos do Mercado Livre com a comissão informada. Outros canais e pedidos antigos ficam de fora, sem virar "comissão zero".`,
+      },
     },
     {
       label: "Cancelamento",
@@ -83,17 +111,44 @@ function TiraNumeros({ marca }: { marca: SaudeMarca }) {
       // Sobre TODOS os pedidos do período, não só os que entram no faturamento
       // — é a única métrica da tela que conta o que o resto exclui de propósito.
       alerta: (marca.taxaCancelamento ?? 0) > 5,
-      titulo: "Fração dos pedidos do período cancelada ou devolvida",
+      calculo: marca.taxaCancelamento === null ? null : {
+        titulo: "Cancelamento",
+        formula: "pedidos cancelados ou devolvidos ÷ total de pedidos do período",
+        resultado: `${marca.taxaCancelamento}%`,
+        itens: [
+          { label: "Cancelados ou devolvidos", valor: inteiro.format(marca.pedidosCanceladosOuDevolvidos), fracao: marca.taxaCancelamento / 100 },
+          { label: "Total de pedidos", valor: inteiro.format(marca.totalPedidosBrutos) },
+        ],
+        nota: "Conta sobre todos os pedidos do período. Ao contrário do resto da tela, aqui o cancelado não é descartado: é o próprio alvo da medida.",
+      },
     },
     {
       label: "Top 5 produtos",
       valor: marca.concentracaoTop5 === null ? "—" : `${marca.concentracaoTop5}%`,
-      titulo: "Quanto da receita da marca veio dos 5 produtos mais vendidos — alto é risco se um deles faltar",
+      calculo: marca.concentracaoTop5 === null ? null : {
+        titulo: "Concentração nos 5 mais vendidos",
+        formula: "receita dos 5 produtos mais vendidos ÷ receita total (sem cancelados)",
+        resultado: `${marca.concentracaoTop5}%`,
+        itens: [
+          { label: "Receita dos 5 mais vendidos", valor: moedaCompacta.format(marca.receitaTop5), fracao: marca.concentracaoTop5 / 100 },
+          { label: "Receita total da marca", valor: moedaCompacta.format(marca.receitaTotalConcentracao) },
+        ],
+        nota: "Quanto mais alto, mais a marca depende de poucos itens: um risco se um deles faltar.",
+      },
     },
     {
       label: "Recorrência",
       valor: marca.taxaRecorrencia === null ? "—" : `${marca.taxaRecorrencia}%`,
-      titulo: "Quanto da receita veio de cliente que já tinha comprado dessa marca antes do período",
+      calculo: marca.taxaRecorrencia === null ? null : {
+        titulo: "Recorrência",
+        formula: "receita de clientes que já compraram antes ÷ receita total (sem cancelados)",
+        resultado: `${marca.taxaRecorrencia}%`,
+        itens: [
+          { label: "Receita de clientes recorrentes", valor: moedaCompacta.format(marca.receitaRecorrente), fracao: marca.taxaRecorrencia / 100 },
+          { label: "Receita total da marca", valor: moedaCompacta.format(marca.receitaTotalConcentracao) },
+        ],
+        nota: "\"Recorrente\" é por marca: comprar da KARZI antes não conta como recorrência na primeira compra da WUWU.",
+      },
     },
   ];
 
@@ -101,7 +156,19 @@ function TiraNumeros({ marca }: { marca: SaudeMarca }) {
     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
       {campos.map((campo) => (
         <div key={campo.label} className="min-w-0">
-          <dt className="truncate text-[10px] uppercase tracking-wide text-muted-foreground/80">{campo.label}</dt>
+          <dt className="flex items-center gap-1 truncate text-[10px] uppercase tracking-wide text-muted-foreground/80">
+            <span className="truncate">{campo.label}</span>
+            {campo.calculo && (
+              <CalculoPopover
+                titulo={campo.calculo.titulo}
+                formula={campo.calculo.formula}
+                resultado={campo.calculo.resultado}
+                itens={campo.calculo.itens}
+                periodoLabel={periodoLabel}
+                nota={campo.calculo.nota}
+              />
+            )}
+          </dt>
           <dd
             title={campo.titulo}
             className={`truncate text-[12px] font-semibold tabular-nums ${campo.alerta ? "text-destructive" : "text-foreground"}`}
@@ -236,7 +303,7 @@ export function ComparacaoCard({ dados, carregando }: {
                   />
                 </div>
 
-                <TiraNumeros marca={marca} />
+                <TiraNumeros marca={marca} periodoLabel={dados?.periodoLabel ?? ""} />
               </motion.li>
             );
           })}

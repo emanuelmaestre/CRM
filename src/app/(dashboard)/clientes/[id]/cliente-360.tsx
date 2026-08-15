@@ -134,12 +134,19 @@ function partesEndereco(c: ClienteData["cliente"]) {
   return [
     { label: "Rua/Av", value: c.enderecoRua },
     { label: "Número", value: c.enderecoNumero },
-    { label: "Complemento", value: c.enderecoComplemento },
     { label: "Bairro", value: c.enderecoBairro },
     { label: "Cidade", value: c.enderecoCidade },
     { label: "Estado", value: c.enderecoEstado },
     { label: "CEP", value: c.enderecoCep },
   ].map((item) => ({ label: item.label, value: item.value?.trim() || null }));
+}
+
+/** Complemento costuma vir como texto livre — às vezes uma referência inteira
+ *  ("procurar por fulano, perto da policlínica...") — e não cabe na mesma
+ *  grade compacta dos campos estruturados sem deformar as colunas ao redor.
+ *  Fica isolado numa linha própria. */
+function complementoEndereco(c: ClienteData["cliente"]) {
+  return c.enderecoComplemento?.trim() || null;
 }
 
 export function Cliente360({
@@ -263,11 +270,12 @@ export function Cliente360({
             </div>
             {(() => {
               const partes = partesEndereco(cliente);
-              const tudoPendente = partes.every((item) => !item.value);
+              const complemento = complementoEndereco(cliente);
+              const tudoPendente = partes.every((item) => !item.value) && !complemento;
               return (
                 <div className="mt-4 rounded-xl bg-muted/20 p-4">
                   <div className="mb-3 flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><MapPin size={15} /></span><p className="text-sm font-semibold text-foreground">{copy.address.title}</p></div>
-                  <dl className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
+                  <dl className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3">
                     {partes.map((item) => (
                       <div key={item.label}>
                         <dt className="text-[11px] text-muted-foreground">{item.label}</dt>
@@ -279,6 +287,12 @@ export function Cliente360({
                       </div>
                     ))}
                   </dl>
+                  {complemento && (
+                    <div className="mt-3 border-t border-border/60 pt-3">
+                      <dt className="text-[11px] text-muted-foreground">Complemento</dt>
+                      <dd className="mt-0.5 text-sm font-medium leading-relaxed text-foreground">{complemento}</dd>
+                    </div>
+                  )}
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
                     {tudoPendente ? (
                       <p
@@ -387,7 +401,19 @@ export function Cliente360({
           <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-[0_2px_16px_rgba(14,15,19,.04)]">
             <h2 className="flex items-center gap-2 font-semibold"><ShoppingBag size={17} className="text-primary" />Produtos mais comprados</h2>
             <div className="mt-3 divide-y divide-border">
-              {data.resumoComercial.produtosMaisComprados.map((item) => <div key={item.produtoId} className="flex justify-between gap-3 py-2.5 text-sm"><span className="min-w-0 truncate">{item.nome}</span><b className="tabular-nums">{item.quantidade} un.</b></div>)}
+              {data.resumoComercial.produtosMaisComprados.map((item, indice) => (
+                <div key={item.produtoId} className="flex items-start justify-between gap-3 py-2.5 text-sm">
+                  <span className="flex min-w-0 items-start gap-2.5">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold tabular-nums text-muted-foreground">
+                      {indice + 1}
+                    </span>
+                    <span className="line-clamp-2 leading-snug" title={item.nome}>{item.nome}</span>
+                  </span>
+                  <b className="shrink-0 whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-xs tabular-nums text-primary">
+                    {item.quantidade} un.
+                  </b>
+                </div>
+              ))}
               {!data.resumoComercial.produtosMaisComprados.length && <p className="py-3 text-sm text-muted-foreground">Nenhum produto comprado ainda.</p>}
             </div>
           </section>

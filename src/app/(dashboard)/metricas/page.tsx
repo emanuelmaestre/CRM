@@ -7,10 +7,7 @@ export const metadata = { title: pagesConfig.metricas.metadataTitle };
 export default function MetricasPage() {
   return (
     <div>
-      <PageHeader
-        title={pagesConfig.metricas.title}
-        description={pagesConfig.metricas.description}
-      />
+      <PageHeader title={pagesConfig.metricas.title} />
       <MetricasCliente />
     </div>
   );

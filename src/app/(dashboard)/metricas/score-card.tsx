@@ -11,6 +11,7 @@ import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { Pilar, SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { AnelScore, AvisoParcial, BarraComLimite, Card, CardHead } from "./metricas-primitives";
+import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 
 const copy = metricasConfig.score;
 const ACENTO = "var(--acento-2)";
@@ -117,6 +118,60 @@ function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
   );
 }
 
+/* ── Traço do score ────────────────────────────────────────────
+   O texto genérico em `copy.explicacao` diz a regra ("média ponderada,
+   pilar sem dado sai da conta"); isso aqui mostra a conta de verdade
+   daquele número específico — com os pesos já redistribuídos, não os
+   pesos "de tabela". */
+function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
+  consolidado: boolean;
+  marcas: SaudeMarca[];
+  marcaSelecionada: SaudeMarca | null;
+  score: number | null;
+}) {
+  if (score === null) return null;
+
+  if (consolidado) {
+    const medidas = marcas.filter((marca) => marca.score !== null);
+    const pesoTotal = medidas.reduce((soma, marca) => soma + marca.faturamento, 0);
+    const porFaturamento = pesoTotal > 0;
+    return (
+      <CalculoPopover
+        titulo="Score consolidado"
+        formula={porFaturamento
+          ? "média dos scores de cada marca, ponderada pelo faturamento do período"
+          : "média simples dos scores de cada marca (nenhuma faturou no período)"}
+        resultado={String(score)}
+        itens={medidas.map((marca) => ({
+          label: marca.marcaLabel,
+          valor: porFaturamento
+            ? `${marca.score} · ${Math.round((marca.faturamento / pesoTotal) * 100)}% do peso`
+            : String(marca.score),
+        }))}
+        nota="Marca que fatura mais pesa mais no retrato do negócio, não é uma média simples entre marcas."
+      />
+    );
+  }
+
+  if (!marcaSelecionada) return null;
+  const medidos = marcaSelecionada.pilares.filter((pilar) => pilar.nota !== null);
+  const pesoTotal = medidos.reduce((soma, pilar) => soma + pilar.peso, 0);
+  return (
+    <CalculoPopover
+      titulo={`Score · ${marcaSelecionada.marcaLabel}`}
+      formula="média ponderada das notas dos pilares medidos (0–100 cada)"
+      resultado={String(score)}
+      itens={medidos.map((pilar) => ({
+        label: pilar.label,
+        valor: `${Math.round(pilar.nota as number)} · peso ${Math.round((pilar.peso / pesoTotal) * 100)}%`,
+      }))}
+      nota={medidos.length < 5
+        ? `Só ${medidos.length} de 5 pilares tinham dado — o peso dos outros foi redistribuído entre esses.`
+        : "Os 5 pilares tinham dado neste período; nenhum peso precisou ser redistribuído."}
+    />
+  );
+}
+
 function Esqueleto() {
   return (
     <div className="flex flex-col gap-6 px-5 pb-5 pt-6 sm:flex-row sm:items-center">
@@ -202,6 +257,17 @@ export function ScoreCard({ dados, carregando }: {
           <div className="mt-5 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
             <div className="flex flex-col items-center gap-2">
               <AnelScore valor={score} cor={cor} faixaLabel={faixaLabel} />
+              {score !== null && (
+                <span className="flex items-center gap-1 text-[10.5px] font-semibold text-muted-foreground/70">
+                  Ver a conta
+                  <PopoverScore
+                    consolidado={consolidado}
+                    marcas={dados.marcas}
+                    marcaSelecionada={marcaSelecionada}
+                    score={score}
+                  />
+                </span>
+              )}
               {consolidado && (
                 <p className="max-w-[168px] text-center text-[10px] leading-snug text-muted-foreground">
                   {copy.consolidadoNota}

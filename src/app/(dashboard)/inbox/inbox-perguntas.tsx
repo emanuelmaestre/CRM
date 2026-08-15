@@ -196,13 +196,13 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
         className={`${selecionada ? "hidden lg:flex" : "flex"} relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
       >
             {/* Status filter row */}
-            <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-muted/10">
+            <div className="flex items-center gap-1 overflow-x-auto px-3 py-2 border-b border-border bg-muted/10">
               {(["todos", "pendente", "respondida"] as const).map((s) => (
                 <motion.button
                   key={s}
                   onClick={() => setFiltroStatus(s)}
                   whileTap={{ scale: 0.96 }}
-                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                  className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2.5 py-1.5 rounded-full transition-colors ${
                     filtroStatus === s
                       ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground"
@@ -211,7 +211,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                   {copy.statusFilters[s]} <span className="tabular-nums opacity-70">{s === "todos" ? perguntas.length : s === "pendente" ? pendentes : respondidas}</span>
                 </motion.button>
               ))}
-              <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} disabled={carregando} title="Atualizar perguntas" aria-label="Atualizar perguntas" className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+              <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} disabled={carregando} title="Atualizar perguntas" aria-label="Atualizar perguntas" className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
                 <RefreshCw size={14} className={carregando ? "animate-spin" : ""} />
               </button>
             </div>

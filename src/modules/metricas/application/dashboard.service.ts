@@ -69,6 +69,11 @@ export interface FaturamentoResumo {
   totalNumerico: number;
   /** Variação percentual contra a janela anterior de mesmo tamanho. Null quando não há base de comparação. */
   variacaoPercentual: number | null;
+  /** Total (numérico e formatado) da janela anterior — o denominador exato por trás de `variacaoPercentual`. */
+  totalAnteriorNumerico: number;
+  totalAnterior: string;
+  /** Mesmo formato de `janelaLabel`, para o período anterior — ex.: "01/07 – 30/07". */
+  janelaAnteriorLabel: string;
   pedidos: number;
   ticketMedio: string;
   serie: SeriePonto[];
@@ -344,6 +349,9 @@ export async function obterDashboardData(
     variacaoPercentual: totalJanelaAnterior > 0
       ? Math.round(((totalJanela - totalJanelaAnterior) / totalJanelaAnterior) * 100)
       : null,
+    totalAnteriorNumerico: totalJanelaAnterior,
+    totalAnterior: formatCurrency(totalJanelaAnterior),
+    janelaAnteriorLabel: `${diaMes.format(inicioJanelaAnterior)} – ${diaMes.format(subDays(fimJanelaAnterior, 1))}`,
     pedidos: pedidosNaJanela,
     ticketMedio: formatCurrency(pedidosNaJanela > 0 ? totalJanela / pedidosNaJanela : 0),
     serie,

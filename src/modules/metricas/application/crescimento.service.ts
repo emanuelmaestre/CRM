@@ -15,12 +15,23 @@ export interface CrescimentoMarca {
   /** 0–100: fração dos pedidos do período que foi cancelada ou devolvida. */
   taxaCancelamento: number | null;
   totalPedidosBrutos: number;
+  /** Quantos desses pedidos brutos estavam cancelados ou devolvidos — o
+   *  numerador exato por trás de `taxaCancelamento`. */
+  pedidosCanceladosOuDevolvidos: number;
   /** 0–100: quanto da receita (não cancelada) veio dos 5 produtos mais
    *  vendidos da marca no período. Alto = a marca depende de poucos itens. */
   concentracaoTop5: number | null;
+  /** Receita total (não cancelada) e a fatia dela que veio dos 5 produtos
+   *  mais vendidos — o numerador e o denominador de `concentracaoTop5`. */
+  receitaTotalConcentracao: number;
+  receitaTop5: number;
   /** 0–100: quanto da receita (não cancelada) veio de cliente que já tinha
    *  comprado dessa marca antes do período. Null sem receita no período. */
   taxaRecorrencia: number | null;
+  /** Receita total (não cancelada) e a fatia dela vinda de clientes
+   *  recorrentes — o numerador e o denominador de `taxaRecorrencia`. */
+  receitaTotalRecorrencia: number;
+  receitaRecorrente: number;
 }
 
 function paraNumero(valor: unknown): number {
@@ -40,7 +51,7 @@ async function taxasCancelamento(
   inicio: Date,
   fim: Date,
   brandIds: string[],
-): Promise<Map<string, { taxa: number | null; total: number }>> {
+): Promise<Map<string, { taxa: number | null; total: number; cancelados: number }>> {
   const linhas = await ctx.db
     .select({
       brandId: pedido.brandId,
@@ -59,7 +70,7 @@ async function taxasCancelamento(
   return new Map(linhas.map((linha) => {
     const total = paraNumero(linha.total);
     const cancelados = paraNumero(linha.cancelados);
-    return [linha.brandId, { taxa: percentual(cancelados, total), total }];
+    return [linha.brandId, { taxa: percentual(cancelados, total), total, cancelados }];
   }));
 }
 
@@ -70,7 +81,7 @@ async function concentracaoTop5PorMarca(
   inicio: Date,
   fim: Date,
   brandIds: string[],
-): Promise<Map<string, number | null>> {
+): Promise<Map<string, { taxa: number | null; total: number; top5: number }>> {
   const resultado = await ctx.db.execute(sql`
     with vendas_produto as (
       select p.brand_id, pi.produto_id, sum(pi.quantidade * pi.preco_unitario) as receita
@@ -96,11 +107,11 @@ async function concentracaoTop5PorMarca(
   `);
 
   const linhas = (Array.isArray(resultado) ? resultado : (resultado as { rows?: unknown[] }).rows) ?? [];
-  const mapa = new Map<string, number | null>();
+  const mapa = new Map<string, { taxa: number | null; total: number; top5: number }>();
   for (const linha of linhas as Array<Record<string, unknown>>) {
     const total = paraNumero(linha.receita_total);
     const top5 = paraNumero(linha.receita_top5);
-    mapa.set(String(linha.brand_id), percentual(top5, total));
+    mapa.set(String(linha.brand_id), { taxa: percentual(top5, total), total, top5 });
   }
   return mapa;
 }
@@ -114,7 +125,7 @@ async function taxaRecorrenciaPorMarca(
   inicio: Date,
   fim: Date,
   brandIds: string[],
-): Promise<Map<string, number | null>> {
+): Promise<Map<string, { taxa: number | null; total: number; recorrente: number }>> {
   const resultado = await ctx.db.execute(sql`
     with pedidos_do_periodo as (
       select
@@ -144,11 +155,11 @@ async function taxaRecorrenciaPorMarca(
   `);
 
   const linhas = (Array.isArray(resultado) ? resultado : (resultado as { rows?: unknown[] }).rows) ?? [];
-  const mapa = new Map<string, number | null>();
+  const mapa = new Map<string, { taxa: number | null; total: number; recorrente: number }>();
   for (const linha of linhas as Array<Record<string, unknown>>) {
     const total = paraNumero(linha.receita_total);
     const recorrente = paraNumero(linha.receita_recorrente);
-    mapa.set(String(linha.brand_id), percentual(recorrente, total));
+    mapa.set(String(linha.brand_id), { taxa: percentual(recorrente, total), total, recorrente });
   }
   return mapa;
 }
@@ -168,12 +179,19 @@ export async function obterCrescimentoPorMarca(
   const resultado = new Map<string, CrescimentoMarca>();
   for (const brandId of opcoes.brandIds) {
     const cancel = cancelamento.get(brandId);
+    const conc = concentracao.get(brandId);
+    const rec = recorrencia.get(brandId);
     resultado.set(brandId, {
       brandId,
       taxaCancelamento: cancel?.taxa ?? null,
       totalPedidosBrutos: cancel?.total ?? 0,
-      concentracaoTop5: concentracao.get(brandId) ?? null,
-      taxaRecorrencia: recorrencia.get(brandId) ?? null,
+      pedidosCanceladosOuDevolvidos: cancel?.cancelados ?? 0,
+      concentracaoTop5: conc?.taxa ?? null,
+      receitaTotalConcentracao: conc?.total ?? 0,
+      receitaTop5: conc?.top5 ?? 0,
+      taxaRecorrencia: rec?.taxa ?? null,
+      receitaTotalRecorrencia: rec?.total ?? 0,
+      receitaRecorrente: rec?.recorrente ?? 0,
     });
   }
   return resultado;

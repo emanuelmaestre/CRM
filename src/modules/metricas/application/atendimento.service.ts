@@ -53,6 +53,9 @@ export interface AtendimentoResumo {
   /** Comparação com a janela anterior de mesmo tamanho, em pontos percentuais
    *  da taxa de resposta. Null sem base de comparação. */
   variacaoTaxaResposta: number | null;
+  /** Taxa de resposta da janela anterior — o outro lado exato de
+   *  `variacaoTaxaResposta`, que por si só só mostra a diferença em p.p. */
+  taxaRespostaAnterior: number | null;
   /** Mesmo funil, agora por canal — só o Mercado Livre pune reputação por
    *  atraso em pergunta (é um dos fatores do termômetro em `reputacao.service`);
    *  WhatsApp e Instagram atrasados custam experiência, não score. Sem essa
@@ -307,6 +310,7 @@ export async function obterAtendimento(
     variacaoTaxaResposta: taxaResposta !== null && taxaAnterior !== null
       ? Math.round((taxaResposta - taxaAnterior) * 10) / 10
       : null,
+    taxaRespostaAnterior: taxaAnterior,
     porCanal,
   };
 }

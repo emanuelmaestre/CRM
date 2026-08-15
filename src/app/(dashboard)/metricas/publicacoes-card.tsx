@@ -6,11 +6,15 @@ import { actionObterDesempenhoPublicacoes } from "./actions";
 import { Card, CardHead } from "@/app/(dashboard)/anuncios/anuncios-primitives";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import type { DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
+import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
+import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { isBrandSlug } from "@/shared/config/brands";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const inteiro = new Intl.NumberFormat("pt-BR");
 
 export function PublicacoesCard({ marcas, inicio, fim }: {
-  marcas: Array<{ brandId: string; marcaLabel: string }>;
+  marcas: Array<{ brandId: string; marcaLabel: string; slug: string }>;
   inicio: string;
   fim: string;
 }) {
@@ -31,17 +35,25 @@ export function PublicacoesCard({ marcas, inicio, fim }: {
 
   return (
     <Card>
-      <CardHead title="Desempenho das publicações" subtitle="Visitas, conversão e qualidade do anúncio" icon={BarChart3} accent="var(--acento-2)" />
-      <div className="px-4 pb-5 sm:px-5">
-        <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Marca das publicações">
-          {marcas.map((marca) => (
-            <button key={marca.brandId} type="button" role="tab" aria-selected={brandId === marca.brandId}
-              onClick={() => setBrandId(marca.brandId)}
-              className={`min-h-11 rounded-full px-4 text-xs font-semibold ${brandId === marca.brandId ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}>
-              {marca.marcaLabel}
-            </button>
-          ))}
-        </div>
+      <CardHead
+        title="Desempenho das publicações"
+        icon={BarChart3}
+        accent="var(--acento-2)"
+        trailing={
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Marca das publicações">
+            {marcas.map((marca) => (
+              <button key={marca.brandId} type="button" role="tab" aria-selected={brandId === marca.brandId}
+                onClick={() => setBrandId(marca.brandId)}
+                className={`flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${brandId === marca.brandId ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}>
+                {isBrandSlug(marca.slug)
+                  ? <BrandLogo brand={marca.slug} height={13} className={brandId === marca.brandId ? "brightness-0 invert" : undefined} />
+                  : marca.marcaLabel}
+              </button>
+            ))}
+          </div>
+        }
+      />
+      <div className="px-4 pb-5 pt-4 sm:px-5">
         {carregando ? <Skeleton className="h-52 w-full" /> : !dados || dados.itens.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma publicação com dados disponível.</p>
         ) : (
@@ -55,7 +67,24 @@ export function PublicacoesCard({ marcas, inicio, fim }: {
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                   <div><dt className="flex items-center gap-1 text-xs text-muted-foreground"><Eye size={12} /> Visitas</dt><dd className="mt-1 font-semibold tabular-nums">{item.visitas.toLocaleString("pt-BR")}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Unidades</dt><dd className="mt-1 font-semibold tabular-nums">{item.unidadesVendidas.toLocaleString("pt-BR")}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Conversão</dt><dd className="mt-1 font-semibold tabular-nums">{item.conversaoEstimada === null ? "—" : `${item.conversaoEstimada.toFixed(2)}%`}</dd></div>
+                  <div>
+                    <dt className="flex items-center gap-1 text-xs text-muted-foreground">
+                      Conversão
+                      {item.conversaoEstimada !== null && (
+                        <CalculoPopover
+                          titulo="Conversão estimada"
+                          formula="unidades vendidas no período ÷ visitas da publicação"
+                          resultado={`${item.conversaoEstimada.toFixed(2)}%`}
+                          itens={[
+                            { label: "Unidades vendidas", valor: inteiro.format(item.unidadesVendidas), fracao: item.conversaoEstimada / 100 },
+                            { label: "Visitas", valor: inteiro.format(item.visitas) },
+                          ]}
+                          nota="É uma estimativa: visitas contam a publicação inteira, mas a venda só é atribuída a ela quando o anúncio está vinculado ao catálogo; sem esse vínculo, o cálculo usa as vendas do Mercado Livre como aproximação."
+                        />
+                      )}
+                    </dt>
+                    <dd className="mt-1 font-semibold tabular-nums">{item.conversaoEstimada === null ? "—" : `${item.conversaoEstimada.toFixed(2)}%`}</dd>
+                  </div>
                   <div><dt className="text-xs text-muted-foreground">Receita Ads</dt><dd className="mt-1 font-semibold tabular-nums">{moeda.format(item.receita)}</dd></div>
                 </dl>
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground"><ShieldCheck size={13} /> Qualidade: {item.nivelQualidade ?? "indisponível"}</div>
@@ -64,8 +93,7 @@ export function PublicacoesCard({ marcas, inicio, fim }: {
             ))}
           </div>
         )}
-        <p className="mt-4 text-xs text-muted-foreground">Conversão = unidades vendidas no período ÷ visitas da publicação. Anúncios ainda não vinculados ao catálogo usam vendas atribuídas como aproximação.</p>
-        {dados?.parcial && <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">Algumas publicações inativas não possuem score de qualidade no Mercado Livre.</p>}
+        {dados?.parcial && <p className="mt-4 text-xs text-amber-700 dark:text-amber-300">Algumas publicações inativas não possuem score de qualidade no Mercado Livre.</p>}
       </div>
     </Card>
   );

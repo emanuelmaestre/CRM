@@ -43,9 +43,17 @@ function marca(parcial: Partial<SaudeMarca> = {}): SaudeMarca {
     margemPercentual: null,
     margemLiquidaLabel: null,
     margemCoberturaPercentual: 0,
+    margemReceitaComTaxaConhecidaLabel: null,
+    margemComissaoTotalLabel: null,
     taxaCancelamento: null,
+    totalPedidosBrutos: 0,
+    pedidosCanceladosOuDevolvidos: 0,
     concentracaoTop5: null,
+    receitaTotalConcentracao: 0,
+    receitaTop5: 0,
     taxaRecorrencia: null,
+    receitaTotalRecorrencia: 0,
+    receitaRecorrente: 0,
     ...parcial,
   };
 }
@@ -118,6 +126,7 @@ describe("cards de Métricas", () => {
       medianaSegundos: 5400,
       medianaLabel: "1h30",
       variacaoTaxaResposta: 5,
+      taxaRespostaAnterior: 75,
       faixas: [
         { chave: "ate1h", label: "Até 1 hora", cor: "var(--success)", quantidade: 4, participacao: 40 },
         { chave: "ate4h", label: "1 a 4 horas", cor: "var(--escala-4)", quantidade: 3, participacao: 30 },

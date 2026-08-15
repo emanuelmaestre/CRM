@@ -12,6 +12,9 @@ import metricasConfig from "@/config/metricas.json";
 import type { AtendimentoPorCanal, AtendimentoResumo, FaixaAtendimento } from "@/modules/metricas/application/atendimento.service";
 import { BarraComLimite, Card, CardHead, useContagem } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
+import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
+
+const inteiro = new Intl.NumberFormat("pt-BR");
 
 function canalLabel(tipo: string) {
   return (channelsConfig.items as Record<string, { label?: string }>)[tipo]?.label ?? tipo;
@@ -108,12 +111,13 @@ function BarraFunil({ faixas, total, focada, onFocar }: {
   );
 }
 
-function Destaque({ valor, label, cor, sufixo, variacao }: {
+function Destaque({ valor, label, cor, sufixo, variacao, calculo }: {
   valor: number;
   label: string;
   cor?: string;
   sufixo?: string;
   variacao?: number | null;
+  calculo?: React.ReactNode;
 }) {
   const animado = useContagem(valor);
   const positiva = (variacao ?? 0) >= 0;
@@ -137,7 +141,10 @@ function Destaque({ valor, label, cor, sufixo, variacao }: {
           </span>
         )}
       </p>
-      <p className="mt-1 truncate text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+        {label}
+        {calculo}
+      </p>
     </div>
   );
 }
@@ -180,6 +187,21 @@ export function AtendimentoCard({ dados, carregando }: {
               label={copy.respondidasLabel}
               cor={(dados.taxaResposta ?? 0) >= 90 ? "var(--success)" : (dados.taxaResposta ?? 0) >= 70 ? "var(--warning)" : "var(--destructive)"}
               variacao={dados.variacaoTaxaResposta}
+              calculo={dados.taxaResposta !== null && (
+                <CalculoPopover
+                  titulo="Taxa de resposta"
+                  formula="perguntas respondidas ÷ total de perguntas que abriram um turno no período"
+                  resultado={`${dados.taxaResposta}%`}
+                  itens={[
+                    { label: "Respondidas", valor: inteiro.format(dados.respondidas), fracao: dados.taxaResposta / 100 },
+                    { label: "Total de perguntas", valor: inteiro.format(dados.perguntas) },
+                    ...(dados.taxaRespostaAnterior !== null
+                      ? [{ label: "Período anterior", valor: `${dados.taxaRespostaAnterior}%` }]
+                      : []),
+                  ]}
+                  nota="Só conta como pergunta a mensagem que abre um turno: três mensagens seguidas do mesmo cliente contam como uma só."
+                />
+              )}
             />
             {dados.medianaLabel && (
               <div className="min-w-0">

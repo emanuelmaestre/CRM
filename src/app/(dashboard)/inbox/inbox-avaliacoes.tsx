@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { springs } from "@/shared/design-system/motion-variants";
-import { getBrandConfig } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import settingsConfig from "@/config/settings.json";
 import type { MLDistribuicaoNotas, MLOpiniao } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
@@ -221,7 +222,10 @@ function LinhaAnuncio({ item, aberta, onAlternar }: {
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
             <span className="font-mono text-[11px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">Anúncio: {item.listingId}</span>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              Empresa: <span className="font-semibold" style={{ color: getBrandConfig(item.brand)?.color ?? "var(--muted-foreground)" }}>{item.brandLabel}</span>
+              Empresa:
+              {isBrandSlug(item.brand)
+                ? <BrandLogo brand={item.brand} height={12} />
+                : <span className="font-semibold" style={{ color: getBrandConfig(item.brand)?.color ?? "var(--muted-foreground)" }}>{item.brandLabel}</span>}
             </span>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               Canal: <ChannelLogo canal="mercadolivre" size="xs" variant="logo" />

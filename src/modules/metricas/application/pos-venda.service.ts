@@ -5,6 +5,7 @@ import { getBrandConfig } from "@/shared/config/brands";
 
 export interface PosVendaMarca {
   brandId: string;
+  marcaSlug: string;
   marcaLabel: string;
   total: number;
   cancelados: number;
@@ -60,6 +61,7 @@ export async function obterPosVenda(ctx: CrudContext, filtros: {
       const devolvidos = numero(item?.devolvidos);
       return {
         brandId: marca.id,
+        marcaSlug: marca.slug,
         marcaLabel: getBrandConfig(marca.slug)?.label ?? marca.nome,
         total, cancelados, devolvidos,
         entregues: numero(item?.entregues), emTransito: numero(item?.emTransito),
