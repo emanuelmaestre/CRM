@@ -57,7 +57,7 @@ export default function InboxPage() {
         {/* Barra de escopo única — vale pras três abas ao mesmo tempo, em vez
             de cada uma ter a sua. Rola por dentro em vez de quebrar linha,
             pra não empurrar a tab bar pra baixo em telas mais estreitas. */}
-        <div className="min-w-0 table-scroll scrollbar-thin">
+        <div className="min-w-0 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin">
           <FiltroEscopoBar
             marcasAtivas={marcasAtivas}
             canaisAtivos={canaisAtivos}
