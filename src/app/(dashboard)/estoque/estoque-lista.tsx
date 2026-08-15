@@ -859,9 +859,9 @@ export function EstoqueLista() {
           blocos empilhados (botões, depois um bloco centralizado enorme só
           para os filtros), consumindo altura sem motivo: filtro e ação
           convivem bem lado a lado, como em Clientes. */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div data-tour="estoque-empresa" className="flex flex-wrap gap-2.5">
+      <div className="mb-5 flex flex-wrap items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
+          <div data-tour="estoque-empresa" className="flex flex-wrap justify-center gap-2.5">
             {marcas.map((marca) => (
               <MarcaPill
                 key={marca.brandId}
@@ -878,7 +878,7 @@ export function EstoqueLista() {
             <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
           )}
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap justify-center gap-2.5">
             {canais.map((item) => (
               <CanalPill
                 key={item.tipo}
