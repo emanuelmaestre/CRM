@@ -4,10 +4,10 @@ import { tint } from "@/shared/design-system/color";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarDays, Check, CircleDot, Download, History, Info, MapPin, Package, Pencil, ShoppingBag, Star, StickyNote, Truck, WalletCards, X, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, CircleDot, Download, History, Info, MapPin, Package, Pencil, ShoppingBag, Star, Truck, WalletCards, X, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { actionAtualizarCliente, actionConcluirTarefaCliente, actionCriarAnotacao, actionCriarTarefaCliente } from "../actions";
+import { actionAtualizarCliente } from "../actions";
 import { exportarClientePDF } from "../exportar-pdf";
 import pagesConfig from "@/config/pages.json";
 
@@ -149,10 +149,6 @@ export function Cliente360({
   const [data, setData] = useState(initialData);
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [nota, setNota] = useState("");
-  const [tarefaTitulo, setTarefaTitulo] = useState("");
-  const [tarefaResponsavel, setTarefaResponsavel] = useState("");
-  const [tarefaPrazo, setTarefaPrazo] = useState("");
   const cliente = data.cliente;
 
   function submit(formData: FormData) {
@@ -165,44 +161,6 @@ export function Cliente360({
       } catch (error) {
         toast.error(error instanceof Error ? error.message : copy.messages.updateError);
       }
-    });
-  }
-
-  function adicionarNota(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!nota.trim()) return;
-    startTransition(async () => {
-      try {
-        const nova = await actionCriarAnotacao(cliente.id, nota.trim());
-        setData((atual) => ({ ...atual, anotacoes: [nova, ...atual.anotacoes] }));
-        setNota("");
-        toast.success("Anotação adicionada.");
-      } catch {
-        toast.error("Não foi possível adicionar a anotação.");
-      }
-    });
-  }
-
-  function adicionarTarefa(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!tarefaTitulo.trim()) return;
-    startTransition(async () => {
-      try {
-        const tarefa = await actionCriarTarefaCliente(cliente.id, tarefaTitulo.trim(), tarefaResponsavel || undefined, tarefaPrazo || undefined);
-        setData((atual) => ({ ...atual, tarefas: [tarefa, ...atual.tarefas] }));
-        setTarefaTitulo(""); setTarefaResponsavel(""); setTarefaPrazo("");
-        toast.success("Tarefa criada.");
-      } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível criar a tarefa."); }
-    });
-  }
-
-  function concluirTarefa(id: string) {
-    startTransition(async () => {
-      try {
-        const atualizada = await actionConcluirTarefaCliente(cliente.id, id);
-        setData((atual) => ({ ...atual, tarefas: atual.tarefas.map((tarefa) => tarefa.id === id ? atualizada : tarefa) }));
-        toast.success("Tarefa concluída.");
-      } catch { toast.error("Não foi possível concluir a tarefa."); }
     });
   }
 
@@ -430,29 +388,6 @@ export function Cliente360({
               {data.resumoComercial.produtosMaisComprados.map((item) => <div key={item.produtoId} className="flex justify-between gap-3 py-2.5 text-sm"><span className="min-w-0 truncate">{item.nome}</span><b className="tabular-nums">{item.quantidade} un.</b></div>)}
               {!data.resumoComercial.produtosMaisComprados.length && <p className="py-3 text-sm text-muted-foreground">Nenhum produto comprado ainda.</p>}
             </div>
-          </section>
-          <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-[0_2px_16px_rgba(14,15,19,.04)]">
-            <h2 className="flex items-center gap-2 font-semibold"><StickyNote size={17} className="text-primary" />Anotações internas</h2>
-            <form onSubmit={adicionarNota} className="mt-3 flex flex-col gap-2 sm:flex-row">
-              <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Adicione um contexto para a equipe…" maxLength={2000} className="min-h-20 flex-1 resize-y rounded-xl border border-border bg-background p-3 text-sm" />
-              <button disabled={pending || !nota.trim()} className="h-11 w-full self-end rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-auto">Adicionar</button>
-            </form>
-            <div className="mt-3 divide-y divide-border">{data.anotacoes.map((item) => <div key={item.id} className="py-3"><p className="text-sm">{item.resumo}</p><p className="mt-1 text-xs text-muted-foreground">{formatDate(item.createdAt)}</p></div>)}{!data.anotacoes.length && <p className="py-3 text-sm text-muted-foreground">Nenhuma anotação registrada.</p>}</div>
-          </section>
-          <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-[0_2px_16px_rgba(14,15,19,.04)]">
-            <h2 className="flex items-center gap-2 font-semibold"><Check size={17} className="text-primary" />Tarefas e responsáveis</h2>
-            <form onSubmit={adicionarTarefa} className="mt-3 grid gap-2 sm:grid-cols-2">
-              <input value={tarefaTitulo} onChange={(e) => setTarefaTitulo(e.target.value)} placeholder="O que precisa ser feito?" maxLength={240} className="h-11 rounded-xl border border-border bg-background px-3 text-sm sm:col-span-2" />
-              <select value={tarefaResponsavel} onChange={(e) => setTarefaResponsavel(e.target.value)} className="h-11 rounded-xl border border-border bg-background px-3 text-sm"><option value="">Sem responsável</option>{data.usuarios.map((usuario) => <option key={usuario.id} value={usuario.id}>{usuario.nome}</option>)}</select>
-              <input type="date" value={tarefaPrazo} onChange={(e) => setTarefaPrazo(e.target.value)} className="h-11 rounded-xl border border-border bg-background px-3 text-sm" />
-              <button disabled={pending || !tarefaTitulo.trim()} className="h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:col-span-2">Criar tarefa</button>
-            </form>
-            <div className="mt-3 divide-y divide-border">{data.tarefas.map((tarefa) => {
-              const meta = (tarefa.meta ?? {}) as { status?: string; responsavelId?: string; prazo?: string };
-              const concluida = meta.status === "concluida";
-              const responsavel = data.usuarios.find((usuario) => usuario.id === meta.responsavelId)?.nome;
-              return <div key={tarefa.id} className="flex items-start gap-3 py-3"><button type="button" disabled={concluida || pending} onClick={() => concluirTarefa(tarefa.id)} aria-label={concluida ? "Tarefa concluída" : "Concluir tarefa"} className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${concluida ? "border-success bg-success text-white" : "border-border hover:border-primary"}`}>{concluida && <Check size={14} />}</button><div className="min-w-0"><p className={`text-sm ${concluida ? "text-muted-foreground line-through" : "font-medium"}`}>{tarefa.resumo}</p><p className="mt-1 text-xs text-muted-foreground">{responsavel ?? "Sem responsável"}{meta.prazo ? ` · prazo ${new Date(meta.prazo).toLocaleDateString("pt-BR")}` : ""}</p></div></div>;
-            })}{!data.tarefas.length && <p className="py-3 text-sm text-muted-foreground">Nenhuma tarefa para este cliente.</p>}</div>
           </section>
         </div>
       </div>
