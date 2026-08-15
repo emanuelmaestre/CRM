@@ -6,6 +6,7 @@ import type { VisaoGeralResumo } from "@/modules/anuncios/application/visao-gera
 import { springs, fadeUp } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { useContagem } from "./anuncios-primitives";
+import { COR_ROAS, SetaRoas, situacaoRoas } from "./roas";
 
 const copy = anunciosConfig.kpis;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -16,18 +17,21 @@ const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
    métricas secundárias, menores, mesma leitura mas sem competir com as
    primárias por atenção. Nada de 15 cards iguais. */
 
-function NumeroGrande({ label, valor, formatar, cor, sufixo, destaque = false }: {
+function NumeroGrande({ label, valor, formatar, cor, sufixo, prefixo, destaque = false }: {
   label: string;
   valor: number | null;
   formatar: (n: number) => string;
   cor?: string;
   sufixo?: React.ReactNode;
+  /** Ícone antes do número — usado pelo ROAS, que sem ele dependeria só de cor. */
+  prefixo?: React.ReactNode;
   destaque?: boolean;
 }) {
   const animado = useContagem(valor ?? 0);
   return (
     <motion.div variants={fadeUp} className="min-w-0">
-      <p className={`${destaque ? "text-stat-lg" : "text-[22px] font-bold leading-none"} tabular-nums`} style={cor ? { color: cor } : undefined}>
+      <p className={`${destaque ? "text-stat-lg" : "text-[22px] font-bold leading-none"} flex items-center gap-1 tabular-nums`} style={cor ? { color: cor } : undefined}>
+        {valor !== null && prefixo}
         {valor === null ? "—" : formatar(animado)}
       </p>
       <p className="mt-1.5 truncate text-xs font-medium text-muted-foreground">{label}</p>
@@ -45,12 +49,15 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
       <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
         <NumeroGrande label={copy.investimento} valor={resumo.investimentoTotal} formatar={(n) => moeda.format(n)} destaque />
         <NumeroGrande label={copy.receita} valor={resumo.receitaTotal} formatar={(n) => moeda.format(n)} destaque />
+        {/* Único KPI com seta: os outros três são dinheiro, e o sinal de menos
+            já diferencia sem depender de cor. ROAS não tem sinal. */}
         <NumeroGrande
           label={copy.roas}
           valor={resumo.roasMedio}
           formatar={(n) => `${n.toFixed(2)}x`}
           destaque
-          cor={resumo.roasMedio !== null && resumo.roasMedio >= 1 ? "var(--success)" : resumo.roasMedio !== null ? "var(--destructive)" : undefined}
+          cor={COR_ROAS[situacaoRoas(resumo.roasMedio, null)]}
+          prefixo={<SetaRoas situacao={situacaoRoas(resumo.roasMedio, null)} />}
         />
         <NumeroGrande
           label={copy.lucro}

@@ -11,6 +11,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "../actions";
 import { SeletorMarca } from "../anuncios-cliente";
 import { Card } from "../anuncios-primitives";
+import { Roas } from "../roas";
 import type { StatusBreakEven } from "@/modules/anuncios/application/metricas-calculadas";
 import type { CampanhaVisaoGeral, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
 import { tint } from "@/shared/design-system/color";
@@ -144,8 +145,8 @@ export function RentabilidadeClienteDetalhe() {
                         <td className="px-3 py-2.5"><BadgeStatus status={campanha.breakEven.status} /></td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(campanha.receita)}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(campanha.investimento)}</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                          {campanha.breakEven.roasAtual === null ? "—" : `${campanha.breakEven.roasAtual.toFixed(2)}x`}
+                        <td className="px-3 py-2.5 text-right font-semibold">
+                          <Roas valor={campanha.breakEven.roasAtual} minimo={campanha.breakEven.roasMinimo} />
                         </td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                           {campanha.breakEven.roasMinimo === null ? "—" : `${campanha.breakEven.roasMinimo.toFixed(2)}x`}

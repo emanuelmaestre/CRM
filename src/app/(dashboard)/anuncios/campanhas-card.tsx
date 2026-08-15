@@ -7,6 +7,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { Card, CardHead } from "./anuncios-primitives";
+import { Roas } from "./roas";
 import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.campanhas;
@@ -61,8 +62,8 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
                     </td>
                     <td className="px-3 py-2.5 text-right font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(campanha.receita)}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: campanha.roas === null ? undefined : campanha.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
-                      {campanha.roas === null ? "—" : `${campanha.roas.toFixed(2)}x`}
+                    <td className="px-3 py-2.5 text-right font-semibold">
+                      <Roas valor={campanha.roas} minimo={campanha.breakEven.roasMinimo} />
                     </td>
                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }} title={campanha.lucro.custosIncompletos ? "Estimativa parcial — custo do produto não configurado" : undefined}>
                       {moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}

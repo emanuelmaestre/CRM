@@ -11,6 +11,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterHistoricoDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
 import { SeletorMarca } from "../anuncios-cliente";
 import { Card, CardHead } from "../anuncios-primitives";
+import { Roas } from "../roas";
 import type { PontoHistorico } from "@/modules/anuncios/application/historico.service";
 import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
 
@@ -199,8 +200,8 @@ export function HistoricoClienteDetalhe() {
                       <td className="px-3 py-2.5 font-medium text-foreground">{diaMes.format(new Date(`${ponto.data}T00:00:00`))}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(ponto.investimento)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(ponto.receita)}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: ponto.roas === null ? undefined : ponto.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
-                        {ponto.roas === null ? "—" : `${ponto.roas.toFixed(2)}x`}
+                      <td className="px-3 py-2.5 text-right font-semibold">
+                        <Roas valor={ponto.roas} />
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{ponto.cliques.toLocaleString("pt-BR")}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{ponto.vendas.toLocaleString("pt-BR")}</td>

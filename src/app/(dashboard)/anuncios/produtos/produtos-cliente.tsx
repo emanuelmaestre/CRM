@@ -11,6 +11,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterProdutosDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
 import { SeletorMarca } from "../anuncios-cliente";
 import { Card, CardHead } from "../anuncios-primitives";
+import { Roas } from "../roas";
 import type { AnuncioProduto, ProdutosResultado } from "@/modules/anuncios/application/produtos.service";
 import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
 
@@ -162,8 +163,8 @@ export function ProdutosClienteDetalhe() {
                     <td className="max-w-[180px] truncate px-3 py-2.5 text-muted-foreground">{anuncio.campanhaNome}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(anuncio.investimento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(anuncio.receita)}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: anuncio.roas === null ? undefined : anuncio.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
-                      {anuncio.roas === null ? "—" : `${anuncio.roas.toFixed(2)}x`}
+                    <td className="px-3 py-2.5 text-right font-semibold">
+                      <Roas valor={anuncio.roas} />
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{anuncio.cliques.toLocaleString("pt-BR")}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{anuncio.vendas.toLocaleString("pt-BR")}</td>

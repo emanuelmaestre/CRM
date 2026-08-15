@@ -11,6 +11,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterAnunciosDaCampanha, actionObterVisaoGeralAnuncios } from "../actions";
 import { SeletorMarca } from "../anuncios-cliente";
 import { Card } from "../anuncios-primitives";
+import { Roas } from "../roas";
 import type { AnuncioDaCampanha } from "@/modules/anuncios/application/campanha-detalhe.service";
 import type { CampanhaVisaoGeral, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
 import type { Diagnostico, SeveridadeDiagnostico } from "@/modules/anuncios/application/motor-diagnostico";
@@ -82,8 +83,8 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
               </td>
               <td className="px-2 py-2 text-right tabular-nums text-foreground">{moeda.format(anuncio.investimento)}</td>
               <td className="px-2 py-2 text-right tabular-nums text-foreground">{moeda.format(anuncio.receita)}</td>
-              <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: anuncio.roas === null ? undefined : anuncio.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
-                {anuncio.roas === null ? "—" : `${anuncio.roas.toFixed(2)}x`}
+              <td className="px-2 py-2 text-right font-semibold">
+                <Roas valor={anuncio.roas} />
               </td>
               <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{anuncio.cliques.toLocaleString("pt-BR")}</td>
               <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{anuncio.vendas.toLocaleString("pt-BR")}</td>
@@ -132,8 +133,8 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
           </span>
         )}
         <span className="shrink-0 text-right text-[13px] font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</span>
-        <span className="hidden w-16 shrink-0 text-right text-[13px] font-semibold tabular-nums sm:inline" style={{ color: campanha.roas === null ? undefined : campanha.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
-          {campanha.roas === null ? "—" : `${campanha.roas.toFixed(2)}x`}
+        <span className="hidden w-16 shrink-0 justify-end text-right text-[13px] font-semibold sm:inline-flex">
+          <Roas valor={campanha.roas} minimo={campanha.breakEven.roasMinimo} />
         </span>
         <span className="hidden w-20 shrink-0 text-right text-[13px] font-semibold tabular-nums sm:inline" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}>
           {moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}

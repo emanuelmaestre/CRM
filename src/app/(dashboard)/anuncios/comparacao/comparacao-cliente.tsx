@@ -11,6 +11,7 @@ import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "../actions";
 import { Card } from "../anuncios-primitives";
+import { Roas } from "../roas";
 import type { ClassificacaoDependencia } from "@/modules/anuncios/application/metricas-calculadas";
 import type { VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
 import { tint } from "@/shared/design-system/color";
@@ -92,8 +93,8 @@ export function ComparacaoClienteDetalhe() {
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(marca.resumo.investimentoTotal)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(marca.resumo.receitaTotal)}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: marca.resumo.roasMedio === null ? undefined : marca.resumo.roasMedio >= 1 ? "var(--success)" : "var(--destructive)" }}>
-                      {marca.resumo.roasMedio === null ? "—" : `${marca.resumo.roasMedio.toFixed(2)}x`}
+                    <td className="px-3 py-2.5 text-right font-semibold">
+                      <Roas valor={marca.resumo.roasMedio} />
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                       {marca.resumo.tacos === null ? "—" : `${marca.resumo.tacos.toFixed(1)}%`}
