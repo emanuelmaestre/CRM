@@ -71,7 +71,27 @@ export function ComparacaoClienteDetalhe() {
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       <Card>
-        <div className="table-scroll px-1 pb-5 pt-3 sm:px-2">
+        <div className="divide-y divide-border px-4 py-2 md:hidden">
+          {marcasOrdenadas.map((marca) => {
+            const lucroPositivo = marca.resumo.lucroTotal >= 0;
+            const dependencia = marca.resumo.dependenciaMidia.classificacao;
+            return (
+              <article key={marca.brandId} className="py-4">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 text-sm font-semibold text-foreground">{isBrandSlug(marca.brandSlug) ? <BrandLogo brand={marca.brandSlug} height={14} /> : marca.brandLabel}</span>
+                  {dependencia && <span className="shrink-0 rounded-full px-2 py-1 text-xs font-semibold" style={{ background: tint(COR_DEPENDENCIA[dependencia], 9), color: COR_DEPENDENCIA[dependencia] }}>{copy.dependencia[dependencia]} · {marca.resumo.dependenciaMidia.percentual?.toFixed(0)}%</span>}
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                  <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(marca.resumo.investimentoTotal)}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(marca.resumo.receitaTotal)}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={marca.resumo.roasMedio} /></dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Lucro</dt><dd className="mt-0.5 font-semibold tabular-nums" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}>{moeda.format(marca.resumo.lucroTotal)}{marca.resumo.lucroIncompleto && "*"}</dd></div>
+                </dl>
+              </article>
+            );
+          })}
+        </div>
+        <div className="table-scroll hidden px-1 pb-5 pt-3 md:block sm:px-2">
           <table className="w-full min-w-[780px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">

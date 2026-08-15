@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { XCircle } from "lucide-react";
 import { actionCancelarPedido } from "../../actions";
+import { Dialog } from "@/shared/design-system/primitives/Dialog";
 import pagesConfig from "@/config/pages.json";
 
 const copy = pagesConfig.pedidos.detail;
@@ -41,29 +42,26 @@ export function CancelarPedidoModal({ pedidoId }: { pedidoId: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-10 items-center gap-1.5 rounded-[0.75rem] border px-4 text-sm font-semibold transition-colors"
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-[0.75rem] border px-4 text-sm font-semibold transition-colors"
         style={{ borderColor: "var(--destructive)", color: "var(--destructive)" }}
       >
         <XCircle size={15} strokeWidth={2} />
         {copy.cancelAction}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4">
-          <div role="dialog" aria-modal="true" className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-[1.25rem] border border-border bg-card p-4 shadow-xl sm:p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-foreground">{copy.cancelTitle}</h2>
-              <button type="button" onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
-            </div>
-
-            <p className="text-sm text-muted-foreground mb-4">{copy.cancelDescription}</p>
-
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        title={copy.cancelTitle}
+        description={copy.cancelDescription}
+      >
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                <label htmlFor={`motivo-cancelamento-${pedidoId}`} className="block text-xs font-medium text-muted-foreground mb-1.5">
                   {copy.canceledReasonLabel}
                 </label>
                 <textarea
+                  id={`motivo-cancelamento-${pedidoId}`}
                   value={motivo}
                   onChange={(event) => setMotivo(event.target.value)}
                   placeholder={copy.cancelReasonPlaceholder}
@@ -77,23 +75,21 @@ export function CancelarPedidoModal({ pedidoId }: { pedidoId: string }) {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="flex-1 h-10 rounded-[0.75rem] border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                  className="h-11 flex-1 rounded-[0.75rem] border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   {copy.cancelCancel}
                 </button>
                 <button
                   type="submit"
                   disabled={pending || motivo.trim().length < 3}
-                  className="flex-1 h-10 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60"
+                  className="h-11 flex-1 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60"
                   style={{ background: "var(--destructive)" }}
                 >
                   {pending ? copy.cancelAction + "…" : copy.cancelConfirm}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Dialog>
     </>
   );
 }

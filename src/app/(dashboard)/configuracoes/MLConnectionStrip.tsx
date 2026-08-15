@@ -68,7 +68,7 @@ export function MLConnectionStrip({ status }: Props) {
           disabled={carregando}
           title={labels.refresh}
           aria-label={labels.refresh}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
         >
           <motion.span
             animate={carregando ? { rotate: 360 } : { rotate: 0 }}

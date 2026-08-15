@@ -221,7 +221,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
           type="button"
           aria-label="Mês anterior"
           onClick={() => navegar(-1)}
-          className="press-feedback flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="press-feedback flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ChevronLeft size={16} />
         </button>
@@ -232,7 +232,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
           type="button"
           aria-label="Próximo mês"
           onClick={() => navegar(1)}
-          className="press-feedback flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="press-feedback flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ChevronRight size={16} />
         </button>

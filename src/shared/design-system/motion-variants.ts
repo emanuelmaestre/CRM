@@ -31,3 +31,38 @@ export const fadeUpMomentum = {
   hidden: { opacity: 0, y: 6, scale: 0.97 },
   show: { opacity: 1, y: 0, scale: 1, transition: springs.momentum },
 };
+
+/* ── Movimento reduzido ────────────────────────────────────────────
+   A regra @media (prefers-reduced-motion: reduce) no globals.css zera
+   animações e transições de CSS — e dá uma falsa sensação de cobertura,
+   porque o Framer Motion anima em JavaScript e não é afetado por ela.
+   Cada motion.div continua fazendo spring, stagger e desenho de traço
+   normalmente para quem pediu ao sistema operacional que parasse.
+
+   As duas peças abaixo existem para que respeitar a preferência custe uma
+   linha por componente, em vez de um `useReducedMotion()` e três ternários
+   espalhados pelo JSX. */
+
+/** Variantes que entregam o estado final sem percorrer o caminho: o
+ *  conteúdo aparece, apenas sem deslizar nem escalar. */
+export const semMovimento = {
+  hidden: { opacity: 1, y: 0, x: 0, scale: 1 },
+  show: { opacity: 1, y: 0, x: 0, scale: 1, transition: { duration: 0 } },
+};
+
+/** Escolhe entre a variante animada e a estática. `reduzir` vem do
+ *  `useReducedMotion()` do próprio Framer, que já observa a media query. */
+export function variantes<T>(reduzir: boolean | null, animada: T): T | typeof semMovimento {
+  return reduzir ? semMovimento : animada;
+}
+
+/** Mesma ideia para transições soltas (`transition={...}`). */
+export function transicao<T>(reduzir: boolean | null, animada: T): T | { duration: 0 } {
+  return reduzir ? { duration: 0 } : animada;
+}
+
+/** Stagger só faz sentido quando há movimento — sem ele, escalonar a entrada
+ *  de 12 linhas vira só um atraso sem propósito para quem não vê animação. */
+export function escalonamento(reduzir: boolean | null) {
+  return reduzir ? { hidden: {}, show: { transition: { staggerChildren: 0 } } } : stagger;
+}

@@ -86,7 +86,7 @@ export function MLOAuthFeedback({ onConectado }: { onConectado?: () => void }) {
               type="button"
               onClick={() => setFeedback(null)}
               aria-label={mlConfig.labels.closeFeedback}
-              className="-my-1 -mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-current opacity-70 transition-opacity hover:bg-current/10 hover:opacity-100"
+              className="-my-1 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-current opacity-70 transition-opacity hover:bg-current/10 hover:opacity-100"
             >
               <X size={15} strokeWidth={2.5} />
             </button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { Info, LineChart } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -41,6 +41,8 @@ function GraficoLinha({ pontos, cor, largura = 640, altura = 140 }: {
   largura?: number;
   altura?: number;
 }) {
+  const reduzirMovimento = useReducedMotion();
+
   if (pontos.length === 0) return null;
 
   const valores = pontos.map((p) => p.y);
@@ -63,9 +65,9 @@ function GraficoLinha({ pontos, cor, largura = 640, altura = 140 }: {
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
+          initial={reduzirMovimento ? false : { pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={reduzirMovimento ? { duration: 0 } : { duration: 0.8, ease: "easeOut" }}
         />
       )}
       {coords.map(([x, y], i) => (
@@ -92,7 +94,7 @@ function GraficoHistorico({ pontos }: { pontos: PontoHistorico[] }) {
           <div className="absolute inset-0"><GraficoLinha pontos={investimento} cor="var(--info)" /></div>
         </div>
         {pontos.length > 0 && (
-          <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+          <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
             <span>{diaMes.format(new Date(`${pontos[0].data}T00:00:00`))}</span>
             <span>{diaMes.format(new Date(`${pontos[pontos.length - 1].data}T00:00:00`))}</span>
           </div>
@@ -162,7 +164,7 @@ export function HistoricoClienteDetalhe() {
               key={periodo}
               type="button"
               onClick={() => setDias(periodo)}
-              className="press-feedback rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+              className="press-feedback min-h-11 rounded-full px-3 text-xs font-semibold transition-colors"
               style={{
                 background: dias === periodo ? "var(--foreground)" : "var(--muted)",
                 color: dias === periodo ? "var(--background)" : "var(--muted-foreground)",
@@ -185,7 +187,23 @@ export function HistoricoClienteDetalhe() {
           <GraficoHistorico pontos={pontos} />
 
           <Card>
-            <div className="table-scroll px-1 pb-5 pt-3 sm:px-2">
+            <div className="divide-y divide-border px-4 py-2 md:hidden">
+              {[...pontos].reverse().map((ponto) => (
+                <article key={ponto.data} className="py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-foreground">{diaMes.format(new Date(`${ponto.data}T00:00:00`))}</h4>
+                    <Roas valor={ponto.roas} />
+                  </div>
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                    <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(ponto.investimento)}</dd></div>
+                    <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(ponto.receita)}</dd></div>
+                    <div><dt className="text-xs text-muted-foreground">Cliques</dt><dd className="mt-0.5 tabular-nums">{ponto.cliques.toLocaleString("pt-BR")}</dd></div>
+                    <div className="text-right"><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{ponto.vendas.toLocaleString("pt-BR")}</dd></div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+            <div className="table-scroll hidden px-1 pb-5 pt-3 md:block sm:px-2">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">

@@ -35,7 +35,27 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
       {campanhas.length === 0 ? (
         <EmptyState illustration="reports" title={copy.semDado} />
       ) : (
-        <div className="table-scroll px-1 pb-5 pt-3 sm:px-2">
+        <>
+        <div className="divide-y divide-border px-4 pb-4 pt-2 md:hidden">
+          {campanhas.map((campanha) => {
+            const lucroPositivo = campanha.lucro.lucroEstimado >= 0;
+            return (
+              <article key={campanha.campanhaId} className="py-4 first:pt-2 last:pb-0">
+                <div className="flex items-start justify-between gap-3">
+                  <h4 className="min-w-0 text-sm font-semibold leading-snug text-foreground">{campanha.nome}</h4>
+                  <BadgeStatus status={campanha.status} />
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                  <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.investimento)}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.receita)}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={campanha.roas} minimo={campanha.breakEven.roasMinimo} /></dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Lucro estimado</dt><dd className="mt-0.5 font-semibold tabular-nums" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}>{moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}</dd></div>
+                </dl>
+              </article>
+            );
+          })}
+        </div>
+        <div className="table-scroll hidden px-1 pb-5 pt-3 md:block sm:px-2">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
@@ -73,8 +93,9 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
               })}
             </tbody>
           </table>
-          <p className="mt-2 px-3 text-[10px] text-muted-foreground">* estimativa parcial — custo do produto ainda não configurado no catálogo.</p>
         </div>
+        <p className="px-4 pb-4 text-xs text-muted-foreground">* estimativa parcial — custo do produto ainda não configurado no catálogo.</p>
+        </>
       )}
     </Card>
   );

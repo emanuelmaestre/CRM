@@ -39,7 +39,7 @@ function LinhaCanal({ canal, indice }: { canal: AtendimentoPorCanal; indice: num
           <span className="truncate text-[12px] font-semibold text-foreground">{canalLabel(canal.canal)}</span>
           {canal.canal === "mercadolivre" && (
             <span
-              className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
+              className="shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold"
               style={{ background: tint(risco ? "var(--destructive)" : "var(--success)", 9), color: risco ? "var(--destructive)" : "var(--success)" }}
             >
               afeta reputação

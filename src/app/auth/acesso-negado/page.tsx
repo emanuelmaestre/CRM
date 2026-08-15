@@ -17,7 +17,7 @@ export default async function AcessoNegadoPage({
     : permissionsConfig.messages.notProvisionedDescription;
 
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center px-4">
+    <main className="flex min-h-dvh items-center justify-center bg-background px-4 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <section className="w-full max-w-lg rounded-3xl border border-border bg-card p-8 text-center shadow-sm">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">{appConfig.identityLabel}</p>
         <h1 className="mt-3 text-2xl font-bold text-foreground">{title}</h1>

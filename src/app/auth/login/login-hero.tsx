@@ -6,6 +6,7 @@ import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
 export function LoginHero() {
   return (
     <div className="mb-10 flex flex-col items-center relative">
+      <h1 className="sr-only">Entrar no CRM Elisa Lima</h1>
       {/* Ilustração — esferas decorativas de fundo */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <motion.div

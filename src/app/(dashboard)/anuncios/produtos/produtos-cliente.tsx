@@ -134,7 +134,31 @@ export function ProdutosClienteDetalhe() {
         ) : anunciosFiltrados.length === 0 ? (
           <EmptyState illustration="reports" title={copy.vazio} />
         ) : (
-          <div className="table-scroll px-1 pb-5 pt-3 sm:px-2">
+          <>
+          <div className="divide-y divide-border px-4 py-2 md:hidden">
+            {anunciosFiltrados.map((anuncio: AnuncioProduto) => (
+              <article key={anuncio.itemId} className="py-4">
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-semibold leading-snug text-foreground">{anuncio.titulo ?? anuncio.itemId}</h4>
+                    <p className="mt-1 text-xs text-muted-foreground">{anuncio.campanhaNome}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1.5">
+                    {anuncio.recomendado && <span title={copy.recomendado}><Sparkles size={15} className="text-success" /></span>}
+                    {anuncio.buyBoxWinner && <span title={copy.buyBox}><Trophy size={15} className="text-warning" /></span>}
+                    {idsDesperdicio.has(anuncio.itemId) && <span title={copy.desperdicio.titulo}><AlertTriangle size={15} className="text-destructive" /></span>}
+                  </div>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                  <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.receita)}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={anuncio.roas} /></dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
+                </dl>
+              </article>
+            ))}
+          </div>
+          <div className="table-scroll hidden px-1 pb-5 pt-3 md:block sm:px-2">
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
@@ -173,6 +197,7 @@ export function ProdutosClienteDetalhe() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </Card>
     </motion.div>

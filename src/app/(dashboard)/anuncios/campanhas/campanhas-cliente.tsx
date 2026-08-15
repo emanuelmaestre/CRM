@@ -61,7 +61,24 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
   if (!anuncios || anuncios.length === 0) return <p className="px-1 py-3 text-[12px] text-muted-foreground">{copy.anuncios.vazio}</p>;
 
   return (
-    <div className="table-scroll">
+    <>
+    <div className="divide-y divide-border md:hidden">
+      {anuncios.map((anuncio) => (
+        <article key={anuncio.itemId} className="py-3">
+          <div className="flex items-start justify-between gap-2">
+            <p className="min-w-0 text-sm font-semibold leading-snug text-foreground">{anuncio.titulo ?? anuncio.itemId}</p>
+            {anuncio.recomendado && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success/10 px-2 py-1 text-xs font-semibold text-success"><Sparkles size={11} /> {copy.anuncios.recomendado}</span>}
+          </div>
+          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</dd></div>
+            <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.receita)}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={anuncio.roas} /></dd></div>
+            <div className="text-right"><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
+          </dl>
+        </article>
+      ))}
+    </div>
+    <div className="table-scroll hidden md:block">
       <table className="w-full min-w-[560px] text-[12px]">
         <thead>
           <tr className="border-b border-border text-left text-[10px] font-medium uppercase text-muted-foreground">
@@ -76,7 +93,7 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
               <td className="max-w-[240px] truncate px-2 py-2 font-medium text-foreground">
                 {anuncio.titulo ?? anuncio.itemId}
                 {anuncio.recomendado && (
-                  <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-success/10 px-1.5 py-0.5 text-[9px] font-semibold text-success" title={copy.anuncios.recomendado}>
+                  <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-success/10 px-1.5 py-0.5 text-[11px] font-semibold text-success" title={copy.anuncios.recomendado}>
                     <Sparkles size={9} />
                   </span>
                 )}
@@ -93,6 +110,7 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 

@@ -209,7 +209,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                       <button
                         onClick={() => remover(m.id)}
                         disabled={pending}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors disabled:opacity-50"
+                        className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-destructive/8 hover:text-destructive disabled:opacity-50"
                         title={copy.removeTitle}
                         aria-label={`${copy.removeTitle} — ${m.contaNome}`}
                       >
@@ -229,7 +229,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                 </p>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-muted-foreground mb-2">{copy.accountFieldLabel}</label>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">{copy.accountFieldLabel}</p>
 
                     {/* Depois de escolhida, a conta vira um resumo de uma linha —
                         a grade inteira ficando aberta só empurrava os campos de
@@ -289,8 +289,9 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                         className="space-y-3 overflow-hidden"
                       >
                         <div>
-                          <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">{copy.listingFieldLabel}</label>
+                          <label htmlFor="canal-listing-id" className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.listingFieldLabel}</label>
                           <input
+                            id="canal-listing-id"
                             className={inputClass}
                             placeholder={copy.listingPlaceholder}
                             value={novoListingId}
@@ -301,8 +302,9 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                         </div>
                         {(contaSelecionada?.tipo === "tiktokshop" || contaSelecionada?.tipo === "shopee") && (
                           <div>
-                            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">{copy.skuFieldLabel}</label>
+                            <label htmlFor="canal-sku-id" className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.skuFieldLabel}</label>
                             <input
+                              id="canal-sku-id"
                               className={inputClass}
                               placeholder={copy.skuPlaceholder}
                               value={novoSkuId}
@@ -312,8 +314,9 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                         )}
                         {contaSelecionada?.tipo === "tiktokshop" && (
                           <div>
-                            <label className="block text-[11px] font-medium text-muted-foreground mb-1.5">{copy.warehouseFieldLabel}</label>
+                            <label htmlFor="canal-warehouse-id" className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.warehouseFieldLabel}</label>
                             <input
+                              id="canal-warehouse-id"
                               className={inputClass}
                               placeholder={copy.warehousePlaceholder}
                               value={novoWarehouseId}

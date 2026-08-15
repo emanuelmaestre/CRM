@@ -12,10 +12,12 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setErro(null);
     setLoading(true);
     try {
       const supabase = createClient();
@@ -27,6 +29,7 @@ export function LoginForm() {
       router.replace("/dashboard");
       router.refresh();
     } catch {
+      setErro(copy.errors.invalidCredentials);
       toast.error(copy.errors.invalidCredentials);
     } finally {
       setLoading(false);
@@ -44,8 +47,10 @@ export function LoginForm() {
           type="email"
           autoComplete="email"
           required
+          aria-invalid={erro ? "true" : undefined}
+          aria-describedby={erro ? "login-error" : undefined}
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => { setEmail(e.target.value); if (erro) setErro(null); }}
           className="w-full h-11 rounded-[0.75rem] border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           placeholder={copy.fields.email.placeholder}
         />
@@ -59,12 +64,19 @@ export function LoginForm() {
           type="password"
           autoComplete="current-password"
           required
+          aria-invalid={erro ? "true" : undefined}
+          aria-describedby={erro ? "login-error" : undefined}
           value={senha}
-          onChange={(e) => setSenha(e.target.value)}
+          onChange={(e) => { setSenha(e.target.value); if (erro) setErro(null); }}
           className="w-full h-11 rounded-[0.75rem] border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           placeholder={copy.fields.password.placeholder}
         />
       </div>
+      {erro && (
+        <p id="login-error" role="alert" className="rounded-xl bg-destructive/10 px-3 py-2.5 text-sm font-medium text-destructive">
+          {erro}
+        </p>
+      )}
       <button
         type="submit"
         disabled={loading}

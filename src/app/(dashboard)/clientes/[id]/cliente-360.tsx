@@ -157,7 +157,7 @@ export function Cliente360({
           onClick={() => router.push("/clientes")}
           title={copy.actions.back}
           aria-label={copy.actions.back}
-          className="h-10 w-10 inline-flex items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
         >
           <ArrowLeft size={17} />
         </button>
@@ -167,7 +167,7 @@ export function Cliente360({
             onClick={() => setEditing((value) => !value)}
             title={editing ? copy.actions.cancel : copy.actions.edit}
             aria-label={editing ? copy.actions.cancel : copy.actions.edit}
-            className="h-10 w-10 inline-flex items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
           >
             {editing ? <X size={17} /> : <Pencil size={17} />}
           </button>

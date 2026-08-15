@@ -367,7 +367,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => avancarStatus("resolvida")}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950 dark:hover:bg-emerald-900 transition-colors"
+                      className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950 dark:hover:bg-emerald-900 transition-colors"
                     >
                       <CheckCheck size={13} strokeWidth={2.5} />
                       {conversationCopy.resolve}
@@ -376,7 +376,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => avancarStatus("arquivada")}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                     >
                       <Archive size={13} />
                       {conversationCopy.archive}
@@ -453,7 +453,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                     whileTap={{ scale: 0.94 }}
                     onClick={enviar}
                     disabled={!texto.trim() || enviando}
-                    className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-[10px] text-white disabled:opacity-35 transition-shadow shadow-[0_4px_14px_rgba(227,19,27,.28)] disabled:shadow-none"
+                    className="h-11 w-11 flex-shrink-0 flex items-center justify-center rounded-[10px] text-white disabled:opacity-35 transition-shadow shadow-[0_4px_14px_rgba(227,19,27,.28)] disabled:shadow-none"
                     style={{ background: "var(--gradient-signature)" }}
                     title={conversationCopy.sendTitle}
                   >

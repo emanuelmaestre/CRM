@@ -427,7 +427,7 @@ export function MLHistoricalImportSection() {
                             <p className="mt-1 text-[11px] text-muted-foreground">Lote {active.id.slice(0, 8).toUpperCase()} · JSON preservado</p>
                           </div>
                           {!(["importando", "concluido", "concluido_com_erros"].includes(active.status)) && (
-                            <button type="button" disabled={pending} onClick={descartar} className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-red-600 transition-colors hover:bg-red-500/10 disabled:opacity-50">
+                            <button type="button" disabled={pending} onClick={descartar} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-red-600 transition-colors hover:bg-red-500/10 disabled:opacity-50">
                               <Trash2 size={13} /> {config.review.discard}
                             </button>
                           )}
@@ -502,7 +502,7 @@ export function MLHistoricalImportSection() {
                         >
                           <div className="flex items-center justify-between gap-3">
                             <span className="truncate text-xs font-black text-foreground">{lote.brandName}</span>
-                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${statusTone(lote.status)}`}>{stageLabel(lote.fase)}</span>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${statusTone(lote.status)}`}>{stageLabel(lote.fase)}</span>
                           </div>
                           <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
                             <span>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(lote.createdAt))}</span>

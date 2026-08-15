@@ -358,7 +358,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                   initial={{ scale: 0.85, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 300, damping: 24 }}
-                  className="flex items-center justify-center h-8 px-3 rounded-full bg-white border border-black/8 shadow-[0_1px_4px_rgba(0,0,0,.06)] flex-shrink-0"
+                  className="flex min-h-11 items-center justify-center rounded-full border border-black/8 bg-white px-3 shadow-[0_1px_4px_rgba(0,0,0,.06)] flex-shrink-0"
                 >
                   <ChannelLogo canal={selecionada.plataforma} size="xs" variant="logo" />
                 </motion.span>
@@ -448,7 +448,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                         title={copy.quickReply}
                         aria-label={copy.quickReply}
                         aria-expanded={atalhosAbertos}
-                        className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-colors ${
+                        className={`h-11 w-11 rounded-[10px] flex items-center justify-center transition-colors ${
                           atalhosAbertos
                             ? "text-selecionado bg-selecionado/10"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -514,7 +514,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                       whileTap={{ scale: 0.94 }}
                       onClick={enviarResposta}
                       disabled={!resposta.trim() || enviando}
-                      className="w-10 h-10 rounded-[10px] flex items-center justify-center text-white disabled:opacity-35 flex-shrink-0 shadow-[0_4px_14px_rgba(227,19,27,.3)] disabled:shadow-none transition-shadow"
+                      className="h-11 w-11 rounded-[10px] flex items-center justify-center text-white disabled:opacity-35 flex-shrink-0 shadow-[0_4px_14px_rgba(227,19,27,.3)] disabled:shadow-none transition-shadow"
                       style={{ background: "var(--gradient-signature)" }}
                     >
                       {enviando ? (

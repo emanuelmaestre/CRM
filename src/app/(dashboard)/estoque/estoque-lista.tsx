@@ -952,7 +952,7 @@ export function EstoqueLista() {
                   type="button"
                   onClick={aplicarMinimoEmLote}
                   disabled={aplicandoLote || minimoLote.trim() === ""}
-                  className="min-h-9 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
+                  className="min-h-11 inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
                   style={{ background: COR.info }}
                 >
                   {aplicandoLote && <Loader2 size={13} className="animate-spin" />}
@@ -961,7 +961,7 @@ export function EstoqueLista() {
                 <button
                   type="button"
                   onClick={() => setSelecionados(new Set())}
-                  className="min-h-9 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+                  className="min-h-11 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
                   {copy.bulk.clear}
                 </button>
@@ -1261,7 +1261,7 @@ export function EstoqueLista() {
                                   href={`/estoque/produtos/${p.id}`}
                                   title="Ver produto"
                                   aria-label="Ver produto"
-                                  className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-[rgba(155,48,217,.4)] hover:bg-muted active:scale-[.97]"
+                                  className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-selecionado/40 hover:bg-muted active:scale-[.97]"
                                 >
                                   <Eye size={14} strokeWidth={2} />
                                 </Link>

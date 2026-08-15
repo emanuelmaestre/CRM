@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ArrowRight, ArrowLeft } from "lucide-react";
@@ -52,6 +52,8 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
   const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const focoAnterior = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const init = () => {
@@ -75,6 +77,39 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
     }
   }, [storageKey]);
 
+  useEffect(() => {
+    if (!active) return;
+    focoAnterior.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = window.requestAnimationFrame(() => cardRef.current?.focus());
+    const aoTeclar = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") {
+        evento.preventDefault();
+        finalizar();
+        return;
+      }
+      if (evento.key !== "Tab" || !cardRef.current) return;
+      const focaveis = Array.from(cardRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ));
+      if (focaveis.length === 0) return;
+      const primeiro = focaveis[0];
+      const ultimo = focaveis[focaveis.length - 1];
+      if (evento.shiftKey && document.activeElement === primeiro) {
+        evento.preventDefault();
+        ultimo.focus();
+      } else if (!evento.shiftKey && document.activeElement === ultimo) {
+        evento.preventDefault();
+        primeiro.focus();
+      }
+    };
+    window.addEventListener("keydown", aoTeclar);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", aoTeclar);
+      focoAnterior.current?.focus();
+    };
+  }, [active, finalizar]);
+
   const step = active ? steps[stepIndex] : undefined;
   const rect = useTargetRect(step?.target ?? null);
 
@@ -93,6 +128,7 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
   return createPortal(
     <AnimatePresence>
       <motion.div
+        ref={cardRef}
         key="coachmark-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -126,7 +162,10 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
         className="fixed z-[302] max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-[1.25rem] bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.16)] sm:p-5"
         style={{ top: cardTop, left: cardLeft, width: cardWidth }}
         role="dialog"
+        aria-modal="true"
+        aria-labelledby="coachmark-title"
         aria-live="polite"
+        tabIndex={-1}
         data-testid="coachmark-card"
       >
         <button
@@ -140,7 +179,7 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Passo {stepIndex + 1} de {steps.length}
         </p>
-        <h3 className="mt-1 text-sm font-bold text-foreground">{step.title}</h3>
+        <h3 id="coachmark-title" className="mt-1 text-sm font-bold text-foreground">{step.title}</h3>
         <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{step.description}</p>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <button

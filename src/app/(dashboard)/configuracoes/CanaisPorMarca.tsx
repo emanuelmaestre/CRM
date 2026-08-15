@@ -183,14 +183,14 @@ function ContaCanalEditForm({ item, onCancel, onSaved }: {
         className="h-9 w-full rounded-lg border border-border bg-background px-2.5 text-xs"
       />
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} disabled={pending} className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-muted-foreground disabled:opacity-50">
+        <button type="button" onClick={onCancel} disabled={pending} className="inline-flex h-11 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-muted-foreground disabled:opacity-50">
           <X size={12} /> Cancelar
         </button>
         <button
           type="button"
           onClick={salvar}
           disabled={pending || nome.trim().length < 2 || !externalAccountId.trim()}
-          className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
+          className="inline-flex h-11 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-white disabled:opacity-50"
           style={{ background: "var(--gradient-signature)" }}
         >
           Salvar
@@ -278,7 +278,7 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
             type="button"
             aria-label={`Editar conta de ${item.canalLabel}`}
             onClick={() => setEditando(true)}
-            className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <Pencil size={12} /> Editar
           </button>
@@ -287,7 +287,7 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
             aria-label={`Remover conta de ${item.canalLabel}`}
             onClick={remover}
             disabled={removendo}
-            className="flex h-7 items-center gap-1.5 rounded-lg px-2 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
+            className="flex h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
           >
             <Trash2 size={12} /> Remover
           </button>

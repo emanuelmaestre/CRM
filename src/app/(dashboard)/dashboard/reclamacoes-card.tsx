@@ -287,7 +287,7 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
                   type="button"
                   onClick={() => void enviar()}
                   disabled={enviando || !texto.trim()}
-                  className="press-feedback flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition-opacity disabled:opacity-40"
+                  className="press-feedback flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white transition-opacity disabled:opacity-40"
                   style={{ background: copy.accent }}
                   aria-label={copy.send}
                 >

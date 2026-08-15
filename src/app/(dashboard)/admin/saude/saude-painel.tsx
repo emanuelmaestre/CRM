@@ -196,7 +196,7 @@ function VerificarAgoraButton() {
       type="button"
       onClick={verificar}
       disabled={pending}
-      className="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50"
+      className="inline-flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-50"
       style={{ background: "var(--gradient-signature)" }}
     >
       <RotateCw size={14} className={pending ? "animate-spin" : undefined} />

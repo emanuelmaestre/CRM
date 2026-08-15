@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Eye, Pencil } from "lucide-react";
 import { actionEditarProduto } from "./actions";
+import { Dialog } from "@/shared/design-system/primitives/Dialog";
 import pagesConfig from "@/config/pages.json";
 
 const copy = pagesConfig.estoque.edit;
@@ -58,31 +59,27 @@ export function EditarProdutoModal({ produtoId, produtoNome, preco, onSuccess }:
         onClick={() => setOpen(true)}
         title="Ver produto"
         aria-label="Ver produto"
-        className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-[rgba(155,48,217,.4)] hover:bg-muted active:scale-[.97]"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-selecionado/40 hover:bg-muted active:scale-[.97]"
       >
         <Eye size={14} strokeWidth={2} />
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-black/40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4">
-          <div role="dialog" aria-modal="true" className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-[1.25rem] border border-border bg-card p-4 shadow-xl sm:p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-base font-semibold text-foreground">{modo === "ver" ? "Detalhes do produto" : copy.title}</h2>
-              <div className="flex items-center gap-1.5">
-                {modo === "ver" && (
-                  <button
-                    type="button"
-                    onClick={() => setModo("editar")}
-                    title={copy.button}
-                    aria-label={copy.button}
-                    className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  >
-                    <Pencil size={14} strokeWidth={2} />
-                  </button>
-                )}
-                <button onClick={fechar} className="text-muted-foreground hover:text-foreground text-xl leading-none px-1">×</button>
-              </div>
-            </div>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => nextOpen ? setOpen(true) : fechar()}
+        title={modo === "ver" ? "Detalhes do produto" : copy.title}
+      >
+            {modo === "ver" && (
+              <button
+                type="button"
+                onClick={() => setModo("editar")}
+                title={copy.button}
+                aria-label={copy.button}
+                className="absolute right-14 top-2.5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Pencil size={15} strokeWidth={2} />
+              </button>
+            )}
 
             {modo === "ver" ? (
               <div className="space-y-4">
@@ -99,25 +96,27 @@ export function EditarProdutoModal({ produtoId, produtoNome, preco, onSuccess }:
             ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.name} *</label>
+                <label htmlFor={`produto-nome-${produtoId}`} className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.name} *</label>
                 <input
+                  id={`produto-nome-${produtoId}`}
                   name="nome"
                   defaultValue={produtoNome}
                   required
-                  className="w-full h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-11 w-full rounded-[0.75rem] border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.price} *</label>
+                <label htmlFor={`produto-preco-${produtoId}`} className="block text-xs font-medium text-muted-foreground mb-1.5">{copy.fields.price} *</label>
                 <input
+                  id={`produto-preco-${produtoId}`}
                   name="preco"
                   type="number"
                   step="0.01"
                   min="0.01"
                   defaultValue={preco}
                   required
-                  className="w-full h-10 px-3 rounded-[0.75rem] border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="h-11 w-full rounded-[0.75rem] border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
 
@@ -127,14 +126,14 @@ export function EditarProdutoModal({ produtoId, produtoNome, preco, onSuccess }:
                 <button
                   type="button"
                   onClick={() => setModo("ver")}
-                  className="flex-1 h-10 rounded-[0.75rem] border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                  className="h-11 flex-1 rounded-[0.75rem] border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
                 >
                   {copy.cancel}
                 </button>
                 <button
                   type="submit"
                   disabled={pending}
-                  className="flex-1 h-10 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60"
+                  className="h-11 flex-1 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60"
                   style={{ background: "var(--gradient-signature)" }}
                 >
                   {pending ? copy.submitting : copy.submit}
@@ -142,9 +141,7 @@ export function EditarProdutoModal({ produtoId, produtoNome, preco, onSuccess }:
               </div>
             </form>
             )}
-          </div>
-        </div>
-      )}
+      </Dialog>
     </>
   );
 }

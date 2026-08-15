@@ -47,7 +47,7 @@ function SeletorEscopo({ marcas, valor, onChange }: {
             role="tab"
             aria-selected={ativo}
             onClick={() => onChange(opcao.chave)}
-            className="press-feedback relative flex h-8 items-center gap-1.5 rounded-[0.6rem] px-3 text-xs font-semibold transition-colors"
+            className="press-feedback relative flex h-11 items-center gap-1.5 rounded-[0.6rem] px-3 text-xs font-semibold transition-colors"
             style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             {ativo && (
@@ -166,7 +166,7 @@ export function ScoreCard({ dados, carregando }: {
             type="button"
             onClick={() => setExplicando((atual) => !atual)}
             aria-expanded={explicando}
-            className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
+            className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
           >
             <Info size={13} /> Como é calculado
           </button>

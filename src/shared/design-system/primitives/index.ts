@@ -5,3 +5,4 @@ export { StatCard } from "./StatCard";
 export { SectionCard } from "./SectionCard";
 export { Skeleton, SkeletonCard, SkeletonRow } from "./Skeleton";
 export { CoachMarks, type CoachMarkStep } from "./CoachMarks";
+export { Dialog } from "./Dialog";

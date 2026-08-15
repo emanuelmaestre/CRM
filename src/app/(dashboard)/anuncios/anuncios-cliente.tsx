@@ -46,7 +46,7 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
             role="tab"
             aria-selected={selecionada}
             onClick={() => onChange(marca.brandId)}
-            className="press-feedback relative flex h-9 items-center gap-1.5 rounded-[0.7rem] px-3.5 text-xs font-semibold transition-colors"
+            className="press-feedback relative flex h-11 items-center gap-1.5 rounded-[0.7rem] px-3.5 text-xs font-semibold transition-colors"
             style={{ color: selecionada ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             {selecionada && (

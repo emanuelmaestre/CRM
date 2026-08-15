@@ -457,11 +457,11 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar anúncio…"
-              className="h-10 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[rgba(155,48,217,.5)]"
+              className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[rgba(155,48,217,.5)]"
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={nota} onChange={(e) => setNota(e.target.value as FiltroNota)} className="h-10 rounded-xl border border-border bg-background px-3 text-sm">
+            <select value={nota} onChange={(e) => setNota(e.target.value as FiltroNota)} className="h-11 rounded-xl border border-border bg-background px-3 text-sm">
               <option value="todas">Notas</option>
               <option value="com_avaliacao">Com avaliações</option>
               <option value="sem_avaliacao">Sem avaliações</option>
@@ -470,7 +470,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
               type="button"
               onClick={() => void carregar(true)}
               disabled={carregando}
-              className="press-feedback flex h-10 w-10 items-center justify-center rounded-xl border border-border hover:bg-muted disabled:opacity-50"
+              className="press-feedback flex h-11 w-11 items-center justify-center rounded-xl border border-border hover:bg-muted disabled:opacity-50"
               title="Atualizar avaliações"
             >
               <RefreshCw size={15} className={carregando ? "animate-spin" : ""} />

@@ -66,7 +66,7 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
           onClick={() => router.push("/estoque")}
           title="Voltar ao estoque"
           aria-label="Voltar ao estoque"
-          className="h-10 w-10 inline-flex items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
         >
           <ArrowLeft size={17} />
         </button>
@@ -77,7 +77,7 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
               onClick={() => setEditando((v) => !v)}
               title={editando ? editCopy.cancel : editCopy.button}
               aria-label={editando ? editCopy.cancel : editCopy.button}
-              className="h-10 w-10 inline-flex items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
             >
               {editando ? <X size={17} /> : <Pencil size={16} />}
             </button>
@@ -116,7 +116,7 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
                       <div className="inline-flex items-center gap-2 rounded-[0.75rem] border border-border bg-muted/50 pl-2.5 pr-3 py-1.5">
                         <Ruler size={13} className="text-muted-foreground shrink-0" />
                         <div className="leading-none">
-                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Tamanho</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Tamanho</p>
                           <p className="text-sm font-bold text-foreground mt-0.5">{titulo.tamanho}</p>
                         </div>
                       </div>
@@ -128,7 +128,7 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
                         style={{ background: titulo.corHex }}
                       />
                       <div className="leading-none">
-                        <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Cor</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cor</p>
                         <p className="text-sm font-bold text-foreground mt-0.5">{titulo.cor}</p>
                       </div>
                     </div>
@@ -136,7 +136,7 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
                       <div className="inline-flex items-center gap-2 rounded-[0.75rem] border border-border bg-muted/50 pl-2.5 pr-3 py-1.5">
                         <Layers size={13} className="text-muted-foreground shrink-0" />
                         <div className="leading-none">
-                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Material</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Material</p>
                           <p className="text-sm font-bold text-foreground mt-0.5">{titulo.material}</p>
                         </div>
                       </div>
@@ -145,7 +145,7 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
                       <div className="inline-flex items-center gap-2 rounded-[0.75rem] border border-border bg-muted/50 pl-2.5 pr-3 py-1.5">
                         <Boxes size={13} className="text-muted-foreground shrink-0" />
                         <div className="leading-none">
-                          <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Medida</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Medida</p>
                           <p className="text-sm font-bold text-foreground mt-0.5">{titulo.medida}</p>
                         </div>
                       </div>

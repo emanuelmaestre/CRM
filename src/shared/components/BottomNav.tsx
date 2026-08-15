@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import * as Dialog from "@radix-ui/react-dialog";
 import { cn } from "@/shared/design-system/cn";
 import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
@@ -55,30 +56,14 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
 
   return (
     <>
-      <AnimatePresence>
-        {maisAberto && (
-          <>
-            <motion.button
-              key="backdrop"
-              type="button"
-              aria-label={MORE.closeLabel}
-              onClick={() => setMaisAberto(false)}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.16 }}
-              className="fixed inset-0 z-40 bg-foreground/20"
-            />
-            <motion.div
-              key="sheet"
-              role="dialog"
-              aria-label={MORE.sheetAriaLabel}
-              initial={{ y: 12, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 12, opacity: 0 }}
-              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
-              className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-h,64px)+env(safe-area-inset-bottom))] z-50 max-h-[calc(100dvh-5rem-env(safe-area-inset-top))] overflow-y-auto border-t border-border bg-card p-2 pb-3 shadow-[0_-8px_28px_rgba(14,15,19,.12)]"
-            >
+      <Dialog.Root open={maisAberto} onOpenChange={setMaisAberto}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20" />
+          <Dialog.Content
+            aria-describedby={undefined}
+            className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-h,64px)+env(safe-area-inset-bottom))] z-50 max-h-[calc(100dvh-5rem-env(safe-area-inset-top))] overflow-y-auto border-t border-border bg-card p-2 pb-3 shadow-[0_-8px_28px_rgba(14,15,19,.12)] outline-none"
+          >
+              <Dialog.Title className="sr-only">{MORE.sheetAriaLabel}</Dialog.Title>
               <div className="grid grid-cols-2 gap-1 min-[380px]:grid-cols-3">
                 {noMais.map((item) => {
                   const Icon = getIcon(item.icon);
@@ -94,15 +79,14 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
                       )}
                     >
                       <Icon size={20} strokeWidth={on ? 2.25 : 1.75} />
-                      <span className="text-[10px] font-medium leading-tight">{item.label}</span>
+                      <span className="text-[11px] font-medium leading-tight">{item.label}</span>
                     </Link>
                   );
                 })}
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <div className="grid grid-cols-5 items-center px-1 py-1">
         {fixos.map((item) => {
@@ -134,7 +118,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
               </motion.span>
 
               <span className={cn(
-                "relative z-10 max-w-full truncate text-[10px] font-medium transition-colors",
+                "relative z-10 max-w-full truncate text-[11px] font-medium transition-colors",
                 on ? "text-foreground" : "text-muted-foreground",
               )}>
                 {item.label}
@@ -166,7 +150,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
               <MoreIcon size={20} strokeWidth={maisAberto || algumDoMaisAtivo ? 2.25 : 1.75} />
             </motion.span>
             <span className={cn(
-              "relative z-10 text-[10px] font-medium transition-colors",
+              "relative z-10 text-[11px] font-medium transition-colors",
               maisAberto || algumDoMaisAtivo ? "text-foreground" : "text-muted-foreground",
             )}>
               {MORE.label}

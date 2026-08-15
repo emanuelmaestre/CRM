@@ -415,7 +415,7 @@ export function ClientesLista() {
                           onClick={() => router.push(`/clientes/${c.id}`)}
                           title={copy.actions.view}
                           aria-label={copy.actions.view}
-                          className="h-9 w-9 inline-flex items-center justify-center rounded-lg border border-primary/30 bg-primary/5 text-primary transition-colors hover:bg-primary/10"
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/30 bg-primary/5 text-primary transition-colors hover:bg-primary/10"
                         >
                           <Eye size={15} strokeWidth={2} />
                         </button>
