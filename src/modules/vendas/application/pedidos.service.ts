@@ -184,8 +184,7 @@ export async function listarPedidosDetalhados(
   return { data: rows, total: totalRows[0]?.total ?? 0, limit, offset };
 }
 
-/** Resumo financeiro da mesma seleção exibida na lista. São agregações de
- * leitura; não disparam tarefa, alerta ou qualquer automação interna. */
+/** Resumo financeiro de leitura da mesma seleção exibida na lista. */
 export async function resumirPedidos(
   ctx: CrudContext,
   opts: { brandIds?: string[]; canal?: string; status?: PedidoStatus; busca?: string; inicio?: Date; fim?: Date } = {},

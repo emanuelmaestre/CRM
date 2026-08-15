@@ -24,7 +24,7 @@
       "id": "DOD-04",
       "name": "estados_validos",
       "status": "verified",
-      "evidence": ["src/test/domain/state-machine.test.ts", "src/test/domain/funil.test.ts", "src/test/domain/operacao.test.ts"]
+      "evidence": ["src/test/domain/state-machine.test.ts"]
     },
     {
       "id": "DOD-05",

@@ -487,8 +487,6 @@
     "entities": [
       "cliente",
       "produto",
-      "oportunidade",
-      "funil_etapa",
       "app_user"
     ],
     "empty": {
