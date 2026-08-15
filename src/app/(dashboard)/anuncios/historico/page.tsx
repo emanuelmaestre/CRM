@@ -1,0 +1,25 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
+import anunciosConfig from "@/config/anuncios.json";
+import { HistoricoClienteDetalhe } from "./historico-cliente";
+
+export const metadata = { title: anunciosConfig.historicoDetalhe.metadataTitle };
+
+export default function HistoricoDetalhePage() {
+  return (
+    <div>
+      <Link
+        href="/anuncios"
+        className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft size={13} /> {anunciosConfig.historicoDetalhe.voltar}
+      </Link>
+      <PageHeader
+        title={anunciosConfig.historicoDetalhe.title}
+        description={anunciosConfig.historicoDetalhe.description}
+      />
+      <HistoricoClienteDetalhe />
+    </div>
+  );
+}

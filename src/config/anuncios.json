@@ -1,0 +1,168 @@
+{
+  "_doc": {
+    "proposito": "Textos da Visão Geral de Anúncios (Product Ads / Mercado Livre)."
+  },
+  "header": {
+    "eyebrow": "Última sincronização"
+  },
+  "kpis": {
+    "investimento": "Investimento",
+    "receita": "Receita atribuída",
+    "roas": "ROAS",
+    "lucro": "Lucro após publicidade",
+    "acos": "ACOS",
+    "tacos": "TACOS",
+    "cvr": "CVR",
+    "ctr": "CTR",
+    "cpc": "CPC médio"
+  },
+  "resumo": {
+    "titulo": "Resumo de hoje",
+    "lucroIncompletoAviso": "Lucro estimado — existem custos ainda não configurados (custo do produto, impostos, frete). O número real de hoje conta só o que já se sabe."
+  },
+  "atencao": {
+    "titulo": "Precisa da sua atenção",
+    "vazio": "Nada crítico agora",
+    "vazioDescricao": "Sem alertas críticos nem oportunidades relevantes nas campanhas sincronizadas.",
+    "verTodas": "Ver todos os alertas"
+  },
+  "campanhas": {
+    "titulo": "Performance por campanha",
+    "subtitulo": "Ordenadas por investimento",
+    "colunas": ["Campanha", "Status", "Orçamento", "Investido", "Receita", "ROAS", "Lucro"],
+    "semDado": "Nenhuma campanha sincronizada ainda",
+    "verTodas": "Ver todas as campanhas"
+  },
+  "campanhasDetalhe": {
+    "metadataTitle": "Campanhas — Anúncios",
+    "title": "Campanhas",
+    "description": "Todas as campanhas da marca, com diagnóstico e os anúncios que compõem cada uma",
+    "voltar": "Voltar para a Visão Geral",
+    "expandir": "Ver anúncios e diagnóstico",
+    "recolher": "Fechar",
+    "semDiagnostico": "Nenhum sinal relevante identificado nesta campanha com os dados de hoje.",
+    "anuncios": {
+      "titulo": "Anúncios desta campanha",
+      "carregando": "Carregando anúncios…",
+      "vazio": "Nenhum anúncio com dado sincronizado para esta campanha.",
+      "colunas": ["Anúncio", "Investido", "Receita", "ROAS", "Cliques", "Vendas"],
+      "recomendado": "ML recomenda anunciar"
+    },
+    "diagnostico": {
+      "titulo": "Diagnóstico"
+    }
+  },
+  "alertasDetalhe": {
+    "metadataTitle": "Alertas — Anúncios",
+    "title": "Central de Alertas",
+    "description": "Todos os sinais críticos e oportunidades das campanhas da marca, sem limite de itens",
+    "voltar": "Voltar para a Visão Geral",
+    "vazio": "Nada crítico agora",
+    "vazioDescricao": "Sem alertas críticos nem oportunidades relevantes nas campanhas sincronizadas.",
+    "filtros": {
+      "todos": "Todos",
+      "critico": "Críticos",
+      "importante": "Importantes",
+      "oportunidade": "Oportunidades"
+    }
+  },
+  "produtosDetalhe": {
+    "metadataTitle": "Produtos — Anúncios",
+    "title": "Produtos",
+    "description": "Todos os anúncios da marca, independente da campanha — onde o investimento está indo item por item",
+    "voltar": "Voltar para a Visão Geral",
+    "vazio": "Nenhum anúncio sincronizado ainda para esta marca.",
+    "colunas": ["Anúncio", "Campanha", "Investido", "Receita", "ROAS", "Cliques", "Vendas"],
+    "recomendado": "ML recomenda anunciar",
+    "buyBox": "Ganhando o Buy Box",
+    "filtros": {
+      "todos": "Todos",
+      "recomendados": "Recomendados pelo ML",
+      "desperdicio": "Sem conversão"
+    },
+    "desperdicio": {
+      "titulo": "Gasto sem retorno",
+      "descricao": "Anúncios com cliques ou gasto suficiente para uma leitura confiável, e nenhuma venda no período.",
+      "vazio": "Nenhum anúncio com amostra suficiente e zero venda — nada sinalizado aqui hoje."
+    }
+  },
+  "rentabilidadeDetalhe": {
+    "metadataTitle": "Rentabilidade — Anúncios",
+    "title": "Rentabilidade",
+    "description": "Lucro real estimado e break-even de cada campanha — o que sustenta ou não o investimento em mídia",
+    "voltar": "Voltar para a Visão Geral",
+    "vazio": "Nenhuma campanha sincronizada ainda",
+    "avisoCustos": "Todo lucro aqui é uma estimativa parcial — custo do produto ainda não configurado no catálogo. Cada campanha lista exatamente o que falta.",
+    "colunas": ["Campanha", "Situação", "Receita", "Investido", "ROAS atual", "ROAS mínimo", "Margem", "Lucro estimado"],
+    "status": {
+      "rentavel": "Rentável",
+      "no_limite": "No limite",
+      "nao_rentavel": "Não rentável",
+      "indeterminado": "Indeterminado"
+    },
+    "resumo": {
+      "lucroTotal": "Lucro total estimado",
+      "rentaveis": "Rentáveis",
+      "noLimite": "No limite",
+      "naoRentaveis": "Não rentáveis",
+      "indeterminadas": "Indeterminadas"
+    },
+    "custosAusentes": "Custos não configurados: "
+  },
+  "historicoDetalhe": {
+    "metadataTitle": "Histórico — Anúncios",
+    "title": "Histórico",
+    "description": "Evolução diária de investimento, receita e ROAS da marca",
+    "voltar": "Voltar para a Visão Geral",
+    "vazio": "Ainda não há histórico suficiente",
+    "vazioDescricao": "O histórico se acumula sozinho a cada sincronização diária — volte aqui depois de alguns dias.",
+    "umPontoAviso": "Só existe 1 dia de dado sincronizado até agora — a tendência aparece conforme os próximos dias forem sincronizados.",
+    "colunas": ["Data", "Investido", "Receita", "ROAS", "Cliques", "Vendas"],
+    "grafico": {
+      "investimento": "Investimento",
+      "receita": "Receita"
+    },
+    "periodos": {
+      "7": "7 dias",
+      "30": "30 dias",
+      "90": "90 dias"
+    }
+  },
+  "comparacaoDetalhe": {
+    "metadataTitle": "Comparação — Anúncios",
+    "title": "Comparação entre marcas",
+    "description": "As mesmas métricas lado a lado, para comparar como cada marca está investindo em mídia",
+    "voltar": "Voltar para a Visão Geral",
+    "vazio": "Sincronize ao menos duas marcas para comparar",
+    "colunas": ["Marca", "Investido", "Receita", "ROAS", "TACOS", "Lucro", "Dependência de mídia"],
+    "dependencia": {
+      "baixa": "Baixa",
+      "moderada": "Moderada",
+      "alta": "Alta",
+      "critica": "Crítica"
+    }
+  },
+  "oportunidades": {
+    "titulo": "Radar de oportunidades",
+    "vazio": "Nenhuma oportunidade identificada com os dados de hoje",
+    "vazioDescricao": "Volume de cliques ainda baixo para uma leitura confiável, ou nenhuma campanha se encaixa nos critérios agora.",
+    "tipos": {
+      "escala": "Oportunidade de escala",
+      "recuperacao": "Oportunidade de recuperação",
+      "ranking": "Gargalo de ranking",
+      "orcamento": "Limitada por orçamento"
+    }
+  },
+  "organico": {
+    "titulo": "Publicidade × Orgânico",
+    "descricao": "Quanto das vendas depende de mídia paga, nesta janela de dados.",
+    "semVenda": "Nenhuma venda (paga ou orgânica) registrada na última sincronização."
+  },
+  "vazio": {
+    "titulo": "Nenhum dado de publicidade ainda",
+    "descricao": "Sincronize ao menos uma vez para ver campanhas, investimento e oportunidades aqui."
+  },
+  "erros": {
+    "carregar": "Não foi possível carregar os dados de Anúncios."
+  }
+}

@@ -8,3 +8,4 @@ export * from "./canais";
 export * from "./inbox";
 export * from "./reguas";
 export * from "./scoring";
+export * from "./anuncios";

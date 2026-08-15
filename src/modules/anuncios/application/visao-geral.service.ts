@@ -1,0 +1,289 @@
+import { and, desc, eq, inArray } from "drizzle-orm";
+import type { CrudContext } from "@/shared/lib/crud-factory";
+import { adsAnuncioSnapshot, adsCampanhaSnapshot, brand } from "@/shared/lib/db/schema";
+import { getBrandConfig } from "@/shared/config/brands";
+import {
+  calcularBreakEven, calcularDependenciaMidia, calcularLucroReal,
+  CUSTOS_VAZIOS, type BreakEven, type LucroRealEstimado,
+} from "./metricas-calculadas";
+import { diagnosticarCampanha, type Diagnostico } from "./motor-diagnostico";
+import { identificarOportunidades, type Oportunidade } from "./oportunidades";
+import { alertasDeDiagnosticos, alertasDeOportunidades, processarAlertas, type GrupoAlertas, type Alerta } from "./alertas";
+
+/* ── Visão Geral (Fase 4 — Apresentação) ──────────────────────────
+   Junta tudo: lê o snapshot mais recente por campanha (Fase 1), cruza com
+   o motor de cálculo (Fase 2) e o motor de diagnóstico (Fase 3), devolve
+   uma estrutura pronta pra tela renderizar sem fazer conta nenhuma.
+
+   `produto.custo` não existe no schema hoje (ver auditoria) — todo cálculo
+   de lucro/break-even nasce parcial. Isso não é bug, é o estado real dos
+   dados, e a tela precisa dizer isso, não escondido atrás de um número
+   que parece preciso. */
+
+export interface CampanhaVisaoGeral {
+  campanhaId: string;
+  nome: string;
+  status: string;
+  estrategia: string;
+  orcamento: number | null;
+  investimento: number;
+  receita: number;
+  cliques: number;
+  impressoes: number;
+  vendas: number;
+  roas: number | null;
+  acos: number | null;
+  cvr: number | null;
+  ctr: number | null;
+  vendasDiretas: number;
+  vendasIndiretas: number;
+  vendasOrganicas: number;
+  lucro: LucroRealEstimado;
+  breakEven: BreakEven;
+  diagnosticos: Diagnostico[];
+  oportunidades: Oportunidade[];
+}
+
+export interface VisaoGeralResumo {
+  investimentoTotal: number;
+  receitaTotal: number;
+  /** Null quando não há investimento no período — ROAS não existe sem gasto. */
+  roasMedio: number | null;
+  lucroTotal: number;
+  /** true quando pelo menos uma campanha tem custo incompleto — a tela
+   *  precisa avisar que o lucro consolidado também é parcial. */
+  lucroIncompleto: boolean;
+  acosMedio: number | null;
+  tacos: number | null;
+  vendasPublicitarias: number;
+  vendasOrganicas: number;
+  dependenciaMidia: ReturnType<typeof calcularDependenciaMidia>;
+  cvrMedio: number | null;
+  ctrMedio: number | null;
+  cpcMedio: number | null;
+}
+
+export interface VisaoGeralMarca {
+  brandId: string;
+  brandSlug: string;
+  brandLabel: string;
+  dataSnapshot: string | null;
+  resumo: VisaoGeralResumo;
+  campanhas: CampanhaVisaoGeral[];
+  alertasIndividuais: Alerta[];
+  alertasAgrupados: GrupoAlertas[];
+  oportunidades: Oportunidade[];
+}
+
+export interface VisaoGeralResultado {
+  marcas: VisaoGeralMarca[];
+  /** Consolidado das marcas visíveis — soma simples, não ponderada (ao
+   *  contrário do Score de Saúde em Métricas): aqui o que importa é o
+   *  investimento e retorno agregados, não uma nota composta. */
+  resumoConsolidado: VisaoGeralResumo;
+  /** Nenhuma marca tem snapshot ainda — primeira sincronização não rodou,
+   *  ou rodou e a conta não tinha Publicidade habilitada. */
+  semDados: boolean;
+}
+
+function paraNumero(valor: unknown): number {
+  const parsed = Number(valor ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function paraNumeroOuNull(valor: unknown): number | null {
+  if (valor === null || valor === undefined) return null;
+  const parsed = Number(valor);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resumoVazio(): VisaoGeralResumo {
+  return {
+    investimentoTotal: 0, receitaTotal: 0, roasMedio: null, lucroTotal: 0,
+    lucroIncompleto: false, acosMedio: null, tacos: null,
+    vendasPublicitarias: 0, vendasOrganicas: 0,
+    dependenciaMidia: { percentual: null, classificacao: null },
+    cvrMedio: null, ctrMedio: null, cpcMedio: null,
+  };
+}
+
+/** Agrega o resumo de uma marca a partir das campanhas já calculadas —
+ *  soma o que é somável, recalcula proporção (ROAS/ACOS/CVR/CTR) sobre os
+ *  totais em vez de fazer média das médias, que distorceria campanhas
+ *  pequenas para o mesmo peso de campanhas grandes. */
+function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
+  if (campanhas.length === 0) return resumoVazio();
+
+  const investimentoTotal = Math.round(campanhas.reduce((s, c) => s + c.investimento, 0) * 100) / 100;
+  const receitaTotal = Math.round(campanhas.reduce((s, c) => s + c.receita, 0) * 100) / 100;
+  const cliquesTotal = campanhas.reduce((s, c) => s + c.cliques, 0);
+  const impressoesTotal = campanhas.reduce((s, c) => s + c.impressoes, 0);
+  const vendasTotal = campanhas.reduce((s, c) => s + c.vendas, 0);
+  const vendasOrganicas = campanhas.reduce((s, c) => s + c.vendasOrganicas, 0);
+  const vendasPublicitarias = campanhas.reduce((s, c) => s + c.vendasDiretas + c.vendasIndiretas, 0);
+  const lucroTotal = Math.round(campanhas.reduce((s, c) => s + c.lucro.lucroEstimado, 0) * 100) / 100;
+
+  return {
+    investimentoTotal,
+    receitaTotal,
+    roasMedio: investimentoTotal > 0 ? Math.round((receitaTotal / investimentoTotal) * 100) / 100 : null,
+    lucroTotal,
+    lucroIncompleto: campanhas.some((c) => c.lucro.custosIncompletos),
+    acosMedio: receitaTotal > 0 ? Math.round((investimentoTotal / receitaTotal) * 1000) / 10 : null,
+    // TACOS: investimento sobre a receita TOTAL (paga + orgânica) — é o que
+    // distingue de ACOS, que só olha a receita atribuída à publicidade.
+    tacos: (receitaTotal + vendasOrganicas) > 0
+      ? Math.round((investimentoTotal / (receitaTotal + vendasOrganicas)) * 1000) / 10
+      : null,
+    vendasPublicitarias,
+    vendasOrganicas,
+    dependenciaMidia: calcularDependenciaMidia(vendasPublicitarias, vendasPublicitarias + vendasOrganicas),
+    cvrMedio: cliquesTotal > 0 ? Math.round((vendasTotal / cliquesTotal) * 1000) / 10 : null,
+    ctrMedio: impressoesTotal > 0 ? Math.round((cliquesTotal / impressoesTotal) * 1000) / 10 : null,
+    cpcMedio: cliquesTotal > 0 ? Math.round((investimentoTotal / cliquesTotal) * 100) / 100 : null,
+  };
+}
+
+export async function obterVisaoGeral(
+  ctx: CrudContext,
+  opcoes: { brandIds?: string[] } = {},
+): Promise<VisaoGeralResultado> {
+  const condicaoMarca = opcoes.brandIds && opcoes.brandIds.length > 0 ? [inArray(brand.id, opcoes.brandIds)] : [];
+
+  const marcas = await ctx.db
+    .select({ id: brand.id, slug: brand.slug, nome: brand.name })
+    .from(brand)
+    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true), ...condicaoMarca))
+    .orderBy(brand.name);
+
+  const resultado: VisaoGeralMarca[] = [];
+
+  for (const marca of marcas) {
+    // Snapshot mais recente disponível por campanha — não necessariamente
+    // "hoje": se a sincronização de hoje ainda não rodou, mostra o último
+    // dado que existe em vez de aparentar que não há dado nenhum.
+    const ultimaData = await ctx.db
+      .select({ data: adsCampanhaSnapshot.data })
+      .from(adsCampanhaSnapshot)
+      .where(and(eq(adsCampanhaSnapshot.orgId, ctx.orgId), eq(adsCampanhaSnapshot.brandId, marca.id)))
+      .orderBy(desc(adsCampanhaSnapshot.data))
+      .limit(1)
+      .then((rows) => rows[0]?.data ?? null);
+
+    if (!ultimaData) continue; // marca sem nenhum snapshot ainda — nem aparece na lista
+
+    const linhasCampanha = await ctx.db
+      .select()
+      .from(adsCampanhaSnapshot)
+      .where(and(
+        eq(adsCampanhaSnapshot.orgId, ctx.orgId),
+        eq(adsCampanhaSnapshot.brandId, marca.id),
+        eq(adsCampanhaSnapshot.data, ultimaData),
+      ));
+
+    const linhasAnuncio = await ctx.db
+      .select({
+        campaignId: adsAnuncioSnapshot.campaignId,
+        cliques: adsAnuncioSnapshot.clicks,
+        estoqueProdutoId: adsAnuncioSnapshot.produtoId,
+      })
+      .from(adsAnuncioSnapshot)
+      .where(and(
+        eq(adsAnuncioSnapshot.orgId, ctx.orgId),
+        eq(adsAnuncioSnapshot.brandId, marca.id),
+        eq(adsAnuncioSnapshot.data, ultimaData),
+      ));
+    void linhasAnuncio; // reservado para o cruzamento de estoque por campanha (próximo incremento)
+
+    const campanhas: CampanhaVisaoGeral[] = linhasCampanha.map((linha) => {
+      const investimento = paraNumero(linha.cost);
+      const receita = paraNumero(linha.totalAmount);
+      const vendas = paraNumero(linha.unitsQuantity);
+      const cliques = paraNumero(linha.clicks);
+      const impressoes = paraNumero(linha.prints);
+
+      // O Mercado Livre manda "0.0000" literal para ROAS/ACOS/CVR/CTR
+      // quando o denominador (custo, cliques, impressões) é zero — divisão
+      // por zero, matematicamente indefinida, não "resultado zero". Sem
+      // este ajuste, uma campanha que não gastou nada apareceria com
+      // "ROAS 0" (parece prejuízo) em vez de "sem dado" (não rodou ainda).
+      const roas = investimento > 0 ? paraNumeroOuNull(linha.roas) : null;
+      const acos = investimento > 0 ? paraNumeroOuNull(linha.acos) : null;
+
+      // Sem custo do produto configurado (gap real, ver memory) — os dois
+      // motores ainda rodam, só devolvem resultado marcado como incompleto/
+      // indeterminado em vez de inventar um número.
+      const lucro = calcularLucroReal(receita, investimento, vendas, CUSTOS_VAZIOS);
+      const breakEven = calcularBreakEven(receita, investimento, {
+        ...CUSTOS_VAZIOS,
+        unidadesVendidas: vendas,
+      });
+
+      const cvrFracao = cliques > 0 ? paraNumeroOuNull(linha.cvr) : null;
+      const cvr = cvrFracao !== null ? cvrFracao / 100 : null; // API devolve CVR em % (ex.: 5.26), motor espera fração
+      const ctrFracao = impressoes > 0 ? paraNumeroOuNull(linha.ctr) : null;
+
+      const diagnosticos = diagnosticarCampanha({
+        impressoes, cliques, vendas,
+        ctr: ctrFracao !== null ? ctrFracao / 100 : null,
+        cvr,
+        cpcAtual: paraNumeroOuNull(linha.cpc), cpcAnterior: null, cvrAnterior: null,
+        roasAtual: roas, roasMinimo: breakEven.roasMinimo,
+        lostImpressionShareByBudget: null, lostImpressionShareByAdRank: null,
+        estoqueDiasCobertura: null,
+      });
+
+      const oportunidades = identificarOportunidades({
+        campanhaId: String(linha.campaignId),
+        campanhaNome: linha.nome,
+        roasAtual: roas, roasMinimo: breakEven.roasMinimo, roasAnterior: null,
+        cvr, gastoAtual: investimento, lucroEstimado: lucro.custosIncompletos ? null : lucro.lucroEstimado,
+        estoqueDiasCobertura: null,
+        lostImpressionShareByBudget: null, lostImpressionShareByAdRank: null,
+        cliques,
+      });
+
+      return {
+        campanhaId: String(linha.campaignId),
+        nome: linha.nome,
+        status: linha.status,
+        estrategia: linha.estrategia,
+        orcamento: paraNumeroOuNull(linha.orcamento),
+        investimento, receita, cliques, impressoes, vendas,
+        roas, acos, cvr, ctr: ctrFracao !== null ? ctrFracao / 100 : null,
+        vendasDiretas: paraNumero(linha.directUnitsQuantity),
+        vendasIndiretas: paraNumero(linha.indirectUnitsQuantity),
+        vendasOrganicas: paraNumero(linha.organicUnitsQuantity),
+        lucro, breakEven, diagnosticos, oportunidades,
+      };
+    });
+
+    const alertasBrutos = campanhas.flatMap((c) => [
+      ...alertasDeDiagnosticos(c.campanhaId, c.nome, c.diagnosticos),
+      ...alertasDeOportunidades(c.oportunidades),
+    ]);
+    // Sem persistência de "última ocorrência" ainda (isso pede uma tabela
+    // própria, natural extensão da Fase 1) — cooldown roda com histórico
+    // vazio por enquanto, então nada é suprimido ainda.
+    const { individuais: alertasIndividuais, grupos: alertasAgrupados } = processarAlertas(alertasBrutos, new Map(), 24);
+
+    resultado.push({
+      brandId: marca.id,
+      brandSlug: marca.slug,
+      brandLabel: getBrandConfig(marca.slug)?.label ?? marca.nome,
+      dataSnapshot: ultimaData,
+      resumo: agregarResumo(campanhas),
+      campanhas: campanhas.sort((a, b) => b.investimento - a.investimento),
+      alertasIndividuais,
+      alertasAgrupados,
+      oportunidades: campanhas.flatMap((c) => c.oportunidades).sort((a, b) => b.scoreImpacto - a.scoreImpacto),
+    });
+  }
+
+  const todasCampanhas = resultado.flatMap((m) => m.campanhas);
+
+  return {
+    marcas: resultado,
+    resumoConsolidado: agregarResumo(todasCampanhas),
+    semDados: resultado.length === 0,
+  };
+}
