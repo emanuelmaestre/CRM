@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
-import { PlugZap2, Eye } from "lucide-react";
+import { Eye, PlugZap2 } from "lucide-react";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { springs } from "@/shared/design-system/motion-variants";
 import { actionListarClientes, actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
@@ -36,6 +36,7 @@ type Cliente = {
   enderecoCidade?: string | null;
   enderecoEstado?: string | null;
   enderecoCep?: string | null;
+  resumoComercial?: { totalPedidos: number; totalGasto: number; ultimoPedidoEm: string | Date | null; relacionamento: string };
 };
 
 /** O apelido é o identificador estável do canal (`nome`) — é o que a coluna
@@ -370,7 +371,7 @@ export function ClientesLista() {
                     onClick={() => router.push(`/clientes/${c.id}`)}
                     title={copy.actions.view}
                     aria-label={copy.actions.view}
-                    className="h-11 w-11 inline-flex items-center justify-center rounded-[0.625rem] border border-primary/30 bg-primary/5 text-primary transition-colors hover:bg-primary/10"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-[0.625rem] border border-primary/30 bg-primary/5 text-primary transition-colors hover:bg-primary/10"
                   >
                     <Eye size={17} strokeWidth={2} />
                   </button>
@@ -379,13 +380,20 @@ export function ClientesLista() {
             ))}
           </div>
           <div className="hidden md:block table-scroll" data-testid="clientes-table">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[1120px] table-fixed text-sm">
+              <colgroup>
+                <col className="w-[10%]" />
+                <col className="w-[20%]" />
+                <col className="w-[20%]" />
+                <col className="w-[42%]" />
+                <col className="w-[8%]" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">{copy.columns[0]}</th>
-                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">{copy.columns[1]}</th>
-                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">{copy.columns[2]}</th>
-                  <th className="text-center px-5 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden lg:table-cell">{copy.columns[3]}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">{copy.columns[0]}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide">{copy.columns[1]}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">{copy.columns[2]}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wide hidden lg:table-cell">{copy.columns[3]}</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
@@ -399,17 +407,17 @@ export function ClientesLista() {
                     whileHover={{ backgroundColor: "rgba(0,0,0,0.018)" }}
                     className="border-b border-border last:border-0"
                   >
-                    <td className="px-5 py-3.5 text-center text-muted-foreground hidden sm:table-cell tabular-nums">{formatarData(c.createdAt)}</td>
-                    <td className="px-5 py-3.5 text-center font-medium text-foreground">
-                      <button type="button" onClick={() => router.push(`/clientes/${c.id}`)} className="min-h-11 inline-flex items-center hover:text-primary">
-                        <CampoOuAguardando valor={c.nome} />
+                    <td className="px-5 py-3.5 text-left align-middle text-muted-foreground hidden sm:table-cell tabular-nums">{formatarData(c.createdAt)}</td>
+                    <td className="px-5 py-3.5 text-left align-middle font-medium text-foreground">
+                      <button type="button" onClick={() => router.push(`/clientes/${c.id}`)} title={c.nome} className="flex min-h-11 w-full min-w-0 items-center text-left hover:text-primary">
+                        <span className="min-w-0 truncate"><CampoOuAguardando valor={c.nome} /></span>
                         <CanaisCliente canais={c.canais} />
                       </button>
                     </td>
-                    <td className="px-5 py-3.5 text-center text-muted-foreground hidden md:table-cell"><CampoOuAguardando valor={c.nomeCompleto} /></td>
-                    <td className="px-5 py-3.5 text-center text-muted-foreground hidden lg:table-cell"><CampoOuAguardando valor={enderecoResumo(c)} /></td>
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-3">
+                    <td className="truncate px-5 py-3.5 text-left align-middle text-muted-foreground hidden md:table-cell" title={c.nomeCompleto ?? undefined}><CampoOuAguardando valor={c.nomeCompleto} /></td>
+                    <td className="truncate px-5 py-3.5 text-left align-middle text-muted-foreground hidden lg:table-cell" title={enderecoResumo(c) ?? undefined}><CampoOuAguardando valor={enderecoResumo(c)} /></td>
+                    <td className="px-2 py-3.5 text-center align-middle">
+                      <div className="flex items-center justify-center">
                         <button
                           type="button"
                           onClick={() => router.push(`/clientes/${c.id}`)}

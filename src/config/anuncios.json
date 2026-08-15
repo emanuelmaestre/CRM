@@ -32,7 +32,7 @@
   "campanhas": {
     "titulo": "Performance por campanha",
     "subtitulo": "Ordenadas por investimento",
-    "colunas": ["Campanha", "Status", "Orçamento", "Investido", "Receita", "ROAS", "Lucro"],
+    "colunas": ["Campanha", "Status", "Criada em", "Orçamento", "Investido", "Receita", "ROAS", "Lucro"],
     "semDado": "Nenhuma campanha sincronizada ainda",
     "verTodas": "Ver todas as campanhas"
   },

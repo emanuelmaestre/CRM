@@ -103,7 +103,7 @@
       "searchDescription": "Tente outro termo de busca."
     },
     "actions": {
-      "view": "Ver ficha",
+        "view": "VER",
       "archive": "Arquivar",
       "archiveConfirm": "Arquivar \"{name}\"?"
     },

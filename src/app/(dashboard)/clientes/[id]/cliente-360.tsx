@@ -4,10 +4,11 @@ import { tint } from "@/shared/design-system/color";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, Check, CircleDot, Info, MapPin, Package, Pencil, Truck, X, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, CircleDot, Download, Info, MapPin, Package, Pencil, ShoppingBag, Star, Truck, WalletCards, X, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { actionAtualizarCliente } from "../actions";
+import { actionAtualizarCliente, actionConcluirTarefaCliente, actionCriarAnotacao, actionCriarTarefaCliente } from "../actions";
+import { exportarClientePDF } from "../exportar-pdf";
 import pagesConfig from "@/config/pages.json";
 
 const copy = pagesConfig.clientes.detail;
@@ -37,6 +38,18 @@ type ClienteData = {
     probabilidadeRecompra30d: number | null;
     calculadoEm: Date | string;
   } | null;
+  resumoComercial: {
+    totalPedidos: number; totalGasto: number; ticketMedio: number;
+    primeiroPedidoEm: Date | string | null; ultimoPedidoEm: Date | string | null; diasSemComprar: number | null;
+    cancelados: number; devolvidos: number;
+    marcaPreferida: { id: string; nome: string; total: number } | null;
+    canalPreferido: { canal: string; total: number } | null;
+    produtosMaisComprados: Array<{ produtoId: string; nome: string; quantidade: number }>;
+  };
+  classificacaoRelacionamento: { chave: string; label: string; motivo: string };
+  mensagens: Array<{ id: string; conversaId: string; canal: string; direcao: string; conteudo: string; status: string; createdAt: Date | string }>;
+  tarefas: Array<{ id: string; resumo: string | null; meta: unknown; createdAt: Date | string }>;
+  usuarios: Array<{ id: string; nome: string }>;
 };
 
 const SEGMENTO_COR: Record<string, string> = {
@@ -134,6 +147,10 @@ export function Cliente360({
   const [data, setData] = useState(initialData);
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [nota, setNota] = useState("");
+  const [tarefaTitulo, setTarefaTitulo] = useState("");
+  const [tarefaResponsavel, setTarefaResponsavel] = useState("");
+  const [tarefaPrazo, setTarefaPrazo] = useState("");
   const cliente = data.cliente;
 
   function submit(formData: FormData) {
@@ -146,6 +163,44 @@ export function Cliente360({
       } catch (error) {
         toast.error(error instanceof Error ? error.message : copy.messages.updateError);
       }
+    });
+  }
+
+  function adicionarNota(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!nota.trim()) return;
+    startTransition(async () => {
+      try {
+        const nova = await actionCriarAnotacao(cliente.id, nota.trim());
+        setData((atual) => ({ ...atual, anotacoes: [nova, ...atual.anotacoes] }));
+        setNota("");
+        toast.success("Anotação adicionada.");
+      } catch {
+        toast.error("Não foi possível adicionar a anotação.");
+      }
+    });
+  }
+
+  function adicionarTarefa(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tarefaTitulo.trim()) return;
+    startTransition(async () => {
+      try {
+        const tarefa = await actionCriarTarefaCliente(cliente.id, tarefaTitulo.trim(), tarefaResponsavel || undefined, tarefaPrazo || undefined);
+        setData((atual) => ({ ...atual, tarefas: [tarefa, ...atual.tarefas] }));
+        setTarefaTitulo(""); setTarefaResponsavel(""); setTarefaPrazo("");
+        toast.success("Tarefa criada.");
+      } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível criar a tarefa."); }
+    });
+  }
+
+  function concluirTarefa(id: string) {
+    startTransition(async () => {
+      try {
+        const atualizada = await actionConcluirTarefaCliente(cliente.id, id);
+        setData((atual) => ({ ...atual, tarefas: atual.tarefas.map((tarefa) => tarefa.id === id ? atualizada : tarefa) }));
+        toast.success("Tarefa concluída.");
+      } catch { toast.error("Não foi possível concluir a tarefa."); }
     });
   }
 
@@ -162,6 +217,15 @@ export function Cliente360({
           <ArrowLeft size={17} />
         </button>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => exportarClientePDF(data).catch(() => toast.error("Não foi possível gerar o PDF."))}
+            title="Exportar ficha em PDF"
+            aria-label="Exportar ficha em PDF"
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
+          >
+            <Download size={17} /><span className="hidden sm:inline">PDF</span>
+          </button>
           <button
             type="button"
             onClick={() => setEditing((value) => !value)}
@@ -205,9 +269,24 @@ export function Cliente360({
               </div>
               <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <span key={tag.id} className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ color: tag.cor ?? undefined, background: tint(tag.cor ?? "#64748b", 12) }}>{tag.nome}</span>)}</div>
             </div>
-            <dl className="grid gap-3 mt-5 text-sm">
-              <div><dt className="text-muted-foreground">{copy.metrics.orders}</dt><dd className="font-semibold text-lg mt-1">{data.pedidos.length}</dd></div>
-            </dl>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                { label: "Total comprado", value: dinheiro.format(data.resumoComercial.totalGasto), icon: WalletCards },
+                { label: "Pedidos", value: String(data.resumoComercial.totalPedidos), icon: ShoppingBag },
+                { label: "Ticket médio", value: dinheiro.format(data.resumoComercial.ticketMedio), icon: Star },
+                { label: "Última compra", value: data.resumoComercial.ultimoPedidoEm ? new Date(data.resumoComercial.ultimoPedidoEm).toLocaleDateString("pt-BR") : "—", icon: CalendarDays },
+              ].map((item) => {
+                const Icon = item.icon;
+                return <div key={item.label} className="rounded-xl border border-border bg-muted/25 p-3"><dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><Icon size={14} />{item.label}</dt><dd className="mt-1 text-lg font-bold tabular-nums">{item.value}</dd></div>;
+              })}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">{data.classificacaoRelacionamento.label}</span>
+              <span className="text-muted-foreground">{data.classificacaoRelacionamento.motivo}</span>
+              {data.resumoComercial.marcaPreferida && <span className="rounded-full bg-muted px-2.5 py-1">Marca preferida: <b>{data.resumoComercial.marcaPreferida.nome}</b></span>}
+              {data.resumoComercial.canalPreferido && <span className="rounded-full bg-muted px-2.5 py-1">Canal preferido: <b>{data.resumoComercial.canalPreferido.canal}</b></span>}
+              {(data.resumoComercial.cancelados > 0 || data.resumoComercial.devolvidos > 0) && <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-destructive">{data.resumoComercial.cancelados} cancelado(s) · {data.resumoComercial.devolvidos} devolvido(s)</span>}
+            </div>
             {(() => {
               const partes = partesEndereco(cliente);
               const tudoPendente = partes.every((item) => !item.value);
@@ -316,13 +395,52 @@ export function Cliente360({
                 status: item.status,
                 date: item.createdAt,
               })),
+              ...data.mensagens.map((item) => ({
+                key: `m-${item.id}`,
+                canal: item.canal,
+                title: item.direcao === "entrada" ? "Mensagem recebida" : "Resposta enviada",
+                subtitle: item.conteudo,
+                status: null as string | null,
+                date: item.createdAt,
+              })),
             ]
               .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
               .map(({ key, ...item }) => <TimelineItem key={key} {...item} />)}
-            {data.interacoes.length + data.pedidos.length === 0 && <p className="p-5 text-sm text-muted-foreground">{copy.timelineEmpty}</p>}
+            {data.interacoes.length + data.pedidos.length + data.mensagens.length === 0 && <p className="p-5 text-sm text-muted-foreground">{copy.timelineEmpty}</p>}
           </div>
         </section>
-
+        <div className="space-y-6">
+          <section className="rounded-[1.25rem] border border-border bg-card p-5">
+            <h2 className="font-semibold">Produtos mais comprados</h2>
+            <div className="mt-3 divide-y divide-border">
+              {data.resumoComercial.produtosMaisComprados.map((item) => <div key={item.produtoId} className="flex justify-between gap-3 py-2.5 text-sm"><span className="min-w-0 truncate">{item.nome}</span><b className="tabular-nums">{item.quantidade} un.</b></div>)}
+              {!data.resumoComercial.produtosMaisComprados.length && <p className="py-3 text-sm text-muted-foreground">Nenhum produto comprado ainda.</p>}
+            </div>
+          </section>
+          <section className="rounded-[1.25rem] border border-border bg-card p-5">
+            <h2 className="font-semibold">Anotações internas</h2>
+            <form onSubmit={adicionarNota} className="mt-3 flex gap-2">
+              <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Adicione um contexto para a equipe…" maxLength={2000} className="min-h-20 flex-1 resize-y rounded-xl border border-border bg-background p-3 text-sm" />
+              <button disabled={pending || !nota.trim()} className="h-11 self-end rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">Adicionar</button>
+            </form>
+            <div className="mt-3 divide-y divide-border">{data.anotacoes.map((item) => <div key={item.id} className="py-3"><p className="text-sm">{item.resumo}</p><p className="mt-1 text-xs text-muted-foreground">{formatDate(item.createdAt)}</p></div>)}{!data.anotacoes.length && <p className="py-3 text-sm text-muted-foreground">Nenhuma anotação registrada.</p>}</div>
+          </section>
+          <section className="rounded-[1.25rem] border border-border bg-card p-5">
+            <h2 className="font-semibold">Tarefas e responsáveis</h2>
+            <form onSubmit={adicionarTarefa} className="mt-3 grid gap-2 sm:grid-cols-2">
+              <input value={tarefaTitulo} onChange={(e) => setTarefaTitulo(e.target.value)} placeholder="O que precisa ser feito?" maxLength={240} className="h-11 rounded-xl border border-border bg-background px-3 text-sm sm:col-span-2" />
+              <select value={tarefaResponsavel} onChange={(e) => setTarefaResponsavel(e.target.value)} className="h-11 rounded-xl border border-border bg-background px-3 text-sm"><option value="">Sem responsável</option>{data.usuarios.map((usuario) => <option key={usuario.id} value={usuario.id}>{usuario.nome}</option>)}</select>
+              <input type="date" value={tarefaPrazo} onChange={(e) => setTarefaPrazo(e.target.value)} className="h-11 rounded-xl border border-border bg-background px-3 text-sm" />
+              <button disabled={pending || !tarefaTitulo.trim()} className="h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:col-span-2">Criar tarefa</button>
+            </form>
+            <div className="mt-3 divide-y divide-border">{data.tarefas.map((tarefa) => {
+              const meta = (tarefa.meta ?? {}) as { status?: string; responsavelId?: string; prazo?: string };
+              const concluida = meta.status === "concluida";
+              const responsavel = data.usuarios.find((usuario) => usuario.id === meta.responsavelId)?.nome;
+              return <div key={tarefa.id} className="flex items-start gap-3 py-3"><button type="button" disabled={concluida || pending} onClick={() => concluirTarefa(tarefa.id)} aria-label={concluida ? "Tarefa concluída" : "Concluir tarefa"} className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${concluida ? "border-success bg-success text-white" : "border-border hover:border-primary"}`}>{concluida && <Check size={14} />}</button><div className="min-w-0"><p className={`text-sm ${concluida ? "text-muted-foreground line-through" : "font-medium"}`}>{tarefa.resumo}</p><p className="mt-1 text-xs text-muted-foreground">{responsavel ?? "Sem responsável"}{meta.prazo ? ` · prazo ${new Date(meta.prazo).toLocaleDateString("pt-BR")}` : ""}</p></div></div>;
+            })}{!data.tarefas.length && <p className="py-3 text-sm text-muted-foreground">Nenhuma tarefa para este cliente.</p>}</div>
+          </section>
+        </div>
       </div>
     </div>
   );

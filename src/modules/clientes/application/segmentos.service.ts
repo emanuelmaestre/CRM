@@ -1,8 +1,8 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
-import { auditLog, cliente, clienteTag, segmento, tag } from "@/shared/lib/db/schema";
+import { auditLog, brand, cliente, clienteTag, pedido, segmento, tag } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
-import { CriarSegmentoSchema, type CriarSegmentoDTO, type FiltrosSegmento } from "../domain/segmentos";
+import { CriarSegmentoSchema, FiltrosSegmentoSchema, type CriarSegmentoDTO, type FiltrosSegmento } from "../domain/segmentos";
 
 const PERFIS_GERENCIAM_SEGMENTO = ["admin", "gestor"] as const;
 
@@ -10,12 +10,16 @@ export async function criarSegmento(ctx: CrudContext, input: CriarSegmentoDTO) {
   assertPerfil(ctx, [...PERFIS_GERENCIAM_SEGMENTO]);
   const data = CriarSegmentoSchema.parse(input);
 
-  const tagsValidas = await ctx.db.select({ id: tag.id }).from(tag).where(and(
+  const tagsValidas = data.filtros.tagIds.length ? await ctx.db.select({ id: tag.id }).from(tag).where(and(
     eq(tag.orgId, ctx.orgId), inArray(tag.id, data.filtros.tagIds),
-  ));
+  )) : [];
   if (tagsValidas.length !== data.filtros.tagIds.length) {
     throw new Error("Uma ou mais tags não pertencem à organização.");
   }
+  const marcasValidas = data.filtros.brandIds.length ? await ctx.db.select({ id: brand.id }).from(brand).where(and(
+    eq(brand.orgId, ctx.orgId), inArray(brand.id, data.filtros.brandIds),
+  )) : [];
+  if (marcasValidas.length !== data.filtros.brandIds.length) throw new Error("Uma ou mais marcas não pertencem à organização.");
 
   const [novo] = await ctx.db.insert(segmento).values({
     orgId: ctx.orgId,
@@ -46,12 +50,9 @@ export async function listarSegmentos(ctx: CrudContext) {
   const segmentos = await ctx.db.select().from(segmento).where(eq(segmento.orgId, ctx.orgId));
 
   const comContagem = await Promise.all(segmentos.map(async (item) => {
-    const filtros = item.filtros as FiltrosSegmento;
-    const membros = await ctx.db
-      .selectDistinct({ clienteId: clienteTag.clienteId })
-      .from(clienteTag)
-      .where(inArray(clienteTag.tagId, filtros.tagIds ?? []));
-    return { ...item, totalClientes: membros.length };
+    const filtros = FiltrosSegmentoSchema.parse(item.filtros);
+    const membros = await consultarMembrosSegmento(ctx, filtros);
+    return { ...item, filtros, totalClientes: membros.length };
   }));
 
   return comContagem;
@@ -64,12 +65,32 @@ export async function listarClientesSegmento(ctx: CrudContext, segmentoId: strin
   ));
   if (!item) throw new Error("Segmento não encontrado.");
 
-  const filtros = item.filtros as FiltrosSegmento;
+  const filtros = FiltrosSegmentoSchema.parse(item.filtros);
+  return consultarMembrosSegmento(ctx, filtros);
+}
+
+async function consultarMembrosSegmento(ctx: CrudContext, filtros: FiltrosSegmento) {
+  const where: SQL[] = [eq(cliente.orgId, ctx.orgId), isNull(cliente.deletedAt)];
+  const having: SQL[] = [];
+
+  if (filtros.tagIds.length) where.push(sql`exists (select 1 from ${clienteTag} ct where ct.cliente_id = ${cliente.id} and ${inArray(sql`ct.tag_id`, filtros.tagIds)})`);
+  if (filtros.brandIds.length) where.push(sql`exists (select 1 from ${pedido} p where p.cliente_id = ${cliente.id} and p.org_id = ${ctx.orgId} and ${inArray(sql`p.brand_id`, filtros.brandIds)})`);
+  if (filtros.canalTipos.length) where.push(sql`exists (select 1 from ${pedido} p where p.cliente_id = ${cliente.id} and p.org_id = ${ctx.orgId} and ${inArray(sql`p.canal`, filtros.canalTipos)})`);
+  if (filtros.totalGastoMin !== undefined) having.push(sql`coalesce(sum(${pedido.total}), 0) >= ${filtros.totalGastoMin}`);
+  if (filtros.totalGastoMax !== undefined) having.push(sql`coalesce(sum(${pedido.total}), 0) <= ${filtros.totalGastoMax}`);
+  if (filtros.pedidosMin !== undefined) having.push(sql`count(${pedido.id}) >= ${filtros.pedidosMin}`);
+  if (filtros.diasSemComprarMin !== undefined) {
+    const limite = new Date(Date.now() - filtros.diasSemComprarMin * 86_400_000);
+    having.push(sql`max(${pedido.createdAt}) <= ${limite}`);
+  }
+
   return ctx.db
-    .selectDistinct({ id: cliente.id, nome: cliente.nome, email: cliente.email, telefone: cliente.telefone })
+    .select({ id: cliente.id, nome: cliente.nome, email: cliente.email, telefone: cliente.telefone })
     .from(cliente)
-    .innerJoin(clienteTag, eq(clienteTag.clienteId, cliente.id))
-    .where(and(eq(cliente.orgId, ctx.orgId), inArray(clienteTag.tagId, filtros.tagIds ?? [])));
+    .leftJoin(pedido, and(eq(pedido.clienteId, cliente.id), eq(pedido.orgId, ctx.orgId)))
+    .where(and(...where))
+    .groupBy(cliente.id, cliente.nome, cliente.email, cliente.telefone)
+    .having(having.length ? and(...having) : undefined);
 }
 
 export async function excluirSegmento(ctx: CrudContext, segmentoId: string) {

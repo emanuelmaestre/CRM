@@ -7,13 +7,15 @@ import { FileText } from "lucide-react";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
 import { stagger } from "@/shared/design-system/motion-variants";
 import metricasConfig from "@/config/metricas.json";
-import { actionObterAtendimento, actionObterSaudeLoja } from "./actions";
+import { actionObterAtendimento, actionObterPosVenda, actionObterSaudeLoja } from "./actions";
 import { AcoesCard } from "./acoes-card";
 import { AtendimentoCard } from "./atendimento-card";
 import { ComparacaoCard } from "./comparacao-card";
 import { ReputacaoCard } from "./reputacao-card";
 import { ScoreCard } from "./score-card";
 import { PublicacoesCard } from "./publicacoes-card";
+import { PosVendaCard } from "./pos-venda-card";
+import { ComparacaoPeriodoCard } from "./comparacao-periodo-card";
 import { SectionLabel } from "./metricas-primitives";
 import { exportarMetricasPDF } from "./exportar-pdf";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -42,6 +44,7 @@ export function MetricasCliente() {
      — o card esmaece em vez de sumir e voltar. */
   const [saude, setSaude] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
   const [atendimento, setAtendimento] = useState<{ chave: string; dados: AtendimentoResumo | null }>({ chave: "", dados: null });
+  const [anterior, setAnterior] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
 
   // Só filtra quando as duas pontas estão preenchidas — meia data é um período
   // pela metade, e mandá-lo ao servidor produziria uma janela sem sentido.
@@ -72,6 +75,20 @@ export function MetricasCliente() {
 
   useEffect(() => {
     let ativo = true;
+    const fimAtual = fim ? new Date(`${fim}T12:00:00`) : new Date();
+    const inicioAtual = inicio ? new Date(`${inicio}T12:00:00`) : new Date(fimAtual);
+    if (!inicio) inicioAtual.setDate(inicioAtual.getDate() - 29);
+    const duracao = Math.round((fimAtual.getTime() - inicioAtual.getTime()) / 86_400_000) + 1;
+    const fimAnterior = new Date(inicioAtual); fimAnterior.setDate(fimAnterior.getDate() - 1);
+    const inicioAnterior = new Date(fimAnterior); inicioAnterior.setDate(inicioAnterior.getDate() - duracao + 1);
+    actionObterSaudeLoja({ inicio: paraDataInput(inicioAnterior), fim: paraDataInput(fimAnterior) })
+      .then((dados) => { if (ativo) setAnterior({ chave, dados }); })
+      .catch(() => { if (ativo) setAnterior({ chave, dados: null }); });
+    return () => { ativo = false; };
+  }, [chave, inicio, fim]);
+
+  useEffect(() => {
+    let ativo = true;
     actionObterAtendimento({ inicio, fim })
       .then((resultado) => { if (ativo) setAtendimento({ chave, dados: resultado }); })
       .catch(() => { if (ativo) setAtendimento({ chave, dados: null }); });
@@ -87,7 +104,8 @@ export function MetricasCliente() {
     if (!saude.dados) return;
     setExportando(true);
     try {
-      await exportarMetricasPDF(saude.dados, atendimento.dados);
+      const posVenda = await actionObterPosVenda({ inicio, fim });
+      await exportarMetricasPDF(saude.dados, atendimento.dados, posVenda);
       toast.success(metricasConfig.exportacao.sucesso);
     } catch {
       toast.error(metricasConfig.exportacao.erro);
@@ -156,6 +174,11 @@ export function MetricasCliente() {
         <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} />
       </section>
 
+      {saude.dados && <section className="flex flex-col gap-3">
+        <SectionLabel hint="mesma duração anterior">Evolução</SectionLabel>
+        <ComparacaoPeriodoCard atual={saude.dados} anterior={anterior.chave === chave ? anterior.dados : null} />
+      </section>}
+
       {saude.dados && saude.dados.marcas.length > 0 && (
         <section className="flex flex-col gap-3">
           <SectionLabel hint="direto do Mercado Livre">Publicações</SectionLabel>
@@ -166,6 +189,11 @@ export function MetricasCliente() {
           />
         </section>
       )}
+
+      <section className="flex flex-col gap-3">
+        <SectionLabel hint="pedidos do período">Pós-venda</SectionLabel>
+        <PosVendaCard inicio={inicio ?? diasAtras(29)} fim={fim ?? hoje} />
+      </section>
 
       {/* Ato 4 — o que depende só de nós */}
       <section className="flex flex-col gap-3">

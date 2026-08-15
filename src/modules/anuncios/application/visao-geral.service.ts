@@ -24,6 +24,8 @@ export interface CampanhaVisaoGeral {
   campanhaId: string;
   nome: string;
   status: string;
+  /** Data original de criação da campanha no Mercado Livre. */
+  criadaEm: string | null;
   estrategia: string;
   orcamento: number | null;
   roasObjetivo: number | null;
@@ -300,6 +302,7 @@ export async function obterVisaoGeral(
         campanhaId: String(linha.campaignId),
         nome: linha.nome,
         status: linha.status,
+        criadaEm: linha.campanhaCriadaEm?.toISOString() ?? null,
         estrategia: linha.estrategia,
         orcamento: paraNumeroOuNull(linha.orcamento),
         roasObjetivo: paraNumeroOuNull(linha.roasObjetivo),

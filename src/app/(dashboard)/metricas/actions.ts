@@ -6,6 +6,7 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
 import { obterSaudeLoja, type SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import { obterAtendimento, type AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
+import { obterPosVenda, type PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 import {
   aprovarSugestao,
   listarInsights,
@@ -53,6 +54,13 @@ export async function actionObterAtendimento(filtros: MetricasFiltros = {}): Pro
   const { inicio, fim, brandIds } = FiltrosSchema.parse(filtros);
   const janela = resolverJanela(inicio, fim);
   return obterAtendimento(ctx, { ...janela, brandIds });
+}
+
+export async function actionObterPosVenda(filtros: MetricasFiltros = {}): Promise<PosVendaResultado> {
+  const ctx = await getCrudContext();
+  assertPerfil(ctx, [...PERFIS]);
+  const { inicio, fim, brandIds } = FiltrosSchema.parse(filtros);
+  return obterPosVenda(ctx, { ...resolverJanela(inicio, fim), brandIds });
 }
 
 /* ── Recomendações ───────────────────────────────────────────────

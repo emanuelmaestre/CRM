@@ -1,6 +1,7 @@
 import metricasConfig from "@/config/metricas.json";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import type { AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
+import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 
 const copy = metricasConfig.exportacao;
 
@@ -18,6 +19,7 @@ const copy = metricasConfig.exportacao;
 export async function exportarMetricasPDF(
   saude: SaudeLojaResultado,
   atendimento: AtendimentoResumo | null,
+  posVenda?: PosVendaResultado | null,
 ): Promise<void> {
   const { jsPDF } = await import("jspdf");
   const { default: autoTable } = await import("jspdf-autotable");
@@ -193,6 +195,23 @@ export async function exportarMetricasPDF(
       });
       y = depoisDaTabela(doc);
     }
+  }
+
+  if (posVenda && posVenda.marcas.length > 0) {
+    y = secao(doc, "Logística e pós-venda", y);
+    autoTable(doc, {
+      startY: y,
+      head: [["Marca", "Pedidos", "Entregues", "Em andamento", "Cancelados", "Devolvidos", "Taxa de problemas", "Receita afetada"]],
+      body: posVenda.marcas.map((marca) => [
+        marca.marcaLabel, String(marca.total), String(marca.entregues), String(marca.emTransito),
+        String(marca.cancelados), String(marca.devolvidos),
+        marca.taxaProblemas === null ? "—" : `${marca.taxaProblemas}%`,
+        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(marca.impactoFinanceiro),
+      ]),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [182, 106, 12], fontSize: 8 },
+    });
+    y = depoisDaTabela(doc);
   }
 
   /* A nota de rodapé não é enfeite: sem ela, um score de 74 calculado sobre

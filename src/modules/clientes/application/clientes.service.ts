@@ -4,8 +4,8 @@ import { z } from "zod";
 import { assertPerfil, createCrudFactory, type CrudContext } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import {
-  auditLog, brand, channelAccount, cliente, clienteIdentidade, clienteTag, consentimento, interacao, pedido,
-  scoreCliente, tag,
+  appUser, auditLog, brand, channelAccount, cliente, clienteIdentidade, clienteTag, consentimento, conversa, interacao,
+  mensagem, pedido, pedidoItem, produto, scoreCliente, tag,
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
@@ -69,7 +69,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
   const clienteAtual = await crudCliente.getById(ctx, id) as typeof cliente.$inferSelect | null;
   if (!clienteAtual) throw new Error("Cliente não encontrado.");
 
-  const [interacoes, pedidos, consentimentos, tagsCliente, identidades, scoreRow] = await Promise.all([
+  const [interacoes, pedidos, consentimentos, tagsCliente, identidades, scoreRow, resumoRows, marcasRows, canaisRows, produtosRows, mensagensCliente, usuarios] = await Promise.all([
     ctx.db
       .select()
       .from(interacao)
@@ -108,15 +108,95 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
       .from(scoreCliente)
       .where(and(eq(scoreCliente.orgId, ctx.orgId), eq(scoreCliente.clienteId, id)))
       .then((rows) => rows[0] ?? null),
+    ctx.db
+      .select({
+        totalPedidos: sql<number>`count(*)`,
+        totalGasto: sql<string>`coalesce(sum(${pedido.total}), 0)`,
+        primeiroPedidoEm: sql<Date | null>`min(${pedido.createdAt})`,
+        ultimoPedidoEm: sql<Date | null>`max(${pedido.createdAt})`,
+        cancelados: sql<number>`count(*) filter (where ${pedido.status} = 'cancelado')`,
+        devolvidos: sql<number>`count(*) filter (where ${pedido.status} = 'devolvido')`,
+      })
+      .from(pedido)
+      .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id))),
+    ctx.db
+      .select({ id: brand.id, nome: brand.name, total: sql<number>`count(*)` })
+      .from(pedido)
+      .innerJoin(brand, eq(brand.id, pedido.brandId))
+      .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id)))
+      .groupBy(brand.id, brand.name)
+      .orderBy(desc(sql`count(*)`)),
+    ctx.db
+      .select({ canal: pedido.canal, total: sql<number>`count(*)` })
+      .from(pedido)
+      .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id)))
+      .groupBy(pedido.canal)
+      .orderBy(desc(sql`count(*)`)),
+    ctx.db
+      .select({
+        produtoId: produto.id,
+        nome: produto.nome,
+        quantidade: sql<number>`sum(${pedidoItem.quantidade})`,
+      })
+      .from(pedidoItem)
+      .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
+      .innerJoin(produto, eq(produto.id, pedidoItem.produtoId))
+      .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id)))
+      .groupBy(produto.id, produto.nome)
+      .orderBy(desc(sql`sum(${pedidoItem.quantidade})`))
+      .limit(5),
+    ctx.db
+      .select({
+        id: mensagem.id,
+        conversaId: conversa.id,
+        canal: channelAccount.tipo,
+        direcao: mensagem.direcao,
+        conteudo: mensagem.conteudo,
+        status: conversa.status,
+        createdAt: mensagem.createdAt,
+      })
+      .from(mensagem)
+      .innerJoin(conversa, eq(conversa.id, mensagem.conversaId))
+      .innerJoin(channelAccount, eq(channelAccount.id, conversa.channelAccountId))
+      .where(and(eq(mensagem.orgId, ctx.orgId), eq(conversa.clienteId, id)))
+      .orderBy(desc(mensagem.createdAt))
+      .limit(50),
+    ctx.db
+      .select({ id: appUser.id, nome: appUser.nome })
+      .from(appUser)
+      .where(and(eq(appUser.orgId, ctx.orgId), eq(appUser.ativo, true)))
+      .orderBy(asc(appUser.nome)),
   ]);
 
   const anotacoes = interacoes.filter((item) => item.tipo === TIPO_INTERACAO_ANOTACAO);
-  const timelineInteracoes = interacoes.filter((item) => item.tipo !== TIPO_INTERACAO_ANOTACAO);
+  const tarefas = interacoes.filter((item) => item.tipo === "tarefa");
+  const timelineInteracoes = interacoes.filter((item) => item.tipo !== TIPO_INTERACAO_ANOTACAO && item.tipo !== "tarefa");
 
   // Canais únicos e ordenados: um cliente pode ter mais de uma identidade no
   // mesmo canal (ex.: dois pedidos com IDs de comprador diferentes), e a
   // bandeirinha do 360 mostra cada canal uma vez só.
   const canais = [...new Set(identidades.map((item) => item.canal))];
+  const resumoBase = resumoRows[0];
+  const totalPedidos = Number(resumoBase?.totalPedidos ?? 0);
+  const totalGasto = Number(resumoBase?.totalGasto ?? 0);
+  const ultimoPedidoEm = resumoBase?.ultimoPedidoEm ?? null;
+  const diasSemComprar = ultimoPedidoEm
+    ? Math.max(0, Math.floor((Date.now() - new Date(ultimoPedidoEm).getTime()) / 86_400_000))
+    : null;
+  const cancelados = Number(resumoBase?.cancelados ?? 0);
+  const devolvidos = Number(resumoBase?.devolvidos ?? 0);
+
+  const classificacaoRelacionamento = totalPedidos === 0
+    ? { chave: "novo", label: "Novo", motivo: "Ainda não realizou uma compra." }
+    : diasSemComprar !== null && diasSemComprar >= 180
+      ? { chave: "inativo", label: "Inativo", motivo: `Sem comprar há ${diasSemComprar} dias.` }
+      : diasSemComprar !== null && diasSemComprar >= 90
+        ? { chave: "em_risco", label: "Em risco", motivo: `Sem comprar há ${diasSemComprar} dias.` }
+        : totalPedidos >= 5 || totalGasto >= 2_000
+          ? { chave: "vip", label: "VIP", motivo: `${totalPedidos} pedidos e ${totalGasto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} em compras.` }
+          : totalPedidos >= 2
+            ? { chave: "recorrente", label: "Recorrente", motivo: `${totalPedidos} compras registradas.` }
+            : { chave: "novo", label: "Novo", motivo: "Primeira compra registrada." };
 
   return {
     cliente: clienteAtual,
@@ -127,7 +207,54 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
     tags: tagsCliente,
     canais,
     score: scoreRow,
+    resumoComercial: {
+      totalPedidos,
+      totalGasto,
+      ticketMedio: totalPedidos > 0 ? totalGasto / totalPedidos : 0,
+      primeiroPedidoEm: resumoBase?.primeiroPedidoEm ?? null,
+      ultimoPedidoEm,
+      diasSemComprar,
+      cancelados,
+      devolvidos,
+      marcaPreferida: marcasRows[0] ?? null,
+      canalPreferido: canaisRows[0] ?? null,
+      produtosMaisComprados: produtosRows.map((item) => ({ ...item, quantidade: Number(item.quantidade) })),
+    },
+    classificacaoRelacionamento,
+    mensagens: mensagensCliente,
+    tarefas,
+    usuarios,
   };
+}
+
+const TarefaClienteSchema = z.object({
+  clienteId: z.string().uuid(),
+  titulo: z.string().trim().min(3).max(240),
+  responsavelId: z.string().uuid().nullable().optional(),
+  prazo: z.string().datetime().nullable().optional(),
+});
+
+export async function criarTarefaCliente(ctx: CrudContext, input: z.input<typeof TarefaClienteSchema>) {
+  const data = TarefaClienteSchema.parse(input);
+  const clienteValido = await ctx.db.select({ id: cliente.id }).from(cliente).where(and(eq(cliente.id, data.clienteId), eq(cliente.orgId, ctx.orgId), isNull(cliente.deletedAt))).then((rows) => rows[0]);
+  if (!clienteValido) throw new Error("Cliente não encontrado.");
+  if (data.responsavelId) {
+    const responsavel = await ctx.db.select({ id: appUser.id }).from(appUser).where(and(eq(appUser.id, data.responsavelId), eq(appUser.orgId, ctx.orgId), eq(appUser.ativo, true))).then((rows) => rows[0]);
+    if (!responsavel) throw new Error("Responsável inválido.");
+  }
+  const [nova] = await ctx.db.insert(interacao).values({
+    clienteId: data.clienteId, orgId: ctx.orgId, tipo: "tarefa", resumo: data.titulo, autorId: ctx.userId,
+    meta: { status: "pendente", responsavelId: data.responsavelId ?? null, prazo: data.prazo ?? null },
+  }).returning();
+  return nova;
+}
+
+export async function concluirTarefaCliente(ctx: CrudContext, clienteId: string, tarefaId: string) {
+  const atual = await ctx.db.select().from(interacao).where(and(eq(interacao.id, tarefaId), eq(interacao.clienteId, clienteId), eq(interacao.orgId, ctx.orgId), eq(interacao.tipo, "tarefa"))).then((rows) => rows[0]);
+  if (!atual) throw new Error("Tarefa não encontrada.");
+  const meta = (atual.meta ?? {}) as Record<string, unknown>;
+  const [tarefa] = await ctx.db.update(interacao).set({ meta: { ...meta, status: "concluida", concluidaEm: new Date().toISOString(), concluidaPorId: ctx.userId ?? null } }).where(eq(interacao.id, tarefaId)).returning();
+  return tarefa;
 }
 
 export async function criarAnotacaoCliente(ctx: CrudContext, input: CriarAnotacaoDTO) {
@@ -255,10 +382,22 @@ export async function listarClientes(
   // Bandeirinha discreta ao lado do nome: uma consulta leve à parte, em vez de
   // juntar cliente_identidade na busca principal — o join duplicaria a linha
   // do cliente por canal e quebraria o limit/offset da paginação.
-  const identidades = await ctx.db
-    .select({ clienteId: clienteIdentidade.clienteId, canal: clienteIdentidade.canal })
-    .from(clienteIdentidade)
-    .where(and(eq(clienteIdentidade.orgId, ctx.orgId), inArray(clienteIdentidade.clienteId, ids)));
+  const [identidades, resumoClientes] = await Promise.all([
+    ctx.db
+      .select({ clienteId: clienteIdentidade.clienteId, canal: clienteIdentidade.canal })
+      .from(clienteIdentidade)
+      .where(and(eq(clienteIdentidade.orgId, ctx.orgId), inArray(clienteIdentidade.clienteId, ids))),
+    ctx.db
+      .select({
+        clienteId: pedido.clienteId,
+        totalPedidos: sql<number>`count(*)`,
+        totalGasto: sql<string>`coalesce(sum(${pedido.total}), 0)`,
+        ultimoPedidoEm: sql<Date | null>`max(${pedido.createdAt})`,
+      })
+      .from(pedido)
+      .where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.clienteId, ids)))
+      .groupBy(pedido.clienteId),
+  ]);
 
   const canaisPorCliente = new Map<string, string[]>();
   for (const item of identidades) {
@@ -266,13 +405,27 @@ export async function listarClientes(
     if (!atual.includes(item.canal)) atual.push(item.canal);
     canaisPorCliente.set(item.clienteId, atual);
   }
+  const resumoPorCliente = new Map(resumoClientes.map((item) => [item.clienteId, item]));
 
   return {
     ...result,
-    data: (result.data as Array<Record<string, unknown> & { id: string }>).map((item) => ({
-      ...item,
-      canais: canaisPorCliente.get(item.id) ?? [],
-    })),
+    data: (result.data as Array<Record<string, unknown> & { id: string }>).map((item) => {
+      const resumo = resumoPorCliente.get(item.id);
+      const totalPedidos = Number(resumo?.totalPedidos ?? 0);
+      const totalGasto = Number(resumo?.totalGasto ?? 0);
+      const ultimoPedidoEm = resumo?.ultimoPedidoEm ?? null;
+      const diasSemComprar = ultimoPedidoEm ? Math.max(0, Math.floor((Date.now() - new Date(ultimoPedidoEm).getTime()) / 86_400_000)) : null;
+      const relacionamento = totalPedidos === 0 ? "Novo"
+        : diasSemComprar !== null && diasSemComprar >= 180 ? "Inativo"
+          : diasSemComprar !== null && diasSemComprar >= 90 ? "Em risco"
+            : totalPedidos >= 5 || totalGasto >= 2_000 ? "VIP"
+              : totalPedidos >= 2 ? "Recorrente" : "Novo";
+      return {
+        ...item,
+        canais: canaisPorCliente.get(item.id) ?? [],
+        resumoComercial: { totalPedidos, totalGasto, ultimoPedidoEm, relacionamento },
+      };
+    }),
   };
 }
 

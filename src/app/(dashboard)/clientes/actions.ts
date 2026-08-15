@@ -7,6 +7,7 @@ import {
   atualizarCliente, buscarCliente360, criarCliente, listarClientes, arquivarCliente,
   exportarDadosCliente, revogarConsentimento, criarAnotacaoCliente,
   contarClientesPorCanal, contarClientesPorMarca,
+  criarTarefaCliente, concluirTarefaCliente,
 } from "@/modules/clientes/application/clientes.service";
 
 const ClienteIdSchema = z.string().uuid();
@@ -82,6 +83,22 @@ export async function actionCriarAnotacao(clienteId: string, texto: string) {
   const nova = await criarAnotacaoCliente(ctx, { clienteId: ClienteIdSchema.parse(clienteId), texto });
   revalidatePath(`/clientes/${clienteId}`);
   return nova;
+}
+
+export async function actionCriarTarefaCliente(clienteId: string, titulo: string, responsavelId?: string, prazo?: string) {
+  const ctx = await getCrudContext();
+  const id = ClienteIdSchema.parse(clienteId);
+  const tarefa = await criarTarefaCliente(ctx, { clienteId: id, titulo, responsavelId: responsavelId || null, prazo: prazo ? new Date(prazo).toISOString() : null });
+  revalidatePath(`/clientes/${id}`);
+  return tarefa;
+}
+
+export async function actionConcluirTarefaCliente(clienteId: string, tarefaId: string) {
+  const ctx = await getCrudContext();
+  const id = ClienteIdSchema.parse(clienteId);
+  const tarefa = await concluirTarefaCliente(ctx, id, ClienteIdSchema.parse(tarefaId));
+  revalidatePath(`/clientes/${id}`);
+  return tarefa;
 }
 
 export async function actionAtualizarCliente(id: string, formData: FormData) {

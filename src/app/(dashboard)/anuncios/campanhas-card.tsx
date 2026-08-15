@@ -12,6 +12,11 @@ import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.campanhas;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+function formatarDataCriacao(valor: string | null) {
+  return valor ? dataCurta.format(new Date(valor)) : "Não informada";
+}
 
 const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
   active: { label: "Ativa", cor: "var(--success)" },
@@ -46,6 +51,7 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
                   <BadgeStatus status={campanha.status} />
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                  <div className="col-span-2"><dt className="text-xs text-muted-foreground">Criada em</dt><dd className="mt-0.5 font-medium tabular-nums">{formatarDataCriacao(campanha.criadaEm)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.investimento)}</dd></div>
                   <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.receita)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={campanha.roas} minimo={campanha.breakEven.roasMinimo} /></dd></div>
@@ -60,7 +66,7 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
             <thead>
               <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
                 {copy.colunas.map((coluna, indice) => (
-                  <th key={coluna} className={`px-3 py-2 ${indice > 1 ? "text-right" : ""}`}>{coluna}</th>
+                  <th key={coluna} className={`px-3 py-2 ${indice > 2 ? "text-right" : ""}`}>{coluna}</th>
                 ))}
               </tr>
             </thead>
@@ -77,6 +83,7 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
                   >
                     <td className="max-w-[220px] truncate px-3 py-2.5 font-medium text-foreground">{campanha.nome}</td>
                     <td className="px-3 py-2.5"><BadgeStatus status={campanha.status} /></td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-xs tabular-nums text-muted-foreground">{formatarDataCriacao(campanha.criadaEm)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                       {campanha.orcamento !== null ? moeda.format(campanha.orcamento) : "—"}
                     </td>

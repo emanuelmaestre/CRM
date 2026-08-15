@@ -22,9 +22,12 @@ export async function actionListarTagsReferencia() {
   return listarTagsReferencia(ctx);
 }
 
-export async function actionCriarSegmento(nome: string, tagIds: string[]) {
+export async function actionCriarSegmento(nome: string, filtros: {
+  tagIds?: string[]; brandIds?: string[]; canalTipos?: Array<"mercadolivre" | "shopee" | "tiktokshop">;
+  totalGastoMin?: number; totalGastoMax?: number; pedidosMin?: number; diasSemComprarMin?: number;
+}) {
   const ctx = await getCrudContext();
-  const novo = await criarSegmento(ctx, { nome, filtros: { tagIds } });
+  const novo = await criarSegmento(ctx, { nome, filtros });
   revalidatePath("/clientes");
   return novo;
 }
