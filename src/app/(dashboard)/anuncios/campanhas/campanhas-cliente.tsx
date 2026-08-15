@@ -61,7 +61,7 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
   if (!anuncios || anuncios.length === 0) return <p className="px-1 py-3 text-[12px] text-muted-foreground">{copy.anuncios.vazio}</p>;
 
   return (
-    <div className="overflow-x-auto">
+    <div className="table-scroll">
       <table className="w-full min-w-[560px] text-[12px]">
         <thead>
           <tr className="border-b border-border text-left text-[10px] font-medium uppercase text-muted-foreground">

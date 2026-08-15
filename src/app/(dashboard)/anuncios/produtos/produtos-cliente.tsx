@@ -134,7 +134,7 @@ export function ProdutosClienteDetalhe() {
         ) : anunciosFiltrados.length === 0 ? (
           <EmptyState illustration="reports" title={copy.vazio} />
         ) : (
-          <div className="overflow-x-auto px-1 pb-5 pt-3 sm:px-2">
+          <div className="table-scroll px-1 pb-5 pt-3 sm:px-2">
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">

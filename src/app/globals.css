@@ -217,11 +217,36 @@ button, input, select, textarea {
   outline-offset: 2px;
 }
 
+/* ── Região com rolagem horizontal ──
+   Para tabelas largas e barras de filtro. Três propriedades que o
+   `overflow-x-auto` cru não traz e que só aparecem no celular:
+   `overscroll-behavior-inline` impede que chegar no fim da tabela comece a
+   arrastar a página inteira, e `-webkit-overflow-scrolling` devolve a
+   inércia no iOS.
+
+   As sombras nas bordas resolvem a outra metade do problema: uma tabela de
+   780px num aparelho de 375px é mais de duas telas de rolagem, e nada
+   indicava que havia coluna à direita. A técnica usa quatro camadas — duas
+   de máscara na cor do card, presas ao conteúdo (`local`), e duas de sombra
+   presas ao viewport (`scroll`). Quando há conteúdo escondido a máscara sai
+   junto com a rolagem e a sombra aparece; ao chegar na ponta, a máscara
+   cobre a sombra de novo. Zero JavaScript, e some sozinho quando a tabela
+   cabe na tela. */
 .table-scroll {
   max-width: 100%;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   -webkit-overflow-scrolling: touch;
+
+  background-image:
+    linear-gradient(to right, var(--card), transparent),
+    linear-gradient(to left, var(--card), transparent),
+    linear-gradient(to right, color-mix(in srgb, var(--foreground) 16%, transparent), transparent),
+    linear-gradient(to left, color-mix(in srgb, var(--foreground) 16%, transparent), transparent);
+  background-position: left center, right center, left center, right center;
+  background-repeat: no-repeat;
+  background-size: 28px 100%, 28px 100%, 10px 100%, 10px 100%;
+  background-attachment: local, local, scroll, scroll;
 }
 
 @media (pointer: coarse) {

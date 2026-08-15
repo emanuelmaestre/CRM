@@ -54,7 +54,7 @@ export function AutomacoesSection() {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="table-scroll">
       <table className="w-full min-w-[820px] text-left text-sm">
         <thead className="border-b border-border text-xs text-muted-foreground">
           <tr>

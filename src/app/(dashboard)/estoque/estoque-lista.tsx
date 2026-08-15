@@ -1143,7 +1143,7 @@ export function EstoqueLista() {
                 })}
               </div>
 
-              <div className="hidden md:block overflow-x-auto" data-testid="estoque-table">
+              <div className="hidden md:block table-scroll" data-testid="estoque-table">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">

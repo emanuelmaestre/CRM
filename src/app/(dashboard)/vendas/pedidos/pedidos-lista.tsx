@@ -410,7 +410,7 @@ export function PedidosLista() {
                   </Link>
                 ))}
               </div>
-              <div className="hidden overflow-x-auto md:block">
+              <div className="hidden table-scroll md:block">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
                   <tr>

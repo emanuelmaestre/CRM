@@ -378,7 +378,7 @@ export function ClientesLista() {
               </div>
             ))}
           </div>
-          <div className="hidden md:block overflow-x-auto" data-testid="clientes-table">
+          <div className="hidden md:block table-scroll" data-testid="clientes-table">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">

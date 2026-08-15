@@ -71,7 +71,7 @@ export function ComparacaoClienteDetalhe() {
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       <Card>
-        <div className="overflow-x-auto px-1 pb-5 pt-3 sm:px-2">
+        <div className="table-scroll px-1 pb-5 pt-3 sm:px-2">
           <table className="w-full min-w-[780px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
