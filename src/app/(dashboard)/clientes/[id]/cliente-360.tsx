@@ -4,7 +4,7 @@ import { tint } from "@/shared/design-system/color";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarDays, Check, CircleDot, Download, Info, MapPin, Package, Pencil, ShoppingBag, Star, Truck, WalletCards, X, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, CircleDot, Download, History, Info, MapPin, Package, Pencil, ShoppingBag, Star, StickyNote, Truck, WalletCards, X, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { actionAtualizarCliente, actionConcluirTarefaCliente, actionCriarAnotacao, actionCriarTarefaCliente } from "../actions";
@@ -98,7 +98,7 @@ function TimelineItem({ canal, title, orderNumber, subtitle, status, date }: {
   date: Date | string;
 }) {
   return (
-    <div className="px-5 py-3.5 flex items-center gap-3">
+    <div className="flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
       {canal && <ChannelLogo canal={canal} size="xs" variant="logo" />}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-foreground truncate flex items-center gap-2">
@@ -109,8 +109,10 @@ function TimelineItem({ canal, title, orderNumber, subtitle, status, date }: {
         </p>
         {subtitle && <p className="text-xs text-muted-foreground mt-0.5 truncate">{subtitle}</p>}
       </div>
-      {status && <StatusPedidoBadge status={status} />}
-      <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(date)}</span>
+      <div className="flex shrink-0 items-center justify-between gap-3 pl-7 sm:pl-0">
+        {status && <StatusPedidoBadge status={status} />}
+        <span className="whitespace-nowrap text-xs text-muted-foreground">{formatDate(date)}</span>
+      </div>
     </div>
   );
 }
@@ -205,17 +207,23 @@ export function Cliente360({
   }
 
   return (
-    <div className="space-y-6" data-testid="cliente-360">
+    <div className="space-y-5" data-testid="cliente-360">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => router.push("/clientes")}
-          title={copy.actions.back}
-          aria-label={copy.actions.back}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
-        >
-          <ArrowLeft size={17} />
-        </button>
+        <div className="flex min-w-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push("/clientes")}
+            title={copy.actions.back}
+            aria-label={copy.actions.back}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
+          >
+            <ArrowLeft size={17} />
+          </button>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Clientes</p>
+            <p className="truncate text-sm font-semibold text-foreground">{cliente.nomeCompleto?.trim() || cliente.nome}</p>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -238,19 +246,24 @@ export function Cliente360({
         </div>
       </div>
 
-      <section className="rounded-[1.25rem] border border-border bg-card p-5">
+      <section className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.05)]">
         {editing ? (
-          <form action={submit} className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1.5 text-sm"><span>{copy.fields.name}</span><input name="nome" required minLength={2} defaultValue={cliente.nome} className="w-full min-h-11 rounded-xl border border-border bg-background px-3" /></label>
-            <button disabled={pending} className="md:col-span-2 min-h-11 justify-self-start px-5 rounded-xl text-white font-semibold inline-flex items-center gap-2 disabled:opacity-50" style={{ background: "var(--gradient-signature)" }}>
+          <form action={submit} className="grid gap-4 p-5 md:grid-cols-2">
+            <div className="md:col-span-2"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Editar cadastro</p><h1 className="mt-1 text-xl font-bold text-foreground">Dados do cliente</h1></div>
+            <label className="space-y-1.5 text-sm"><span>{copy.fields.name}</span><input name="nome" required minLength={2} defaultValue={cliente.nome} className="min-h-11 w-full rounded-xl border border-border bg-background px-3" /></label>
+            <label className="space-y-1.5 text-sm"><span>{copy.fields.email}</span><input name="email" type="email" defaultValue={cliente.email ?? ""} className="min-h-11 w-full rounded-xl border border-border bg-background px-3" /></label>
+            <label className="space-y-1.5 text-sm"><span>{copy.fields.phone}</span><input name="telefone" defaultValue={cliente.telefone ?? ""} className="min-h-11 w-full rounded-xl border border-border bg-background px-3" /></label>
+            <label className="space-y-1.5 text-sm"><span>{copy.fields.document}</span><input name="cpfCnpj" defaultValue={cliente.cpfCnpj ?? ""} className="min-h-11 w-full rounded-xl border border-border bg-background px-3" /></label>
+            <button disabled={pending} className="inline-flex min-h-11 items-center gap-2 justify-self-start rounded-xl px-5 font-semibold text-white disabled:opacity-50 md:col-span-2" style={{ background: "var(--gradient-signature)" }}>
               <Check size={17} /> {pending ? copy.actions.saving : copy.actions.save}
             </button>
           </form>
         ) : (
-          <div>
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-foreground inline-flex items-center gap-2">
+                <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Perfil do cliente</p>
+                <h1 className="inline-flex flex-wrap items-center gap-2 text-2xl font-bold text-foreground">
                   {cliente.nomeCompleto?.trim() || cliente.nome}
                   {data.canais && data.canais.length > 0 && (
                     <span className="inline-flex items-center gap-1">
@@ -267,7 +280,7 @@ export function Cliente360({
                   <p className="text-sm text-muted-foreground mt-1">{[cliente.email, cliente.telefone].filter(Boolean).join(" · ")}</p>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <span key={tag.id} className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ color: tag.cor ?? undefined, background: tint(tag.cor ?? "#64748b", 12) }}>{tag.nome}</span>)}</div>
+              <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <span key={tag.id} className="rounded-full px-2.5 py-1 text-xs font-semibold" style={{ color: tag.cor ?? undefined, background: tint(tag.cor ?? "#64748b", 12) }}>{tag.nome}</span>)}</div>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {[
@@ -277,10 +290,11 @@ export function Cliente360({
                 { label: "Última compra", value: data.resumoComercial.ultimoPedidoEm ? new Date(data.resumoComercial.ultimoPedidoEm).toLocaleDateString("pt-BR") : "—", icon: CalendarDays },
               ].map((item) => {
                 const Icon = item.icon;
-                return <div key={item.label} className="rounded-xl border border-border bg-muted/25 p-3"><dt className="flex items-center gap-1.5 text-xs text-muted-foreground"><Icon size={14} />{item.label}</dt><dd className="mt-1 text-lg font-bold tabular-nums">{item.value}</dd></div>;
+                return <div key={item.label} className="rounded-xl border border-border bg-muted/20 p-3.5"><dt className="flex items-center gap-2 text-xs text-muted-foreground"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon size={14} /></span>{item.label}</dt><dd className="mt-2 text-lg font-bold tabular-nums">{item.value}</dd></div>;
               })}
             </div>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-b border-border pb-4 text-xs">
+              <span className="mr-1 font-medium text-muted-foreground">Perfil comercial</span>
               <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">{data.classificacaoRelacionamento.label}</span>
               <span className="text-muted-foreground">{data.classificacaoRelacionamento.motivo}</span>
               {data.resumoComercial.marcaPreferida && <span className="rounded-full bg-muted px-2.5 py-1">Marca preferida: <b>{data.resumoComercial.marcaPreferida.nome}</b></span>}
@@ -291,9 +305,9 @@ export function Cliente360({
               const partes = partesEndereco(cliente);
               const tudoPendente = partes.every((item) => !item.value);
               return (
-                <div className="mt-4 pt-4 border-t border-border">
-                  <p className="text-xs text-muted-foreground mb-2">{copy.address.title}</p>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+                <div className="mt-4 rounded-xl bg-muted/20 p-4">
+                  <div className="mb-3 flex items-center gap-2"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><MapPin size={15} /></span><p className="text-sm font-semibold text-foreground">{copy.address.title}</p></div>
+                  <dl className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-4">
                     {partes.map((item) => (
                       <div key={item.label}>
                         <dt className="text-[11px] text-muted-foreground">{item.label}</dt>
@@ -305,7 +319,7 @@ export function Cliente360({
                       </div>
                     ))}
                   </dl>
-                  <div className="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-border/60">
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
                     {tudoPendente ? (
                       <p
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium"
@@ -370,9 +384,9 @@ export function Cliente360({
         </section>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <section className="rounded-[1.25rem] border border-border bg-card overflow-hidden">
-          <h2 className="font-semibold px-5 py-4 border-b border-border">{copy.timelineTitle}</h2>
+      <div className="grid items-start gap-5 xl:grid-cols-[1.45fr_1fr]">
+        <section className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.04)]">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4"><h2 className="flex items-center gap-2 font-semibold"><History size={17} className="text-primary" />{copy.timelineTitle}</h2><span className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground">{data.interacoes.length + data.pedidos.length + data.mensagens.length}</span></div>
           <div className="divide-y divide-border">
             {[
               ...data.interacoes.map((item) => ({
@@ -409,24 +423,24 @@ export function Cliente360({
             {data.interacoes.length + data.pedidos.length + data.mensagens.length === 0 && <p className="p-5 text-sm text-muted-foreground">{copy.timelineEmpty}</p>}
           </div>
         </section>
-        <div className="space-y-6">
-          <section className="rounded-[1.25rem] border border-border bg-card p-5">
-            <h2 className="font-semibold">Produtos mais comprados</h2>
+        <div className="space-y-5">
+          <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-[0_2px_16px_rgba(14,15,19,.04)]">
+            <h2 className="flex items-center gap-2 font-semibold"><ShoppingBag size={17} className="text-primary" />Produtos mais comprados</h2>
             <div className="mt-3 divide-y divide-border">
               {data.resumoComercial.produtosMaisComprados.map((item) => <div key={item.produtoId} className="flex justify-between gap-3 py-2.5 text-sm"><span className="min-w-0 truncate">{item.nome}</span><b className="tabular-nums">{item.quantidade} un.</b></div>)}
               {!data.resumoComercial.produtosMaisComprados.length && <p className="py-3 text-sm text-muted-foreground">Nenhum produto comprado ainda.</p>}
             </div>
           </section>
-          <section className="rounded-[1.25rem] border border-border bg-card p-5">
-            <h2 className="font-semibold">Anotações internas</h2>
-            <form onSubmit={adicionarNota} className="mt-3 flex gap-2">
+          <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-[0_2px_16px_rgba(14,15,19,.04)]">
+            <h2 className="flex items-center gap-2 font-semibold"><StickyNote size={17} className="text-primary" />Anotações internas</h2>
+            <form onSubmit={adicionarNota} className="mt-3 flex flex-col gap-2 sm:flex-row">
               <textarea value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Adicione um contexto para a equipe…" maxLength={2000} className="min-h-20 flex-1 resize-y rounded-xl border border-border bg-background p-3 text-sm" />
-              <button disabled={pending || !nota.trim()} className="h-11 self-end rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">Adicionar</button>
+              <button disabled={pending || !nota.trim()} className="h-11 w-full self-end rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50 sm:w-auto">Adicionar</button>
             </form>
             <div className="mt-3 divide-y divide-border">{data.anotacoes.map((item) => <div key={item.id} className="py-3"><p className="text-sm">{item.resumo}</p><p className="mt-1 text-xs text-muted-foreground">{formatDate(item.createdAt)}</p></div>)}{!data.anotacoes.length && <p className="py-3 text-sm text-muted-foreground">Nenhuma anotação registrada.</p>}</div>
           </section>
-          <section className="rounded-[1.25rem] border border-border bg-card p-5">
-            <h2 className="font-semibold">Tarefas e responsáveis</h2>
+          <section className="rounded-[1.25rem] border border-border bg-card p-5 shadow-[0_2px_16px_rgba(14,15,19,.04)]">
+            <h2 className="flex items-center gap-2 font-semibold"><Check size={17} className="text-primary" />Tarefas e responsáveis</h2>
             <form onSubmit={adicionarTarefa} className="mt-3 grid gap-2 sm:grid-cols-2">
               <input value={tarefaTitulo} onChange={(e) => setTarefaTitulo(e.target.value)} placeholder="O que precisa ser feito?" maxLength={240} className="h-11 rounded-xl border border-border bg-background px-3 text-sm sm:col-span-2" />
               <select value={tarefaResponsavel} onChange={(e) => setTarefaResponsavel(e.target.value)} className="h-11 rounded-xl border border-border bg-background px-3 text-sm"><option value="">Sem responsável</option>{data.usuarios.map((usuario) => <option key={usuario.id} value={usuario.id}>{usuario.nome}</option>)}</select>
