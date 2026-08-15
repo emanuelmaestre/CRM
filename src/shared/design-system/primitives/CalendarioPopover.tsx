@@ -66,6 +66,7 @@ function montarGrade(mesReferencia: Date): Date[] {
 interface Posicao {
   top: number;
   left: number;
+  alinhadoDireita: boolean;
   /** O painel abre para cima quando não sobra espaço embaixo — a origem da
    *  animação de entrada acompanha, senão o calendário "nasceria" do lado
    *  errado do botão. */
@@ -92,14 +93,16 @@ function calcularPosicao(gatilho: HTMLElement): Posicao {
   const rect = gatilho.getBoundingClientRect();
   const espacoAbaixo = window.innerHeight - rect.bottom;
   const paraCima = espacoAbaixo < ALTURA_PAINEL_ESTIMADA + MARGEM_VIEWPORT && rect.top > espacoAbaixo;
+  const alinhadoDireita = rect.left + LARGURA_PAINEL > window.innerWidth - MARGEM_VIEWPORT;
+  const esquerdaDesejada = alinhadoDireita ? rect.right - LARGURA_PAINEL : rect.left;
 
   const left = Math.min(
-    Math.max(rect.left, MARGEM_VIEWPORT),
+    Math.max(esquerdaDesejada, MARGEM_VIEWPORT),
     window.innerWidth - LARGURA_PAINEL - MARGEM_VIEWPORT,
   );
   const top = paraCima ? rect.top - 8 : rect.bottom + 8;
 
-  return { top, left, paraCima };
+  return { top, left, paraCima, alinhadoDireita };
 }
 
 interface CalendarioPopoverProps {
@@ -210,9 +213,9 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
         left: posicao.left,
         width: LARGURA_PAINEL,
         transform: posicao.paraCima ? "translateY(-100%)" : undefined,
-        transformOrigin: posicao.paraCima ? "bottom left" : "top left",
+        transformOrigin: `${posicao.paraCima ? "bottom" : "top"} ${posicao.alinhadoDireita ? "right" : "left"}`,
       }}
-      className="material-thick z-[100] overflow-hidden rounded-[1.1rem] border border-border shadow-[0_16px_40px_rgba(14,15,19,.20)]"
+      className="z-[100] overflow-hidden rounded-[1.1rem] border border-border bg-card shadow-[0_16px_40px_rgba(14,15,19,.24)]"
     >
       {/* Cabeçalho: mês/ano central, setas nas pontas — sem dropdown de
           ano escondido atrás de outro clique. */}

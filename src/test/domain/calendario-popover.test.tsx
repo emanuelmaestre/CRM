@@ -69,4 +69,17 @@ describe("CalendarioPopover", () => {
     fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
     expect(onChange).toHaveBeenLastCalledWith("");
   });
+
+  it("alinha o painel pela direita quando o gatilho fica no canto direito", () => {
+    render(<CalendarioPopover rotulo="Até:" valor="2026-08-15" onChange={vi.fn()} />);
+    const gatilho = screen.getByRole("button", { name: /até: 15\/08\/2026/i });
+    vi.spyOn(gatilho, "getBoundingClientRect").mockReturnValue({
+      x: 960, y: 100, left: 960, right: 1000, top: 100, bottom: 140,
+      width: 40, height: 40, toJSON: () => ({}),
+    });
+
+    fireEvent.click(gatilho);
+
+    expect(screen.getByRole("dialog")).toHaveStyle({ left: "712px" });
+  });
 });
