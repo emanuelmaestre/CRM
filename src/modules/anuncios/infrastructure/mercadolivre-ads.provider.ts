@@ -53,12 +53,23 @@ export const METRICAS_NAO_DISPONIVEIS_HOJE = [
   "acos_benchmark",
 ] as const;
 
+const METRICAS_DETALHE_CAMPANHA = [
+  ...METRICAS_CAMPANHA,
+  ...METRICAS_NAO_DISPONIVEIS_HOJE,
+] as const;
+
 export type ChaveMetricaAds = (typeof METRICAS_CAMPANHA)[number];
 
 /** Bloco de métricas cru, exatamente como o Mercado Livre devolve — chaves
  *  snake_case, sem nenhuma tradução ainda. A camada de aplicação (Fase 2)
  *  é quem normaliza isso; aqui só se espelha o payload. */
 export type MLMetricasBrutas = Partial<Record<ChaveMetricaAds, number>>;
+export type MLMetricasCampanhaDetalhe = MLMetricasBrutas & Partial<Record<(typeof METRICAS_NAO_DISPONIVEIS_HOJE)[number], number>>;
+
+export interface MLMetricaDiariaCampanha {
+  data: string;
+  metricas: MLMetricasCampanhaDetalhe;
+}
 
 export interface MLAdvertiser {
   advertiserId: number;
@@ -83,7 +94,7 @@ export interface MLCampanha {
   channel: string | null;
   dateCreated: string | null;
   lastUpdated: string | null;
-  metricas: MLMetricasBrutas;
+  metricas: MLMetricasCampanhaDetalhe;
 }
 
 export interface MLAnuncio {
@@ -135,7 +146,7 @@ interface MLCampanhaRaw {
   channel?: string | null;
   date_created?: string | null;
   last_updated?: string | null;
-  metrics?: MLMetricasBrutas;
+  metrics?: MLMetricasCampanhaDetalhe;
 }
 
 interface MLAnuncioRaw {
@@ -239,31 +250,62 @@ export class MercadoLivreAdsProvider {
    *  A variante sem `/marketplace` e sem `/search` existe mas devolve 404;
    *  documentação de terceiros mistura as duas. */
   async listarCampanhas(advertiserId: number, siteId: string, dataInicio: Date, dataFim: Date): Promise<MLCampanha[]> {
-    const params = new URLSearchParams({
-      date_from: paraDataML(dataInicio),
-      date_to: paraDataML(dataFim),
-      metrics: METRICAS_CAMPANHA.join(","),
-      limit: "50",
-    });
-    const data = await this.get<{ results?: MLCampanhaRaw[] }>(
-      `/marketplace/advertising/${siteId}/advertisers/${advertiserId}/product_ads/campaigns/search?${params.toString()}`,
-    );
-    return (data.results ?? []).map(normalizarCampanha);
+    const resultados: MLCampanhaRaw[] = [];
+    const limit = 50;
+    for (let offset = 0; ; offset += limit) {
+      const params = new URLSearchParams({
+        date_from: paraDataML(dataInicio), date_to: paraDataML(dataFim),
+        metrics: METRICAS_CAMPANHA.join(","), limit: String(limit), offset: String(offset),
+      });
+      const data = await this.get<{ paging?: { total?: number }; results?: MLCampanhaRaw[] }>(
+        `/marketplace/advertising/${siteId}/advertisers/${advertiserId}/product_ads/campaigns/search?${params.toString()}`,
+      );
+      const pagina = data.results ?? [];
+      resultados.push(...pagina);
+      if (pagina.length < limit || (data.paging?.total !== undefined && resultados.length >= data.paging.total)) break;
+    }
+    return resultados.map(normalizarCampanha);
   }
 
   /** Anúncios (itens) com métricas do período — path real confirmado:
    *  `.../product_ads/ads/search` (não `items/search`, que não existe). */
   async listarAnuncios(advertiserId: number, siteId: string, dataInicio: Date, dataFim: Date): Promise<MLAnuncio[]> {
+    const resultados: MLAnuncioRaw[] = [];
+    const limit = 50;
+    for (let offset = 0; ; offset += limit) {
+      const params = new URLSearchParams({
+        date_from: paraDataML(dataInicio), date_to: paraDataML(dataFim),
+        metrics: METRICAS_CAMPANHA.join(","), limit: String(limit), offset: String(offset),
+      });
+      const data = await this.get<{ paging?: { total?: number }; results?: MLAnuncioRaw[] }>(
+        `/marketplace/advertising/${siteId}/advertisers/${advertiserId}/product_ads/ads/search?${params.toString()}`,
+      );
+      const pagina = data.results ?? [];
+      resultados.push(...pagina);
+      if (pagina.length < limit || (data.paging?.total !== undefined && resultados.length >= data.paging.total)) break;
+    }
+    return resultados.map(normalizarAnuncio);
+  }
+
+  /** O endpoint individual aceita métricas de exposição que a busca geral
+   * rejeita. Também devolve agregação diária, permitindo preencher até 90
+   * dias de histórico imediatamente após conectar a conta. */
+  async listarMetricasDiariasCampanha(
+    siteId: string,
+    campaignId: number,
+    dataInicio: Date,
+    dataFim: Date,
+  ): Promise<MLMetricaDiariaCampanha[]> {
     const params = new URLSearchParams({
       date_from: paraDataML(dataInicio),
       date_to: paraDataML(dataFim),
-      metrics: METRICAS_CAMPANHA.join(","),
-      limit: "50",
+      metrics: METRICAS_DETALHE_CAMPANHA.join(","),
+      aggregation_type: "DAILY",
     });
-    const data = await this.get<{ results?: MLAnuncioRaw[] }>(
-      `/marketplace/advertising/${siteId}/advertisers/${advertiserId}/product_ads/ads/search?${params.toString()}`,
+    const data = await this.get<{ results?: Array<MLMetricasCampanhaDetalhe & { date: string }> }>(
+      `/advertising/${siteId}/product_ads/campaigns/${campaignId}?${params.toString()}`,
     );
-    return (data.results ?? []).map(normalizarAnuncio);
+    return (data.results ?? []).map(({ date, ...metricas }) => ({ data: date, metricas }));
   }
 }
 

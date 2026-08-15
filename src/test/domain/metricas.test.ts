@@ -70,6 +70,36 @@ describe("reputação do Mercado Livre", () => {
   });
 });
 
+describe("desempenho das publicações no Mercado Livre", () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+  it("normaliza visitas de vários anúncios no período", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ item_id: "MLB1", total_visits: 120 }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ item_id: "MLB2", total_visits: 45 }]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new MercadoLivreProvider({ clientId: "c", clientSecret: "s", accessToken: "t", refreshToken: "r" });
+
+    await expect(provider.obterVisitasItens(["MLB1", "MLB2"], "2026-08-01", "2026-08-15"))
+      .resolves.toEqual([{ itemId: "MLB1", total: 120 }, { itemId: "MLB2", total: 45 }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("ids=MLB1");
+    expect(String(fetchMock.mock.calls[1][0])).toContain("ids=MLB2");
+  });
+
+  it("extrai score e pendências da qualidade da publicação", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      entity_id: "MLBU1", score: 66, level_wording: "Satisfatória", calculated_at: "2026-08-15T10:00:00Z",
+      buckets: [{ variables: [{ status: "PENDING", title: "Melhore as fotos", rules: [{ status: "PENDING", wordings: { title: "Adicione mais fotos" } }] }] }],
+    }), { status: 200 })));
+    const provider = new MercadoLivreProvider({ clientId: "c", clientSecret: "s", accessToken: "t", refreshToken: "r" });
+
+    await expect(provider.obterPerformanceItem("MLB1")).resolves.toMatchObject({
+      itemId: "MLB1", entityId: "MLBU1", score: 66, nivel: "Satisfatória", pendencias: ["Adicione mais fotos"],
+    });
+  });
+});
+
 describe("faixas do score de saúde", () => {
   it("cobre a escala inteira sem buraco entre as faixas", () => {
     for (let score = 0; score <= 100; score += 1) {

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   adsAdvertiser,
@@ -37,6 +37,12 @@ export interface ResultadoSincronizacaoMarca {
 
 function paraNumero(valor: number | undefined): number | null {
   return typeof valor === "number" && Number.isFinite(valor) ? valor : null;
+}
+
+async function emLotes<T>(itens: T[], tamanho: number, executar: (item: T) => Promise<unknown>) {
+  for (let inicio = 0; inicio < itens.length; inicio += tamanho) {
+    await Promise.all(itens.slice(inicio, inicio + tamanho).map(executar));
+  }
 }
 
 /** Garante o advertiserId salvo para a conta — descobre uma vez, reaproveita
@@ -104,10 +110,11 @@ function valoresCampanha(
     roas: m.roas !== undefined ? String(m.roas) : null,
     cvr: m.cvr !== undefined ? String(m.cvr) : null,
     sov: m.sov !== undefined ? String(m.sov) : null,
-    // impressionShare/topImpressionShare/lostImpressionShareBy*/acosBenchmark
-    // ficam de fora de propósito: confirmado ao vivo que a API rejeita essas
-    // 5 métricas neste endpoint hoje (ver METRICAS_NAO_DISPONIVEIS_HOJE no
-    // provider) — as colunas continuam no schema para quando/se existirem.
+    impressionShare: m.impression_share !== undefined ? String(m.impression_share) : null,
+    topImpressionShare: m.top_impression_share !== undefined ? String(m.top_impression_share) : null,
+    lostImpressionShareByBudget: m.lost_impression_share_by_budget !== undefined ? String(m.lost_impression_share_by_budget) : null,
+    lostImpressionShareByAdRank: m.lost_impression_share_by_ad_rank !== undefined ? String(m.lost_impression_share_by_ad_rank) : null,
+    acosBenchmark: m.acos_benchmark !== undefined ? String(m.acos_benchmark) : null,
     organicUnitsQuantity: paraNumero(m.organic_units_quantity),
     organicUnitsAmount: m.organic_units_amount !== undefined ? String(m.organic_units_amount) : null,
     organicItemsQuantity: paraNumero(m.organic_items_quantity),
@@ -216,6 +223,29 @@ async function sincronizarMarca(
     return { brandId, brandSlug, status: "ok", campanhas: 0, anuncios: 0 };
   }
 
+  const temHistoricoAnterior = await ctx.db
+    .select({ id: adsCampanhaSnapshot.id })
+    .from(adsCampanhaSnapshot)
+    .where(and(
+      eq(adsCampanhaSnapshot.orgId, ctx.orgId),
+      eq(adsCampanhaSnapshot.brandId, brandId),
+      ne(adsCampanhaSnapshot.data, data),
+    ))
+    .limit(1)
+    .then((rows) => rows.length > 0);
+
+  // Primeira sincronização completa: busca os 90 dias permitidos pela API.
+  // Nas execuções seguintes, o snapshot diário mantém a série crescendo sem
+  // repetir o backfill inteiro.
+  const inicioHistorico = new Date(referencia);
+  inicioHistorico.setDate(inicioHistorico.getDate() - 89);
+  const historicos = temHistoricoAnterior
+    ? new Map<number, Awaited<ReturnType<typeof provider.listarMetricasDiariasCampanha>>>()
+    : new Map(await Promise.all(campanhas.map(async (campanha) => [
+        campanha.id,
+        await provider.listarMetricasDiariasCampanha(siteId, campanha.id, inicioHistorico, referencia),
+      ] as const)));
+
   // Mapa listingId → produtoId, para ligar cada anúncio ao catálogo interno
   // sem uma query por item — o mesmo listing_id que o Ads usa como item_id é
   // o external_listing_id já salvo em produto_canal (ver ingestão de estoque).
@@ -225,16 +255,26 @@ async function sincronizarMarca(
     .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.channelAccountId, contaId)));
   const produtoPorListing = new Map(mapeamentos.map((item) => [item.listingId, item.produtoId]));
 
-  for (const campanha of campanhas) {
+  await emLotes(campanhas, 8, async (campanha) => {
     await ctx.db.insert(adsCampanhaSnapshot)
       .values(valoresCampanha(ctx.orgId, brandId, contaId, data, campanha))
       .onConflictDoUpdate({
         target: [adsCampanhaSnapshot.orgId, adsCampanhaSnapshot.channelAccountId, adsCampanhaSnapshot.campaignId, adsCampanhaSnapshot.data],
         set: valoresCampanha(ctx.orgId, brandId, contaId, data, campanha),
       });
-  }
 
-  for (const anuncio of anuncios) {
+    await emLotes(historicos.get(campanha.id) ?? [], 12, async (ponto) => {
+      const campanhaDoDia = { ...campanha, metricas: ponto.metricas };
+      await ctx.db.insert(adsCampanhaSnapshot)
+        .values(valoresCampanha(ctx.orgId, brandId, contaId, ponto.data, campanhaDoDia))
+        .onConflictDoUpdate({
+          target: [adsCampanhaSnapshot.orgId, adsCampanhaSnapshot.channelAccountId, adsCampanhaSnapshot.campaignId, adsCampanhaSnapshot.data],
+          set: valoresCampanha(ctx.orgId, brandId, contaId, ponto.data, campanhaDoDia),
+        });
+    });
+  });
+
+  await emLotes(anuncios, 12, async (anuncio) => {
     const produtoId = produtoPorListing.get(anuncio.itemId) ?? null;
     await ctx.db.insert(adsAnuncioSnapshot)
       .values(valoresAnuncio(ctx.orgId, brandId, contaId, data, anuncio, produtoId))
@@ -242,7 +282,7 @@ async function sincronizarMarca(
         target: [adsAnuncioSnapshot.orgId, adsAnuncioSnapshot.channelAccountId, adsAnuncioSnapshot.campaignId, adsAnuncioSnapshot.itemId, adsAnuncioSnapshot.data],
         set: valoresAnuncio(ctx.orgId, brandId, contaId, data, anuncio, produtoId),
       });
-  }
+  });
 
   return { brandId, brandSlug, status: "ok", campanhas: campanhas.length, anuncios: anuncios.length };
 }

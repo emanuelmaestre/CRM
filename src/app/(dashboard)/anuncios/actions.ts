@@ -12,10 +12,12 @@ const PERFIS = ["admin", "gestor"] as const;
 
 const FiltrosSchema = z.object({
   brandIds: z.array(z.string().uuid()).max(20).optional(),
+  inicio: z.string().date().optional(),
+  fim: z.string().date().optional(),
 });
 
 export async function actionObterVisaoGeralAnuncios(
-  filtros: { brandIds?: string[] } = {},
+  filtros: { brandIds?: string[]; inicio?: string; fim?: string } = {},
 ): Promise<VisaoGeralResultado> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);

@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { obterDesempenhoPublicacoes, type DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
 import { obterSaudeLoja, type SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -23,6 +24,20 @@ const FiltrosSchema = z.object({
 });
 
 export type MetricasFiltros = z.infer<typeof FiltrosSchema>;
+
+const PublicacoesSchema = z.object({
+  brandId: z.string().uuid(),
+  inicio: z.string().date(),
+  fim: z.string().date(),
+});
+
+export async function actionObterDesempenhoPublicacoes(
+  filtros: z.infer<typeof PublicacoesSchema>,
+): Promise<DesempenhoPublicacoesResultado> {
+  const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
+  return obterDesempenhoPublicacoes(ctx, PublicacoesSchema.parse(filtros));
+}
 
 export async function actionObterSaudeLoja(filtros: MetricasFiltros = {}): Promise<SaudeLojaResultado> {
   const ctx = await getCrudContext();

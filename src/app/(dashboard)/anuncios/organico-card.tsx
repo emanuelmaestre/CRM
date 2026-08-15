@@ -10,6 +10,7 @@ import { BarraSimples, Card, CardHead } from "./anuncios-primitives";
 
 const copy = anunciosConfig.organico;
 const ACENTO = "var(--acento-1)";
+const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 const LABEL_CLASSIFICACAO: Record<string, string> = {
   baixa: "Dependência baixa",
@@ -52,6 +53,11 @@ export function OrganicoCard({ resumo }: { resumo: VisaoGeralResumo }) {
               {percentualOrganico}% orgânico
             </span>
           </div>
+
+          <dl className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-muted/50 p-3 text-sm">
+            <div><dt className="text-xs text-muted-foreground">Receita via publicidade</dt><dd className="mt-1 font-semibold tabular-nums">{moeda.format(resumo.receitaTotal)}</dd></div>
+            <div className="text-right"><dt className="text-xs text-muted-foreground">Receita orgânica</dt><dd className="mt-1 font-semibold tabular-nums">{moeda.format(resumo.receitaOrganica)}</dd></div>
+          </dl>
 
           {resumo.dependenciaMidia.classificacao && (
             <div className="mt-4 rounded-[0.9rem] bg-muted/50 px-3.5 py-3">

@@ -56,6 +56,28 @@ function LinhaDiagnostico({ diagnostico }: { diagnostico: Diagnostico }) {
   );
 }
 
+function PainelExposicao({ campanha }: { campanha: CampanhaVisaoGeral }) {
+  const percentual = (valor: number | null) => valor === null ? "—" : `${(Math.abs(valor) <= 1 ? valor * 100 : valor).toFixed(1)}%`;
+  const itens = [
+    ["ROAS objetivo", campanha.roasObjetivo === null ? "—" : `${campanha.roasObjetivo.toFixed(2)}x`],
+    ["Participação de impressão", percentual(campanha.impressionShare ?? campanha.sov)],
+    ["Participação no topo", percentual(campanha.topImpressionShare)],
+    ["Perdida por orçamento", percentual(campanha.lostImpressionShareByBudget)],
+    ["Perdida por ranking", percentual(campanha.lostImpressionShareByAdRank)],
+    ["ACOS benchmark", percentual(campanha.acosBenchmark)],
+  ];
+  return (
+    <dl className="col-span-full grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-3 lg:grid-cols-6">
+      {itens.map(([label, valor]) => (
+        <div key={label} className="min-w-0">
+          <dt className="text-[11px] text-muted-foreground">{label}</dt>
+          <dd className="mt-0.5 truncate text-sm font-semibold tabular-nums text-foreground">{valor}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
 function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[] | null; carregando: boolean }) {
   if (carregando) return <p className="px-1 py-3 text-[12px] text-muted-foreground">{copy.anuncios.carregando}</p>;
   if (!anuncios || anuncios.length === 0) return <p className="px-1 py-3 text-[12px] text-muted-foreground">{copy.anuncios.vazio}</p>;
@@ -169,6 +191,7 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
             className="overflow-hidden"
           >
             <div className="grid grid-cols-1 gap-4 border-t border-border bg-muted/40 px-3 py-4 lg:grid-cols-2">
+              <PainelExposicao campanha={campanha} />
               <div>
                 <p className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">{copy.diagnostico.titulo}</p>
                 {campanha.diagnosticos.length === 0 ? (

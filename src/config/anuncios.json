@@ -14,7 +14,10 @@
     "tacos": "TACOS",
     "cvr": "CVR",
     "ctr": "CTR",
-    "cpc": "CPC médio"
+    "cpc": "CPC médio",
+    "impressoes": "Impressões",
+    "cliques": "Cliques",
+    "vendas": "Vendas atribuídas"
   },
   "resumo": {
     "titulo": "Resumo de hoje",

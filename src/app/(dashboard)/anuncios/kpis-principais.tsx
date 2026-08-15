@@ -79,13 +79,16 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
         initial="hidden"
         animate="show"
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } } }}
-        className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-5"
+        className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4 lg:grid-cols-8"
       >
         <Secundaria label={copy.acos} valor={resumo.acosMedio} formatar={(n) => `${n.toFixed(1)}%`} />
         <Secundaria label={copy.tacos} valor={resumo.tacos} formatar={(n) => `${n.toFixed(1)}%`} />
         <Secundaria label={copy.cvr} valor={resumo.cvrMedio} formatar={(n) => `${n.toFixed(1)}%`} />
         <Secundaria label={copy.ctr} valor={resumo.ctrMedio} formatar={(n) => `${n.toFixed(2)}%`} />
         <Secundaria label={copy.cpc} valor={resumo.cpcMedio} formatar={(n) => moeda.format(n)} />
+        <Secundaria label={copy.impressoes} valor={resumo.impressoes} formatar={(n) => Math.round(n).toLocaleString("pt-BR")} />
+        <Secundaria label={copy.cliques} valor={resumo.cliques} formatar={(n) => Math.round(n).toLocaleString("pt-BR")} />
+        <Secundaria label={copy.vendas} valor={resumo.vendas} formatar={(n) => Math.round(n).toLocaleString("pt-BR")} />
       </motion.div>
     </div>
   );
@@ -119,4 +122,3 @@ export function Variacao({ percentual }: { percentual: number | null }) {
     </motion.span>
   );
 }
-

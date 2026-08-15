@@ -80,22 +80,27 @@ function Esqueleto() {
 }
 
 export function AnunciosCliente() {
-  const [dados, setDados] = useState<VisaoGeralResultado | null>(null);
-  const [carregando, setCarregando] = useState(true);
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
+  const [dias, setDias] = useState<1 | 7 | 30 | 90>(30);
+  const [consulta, setConsulta] = useState<{ dias: number; dados: VisaoGeralResultado | null }>({ dias: 0, dados: null });
+  const dados = consulta.dados;
+  const carregando = consulta.dias !== dias;
 
   useEffect(() => {
     let ativo = true;
-    actionObterVisaoGeralAnuncios()
+    const fim = new Date();
+    const inicio = new Date();
+    inicio.setDate(inicio.getDate() - (dias - 1));
+    const iso = (data: Date) => `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+    actionObterVisaoGeralAnuncios({ inicio: iso(inicio), fim: iso(fim) })
       .then((resultado) => {
         if (!ativo) return;
-        setDados(resultado);
+        setConsulta({ dias, dados: resultado });
         setMarcaAtiva((atual) => atual ?? resultado.marcas[0]?.brandId ?? null);
       })
-      .catch(() => { if (ativo) toast.error(copy.erros.carregar); })
-      .finally(() => { if (ativo) setCarregando(false); });
+      .catch(() => { if (ativo) { setConsulta({ dias, dados: null }); toast.error(copy.erros.carregar); } });
     return () => { ativo = false; };
-  }, []);
+  }, [dias]);
 
   if (carregando) return <Esqueleto />;
 
@@ -115,6 +120,14 @@ export function AnunciosCliente() {
           o usuário pensar que o número é em tempo real quando não é. */}
       <div className="flex flex-wrap items-center gap-3">
         <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
+        <div className="flex rounded-xl bg-muted p-1" role="group" aria-label="Período dos anúncios">
+          {([1, 7, 30, 90] as const).map((periodo) => (
+            <button key={periodo} type="button" onClick={() => setDias(periodo)} aria-pressed={dias === periodo}
+              className={`min-h-11 rounded-lg px-3 text-xs font-semibold ${dias === periodo ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"}`}>
+              {periodo === 1 ? "Hoje" : `${periodo} dias`}
+            </button>
+          ))}
+        </div>
         <span className="h-px flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />

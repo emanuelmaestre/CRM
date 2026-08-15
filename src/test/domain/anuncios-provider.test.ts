@@ -117,4 +117,42 @@ describe("provider de Product Ads do Mercado Livre", () => {
       itemId: "MLB123", campaignId: 999, adGroupId: 4242, recommended: true,
     })]);
   });
+
+  it("percorre todas as páginas de anúncios em vez de truncar nos primeiros 50", async () => {
+    const primeiraPagina = Array.from({ length: 50 }, (_, indice) => ({
+      item_id: `MLB${indice}`, campaign_id: 999, metrics: {},
+    }));
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        paging: { total: 51 }, results: primeiraPagina,
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        paging: { total: 51 }, results: [{ item_id: "MLB50", campaign_id: 999, metrics: {} }],
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreAdsProvider("token-123", "armarinhos_lima");
+    const anuncios = await provider.listarAnuncios(555, "MLB", new Date("2026-08-14"), new Date("2026-08-14"));
+
+    expect(anuncios).toHaveLength(51);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("offset=0");
+    expect(String(fetchMock.mock.calls[1][0])).toContain("offset=50");
+  });
+
+  it("consulta histórico diário e métricas de exposição no endpoint individual", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [{
+      date: "2026-08-14", clicks: 12, impression_share: 0.42,
+      lost_impression_share_by_budget: 0.18, acos_benchmark: 0.21,
+    }] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreAdsProvider("token-123", "karzi");
+    const [ponto] = await provider.listarMetricasDiariasCampanha("MLB", 999, new Date("2026-08-01"), new Date("2026-08-14"));
+
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain("/advertising/MLB/product_ads/campaigns/999");
+    expect(url).toContain("aggregation_type=DAILY");
+    expect(url).toContain("impression_share");
+    expect(ponto).toEqual(expect.objectContaining({ data: "2026-08-14", metricas: expect.objectContaining({ impression_share: 0.42 }) }));
+  });
 });

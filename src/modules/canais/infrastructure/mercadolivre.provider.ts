@@ -120,6 +120,20 @@ export interface MLReputacao {
   avaliacaoNegativa: number | null;
 }
 
+export interface MLVisitasItem {
+  itemId: string;
+  total: number;
+}
+
+export interface MLPerformanceItem {
+  itemId: string;
+  entityId: string;
+  score: number;
+  nivel: string | null;
+  calculadoEm: string | null;
+  pendencias: string[];
+}
+
 /** 0.0123 → 1.23. Preserva o null: "sem dado" e "zero por cento" são coisas
  *  diferentes, e arredondar um pra outro esconderia conta nova sem histórico. */
 function fracaoParaPercentual(valor: number | null | undefined): number | null {
@@ -864,6 +878,43 @@ export class MercadoLivreProvider implements ChannelProvider {
       avaliacaoPositiva: fracaoParaPercentual(reputacao?.transactions?.ratings?.positive),
       avaliacaoNeutra: fracaoParaPercentual(reputacao?.transactions?.ratings?.neutral),
       avaliacaoNegativa: fracaoParaPercentual(reputacao?.transactions?.ratings?.negative),
+    };
+  }
+
+  async obterVisitasItens(itemIds: string[], dataInicio: string, dataFim: string): Promise<MLVisitasItem[]> {
+    if (itemIds.length === 0) return [];
+    // Apesar do parâmetro se chamar `ids`, a API de visitas do marketplace
+    // aceita no máximo um item por requisição (validado ao vivo em MLB).
+    const respostas = await Promise.all(itemIds.map(async (itemId) => {
+      const params = new URLSearchParams({ ids: itemId, date_from: dataInicio, date_to: dataFim });
+      return this.get<Array<{ item_id?: string; total_visits?: number }>>(`/items/visits?${params.toString()}`);
+    }));
+    return respostas.flat()
+      .filter((item): item is { item_id: string; total_visits?: number } => Boolean(item.item_id))
+      .map((item) => ({ itemId: item.item_id, total: item.total_visits ?? 0 }));
+  }
+
+  async obterPerformanceItem(itemId: string): Promise<MLPerformanceItem> {
+    const resposta = await this.get<{
+      entity_id?: string;
+      score?: number;
+      level_wording?: string;
+      level?: string;
+      calculated_at?: string;
+      buckets?: Array<{ variables?: Array<{ status?: string; title?: string; rules?: Array<{ status?: string; wordings?: { title?: string } }> }> }>;
+    }>(`/item/${itemId}/performance`);
+    const pendencias = (resposta.buckets ?? []).flatMap((bucket) => bucket.variables ?? [])
+      .flatMap((variavel) => {
+        const regras = (variavel.rules ?? []).filter((regra) => regra.status === "PENDING").map((regra) => regra.wordings?.title).filter(Boolean) as string[];
+        return regras.length > 0 ? regras : variavel.status === "PENDING" && variavel.title ? [variavel.title] : [];
+      });
+    return {
+      itemId,
+      entityId: resposta.entity_id ?? itemId,
+      score: resposta.score ?? 0,
+      nivel: resposta.level_wording ?? resposta.level ?? null,
+      calculadoEm: resposta.calculated_at ?? null,
+      pendencias: [...new Set(pendencias)].slice(0, 3),
     };
   }
 

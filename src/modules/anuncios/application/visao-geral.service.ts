@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsAnuncioSnapshot, adsCampanhaSnapshot, brand } from "@/shared/lib/db/schema";
 import { getBrandConfig } from "@/shared/config/brands";
@@ -26,6 +26,7 @@ export interface CampanhaVisaoGeral {
   status: string;
   estrategia: string;
   orcamento: number | null;
+  roasObjetivo: number | null;
   investimento: number;
   receita: number;
   cliques: number;
@@ -38,6 +39,13 @@ export interface CampanhaVisaoGeral {
   vendasDiretas: number;
   vendasIndiretas: number;
   vendasOrganicas: number;
+  receitaOrganica: number;
+  sov: number | null;
+  impressionShare: number | null;
+  topImpressionShare: number | null;
+  lostImpressionShareByBudget: number | null;
+  lostImpressionShareByAdRank: number | null;
+  acosBenchmark: number | null;
   lucro: LucroRealEstimado;
   breakEven: BreakEven;
   diagnosticos: Diagnostico[];
@@ -57,6 +65,10 @@ export interface VisaoGeralResumo {
   tacos: number | null;
   vendasPublicitarias: number;
   vendasOrganicas: number;
+  receitaOrganica: number;
+  cliques: number;
+  impressoes: number;
+  vendas: number;
   dependenciaMidia: ReturnType<typeof calcularDependenciaMidia>;
   cvrMedio: number | null;
   ctrMedio: number | null;
@@ -101,6 +113,8 @@ function resumoVazio(): VisaoGeralResumo {
     investimentoTotal: 0, receitaTotal: 0, roasMedio: null, lucroTotal: 0,
     lucroIncompleto: false, acosMedio: null, tacos: null,
     vendasPublicitarias: 0, vendasOrganicas: 0,
+    receitaOrganica: 0,
+    cliques: 0, impressoes: 0, vendas: 0,
     dependenciaMidia: { percentual: null, classificacao: null },
     cvrMedio: null, ctrMedio: null, cpcMedio: null,
   };
@@ -119,6 +133,7 @@ function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
   const impressoesTotal = campanhas.reduce((s, c) => s + c.impressoes, 0);
   const vendasTotal = campanhas.reduce((s, c) => s + c.vendas, 0);
   const vendasOrganicas = campanhas.reduce((s, c) => s + c.vendasOrganicas, 0);
+  const receitaOrganica = Math.round(campanhas.reduce((s, c) => s + c.receitaOrganica, 0) * 100) / 100;
   const vendasPublicitarias = campanhas.reduce((s, c) => s + c.vendasDiretas + c.vendasIndiretas, 0);
   const lucroTotal = Math.round(campanhas.reduce((s, c) => s + c.lucro.lucroEstimado, 0) * 100) / 100;
 
@@ -131,11 +146,15 @@ function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
     acosMedio: receitaTotal > 0 ? Math.round((investimentoTotal / receitaTotal) * 1000) / 10 : null,
     // TACOS: investimento sobre a receita TOTAL (paga + orgânica) — é o que
     // distingue de ACOS, que só olha a receita atribuída à publicidade.
-    tacos: (receitaTotal + vendasOrganicas) > 0
-      ? Math.round((investimentoTotal / (receitaTotal + vendasOrganicas)) * 1000) / 10
+    tacos: (receitaTotal + receitaOrganica) > 0
+      ? Math.round((investimentoTotal / (receitaTotal + receitaOrganica)) * 1000) / 10
       : null,
     vendasPublicitarias,
     vendasOrganicas,
+    receitaOrganica,
+    cliques: cliquesTotal,
+    impressoes: impressoesTotal,
+    vendas: vendasTotal,
     dependenciaMidia: calcularDependenciaMidia(vendasPublicitarias, vendasPublicitarias + vendasOrganicas),
     cvrMedio: cliquesTotal > 0 ? Math.round((vendasTotal / cliquesTotal) * 1000) / 10 : null,
     ctrMedio: impressoesTotal > 0 ? Math.round((cliquesTotal / impressoesTotal) * 1000) / 10 : null,
@@ -145,7 +164,7 @@ function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
 
 export async function obterVisaoGeral(
   ctx: CrudContext,
-  opcoes: { brandIds?: string[] } = {},
+  opcoes: { brandIds?: string[]; inicio?: string; fim?: string } = {},
 ): Promise<VisaoGeralResultado> {
   const condicaoMarca = opcoes.brandIds && opcoes.brandIds.length > 0 ? [inArray(brand.id, opcoes.brandIds)] : [];
 
@@ -171,14 +190,49 @@ export async function obterVisaoGeral(
 
     if (!ultimaData) continue; // marca sem nenhum snapshot ainda — nem aparece na lista
 
-    const linhasCampanha = await ctx.db
+    const periodoDefinido = Boolean(opcoes.inicio && opcoes.fim);
+    const linhasCampanhaBrutas = await ctx.db
       .select()
       .from(adsCampanhaSnapshot)
       .where(and(
         eq(adsCampanhaSnapshot.orgId, ctx.orgId),
         eq(adsCampanhaSnapshot.brandId, marca.id),
-        eq(adsCampanhaSnapshot.data, ultimaData),
-      ));
+        ...(periodoDefinido
+          ? [gte(adsCampanhaSnapshot.data, opcoes.inicio!), lte(adsCampanhaSnapshot.data, opcoes.fim!)]
+          : [eq(adsCampanhaSnapshot.data, ultimaData)]),
+      ))
+      .orderBy(asc(adsCampanhaSnapshot.data));
+
+    const porCampanha = new Map<string, typeof linhasCampanhaBrutas>();
+    for (const linha of linhasCampanhaBrutas) {
+      const grupo = porCampanha.get(linha.campaignId) ?? [];
+      grupo.push(linha);
+      porCampanha.set(linha.campaignId, grupo);
+    }
+    const linhasCampanha = [...porCampanha.values()].map((linhas) => {
+      const base = linhas[linhas.length - 1];
+      const somar = (campo: keyof typeof base) => linhas.reduce((total, linha) => total + paraNumero(linha[campo]), 0);
+      const clicks = somar("clicks");
+      const prints = somar("prints");
+      const cost = somar("cost");
+      const totalAmount = somar("totalAmount");
+      const unitsQuantity = somar("unitsQuantity");
+      return {
+        ...base,
+        clicks, prints,
+        cost: String(cost), totalAmount: String(totalAmount), unitsQuantity,
+        organicUnitsQuantity: somar("organicUnitsQuantity"),
+        organicUnitsAmount: String(somar("organicUnitsAmount")),
+        directUnitsQuantity: somar("directUnitsQuantity"),
+        indirectUnitsQuantity: somar("indirectUnitsQuantity"),
+        directAmount: String(somar("directAmount")), indirectAmount: String(somar("indirectAmount")),
+        ctr: prints > 0 ? String((clicks / prints) * 100) : null,
+        cpc: clicks > 0 ? String(cost / clicks) : null,
+        acos: totalAmount > 0 ? String((cost / totalAmount) * 100) : null,
+        roas: cost > 0 ? String(totalAmount / cost) : null,
+        cvr: clicks > 0 ? String((unitsQuantity / clicks) * 100) : null,
+      };
+    });
 
     const linhasAnuncio = await ctx.db
       .select({
@@ -248,11 +302,19 @@ export async function obterVisaoGeral(
         status: linha.status,
         estrategia: linha.estrategia,
         orcamento: paraNumeroOuNull(linha.orcamento),
+        roasObjetivo: paraNumeroOuNull(linha.roasObjetivo),
         investimento, receita, cliques, impressoes, vendas,
         roas, acos, cvr, ctr: ctrFracao !== null ? ctrFracao / 100 : null,
         vendasDiretas: paraNumero(linha.directUnitsQuantity),
         vendasIndiretas: paraNumero(linha.indirectUnitsQuantity),
         vendasOrganicas: paraNumero(linha.organicUnitsQuantity),
+        receitaOrganica: paraNumero(linha.organicUnitsAmount),
+        sov: paraNumeroOuNull(linha.sov),
+        impressionShare: paraNumeroOuNull(linha.impressionShare),
+        topImpressionShare: paraNumeroOuNull(linha.topImpressionShare),
+        lostImpressionShareByBudget: paraNumeroOuNull(linha.lostImpressionShareByBudget),
+        lostImpressionShareByAdRank: paraNumeroOuNull(linha.lostImpressionShareByAdRank),
+        acosBenchmark: paraNumeroOuNull(linha.acosBenchmark),
         lucro, breakEven, diagnosticos, oportunidades,
       };
     });

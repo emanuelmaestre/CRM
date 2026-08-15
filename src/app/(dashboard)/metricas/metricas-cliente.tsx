@@ -13,6 +13,7 @@ import { AtendimentoCard } from "./atendimento-card";
 import { ComparacaoCard } from "./comparacao-card";
 import { ReputacaoCard } from "./reputacao-card";
 import { ScoreCard } from "./score-card";
+import { PublicacoesCard } from "./publicacoes-card";
 import { SectionLabel } from "./metricas-primitives";
 import { exportarMetricasPDF } from "./exportar-pdf";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -30,6 +31,7 @@ function paraDataInput(data: Date) {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 }
 const hoje = paraDataInput(new Date());
+function diasAtras(total: number) { const data = new Date(); data.setDate(data.getDate() - total); return paraDataInput(data); }
 
 export function MetricasCliente() {
   const [periodo, setPeriodo] = useState<Periodo>({ inicio: "", fim: "" });
@@ -153,6 +155,17 @@ export function MetricasCliente() {
         <SectionLabel>{copy.comparacao}</SectionLabel>
         <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} />
       </section>
+
+      {saude.dados && saude.dados.marcas.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <SectionLabel hint="direto do Mercado Livre">Publicações</SectionLabel>
+          <PublicacoesCard
+            marcas={saude.dados.marcas.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel }))}
+            inicio={inicio ?? diasAtras(29)}
+            fim={fim ?? hoje}
+          />
+        </section>
+      )}
 
       {/* Ato 4 — o que depende só de nós */}
       <section className="flex flex-col gap-3">
