@@ -13,13 +13,18 @@ import type { CrudContext } from "@/shared/lib/crud-factory";
 
 /** Baldes do funil, do melhor para o pior. Os cortes são os que um
  *  comprador percebe: uma hora ainda parece atendimento ao vivo, um
- *  dia já é "me responderam depois", mais que isso é abandono. */
+ *  dia já é "me responderam depois", mais que isso é abandono.
+ *
+ *  `cor` referencia um token da rampa ordinal do design system em vez de
+ *  trazer o hex fixo que ficava aqui. Cor decidida no servidor nunca pode
+ *  responder ao tema: um hex escolhido contra fundo branco chega igual à
+ *  Cabine, onde reprova em contraste. A variável resolve no navegador. */
 export const FAIXAS_SLA = [
-  { chave: "ate1h", label: "Até 1 hora", horas: 1, cor: "#1F8A4C" },
-  { chave: "ate4h", label: "1 a 4 horas", horas: 4, cor: "#74B816" },
-  { chave: "ate24h", label: "4 a 24 horas", horas: 24, cor: "#B57A00" },
-  { chave: "acima24h", label: "Mais de 24 horas", horas: null, cor: "#E8590C" },
-  { chave: "semResposta", label: "Sem resposta", horas: null, cor: "#C21820" },
+  { chave: "ate1h", label: "Até 1 hora", horas: 1, cor: "var(--escala-5)" },
+  { chave: "ate4h", label: "1 a 4 horas", horas: 4, cor: "var(--escala-4)" },
+  { chave: "ate24h", label: "4 a 24 horas", horas: 24, cor: "var(--escala-3)" },
+  { chave: "acima24h", label: "Mais de 24 horas", horas: null, cor: "var(--escala-2)" },
+  { chave: "semResposta", label: "Sem resposta", horas: null, cor: "var(--escala-1)" },
 ] as const;
 
 export type ChaveFaixaSla = (typeof FAIXAS_SLA)[number]["chave"];

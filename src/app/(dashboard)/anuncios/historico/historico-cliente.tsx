@@ -80,15 +80,15 @@ function GraficoHistorico({ pontos }: { pontos: PontoHistorico[] }) {
 
   return (
     <Card>
-      <CardHead title={copy.title} icon={LineChart} accent="#2563EB" />
+      <CardHead title={copy.title} icon={LineChart} accent="var(--info)" />
       <div className="px-4 pb-4 sm:px-5">
         <div className="mb-2 flex items-center gap-4 text-[11px] font-medium text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#2563EB]" /> {copy.grafico.investimento}</span>
-          <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#1F8A4C]" /> {copy.grafico.receita}</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-info" /> {copy.grafico.investimento}</span>
+          <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" /> {copy.grafico.receita}</span>
         </div>
         <div className="relative h-40 w-full">
-          <div className="absolute inset-0"><GraficoLinha pontos={receita} cor="#1F8A4C" /></div>
-          <div className="absolute inset-0"><GraficoLinha pontos={investimento} cor="#2563EB" /></div>
+          <div className="absolute inset-0"><GraficoLinha pontos={receita} cor="var(--success)" /></div>
+          <div className="absolute inset-0"><GraficoLinha pontos={investimento} cor="var(--info)" /></div>
         </div>
         {pontos.length > 0 && (
           <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
@@ -199,7 +199,7 @@ export function HistoricoClienteDetalhe() {
                       <td className="px-3 py-2.5 font-medium text-foreground">{diaMes.format(new Date(`${ponto.data}T00:00:00`))}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(ponto.investimento)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(ponto.receita)}</td>
-                      <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: ponto.roas === null ? undefined : ponto.roas >= 1 ? "#1F8A4C" : "#C21820" }}>
+                      <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: ponto.roas === null ? undefined : ponto.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
                         {ponto.roas === null ? "—" : `${ponto.roas.toFixed(2)}x`}
                       </td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{ponto.cliques.toLocaleString("pt-BR")}</td>

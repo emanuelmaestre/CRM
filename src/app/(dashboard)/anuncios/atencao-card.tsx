@@ -12,10 +12,10 @@ import { Card, CardHead } from "./anuncios-primitives";
 const copy = anunciosConfig.atencao;
 
 export const COR_PRIORIDADE: Record<Alerta["prioridade"], string> = {
-  critico: "#C21820",
-  importante: "#E8590C",
-  oportunidade: "#1F8A4C",
-  informativo: "#2563EB",
+  critico: "var(--destructive)",
+  importante: "var(--escala-2)",
+  oportunidade: "var(--success)",
+  informativo: "var(--info)",
 };
 
 export const EMOJI_PRIORIDADE: Record<Alerta["prioridade"], string> = {
@@ -80,7 +80,7 @@ export function AtencaoCard({ individuais, grupos }: { individuais: Alerta[]; gr
         title={copy.titulo}
         subtitle={total > 0 ? `${criticos} crítico${criticos !== 1 ? "s" : ""} · ${oportunidades} oportunidade${oportunidades !== 1 ? "s" : ""}` : undefined}
         icon={total > 0 ? AlertOctagon : CheckCircle2}
-        accent={total > 0 ? "#C21820" : "#1F8A4C"}
+        accent={total > 0 ? "var(--destructive)" : "var(--success)"}
       />
       {total === 0 ? (
         <EmptyState illustration="generic" title={copy.vazio} description={copy.vazioDescricao} />

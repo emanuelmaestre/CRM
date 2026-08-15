@@ -68,7 +68,7 @@ export function MLOAuthFeedback({ onConectado }: { onConectado?: () => void }) {
           <div
             className={`mb-3 flex items-start gap-2.5 rounded-xl px-4 py-3 text-sm font-medium ${
               feedback.type === "success"
-                ? "bg-[#1F8A4C]/10 text-[#1F8A4C]"
+                ? "bg-success/10 text-success"
                 : "bg-destructive/10 text-destructive"
             }`}
           >

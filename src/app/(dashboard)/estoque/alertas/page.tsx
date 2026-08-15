@@ -360,14 +360,14 @@ export default function ConfigurarAlertasEstoque() {
                   </span>
                 </div>
               ))}
-              {!reguaValida && <p className="text-xs text-[#C21820]">{copy.regua.minimumInvalid}</p>}
+              {!reguaValida && <p className="text-xs text-destructive">{copy.regua.minimumInvalid}</p>}
             </div>
           )}
 
           {/* A consequência antes da confirmação — é o que transforma centenas
               de campos numa decisão só. */}
           <div className="rounded-[0.75rem] border border-[rgba(37,99,235,.26)] bg-[rgba(37,99,235,.06)] p-4">
-            <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-[#2563EB]">
+            <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-info">
               <Eye size={13} strokeWidth={2} />
               {copy.regua.previewTitle}
               {simulando && <Loader2 size={12} className="animate-spin" />}
@@ -379,10 +379,10 @@ export default function ConfigurarAlertasEstoque() {
                 transition={springs.settleFast}
                 className="flex flex-wrap gap-x-8 gap-y-4"
               >
-                <PreviaNumero valor={resumo.alertariam} label={copy.regua.previewAlerting} cor="#C21820" />
-                <PreviaNumero valor={resumo.semEstoque} label={copy.regua.previewOutOfStock} cor="#B57A00" />
+                <PreviaNumero valor={resumo.alertariam} label={copy.regua.previewAlerting} cor="var(--destructive)" />
+                <PreviaNumero valor={resumo.semEstoque} label={copy.regua.previewOutOfStock} cor="var(--warning)" />
                 <PreviaNumero valor={resumo.semAlerta} label={copy.regua.previewNoAlert} />
-                <PreviaNumero valor={resumo.monitorados} label={copy.regua.previewMonitored} cor="#1F8A4C" />
+                <PreviaNumero valor={resumo.monitorados} label={copy.regua.previewMonitored} cor="var(--success)" />
               </motion.div>
             ) : (
               <p className="text-xs text-muted-foreground">{copy.regua.previewLoading}</p>
@@ -409,9 +409,9 @@ export default function ConfigurarAlertasEstoque() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               { label: copy.revisar.summaryScope, valor: resumo?.total ?? 0 },
-              { label: copy.revisar.summaryMonitored, valor: resumo?.monitorados ?? 0, cor: "#1F8A4C" },
+              { label: copy.revisar.summaryMonitored, valor: resumo?.monitorados ?? 0, cor: "var(--success)" },
               { label: copy.revisar.summaryChanged, valor: resumo?.alterados ?? 0 },
-              { label: copy.revisar.summaryAlerting, valor: resumo?.alertariam ?? 0, cor: "#C21820" },
+              { label: copy.revisar.summaryAlerting, valor: resumo?.alertariam ?? 0, cor: "var(--destructive)" },
             ].map((item) => (
               <div key={item.label} className="rounded-[0.75rem] border border-border bg-card p-3">
                 <p className="text-[22px] font-bold leading-none tabular-nums tracking-[-0.02em]" style={{ color: item.cor ?? "var(--foreground)" }}>
@@ -426,7 +426,7 @@ export default function ConfigurarAlertasEstoque() {
             <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
               <h3 className="text-sm font-bold text-foreground">{copy.revisar.listTitle}</h3>
               {excluidos.size > 0 && (
-                <span className="text-xs font-semibold text-[#B57A00] tabular-nums">
+                <span className="text-xs font-semibold text-warning tabular-nums">
                   {copy.revisar.excludedCount.replace("{n}", String(excluidos.size))}
                 </span>
               )}
@@ -458,7 +458,7 @@ export default function ConfigurarAlertasEstoque() {
                         <span className="shrink-0 text-right text-[11px] text-muted-foreground tabular-nums">
                           {copy.revisar.balanceLabel} <strong className="text-foreground">{item.saldo}</strong>
                           {" · "}
-                          {copy.revisar.minimumLabel} <strong className="text-[#C21820]">{item.minimoProposto}</strong>
+                          {copy.revisar.minimumLabel} <strong className="text-destructive">{item.minimoProposto}</strong>
                           <span className="block">{item.giroMensal} {copy.revisar.turnoverLabel}</span>
                         </span>
                       </label>

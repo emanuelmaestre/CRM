@@ -13,22 +13,23 @@ import { SeletorMarca } from "../anuncios-cliente";
 import { Card } from "../anuncios-primitives";
 import type { StatusBreakEven } from "@/modules/anuncios/application/metricas-calculadas";
 import type { CampanhaVisaoGeral, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
+import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.rentabilidadeDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 const COR_STATUS: Record<StatusBreakEven, string> = {
-  rentavel: "#1F8A4C",
-  no_limite: "#B57A00",
-  nao_rentavel: "#C21820",
+  rentavel: "var(--success)",
+  no_limite: "var(--warning)",
+  nao_rentavel: "var(--destructive)",
   indeterminado: "var(--muted-foreground)",
 };
 
 function BadgeStatus({ status }: { status: StatusBreakEven }) {
   const cor = COR_STATUS[status];
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${cor}18`, color: cor }}>
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tint(cor, 9), color: cor }}>
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: cor }} />
       {copy.status[status]}
     </span>
@@ -53,7 +54,7 @@ function ResumoRentabilidade({ campanhas }: { campanhas: CampanhaVisaoGeral[] })
   return (
     <Card className="p-4 sm:p-5">
       <p className="text-xs font-medium uppercase text-muted-foreground">{copy.resumo.lucroTotal}</p>
-      <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: lucroTotal >= 0 ? "#1F8A4C" : "#C21820" }}>
+      <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: lucroTotal >= 0 ? "var(--success)" : "var(--destructive)" }}>
         {moeda.format(lucroTotal)}
       </p>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -154,7 +155,7 @@ export function RentabilidadeClienteDetalhe() {
                         </td>
                         <td
                           className="px-3 py-2.5 text-right font-semibold tabular-nums"
-                          style={{ color: lucroPositivo ? "#1F8A4C" : "#C21820" }}
+                          style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}
                           title={campanha.lucro.custosIncompletos ? `${copy.custosAusentes}${campanha.lucro.custosAusentes.join(", ")}` : undefined}
                         >
                           {moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}

@@ -14,6 +14,7 @@ import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { actionListarMensagensReclamacao, actionResponderReclamacao } from "./actions";
 import type { ReclamacaoMensagem } from "@/modules/metricas/application/reclamacoes.service";
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
+import { tint } from "@/shared/design-system/color";
 
 const copy = dashboardConfig.cards.reclamacoes;
 
@@ -115,7 +116,7 @@ function Balao({ mensagem }: { mensagem: ReclamacaoMensagem }) {
     <div className={`flex ${mensagem.deVendedor ? "justify-end" : "justify-start"}`}>
       <div
         className="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed text-foreground"
-        style={{ background: mensagem.deVendedor ? `${copy.accent}14` : "var(--muted)" }}
+        style={{ background: mensagem.deVendedor ? tint(copy.accent, 8) : "var(--muted)" }}
       >
         <p className="whitespace-pre-line">{formatarMensagem(mensagem.texto)}</p>
         {mensagem.criadaEm && (
@@ -192,7 +193,7 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
               <span
                 title="Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida."
                 className="cursor-help rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                style={{ background: `${copy.accent}1A`, color: copy.accent }}
+                style={{ background: tint(copy.accent, 10), color: copy.accent }}
               >
                 escalou
               </span>
@@ -259,7 +260,7 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
               )}
 
               {!carregandoThread && erroThread && (
-                <p className="py-4 text-sm text-[#C21820]">{copy.threadError}</p>
+                <p className="py-4 text-sm text-destructive">{copy.threadError}</p>
               )}
 
               {!carregandoThread && !erroThread && mensagens && (
@@ -322,7 +323,7 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope }: {
         trailing={total > 0 ? (
           <span
             className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
-            style={{ background: `${copy.accent}1A`, color: copy.accent }}
+            style={{ background: tint(copy.accent, 10), color: copy.accent }}
           >
             {total}
           </span>
@@ -358,7 +359,7 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope }: {
       {!semFiltro && !carregando && dados && dados.itens.length > 0 && (
         <>
           {dados.marcasComFalha.length > 0 && (
-            <p className="mx-5 mt-3 rounded-lg bg-[#B57A00]/10 px-3 py-2 text-[11px] font-medium text-[#B57A00]">
+            <p className="mx-5 mt-3 rounded-lg bg-warning/10 px-3 py-2 text-[11px] font-medium text-warning">
               {copy.partialLabel}: {dados.marcasComFalha.join(", ")}
             </p>
           )}

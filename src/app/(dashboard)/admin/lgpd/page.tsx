@@ -27,10 +27,10 @@ const tipoLabel: Record<Solicitacao["tipo"], string> = {
 };
 
 const statusTone: Record<Solicitacao["status"], string> = {
-  aberta: "bg-[#2563EB]/10 text-[#2563EB]",
-  em_analise: "bg-[#B57A00]/10 text-[#B57A00]",
-  concluida: "bg-[#1F8A4C]/10 text-[#1F8A4C]",
-  rejeitada: "bg-[#C21820]/10 text-[#C21820]",
+  aberta: "bg-info/10 text-info",
+  em_analise: "bg-warning/10 text-warning",
+  concluida: "bg-success/10 text-success",
+  rejeitada: "bg-destructive/10 text-destructive",
 };
 
 function baixarJson(filename: string, data: unknown) {
@@ -205,7 +205,7 @@ export default function AdminLgpdPage() {
 
         <SectionCard title="Fila LGPD" icon={ShieldCheck}>
             {!lgpdDisponivel && (
-              <div className="mb-4 rounded-xl border border-[#B57A00]/30 bg-[#B57A00]/10 px-4 py-3 text-sm text-[#B57A00]">
+              <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
                 Migration LGPD 0014 ainda nao foi aplicada no banco conectado. A tela esta pronta, mas a fila fica bloqueada ate a aplicacao controlada da migration.
               </div>
             )}
@@ -244,7 +244,7 @@ export default function AdminLgpdPage() {
                                 type="button"
                                 disabled={pending}
                                 onClick={() => concluirExportacao(item)}
-                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1F8A4C] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-success px-4 text-sm font-semibold text-white disabled:opacity-50"
                               >
                                 <Download size={15} /> Exportar JSON
                               </button>
@@ -261,7 +261,7 @@ export default function AdminLgpdPage() {
                                   type="button"
                                   disabled={pending || confirmacaoPorId[item.id] !== "ANONIMIZAR"}
                                   onClick={() => anonimizar(item)}
-                                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#C21820] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-destructive px-4 text-sm font-semibold text-white disabled:opacity-50"
                                 >
                                   <Trash2 size={15} /> Anonimizar
                                 </button>
@@ -278,7 +278,7 @@ export default function AdminLgpdPage() {
                                 type="button"
                                 disabled={pending || !motivoRejeicaoPorId[item.id]?.trim()}
                                 onClick={() => rejeitar(item)}
-                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-[#C21820] disabled:opacity-50"
+                                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground hover:text-destructive disabled:opacity-50"
                                 title="Rejeitar"
                               >
                                 <XCircle size={16} />

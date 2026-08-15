@@ -42,7 +42,7 @@ export function CancelarPedidoModal({ pedidoId }: { pedidoId: string }) {
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex h-10 items-center gap-1.5 rounded-[0.75rem] border px-4 text-sm font-semibold transition-colors"
-        style={{ borderColor: "#C21820", color: "#C21820" }}
+        style={{ borderColor: "var(--destructive)", color: "var(--destructive)" }}
       >
         <XCircle size={15} strokeWidth={2} />
         {copy.cancelAction}
@@ -85,7 +85,7 @@ export function CancelarPedidoModal({ pedidoId }: { pedidoId: string }) {
                   type="submit"
                   disabled={pending || motivo.trim().length < 3}
                   className="flex-1 h-10 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60"
-                  style={{ background: "#C21820" }}
+                  style={{ background: "var(--destructive)" }}
                 >
                   {pending ? copy.cancelAction + "…" : copy.cancelConfirm}
                 </button>

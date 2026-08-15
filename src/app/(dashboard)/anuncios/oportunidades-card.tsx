@@ -7,6 +7,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { Card, CardHead } from "./anuncios-primitives";
+import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.oportunidades;
 
@@ -18,8 +19,8 @@ const ICONE_TIPO: Record<TipoOportunidade, React.ElementType> = {
 };
 
 const COR_IMPACTO: Record<Oportunidade["impacto"], string> = {
-  alto: "#1F8A4C",
-  medio: "#B57A00",
+  alto: "var(--success)",
+  medio: "var(--warning)",
   baixo: "var(--muted-foreground)",
 };
 
@@ -41,7 +42,7 @@ function LinhaOportunidade({ oportunidade, indice }: { oportunidade: Oportunidad
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[13px] font-semibold text-foreground">{oportunidade.campanhaNome}</p>
-            <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: `${corImpacto}18`, color: corImpacto }}>
+            <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide" style={{ background: tint(corImpacto, 9), color: corImpacto }}>
               impacto {oportunidade.impacto}
             </span>
           </div>
@@ -63,7 +64,7 @@ function LinhaOportunidade({ oportunidade, indice }: { oportunidade: Oportunidad
 export function OportunidadesCard({ oportunidades }: { oportunidades: Oportunidade[] }) {
   return (
     <Card>
-      <CardHead title={copy.titulo} icon={Radar} accent="#1F8A4C" />
+      <CardHead title={copy.titulo} icon={Radar} accent="var(--success)" />
       {oportunidades.length === 0 ? (
         <EmptyState illustration="generic" title={copy.vazio} description={copy.vazioDescricao} />
       ) : (

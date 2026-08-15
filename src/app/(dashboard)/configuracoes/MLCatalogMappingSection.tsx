@@ -256,7 +256,7 @@ export function MLCatalogMappingSection({
                   disabled={totalPendentes === 0}
                   className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-40 ${
                     soPendentes
-                      ? "border-transparent bg-[#B57A00]/12 text-[#B57A00]"
+                      ? "border-transparent bg-warning/12 text-warning"
                       : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -335,7 +335,7 @@ export function MLCatalogMappingSection({
                           {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(item.price))}
                         </span>
                         <span className={`inline-flex h-6 items-center rounded-md px-2 text-[11px] font-semibold ${
-                          item.externalSku ? "bg-muted text-foreground" : "bg-[#B57A00]/10 text-[#B57A00]"
+                          item.externalSku ? "bg-muted text-foreground" : "bg-warning/10 text-warning"
                         }`}>
                           {item.externalSku ? `SKU: ${item.externalSku}` : config.missingSku}
                         </span>
@@ -346,7 +346,7 @@ export function MLCatalogMappingSection({
                       <span className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
                         {config.internalProduct}
                         {suggested && !mapeado && (
-                          <span className="rounded-full bg-[#B57A00]/10 px-2 py-0.5 text-[10px] text-[#B57A00]">
+                          <span className="rounded-full bg-warning/10 px-2 py-0.5 text-[10px] text-warning">
                             {config.suggestion}
                           </span>
                         )}
@@ -368,7 +368,7 @@ export function MLCatalogMappingSection({
 
                     <div className="flex items-center gap-1.5">
                       {mapeado ? (
-                        <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1F8A4C]/10 px-4 text-sm font-semibold text-[#1F8A4C]">
+                        <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-success/10 px-4 text-sm font-semibold text-success">
                           <Check size={15} /> {config.mapped}
                         </span>
                       ) : podeVincular ? (

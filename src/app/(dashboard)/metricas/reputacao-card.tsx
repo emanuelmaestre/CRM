@@ -11,9 +11,10 @@ import metricasConfig from "@/config/metricas.json";
 import type { ChaveTaxa, ContaDesconectada, ReputacaoMarca, TaxaReputacao } from "@/modules/metricas/application/reputacao.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import { BarraComLimite, Card, CardHead } from "./metricas-primitives";
+import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.reputacaoCard;
-const ACENTO = "#1F8A4C";
+const ACENTO = "var(--success)";
 
 /* ── Termômetro ────────────────────────────────────────────────
    As cinco faixas do Mercado Livre desenhadas como cinco degraus que
@@ -22,7 +23,7 @@ const ACENTO = "#1F8A4C";
    contar barrinha nem procurar legenda. O ML mostra isso como um
    semicírculo cuja posição exata é difícil de julgar de relance;
    degrau é uma leitura ordinal, que é o que o número de fato é. */
-const CORES_FAIXA = ["#C21820", "#E8590C", "#B57A00", "#74B816", "#1F8A4C"];
+const CORES_FAIXA = ["var(--destructive)", "var(--escala-2)", "var(--warning)", "var(--escala-4)", "var(--success)"];
 
 function Termometro({ faixa }: { faixa: number | null }) {
   const reduzir = useReducedMotion();
@@ -61,7 +62,7 @@ function Termometro({ faixa }: { faixa: number | null }) {
    teto, e estourá-lo troca a cor e traz o próximo passo junto. */
 function IndicadorTaxa({ taxa, indice }: { taxa: TaxaReputacao; indice: number }) {
   const semDado = taxa.valor === null;
-  const cor = taxa.estourado ? "#C21820" : semDado ? "var(--muted-foreground)" : "#1F8A4C";
+  const cor = taxa.estourado ? "var(--destructive)" : semDado ? "var(--muted-foreground)" : "var(--success)";
   const escala = Math.max(taxa.limite * 2, (taxa.valor ?? 0) * 1.15);
   const acao = copy.acoes[taxa.chave as ChaveTaxa];
 
@@ -99,7 +100,7 @@ function IndicadorTaxa({ taxa, indice }: { taxa: TaxaReputacao; indice: number }
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           transition={springs.settleFast}
-          className="flex items-start gap-1.5 overflow-hidden rounded-[0.6rem] bg-[#C21820]/8 px-2.5 py-1.5 text-[11px] leading-snug text-[#C21820]"
+          className="flex items-start gap-1.5 overflow-hidden rounded-[0.6rem] bg-destructive/8 px-2.5 py-1.5 text-[11px] leading-snug text-destructive"
         >
           <AlertTriangle size={12} className="mt-[2px] shrink-0" />
           {acao}
@@ -125,7 +126,7 @@ function BlocoMarca({ marca, indice }: { marca: ReputacaoMarca; indice: number }
               ? <BrandLogo brand={marca.marca} height={17} />
               : <span className="truncate text-sm font-bold text-foreground">{marca.marcaLabel}</span>}
             {marca.seloMercadoLider && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#1F8A4C]/12 px-2 py-0.5 text-[10px] font-bold text-[#1F8A4C]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-success/12 px-2 py-0.5 text-[10px] font-bold text-success">
                 <Award size={10} /> {marca.seloMercadoLider}
               </span>
             )}
@@ -141,11 +142,11 @@ function BlocoMarca({ marca, indice }: { marca: ReputacaoMarca; indice: number }
 
       {marca.avaliacaoPositiva !== null && (
         <div className="flex flex-wrap items-center gap-3 text-[11px] tabular-nums">
-          <span className="inline-flex items-center gap-1 font-semibold text-[#1F8A4C]">
+          <span className="inline-flex items-center gap-1 font-semibold text-success">
             <Star size={11} fill="currentColor" /> {marca.avaliacaoPositiva}% positivas
           </span>
           <span className="text-muted-foreground">{marca.avaliacaoNeutra}% neutras</span>
-          <span className="text-[#C21820]">{marca.avaliacaoNegativa}% negativas</span>
+          <span className="text-destructive">{marca.avaliacaoNegativa}% negativas</span>
         </div>
       )}
 
@@ -164,7 +165,7 @@ function BlocoMarca({ marca, indice }: { marca: ReputacaoMarca; indice: number }
    da lista sem explicação — só um card a menos, sem dizer por quê. */
 function AvisoContaDesconectada({ conta, indice }: { conta: ContaDesconectada; indice: number }) {
   const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const cor = conta.status === "desconectado" ? "#C21820" : "#B57A00";
+  const cor = conta.status === "desconectado" ? "var(--destructive)" : "var(--warning)";
 
   return (
     <motion.div
@@ -172,9 +173,9 @@ function AvisoContaDesconectada({ conta, indice }: { conta: ContaDesconectada; i
       animate={{ opacity: 1, y: 0 }}
       transition={{ ...springs.settleFast, delay: indice * 0.06 }}
       className="flex items-start gap-2.5 rounded-[1rem] border border-dashed p-3.5"
-      style={{ borderColor: `${cor}55` }}
+      style={{ borderColor: tint(cor, 33) }}
     >
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: `${cor}18`, color: cor }}>
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ background: tint(cor, 9), color: cor }}>
         <PlugZap size={14} />
       </span>
       <div className="min-w-0">

@@ -208,7 +208,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                       <button
                         onClick={() => remover(m.id)}
                         disabled={pending}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-[#C21820] hover:bg-[#C2182014] transition-colors disabled:opacity-50"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors disabled:opacity-50"
                         title={copy.removeTitle}
                         aria-label={`${copy.removeTitle} — ${m.contaNome}`}
                       >
@@ -242,7 +242,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold text-foreground truncate">{contaSelecionada.nome}</p>
                           {contaSelecionada.status !== "conectado" && (
-                            <p className="text-[10px] text-[#C21820]">{copy.disconnectedSuffix.replace("— ", "")}</p>
+                            <p className="text-[10px] text-destructive">{copy.disconnectedSuffix.replace("— ", "")}</p>
                           )}
                         </div>
                         <Check size={14} className="shrink-0" style={{ color: "#9B30D9" }} strokeWidth={2.5} />
@@ -269,7 +269,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                               <div className="min-w-0 flex-1">
                                 <p className="text-xs font-semibold text-foreground truncate">{c.nome}</p>
                                 {desconectada && (
-                                  <p className="text-[10px] text-[#C21820]">{copy.disconnectedSuffix.replace("— ", "")}</p>
+                                  <p className="text-[10px] text-destructive">{copy.disconnectedSuffix.replace("— ", "")}</p>
                                 )}
                               </div>
                             </button>

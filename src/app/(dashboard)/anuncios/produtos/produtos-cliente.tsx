@@ -102,7 +102,7 @@ export function ProdutosClienteDetalhe() {
             title={copy.desperdicio.titulo}
             subtitle={`${copy.desperdicio.descricao} · ${moeda.format(dados.desperdicio.totalEmAtencao)} em atenção`}
             icon={AlertTriangle}
-            accent="#C21820"
+            accent="var(--destructive)"
           />
         </Card>
       )}
@@ -149,20 +149,20 @@ export function ProdutosClienteDetalhe() {
                       <div className="flex items-center gap-1.5">
                         <span className="truncate">{anuncio.titulo ?? anuncio.itemId}</span>
                         {anuncio.recomendado && (
-                          <span title={copy.recomendado}><Sparkles size={12} className="shrink-0 text-[#1F8A4C]" /></span>
+                          <span title={copy.recomendado}><Sparkles size={12} className="shrink-0 text-success" /></span>
                         )}
                         {anuncio.buyBoxWinner && (
-                          <span title={copy.buyBox}><Trophy size={12} className="shrink-0 text-[#B57A00]" /></span>
+                          <span title={copy.buyBox}><Trophy size={12} className="shrink-0 text-warning" /></span>
                         )}
                         {idsDesperdicio.has(anuncio.itemId) && (
-                          <span title={copy.desperdicio.titulo}><AlertTriangle size={12} className="shrink-0 text-[#C21820]" /></span>
+                          <span title={copy.desperdicio.titulo}><AlertTriangle size={12} className="shrink-0 text-destructive" /></span>
                         )}
                       </div>
                     </td>
                     <td className="max-w-[180px] truncate px-3 py-2.5 text-muted-foreground">{anuncio.campanhaNome}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(anuncio.investimento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(anuncio.receita)}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: anuncio.roas === null ? undefined : anuncio.roas >= 1 ? "#1F8A4C" : "#C21820" }}>
+                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: anuncio.roas === null ? undefined : anuncio.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
                       {anuncio.roas === null ? "—" : `${anuncio.roas.toFixed(2)}x`}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{anuncio.cliques.toLocaleString("pt-BR")}</td>

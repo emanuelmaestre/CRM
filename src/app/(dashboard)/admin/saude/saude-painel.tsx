@@ -1,5 +1,6 @@
 "use client";
 
+import { tint } from "@/shared/design-system/color";
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -46,7 +47,7 @@ function StatusBadge({ status }: { status: string }) {
       : status;
   const cfg = saudeConfig.status[normalized as keyof typeof saudeConfig.status] ?? saudeConfig.status.desconectado;
   return (
-    <span className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: `${cfg.color}18`, color: cfg.color }}>
+    <span className="flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ background: tint(cfg.color, 9), color: cfg.color }}>
       <span className="inline-block size-1.5 rounded-full" style={{ background: cfg.color }} />
       {cfg.label}
     </span>

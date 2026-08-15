@@ -169,7 +169,7 @@ export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carrega
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
                     style={{
                       background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)",
-                      color: positiva ? "#1F8A4C" : "#C21820",
+                      color: positiva ? "var(--success)" : "var(--destructive)",
                     }}
                   >
                     {positiva ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}

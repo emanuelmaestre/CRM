@@ -19,9 +19,9 @@ const linhaVariant = {
   show: { opacity: 1, x: 0, transition: { duration: 0.2, ease: [0, 0, 0.2, 1] as const } },
 };
 
-const VERDE = "#1F8A4C";
-const AMBAR = "#B57A00";
-const VERMELHO = "#C21820";
+const VERDE = "var(--success)";
+const AMBAR = "var(--warning)";
+const VERMELHO = "var(--destructive)";
 
 function formatarData(value: string | null) {
   if (!value) return "nunca verificado";
@@ -92,7 +92,7 @@ function AnelProgresso({ prontos, total }: { prontos: number; total: number }) {
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{ delay: 0.5, type: "spring", stiffness: 400, damping: 18 }}
-            className="absolute flex text-[#1F8A4C]"
+            className="absolute flex text-success"
           >
             <Check size={11} strokeWidth={3.5} />
           </motion.span>
@@ -242,7 +242,7 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
       </div>
 
       {item.externalAccountIdMismatch && (
-        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-[#B57A00]/10 px-2.5 py-2 text-[11px] font-medium text-[#B57A00]">
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-warning/10 px-2.5 py-2 text-[11px] font-medium text-warning">
           <AlertTriangle size={13} className="mt-px shrink-0" />
           {settingsConfig.channelForms.externalId.mismatch}
         </p>
@@ -253,7 +253,7 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
       {item.envAusentes.length > 0 && (
         <div className="mt-2 rounded-lg bg-muted/60 px-2.5 py-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-semibold text-[#B57A00]">Configure no ambiente</span>
+            <span className="text-[11px] font-semibold text-warning">Configure no ambiente</span>
             <button
               type="button"
               onClick={() => void copiarVariaveis()}
@@ -410,7 +410,7 @@ export function CanaisPorMarca({ items, loading, onChanged, mlStatus }: Props) {
           disabled={totalAtencao === 0}
           className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-40 ${
             soAtencao
-              ? "border-transparent bg-[#B57A00]/12 text-[#B57A00]"
+              ? "border-transparent bg-warning/12 text-warning"
               : "border-border text-muted-foreground hover:bg-muted"
           }`}
         >
@@ -441,8 +441,8 @@ export function CanaisPorMarca({ items, loading, onChanged, mlStatus }: Props) {
                 <AnelProgresso prontos={prontos} total={marca.canais.length} />
                 <span className="text-sm font-semibold" style={{ color: brandColor }}>{marca.brandLabel}</span>
                 <span className="flex-1" />
-                {pendentes > 0 && <span className="text-[11px] font-semibold text-[#B57A00]">{pendentes} pendente{pendentes === 1 ? "" : "s"}</span>}
-                {prontos > 0 && <span className="text-[11px] font-semibold text-[#1F8A4C]">{prontos} pronto{prontos === 1 ? "" : "s"}</span>}
+                {pendentes > 0 && <span className="text-[11px] font-semibold text-warning">{pendentes} pendente{pendentes === 1 ? "" : "s"}</span>}
+                {prontos > 0 && <span className="text-[11px] font-semibold text-success">{prontos} pronto{prontos === 1 ? "" : "s"}</span>}
               </button>
 
               <AnimatePresence initial={false}>

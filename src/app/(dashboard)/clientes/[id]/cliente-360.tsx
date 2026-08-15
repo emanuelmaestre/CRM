@@ -1,5 +1,6 @@
 "use client";
 
+import { tint } from "@/shared/design-system/color";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -39,23 +40,23 @@ type ClienteData = {
 };
 
 const SEGMENTO_COR: Record<string, string> = {
-  "Campeão": "#1F8A4C",
-  "Leal": "#2563EB",
-  "Em risco": "#B57A00",
+  "Campeão": "var(--success)",
+  "Leal": "var(--info)",
+  "Em risco": "var(--warning)",
   "Adormecido": "#C2621A",
-  "Perdido": "#C21820",
+  "Perdido": "var(--destructive)",
 };
 
 const STATUS_PEDIDO: Record<string, { label: string; color: string; icon: LucideIcon }> = {
   criado: { label: "Criado", color: "#6F6F6E", icon: CircleDot },
-  pago: { label: "Pago", color: "#1F8A4C", icon: Check },
-  separado: { label: "Separado", color: "#2563EB", icon: Package },
-  enviado: { label: "Enviado", color: "#2563EB", icon: Truck },
-  entregue: { label: "Entregue", color: "#1F8A4C", icon: Check },
+  pago: { label: "Pago", color: "var(--success)", icon: Check },
+  separado: { label: "Separado", color: "var(--info)", icon: Package },
+  enviado: { label: "Enviado", color: "var(--info)", icon: Truck },
+  entregue: { label: "Entregue", color: "var(--success)", icon: Check },
   avaliacao_solicitada: { label: "Avaliação solicitada", color: "#6F6F6E", icon: CircleDot },
-  concluido: { label: "Concluído", color: "#1F8A4C", icon: Check },
-  cancelado: { label: "Cancelado", color: "#C21820", icon: XCircle },
-  devolvido: { label: "Devolvido", color: "#C21820", icon: XCircle },
+  concluido: { label: "Concluído", color: "var(--success)", icon: Check },
+  cancelado: { label: "Cancelado", color: "var(--destructive)", icon: XCircle },
+  devolvido: { label: "Devolvido", color: "var(--destructive)", icon: XCircle },
 };
 
 function StatusPedidoBadge({ status }: { status: string }) {
@@ -64,7 +65,7 @@ function StatusPedidoBadge({ status }: { status: string }) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-      style={{ color: info.color, background: `${info.color}18` }}
+      style={{ color: info.color, background: tint(info.color, 9) }}
     >
       <Icon size={11} strokeWidth={2.5} />
       {info.label}
@@ -202,7 +203,7 @@ export function Cliente360({
                   <p className="text-sm text-muted-foreground mt-1">{[cliente.email, cliente.telefone].filter(Boolean).join(" · ")}</p>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <span key={tag.id} className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ color: tag.cor ?? undefined, background: `${tag.cor ?? "#64748b"}20` }}>{tag.nome}</span>)}</div>
+              <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <span key={tag.id} className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ color: tag.cor ?? undefined, background: tint(tag.cor ?? "#64748b", 12) }}>{tag.nome}</span>)}</div>
             </div>
             <dl className="grid gap-3 mt-5 text-sm">
               <div><dt className="text-muted-foreground">{copy.metrics.orders}</dt><dd className="font-semibold text-lg mt-1">{data.pedidos.length}</dd></div>
@@ -220,7 +221,7 @@ export function Cliente360({
                         {item.value ? (
                           <dd className="text-sm font-medium text-foreground mt-0.5">{item.value}</dd>
                         ) : (
-                          <dd className="text-sm italic font-medium mt-0.5" style={{ color: "#B57A00" }}>{copy.address.pendingField}</dd>
+                          <dd className="text-sm italic font-medium mt-0.5" style={{ color: "var(--warning)" }}>{copy.address.pendingField}</dd>
                         )}
                       </div>
                     ))}
@@ -229,7 +230,7 @@ export function Cliente360({
                     {tudoPendente ? (
                       <p
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium"
-                        style={{ color: "#B57A00", background: "color-mix(in srgb, #B57A00 10%, transparent)" }}
+                        style={{ color: "var(--warning)", background: "color-mix(in srgb, #B57A00 10%, transparent)" }}
                       >
                         <Info size={12} strokeWidth={2.25} className="shrink-0" />
                         {copy.address.pendingSubtitle}
@@ -268,7 +269,7 @@ export function Cliente360({
                 className="px-2.5 py-1 rounded-full text-xs font-semibold"
                 style={{
                   color: SEGMENTO_COR[data.score.segmento] ?? "#64748b",
-                  background: `${SEGMENTO_COR[data.score.segmento] ?? "#64748b"}20`,
+                  background: tint(SEGMENTO_COR[data.score.segmento] ?? "#64748b", 12),
                 }}
               >
                 {data.score.segmento}

@@ -62,11 +62,11 @@ export interface Pilar {
 /** Faixas do score composto. Mesmo espírito do termômetro do ML: quem lê
  *  precisa saber se 72 é bom antes de perguntar a alguém. */
 export const FAIXAS_SCORE = [
-  { minimo: 85, label: "Excelente", cor: "#1F8A4C" },
-  { minimo: 70, label: "Saudável", cor: "#74B816" },
-  { minimo: 50, label: "Atenção", cor: "#B57A00" },
-  { minimo: 30, label: "Risco", cor: "#E8590C" },
-  { minimo: 0, label: "Crítico", cor: "#C21820" },
+  { minimo: 85, label: "Excelente", cor: "var(--escala-5)" },
+  { minimo: 70, label: "Saudável", cor: "var(--escala-4)" },
+  { minimo: 50, label: "Atenção", cor: "var(--escala-3)" },
+  { minimo: 30, label: "Risco", cor: "var(--escala-2)" },
+  { minimo: 0, label: "Crítico", cor: "var(--escala-1)" },
 ] as const;
 
 export function faixaDoScore(score: number) {

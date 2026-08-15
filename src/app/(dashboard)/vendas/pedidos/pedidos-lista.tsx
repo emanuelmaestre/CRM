@@ -31,14 +31,14 @@ const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 
 const CORES_STATUS: Record<string, string> = {
   criado: "#6F6F6E",
-  pago: "#2563EB",
-  separado: "#2563EB",
-  enviado: "#B57A00",
-  entregue: "#1F8A4C",
-  avaliacao_solicitada: "#1F8A4C",
-  concluido: "#1F8A4C",
-  cancelado: "#C21820",
-  devolvido: "#C21820",
+  pago: "var(--info)",
+  separado: "var(--info)",
+  enviado: "var(--warning)",
+  entregue: "var(--success)",
+  avaliacao_solicitada: "var(--success)",
+  concluido: "var(--success)",
+  cancelado: "var(--destructive)",
+  devolvido: "var(--destructive)",
 };
 
 function statusLabel(status: string) {

@@ -11,6 +11,7 @@ import channelsConfig from "@/config/channels.json";
 import metricasConfig from "@/config/metricas.json";
 import type { AtendimentoPorCanal, AtendimentoResumo, FaixaAtendimento } from "@/modules/metricas/application/atendimento.service";
 import { BarraComLimite, Card, CardHead, useContagem } from "./metricas-primitives";
+import { tint } from "@/shared/design-system/color";
 
 function canalLabel(tipo: string) {
   return (channelsConfig.items as Record<string, { label?: string }>)[tipo]?.label ?? tipo;
@@ -39,7 +40,7 @@ function LinhaCanal({ canal, indice }: { canal: AtendimentoPorCanal; indice: num
           {canal.canal === "mercadolivre" && (
             <span
               className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold"
-              style={{ background: risco ? "#C2182018" : "#1F8A4C18", color: risco ? "#C21820" : "#1F8A4C" }}
+              style={{ background: tint(risco ? "var(--destructive)" : "var(--success)", 9), color: risco ? "var(--destructive)" : "var(--success)" }}
             >
               afeta reputação
             </span>
@@ -128,7 +129,7 @@ function Destaque({ valor, label, cor, sufixo, variacao }: {
             className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
             style={{
               background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)",
-              color: positiva ? "#1F8A4C" : "#C21820",
+              color: positiva ? "var(--success)" : "var(--destructive)",
             }}
           >
             {positiva ? <TrendingUp size={10} strokeWidth={2.5} /> : <TrendingDown size={10} strokeWidth={2.5} />}
@@ -177,7 +178,7 @@ export function AtendimentoCard({ dados, carregando }: {
               valor={dados.taxaResposta ?? 0}
               sufixo="%"
               label={copy.respondidasLabel}
-              cor={(dados.taxaResposta ?? 0) >= 90 ? "#1F8A4C" : (dados.taxaResposta ?? 0) >= 70 ? "#B57A00" : "#C21820"}
+              cor={(dados.taxaResposta ?? 0) >= 90 ? "var(--success)" : (dados.taxaResposta ?? 0) >= 70 ? "var(--warning)" : "var(--destructive)"}
               variacao={dados.variacaoTaxaResposta}
             />
             {dados.medianaLabel && (

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
+import { tint } from "@/shared/design-system/color";
 
 /* Mesmos primitivos visuais de Métricas (Card/CardHead/SectionLabel/
    useContagem) — repetidos aqui em vez de importados de outra rota, pelo
@@ -31,7 +32,7 @@ export function CardHead({ title, subtitle, icon: Icon, accent, trailing }: {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-4 sm:px-5 sm:pt-5">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: `${accent}18`, color: accent }}>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ background: tint(accent, 9), color: accent }}>
           <Icon size={17} strokeWidth={1.9} />
         </span>
         <div className="min-w-0">

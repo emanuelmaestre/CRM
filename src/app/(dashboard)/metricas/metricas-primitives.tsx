@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
+import { tint } from "@/shared/design-system/color";
 
 /* ── Card base ─────────────────────────────────────────────────
    Mesma superfície do Painel (.card-surface), para Métricas não
@@ -36,7 +37,7 @@ export function CardHead({ title, subtitle, icon: Icon, accent, trailing }: {
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-          style={{ background: `${accent}18`, color: accent }}
+          style={{ background: tint(accent, 9), color: accent }}
         >
           <Icon size={17} strokeWidth={1.9} />
         </span>
@@ -125,7 +126,7 @@ export function AnelScore({ valor, cor, tamanho = 168, faixaLabel }: {
           animate={{ opacity: 0.5, scale: 1 }}
           transition={{ ...springs.settle, delay: 0.1 }}
           className="absolute inset-3 rounded-full blur-2xl"
-          style={{ background: `radial-gradient(circle, ${cor}55 0%, transparent 70%)` }}
+          style={{ background: `radial-gradient(circle, ${tint(cor, 33)} 0%, transparent 70%)` }}
         />
       )}
 

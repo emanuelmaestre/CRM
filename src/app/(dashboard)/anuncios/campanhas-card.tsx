@@ -7,19 +7,20 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { Card, CardHead } from "./anuncios-primitives";
+import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.campanhas;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
-  active: { label: "Ativa", cor: "#1F8A4C" },
-  paused: { label: "Pausada", cor: "#B57A00" },
+  active: { label: "Ativa", cor: "var(--success)" },
+  paused: { label: "Pausada", cor: "var(--warning)" },
 };
 
 function BadgeStatus({ status }: { status: string }) {
   const info = STATUS_LABEL[status] ?? { label: status, cor: "var(--muted-foreground)" };
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${info.cor}18`, color: info.cor }}>
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tint(info.cor, 9), color: info.cor }}>
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: info.cor }} />
       {info.label}
     </span>
@@ -29,7 +30,7 @@ function BadgeStatus({ status }: { status: string }) {
 export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }) {
   return (
     <Card>
-      <CardHead title={copy.titulo} subtitle={copy.subtitulo} icon={BarChart3} accent="#2563EB" />
+      <CardHead title={copy.titulo} subtitle={copy.subtitulo} icon={BarChart3} accent="var(--info)" />
       {campanhas.length === 0 ? (
         <EmptyState illustration="reports" title={copy.semDado} />
       ) : (
@@ -60,10 +61,10 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
                     </td>
                     <td className="px-3 py-2.5 text-right font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(campanha.receita)}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: campanha.roas === null ? undefined : campanha.roas >= 1 ? "#1F8A4C" : "#C21820" }}>
+                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: campanha.roas === null ? undefined : campanha.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
                       {campanha.roas === null ? "—" : `${campanha.roas.toFixed(2)}x`}
                     </td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: lucroPositivo ? "#1F8A4C" : "#C21820" }} title={campanha.lucro.custosIncompletos ? "Estimativa parcial — custo do produto não configurado" : undefined}>
+                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }} title={campanha.lucro.custosIncompletos ? "Estimativa parcial — custo do produto não configurado" : undefined}>
                       {moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}
                     </td>
                   </motion.tr>

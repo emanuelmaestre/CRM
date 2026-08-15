@@ -154,7 +154,7 @@ function StepUpload({
       </div>
 
       {erro && (
-        <p className="text-sm text-[#C21820] bg-[#C21820]/08 rounded-xl px-4 py-3">{erro}</p>
+        <p className="text-sm text-destructive bg-destructive/8 rounded-xl px-4 py-3">{erro}</p>
       )}
 
       <div className="flex items-center gap-3">
@@ -188,8 +188,8 @@ function StepPrevia({ resultado }: { resultado: PreviewResult }) {
       <div className="grid grid-cols-3 gap-3" data-testid="previa-resumo">
         {[
           { label: cfg.labels.total, value: resultado.totalLinhas, color: "var(--foreground)" },
-          { label: cfg.labels.accepted, value: resultado.aceitos, color: "#1F8A4C" },
-          { label: cfg.labels.rejected, value: resultado.rejeitados, color: resultado.rejeitados > 0 ? "#C21820" : "#1F8A4C" },
+          { label: cfg.labels.accepted, value: resultado.aceitos, color: "var(--success)" },
+          { label: cfg.labels.rejected, value: resultado.rejeitados, color: resultado.rejeitados > 0 ? "var(--destructive)" : "var(--success)" },
         ].map((stat, index) => (
           <div key={stat.label} data-testid={index === 0 ? "previa-total" : undefined} className="rounded-[1rem] bg-card border border-border p-4 text-center">
             <p className="text-2xl font-bold tabular-nums" style={{ color: stat.color }}>{stat.value}</p>
@@ -199,14 +199,14 @@ function StepPrevia({ resultado }: { resultado: PreviewResult }) {
       </div>
 
       {temErros ? (
-        <div data-testid="previa-erros" className="rounded-[1rem] border border-[#C21820]/30 bg-[#C21820]/05 overflow-hidden">
-          <div className="px-4 py-3 border-b border-[#C21820]/20">
-            <p className="text-sm font-semibold text-[#C21820]">{cfg.labels.errorsTitle}</p>
+        <div data-testid="previa-erros" className="rounded-[1rem] border border-destructive/30 bg-destructive/5 overflow-hidden">
+          <div className="px-4 py-3 border-b border-destructive/20">
+            <p className="text-sm font-semibold text-destructive">{cfg.labels.errorsTitle}</p>
           </div>
           <div className="divide-y divide-[#C21820]/10 max-h-48 overflow-y-auto">
             {resultado.erros.map((e) => (
               <div key={e.linha} className="flex gap-3 px-4 py-2.5">
-                <span className="text-xs font-semibold text-[#C21820] shrink-0 tabular-nums">
+                <span className="text-xs font-semibold text-destructive shrink-0 tabular-nums">
                   {cfg.labels.line} {e.linha}
                 </span>
                 <span className="text-xs text-muted-foreground">{e.motivo}</span>
@@ -215,7 +215,7 @@ function StepPrevia({ resultado }: { resultado: PreviewResult }) {
           </div>
         </div>
       ) : (
-        <p data-testid="previa-sem-erros" className="text-sm text-[#1F8A4C] bg-[#1F8A4C]/08 rounded-xl px-4 py-3">{cfg.labels.noErrors}</p>
+        <p data-testid="previa-sem-erros" className="text-sm text-success bg-success/8 rounded-xl px-4 py-3">{cfg.labels.noErrors}</p>
       )}
     </motion.div>
   );
@@ -333,7 +333,7 @@ export default function ImportacaoPage() {
           {step === 0 && (
             <>
               <StepUpload onParsed={(r) => { setRows(r); }} />
-              {erro && <p className="mt-4 text-sm text-[#C21820]">{erro}</p>}
+              {erro && <p className="mt-4 text-sm text-destructive">{erro}</p>}
               <WizardActions
                 onNext={aoAvancarUpload}
                 isPending={pending}
@@ -356,7 +356,7 @@ export default function ImportacaoPage() {
           {step === 2 && preview && (
             <>
               <StepConfirmar resultado={preview} />
-              {erro && <p className="mt-4 text-sm text-[#C21820]">{erro}</p>}
+              {erro && <p className="mt-4 text-sm text-destructive">{erro}</p>}
               <WizardActions
                 onBack={() => setStep(1)}
                 onSubmit={aoConfirmar}

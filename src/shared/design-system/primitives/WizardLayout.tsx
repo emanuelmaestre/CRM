@@ -71,7 +71,7 @@ export function WizardLayout({
               <div
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
                   i < currentStep
-                    ? "bg-[#1F8A4C] text-white"
+                    ? "bg-success text-white"
                     : i === currentStep
                     ? "text-white"
                     : "bg-muted text-muted-foreground"
@@ -89,7 +89,7 @@ export function WizardLayout({
               </span>
             </div>
             {i < steps.length - 1 && (
-              <div className={`h-px w-5 shrink-0 transition-colors sm:w-8 ${i < currentStep ? "bg-[#1F8A4C]" : "bg-border"}`} />
+              <div className={`h-px w-5 shrink-0 transition-colors sm:w-8 ${i < currentStep ? "bg-success" : "bg-border"}`} />
             )}
           </div>
         ))}
@@ -163,10 +163,10 @@ export function WizardField({
     <div>
       <label className="block text-sm font-medium text-foreground mb-2">
         {label}
-        {required && <span className="text-[#C21820] ml-1">*</span>}
+        {required && <span className="text-destructive ml-1">*</span>}
       </label>
       {children}
-      {error && <p className="mt-1.5 text-xs text-[#C21820]">{error}</p>}
+      {error && <p className="mt-1.5 text-xs text-destructive">{error}</p>}
     </div>
   );
 }

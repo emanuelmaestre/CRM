@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { motion } from "framer-motion";
 import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
+import { tint } from "@/shared/design-system/color";
 
 /* ── Card base ─────────────────────────────────────────────────
    Camada tonal: borda de 1px, raio de 20px e sombra ambiente
@@ -41,7 +42,7 @@ export function CardHead({ title, subtitle, icon: Icon, accent, scope, trailing,
       <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-initial">
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-          style={{ background: `${accent}18`, color: accent }}
+          style={{ background: tint(accent, 9), color: accent }}
         >
           <Icon size={17} strokeWidth={1.9} />
         </span>

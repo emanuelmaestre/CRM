@@ -78,9 +78,9 @@ function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
   const semDado = pilar.nota === null;
   const cor = semDado
     ? "var(--muted-foreground)"
-    : (pilar.nota as number) >= 70 ? "#1F8A4C"
-    : (pilar.nota as number) >= 50 ? "#B57A00"
-    : "#C21820";
+    : (pilar.nota as number) >= 70 ? "var(--success)"
+    : (pilar.nota as number) >= 50 ? "var(--warning)"
+    : "var(--destructive)";
 
   return (
     <motion.li

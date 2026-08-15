@@ -151,7 +151,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
               {initials}
             </div>
             {/* Status online */}
-            <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#1F8A4C] border-2 border-card" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-success border-2 border-card" />
           </div>
           <LogoutIcon size={13} strokeWidth={1.75} className="hidden md:block" />
         </motion.button>

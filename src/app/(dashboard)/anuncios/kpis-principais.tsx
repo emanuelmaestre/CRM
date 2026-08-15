@@ -50,14 +50,14 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
           valor={resumo.roasMedio}
           formatar={(n) => `${n.toFixed(2)}x`}
           destaque
-          cor={resumo.roasMedio !== null && resumo.roasMedio >= 1 ? "#1F8A4C" : resumo.roasMedio !== null ? "#C21820" : undefined}
+          cor={resumo.roasMedio !== null && resumo.roasMedio >= 1 ? "var(--success)" : resumo.roasMedio !== null ? "var(--destructive)" : undefined}
         />
         <NumeroGrande
           label={copy.lucro}
           valor={resumo.lucroTotal}
           formatar={(n) => moeda.format(n)}
           destaque
-          cor={lucroPositivo ? "#1F8A4C" : "#C21820"}
+          cor={lucroPositivo ? "var(--success)" : "var(--destructive)"}
           sufixo={resumo.lucroIncompleto && (
             <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
               estimativa parcial
@@ -104,7 +104,7 @@ export function Variacao({ percentual }: { percentual: number | null }) {
       animate={{ opacity: 1 }}
       transition={springs.settleFast}
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
-      style={{ background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)", color: positiva ? "#1F8A4C" : "#C21820" }}
+      style={{ background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)", color: positiva ? "var(--success)" : "var(--destructive)" }}
     >
       {positiva ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
       {positiva ? "+" : ""}{percentual}%

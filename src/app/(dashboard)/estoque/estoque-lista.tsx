@@ -46,7 +46,7 @@ type ProdutoParado = Awaited<ReturnType<typeof actionListarProdutosParados>>[num
 const copy = pagesConfig.estoque;
 const PAGINA = 50;
 
-const COR = { critico: "#C21820", atencao: "#B57A00", ok: "#1F8A4C", info: "#2563EB", neutro: "#6F6F6E" };
+const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var(--success)", info: "var(--info)", neutro: "#6F6F6E" };
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -358,7 +358,7 @@ function MinimoInput({ produto, onSalvo }: { produto: Produto; onSalvo: (valor: 
         onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
         className={`h-9 w-[68px] rounded-lg bg-background px-2 pr-6 text-sm tabular-nums text-foreground text-right no-spinner focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] disabled:opacity-50 ${
           confirmado
-            ? "border border-[#1F8A4C]"
+            ? "border border-success"
             : semRegua
               ? "border border-dashed border-border placeholder:text-muted-foreground/70"
               : "border border-border"

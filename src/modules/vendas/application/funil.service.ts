@@ -8,12 +8,15 @@ import {
   CriarOportunidadeSchema, MoverOportunidadeSchema, type CriarOportunidadeDTO,
 } from "../domain/funil";
 
+/** Cores gravadas na criação das etapas padrão. Referenciam tokens do design
+ *  system em vez dos hex do Tailwind que estavam aqui — eram cinco tons que
+ *  não existiam em nenhuma paleta do produto e não respondiam ao tema. */
 const ETAPAS_PADRAO = [
-  { nome: "Novo lead", ordem: 1, cor: "#64748b" },
-  { nome: "Em contato", ordem: 2, cor: "#0284c7" },
-  { nome: "Proposta", ordem: 3, cor: "#d97706" },
-  { nome: "Ganho", ordem: 4, cor: "#16a34a" },
-  { nome: "Perdida", ordem: 5, cor: "#dc2626" },
+  { nome: "Novo lead", ordem: 1, cor: "var(--muted-foreground)" },
+  { nome: "Em contato", ordem: 2, cor: "var(--info)" },
+  { nome: "Proposta", ordem: 3, cor: "var(--warning)" },
+  { nome: "Ganho", ordem: 4, cor: "var(--success)" },
+  { nome: "Perdida", ordem: 5, cor: "var(--destructive)" },
 ];
 
 // Etapas terminais: uma oportunidade parada aqui não conta como "gargalo"

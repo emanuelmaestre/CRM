@@ -2,11 +2,11 @@
 
 import { motion } from "framer-motion";
 
-const VERDE = "#1F8A4C";
+const VERDE = "var(--success)";
 
 /** Bolinha de status: ganha halo pulsante quando a marca está conectada. */
 export function StatusDot({ conectado, alerta = false }: { conectado: boolean; alerta?: boolean }) {
-  const cor = alerta ? "#B57A00" : conectado ? VERDE : "var(--muted-foreground)";
+  const cor = alerta ? "var(--warning)" : conectado ? VERDE : "var(--muted-foreground)";
   return (
     <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
       {conectado && !alerta && (

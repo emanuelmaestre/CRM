@@ -1,10 +1,10 @@
 "use client";
 
 import { BrandLogo } from "./BrandLogo";
-import type { BrandId } from "../tokens";
+import type { BrandSlug } from "@/shared/config/brands";
 
 interface BrandChipProps {
-  brand: BrandId;
+  brand: BrandSlug;
   className?: string;
 }
 

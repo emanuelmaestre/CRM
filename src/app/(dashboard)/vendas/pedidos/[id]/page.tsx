@@ -20,14 +20,14 @@ function moeda(valor: string | null): string {
 
 const CORES_STATUS: Record<string, string> = {
   criado: "#6F6F6E",
-  pago: "#2563EB",
-  separado: "#2563EB",
-  enviado: "#B57A00",
-  entregue: "#1F8A4C",
-  avaliacao_solicitada: "#1F8A4C",
-  concluido: "#1F8A4C",
-  cancelado: "#C21820",
-  devolvido: "#C21820",
+  pago: "var(--info)",
+  separado: "var(--info)",
+  enviado: "var(--warning)",
+  entregue: "var(--success)",
+  avaliacao_solicitada: "var(--success)",
+  concluido: "var(--success)",
+  cancelado: "var(--destructive)",
+  devolvido: "var(--destructive)",
 };
 
 function statusLabel(status: string): string {
@@ -153,7 +153,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
 
       {detalhe.canceladoMotivo && (
         <div className="mt-3 rounded-[1.25rem] border px-5 py-3.5" style={{ borderColor: "color-mix(in srgb, #C21820 30%, transparent)", background: "color-mix(in srgb, #C21820 6%, var(--card))" }}>
-          <p className="text-xs font-semibold" style={{ color: "#C21820" }}>{copy.canceledReasonLabel}</p>
+          <p className="text-xs font-semibold" style={{ color: "var(--destructive)" }}>{copy.canceledReasonLabel}</p>
           <p className="mt-0.5 text-sm text-foreground">{detalhe.canceladoMotivo}</p>
         </div>
       )}

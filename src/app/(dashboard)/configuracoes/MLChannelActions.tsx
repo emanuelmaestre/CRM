@@ -66,7 +66,7 @@ export function MLChannelActions({ slug, brandLabel, status }: Props) {
       </div>
 
       {contaErrada && (
-        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-[#B57A00]/10 px-2.5 py-2 text-[11px] font-medium text-[#B57A00]">
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-warning/10 px-2.5 py-2 text-[11px] font-medium text-warning">
           <AlertTriangle size={13} strokeWidth={2} className="mt-px shrink-0" />
           <span>{labels.mismatch}</span>
         </p>

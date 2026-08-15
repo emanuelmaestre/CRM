@@ -225,12 +225,31 @@ function depoisDaTabela(doc: Doc): number {
   return (final ?? 60) + 10;
 }
 
-/** "#1F8A4C" → [31, 138, 76]. Cinza quando não há faixa (score indisponível). */
-function corDaFaixa(hex: string | null): [number, number, number] {
-  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) return [110, 110, 110];
+/* O PDF é gerado fora do navegador: `var(--escala-5)` não resolve aqui, e
+   antes desta tabela toda faixa caía no cinza de fallback — o relatório saía
+   sem cor nenhuma e ninguém notava, porque cinza é um resultado plausível.
+   Os valores são os do tema claro de propósito: PDF se lê em papel branco. */
+const HEX_DA_ESCALA: Record<string, [number, number, number]> = {
+  "var(--escala-1)": [0xD5, 0x1A, 0x24],
+  "var(--escala-2)": [0xB6, 0x4A, 0x0C],
+  "var(--escala-3)": [0x91, 0x63, 0x00],
+  "var(--escala-4)": [0x50, 0x76, 0x0F],
+  "var(--escala-5)": [0x1B, 0x7B, 0x43],
+  "var(--success)": [0x1E, 0x85, 0x49],
+  "var(--warning)": [0x9E, 0x6B, 0x00],
+  "var(--destructive)": [0xC2, 0x18, 0x20],
+  "var(--info)": [0x25, 0x63, 0xEB],
+};
+
+/** Token ou hex → RGB para o jsPDF. Cinza quando não há faixa (score indisponível). */
+function corDaFaixa(cor: string | null): [number, number, number] {
+  if (!cor) return [110, 110, 110];
+  const token = HEX_DA_ESCALA[cor.trim()];
+  if (token) return token;
+  if (!/^#[0-9a-f]{6}$/i.test(cor)) return [110, 110, 110];
   return [
-    parseInt(hex.slice(1, 3), 16),
-    parseInt(hex.slice(3, 5), 16),
-    parseInt(hex.slice(5, 7), 16),
+    parseInt(cor.slice(1, 3), 16),
+    parseInt(cor.slice(3, 5), 16),
+    parseInt(cor.slice(5, 7), 16),
   ];
 }

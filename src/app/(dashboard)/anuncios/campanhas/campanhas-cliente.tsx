@@ -14,26 +14,27 @@ import { Card } from "../anuncios-primitives";
 import type { AnuncioDaCampanha } from "@/modules/anuncios/application/campanha-detalhe.service";
 import type { CampanhaVisaoGeral, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
 import type { Diagnostico, SeveridadeDiagnostico } from "@/modules/anuncios/application/motor-diagnostico";
+import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.campanhasDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
-  active: { label: "Ativa", cor: "#1F8A4C" },
-  paused: { label: "Pausada", cor: "#B57A00" },
+  active: { label: "Ativa", cor: "var(--success)" },
+  paused: { label: "Pausada", cor: "var(--warning)" },
 };
 
 const COR_SEVERIDADE: Record<SeveridadeDiagnostico, string> = {
-  critico: "#C21820",
-  atencao: "#B57A00",
-  oportunidade: "#1F8A4C",
+  critico: "var(--destructive)",
+  atencao: "var(--warning)",
+  oportunidade: "var(--success)",
 };
 
 function BadgeStatus({ status }: { status: string }) {
   const info = STATUS_LABEL[status] ?? { label: status, cor: "var(--muted-foreground)" };
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${info.cor}18`, color: info.cor }}>
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tint(info.cor, 9), color: info.cor }}>
       <span className="h-1.5 w-1.5 rounded-full" style={{ background: info.cor }} />
       {info.label}
     </span>
@@ -74,14 +75,14 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
               <td className="max-w-[240px] truncate px-2 py-2 font-medium text-foreground">
                 {anuncio.titulo ?? anuncio.itemId}
                 {anuncio.recomendado && (
-                  <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-[#1F8A4C18] px-1.5 py-0.5 text-[9px] font-semibold text-[#1F8A4C]" title={copy.anuncios.recomendado}>
+                  <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-success/10 px-1.5 py-0.5 text-[9px] font-semibold text-success" title={copy.anuncios.recomendado}>
                     <Sparkles size={9} />
                   </span>
                 )}
               </td>
               <td className="px-2 py-2 text-right tabular-nums text-foreground">{moeda.format(anuncio.investimento)}</td>
               <td className="px-2 py-2 text-right tabular-nums text-foreground">{moeda.format(anuncio.receita)}</td>
-              <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: anuncio.roas === null ? undefined : anuncio.roas >= 1 ? "#1F8A4C" : "#C21820" }}>
+              <td className="px-2 py-2 text-right font-semibold tabular-nums" style={{ color: anuncio.roas === null ? undefined : anuncio.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
                 {anuncio.roas === null ? "—" : `${anuncio.roas.toFixed(2)}x`}
               </td>
               <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{anuncio.cliques.toLocaleString("pt-BR")}</td>
@@ -126,15 +127,15 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">{campanha.nome}</span>
         <BadgeStatus status={campanha.status} />
         {campanha.diagnosticos.length > 0 && (
-          <span className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold sm:inline-flex" style={{ background: "#B57A0018", color: "#B57A00" }}>
+          <span className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold sm:inline-flex" style={{ background: tint("var(--warning)", 9), color: "var(--warning)" }}>
             {campanha.diagnosticos.length} sinal{campanha.diagnosticos.length !== 1 ? "is" : ""}
           </span>
         )}
         <span className="shrink-0 text-right text-[13px] font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</span>
-        <span className="hidden w-16 shrink-0 text-right text-[13px] font-semibold tabular-nums sm:inline" style={{ color: campanha.roas === null ? undefined : campanha.roas >= 1 ? "#1F8A4C" : "#C21820" }}>
+        <span className="hidden w-16 shrink-0 text-right text-[13px] font-semibold tabular-nums sm:inline" style={{ color: campanha.roas === null ? undefined : campanha.roas >= 1 ? "var(--success)" : "var(--destructive)" }}>
           {campanha.roas === null ? "—" : `${campanha.roas.toFixed(2)}x`}
         </span>
-        <span className="hidden w-20 shrink-0 text-right text-[13px] font-semibold tabular-nums sm:inline" style={{ color: lucroPositivo ? "#1F8A4C" : "#C21820" }}>
+        <span className="hidden w-20 shrink-0 text-right text-[13px] font-semibold tabular-nums sm:inline" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}>
           {moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}
         </span>
       </button>

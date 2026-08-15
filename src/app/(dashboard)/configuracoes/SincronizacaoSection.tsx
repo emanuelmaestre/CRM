@@ -24,8 +24,8 @@ function SeloModulo({ label, status }: { label: string; status: ModuloStatus }) 
   const config = {
     pendente: { icon: null, cor: "var(--muted-foreground)", bg: "transparent", texto: "Na fila" },
     em_andamento: { icon: Loader2, cor: "#9B30D9", bg: "rgba(155,48,217,.08)", texto: "Sincronizando…" },
-    concluido: { icon: CheckCircle2, cor: "#1F8A4C", bg: "rgba(31,138,76,.08)", texto: "Concluído" },
-    erro: { icon: XCircle, cor: "#C21820", bg: "rgba(194,24,32,.08)", texto: "Falhou" },
+    concluido: { icon: CheckCircle2, cor: "var(--success)", bg: "rgba(31,138,76,.08)", texto: "Concluído" },
+    erro: { icon: XCircle, cor: "var(--destructive)", bg: "rgba(194,24,32,.08)", texto: "Falhou" },
   }[status];
   const Icon = config.icon;
 

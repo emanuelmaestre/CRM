@@ -20,7 +20,7 @@ function marca(parcial: Partial<SaudeMarca> = {}): SaudeMarca {
     marcaLabel: "KARZI",
     score: 78,
     faixaLabel: "Saudável",
-    faixaCor: "#74B816",
+    faixaCor: "var(--escala-4)",
     pilares: [
       { chave: "reputacao", label: "Reputação", descricao: "d", peso: 30, nota: 100, detalhe: "Termômetro Verde" },
       { chave: "posVenda", label: "Pós-venda", descricao: "d", peso: 25, nota: 80, detalhe: "Dentro do limite" },
@@ -55,7 +55,7 @@ function resultado(parcial: Partial<SaudeLojaResultado> = {}): SaudeLojaResultad
     marcas: [marca()],
     scoreGeral: 78,
     faixaGeralLabel: "Saudável",
-    faixaGeralCor: "#74B816",
+    faixaGeralCor: "var(--escala-4)",
     periodoLabel: "16/07 – 14/08",
     reputacaoIndisponivel: false,
     marcasComFalha: [],
@@ -119,11 +119,11 @@ describe("cards de Métricas", () => {
       medianaLabel: "1h30",
       variacaoTaxaResposta: 5,
       faixas: [
-        { chave: "ate1h", label: "Até 1 hora", cor: "#1F8A4C", quantidade: 4, participacao: 40 },
-        { chave: "ate4h", label: "1 a 4 horas", cor: "#74B816", quantidade: 3, participacao: 30 },
-        { chave: "ate24h", label: "4 a 24 horas", cor: "#B57A00", quantidade: 1, participacao: 10 },
-        { chave: "acima24h", label: "Mais de 24 horas", cor: "#E8590C", quantidade: 0, participacao: 0 },
-        { chave: "semResposta", label: "Sem resposta", cor: "#C21820", quantidade: 2, participacao: 20 },
+        { chave: "ate1h", label: "Até 1 hora", cor: "var(--success)", quantidade: 4, participacao: 40 },
+        { chave: "ate4h", label: "1 a 4 horas", cor: "var(--escala-4)", quantidade: 3, participacao: 30 },
+        { chave: "ate24h", label: "4 a 24 horas", cor: "var(--warning)", quantidade: 1, participacao: 10 },
+        { chave: "acima24h", label: "Mais de 24 horas", cor: "var(--escala-2)", quantidade: 0, participacao: 0 },
+        { chave: "semResposta", label: "Sem resposta", cor: "var(--destructive)", quantidade: 2, participacao: 20 },
       ],
       porCanal: [
         { canal: "mercadolivre", perguntas: 6, taxaResposta: 70, medianaSegundos: 7200, medianaLabel: "2h" },
@@ -147,7 +147,7 @@ describe("cards de Métricas", () => {
   });
 
   it("BarraComLimite não espelha a barra quando o valor é negativo (margem no vermelho)", () => {
-    const { container } = render(<BarraComLimite valor={-15} maximo={40} cor="#C21820" />);
+    const { container } = render(<BarraComLimite valor={-15} maximo={40} cor="var(--destructive)" />);
     const preenchimento = container.querySelector(".rounded-l-full") as HTMLElement;
     // scaleX negativo faria o CSS espelhar a barra para o lado errado em vez
     // de mostrá-la vazia — o piso em 0 garante scaleX(0), nunca negativo.

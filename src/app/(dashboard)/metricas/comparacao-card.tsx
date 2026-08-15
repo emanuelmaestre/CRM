@@ -11,9 +11,10 @@ import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { BarraComLimite, Card, CardHead } from "./metricas-primitives";
+import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.comparacaoCard;
-const ACENTO = "#2563EB";
+const ACENTO = "var(--info)";
 
 type Criterio = "score" | "faturamento" | "pedidos" | "ticketMedio" | "notaMedia" | "margem";
 
@@ -103,7 +104,7 @@ function TiraNumeros({ marca }: { marca: SaudeMarca }) {
           <dt className="truncate text-[10px] uppercase tracking-wide text-muted-foreground/80">{campo.label}</dt>
           <dd
             title={campo.titulo}
-            className={`truncate text-[12px] font-semibold tabular-nums ${campo.alerta ? "text-[#C21820]" : "text-foreground"}`}
+            className={`truncate text-[12px] font-semibold tabular-nums ${campo.alerta ? "text-destructive" : "text-foreground"}`}
           >
             {campo.valor}
           </dd>
@@ -203,7 +204,7 @@ export function ComparacaoCard({ dados, carregando }: {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="rounded-[1rem] border border-border p-4"
-                style={lider ? { borderColor: `${cor}66`, background: `color-mix(in srgb, ${cor} 4%, transparent)` } : undefined}
+                style={lider ? { borderColor: tint(cor, 40), background: `color-mix(in srgb, ${cor} 4%, transparent)` } : undefined}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-2">
@@ -214,7 +215,7 @@ export function ComparacaoCard({ dados, carregando }: {
                       <motion.span
                         layout={!reduzir}
                         className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                        style={{ background: `${cor}1A`, color: cor }}
+                        style={{ background: tint(cor, 10), color: cor }}
                       >
                         <Crown size={10} /> {copy.lider}
                       </motion.span>

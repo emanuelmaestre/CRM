@@ -53,7 +53,7 @@ export function StatCard({ label, value, sub, trend, icon: Icon, className }: St
           transition={{ ...springs.settleFast, delay: 0.3 }}
           className={cn(
             "text-xs font-semibold mt-3 tabular-nums",
-            trend.value >= 0 ? "text-[#1F8A4C]" : "text-[#C21820]"
+            trend.value >= 0 ? "text-success" : "text-destructive"
           )}
         >
           {trend.value >= 0 ? "▲" : "▼"} {Math.abs(trend.value)}% {trend.label}

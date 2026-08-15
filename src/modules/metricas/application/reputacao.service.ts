@@ -17,12 +17,15 @@ interface FaixaConfig {
   cor: string;
 }
 
+/** `cor` aponta para a rampa ordinal do design system (ver globals.css) em
+ *  vez de carregar hex fixo: assim o termômetro segue legível nos dois temas,
+ *  e as cinco faixas param de ser uma terceira cópia da mesma escala. */
 const TERMOMETRO: Record<string, FaixaConfig> = {
-  "1_red": { posicao: 1, label: "Vermelho", cor: "#C21820" },
-  "2_orange": { posicao: 2, label: "Laranja", cor: "#E8590C" },
-  "3_yellow": { posicao: 3, label: "Amarelo", cor: "#B57A00" },
-  "4_light_green": { posicao: 4, label: "Verde-claro", cor: "#74B816" },
-  "5_green": { posicao: 5, label: "Verde", cor: "#1F8A4C" },
+  "1_red": { posicao: 1, label: "Vermelho", cor: "var(--escala-1)" },
+  "2_orange": { posicao: 2, label: "Laranja", cor: "var(--escala-2)" },
+  "3_yellow": { posicao: 3, label: "Amarelo", cor: "var(--escala-3)" },
+  "4_light_green": { posicao: 4, label: "Verde-claro", cor: "var(--escala-4)" },
+  "5_green": { posicao: 5, label: "Verde", cor: "var(--escala-5)" },
 };
 
 /** Selo de Mercado Líder. O ML manda em inglês; o vendedor lê em português. */

@@ -420,8 +420,8 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                   animate={{ opacity: 1 }}
                   className="px-5 py-3 border-t border-border flex items-center gap-1.5"
                 >
-                  <CheckCircle2 size={13} strokeWidth={2} className="text-[#1F8A4C]" />
-                  <p className="text-xs text-[#1F8A4C] font-medium">{copy.answered}</p>
+                  <CheckCircle2 size={13} strokeWidth={2} className="text-success" />
+                  <p className="text-xs text-success font-medium">{copy.answered}</p>
                 </motion.div>
               )}
 

@@ -48,10 +48,10 @@ function SectionHeading({ title, icon: Icon }: { title: string; icon: LucideIcon
 function StatusBadge({ connected }: { connected: boolean }) {
   return (
     <span className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
-      connected ? "bg-[#1F8A4C]/10 text-[#1F8A4C]" : "bg-muted text-muted-foreground"
+      connected ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
     }`}>
       {connected
-        ? <><span className="w-1.5 h-1.5 rounded-full bg-[#1F8A4C] inline-block" /> {settingsConfig.status.active}</>
+        ? <><span className="w-1.5 h-1.5 rounded-full bg-success inline-block" /> {settingsConfig.status.active}</>
         : <><PendingIcon size={11} strokeWidth={2} /> {settingsConfig.status.pending}</>
       }
     </span>
@@ -160,7 +160,7 @@ export default function ConfiguracoesPage() {
               <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
                 {resumo?.activeBrands.length ?? 0} marca{resumo?.activeBrands.length === 1 ? "" : "s"}
               </span>
-              <span className="rounded-full bg-[#1F8A4C]/10 px-2.5 py-1 text-xs font-medium text-[#1F8A4C]">
+              <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
                 {canais.filter((item) => item.status === "conectado").length}/{canais.length} canais conectados
               </span>
             </div>
@@ -195,7 +195,7 @@ export default function ConfiguracoesPage() {
                     onClick={() => alterarUsuario(usuario, usuario.perfil, !usuario.ativo)}
                     className={`h-9 rounded-lg px-3 text-xs font-semibold disabled:opacity-50 ${
                       usuario.ativo
-                        ? "bg-[#1F8A4C]/10 text-[#1F8A4C]"
+                        ? "bg-success/10 text-success"
                         : "bg-muted text-muted-foreground"
                     }`}
                   >

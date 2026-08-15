@@ -16,6 +16,7 @@ import {
   actionRejeitarSugestao,
 } from "./actions";
 import { Card, CardHead } from "./metricas-primitives";
+import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.acoesCard;
 const ACENTO = "#F59E0B";
@@ -32,8 +33,8 @@ const ALERTA = /baixa|queda|caiu|risco|cancelad|abandon|comprometem|atras/i;
 const POSITIVO = /alta|crescimento|recorde|melhor|subiu|aument/i;
 
 function tomDoInsight(texto: string): { icon: LucideIcon; cor: string } {
-  if (ALERTA.test(texto)) return { icon: TrendingDown, cor: "#C21820" };
-  if (POSITIVO.test(texto)) return { icon: TrendingUp, cor: "#1F8A4C" };
+  if (ALERTA.test(texto)) return { icon: TrendingDown, cor: "var(--destructive)" };
+  if (POSITIVO.test(texto)) return { icon: TrendingUp, cor: "var(--success)" };
   return { icon: Lightbulb, cor: "#9B30D9" };
 }
 
@@ -109,7 +110,7 @@ export function AcoesCard() {
                     <div className="flex items-start gap-2.5">
                       <span
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
-                        style={{ background: `${cor}18`, color: cor }}
+                        style={{ background: tint(cor, 9), color: cor }}
                       >
                         <Icon size={14} />
                       </span>
@@ -169,7 +170,7 @@ export function AcoesCard() {
                           <div className="min-w-0 flex-1">
                             <span
                               className="mb-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                              style={{ background: `${badge.color}20`, color: badge.color }}
+                              style={{ background: tint(badge.color, 12), color: badge.color }}
                             >
                               {badge.label}
                             </span>
@@ -216,7 +217,7 @@ export function AcoesCard() {
             {/* O portão de aprovação é a razão de esta lista existir; dizê-lo em
                 voz alta evita que alguém procure um "disparar tudo" que não há. */}
             <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <ShieldCheck size={12} className="shrink-0 text-[#1F8A4C]" />
+              <ShieldCheck size={12} className="shrink-0 text-success" />
               {copy.portao}
             </p>
           </div>

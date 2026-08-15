@@ -30,11 +30,36 @@
   --armarinhos-lima: #6F6F6E;
   --gradient-signature: linear-gradient(135deg, #E3131B 0%, #9B30D9 50%, #6F6F6E 100%);
 
-  /* Semânticas */
-  --success: #1F8A4C;
-  --warning: #B57A00;
+  /* ── Semânticas ──
+     Cada valor é o tom mais próximo do original que atinge 4.5:1 (WCAG AA)
+     sobre --card e sobre --background do próprio tema. Por isso existem dois
+     conjuntos: a cor que se lê bem sobre papel branco não se lê sobre o fundo
+     da Cabine, e vice-versa — não é preferência, é medição.
+
+     Aviso que não cabe em variável: igualar o contraste das duas contra o
+     fundo aproxima --success e --destructive UMA DA OUTRA (1.31:1 no claro).
+     Cor sozinha nunca distingue lucro de prejuízo de forma acessível — todo
+     indicador financeiro precisa de rótulo, sinal ou ícone junto. */
+  --success: #1E8549;
+  --warning: #9E6B00;
   --destructive: #C21820;
   --info: #2563EB;
+
+  /* ── Rampa ordinal de 5 degraus ──
+     Termômetro de reputação do ML, faixas do Score de Saúde e baldes de SLA
+     são a mesma escala com nomes diferentes, e cada um mantinha a própria
+     cópia das cores dentro da camada de serviço. Uma rampa só, aqui.
+
+     Os cinco valores têm luminância parecida de propósito: cada um precisa
+     atingir 4.5:1 contra o mesmo fundo, e isso necessariamente os aproxima
+     entre si. Funciona porque em todos os usos a ORDEM já é dada sem cor —
+     altura crescente das barras no termômetro, o número no score, a ordem
+     dos rótulos no SLA. A cor reforça; nunca é o único portador do sinal. */
+  --escala-1: #D51A24;  /* crítico   */
+  --escala-2: #B64A0C;  /* risco     */
+  --escala-3: #916300;  /* atenção   */
+  --escala-4: #50760F;  /* bom       */
+  --escala-5: #1B7B43;  /* excelente */
 
   /* Fontes */
   --font-inter: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
@@ -73,6 +98,20 @@
   --primary-foreground: #15171C;
   --secondary: #262A33;
   --secondary-foreground: #F2F3F5;
+
+  /* Semânticas da Cabine — ver nota no :root. Aqui elas clareiam, porque o
+     fundo escureceu: #C21820 sobre #16181E dá 2.91:1, o que faz do alerta
+     crítico o texto MENOS legível da tela justamente quando mais importa. */
+  --success: #229653;
+  --warning: #B57A00;
+  --destructive: #E8474F;
+  --info: #4B7EEF;
+
+  --escala-1: #E8454D;
+  --escala-2: #DA590E;
+  --escala-3: #AD7600;
+  --escala-4: #618F12;
+  --escala-5: #219451;
 
   /* Elevação e gráficos no tema escuro */
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);

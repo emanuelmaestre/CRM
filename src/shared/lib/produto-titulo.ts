@@ -6,6 +6,8 @@
 
 const CORES: Record<string, string> = {
   "preto": "#1a1a1a", "branco": "#f5f5f5", "cinza": "#9e9e9e", "grafite": "#4b5563",
+  // Estas são cores FÍSICAS do produto (a camiseta é azul), não semânticas
+  // da interface — não devem virar token: uma peça azul não é "informação".
   "azul": "#2563eb", "vermelho": "#dc2626", "verde": "#16a34a", "amarelo": "#eab308",
   "rosa": "#ec4899", "roxo": "#7c3aed", "marrom": "#78350f", "bege": "#d8c3a5",
   "dourado": "#b8860b", "prata": "#c0c0c0", "laranja": "#f97316", "lilas": "#c4b5fd",

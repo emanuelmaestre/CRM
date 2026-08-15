@@ -32,7 +32,7 @@ export function ConsumoIaPainel({ data }: { data: ConsumoData }) {
       {cortado && (
         <motion.div
           variants={fadeUp}
-          className="mb-5 flex items-center gap-3 rounded-xl border border-[#C21820]/30 bg-[#C21820]/10 px-4 py-3 text-sm text-[#C21820]"
+          className="mb-5 flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           <AlertTriangle size={16} strokeWidth={1.75} className="shrink-0" />
           Orçamento mensal atingido — novas gerações de IA estão bloqueadas até o próximo ciclo (corte suave).
@@ -99,7 +99,7 @@ export function ConsumoIaPainel({ data }: { data: ConsumoData }) {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm tabular-nums text-foreground">{moeda(parseFloat(run.custoUsd ?? "0"))}</p>
-                      <span className={`text-[10px] font-semibold ${run.sucesso === "true" ? "text-[#1F8A4C]" : "text-[#C21820]"}`}>
+                      <span className={`text-[10px] font-semibold ${run.sucesso === "true" ? "text-success" : "text-destructive"}`}>
                         {run.sucesso === "true" ? "sucesso" : "falha"}
                       </span>
                     </div>

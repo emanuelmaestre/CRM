@@ -13,15 +13,16 @@ import { actionObterVisaoGeralAnuncios } from "../actions";
 import { Card } from "../anuncios-primitives";
 import type { ClassificacaoDependencia } from "@/modules/anuncios/application/metricas-calculadas";
 import type { VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
+import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.comparacaoDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 const COR_DEPENDENCIA: Record<ClassificacaoDependencia, string> = {
-  baixa: "#1F8A4C",
-  moderada: "#B57A00",
-  alta: "#E8590C",
-  critica: "#C21820",
+  baixa: "var(--success)",
+  moderada: "var(--warning)",
+  alta: "var(--escala-2)",
+  critica: "var(--destructive)",
 };
 
 function Esqueleto() {
@@ -91,7 +92,7 @@ export function ComparacaoClienteDetalhe() {
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(marca.resumo.investimentoTotal)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(marca.resumo.receitaTotal)}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: marca.resumo.roasMedio === null ? undefined : marca.resumo.roasMedio >= 1 ? "#1F8A4C" : "#C21820" }}>
+                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: marca.resumo.roasMedio === null ? undefined : marca.resumo.roasMedio >= 1 ? "var(--success)" : "var(--destructive)" }}>
                       {marca.resumo.roasMedio === null ? "—" : `${marca.resumo.roasMedio.toFixed(2)}x`}
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
@@ -99,7 +100,7 @@ export function ComparacaoClienteDetalhe() {
                     </td>
                     <td
                       className="px-3 py-2.5 text-right font-semibold tabular-nums"
-                      style={{ color: lucroPositivo ? "#1F8A4C" : "#C21820" }}
+                      style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}
                       title={marca.resumo.lucroIncompleto ? "Estimativa parcial — custo do produto não configurado" : undefined}
                     >
                       {moeda.format(marca.resumo.lucroTotal)}{marca.resumo.lucroIncompleto && "*"}
@@ -108,7 +109,7 @@ export function ComparacaoClienteDetalhe() {
                       {dependencia === null ? (
                         <span className="text-muted-foreground">—</span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: `${COR_DEPENDENCIA[dependencia]}18`, color: COR_DEPENDENCIA[dependencia] }}>
+                        <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tint(COR_DEPENDENCIA[dependencia], 9), color: COR_DEPENDENCIA[dependencia] }}>
                           {copy.dependencia[dependencia]} · {marca.resumo.dependenciaMidia.percentual?.toFixed(0)}%
                         </span>
                       )}

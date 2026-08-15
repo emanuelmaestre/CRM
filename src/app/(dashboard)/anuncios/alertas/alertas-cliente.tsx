@@ -14,6 +14,7 @@ import { Card } from "../anuncios-primitives";
 import { COR_PRIORIDADE, LinhaAlerta, LinhaGrupo } from "../atencao-card";
 import type { PrioridadeAlerta } from "@/modules/anuncios/application/alertas";
 import type { VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
+import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.alertasDetalhe;
 const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -95,7 +96,7 @@ export function AlertasClienteDetalhe() {
               onClick={() => setFiltro(item)}
               className="press-feedback rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
               style={{
-                background: ativo ? `${cor}18` : "var(--muted)",
+                background: ativo ? tint(cor, 9) : "var(--muted)",
                 color: ativo ? cor : "var(--muted-foreground)",
               }}
             >
