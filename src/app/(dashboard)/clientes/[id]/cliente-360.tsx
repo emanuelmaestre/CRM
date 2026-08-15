@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { ArrowLeft, CalendarDays, Check, CircleDot, Download, History, Info, MapPin, Package, Pencil, ShoppingBag, Star, Truck, WalletCards, X, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { isBrandSlug } from "@/shared/config/brands";
 import { actionAtualizarCliente } from "../actions";
 import { exportarClientePDF } from "../exportar-pdf";
 import pagesConfig from "@/config/pages.json";
@@ -42,7 +44,7 @@ type ClienteData = {
     totalPedidos: number; totalGasto: number; ticketMedio: number;
     primeiroPedidoEm: Date | string | null; ultimoPedidoEm: Date | string | null; diasSemComprar: number | null;
     cancelados: number; devolvidos: number;
-    marcaPreferida: { id: string; nome: string; total: number } | null;
+    marcaPreferida: { id: string; nome: string; slug: string; total: number } | null;
     canalPreferido: { canal: string; total: number } | null;
     produtosMaisComprados: Array<{ produtoId: string; nome: string; quantidade: number }>;
   };
@@ -255,8 +257,8 @@ export function Cliente360({
               <span className="mr-1 font-medium text-muted-foreground">Perfil comercial</span>
               <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">{data.classificacaoRelacionamento.label}</span>
               <span className="text-muted-foreground">{data.classificacaoRelacionamento.motivo}</span>
-              {data.resumoComercial.marcaPreferida && <span className="rounded-full bg-muted px-2.5 py-1">Marca preferida: <b>{data.resumoComercial.marcaPreferida.nome}</b></span>}
-              {data.resumoComercial.canalPreferido && <span className="rounded-full bg-muted px-2.5 py-1">Canal preferido: <b>{data.resumoComercial.canalPreferido.canal}</b></span>}
+              {data.resumoComercial.marcaPreferida && <span title={`Marca preferida: ${data.resumoComercial.marcaPreferida.nome}`} className="inline-flex min-h-8 items-center gap-2 rounded-full bg-muted px-3 py-1"><span className="text-muted-foreground">Marca preferida</span>{isBrandSlug(data.resumoComercial.marcaPreferida.slug) ? <BrandLogo brand={data.resumoComercial.marcaPreferida.slug} height={14} /> : <b>{data.resumoComercial.marcaPreferida.nome}</b>}</span>}
+              {data.resumoComercial.canalPreferido && <span title={`Canal preferido: ${data.resumoComercial.canalPreferido.canal}`} className="inline-flex min-h-8 items-center gap-2 rounded-full bg-muted px-3 py-1"><span className="text-muted-foreground">Canal preferido</span><ChannelLogo canal={data.resumoComercial.canalPreferido.canal} size="sm" variant="logo" /></span>}
               {(data.resumoComercial.cancelados > 0 || data.resumoComercial.devolvidos > 0) && <span className="rounded-full bg-destructive/10 px-2.5 py-1 text-destructive">{data.resumoComercial.cancelados} cancelado(s) · {data.resumoComercial.devolvidos} devolvido(s)</span>}
             </div>
             {(() => {

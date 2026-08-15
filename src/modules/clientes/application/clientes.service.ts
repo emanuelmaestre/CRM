@@ -120,11 +120,11 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
       .from(pedido)
       .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id))),
     ctx.db
-      .select({ id: brand.id, nome: brand.name, total: sql<number>`count(*)` })
+      .select({ id: brand.id, nome: brand.name, slug: brand.slug, total: sql<number>`count(*)` })
       .from(pedido)
       .innerJoin(brand, eq(brand.id, pedido.brandId))
       .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id)))
-      .groupBy(brand.id, brand.name)
+      .groupBy(brand.id, brand.name, brand.slug)
       .orderBy(desc(sql`count(*)`)),
     ctx.db
       .select({ canal: pedido.canal, total: sql<number>`count(*)` })
