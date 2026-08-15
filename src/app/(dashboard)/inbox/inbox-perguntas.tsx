@@ -301,7 +301,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
               className="absolute right-0 top-0 bottom-0 hidden w-3 items-center justify-center cursor-col-resize group z-20 lg:flex"
               title={copy.actions.resize}
             >
-              <div className="w-[3px] h-10 rounded-full bg-border group-hover:bg-[rgba(155,48,217,.4)] transition-colors" />
+              <div className="w-[3px] h-10 rounded-full bg-border group-hover:bg-selecionado/40 transition-colors" />
               <GripVertical
                 size={10}
                 strokeWidth={2}
@@ -450,7 +450,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                         aria-expanded={atalhosAbertos}
                         className={`w-10 h-10 rounded-[10px] flex items-center justify-center transition-colors ${
                           atalhosAbertos
-                            ? "text-[#9B30D9] bg-[rgba(155,48,217,.1)]"
+                            ? "text-selecionado bg-selecionado/10"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted"
                         }`}
                       >
@@ -485,7 +485,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                                     key={chip}
                                     type="button"
                                     onClick={() => { usarChip(chip); setAtalhosAbertos(false); }}
-                                    className="rounded-lg px-2.5 py-1.5 text-left text-[12px] leading-snug text-foreground transition-colors hover:bg-[rgba(155,48,217,.08)]"
+                                    className="rounded-lg px-2.5 py-1.5 text-left text-[12px] leading-snug text-foreground transition-colors hover:bg-selecionado/08"
                                   >
                                     {chip}
                                   </button>
@@ -529,7 +529,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                   <div className="flex justify-end">
                     <span
                       className={`text-[10px] tabular-nums transition-colors ${
-                        charPct >= 0.9 ? "text-[#E3131B] font-semibold" : "text-muted-foreground"
+                        charPct >= 0.9 ? "text-destructive font-semibold" : "text-muted-foreground"
                       }`}
                     >
                       {resposta.length} / {limit}

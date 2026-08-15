@@ -287,7 +287,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
                     <span
                       aria-hidden="true"
                       className="absolute inset-0 rounded-full border-2"
-                      style={{ borderColor: "#9B30D9" }}
+                      style={{ borderColor: "var(--selecionado)" }}
                     />
                   )}
                   {dia.getDate()}
@@ -311,7 +311,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
           onClick={() => { const hoje = new Date(); if (!foraDoLimite(hoje)) escolher(hoje); }}
           disabled={foraDoLimite(new Date())}
           className="press-feedback rounded-[0.5rem] px-2 py-1 text-[11px] font-bold transition-colors hover:bg-muted disabled:opacity-40"
-          style={{ color: "#9B30D9" }}
+          style={{ color: "var(--selecionado)" }}
         >
           Hoje
         </button>
@@ -350,9 +350,9 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
         className={cn(
           "group relative inline-flex h-9 w-9 items-center justify-center rounded-[0.75rem] border transition-all duration-200 disabled:opacity-50",
           selecionada
-            ? "border-[color-mix(in_srgb,#9B30D9_45%,var(--border))] bg-[color-mix(in_srgb,#9B30D9_8%,var(--card))]"
+            ? "border-[color-mix(in_srgb,var(--selecionado)_45%,var(--border))] bg-[color-mix(in_srgb,#9B30D9_8%,var(--card))]"
             : "border-border bg-muted hover:border-[rgba(155,48,217,.4)] hover:bg-card",
-          aberto && "border-[#9B30D9] bg-card shadow-[0_0_0_3px_rgba(155,48,217,.12)]",
+          aberto && "border-selecionado bg-card shadow-[0_0_0_3px_rgba(155,48,217,.12)]",
         )}
       >
         <CalendarDays
@@ -361,7 +361,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
           aria-hidden="true"
           className={cn(
             "shrink-0 transition-all duration-200 group-hover:scale-110",
-            selecionada ? "text-[#9B30D9]" : "text-muted-foreground group-hover:text-[#9B30D9]",
+            selecionada ? "text-selecionado" : "text-muted-foreground group-hover:text-selecionado",
           )}
         />
       </motion.button>

@@ -58,7 +58,7 @@ export function ResumoInteligente({ resumo, campanhas }: { resumo: VisaoGeralRes
 
   return (
     <Card>
-      <CardHead title={copy.titulo} icon={Lightbulb} accent="#9B30D9" />
+      <CardHead title={copy.titulo} icon={Lightbulb} accent="var(--acento-2)" />
       <div className="flex flex-col gap-2 px-4 pb-5 pt-3 sm:px-5">
         {frases.map((frase, indice) => (
           <motion.p

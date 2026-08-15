@@ -59,7 +59,7 @@ function LinhaCanal({ canal, indice }: { canal: AtendimentoPorCanal; indice: num
 }
 
 const copy = metricasConfig.atendimentoCard;
-const ACENTO = "#9B30D9";
+const ACENTO = "var(--acento-1)";
 
 /* ── Barra empilhada ───────────────────────────────────────────
    Uma barra só, dividida pelas faixas de espera, em vez de cinco
@@ -128,7 +128,7 @@ function Destaque({ valor, label, cor, sufixo, variacao }: {
           <span
             className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
             style={{
-              background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)",
+              background: positiva ? tint("var(--success)", 12) : tint("var(--destructive)", 12),
               color: positiva ? "var(--success)" : "var(--destructive)",
             }}
           >

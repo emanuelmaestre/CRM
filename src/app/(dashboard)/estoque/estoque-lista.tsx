@@ -265,7 +265,7 @@ function TrilhoEstado({ indicadores, filtro, onFiltro }: {
             aria-pressed={ativo}
             className={`inline-flex min-h-9 items-center gap-2 rounded-full px-3.5 text-xs font-semibold transition-colors ${
               ativo
-                ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)] text-foreground"
+                ? "border-2 border-selecionado bg-selecionado/07 text-foreground"
                 : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
@@ -487,7 +487,7 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
         !conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
-            ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.12)]"
+            ? "border-2 border-selecionado bg-selecionado/12"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
     >
@@ -1014,7 +1014,7 @@ export function EstoqueLista() {
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
           {/* Sem key: o total é dado crítico e não deve re-animar a cada
               filtro (PRD §14.5 — "número não dança depois de carregado"). */}
-          <span className="rounded-full bg-[#9B30D9]/10 px-2.5 py-1 text-xs font-bold text-[#9B30D9] tabular-nums">
+          <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
             {total} {total === 1 ? "produto" : "produtos"}
           </span>
         </div>
@@ -1099,7 +1099,7 @@ export function EstoqueLista() {
                             checked={selecionados.has(p.id)}
                             onChange={() => alternarSelecao(p.id)}
                             aria-label={`Selecionar ${p.nome}`}
-                            className="mt-1 h-4 w-4 shrink-0 accent-[#9B30D9]"
+                            className="mt-1 h-4 w-4 shrink-0 accent-selecionado"
                           />
                         )}
                       </div>
@@ -1154,7 +1154,7 @@ export function EstoqueLista() {
                             checked={selecionados.size > 0 && selecionados.size === produtos.length}
                             onChange={alternarTodos}
                             aria-label="Selecionar todos"
-                            className="h-4 w-4 accent-[#9B30D9]"
+                            className="h-4 w-4 accent-selecionado"
                           />
                         </th>
                       )}
@@ -1205,7 +1205,7 @@ export function EstoqueLista() {
                                 checked={selecionado}
                                 onChange={() => alternarSelecao(p.id)}
                                 aria-label={`Selecionar ${p.nome}`}
-                                className="h-4 w-4 accent-[#9B30D9]"
+                                className="h-4 w-4 accent-selecionado"
                               />
                             </td>
                           )}

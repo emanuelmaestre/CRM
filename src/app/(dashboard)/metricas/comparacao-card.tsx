@@ -14,7 +14,7 @@ import { BarraComLimite, Card, CardHead } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.comparacaoCard;
-const ACENTO = "var(--info)";
+const ACENTO = "var(--acento-3)";
 
 type Criterio = "score" | "faturamento" | "pedidos" | "ticketMedio" | "notaMedia" | "margem";
 

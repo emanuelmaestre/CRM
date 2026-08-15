@@ -48,19 +48,19 @@ const SEGMENTO_COR: Record<string, string> = {
 };
 
 const STATUS_PEDIDO: Record<string, { label: string; color: string; icon: LucideIcon }> = {
-  criado: { label: "Criado", color: "#6F6F6E", icon: CircleDot },
+  criado: { label: "Criado", color: "var(--muted-foreground)", icon: CircleDot },
   pago: { label: "Pago", color: "var(--success)", icon: Check },
   separado: { label: "Separado", color: "var(--info)", icon: Package },
   enviado: { label: "Enviado", color: "var(--info)", icon: Truck },
   entregue: { label: "Entregue", color: "var(--success)", icon: Check },
-  avaliacao_solicitada: { label: "Avaliação solicitada", color: "#6F6F6E", icon: CircleDot },
+  avaliacao_solicitada: { label: "Avaliação solicitada", color: "var(--muted-foreground)", icon: CircleDot },
   concluido: { label: "Concluído", color: "var(--success)", icon: Check },
   cancelado: { label: "Cancelado", color: "var(--destructive)", icon: XCircle },
   devolvido: { label: "Devolvido", color: "var(--destructive)", icon: XCircle },
 };
 
 function StatusPedidoBadge({ status }: { status: string }) {
-  const info = STATUS_PEDIDO[status] ?? { label: status, color: "#6F6F6E", icon: CircleDot };
+  const info = STATUS_PEDIDO[status] ?? { label: status, color: "var(--muted-foreground)", icon: CircleDot };
   const Icon = info.icon;
   return (
     <span

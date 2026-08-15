@@ -14,7 +14,7 @@ import { BarraComLimite, Card, CardHead } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.reputacaoCard;
-const ACENTO = "var(--success)";
+const ACENTO = "var(--acento-1)";
 
 /* ── Termômetro ────────────────────────────────────────────────
    As cinco faixas do Mercado Livre desenhadas como cinco degraus que

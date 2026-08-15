@@ -19,7 +19,7 @@ import { Card, CardHead } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.acoesCard;
-const ACENTO = "#F59E0B";
+const ACENTO = "var(--acento-2)";
 
 type Insight = Awaited<ReturnType<typeof actionListarInsights>>[number];
 type Sugestao = Awaited<ReturnType<typeof actionListarSugestoes>>[number];
@@ -35,7 +35,7 @@ const POSITIVO = /alta|crescimento|recorde|melhor|subiu|aument/i;
 function tomDoInsight(texto: string): { icon: LucideIcon; cor: string } {
   if (ALERTA.test(texto)) return { icon: TrendingDown, cor: "var(--destructive)" };
   if (POSITIVO.test(texto)) return { icon: TrendingUp, cor: "var(--success)" };
-  return { icon: Lightbulb, cor: "#9B30D9" };
+  return { icon: Lightbulb, cor: "var(--selecionado)" };
 }
 
 export function AcoesCard() {

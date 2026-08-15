@@ -61,6 +61,29 @@
   --escala-4: #50760F;  /* bom       */
   --escala-5: #1B7B43;  /* excelente */
 
+  /* ── Acentos terciários ──
+     Só para identificar cards no cabeçalho. Existem porque os destaques
+     vinham da paleta semântica e da paleta de MARCAS: o mesmo verde dizia
+     "este número está bom" e "este card é o de Reputação", e o roxo da WUWU
+     — cor de marca — enfeitava quatro cabeçalhos. Num sistema cuja função é
+     separar KARZI, WUWU e ARMARINHOS LIMA, gastar a cor de uma marca como
+     decoração desliga o sinal mais útil da interface.
+
+     Os três matizes ficam a 27°+ de qualquer matiz já ocupado (semânticas,
+     rampa ordinal e as três marcas), então não são confundíveis com nenhum.
+     Regra: cabeçalho de card usa acento; cor semântica só quando o ASSUNTO
+     do card é aquele estado (ex.: "Gasto sem retorno" é vermelho de direito). */
+  --acento-1: #157781;  /* teal   */
+  --acento-2: #7058D3;  /* índigo */
+  --acento-3: #C42E79;  /* rosa   */
+
+  /* Estado de seleção (filtro ativo, linha marcada, checkbox). Era o roxo da
+     WUWU em ~30 lugares: um filtro selecionado ficava visualmente idêntico a
+     um item da marca WUWU, justamente nas telas que existem para separar as
+     três marcas. Aponta para o acento índigo — perto em espírito, sem ser
+     cor de ninguém. */
+  --selecionado: var(--acento-2);
+
   /* Fontes */
   --font-inter: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-sora: "Sora", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
@@ -113,6 +136,10 @@
   --escala-4: #618F12;
   --escala-5: #219451;
 
+  --acento-1: #198F9C;
+  --acento-2: #8772DA;
+  --acento-3: #D64F93;
+
   /* Elevação e gráficos no tema escuro */
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.25);
   --shadow-card-hover: 0 8px 28px rgba(0, 0, 0, 0.35);
@@ -137,6 +164,10 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-acento-1: var(--acento-1);
+  --color-acento-2: var(--acento-2);
+  --color-acento-3: var(--acento-3);
+  --color-selecionado: var(--selecionado);
   --color-ring: var(--ring);
   --font-sans: var(--font-inter);
 }

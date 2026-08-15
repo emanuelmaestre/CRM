@@ -119,11 +119,11 @@
       },
       "rejeitada": {
         "label": "Rejeitada",
-        "color": "#6B7280"
+        "color": "var(--muted-foreground)"
       },
       "disparada": {
         "label": "Disparada",
-        "color": "#9B30D9"
+        "color": "var(--acento-2)"
       }
     }
   },

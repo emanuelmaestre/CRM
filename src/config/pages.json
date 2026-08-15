@@ -556,11 +556,11 @@
     "status": {
       "nova": {
         "label": "Nova",
-        "color": "#E3131B"
+        "color": "var(--acento-3)"
       },
       "em_atendimento": {
         "label": "Em atendimento",
-        "color": "#9B30D9"
+        "color": "var(--acento-2)"
       },
       "aguardando_cliente": {
         "label": "Aguardando",
@@ -596,9 +596,9 @@
     },
     "questions": {
       "urgencyColors": {
-        "urgent": "#E3131B",
-        "normal": "#9B30D9",
-        "ok": "#1F8A4C"
+        "urgent": "var(--destructive)",
+        "normal": "var(--acento-2)",
+        "ok": "var(--success)"
       },
       "platformOrder": [
         "mercadolivre"

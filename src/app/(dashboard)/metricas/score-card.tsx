@@ -13,7 +13,7 @@ import type { Pilar, SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/a
 import { AnelScore, AvisoParcial, BarraComLimite, Card, CardHead } from "./metricas-primitives";
 
 const copy = metricasConfig.score;
-const ACENTO = "#9B30D9";
+const ACENTO = "var(--acento-2)";
 
 /** Chave da visão consolidada. Não é um brandId — nenhum uuid colide com isto. */
 const CONSOLIDADO = "__consolidado__";

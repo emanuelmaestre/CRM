@@ -31,7 +31,7 @@ function BadgeStatus({ status }: { status: string }) {
 export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }) {
   return (
     <Card>
-      <CardHead title={copy.titulo} subtitle={copy.subtitulo} icon={BarChart3} accent="var(--info)" />
+      <CardHead title={copy.titulo} subtitle={copy.subtitulo} icon={BarChart3} accent="var(--acento-2)" />
       {campanhas.length === 0 ? (
         <EmptyState illustration="reports" title={copy.semDado} />
       ) : (

@@ -7,6 +7,7 @@ import { springs, fadeUp } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { useContagem } from "./anuncios-primitives";
 import { COR_ROAS, SetaRoas, situacaoRoas } from "./roas";
+import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.kpis;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -111,7 +112,7 @@ export function Variacao({ percentual }: { percentual: number | null }) {
       animate={{ opacity: 1 }}
       transition={springs.settleFast}
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
-      style={{ background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)", color: positiva ? "var(--success)" : "var(--destructive)" }}
+      style={{ background: positiva ? tint("var(--success)", 12) : tint("var(--destructive)", 12), color: positiva ? "var(--success)" : "var(--destructive)" }}
     >
       {positiva ? <TrendingUp size={12} strokeWidth={2.5} /> : <TrendingDown size={12} strokeWidth={2.5} />}
       {positiva ? "+" : ""}{percentual}%

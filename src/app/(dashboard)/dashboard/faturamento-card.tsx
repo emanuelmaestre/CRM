@@ -12,6 +12,7 @@ import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "./card-primitives";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
 import type { Periodo } from "./page";
+import { tint } from "@/shared/design-system/color";
 
 const copy = dashboardConfig.cards.faturamento;
 
@@ -168,7 +169,7 @@ export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carrega
                   <span
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
                     style={{
-                      background: positiva ? "rgba(31,138,76,.12)" : "rgba(194,24,32,.12)",
+                      background: positiva ? tint("var(--success)", 12) : tint("var(--destructive)", 12),
                       color: positiva ? "var(--success)" : "var(--destructive)",
                     }}
                   >

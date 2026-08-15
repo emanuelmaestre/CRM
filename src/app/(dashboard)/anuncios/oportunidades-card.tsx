@@ -64,7 +64,7 @@ function LinhaOportunidade({ oportunidade, indice }: { oportunidade: Oportunidad
 export function OportunidadesCard({ oportunidades }: { oportunidades: Oportunidade[] }) {
   return (
     <Card>
-      <CardHead title={copy.titulo} icon={Radar} accent="var(--success)" />
+      <CardHead title={copy.titulo} icon={Radar} accent="var(--acento-3)" />
       {oportunidades.length === 0 ? (
         <EmptyState illustration="generic" title={copy.vazio} description={copy.vazioDescricao} />
       ) : (

@@ -30,7 +30,7 @@ const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 const CORES_STATUS: Record<string, string> = {
-  criado: "#6F6F6E",
+  criado: "var(--muted-foreground)",
   pago: "var(--info)",
   separado: "var(--info)",
   enviado: "var(--warning)",
@@ -111,7 +111,7 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
         !canal.conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
-            ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)]"
+            ? "border-2 border-selecionado bg-selecionado/07"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
     >
@@ -153,8 +153,8 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
             style={{
-              background: `color-mix(in srgb, ${CORES_STATUS[item.status] ?? "#6F6F6E"} 10%, transparent)`,
-              color: CORES_STATUS[item.status] ?? "#6F6F6E",
+              background: `color-mix(in srgb, ${CORES_STATUS[item.status] ?? "var(--muted-foreground)"} 10%, transparent)`,
+              color: CORES_STATUS[item.status] ?? "var(--muted-foreground)",
             }}
           >
             {statusLabel(item.status)}
@@ -185,7 +185,7 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
                   <span className="inline-flex items-center gap-1.5">
                     Canal: <ChannelLogo canal={item.canal} size="xs" variant="logo" /> {canalLabel(item.canal)}
                   </span>
-                  <Link href={`/vendas/pedidos/${item.id}`} className="font-semibold text-[#9B30D9] hover:underline">
+                  <Link href={`/vendas/pedidos/${item.id}`} className="font-semibold text-selecionado hover:underline">
                     Ver detalhe completo →
                   </Link>
                 </div>
@@ -305,7 +305,7 @@ export function PedidosLista() {
           aria-pressed={status === ""}
           className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${
             status === ""
-              ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)] text-foreground"
+              ? "border-2 border-selecionado bg-selecionado/07 text-foreground"
               : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
@@ -322,7 +322,7 @@ export function PedidosLista() {
               aria-pressed={ativo}
               className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${
                 ativo
-                  ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.07)] text-foreground"
+                  ? "border-2 border-selecionado bg-selecionado/07 text-foreground"
                   : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
@@ -357,7 +357,7 @@ export function PedidosLista() {
       >
         <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-foreground">{copy.title}</p>
-          <span className="rounded-full bg-[#9B30D9]/10 px-2.5 py-1 text-xs font-bold text-[#9B30D9] tabular-nums">
+          <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
             {total} {total === 1 ? "pedido" : "pedidos"}
           </span>
         </div>
@@ -399,13 +399,13 @@ export function PedidosLista() {
                       <span
                         className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
                         style={{
-                          background: `color-mix(in srgb, ${CORES_STATUS[item.status] ?? "#6F6F6E"} 10%, transparent)`,
-                          color: CORES_STATUS[item.status] ?? "#6F6F6E",
+                          background: `color-mix(in srgb, ${CORES_STATUS[item.status] ?? "var(--muted-foreground)"} 10%, transparent)`,
+                          color: CORES_STATUS[item.status] ?? "var(--muted-foreground)",
                         }}
                       >
                         {statusLabel(item.status)}
                       </span>
-                      <span className="text-xs font-semibold text-[#9B30D9]">Ver detalhes</span>
+                      <span className="text-xs font-semibold text-selecionado">Ver detalhes</span>
                     </div>
                   </Link>
                 ))}

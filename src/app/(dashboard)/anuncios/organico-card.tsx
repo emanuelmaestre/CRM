@@ -9,7 +9,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { BarraSimples, Card, CardHead } from "./anuncios-primitives";
 
 const copy = anunciosConfig.organico;
-const ACENTO = "#9B30D9";
+const ACENTO = "var(--acento-1)";
 
 const LABEL_CLASSIFICACAO: Record<string, string> = {
   baixa: "Dependência baixa",

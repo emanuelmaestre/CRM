@@ -115,7 +115,7 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
         !conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
-            ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.12)]"
+            ? "border-2 border-selecionado bg-selecionado/12"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
     >
@@ -328,7 +328,7 @@ export function ClientesLista() {
       >
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
-          <span className="rounded-full bg-[rgba(155,48,217,.1)] px-2.5 py-1 text-xs font-bold tabular-nums text-[#9B30D9]">
+          <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold tabular-nums text-selecionado">
             {total} {total === 1 ? "cliente" : "clientes"}
           </span>
         </div>

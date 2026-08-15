@@ -15,6 +15,7 @@ import { inputClass } from "@/shared/design-system/primitives/WizardLayout";
 import { analisarTituloProduto } from "@/shared/lib/produto-titulo";
 import channelsConfig from "@/config/channels.json";
 import pagesConfig from "@/config/pages.json";
+import { tint } from "@/shared/design-system/color";
 
 const copy = pagesConfig.estoque.channels;
 
@@ -236,7 +237,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                     {contaSelecionada ? (
                       <div
                         className="flex items-center gap-2.5 rounded-[0.75rem] border px-3 py-2.5"
-                        style={{ borderColor: "#9B30D9", background: "rgba(155,48,217,.07)" }}
+                        style={{ borderColor: "var(--selecionado)", background: tint("var(--selecionado)", 7) }}
                       >
                         <ChannelLogo canal={contaSelecionada.tipo} size="sm" variant="logo" />
                         <div className="min-w-0 flex-1">
@@ -245,7 +246,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                             <p className="text-[10px] text-destructive">{copy.disconnectedSuffix.replace("— ", "")}</p>
                           )}
                         </div>
-                        <Check size={14} className="shrink-0" style={{ color: "#9B30D9" }} strokeWidth={2.5} />
+                        <Check size={14} className="shrink-0" style={{ color: "var(--selecionado)" }} strokeWidth={2.5} />
                         <button
                           type="button"
                           onClick={() => setNovaContaId("")}

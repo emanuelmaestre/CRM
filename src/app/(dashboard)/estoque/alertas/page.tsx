@@ -207,7 +207,7 @@ export default function ConfigurarAlertasEstoque() {
                 aria-pressed={canal === ""}
                 className={`inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold transition-colors ${
                   canal === ""
-                    ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.06)] text-foreground"
+                    ? "border-2 border-selecionado bg-selecionado/06 text-foreground"
                     : "border border-border bg-card text-muted-foreground hover:bg-muted"
                 }`}
               >
@@ -223,7 +223,7 @@ export default function ConfigurarAlertasEstoque() {
                   title={canalLabel(item.tipo)}
                   className={`inline-flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold transition-colors ${
                     canal === item.tipo
-                      ? "border-2 border-[#9B30D9] bg-[rgba(155,48,217,.06)] text-foreground"
+                      ? "border-2 border-selecionado bg-selecionado/06 text-foreground"
                       : "border border-border bg-card text-muted-foreground hover:bg-muted"
                   }`}
                 >
@@ -246,7 +246,7 @@ export default function ConfigurarAlertasEstoque() {
               type="checkbox"
               checked={somenteSemMinimo}
               onChange={(event) => setSomenteSemMinimo(event.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#9B30D9]"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-selecionado"
             />
             <span className="min-w-0">
               <span className="block text-sm font-medium text-foreground">{copy.escopo.onlyWithoutLabel}</span>
@@ -274,14 +274,14 @@ export default function ConfigurarAlertasEstoque() {
               onClick={() => setTipo("giro")}
               aria-pressed={tipo === "giro"}
               className={`flex w-full items-start gap-3 rounded-[0.75rem] border p-4 text-left transition-colors ${
-                tipo === "giro" ? "border-[#9B30D9] bg-[rgba(155,48,217,.05)]" : "border-border bg-card hover:bg-muted"
+                tipo === "giro" ? "border-selecionado bg-selecionado/05" : "border-border bg-card hover:bg-muted"
               }`}
             >
               <TrendingUp size={17} strokeWidth={1.75} className="mt-0.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-foreground">
                   {copy.regua.giroTitle}{" "}
-                  <span className="font-medium text-[#9B30D9]">· {copy.regua.giroRecommended}</span>
+                  <span className="font-medium text-selecionado">· {copy.regua.giroRecommended}</span>
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground">{copy.regua.giroDescription}</span>
               </span>
@@ -292,7 +292,7 @@ export default function ConfigurarAlertasEstoque() {
               onClick={() => setTipo("fixo")}
               aria-pressed={tipo === "fixo"}
               className={`flex w-full items-start gap-3 rounded-[0.75rem] border p-4 text-left transition-colors ${
-                tipo === "fixo" ? "border-[#9B30D9] bg-[rgba(155,48,217,.05)]" : "border-border bg-card hover:bg-muted"
+                tipo === "fixo" ? "border-selecionado bg-selecionado/05" : "border-border bg-card hover:bg-muted"
               }`}
             >
               <Ruler size={17} strokeWidth={1.75} className="mt-0.5 shrink-0 text-muted-foreground" />
@@ -447,7 +447,7 @@ export default function ConfigurarAlertasEstoque() {
                           type="checkbox"
                           checked={!fora}
                           onChange={() => alternarExclusao(item.id)}
-                          className="h-4 w-4 shrink-0 accent-[#9B30D9]"
+                          className="h-4 w-4 shrink-0 accent-selecionado"
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-medium text-foreground">{item.nome}</span>

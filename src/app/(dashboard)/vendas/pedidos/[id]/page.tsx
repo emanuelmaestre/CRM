@@ -19,7 +19,7 @@ function moeda(valor: string | null): string {
 }
 
 const CORES_STATUS: Record<string, string> = {
-  criado: "#6F6F6E",
+  criado: "var(--muted-foreground)",
   pago: "var(--info)",
   separado: "var(--info)",
   enviado: "var(--warning)",
@@ -107,8 +107,8 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
             data-testid="status-pedido"
             className="rounded-full px-3 py-1.5 text-sm font-semibold"
             style={{
-              background: `color-mix(in srgb, ${CORES_STATUS[detalhe.status] ?? "#6F6F6E"} 10%, transparent)`,
-              color: CORES_STATUS[detalhe.status] ?? "#6F6F6E",
+              background: `color-mix(in srgb, ${CORES_STATUS[detalhe.status] ?? "var(--muted-foreground)"} 10%, transparent)`,
+              color: CORES_STATUS[detalhe.status] ?? "var(--muted-foreground)",
             }}
           >
             {statusLabel(detalhe.status)}
@@ -121,7 +121,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
         <div>
           <dt className="text-xs text-muted-foreground">{copy.customer}</dt>
           <dd className="mt-1 font-semibold text-foreground">
-            <Link href={`/clientes/${detalhe.clienteId}`} className="transition-colors hover:text-[#9B30D9] hover:underline">
+            <Link href={`/clientes/${detalhe.clienteId}`} className="transition-colors hover:text-selecionado hover:underline">
               {detalhe.clienteNome}
             </Link>
           </dd>

@@ -81,7 +81,7 @@ function GraficoHistorico({ pontos }: { pontos: PontoHistorico[] }) {
 
   return (
     <Card>
-      <CardHead title={copy.title} icon={LineChart} accent="var(--info)" />
+      <CardHead title={copy.title} icon={LineChart} accent="var(--acento-2)" />
       <div className="px-4 pb-4 sm:px-5">
         <div className="mb-2 flex items-center gap-4 text-[11px] font-medium text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-info" /> {copy.grafico.investimento}</span>

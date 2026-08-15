@@ -239,7 +239,7 @@ function LinhaAnuncio({ item, aberta, onAlternar }: {
               {item.reviewsTotal ? `${item.reviewsTotal} opiniões` : "Sem opiniões"}
             </p>
           </div>
-          <span className={`w-10 text-right text-xl font-black tabular-nums ${baixa ? "text-[#E3131B]" : "text-foreground"}`}>
+          <span className={`w-10 text-right text-xl font-black tabular-nums ${baixa ? "text-destructive" : "text-foreground"}`}>
             {item.ratingAverage?.toFixed(1) ?? "—"}
           </span>
           {temDetalhe ? (
@@ -431,7 +431,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
                 : `${totalOpinioes.toLocaleString("pt-BR")} opiniões · ${comentadas.toLocaleString("pt-BR")} com texto`}
             </p>
             {!carregando && atencao > 0 && (
-              <p className="mt-1 text-xs font-semibold text-[#E3131B]">
+              <p className="mt-1 text-xs font-semibold text-destructive">
                 {atencao} {atencao === 1 ? "anúncio abaixo de 4,0" : "anúncios abaixo de 4,0"}
               </p>
             )}

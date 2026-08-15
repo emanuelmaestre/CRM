@@ -16,7 +16,7 @@ export function ClientsIllustration() {
       <defs>
         <linearGradient id="clients-grad" x1="30" y1="14" x2="58" y2="34" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -36,7 +36,7 @@ export function ConversationIllustration() {
       <defs>
         <linearGradient id="conv-grad" x1="28" y1="24" x2="84" y2="58" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -54,7 +54,7 @@ export function ReportsIllustration() {
       <defs>
         <linearGradient id="reports-grad" x1="48" y1="16" x2="58" y2="50" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -74,7 +74,7 @@ export function RevenueIllustration() {
       <defs>
         <linearGradient id="revenue-grad" x1="18" y1="10" x2="67" y2="48" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -93,7 +93,7 @@ export function BestSellersIllustration() {
       <defs>
         <linearGradient id="best-grad" x1="32" y1="8" x2="56" y2="46" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -113,7 +113,7 @@ export function RestockIllustration() {
       <defs>
         <linearGradient id="restock-grad" x1="58" y1="6" x2="80" y2="46" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -131,7 +131,7 @@ export function SlowMovingIllustration() {
       <defs>
         <linearGradient id="slow-grad" x1="56" y1="36" x2="68" y2="46" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -150,7 +150,7 @@ export function DeadStockIllustration() {
       <defs>
         <linearGradient id="dead-grad" x1="60" y1="12" x2="80" y2="54" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -169,7 +169,7 @@ export function ComplaintsIllustration() {
       <defs>
         <linearGradient id="complaints-grad" x1="38" y1="24" x2="82" y2="58" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -191,7 +191,7 @@ export function NoThresholdIllustration() {
       <defs>
         <linearGradient id="nothreshold-grad" x1="6" y1="14" x2="80" y2="24" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -212,7 +212,7 @@ export function HealthyStockIllustration() {
       <defs>
         <linearGradient id="healthy-grad" x1="6" y1="9" x2="80" y2="22" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
@@ -228,7 +228,7 @@ export function GenericIllustration() {
       <defs>
         <linearGradient id="generic-grad" x1="38" y1="8" x2="50" y2="20" gradientUnits="userSpaceOnUse">
           <stop stopColor="#E3131B" />
-          <stop offset="1" stopColor="#9B30D9" />
+          <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
     </svg>
