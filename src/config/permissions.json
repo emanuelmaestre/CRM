@@ -6,7 +6,7 @@
     },
     "gestor": {
       "label": "Gestor",
-      "description": "Operação comercial, estoque, importações e relatórios, sem administrar usuários."
+      "description": "Operação comercial, estoque, importações e métricas, sem administrar usuários."
     },
     "vendedor": {
       "label": "Vendedor",
@@ -14,12 +14,52 @@
     }
   },
   "routes": [
-    { "prefix": "/admin", "profiles": ["admin"] },
-    { "prefix": "/auditoria", "profiles": ["admin"] },
-    { "prefix": "/configuracoes", "profiles": ["admin"] },
-    { "prefix": "/relatorios", "profiles": ["admin", "gestor"] },
-    { "prefix": "/importacao", "profiles": ["admin", "gestor"] },
-    { "prefix": "/estoque/alertas", "profiles": ["admin", "gestor"] }
+    {
+      "prefix": "/admin",
+      "profiles": [
+        "admin"
+      ]
+    },
+    {
+      "prefix": "/auditoria",
+      "profiles": [
+        "admin"
+      ]
+    },
+    {
+      "prefix": "/configuracoes",
+      "profiles": [
+        "admin"
+      ]
+    },
+    {
+      "prefix": "/metricas",
+      "profiles": [
+        "admin",
+        "gestor"
+      ]
+    },
+    {
+      "prefix": "/importacao",
+      "profiles": [
+        "admin",
+        "gestor"
+      ]
+    },
+    {
+      "prefix": "/estoque/alertas",
+      "profiles": [
+        "admin",
+        "gestor"
+      ]
+    },
+    {
+      "prefix": "/anuncios",
+      "profiles": [
+        "admin",
+        "gestor"
+      ]
+    }
   ],
   "messages": {
     "restrictedEyebrow": "Acesso restrito",

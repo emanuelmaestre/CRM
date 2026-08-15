@@ -12,8 +12,8 @@ import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead } from "./card-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { actionListarMensagensReclamacao, actionResponderReclamacao } from "./actions";
-import type { ReclamacaoMensagem } from "@/modules/relatorios/application/reclamacoes.service";
-import type { ReclamacoesResultado } from "@/modules/relatorios/application/reclamacoes.service";
+import type { ReclamacaoMensagem } from "@/modules/metricas/application/reclamacoes.service";
+import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 
 const copy = dashboardConfig.cards.reclamacoes;
 

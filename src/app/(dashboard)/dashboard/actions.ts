@@ -5,12 +5,12 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   obterDashboardData,
   type DashboardFilters,
-} from "@/modules/relatorios/application/dashboard.service";
+} from "@/modules/metricas/application/dashboard.service";
 import {
   listarMensagensReclamacao,
   obterReclamacoesAbertas,
   responderReclamacao,
-} from "@/modules/relatorios/application/reclamacoes.service";
+} from "@/modules/metricas/application/reclamacoes.service";
 
 export async function actionObterDashboardData(filters?: DashboardFilters) {
   const ctx = await getCrudContext();

@@ -244,6 +244,7 @@ export async function ingerirPedido(
       produtoId: produtoPorSku.get(item.skuExterno)!,
       quantidade: item.quantidade,
       precoUnitario: item.precoUnitario,
+      taxaMarketplace: item.taxaMarketplace ?? null,
     })));
 
     const eventos: PersistedDomainEvent[] = [];

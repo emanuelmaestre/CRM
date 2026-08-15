@@ -1,0 +1,295 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { HeartPulse, Info } from "lucide-react";
+import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
+import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
+import { springs } from "@/shared/design-system/motion-variants";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import metricasConfig from "@/config/metricas.json";
+import type { Pilar, SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
+import { AnelScore, AvisoParcial, BarraComLimite, Card, CardHead } from "./metricas-primitives";
+
+const copy = metricasConfig.score;
+const ACENTO = "#9B30D9";
+
+/** Chave da visão consolidada. Não é um brandId — nenhum uuid colide com isto. */
+const CONSOLIDADO = "__consolidado__";
+
+/* ── Seletor de escopo ─────────────────────────────────────────
+   Uma fileira só: "Consolidado" + uma pílula por marca. A pastilha
+   ativa é um único elemento que desliza (layoutId), então trocar de
+   marca é um movimento contínuo — o olho segue de onde saiu para
+   onde chegou em vez de reencontrar um estado novo. */
+function SeletorEscopo({ marcas, valor, onChange }: {
+  marcas: SaudeMarca[];
+  valor: string;
+  onChange: (valor: string) => void;
+}) {
+  const opcoes = [
+    { chave: CONSOLIDADO, label: copy.consolidado, slug: null as string | null },
+    ...marcas.map((marca) => ({ chave: marca.brandId, label: marca.marcaLabel, slug: marca.marca })),
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-1 rounded-[0.9rem] bg-muted p-1" role="tablist">
+      {opcoes.map((opcao) => {
+        const ativo = opcao.chave === valor;
+        const cor = opcao.slug && isBrandSlug(opcao.slug)
+          ? getBrandConfig(opcao.slug)?.color
+          : undefined;
+        return (
+          <button
+            key={opcao.chave}
+            type="button"
+            role="tab"
+            aria-selected={ativo}
+            onClick={() => onChange(opcao.chave)}
+            className="press-feedback relative flex h-8 items-center gap-1.5 rounded-[0.6rem] px-3 text-xs font-semibold transition-colors"
+            style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
+          >
+            {ativo && (
+              <motion.span
+                layoutId="metricas-escopo"
+                transition={springs.settleFast}
+                className="absolute inset-0 rounded-[0.6rem] bg-card shadow-[0_1px_4px_rgba(14,15,19,.10)]"
+                style={cor ? { boxShadow: `0 1px 4px ${cor}33` } : undefined}
+              />
+            )}
+            <span className="relative z-10 flex items-center gap-1.5">
+              {opcao.slug && isBrandSlug(opcao.slug)
+                ? <BrandLogo brand={opcao.slug} height={14} />
+                : opcao.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── Linha de pilar ────────────────────────────────────────────
+   O peso fica visível ao lado do nome. Sem isso o leitor não tem
+   como saber por que o score não subiu quando "Estoque" foi de 40
+   para 90 — Estoque vale 10, Reputação vale 30. */
+function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
+  const semDado = pilar.nota === null;
+  const cor = semDado
+    ? "var(--muted-foreground)"
+    : (pilar.nota as number) >= 70 ? "#1F8A4C"
+    : (pilar.nota as number) >= 50 ? "#B57A00"
+    : "#C21820";
+
+  return (
+    <motion.li
+      initial={{ opacity: 0, x: -6 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ ...springs.settleFast, delay: indice * 0.05 }}
+      className="flex flex-col gap-1.5"
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span className={`truncate text-[13px] font-semibold ${semDado ? "text-muted-foreground" : "text-foreground"}`}>
+            {pilar.label}
+          </span>
+          <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">
+            peso {pilar.peso}
+          </span>
+        </span>
+        <span
+          className="shrink-0 text-[13px] font-bold tabular-nums"
+          style={{ color: cor }}
+        >
+          {semDado ? "—" : Math.round(pilar.nota as number)}
+        </span>
+      </div>
+      <BarraComLimite
+        valor={pilar.nota ?? 0}
+        maximo={100}
+        cor={cor}
+        altura={6}
+        atraso={0.08 + indice * 0.05}
+      />
+      <p className="text-[11px] leading-snug text-muted-foreground">{pilar.detalhe}</p>
+    </motion.li>
+  );
+}
+
+function Esqueleto() {
+  return (
+    <div className="flex flex-col gap-6 px-5 pb-5 pt-6 sm:flex-row sm:items-center">
+      <Skeleton className="h-[168px] w-[168px] rounded-full" />
+      <div className="flex-1 space-y-4">
+        {[0, 1, 2, 3, 4].map((linha) => (
+          <div key={linha} className="space-y-1.5">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-1.5 w-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function ScoreCard({ dados, carregando }: {
+  dados: SaudeLojaResultado | null;
+  carregando: boolean;
+}) {
+  const [escopo, setEscopo] = useState<string>(CONSOLIDADO);
+  const [explicando, setExplicando] = useState(false);
+  const reduzir = useReducedMotion();
+
+  const marcaSelecionada = useMemo(
+    () => dados?.marcas.find((marca) => marca.brandId === escopo) ?? null,
+    [dados, escopo],
+  );
+
+  // Consolidado não tem pilares próprios: ele é o resumo do conjunto. Mostrar
+  // pilares "médios" ali seria inventar um número que não existe em lugar
+  // nenhum, então a visão consolidada mostra o placar de cada marca.
+  const consolidado = escopo === CONSOLIDADO;
+  const score = consolidado ? dados?.scoreGeral ?? null : marcaSelecionada?.score ?? null;
+  const faixaLabel = consolidado ? dados?.faixaGeralLabel ?? null : marcaSelecionada?.faixaLabel ?? null;
+  const cor = (consolidado ? dados?.faixaGeralCor : marcaSelecionada?.faixaCor) ?? "var(--muted-foreground)";
+
+  return (
+    <Card>
+      <CardHead
+        title={copy.titulo}
+        subtitle={dados ? `${copy.subtitulo} · ${dados.periodoLabel}` : copy.subtitulo}
+        icon={HeartPulse}
+        accent={ACENTO}
+        trailing={
+          <button
+            type="button"
+            onClick={() => setExplicando((atual) => !atual)}
+            aria-expanded={explicando}
+            className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <Info size={13} /> Como é calculado
+          </button>
+        }
+      />
+
+      <AnimatePresence initial={false}>
+        {explicando && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={springs.settleFast}
+            className="overflow-hidden px-5"
+          >
+            <p className="mt-3 rounded-[0.9rem] border border-border bg-muted/50 px-3.5 py-3 text-[12px] leading-relaxed text-muted-foreground">
+              {copy.explicacao}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {carregando && !dados ? (
+        <Esqueleto />
+      ) : !dados || dados.marcas.length === 0 ? (
+        <EmptyState illustration="reports" title={copy.semDado} description={copy.semDadoDescricao} />
+      ) : (
+        <motion.div animate={{ opacity: carregando ? 0.55 : 1 }} transition={springs.settleFast} className="px-4 pb-5 sm:px-5">
+          <div className="mt-4">
+            <SeletorEscopo marcas={dados.marcas} valor={escopo} onChange={setEscopo} />
+          </div>
+
+          <div className="mt-5 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+            <div className="flex flex-col items-center gap-2">
+              <AnelScore valor={score} cor={cor} faixaLabel={faixaLabel} />
+              {consolidado && (
+                <p className="max-w-[168px] text-center text-[10px] leading-snug text-muted-foreground">
+                  {copy.consolidadoNota}
+                </p>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <AnimatePresence mode="wait" initial={false}>
+                {consolidado ? (
+                  <motion.ul
+                    key="consolidado"
+                    initial={reduzir ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduzir ? undefined : { opacity: 0, y: -6 }}
+                    transition={springs.settleFast}
+                    className="flex flex-col gap-3"
+                  >
+                    {dados.marcas.map((marca, indice) => (
+                      <motion.li
+                        key={marca.brandId}
+                        layout
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ ...springs.settleFast, delay: indice * 0.05 }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setEscopo(marca.brandId)}
+                          className="press-feedback flex w-full flex-col gap-1.5 rounded-[0.9rem] px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                        >
+                          <span className="flex items-baseline justify-between gap-3">
+                            <span className="flex min-w-0 items-center gap-2">
+                              {isBrandSlug(marca.marca)
+                                ? <BrandLogo brand={marca.marca} height={15} />
+                                : <span className="truncate text-[13px] font-semibold text-foreground">{marca.marcaLabel}</span>}
+                              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {marca.faixaLabel ?? "sem dado"}
+                              </span>
+                            </span>
+                            <span
+                              className="shrink-0 text-[15px] font-bold tabular-nums"
+                              style={{ color: marca.faixaCor ?? "var(--muted-foreground)" }}
+                            >
+                              {marca.score ?? "—"}
+                            </span>
+                          </span>
+                          <BarraComLimite
+                            valor={marca.score ?? 0}
+                            maximo={100}
+                            cor={marca.faixaCor ?? "var(--muted-foreground)"}
+                            altura={6}
+                            atraso={0.1 + indice * 0.05}
+                          />
+                        </button>
+                      </motion.li>
+                    ))}
+                  </motion.ul>
+                ) : (
+                  <motion.ul
+                    key={escopo}
+                    initial={reduzir ? false : { opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={reduzir ? undefined : { opacity: 0, y: -6 }}
+                    transition={springs.settleFast}
+                    className="flex flex-col gap-3.5"
+                  >
+                    {marcaSelecionada?.pilares.map((pilar, indice) => (
+                      <LinhaPilar key={pilar.chave} pilar={pilar} indice={indice} />
+                    ))}
+                  </motion.ul>
+                )}
+              </AnimatePresence>
+
+              {!consolidado && marcaSelecionada && marcaSelecionada.pilaresMedidos < 5 && (
+                <div className="mt-4">
+                  <AvisoParcial>
+                    <Info size={13} className="mt-[1px] shrink-0" />
+                    <span>
+                      {copy.parcialPrefixo} <strong className="font-semibold text-foreground">{marcaSelecionada.pilaresMedidos}</strong> {copy.parcialSufixo}.
+                    </span>
+                  </AvisoParcial>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </Card>
+  );
+}

@@ -5,18 +5,114 @@
   "homeHref": "/dashboard",
   "mobilePrimaryCount": 4,
   "items": [
-    { "id": "dashboard", "href": "/dashboard", "label": "Painel", "icon": "LayoutDashboard", "mobilePriority": 1, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "clientes", "href": "/clientes", "label": "Clientes", "icon": "Users", "mobilePriority": 2, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "inbox", "href": "/inbox", "label": "Mensagens", "icon": "MessageSquare", "mobilePriority": 3, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "vendas", "href": "/vendas", "label": "Vendas", "icon": "ShoppingCart", "mobilePriority": 5, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "estoque", "href": "/estoque", "label": "Estoque", "icon": "Package", "mobilePriority": 6, "profiles": ["admin", "gestor", "vendedor"] },
-    { "id": "relatorios", "href": "/relatorios", "label": "Relatórios", "icon": "BarChart2", "profiles": ["admin", "gestor"] }
+    {
+      "id": "dashboard",
+      "href": "/dashboard",
+      "label": "Painel",
+      "icon": "LayoutDashboard",
+      "mobilePriority": 1,
+      "profiles": [
+        "admin",
+        "gestor",
+        "vendedor"
+      ]
+    },
+    {
+      "id": "clientes",
+      "href": "/clientes",
+      "label": "Clientes",
+      "icon": "Users",
+      "mobilePriority": 2,
+      "profiles": [
+        "admin",
+        "gestor",
+        "vendedor"
+      ]
+    },
+    {
+      "id": "inbox",
+      "href": "/inbox",
+      "label": "Mensagens",
+      "icon": "MessageSquare",
+      "mobilePriority": 3,
+      "profiles": [
+        "admin",
+        "gestor",
+        "vendedor"
+      ]
+    },
+    {
+      "id": "vendas",
+      "href": "/vendas",
+      "label": "Vendas",
+      "icon": "ShoppingCart",
+      "mobilePriority": 5,
+      "profiles": [
+        "admin",
+        "gestor",
+        "vendedor"
+      ]
+    },
+    {
+      "id": "estoque",
+      "href": "/estoque",
+      "label": "Estoque",
+      "icon": "Package",
+      "mobilePriority": 6,
+      "profiles": [
+        "admin",
+        "gestor",
+        "vendedor"
+      ]
+    },
+    {
+      "id": "metricas",
+      "href": "/metricas",
+      "label": "Métricas",
+      "icon": "BarChart2",
+      "profiles": [
+        "admin",
+        "gestor"
+      ]
+    },
+    {
+      "id": "anuncios",
+      "href": "/anuncios",
+      "label": "Anúncios",
+      "icon": "Megaphone",
+      "profiles": [
+        "admin",
+        "gestor"
+      ]
+    }
   ],
   "utilities": {
-    "search": { "label": "Buscar…", "shortcut": "⌘K", "icon": "Search" },
-    "notifications": { "label": "Notificações", "icon": "Bell" },
-    "settings": { "href": "/configuracoes", "label": "Configurações", "icon": "Settings", "profiles": ["admin"] },
-    "logout": { "label": "Sair", "icon": "LogOut" },
-    "more": { "label": "Mais", "icon": "MoreHorizontal", "closeLabel": "Fechar menu", "sheetAriaLabel": "Mais seções" }
+    "search": {
+      "label": "Buscar…",
+      "shortcut": "⌘K",
+      "icon": "Search"
+    },
+    "notifications": {
+      "label": "Notificações",
+      "icon": "Bell"
+    },
+    "settings": {
+      "href": "/configuracoes",
+      "label": "Configurações",
+      "icon": "Settings",
+      "profiles": [
+        "admin"
+      ]
+    },
+    "logout": {
+      "label": "Sair",
+      "icon": "LogOut"
+    },
+    "more": {
+      "label": "Mais",
+      "icon": "MoreHorizontal",
+      "closeLabel": "Fechar menu",
+      "sheetAriaLabel": "Mais seções"
+    }
   }
 }

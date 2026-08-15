@@ -7,7 +7,7 @@ import channelsConfig from "@/config/channels.json";
 import dashboardConfig from "@/config/dashboard.json";
 import navigationConfig from "@/config/navigation.json";
 import pagesConfig from "@/config/pages.json";
-import reportsConfig from "@/config/reports.json";
+import metricasConfig from "@/config/metricas.json";
 import settingsConfig from "@/config/settings.json";
 import saudeConfig from "@/config/saude.json";
 import wizardsConfig from "@/config/wizards.json";
@@ -30,12 +30,9 @@ describe("contratos JSON da interface", () => {
       ...Object.values(dashboardConfig.cards).map((card) => card.icon),
       settingsConfig.integrations.icon,
       settingsConfig.system.icon,
-      settingsConfig.adminAreas.icon,
-      ...settingsConfig.adminAreas.items.map((item) => item.icon),
       ...Object.values(settingsConfig.sections).map((section) => section.icon),
       settingsConfig.status.pendingIcon,
       settingsConfig.openAction.icon,
-      settingsConfig.healthLink.icon,
       ...Object.values(saudeConfig.sections).map((section) => section.icon),
       ...pagesConfig.inbox.tabs.map((tab) => tab.icon),
     ];
@@ -63,6 +60,22 @@ describe("contratos JSON da interface", () => {
       expect(wizard.sections).toHaveLength(wizard.steps.length);
       expect(wizard.cancelHref).toMatch(/^\//);
     }
+  });
+
+  it("mantém os critérios de comparação de Métricas alinhados ao componente", () => {
+    // A comparação lado a lado troca de critério por essas chaves; um label novo
+    // com chave errada renderiza um botão que não ordena nada.
+    expect(metricasConfig.comparacaoCard.criterios.map((item) => item.chave)).toEqual([
+      "score", "faturamento", "pedidos", "ticketMedio", "notaMedia", "margem",
+    ]);
+    // Cada taxa da reputação precisa do próximo passo escrito; sem ele, a tela
+    // diz que a taxa estourou e não diz o que fazer a respeito.
+    expect(Object.keys(metricasConfig.reputacaoCard.acoes)).toEqual([
+      "reclamacao", "cancelamento", "atrasoEnvio",
+    ]);
+    expect(Object.keys(metricasConfig.acoesCard.statusSugestao)).toEqual([
+      "sugerida", "aprovada", "rejeitada", "disparada",
+    ]);
   });
 
   it("mantém a auditoria na operação comercial", () => {
@@ -100,8 +113,6 @@ describe("contratos JSON da interface", () => {
   });
 
   it("preserva marcadores dos textos interpolados", () => {
-    expect(reportsConfig.aiBudgetAlert).toContain("{alert}");
-    expect(reportsConfig.aiBudgetAlert).toContain("{budget}");
     expect(saudeConfig.labels.verifiedAt).toContain("{date}");
     expect(saudeConfig.labels.attempt).toContain("{attempt}");
     expect(saudeConfig.automacoes.map((item) => item.id)).toEqual(

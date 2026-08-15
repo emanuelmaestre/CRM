@@ -19,7 +19,7 @@ import { db } from "@/shared/lib/db";
 import {
   listarMensagensReclamacao,
   responderReclamacao,
-} from "@/modules/relatorios/application/reclamacoes.service";
+} from "@/modules/metricas/application/reclamacoes.service";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL é obrigatória para o teste de mensagens de reclamação.");

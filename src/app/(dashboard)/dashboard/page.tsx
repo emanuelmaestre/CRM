@@ -12,8 +12,8 @@ import { ReclamacoesCard } from "./reclamacoes-card";
 import { ScopeRow, type CardFiltro, type ScopeMarca, type ScopeCanal } from "./scope-row";
 import { actionObterDashboardData, actionObterReclamacoes } from "./actions";
 import { actionContarPedidosPorMarca, actionContarPedidosPorCanal } from "../vendas/actions";
-import type { DashboardData } from "@/modules/relatorios/application/dashboard.service";
-import type { ReclamacoesResultado } from "@/modules/relatorios/application/reclamacoes.service";
+import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
+import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 
 const FILTRO_PADRAO: CardFiltro = { brandId: [], canal: [] };
 

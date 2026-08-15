@@ -1,0 +1,1 @@
+ALTER TABLE "pedido_item" ADD COLUMN "taxa_marketplace" numeric(12, 2);

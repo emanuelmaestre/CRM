@@ -17,7 +17,7 @@ const paginas = [
   { rota: "/auditoria", titulo: "Auditoria" },
   { rota: "/importacao", titulo: "Importação" },
   { rota: "/inbox", titulo: "Inbox" },
-  { rota: "/relatorios", titulo: "Relatórios" },
+  { rota: "/metricas", titulo: "Métricas" },
   { rota: "/configuracoes", titulo: "Configurações" },
   { rota: "/sem-permissao", titulo: "Sem permissão" },
 ];

@@ -56,6 +56,12 @@ export const pedidoItem = pgTable("pedido_item", {
   produtoId: uuid("produto_id").notNull().references(() => produto.id),
   quantidade: integer("quantidade").notNull(),
   precoUnitario: numeric("preco_unitario", { precision: 12, scale: 2 }).notNull(),
+  // Comissão que o canal cobreu por este item (ex.: `sale_fee` do Mercado
+  // Livre) — vem de graça no mesmo payload de pedido que já ingerimos, só
+  // não era lida. Null para pedidos antigos (ingeridos antes desta coluna
+  // existir) e para canais que não expõem essa taxa por item; a margem em
+  // Métricas soma só o que tem taxa conhecida, nunca trata null como zero.
+  taxaMarketplace: numeric("taxa_marketplace", { precision: 12, scale: 2 }),
 }, (t) => [
   index("idx_pedido_item_pedido").on(t.pedidoId),
 ]);

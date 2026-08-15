@@ -25,7 +25,16 @@ export interface PedidoNormalizado {
   status: string;
   total: string;
   frete?: string;
-  itens: { skuExterno: string; quantidade: number; precoUnitario: string }[];
+  itens: {
+    skuExterno: string;
+    quantidade: number;
+    precoUnitario: string;
+    /** Comissão que o canal cobrou por este item, quando o canal expõe esse
+     *  dado no próprio payload do pedido (hoje só o Mercado Livre, via
+     *  `sale_fee`). Ausente para os demais canais — não é um "zero", é "esse
+     *  canal não informa". */
+    taxaMarketplace?: string;
+  }[];
   criadoEm: Date;
 }
 

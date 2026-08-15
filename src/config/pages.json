@@ -51,10 +51,19 @@
     "title": "Entrar",
     "subtitle": "KARZI · WUWU · ARMARINHOS LIMA",
     "fields": {
-      "email": { "label": "E-mail", "placeholder": "voce@plastleo.com.br" },
-      "password": { "label": "Senha", "placeholder": "••••••••" }
+      "email": {
+        "label": "E-mail",
+        "placeholder": "voce@plastleo.com.br"
+      },
+      "password": {
+        "label": "Senha",
+        "placeholder": "••••••••"
+      }
     },
-    "actions": { "submit": "Entrar", "submitting": "Entrando…" },
+    "actions": {
+      "submit": "Entrar",
+      "submitting": "Entrando…"
+    },
     "errors": {
       "generic": "Erro ao entrar",
       "invalidCredentials": "E-mail ou senha inválidos."
@@ -66,7 +75,13 @@
     "description": "Gerencie todos os seus clientes em um só lugar",
     "searchPlaceholder": "Buscar por nome…",
     "sectionTitle": "Clientes",
-    "columns": ["Data", "Apelido", "Nome completo", "Endereço completo", ""],
+    "columns": [
+      "Data",
+      "Apelido",
+      "Nome completo",
+      "Endereço completo",
+      ""
+    ],
     "channelSelector": {
       "label": "Canal",
       "multiHint": "Selecione um ou mais",
@@ -87,7 +102,11 @@
       "searchTitle": "Nenhum cliente encontrado",
       "searchDescription": "Tente outro termo de busca."
     },
-    "actions": { "view": "Ver ficha", "archive": "Arquivar", "archiveConfirm": "Arquivar \"{name}\"?" },
+    "actions": {
+      "view": "Ver ficha",
+      "archive": "Arquivar",
+      "archiveConfirm": "Arquivar \"{name}\"?"
+    },
     "messages": {
       "loadError": "Erro ao carregar clientes.",
       "archiveSuccess": "Cliente arquivado.",
@@ -103,7 +122,12 @@
       "noTags": "Nenhuma tag cadastrada ainda.",
       "empty": "Nenhum segmento criado.",
       "clientsCount": "{count} clientes",
-      "actions": { "create": "Criar segmento", "creating": "Criando…", "delete": "Excluir", "deleteConfirm": "Excluir o segmento \"{name}\"?" },
+      "actions": {
+        "create": "Criar segmento",
+        "creating": "Criando…",
+        "delete": "Excluir",
+        "deleteConfirm": "Excluir o segmento \"{name}\"?"
+      },
       "messages": {
         "loadError": "Erro ao carregar segmentações.",
         "createSuccess": "Segmento criado.",
@@ -126,7 +150,12 @@
       "nextPurchaseLabel": "Previsão de recompra",
       "repurchaseProbabilityLabel": "Probabilidade de recompra em 30 dias",
       "orderPrefix": "Pedido",
-      "fields": { "name": "Nome", "document": "CPF / CNPJ", "email": "E-mail", "phone": "Telefone" },
+      "fields": {
+        "name": "Nome",
+        "document": "CPF / CNPJ",
+        "email": "E-mail",
+        "phone": "Telefone"
+      },
       "address": {
         "title": "Endereço de entrega",
         "subtitle": "Vindo do último pedido do Mercado Livre com endereço disponível",
@@ -135,8 +164,19 @@
         "viewOnMap": "Ver no mapa",
         "nicknameLabel": "Apelido"
       },
-      "metrics": { "orders": "Pedidos" },
-      "actions": { "back": "Voltar aos clientes", "edit": "Editar", "cancel": "Cancelar edição", "save": "Salvar alterações", "saving": "Salvando…", "archive": "Arquivar", "addNote": "Adicionar anotação", "savingNote": "Salvando…" },
+      "metrics": {
+        "orders": "Pedidos"
+      },
+      "actions": {
+        "back": "Voltar aos clientes",
+        "edit": "Editar",
+        "cancel": "Cancelar edição",
+        "save": "Salvar alterações",
+        "saving": "Salvando…",
+        "archive": "Arquivar",
+        "addNote": "Adicionar anotação",
+        "savingNote": "Salvando…"
+      },
       "messages": {
         "updateSuccess": "Cliente atualizado.",
         "updateError": "Erro ao atualizar cliente.",
@@ -187,8 +227,15 @@
       "calmDescription": "{monitorados} SKUs monitorados · nada abaixo do mínimo · nada sem estoque",
       "reviewAction": "Rever régua"
     },
-    "rail": { "label": "Ver", "noRule": "Sem régua" },
-    "saldoCell": { "minPrefix": "mín", "outOfStock": "sem estoque", "noRule": "sem régua" },
+    "rail": {
+      "label": "Ver",
+      "noRule": "Sem régua"
+    },
+    "saldoCell": {
+      "minPrefix": "mín",
+      "outOfStock": "sem estoque",
+      "noRule": "sem régua"
+    },
     "coach": {
       "storageKey": "crm-leo:coachmarks:estoque:v1",
       "steps": [
@@ -202,12 +249,30 @@
         }
       ]
     },
-    "columns": ["Produto", "Estoque", "Mínimo", "Preço", ""],
+    "columns": [
+      "Produto",
+      "Estoque",
+      "Mínimo",
+      "Preço",
+      ""
+    ],
     "loading": "Carregando produtos…",
-    "empty": { "title": "Nenhum produto cadastrado", "description": "Importe seu catálogo do Mercado Livre para começar a controlar o estoque." },
-    "emptyFiltered": { "title": "Nenhum produto com esses filtros", "description": "Ajuste a busca, a marca ou o estado do saldo para ver os produtos." },
-    "messages": { "loadError": "Erro ao carregar produtos." },
-    "mobile": { "balance": "Estoque nos canais", "price": "Preço", "channels": "Canais" },
+    "empty": {
+      "title": "Nenhum produto cadastrado",
+      "description": "Importe seu catálogo do Mercado Livre para começar a controlar o estoque."
+    },
+    "emptyFiltered": {
+      "title": "Nenhum produto com esses filtros",
+      "description": "Ajuste a busca, a marca ou o estado do saldo para ver os produtos."
+    },
+    "messages": {
+      "loadError": "Erro ao carregar produtos."
+    },
+    "mobile": {
+      "balance": "Estoque nos canais",
+      "price": "Preço",
+      "channels": "Canais"
+    },
     "minimumIndicator": "▼ mín",
     "indicators": {
       "belowMin": "Abaixo do mínimo",
@@ -275,11 +340,25 @@
       "title": "Registrar movimento",
       "balancePrefix": "saldo atual",
       "resultPrefix": "novo saldo",
-      "fields": { "type": "Tipo de movimento", "quantity": "Quantidade", "note": "Observação", "notePlaceholder": "Opcional — ex.: nota fiscal, motivo da perda…" },
+      "fields": {
+        "type": "Tipo de movimento",
+        "quantity": "Quantidade",
+        "note": "Observação",
+        "notePlaceholder": "Opcional — ex.: nota fiscal, motivo da perda…"
+      },
       "types": {
-        "entrada": { "label": "Entrada", "description": "Compra ou recebimento" },
-        "saida": { "label": "Saída", "description": "Venda ou perda" },
-        "ajuste": { "label": "Ajuste", "description": "Corrige para um valor exato" }
+        "entrada": {
+          "label": "Entrada",
+          "description": "Compra ou recebimento"
+        },
+        "saida": {
+          "label": "Saída",
+          "description": "Venda ou perda"
+        },
+        "ajuste": {
+          "label": "Ajuste",
+          "description": "Corrige para um valor exato"
+        }
       },
       "insufficientBalance": "Saldo insuficiente para essa saída.",
       "cancel": "Cancelar",
@@ -327,20 +406,34 @@
     "metadataTitle": "Pedidos",
     "title": "Pedidos conectados",
     "description": "Pedidos recebidos dos marketplaces e canais integrados",
-    "columns": ["Pedido", "Cliente", "Marca", "Canal", "Status", "Total", "Recebido em"],
+    "columns": [
+      "Pedido",
+      "Cliente",
+      "Marca",
+      "Canal",
+      "Status",
+      "Total",
+      "Recebido em"
+    ],
     "empty": "Nenhum pedido recebido pelos conectores.",
     "emptyFiltered": {
       "title": "Nenhum pedido com esses filtros",
       "description": "Ajuste a marca, o canal ou o status para ver os pedidos."
     },
     "loadError": "Erro ao carregar pedidos.",
-    "brandSelector": { "label": "Marca", "emptyHint": "{marca} não tem pedido com o filtro atual." },
+    "brandSelector": {
+      "label": "Marca",
+      "emptyHint": "{marca} não tem pedido com o filtro atual."
+    },
     "channelSelector": {
       "label": "Canal",
       "disconnectedHint": "{canal} ainda não está conectado — conecte em Configurações para liberar o filtro.",
       "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Configurações para liberar o filtro."
     },
-    "statusFilter": { "label": "Status", "all": "Todos" },
+    "statusFilter": {
+      "label": "Status",
+      "all": "Todos"
+    },
     "statusLabels": {
       "criado": "Criado",
       "pago": "Pago",
@@ -391,10 +484,33 @@
     "searchPlaceholder": "Buscar por entidade, ação ou autor…",
     "allEntities": "Todas as entidades",
     "allOrigins": "Todas as origens",
-    "entities": ["cliente", "produto", "oportunidade", "funil_etapa", "app_user"],
-    "empty": { "title": "Nenhum evento de auditoria", "description": "Ajuste os filtros para consultar outro período." },
-    "columns": ["Quando", "Autor / origem", "Entidade", "Ação", "Marca", "Detalhes"],
-    "origins": { "usuario": "Manual", "usuario_sintetico": "Seed sintético", "sistema": "Sistema", "job": "Job", "ia": "IA", "webhook": "Webhook" },
+    "entities": [
+      "cliente",
+      "produto",
+      "oportunidade",
+      "funil_etapa",
+      "app_user"
+    ],
+    "empty": {
+      "title": "Nenhum evento de auditoria",
+      "description": "Ajuste os filtros para consultar outro período."
+    },
+    "columns": [
+      "Quando",
+      "Autor / origem",
+      "Entidade",
+      "Ação",
+      "Marca",
+      "Detalhes"
+    ],
+    "origins": {
+      "usuario": "Manual",
+      "usuario_sintetico": "Seed sintético",
+      "sistema": "Sistema",
+      "job": "Job",
+      "ia": "IA",
+      "webhook": "Webhook"
+    },
     "labels": {
       "system": "Sistema",
       "before": "Antes",
@@ -404,8 +520,13 @@
       "startDateAria": "Data inicial",
       "endDateAria": "Data final"
     },
-    "actions": { "previous": "Anterior", "next": "Próxima" },
-    "messages": { "loadError": "Erro ao carregar a trilha de auditoria." }
+    "actions": {
+      "previous": "Anterior",
+      "next": "Próxima"
+    },
+    "messages": {
+      "loadError": "Erro ao carregar a trilha de auditoria."
+    }
   },
   "inbox": {
     "metadataTitle": "Mensagens",
@@ -413,16 +534,46 @@
     "description": "Perguntas e mensagens pós-venda do Mercado Livre",
     "pageDescription": "Atendimento completo do Mercado Livre em um só lugar",
     "tabs": [
-      { "id": "conversas", "label": "Conversas", "icon": "MessageSquare", "hint": "Chat privado com o comprador dentro de um pedido já fechado (mensagens pós-venda)." },
-      { "id": "perguntas", "label": "Perguntas", "icon": "HelpCircle", "hint": "Perguntas e respostas públicas na página do anúncio (pré-venda)." },
-      { "id": "avaliacoes", "label": "Avaliações", "icon": "Star", "hint": "Avaliações (estrelas e comentários) deixadas pelos compradores nos produtos." }
+      {
+        "id": "conversas",
+        "label": "Conversas",
+        "icon": "MessageSquare",
+        "hint": "Chat privado com o comprador dentro de um pedido já fechado (mensagens pós-venda)."
+      },
+      {
+        "id": "perguntas",
+        "label": "Perguntas",
+        "icon": "HelpCircle",
+        "hint": "Perguntas e respostas públicas na página do anúncio (pré-venda)."
+      },
+      {
+        "id": "avaliacoes",
+        "label": "Avaliações",
+        "icon": "Star",
+        "hint": "Avaliações (estrelas e comentários) deixadas pelos compradores nos produtos."
+      }
     ],
     "status": {
-      "nova": { "label": "Nova", "color": "#E3131B" },
-      "em_atendimento": { "label": "Em atendimento", "color": "#9B30D9" },
-      "aguardando_cliente": { "label": "Aguardando", "color": "#F59E0B" },
-      "resolvida": { "label": "Resolvida", "color": "#10B981" },
-      "arquivada": { "label": "Arquivada", "color": "var(--muted-foreground)" }
+      "nova": {
+        "label": "Nova",
+        "color": "#E3131B"
+      },
+      "em_atendimento": {
+        "label": "Em atendimento",
+        "color": "#9B30D9"
+      },
+      "aguardando_cliente": {
+        "label": "Aguardando",
+        "color": "#F59E0B"
+      },
+      "resolvida": {
+        "label": "Resolvida",
+        "color": "#10B981"
+      },
+      "arquivada": {
+        "label": "Arquivada",
+        "color": "var(--muted-foreground)"
+      }
     },
     "loadingConversations": "Carregando conversas…",
     "loadingMessages": "Carregando mensagens…",
@@ -444,12 +595,14 @@
       "statusUpdated": "Conversa {status}."
     },
     "questions": {
-        "urgencyColors": {
-          "urgent": "#E3131B",
-          "normal": "#9B30D9",
-          "ok": "#1F8A4C"
-        },
-      "platformOrder": ["mercadolivre"],
+      "urgencyColors": {
+        "urgent": "#E3131B",
+        "normal": "#9B30D9",
+        "ok": "#1F8A4C"
+      },
+      "platformOrder": [
+        "mercadolivre"
+      ],
       "platforms": {
         "mercadolivre": {
           "label": "Mercado Livre",
@@ -491,6 +644,17 @@
       "statusError": "Erro ao avançar status."
     }
   },
-  "relatorios": { "metadataTitle": "Relatórios", "title": "Relatórios", "description": "Vendas por canal, sugestões de campanha e painel executivo" },
-  "configuracoes": { "metadataTitle": "Configurações" }
+  "configuracoes": {
+    "metadataTitle": "Configurações"
+  },
+  "metricas": {
+    "metadataTitle": "Métricas",
+    "title": "Métricas",
+    "description": "Reputação, saúde da loja e desempenho de cada marca em tempo real"
+  },
+  "anuncios": {
+    "metadataTitle": "Anúncios",
+    "title": "Anúncios",
+    "description": "Performance, investimento e oportunidades no Mercado Livre"
+  }
 }

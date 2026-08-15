@@ -13,7 +13,7 @@ import type {
   ProdutoMaisVendido,
   ProdutoParado,
   ProdutoReposicao,
-} from "@/modules/relatorios/application/dashboard.service";
+} from "@/modules/metricas/application/dashboard.service";
 
 /* ── Linha de produto ──────────────────────────────────────────
    Nome e SKU à esquerda, número que importa à direita. O medidor

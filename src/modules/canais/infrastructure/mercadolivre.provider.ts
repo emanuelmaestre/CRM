@@ -50,6 +50,9 @@ interface MLOrderDetail {
     item: { seller_sku?: string; title?: string };
     quantity: number;
     unit_price: number;
+    // Comissão do Mercado Livre por unidade do item — já vem nesta mesma
+    // resposta, não é uma chamada extra. Ausente em pedidos muito antigos.
+    sale_fee?: number;
   }>;
   date_created: string;
   pack_id?: number | null;
@@ -71,6 +74,57 @@ interface MLReceiverAddress {
   zip_code?: string;
   latitude?: number;
   longitude?: number;
+}
+
+/** Bloco `seller_reputation` que já vem embutido na resposta de GET /users/me.
+ *  Todos os campos são opcionais de propósito: vendedor recém-criado ainda não
+ *  tem termômetro (level_id vem null) e conta sem venda no período não traz o
+ *  bloco `metrics`. */
+interface MLSellerReputationRaw {
+  level_id?: string | null;
+  power_seller_status?: string | null;
+  transactions?: {
+    completed?: number;
+    canceled?: number;
+    total?: number;
+    ratings?: { positive?: number; neutral?: number; negative?: number };
+  };
+  metrics?: {
+    claims?: { period?: string; rate?: number; value?: number };
+    cancellations?: { period?: string; rate?: number; value?: number };
+    delayed_handling_time?: { period?: string; rate?: number; value?: number };
+    sales?: { period?: string; completed?: number };
+  };
+}
+
+/** Reputação normalizada: taxas já em percentual (0–100), nunca em fração. */
+export interface MLReputacao {
+  sellerId: string;
+  nickname: string | null;
+  pontos: number | null;
+  /** "1_red" … "5_green". Null enquanto o vendedor não tem termômetro. */
+  nivelId: string | null;
+  /** "platinum" | "gold" | "silver" — o selo de Mercado Líder, quando há. */
+  statusMercadoLider: string | null;
+  vendasConcluidas: number | null;
+  taxaReclamacao: number | null;
+  taxaCancelamento: number | null;
+  taxaAtrasoEnvio: number | null;
+  reclamacoesPeriodo: number | null;
+  cancelamentosPeriodo: number | null;
+  atrasosPeriodo: number | null;
+  /** Janela que o próprio ML usou ("365 days", "60 days"…). */
+  periodoMetricas: string | null;
+  avaliacaoPositiva: number | null;
+  avaliacaoNeutra: number | null;
+  avaliacaoNegativa: number | null;
+}
+
+/** 0.0123 → 1.23. Preserva o null: "sem dado" e "zero por cento" são coisas
+ *  diferentes, e arredondar um pra outro esconderia conta nova sem histórico. */
+function fracaoParaPercentual(valor: number | null | undefined): number | null {
+  if (typeof valor !== "number" || !Number.isFinite(valor)) return null;
+  return Math.round(valor * 1000) / 10;
 }
 
 /** Mensagem bruta de GET /messages/packs/{packId}/sellers/{sellerId}. */
@@ -349,6 +403,7 @@ export function normalizarPedidoMercadoLivre(
       skuExterno: item.item.seller_sku ?? "",
       quantidade: item.quantity,
       precoUnitario: String(item.unit_price),
+      taxaMarketplace: typeof item.sale_fee === "number" ? String(item.sale_fee) : undefined,
     })),
     criadoEm: new Date(order.date_created),
   };
@@ -775,6 +830,41 @@ export class MercadoLivreProvider implements ChannelProvider {
       throw new Error(`Mercado Livre retornou saldo inválido para anúncio ${referencia.listingId}.`);
     }
     return saldo as number;
+  }
+
+  /** Reputação do vendedor. Não custa chamada nova em relação ao que já
+   *  fazemos: `/users/me` (que buscarPedidos, listarAnunciosAtivos e saude já
+   *  chamam) devolve o bloco `seller_reputation` inteiro na mesma resposta —
+   *  até hoje a gente lia só o `id` e jogava o resto fora. */
+  async obterReputacao(): Promise<MLReputacao> {
+    const me = await this.get<{
+      id: number | string;
+      nickname?: string;
+      points?: number;
+      seller_reputation?: MLSellerReputationRaw;
+    }>("/users/me");
+    const reputacao = me.seller_reputation;
+    const metricas = reputacao?.metrics;
+    return {
+      sellerId: String(me.id),
+      nickname: me.nickname ?? null,
+      pontos: typeof me.points === "number" ? me.points : null,
+      nivelId: reputacao?.level_id ?? null,
+      statusMercadoLider: reputacao?.power_seller_status ?? null,
+      vendasConcluidas: metricas?.sales?.completed ?? reputacao?.transactions?.completed ?? null,
+      // As taxas do ML vêm em fração (0.012 = 1,2%). Convertemos aqui, uma vez
+      // só, para o resto do sistema nunca precisar lembrar disso.
+      taxaReclamacao: fracaoParaPercentual(metricas?.claims?.rate),
+      taxaCancelamento: fracaoParaPercentual(metricas?.cancellations?.rate),
+      taxaAtrasoEnvio: fracaoParaPercentual(metricas?.delayed_handling_time?.rate),
+      reclamacoesPeriodo: metricas?.claims?.value ?? null,
+      cancelamentosPeriodo: metricas?.cancellations?.value ?? null,
+      atrasosPeriodo: metricas?.delayed_handling_time?.value ?? null,
+      periodoMetricas: metricas?.claims?.period ?? metricas?.sales?.period ?? null,
+      avaliacaoPositiva: fracaoParaPercentual(reputacao?.transactions?.ratings?.positive),
+      avaliacaoNeutra: fracaoParaPercentual(reputacao?.transactions?.ratings?.neutral),
+      avaliacaoNegativa: fracaoParaPercentual(reputacao?.transactions?.ratings?.negative),
+    };
   }
 
   async saude(): Promise<SaudeConector> {
