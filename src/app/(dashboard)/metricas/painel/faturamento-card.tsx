@@ -10,7 +10,8 @@ import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover
 import { springs } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
-import { Card, CardHead, useContagem, type Periodo } from "./card-primitives";
+import { Card, CardHead, useContagem, type Periodo } from "../metricas-primitives";
+import { moeda } from "@/shared/design-system/format";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
 import { tint } from "@/shared/design-system/color";
 
@@ -20,8 +21,6 @@ function paraDataInput(data: Date) {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 }
 const hoje = paraDataInput(new Date());
-
-const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 /* ── Seletor de período ───────────────────────────────────────
    Dois campos de calendário separados, "De:" e "Até:", cada um com seu
@@ -78,10 +77,20 @@ function GraficoSerie({ serie, aoFocar, cores }: {
     0,
   );
   const gradientePico = corDoPico(cores);
+  const pontoPico = serie[indicePico];
 
   return (
     <div>
-      <div className="flex h-36 items-end gap-[3px]" onPointerLeave={() => aoFocar(null)}>
+      <div
+        className="flex h-36 items-end gap-[3px]"
+        onPointerLeave={() => aoFocar(null)}
+        role="img"
+        aria-label={
+          pontoPico
+            ? `Gráfico de faturamento por dia, ${serie.length} pontos. Pico em ${pontoPico.label}: ${moeda.format(pontoPico.valor)}.`
+            : "Gráfico de faturamento por dia, sem dado no período."
+        }
+      >
         {serie.map((ponto, indice) => {
           const pico = indice === indicePico && ponto.valor > 0;
           return (

@@ -1,4 +1,5 @@
 import metricasConfig from "@/config/metricas.json";
+import { moeda } from "@/shared/design-system/format";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import type { AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
@@ -206,7 +207,7 @@ export async function exportarMetricasPDF(
         marca.marcaLabel, String(marca.total), String(marca.entregues), String(marca.emTransito),
         String(marca.cancelados), String(marca.devolvidos),
         marca.taxaProblemas === null ? "—" : `${marca.taxaProblemas}%`,
-        new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(marca.impactoFinanceiro),
+        moeda.format(marca.impactoFinanceiro),
       ]),
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [182, 106, 12], fontSize: 8 },

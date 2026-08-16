@@ -4,6 +4,7 @@ import { useEffect, useId, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Maximize2, TrendingDown, TrendingUp, X } from "lucide-react";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
+import { useFocusTrap } from "@/shared/design-system/primitives/useFocusTrap";
 import metricasConfig from "@/config/metricas.json";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
@@ -157,7 +158,7 @@ export function Bloco({ def, focado, onAbrir }: {
                    dentro do card em foco. */
                 <p className="text-[12px] leading-snug text-muted-foreground">{metricasConfig.mosaico.semFiltro}</p>
               ) : def.carregando ? (
-                <span className="h-8 w-2/3 animate-pulse rounded-md bg-muted" aria-label="Carregando" />
+                <span className="h-8 w-2/3 animate-pulse rounded-md bg-muted" role="status" aria-label="Carregando" />
               ) : resumo.valor === null ? (
                 /* Nem todo card se resume a um número — Publicações e Pós-venda
                    buscam os próprios dados só quando abrem. Aqui o bloco diz o
@@ -210,6 +211,11 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao }: {
   const reduzir = useReducedMotion();
   const tituloId = useId();
   const painel = useRef<HTMLDivElement>(null);
+
+  // Prende o Tab dentro do painel e devolve o foco a quem abriu o bloco ao
+  // fechar — sem isso, Tab escapa para trás do modal em tela cheia e fechar
+  // deixa o foco perdido no <body>.
+  useFocusTrap(painel, Boolean(def));
 
   /* Teclado: Esc fecha, setas pulam de card. Fica no documento porque o alvo
      do foco é o painel, mas quem digita pode estar em qualquer lugar dele. */
@@ -288,11 +294,17 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao }: {
               transition={transicao(reduzir, { ...springs.settleFast, delay: 0.15 })}
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4"
             >
-              {/* O card traz a própria superfície (.card-surface). Dentro do
-                  painel isso vira borda sobre borda, então ela é achatada aqui
-                  — o painel já é o card agora. */}
-              <div className="[&>section]:border-0 [&>section]:bg-transparent [&>section]:shadow-none [&>section]:px-0 [&>section]:pt-0">
-                {def.render()}
+              {/* O fundo do painel ocupa a tela inteira (é a tela cheia
+                  pedida), mas o conteúdo trava numa largura confortável de
+                  leitura — mesma medida do resto do app (DashboardLayout) —
+                  para não esticar texto e grids num monitor ultrawide. */}
+              <div className="mx-auto w-full max-w-[1440px]">
+                {/* O card traz a própria superfície (.card-surface). Dentro do
+                    painel isso vira borda sobre borda, então ela é achatada
+                    aqui — o painel já é o card agora. */}
+                <div className="[&>section]:border-0 [&>section]:bg-transparent [&>section]:shadow-none [&>section]:px-0 [&>section]:pt-0">
+                  {def.render()}
+                </div>
               </div>
             </motion.div>
           </motion.div>

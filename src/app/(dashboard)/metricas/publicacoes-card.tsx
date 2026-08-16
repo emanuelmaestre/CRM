@@ -3,16 +3,14 @@
 import { useEffect, useState } from "react";
 import { BarChart3, Eye, ShieldCheck, TriangleAlert } from "lucide-react";
 import { actionObterDesempenhoPublicacoes } from "./actions";
-import { Card, CardHead } from "@/app/(dashboard)/anuncios/anuncios-primitives";
+import { Card, CardHead } from "./metricas-primitives";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import type { DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { isBrandSlug } from "@/shared/config/brands";
 import { NumeroAnimado } from "./metricas-primitives";
-
-const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const inteiro = new Intl.NumberFormat("pt-BR");
+import { inteiro, moeda } from "@/shared/design-system/format";
 
 /** O que o mosaico já buscou ao carregar a página, para a primeira marca (a
  *  aba que abre por padrão). Trocar de aba dentro do card continua buscando

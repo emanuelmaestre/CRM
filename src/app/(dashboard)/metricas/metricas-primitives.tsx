@@ -6,9 +6,19 @@ import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
 
+/** Janela de datas escolhida no topo do mosaico, em yyyy-mm-dd. As duas pontas
+ *  vazias significam "últimos 30 dias", resolvido na busca — ver
+ *  `periodoEfetivo` em mosaico.tsx. */
+export interface Periodo {
+  inicio: string;
+  fim: string;
+}
+
 /* ── Card base ─────────────────────────────────────────────────
-   Mesma superfície do Painel (.card-surface), para Métricas não
-   parecer um app diferente colado dentro do mesmo sistema. */
+   Mesma superfície em todo o módulo (.card-surface): borda de 1px, raio de
+   20px e sombra ambiente — os cards que vieram do Painel e os que já eram
+   de Métricas usam o mesmo primitivo desde a fusão, para não parecerem dois
+   apps colados dentro do mesmo sistema. */
 export function Card({ children, className, style }: {
   children: React.ReactNode;
   className?: string;
@@ -25,16 +35,22 @@ export function Card({ children, className, style }: {
   );
 }
 
-export function CardHead({ title, subtitle, icon: Icon, accent, trailing }: {
+/* ── Cabeçalho de card ─────────────────────────────────────────
+   Ícone tonal na cor do assunto + título e subtítulo. `scope` é o filtro de
+   marca/canal de um card (Faturamento, Reposição etc.) — cards sem filtro
+   simplesmente não passam essa prop. */
+export function CardHead({ title, subtitle, icon: Icon, accent, scope, trailing, className }: {
   title: string;
   subtitle?: string;
   icon: React.ElementType;
   accent: string;
+  scope?: React.ReactNode;
   trailing?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-4 sm:px-5 sm:pt-5">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-4 sm:px-5 sm:pt-5", className)}>
+      <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-initial">
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
           style={{ background: tint(accent, 9), color: accent }}
@@ -46,31 +62,28 @@ export function CardHead({ title, subtitle, icon: Icon, accent, trailing }: {
           {subtitle && <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>}
         </div>
       </div>
-      {trailing && <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">{trailing}</div>}
-    </div>
-  );
-}
-
-export function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
-  return (
-    <div className="flex items-center gap-2 px-1">
-      <h2 className="text-label-md uppercase text-muted-foreground">{children}</h2>
-      {hint && <span className="text-[11px] text-muted-foreground/70">{hint}</span>}
-      <span className="h-px flex-1 bg-border" />
+      {scope && <div className="order-3 flex w-full flex-wrap items-center justify-start gap-2 sm:order-none sm:w-auto sm:min-w-40 sm:flex-1 sm:justify-center">{scope}</div>}
+      {trailing && <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">{trailing}</div>}
     </div>
   );
 }
 
 /* ── Contagem animada ──────────────────────────────────────────
-   Copiado em espírito do Painel: o número sobe até o valor em vez de
-   aparecer pronto, com desaceleração no fim e sem overshoot — em
-   score, passar de 100 por um instante seria mentira visual. */
-export function useContagem(valor: number, duracao = 1100): number {
+   O número sobe até o valor em vez de aparecer pronto: dá a leitura de que
+   foi calculado agora. Desacelera no fim (sem overshoot, que em dinheiro ou
+   score passaria valor errado por um instante). Respeita
+   prefers-reduced-motion — aí o valor entra direto.
+   Uma duração só para o módulo inteiro: antes da fusão, os cards do Painel
+   e os de Métricas tinham cada um a própria cópia deste hook com durações
+   diferentes (850ms vs 1100ms) — números em cards vizinhos contavam em
+   velocidades diferentes sem nenhum motivo. */
+export function useContagem(valor: number, duracao = 850): number {
   const [exibido, setExibido] = useState(valor);
   const anterior = useRef(valor);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const reduzMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const de = anterior.current;
     if (reduzMovimento || de === valor) {
@@ -78,15 +91,19 @@ export function useContagem(valor: number, duracao = 1100): number {
       setExibido(valor);
       return;
     }
+
     const inicio = performance.now();
     let frame = requestAnimationFrame(function passo(agora: number) {
       const progresso = Math.min((agora - inicio) / duracao, 1);
       const suavizado = 1 - Math.pow(1 - progresso, 4);
       const atual = de + (valor - de) * suavizado;
+      // Acompanha frame a frame: se o valor mudar no meio da animação, a
+      // próxima contagem parte de onde o número está, sem saltar para trás.
       anterior.current = atual;
       setExibido(atual);
       if (progresso < 1) frame = requestAnimationFrame(passo);
     });
+
     return () => cancelAnimationFrame(frame);
   }, [valor, duracao]);
 
@@ -107,12 +124,12 @@ export function NumeroAnimado({ valor, formatar, duracao }: {
 }
 
 /* ── Anel de score ─────────────────────────────────────────────
-   Um arco de 270° (não 360°) com a abertura embaixo: a lacuna dá ao
-   olho um começo e um fim, então "quanto falta" se lê sem legenda.
-   O traço cresce por strokeDashoffset — propriedade que o compositor
-   anima sem forçar layout — e o brilho por trás usa a cor da faixa,
-   então mudar de "Atenção" para "Saudável" muda a temperatura do card
-   inteiro, não só um texto. */
+   Um arco de 270° (não 360°) com a abertura embaixo: a lacuna dá ao olho
+   um começo e um fim, então "quanto falta" se lê sem legenda. O traço
+   cresce por strokeDashoffset — propriedade que o compositor anima sem
+   forçar layout — e o brilho por trás usa a cor da faixa, então mudar de
+   "Atenção" para "Saudável" muda a temperatura do card inteiro, não só um
+   texto. */
 const ARCO_GRAUS = 270;
 const RAIO = 62;
 const CIRCUNFERENCIA = 2 * Math.PI * RAIO;
@@ -198,10 +215,10 @@ export function AnelScore({ valor, cor, tamanho = 168, faixaLabel }: {
 }
 
 /* ── Barra com meta ────────────────────────────────────────────
-   Barra de progresso simples, com um risco na posição do limite
-   quando existe um. É a diferença entre "sua taxa é 2,4%" e "sua taxa
-   passou do teto" — a segunda leitura não exige que ninguém decore
-   qual é o teto de cada indicador. */
+   Barra de progresso simples, com um risco na posição do limite quando
+   existe um. É a diferença entre "sua taxa é 2,4%" e "sua taxa passou do
+   teto" — a segunda leitura não exige que ninguém decore qual é o teto de
+   cada indicador. */
 export function BarraComLimite({ valor, maximo, limite, cor, atraso = 0, altura = 8 }: {
   valor: number;
   maximo: number;

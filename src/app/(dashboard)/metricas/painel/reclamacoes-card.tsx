@@ -9,7 +9,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
-import { Card, CardHead, useContagem } from "./card-primitives";
+import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { actionListarMensagensReclamacao, actionResponderReclamacao } from "./actions";
 import type { ReclamacaoMensagem } from "@/modules/metricas/application/reclamacoes.service";
@@ -278,6 +278,7 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
                   value={texto}
                   onChange={(event) => setTexto(event.target.value)}
                   placeholder={copy.placeholder}
+                  aria-label={copy.placeholder}
                   rows={2}
                   maxLength={2000}
                   disabled={enviando}

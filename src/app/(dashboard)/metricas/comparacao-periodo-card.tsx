@@ -3,12 +3,11 @@
 import { TrendingUp } from "lucide-react";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { Card, CardHead, NumeroAnimado } from "./metricas-primitives";
+import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { isBrandSlug } from "@/shared/config/brands";
-
-const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const inteiro = new Intl.NumberFormat("pt-BR");
+import { inteiro, moeda } from "@/shared/design-system/format";
 
 function delta(atual: number, anterior: number) {
   return anterior === 0 ? null : Math.round(((atual - anterior) / Math.abs(anterior)) * 1000) / 10;
@@ -61,7 +60,9 @@ export function ComparacaoPeriodoCard({ atual, anterior }: { atual: SaudeLojaRes
   const anteriorPorMarca = new Map((anterior?.marcas ?? []).map((marca) => [marca.brandId, marca]));
   return <Card>
     <CardHead title="Período atual × anterior" subtitle="Mesma duração, imediatamente anterior ao intervalo selecionado" icon={TrendingUp} accent="var(--info)" />
-    <div className="grid gap-3 p-4 md:grid-cols-3">{atual.marcas.map((marca) => {
+    {atual.marcas.length === 0 ? (
+      <EmptyState illustration="generic" title="Nenhuma marca ativa para comparar" description="Conecte um canal para a evolução entre períodos aparecer aqui." />
+    ) : <div className="grid gap-3 p-4 md:grid-cols-3">{atual.marcas.map((marca) => {
       const base = anteriorPorMarca.get(marca.brandId);
       const itens = montarItens(marca, base);
       return <article key={marca.brandId} className="rounded-2xl border border-border p-4"><h3 className="flex h-5 items-center text-sm font-bold">{isBrandSlug(marca.marca) ? <BrandLogo brand={marca.marca} height={15} /> : marca.marcaLabel}</h3><dl className="mt-3 grid grid-cols-2 gap-3">{itens.map((item) => {
@@ -87,6 +88,6 @@ export function ComparacaoPeriodoCard({ atual, anterior }: { atual: SaudeLojaRes
           </dd>
         </div>;
       })}</dl></article>;
-    })}</div>
+    })}</div>}
   </Card>;
 }

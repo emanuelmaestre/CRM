@@ -17,7 +17,7 @@ import metricasConfig from "@/config/metricas.json";
 
 import { Bloco, Foco, ordenarPorUrgencia, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
-import { type Periodo } from "./painel/card-primitives";
+import { type Periodo } from "./metricas-primitives";
 import { FaturamentoCard } from "./painel/faturamento-card";
 import { GiroBaixoCard, MaisVendidosCard, ParadosCard, ReposicaoCard } from "./painel/listas-cards";
 import { ReclamacoesCard } from "./painel/reclamacoes-card";
@@ -242,7 +242,12 @@ export function Mosaico() {
     actionObterReclamacoes()
       .then((resultado) => { if (ativo) setReclamacoes(resultado); })
       .catch(() => {
-        if (ativo) setReclamacoes({ itens: [], total: 0, marcasComFalha: [], semContaConectada: false });
+        if (!ativo) return;
+        // `semContaConectada: false` aqui seria mentir — o card leria isso como
+        // "conta conectada, zero reclamações" quando na verdade a busca falhou.
+        // O toast é o que diferencia as duas leituras para quem está olhando.
+        setReclamacoes({ itens: [], total: 0, marcasComFalha: [], semContaConectada: false });
+        toast.error(metricasConfig.erros.carregar, { id: "metricas-reclamacoes" });
       })
       .finally(() => { if (ativo) setCarregandoReclamacoes(false); });
     return () => { ativo = false; };
@@ -281,7 +286,11 @@ export function Mosaico() {
     const inicioAnterior = new Date(fimAnterior); inicioAnterior.setDate(inicioAnterior.getDate() - duracao + 1);
     actionObterSaudeLoja({ inicio: paraDataInput(inicioAnterior), fim: paraDataInput(fimAnterior) })
       .then((dados) => { if (ativo) setAnterior({ chave, dados }); })
-      .catch(() => { if (ativo) setAnterior({ chave, dados: null }); });
+      .catch(() => {
+        if (!ativo) return;
+        setAnterior({ chave, dados: null });
+        toast.error(metricasConfig.erros.carregar, { id: "metricas-anterior" });
+      });
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
 
@@ -289,7 +298,11 @@ export function Mosaico() {
     let ativo = true;
     actionObterAtendimento({ inicio, fim })
       .then((resultado) => { if (ativo) setAtendimento({ chave, dados: resultado }); })
-      .catch(() => { if (ativo) setAtendimento({ chave, dados: null }); });
+      .catch(() => {
+        if (!ativo) return;
+        setAtendimento({ chave, dados: null });
+        toast.error(metricasConfig.erros.carregar, { id: "metricas-atendimento" });
+      });
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
 
@@ -307,7 +320,11 @@ export function Mosaico() {
     let ativo = true;
     actionObterPosVenda({ inicio, fim })
       .then((dados) => { if (ativo) setPosVenda({ chave, dados }); })
-      .catch(() => { if (ativo) setPosVenda({ chave, dados: null }); });
+      .catch(() => {
+        if (!ativo) return;
+        setPosVenda({ chave, dados: null });
+        toast.error(metricasConfig.erros.carregar, { id: "metricas-posvenda" });
+      });
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
   const carregandoPosVenda = posVenda.chave !== chave;
@@ -378,284 +395,313 @@ export function Mosaico() {
     setPeriodo({ inicio: novoInicio, fim: novoFim });
   }, []);
 
-  /* ── Blocos ───────────────────────────────────────────────────── */
+  /* ── Blocos ───────────────────────────────────────────────────────
+     Um bloco (ou grupo de blocos vizinhos) por memo, cada um com a própria
+     lista de dependências — pequena o bastante para o linter conferir
+     sozinha, sem eslint-disable. Antes disso os 14 blocos viviam num único
+     useMemo com ~25 dependências escritas à mão: qualquer clique de filtro
+     reprocessava a lista inteira, e uma dependência esquecida ali vira bug
+     silencioso (closure presa em dado antigo) que o linter não pega. */
 
-  const escopo = (filtro: CardFiltro, definir: (valor: CardFiltro) => void, comCanais = true) => (
+  const escopo = useCallback((filtro: CardFiltro, definir: (valor: CardFiltro) => void, comCanais = true) => (
     <ScopeRow marcas={marcas} canais={comCanais ? canais : []} filtro={filtro} onChange={comSugestao(definir)} />
-  );
+  ), [marcas, canais, comSugestao]);
 
   const dadosFaturamento = faturamento.dados?.faturamento ?? null;
-  const marcasPublicacoes = saude.dados?.marcas ?? [];
+  // `?? []` sozinho cria um array novo a cada render mesmo com `saude.dados`
+  // estável — o memo abaixo prende a mesma referência enquanto `marcas` não
+  // muda de fato, para não invalidar o bloco de Publicações à toa.
+  const marcasPublicacoes = useMemo(() => saude.dados?.marcas ?? [], [saude.dados]);
 
-  const blocos = useMemo<BlocoDef[]>(() => {
-    const lista: BlocoDef[] = [
-      {
-        id: "faturamento",
-        titulo: blocosCopy.faturamento.titulo,
-        icone: TrendingUp,
-        accent: "var(--acento-2)",
-        largura: 2,
-        carregando: faturamento.carregando,
-        semFiltro: faturamento.semFiltro,
-        miniatura: dadosFaturamento ? <MiniSerie serie={dadosFaturamento.serie} cor="var(--acento-2)" /> : null,
-        resumo: {
-          valor: dadosFaturamento?.total ?? null,
-          variacao: dadosFaturamento?.variacaoPercentual ?? null,
-          legenda: dadosFaturamento
-            ? blocosCopy.faturamento.legenda
-                .replace("{pedidos}", String(dadosFaturamento.pedidos))
-                .replace("{ticket}", dadosFaturamento.ticketMedio)
-            : blocosCopy.faturamento.legenda,
-        },
-        render: () => (
-          <FaturamentoCard
-            dados={dadosFaturamento}
-            periodo={periodo}
-            onDatasPersonalizadas={trocarDatas}
-            carregando={faturamento.carregando}
-            semFiltro={faturamento.semFiltro}
-            cores={coresFaturamento}
-            scope={escopo(filtroFaturamento, setFiltroFaturamento)}
-          />
-        ),
-      },
-      {
-        id: "score",
-        titulo: blocosCopy.score.titulo,
-        icone: Gauge,
-        accent: saude.dados?.faixaGeralCor ?? "var(--acento-1)",
-        carregando: carregandoSaude,
-        resumo: {
-          valor: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
-            ? String(Math.round(saude.dados.scoreGeral))
-            : null,
-          legenda: saude.dados?.faixaGeralLabel ?? blocosCopy.score.legenda,
-          alerta: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined && saude.dados.scoreGeral < 50
-            ? { nivel: saude.dados.scoreGeral < 30 ? "critico" : "atencao", texto: saude.dados.faixaGeralLabel ?? "Atenção" }
-            : null,
-        },
-        render: () => <ScoreCard dados={saude.dados} carregando={carregandoSaude} />,
-      },
-      {
-        id: "reclamacoes",
-        titulo: blocosCopy.reclamacoes.titulo,
-        icone: AlertTriangle,
-        accent: "var(--destructive)",
-        carregando: carregandoReclamacoes,
-        semFiltro: semFiltroReclamacoes,
-        // Sem pílulas de canal: o Mercado Livre não separa reclamação por canal
-        // de venda, então filtrar por canal aqui não mudaria nada.
-        resumo: {
-          valor: reclamacoesVisiveis ? String(reclamacoesVisiveis.total) : null,
-          legenda: blocosCopy.reclamacoes.legenda,
-          alerta: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
-            ? { nivel: "critico", texto: "abertas" }
-            : null,
-        },
-        render: () => (
-          <ReclamacoesCard
-            dados={reclamacoesVisiveis}
-            carregando={carregandoReclamacoes}
-            semFiltro={semFiltroReclamacoes}
-            scope={escopo(filtroReclamacoes, setFiltroReclamacoes, false)}
-          />
-        ),
-      },
-      {
-        id: "reposicao",
-        titulo: blocosCopy.reposicao.titulo,
-        icone: Package,
-        accent: "var(--warning)",
-        carregando: reposicao.carregando,
-        semFiltro: reposicao.semFiltro,
-        resumo: {
-          valor: reposicao.dados ? String(reposicao.dados.reposicao.length) : null,
-          legenda: blocosCopy.reposicao.legenda,
-          alerta: reposicao.dados && reposicao.dados.reposicao.length > 0
-            ? { nivel: "atencao", texto: "repor" }
-            : null,
-        },
-        render: () => (
-          <ReposicaoCard
-            itens={reposicao.dados?.reposicao ?? null}
-            carregando={reposicao.carregando}
-            semFiltro={reposicao.semFiltro}
-            scope={escopo(filtroReposicao, setFiltroReposicao)}
-          />
-        ),
-      },
-      {
-        id: "reputacao",
-        titulo: blocosCopy.reputacao.titulo,
-        icone: Store,
-        accent: "var(--acento-3)",
-        carregando: carregandoSaude,
-        resumo: {
-          valor: null,
-          legenda: saude.dados?.reputacaoIndisponivel ? metricasConfig.reputacaoCard.semTermometro : blocosCopy.reputacao.legenda,
-        },
-        render: () => <ReputacaoCard dados={saude.dados} carregando={carregandoSaude} />,
-      },
-      {
-        id: "comparacao",
-        titulo: blocosCopy.comparacao.titulo,
-        icone: BarChart3,
-        accent: "var(--acento-1)",
-        carregando: carregandoSaude,
-        resumo: {
-          valor: saude.dados ? String(saude.dados.marcas.length) : null,
-          legenda: blocosCopy.comparacao.legenda,
-        },
-        render: () => <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} />,
-      },
-      {
-        id: "atendimento",
-        titulo: blocosCopy.atendimento.titulo,
-        icone: Timer,
-        accent: "var(--acento-2)",
-        carregando: carregandoAtendimento,
-        resumo: {
-          valor: atendimento.dados?.taxaResposta !== null && atendimento.dados?.taxaResposta !== undefined
-            ? `${Math.round(atendimento.dados.taxaResposta)}%`
-            : null,
-          variacao: atendimento.dados?.variacaoTaxaResposta ?? null,
-          legenda: atendimento.dados?.medianaLabel
-            ? `${metricasConfig.atendimentoCard.medianaLabel}: ${atendimento.dados.medianaLabel}`
-            : blocosCopy.atendimento.legenda,
-        },
-        render: () => <AtendimentoCard dados={atendimento.dados} carregando={carregandoAtendimento} />,
-      },
-      {
-        id: "maisVendidos",
-        titulo: blocosCopy.maisVendidos.titulo,
-        icone: ShoppingBag,
-        accent: "var(--acento-1)",
-        carregando: maisVendidos.carregando,
-        semFiltro: maisVendidos.semFiltro,
-        resumo: {
-          valor: maisVendidos.dados?.maisVendidos[0]?.quantidade !== undefined
-            ? String(maisVendidos.dados.maisVendidos[0].quantidade)
-            : null,
-          legenda: maisVendidos.dados?.maisVendidos[0]?.nome ?? blocosCopy.maisVendidos.legenda,
-          rodape: blocosCopy.maisVendidos.legenda,
-        },
-        render: () => (
-          <MaisVendidosCard
-            itens={maisVendidos.dados?.maisVendidos ?? null}
-            carregando={maisVendidos.carregando}
-            semFiltro={maisVendidos.semFiltro}
-            scope={escopo(filtroMaisVendidos, setFiltroMaisVendidos)}
-          />
-        ),
-      },
-      {
-        id: "giroBaixo",
-        titulo: blocosCopy.giroBaixo.titulo,
-        icone: TrendingDown,
-        accent: "var(--acento-3)",
-        carregando: giroBaixo.carregando,
-        semFiltro: giroBaixo.semFiltro,
-        resumo: {
-          valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixo.length) : null,
-          legenda: blocosCopy.giroBaixo.legenda,
-        },
-        render: () => (
-          <GiroBaixoCard
-            itens={giroBaixo.dados?.giroBaixo ?? null}
-            carregando={giroBaixo.carregando}
-            semFiltro={giroBaixo.semFiltro}
-            scope={escopo(filtroGiroBaixo, setFiltroGiroBaixo)}
-          />
-        ),
-      },
-      {
-        id: "parados",
-        titulo: blocosCopy.parados.titulo,
-        icone: Hourglass,
-        accent: "var(--muted-foreground)",
-        carregando: parados.carregando,
-        semFiltro: parados.semFiltro,
-        resumo: {
-          valor: parados.dados ? String(parados.dados.parados.length) : null,
-          legenda: blocosCopy.parados.legenda,
-          alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
-        },
-        render: () => (
-          <ParadosCard
-            itens={parados.dados?.parados ?? null}
-            carregando={parados.carregando}
-            semFiltro={parados.semFiltro}
-            scope={escopo(filtroParados, setFiltroParados)}
-          />
-        ),
-      },
-      {
-        id: "posVenda",
-        titulo: blocosCopy.posVenda.titulo,
-        icone: MessageSquare,
-        accent: "var(--warning)",
-        resumo: { valor: null, legenda: blocosCopy.posVenda.legenda },
-        render: () => <PosVendaCard dados={posVenda.dados} carregando={carregandoPosVenda} />,
-      },
-      {
-        id: "acoes",
-        titulo: blocosCopy.acoes.titulo,
-        icone: Sparkles,
-        accent: "var(--acento-1)",
-        resumo: { valor: null, legenda: blocosCopy.acoes.legenda },
-        render: () => (
-          <AcoesCard
-            insightsIniciais={acoes.insights}
-            sugestoesIniciais={acoes.sugestoes}
-            carregandoInicial={!acoes.carregado}
-          />
-        ),
-      },
-    ];
+  const blocoFaturamento = useMemo<BlocoDef>(() => ({
+    id: "faturamento",
+    titulo: blocosCopy.faturamento.titulo,
+    icone: TrendingUp,
+    accent: "var(--acento-2)",
+    largura: 2,
+    carregando: faturamento.carregando,
+    semFiltro: faturamento.semFiltro,
+    miniatura: dadosFaturamento ? <MiniSerie serie={dadosFaturamento.serie} cor="var(--acento-2)" /> : null,
+    resumo: {
+      valor: dadosFaturamento?.total ?? null,
+      variacao: dadosFaturamento?.variacaoPercentual ?? null,
+      legenda: dadosFaturamento
+        ? blocosCopy.faturamento.legenda
+            .replace("{pedidos}", String(dadosFaturamento.pedidos))
+            .replace("{ticket}", dadosFaturamento.ticketMedio)
+        : blocosCopy.faturamento.legenda,
+    },
+    render: () => (
+      <FaturamentoCard
+        dados={dadosFaturamento}
+        periodo={periodo}
+        onDatasPersonalizadas={trocarDatas}
+        carregando={faturamento.carregando}
+        semFiltro={faturamento.semFiltro}
+        cores={coresFaturamento}
+        scope={escopo(filtroFaturamento, setFiltroFaturamento)}
+      />
+    ),
+  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, filtroFaturamento, coresFaturamento, periodo, trocarDatas, escopo]);
 
-    /* Os dois abaixo só existem com dado: Evolução precisa de uma janela
-       anterior para comparar, e Publicações precisa de marca conectada. Bloco
-       que abriria vazio não vira bloco. */
-    if (saude.dados) {
-      lista.splice(6, 0, {
-        id: "evolucao",
-        titulo: blocosCopy.evolucao.titulo,
-        icone: BarChart3,
-        accent: "var(--acento-2)",
-        resumo: { valor: null, legenda: blocosCopy.evolucao.legenda },
-        render: () => (
-          <ComparacaoPeriodoCard atual={saude.dados!} anterior={anterior.chave === chave ? anterior.dados : null} />
-        ),
-      });
-    }
+  const blocoScore = useMemo<BlocoDef>(() => ({
+    id: "score",
+    titulo: blocosCopy.score.titulo,
+    icone: Gauge,
+    // Enquanto não há dado, cai na mesma cor fixa que score-card.tsx usa no
+    // próprio cabeçalho (ACENTO) — antes esse fallback divergia da cor real
+    // do card. Com dado, o score manda: a cor representa a saúde atual, não
+    // uma identidade fixa.
+    accent: saude.dados?.faixaGeralCor ?? "var(--acento-2)",
+    carregando: carregandoSaude,
+    resumo: {
+      valor: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
+        ? String(Math.round(saude.dados.scoreGeral))
+        : null,
+      legenda: saude.dados?.faixaGeralLabel ?? blocosCopy.score.legenda,
+      alerta: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined && saude.dados.scoreGeral < 50
+        ? { nivel: saude.dados.scoreGeral < 30 ? "critico" : "atencao", texto: saude.dados.faixaGeralLabel ?? "Atenção" }
+        : null,
+    },
+    render: () => <ScoreCard dados={saude.dados} carregando={carregandoSaude} />,
+  }), [saude.dados, carregandoSaude]);
 
-    if (marcasPublicacoes.length > 0) {
-      lista.push({
-        id: "publicacoes",
-        titulo: blocosCopy.publicacoes.titulo,
-        icone: Megaphone,
-        accent: "var(--acento-3)",
-        resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
-        render: () => (
-          <PublicacoesCard
-            marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
-            inicio={inicio ?? diasAtras(29)}
-            fim={fim ?? hoje}
-            preCarregado={publicacoes}
-          />
-        ),
-      });
-    }
+  const blocoReputacao = useMemo<BlocoDef>(() => ({
+    id: "reputacao",
+    titulo: blocosCopy.reputacao.titulo,
+    icone: Store,
+    // Mesma cor do ACENTO em reputacao-card.tsx — divergiam (tile e card
+    // aberto mostravam cores diferentes para o mesmo bloco).
+    accent: "var(--acento-1)",
+    carregando: carregandoSaude,
+    resumo: {
+      valor: null,
+      legenda: saude.dados?.reputacaoIndisponivel ? metricasConfig.reputacaoCard.semTermometro : blocosCopy.reputacao.legenda,
+    },
+    render: () => <ReputacaoCard dados={saude.dados} carregando={carregandoSaude} />,
+  }), [saude.dados, carregandoSaude]);
 
-    return ordenarPorUrgencia(lista);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    dadosFaturamento, faturamento.carregando, faturamento.semFiltro, filtroFaturamento, coresFaturamento,
-    saude.dados, carregandoSaude, anterior, chave, marcasPublicacoes,
-    reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroReclamacoes,
-    reposicao, filtroReposicao, maisVendidos, filtroMaisVendidos, giroBaixo, filtroGiroBaixo, parados, filtroParados,
-    atendimento.dados, carregandoAtendimento, periodo, inicio, fim, marcas, canais,
-    posVenda.dados, carregandoPosVenda, acoes, publicacoes,
+  const blocoComparacao = useMemo<BlocoDef>(() => ({
+    id: "comparacao",
+    titulo: blocosCopy.comparacao.titulo,
+    icone: BarChart3,
+    // Mesma cor do ACENTO em comparacao-card.tsx.
+    accent: "var(--acento-3)",
+    carregando: carregandoSaude,
+    resumo: {
+      valor: saude.dados ? String(saude.dados.marcas.length) : null,
+      legenda: blocosCopy.comparacao.legenda,
+    },
+    render: () => <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} />,
+  }), [saude.dados, carregandoSaude]);
+
+  // Só existe com dado: Evolução precisa de uma janela anterior para
+  // comparar, e um bloco que abriria vazio não vira bloco.
+  const blocoEvolucao = useMemo<BlocoDef | null>(() => {
+    if (!saude.dados) return null;
+    return {
+      id: "evolucao",
+      titulo: blocosCopy.evolucao.titulo,
+      icone: BarChart3,
+      accent: "var(--acento-2)",
+      resumo: { valor: null, legenda: blocosCopy.evolucao.legenda },
+      render: () => (
+        <ComparacaoPeriodoCard atual={saude.dados!} anterior={anterior.chave === chave ? anterior.dados : null} />
+      ),
+    };
+  }, [saude.dados, anterior, chave]);
+
+  const blocoReclamacoes = useMemo<BlocoDef>(() => ({
+    id: "reclamacoes",
+    titulo: blocosCopy.reclamacoes.titulo,
+    icone: AlertTriangle,
+    accent: "var(--destructive)",
+    carregando: carregandoReclamacoes,
+    semFiltro: semFiltroReclamacoes,
+    resumo: {
+      valor: reclamacoesVisiveis ? String(reclamacoesVisiveis.total) : null,
+      legenda: blocosCopy.reclamacoes.legenda,
+      alerta: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
+        ? { nivel: "critico", texto: "abertas" }
+        : null,
+    },
+    render: () => (
+      <ReclamacoesCard
+        dados={reclamacoesVisiveis}
+        carregando={carregandoReclamacoes}
+        semFiltro={semFiltroReclamacoes}
+        // Sem pílulas de canal: o Mercado Livre não separa reclamação por
+        // canal de venda, então filtrar por canal aqui não mudaria nada.
+        scope={escopo(filtroReclamacoes, setFiltroReclamacoes, false)}
+      />
+    ),
+  }), [reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroReclamacoes, escopo]);
+
+  const blocoReposicao = useMemo<BlocoDef>(() => ({
+    id: "reposicao",
+    titulo: blocosCopy.reposicao.titulo,
+    icone: Package,
+    accent: "var(--warning)",
+    carregando: reposicao.carregando,
+    semFiltro: reposicao.semFiltro,
+    resumo: {
+      valor: reposicao.dados ? String(reposicao.dados.reposicao.length) : null,
+      legenda: blocosCopy.reposicao.legenda,
+      alerta: reposicao.dados && reposicao.dados.reposicao.length > 0
+        ? { nivel: "atencao", texto: "repor" }
+        : null,
+    },
+    render: () => (
+      <ReposicaoCard
+        itens={reposicao.dados?.reposicao ?? null}
+        carregando={reposicao.carregando}
+        semFiltro={reposicao.semFiltro}
+        scope={escopo(filtroReposicao, setFiltroReposicao)}
+      />
+    ),
+  }), [reposicao, filtroReposicao, escopo]);
+
+  const blocoAtendimento = useMemo<BlocoDef>(() => ({
+    id: "atendimento",
+    titulo: blocosCopy.atendimento.titulo,
+    icone: Timer,
+    // Mesma cor do ACENTO em atendimento-card.tsx.
+    accent: "var(--acento-1)",
+    carregando: carregandoAtendimento,
+    resumo: {
+      valor: atendimento.dados?.taxaResposta !== null && atendimento.dados?.taxaResposta !== undefined
+        ? `${Math.round(atendimento.dados.taxaResposta)}%`
+        : null,
+      variacao: atendimento.dados?.variacaoTaxaResposta ?? null,
+      legenda: atendimento.dados?.medianaLabel
+        ? `${metricasConfig.atendimentoCard.medianaLabel}: ${atendimento.dados.medianaLabel}`
+        : blocosCopy.atendimento.legenda,
+    },
+    render: () => <AtendimentoCard dados={atendimento.dados} carregando={carregandoAtendimento} />,
+  }), [atendimento.dados, carregandoAtendimento]);
+
+  const blocoMaisVendidos = useMemo<BlocoDef>(() => ({
+    id: "maisVendidos",
+    titulo: blocosCopy.maisVendidos.titulo,
+    icone: ShoppingBag,
+    accent: "var(--acento-1)",
+    carregando: maisVendidos.carregando,
+    semFiltro: maisVendidos.semFiltro,
+    resumo: {
+      valor: maisVendidos.dados?.maisVendidos[0]?.quantidade !== undefined
+        ? String(maisVendidos.dados.maisVendidos[0].quantidade)
+        : null,
+      legenda: maisVendidos.dados?.maisVendidos[0]?.nome ?? blocosCopy.maisVendidos.legenda,
+      rodape: blocosCopy.maisVendidos.legenda,
+    },
+    render: () => (
+      <MaisVendidosCard
+        itens={maisVendidos.dados?.maisVendidos ?? null}
+        carregando={maisVendidos.carregando}
+        semFiltro={maisVendidos.semFiltro}
+        scope={escopo(filtroMaisVendidos, setFiltroMaisVendidos)}
+      />
+    ),
+  }), [maisVendidos, filtroMaisVendidos, escopo]);
+
+  const blocoGiroBaixo = useMemo<BlocoDef>(() => ({
+    id: "giroBaixo",
+    titulo: blocosCopy.giroBaixo.titulo,
+    icone: TrendingDown,
+    accent: "var(--acento-3)",
+    carregando: giroBaixo.carregando,
+    semFiltro: giroBaixo.semFiltro,
+    resumo: {
+      valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixo.length) : null,
+      legenda: blocosCopy.giroBaixo.legenda,
+    },
+    render: () => (
+      <GiroBaixoCard
+        itens={giroBaixo.dados?.giroBaixo ?? null}
+        carregando={giroBaixo.carregando}
+        semFiltro={giroBaixo.semFiltro}
+        scope={escopo(filtroGiroBaixo, setFiltroGiroBaixo)}
+      />
+    ),
+  }), [giroBaixo, filtroGiroBaixo, escopo]);
+
+  const blocoParados = useMemo<BlocoDef>(() => ({
+    id: "parados",
+    titulo: blocosCopy.parados.titulo,
+    icone: Hourglass,
+    accent: "var(--muted-foreground)",
+    carregando: parados.carregando,
+    semFiltro: parados.semFiltro,
+    resumo: {
+      valor: parados.dados ? String(parados.dados.parados.length) : null,
+      legenda: blocosCopy.parados.legenda,
+      alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
+    },
+    render: () => (
+      <ParadosCard
+        itens={parados.dados?.parados ?? null}
+        carregando={parados.carregando}
+        semFiltro={parados.semFiltro}
+        scope={escopo(filtroParados, setFiltroParados)}
+      />
+    ),
+  }), [parados, filtroParados, escopo]);
+
+  const blocoPosVenda = useMemo<BlocoDef>(() => ({
+    id: "posVenda",
+    titulo: blocosCopy.posVenda.titulo,
+    icone: MessageSquare,
+    accent: "var(--warning)",
+    resumo: { valor: null, legenda: blocosCopy.posVenda.legenda },
+    render: () => <PosVendaCard dados={posVenda.dados} carregando={carregandoPosVenda} />,
+  }), [posVenda.dados, carregandoPosVenda]);
+
+  const blocoAcoes = useMemo<BlocoDef>(() => ({
+    id: "acoes",
+    titulo: blocosCopy.acoes.titulo,
+    icone: Sparkles,
+    accent: "var(--acento-1)",
+    resumo: { valor: null, legenda: blocosCopy.acoes.legenda },
+    render: () => (
+      <AcoesCard
+        insightsIniciais={acoes.insights}
+        sugestoesIniciais={acoes.sugestoes}
+        carregandoInicial={!acoes.carregado}
+      />
+    ),
+  }), [acoes]);
+
+  // Só existe com marca conectada — um bloco que abriria vazio não vira bloco.
+  const blocoPublicacoes = useMemo<BlocoDef | null>(() => {
+    if (marcasPublicacoes.length === 0) return null;
+    return {
+      id: "publicacoes",
+      titulo: blocosCopy.publicacoes.titulo,
+      icone: Megaphone,
+      accent: "var(--acento-3)",
+      resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
+      render: () => (
+        <PublicacoesCard
+          marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
+          inicio={inicio ?? diasAtras(29)}
+          fim={fim ?? hoje}
+          preCarregado={publicacoes}
+        />
+      ),
+    };
+  }, [marcasPublicacoes, inicio, fim, publicacoes]);
+
+  // Só junta e ordena — o trabalho pesado (recriar cada bloco) já aconteceu
+  // nos memos acima, isolado por grupo.
+  const blocos = useMemo<BlocoDef[]>(() => ordenarPorUrgencia([
+    blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoReputacao, blocoComparacao,
+    ...(blocoEvolucao ? [blocoEvolucao] : []),
+    blocoAtendimento, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
+    ...(blocoPublicacoes ? [blocoPublicacoes] : []),
+  ]), [
+    blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoReputacao, blocoComparacao,
+    blocoEvolucao, blocoAtendimento, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
+    blocoPublicacoes,
   ]);
 
   /* ── Foco ─────────────────────────────────────────────────────── */
@@ -750,6 +796,8 @@ export function Mosaico() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
+            role="status"
+            aria-live="polite"
             className="fixed inset-x-0 bottom-20 z-[60] mx-auto flex w-fit max-w-[92vw] items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-[0_8px_28px_rgba(14,15,19,.16)] sm:bottom-6"
           >
             <span className="hidden text-[11px] text-muted-foreground sm:inline">{copy.usarEmTodosDica}</span>

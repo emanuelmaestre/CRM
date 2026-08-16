@@ -6,7 +6,7 @@ import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
-import { Card, CardHead, useContagem } from "./card-primitives";
+import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import type {
   ProdutoGiroBaixo,

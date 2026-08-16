@@ -1,6 +1,7 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
+import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { Card, CardHead } from "./metricas-primitives";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
@@ -8,9 +9,7 @@ import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { isBrandSlug } from "@/shared/config/brands";
 import { NumeroAnimado } from "./metricas-primitives";
-
-const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const inteiro = new Intl.NumberFormat("pt-BR");
+import { inteiro, moeda } from "@/shared/design-system/format";
 
 /* A busca mora no mosaico (mosaico.tsx), disparada assim que a página
  * carrega — junto com Saúde da loja e Atendimento. Antes, este card buscava
@@ -22,6 +21,9 @@ export function PosVendaCard({ dados, carregando }: { dados: PosVendaResultado |
   return <Card>
     <CardHead title="Logística e pós-venda" subtitle="Cancelamentos, devoluções e impacto financeiro do período" icon={RotateCcw} accent="var(--warning)" />
     {carregando && !dados ? <div className="grid gap-3 p-5 md:grid-cols-3"><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/></div> :
+      !dados || dados.marcas.length === 0 ? (
+        <EmptyState illustration="generic" title="Nenhum pedido no período" description="Sem pedido nenhum na janela escolhida, não há cancelamento ou devolução para medir." />
+      ) :
       <div className="grid gap-3 p-4 md:grid-cols-3">{dados?.marcas.map((marca) => <article key={marca.brandId} className="rounded-2xl border border-border p-4">
         <h3 className="flex h-5 items-center text-sm font-bold">
           {isBrandSlug(marca.marcaSlug) ? <BrandLogo brand={marca.marcaSlug} height={15} /> : marca.marcaLabel}

@@ -13,6 +13,7 @@ import metricasConfig from "@/config/metricas.json";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
+import { inteiro, moeda, moedaCompacta } from "@/shared/design-system/format";
 
 const copy = metricasConfig.comparacaoCard;
 const ACENTO = "var(--acento-3)";
@@ -51,9 +52,6 @@ function corDaMarca(slug: string): string {
    Os outros indicadores continuam visíveis mesmo quando não são o
    critério de ordenação. É o que separa "comparar" de "olhar um
    ranking": trocar de critério não deveria esconder o resto. */
-const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const moedaCompacta = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" });
-const inteiro = new Intl.NumberFormat("pt-BR");
 
 interface CampoCalculo {
   titulo: string;
