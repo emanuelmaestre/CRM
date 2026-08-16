@@ -21,7 +21,7 @@ export default function NotFound() {
           style={{ background: "var(--gradient-signature)" }}
         >
           <ArrowLeft size={16} aria-hidden="true" />
-          Voltar ao painel
+          Voltar ao início
         </Link>
       </section>
     </main>

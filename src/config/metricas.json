@@ -196,7 +196,7 @@
     "periodoPadrao": "Últimos 30 dias",
     "usarEmTodos": "Usar em todos os cards",
     "usarEmTodosDica": "Cada card filtra sozinho — isto só preenche os que ainda estão vazios.",
-    "semFiltro": "Escolha uma marca para ver este número.",
+    "semFiltro": "Abra para escolher a marca.",
     "posicao": "{atual} de {total}",
     "blocos": {
       "faturamento": {

@@ -70,7 +70,7 @@
     "inactiveDescription": "Seu acesso foi desativado. Fale com um administrador da organização.",
     "forbiddenTitle": "Sem permissão para esta área",
     "forbiddenDescription": "Seu perfil não possui acesso a esta página. Se isso não estiver correto, fale com um administrador.",
-    "backToDashboard": "Voltar ao painel",
+    "backToDashboard": "Voltar ao início",
     "signOut": "Sair da conta"
   }
 }

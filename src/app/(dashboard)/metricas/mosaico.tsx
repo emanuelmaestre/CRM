@@ -351,7 +351,6 @@ export function Mosaico() {
         largura: 2,
         carregando: faturamento.carregando,
         semFiltro: faturamento.semFiltro,
-        seletor: escopo(filtroFaturamento, setFiltroFaturamento),
         miniatura: dadosFaturamento ? <MiniSerie serie={dadosFaturamento.serie} cor="var(--acento-2)" /> : null,
         resumo: {
           valor: dadosFaturamento?.total ?? null,
@@ -400,7 +399,6 @@ export function Mosaico() {
         semFiltro: semFiltroReclamacoes,
         // Sem pílulas de canal: o Mercado Livre não separa reclamação por canal
         // de venda, então filtrar por canal aqui não mudaria nada.
-        seletor: escopo(filtroReclamacoes, setFiltroReclamacoes, false),
         resumo: {
           valor: reclamacoesVisiveis ? String(reclamacoesVisiveis.total) : null,
           legenda: blocosCopy.reclamacoes.legenda,
@@ -424,7 +422,6 @@ export function Mosaico() {
         accent: "var(--warning)",
         carregando: reposicao.carregando,
         semFiltro: reposicao.semFiltro,
-        seletor: escopo(filtroReposicao, setFiltroReposicao),
         resumo: {
           valor: reposicao.dados ? String(reposicao.dados.reposicao.length) : null,
           legenda: blocosCopy.reposicao.legenda,
@@ -489,7 +486,6 @@ export function Mosaico() {
         accent: "var(--acento-1)",
         carregando: maisVendidos.carregando,
         semFiltro: maisVendidos.semFiltro,
-        seletor: escopo(filtroMaisVendidos, setFiltroMaisVendidos),
         resumo: {
           valor: maisVendidos.dados?.maisVendidos[0]?.quantidade !== undefined
             ? String(maisVendidos.dados.maisVendidos[0].quantidade)
@@ -513,7 +509,6 @@ export function Mosaico() {
         accent: "var(--acento-3)",
         carregando: giroBaixo.carregando,
         semFiltro: giroBaixo.semFiltro,
-        seletor: escopo(filtroGiroBaixo, setFiltroGiroBaixo),
         resumo: {
           valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixo.length) : null,
           legenda: blocosCopy.giroBaixo.legenda,
@@ -534,7 +529,6 @@ export function Mosaico() {
         accent: "var(--muted-foreground)",
         carregando: parados.carregando,
         semFiltro: parados.semFiltro,
-        seletor: escopo(filtroParados, setFiltroParados),
         resumo: {
           valor: parados.dados ? String(parados.dados.parados.length) : null,
           legenda: blocosCopy.parados.legenda,
@@ -692,14 +686,17 @@ export function Mosaico() {
       </motion.div>
 
       {/* Atalho de escopo: some sozinho, e some de vez assim que não há bloco
-          vazio para preencher. */}
+          vazio para preencher. A escolha que dispara isto agora só acontece
+          dentro do card aberto (o mosaico não tem mais pílula nenhuma), então
+          o aviso precisa ficar acima do painel de foco (z-50) para aparecer —
+          senão nasce escondido atrás dele. */}
       <AnimatePresence>
         {sugestao && filtrosVazios > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 12 }}
-            className="fixed inset-x-0 bottom-20 z-40 mx-auto flex w-fit max-w-[92vw] items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-[0_8px_28px_rgba(14,15,19,.16)] sm:bottom-6"
+            className="fixed inset-x-0 bottom-20 z-[60] mx-auto flex w-fit max-w-[92vw] items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-[0_8px_28px_rgba(14,15,19,.16)] sm:bottom-6"
           >
             <span className="hidden text-[11px] text-muted-foreground sm:inline">{copy.usarEmTodosDica}</span>
             <button

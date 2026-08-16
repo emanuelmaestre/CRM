@@ -27,29 +27,33 @@ function renderBloco(def: BlocoDef, focado = false) {
 }
 
 describe("bloco do mosaico", () => {
-  it("mostra o seletor no lugar do número quando nenhuma marca foi escolhida", () => {
+  it("não mostra o número nem pílula nenhuma quando falta escolher marca", () => {
+    // Escolher marca é coisa de dentro do card aberto — o mosaico só avisa o
+    // que vai aparecer, sem virar formulário.
     renderBloco(bloco({
       semFiltro: true,
-      seletor: <button type="button">KARZI</button>,
       resumo: { valor: "4", legenda: "itens perto do mínimo" },
     }));
 
-    // O valor existe no resumo, mas sem filtro ele não pertence a marca nenhuma:
-    // mostrá-lo seria atribuir a uma marca um número que é de outra.
     expect(screen.queryByText("4")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "KARZI" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /karzi|wuwu|lima/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Abra para escolher a marca.")).toBeInTheDocument();
   });
 
-  it("não aninha as pílulas dentro do controle que abre o bloco", () => {
-    // Botão dentro de botão é HTML inválido e, pior, faz o clique na pílula
-    // abrir o card — escolher a marca viraria abrir a tela cheia.
-    renderBloco(bloco({
-      semFiltro: true,
-      seletor: <button type="button">KARZI</button>,
-    }));
+  it("o único controle do bloco é o que abre o card", () => {
+    // Guarda a limpeza visual: um tile não é botão dentro de botão nem uma
+    // fileira de pílulas — é um card com um único alvo de clique.
+    renderBloco(bloco());
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
 
-    const pilula = screen.getByRole("button", { name: "KARZI" });
-    expect(pilula.closest("button")).toBe(pilula);
+  it("não repete a mesma frase como número e como rodapé quando não há valor", () => {
+    // Achado real: "Vendem mais" sem produto no período usava a mesma legenda
+    // como descrição central e como rodapé — a frase aparecia duas vezes.
+    renderBloco(bloco({
+      resumo: { valor: null, legenda: "no topo do período", rodape: "no topo do período" },
+    }));
+    expect(screen.getAllByText("no topo do período")).toHaveLength(1);
   });
 
   it("não desenha número enquanto carrega", () => {

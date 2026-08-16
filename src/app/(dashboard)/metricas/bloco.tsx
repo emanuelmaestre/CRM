@@ -48,10 +48,10 @@ export interface BlocoDef {
   largura?: 1 | 2;
   carregando?: boolean;
   resumo: ResumoBloco;
-  /** Pílulas de marca/canal. No bloco vazio ocupam o miolo, no bloco com
-   *  número viram uma tira fina no rodapé. */
-  seletor?: React.ReactNode;
-  /** True enquanto nenhuma marca foi escolhida — o card não busca nada. */
+  /** True enquanto nenhuma marca foi escolhida — o card não busca nada. O
+   *  tile não mostra pílula nenhuma nesse estado: escolher marca é coisa de
+   *  dentro do card aberto (ver `scope` passado ao próprio `render`), não do
+   *  mosaico — é o que mantém o mosaico limpo. */
   semFiltro?: boolean;
   /** Miniatura opcional (série, anel) desenhada atrás do número. */
   miniatura?: React.ReactNode;
@@ -152,14 +152,10 @@ export function Bloco({ def, focado, onAbrir }: {
 
             <div className="flex flex-1 flex-col justify-end gap-1.5">
               {def.semFiltro ? (
-                /* Bloco sem escolha não fica em branco: as pílulas ocupam o
-                   miolo e o próprio bloco vira o seletor. */
-                <div className="flex flex-1 flex-col justify-center gap-2">
-                  <p className="text-[11px] leading-snug text-muted-foreground">{metricasConfig.mosaico.semFiltro}</p>
-                  {/* z-10 põe as pílulas acima do ::after que abre o bloco:
-                      escolher uma marca não pode abrir o card por tabela. */}
-                  <div className="relative z-10 flex flex-wrap items-center gap-1.5">{def.seletor}</div>
-                </div>
+                /* Sem marca escolhida, o tile não vira formulário — ele só diz
+                   o que vai aparecer quando abrir. A escolha em si acontece
+                   dentro do card em foco. */
+                <p className="text-[12px] leading-snug text-muted-foreground">{metricasConfig.mosaico.semFiltro}</p>
               ) : def.carregando ? (
                 <span className="h-8 w-2/3 animate-pulse rounded-md bg-muted" aria-label="Carregando" />
               ) : resumo.valor === null ? (
@@ -179,7 +175,7 @@ export function Bloco({ def, focado, onAbrir }: {
                 </>
               )}
 
-              {alerta && !def.semFiltro && (
+              {alerta && (
                 <span
                   className="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]"
                   style={{ background: tint(corAlerta(alerta.nivel), 12), color: corAlerta(alerta.nivel) }}
@@ -187,18 +183,14 @@ export function Bloco({ def, focado, onAbrir }: {
                   {alerta.texto}
                 </span>
               )}
-              {!alerta && resumo.rodape && !def.semFiltro && (
+              {/* resumo.valor !== null: sem número, o rodapé repetiria a mesma
+                  frase que já apareceu como descrição logo acima — ex.: "Vendem
+                  mais" sem nenhum produto no período mostraria "no topo do
+                  período" duas vezes seguidas. */}
+              {!alerta && resumo.rodape && resumo.valor !== null && (
                 <span className="truncate text-[11px] text-muted-foreground/80">{resumo.rodape}</span>
               )}
             </div>
-
-            {/* Com número na tela, as pílulas encolhem para uma tira no rodapé:
-                continuam à mão sem disputar espaço com o que importa. */}
-            {!def.semFiltro && def.seletor && (
-              <div className="relative z-10 -mx-1 flex items-center gap-1 overflow-x-auto scrollbar-none px-1 pt-1 [&_button]:h-7 [&_button]:px-2">
-                {def.seletor}
-              </div>
-            )}
         </motion.div>
       )}
     </li>
