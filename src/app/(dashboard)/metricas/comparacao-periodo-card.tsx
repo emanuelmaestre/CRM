@@ -29,21 +29,21 @@ function montarItens(marca: SaudeMarca, base: SaudeMarca | undefined): ItemCompa
       valor: delta(marca.faturamento, base?.faturamento ?? 0),
       atualLabel: marca.faturamentoLabel,
       anteriorLabel: base ? base.faturamentoLabel : moeda.format(0),
-      formula: "(faturamento atual − faturamento anterior) ÷ faturamento anterior",
+      formula: "quanto o faturamento do período atual variou em relação ao anterior, em porcentagem",
     },
     {
       label: "Pedidos",
       valor: delta(marca.pedidos, base?.pedidos ?? 0),
       atualLabel: inteiro.format(marca.pedidos),
       anteriorLabel: inteiro.format(base?.pedidos ?? 0),
-      formula: "(pedidos no período atual − pedidos no período anterior) ÷ pedidos no período anterior",
+      formula: "quanto a quantidade de pedidos variou do período anterior para o atual, em porcentagem",
     },
     {
       label: "Ticket médio",
       valor: delta(marca.ticketMedio, base?.ticketMedio ?? 0),
       atualLabel: marca.ticketMedioLabel,
       anteriorLabel: base ? base.ticketMedioLabel : moeda.format(0),
-      formula: "(ticket médio atual − ticket médio anterior) ÷ ticket médio anterior",
+      formula: "quanto o ticket médio variou do período anterior para o atual, em porcentagem",
     },
     {
       label: "Cancelamento",
@@ -52,7 +52,7 @@ function montarItens(marca: SaudeMarca, base: SaudeMarca | undefined): ItemCompa
         : Math.round((marca.taxaCancelamento - base.taxaCancelamento) * 10) / 10,
       atualLabel: marca.taxaCancelamento === null ? "—" : `${marca.taxaCancelamento}%`,
       anteriorLabel: base?.taxaCancelamento == null ? "—" : `${base.taxaCancelamento}%`,
-      formula: "taxa de cancelamento atual − taxa de cancelamento anterior, em pontos percentuais",
+      formula: "diferença entre a taxa de cancelamento atual e a anterior, em pontos percentuais",
     },
   ];
 }

@@ -42,7 +42,7 @@ export function PosVendaCard({ inicio, fim }: { inicio: string; fim: string }) {
               {marca.taxaProblemas !== null && (
                 <CalculoPopover
                   titulo="Taxa de problemas"
-                  formula="(cancelados + devolvidos) ÷ total de pedidos do período"
+                  formula="pedidos cancelados e devolvidos somados, divididos pelo total de pedidos do período"
                   resultado={`${marca.taxaProblemas}%`}
                   itens={[
                     { label: "Cancelados + devolvidos", valor: inteiro.format(marca.cancelados + marca.devolvidos), fracao: marca.taxaProblemas / 100 },

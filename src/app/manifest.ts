@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: appConfig.fullName,
     short_name: appConfig.identityLabel,
     description: appConfig.description,
-    start_url: "/dashboard",
+    start_url: "/metricas",
     display: "standalone",
     background_color: "#0E0F13",
     theme_color: "#0E0F13",

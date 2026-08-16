@@ -306,6 +306,28 @@ button, input, select, textarea {
   font-variant-numeric: tabular-nums;
 }
 
+/* Um degrau abaixo de .text-stat-lg, para o número do bloco no mosaico: ainda
+   é a coisa mais pesada dentro do bloco, sem competir com o card em foco. */
+.text-stat-md {
+  font-family: var(--font-sora), system-ui, sans-serif;
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tira de pílulas que rola na horizontal dentro do bloco: a barra de rolagem
+   nativa comeria altura que o bloco não tem de sobra. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 .text-label-md {
   font-size: 12px;
   line-height: 16px;

@@ -28,7 +28,9 @@ describe("Autorização por perfil", () => {
     ["vendedor", "/configuracoes", false],
     ["admin", "/metricas", true],
     ["gestor", "/metricas", true],
-    ["vendedor", "/metricas", false],
+    // /metricas absorveu o Painel e virou a tela inicial (navigation.homeHref).
+    // Barrar vendedor aqui deixaria o perfil sem para onde ir depois do login.
+    ["vendedor", "/metricas", true],
     ["gestor", "/importacao", true],
     ["vendedor", "/importacao", false],
     ["vendedor", "/clientes", true],

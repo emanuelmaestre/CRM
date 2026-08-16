@@ -27,7 +27,7 @@ export default function SemPermissaoPage() {
       </p>
       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="mt-6">
         <Link
-          href="/dashboard"
+          href="/metricas"
           className="inline-flex h-11 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
         >
           {permissionsConfig.messages.backToDashboard}

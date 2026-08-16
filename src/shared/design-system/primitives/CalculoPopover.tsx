@@ -40,9 +40,9 @@ export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado
         <button
           type="button"
           aria-label={`Como calculamos: ${titulo}`}
-          className="press-feedback inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/40 opacity-70 transition-all hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="press-feedback inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/40 opacity-70 transition-all hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Info size={11} strokeWidth={2.25} />
+          <Info size={15} strokeWidth={2.25} />
         </button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
@@ -50,13 +50,13 @@ export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado
           align="start"
           sideOffset={8}
           collisionPadding={12}
-          className="z-[100] w-72 origin-[var(--radix-popover-content-transform-origin)] rounded-[1rem] border border-border bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="z-[100] w-[22rem] origin-[var(--radix-popover-content-transform-origin)] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[13px] font-bold text-foreground">{titulo}</p>
-            <span className="shrink-0 text-[13px] font-bold tabular-nums text-foreground">{resultado}</span>
+            <p className="text-[16px] font-bold text-foreground">{titulo}</p>
+            <span className="shrink-0 text-[16px] font-bold tabular-nums text-foreground">{resultado}</span>
           </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{formula}</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{formula}</p>
 
           {barra && (
             <motion.div
@@ -76,9 +76,9 @@ export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado
             </motion.div>
           )}
 
-          <dl className="mt-3 space-y-1.5">
+          <dl className="mt-4 space-y-2">
             {itens.map((item) => (
-              <div key={item.label} className="flex items-center justify-between gap-3 text-[12px]">
+              <div key={item.label} className="flex items-center justify-between gap-3 text-[14px]">
                 <dt className="text-muted-foreground">{item.label}</dt>
                 <dd className="font-semibold tabular-nums text-foreground">{item.valor}</dd>
               </div>
@@ -86,10 +86,14 @@ export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado
           </dl>
 
           {(periodoLabel || nota) && (
-            <p className="mt-3 border-t border-border pt-2.5 text-[10.5px] leading-relaxed text-muted-foreground/80">
-              {periodoLabel && <>Período: {periodoLabel}. </>}
-              {nota}
-            </p>
+            <div className="mt-4 border-t border-border pt-3">
+              {periodoLabel && (
+                <p className="text-[12px] font-semibold text-foreground">Comparando {periodoLabel}</p>
+              )}
+              {nota && (
+                <p className={`text-[12px] leading-relaxed text-muted-foreground/80 ${periodoLabel ? "mt-1" : ""}`}>{nota}</p>
+              )}
+            </div>
           )}
 
           <PopoverPrimitive.Arrow className="fill-card" />

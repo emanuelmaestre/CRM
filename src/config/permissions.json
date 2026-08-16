@@ -36,7 +36,8 @@
       "prefix": "/metricas",
       "profiles": [
         "admin",
-        "gestor"
+        "gestor",
+        "vendedor"
       ]
     },
     {

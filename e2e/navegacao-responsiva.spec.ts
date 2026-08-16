@@ -8,7 +8,9 @@ const paginas = [
   { rota: "/admin/saude", titulo: "Saúde do sistema" },
   { rota: "/admin/lgpd", titulo: "Solicitacoes LGPD" },
   { rota: "/admin/consumo-ia", titulo: "Consumo de IA" },
-  { rota: "/dashboard", titulo: "Painel" },
+  // O Painel deixou de ser página: seus cards viraram blocos do mosaico de
+  // Métricas, e /dashboard só redirecciona. Quem cobre essa tela agora é a
+  // entrada de /metricas mais abaixo.
   { rota: "/clientes", titulo: "Clientes" },
   { rota: "/estoque", titulo: "Estoque" },
   { rota: "/estoque/alertas", titulo: "Alertas de estoque" },

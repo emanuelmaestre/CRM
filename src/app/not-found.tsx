@@ -16,7 +16,7 @@ export default function NotFound() {
           O endereço pode ter mudado ou não está disponível para o seu acesso.
         </p>
         <Link
-          href="/dashboard"
+          href="/metricas"
           className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold text-white shadow-sm"
           style={{ background: "var(--gradient-signature)" }}
         >

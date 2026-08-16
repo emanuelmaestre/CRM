@@ -70,7 +70,7 @@ export async function updateSession(request: NextRequest) {
 
   if (isAuthenticated && isLoginRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = "/metricas";
     url.search = "";
     return copyCookies(supabaseResponse, NextResponse.redirect(url));
   }

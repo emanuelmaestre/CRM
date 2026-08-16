@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { Receipt, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
@@ -10,9 +10,8 @@ import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover
 import { springs } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
-import { Card, CardHead, useContagem } from "./card-primitives";
+import { Card, CardHead, useContagem, type Periodo } from "./card-primitives";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
-import type { Periodo } from "./page";
 import { tint } from "@/shared/design-system/color";
 
 const copy = dashboardConfig.cards.faturamento;
@@ -197,22 +196,29 @@ export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carrega
                     {copy.comparisonLabel}
                     <CalculoPopover
                       titulo="Variação de faturamento"
-                      formula="(total do período atual − total do período anterior) ÷ total do período anterior"
+                      formula="quanto o faturamento do período atual variou em relação ao período anterior, em porcentagem"
                       resultado={`${positiva ? "+" : ""}${variacao}%`}
                       periodoLabel={`${dados.janelaLabel} vs. ${dados.janelaAnteriorLabel}`}
                       itens={[
                         { label: "Período atual", valor: dados.total },
                         { label: "Período anterior", valor: dados.totalAnterior },
                       ]}
-                      nota="Mesma duração de dias, imediatamente anterior ao período selecionado."
+                      nota="O período anterior tem o mesmo número de dias do período atual, e termina bem antes dele começar — sem sobreposição."
                     />
                   </span>
                 )}
               </div>
 
-              <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
-                {dados?.pedidos} {copy.ordersLabel} · {dados?.ticketMedio} {copy.ticketLabel}
-              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ShoppingBag size={13} strokeWidth={2} className="shrink-0 opacity-70" />
+                  <span className="font-semibold tabular-nums text-foreground">{dados?.pedidos}</span> {copy.ordersLabel}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Receipt size={13} strokeWidth={2} className="shrink-0 opacity-70" />
+                  <span className="font-semibold tabular-nums text-foreground">{dados?.ticketMedio}</span> {copy.ticketLabel}
+                </span>
+              </div>
 
               <div className="mt-5">
                 {/* Leitura do ponto sob o cursor. Fica em posição fixa em vez de

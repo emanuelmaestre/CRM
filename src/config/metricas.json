@@ -189,5 +189,72 @@
       "Top 5 produtos",
       "Recorrência"
     ]
+  },
+  "mosaico": {
+    "_doc": "Textos do mosaico: o titulo curto e a legenda de cada bloco na visao compacta. Titulo curto porque o bloco tem uma linha; o titulo longo continua dentro do card em foco.",
+    "periodoLabel": "Período",
+    "periodoPadrao": "Últimos 30 dias",
+    "usarEmTodos": "Usar em todos os cards",
+    "usarEmTodosDica": "Cada card filtra sozinho — isto só preenche os que ainda estão vazios.",
+    "semFiltro": "Escolha uma marca para ver este número.",
+    "posicao": "{atual} de {total}",
+    "blocos": {
+      "faturamento": {
+        "titulo": "Faturamento",
+        "legenda": "{pedidos} pedidos · ticket {ticket}"
+      },
+      "score": {
+        "titulo": "Saúde da loja",
+        "legenda": "Cinco pilares, um número"
+      },
+      "reputacao": {
+        "titulo": "Termômetro",
+        "legenda": "Direto do Mercado Livre"
+      },
+      "comparacao": {
+        "titulo": "Marca a marca",
+        "legenda": "As mesmas réguas, lado a lado"
+      },
+      "evolucao": {
+        "titulo": "Evolução",
+        "legenda": "Contra a mesma duração anterior"
+      },
+      "publicacoes": {
+        "titulo": "Publicações",
+        "legenda": "Anúncios ativos e pausados no período"
+      },
+      "posVenda": {
+        "titulo": "Pós-venda",
+        "legenda": "Cancelamento, atraso e devolução dos pedidos"
+      },
+      "atendimento": {
+        "titulo": "Atendimento",
+        "legenda": "Quanto o cliente espera por uma resposta"
+      },
+      "acoes": {
+        "titulo": "Recomendações",
+        "legenda": "Análises do funil e campanhas sugeridas"
+      },
+      "reposicao": {
+        "titulo": "Repor em breve",
+        "legenda": "itens perto do mínimo"
+      },
+      "reclamacoes": {
+        "titulo": "Reclamações",
+        "legenda": "abertas no Mercado Livre"
+      },
+      "maisVendidos": {
+        "titulo": "Vendem mais",
+        "legenda": "no topo do período"
+      },
+      "giroBaixo": {
+        "titulo": "Giro baixo",
+        "legenda": "com saldo e quase sem saída"
+      },
+      "parados": {
+        "titulo": "Estoque parado",
+        "legenda": "sem saída há 90 dias"
+      }
+    }
   }
 }

@@ -76,7 +76,7 @@ export function PublicacoesCard({ marcas, inicio, fim }: {
                       {item.conversaoEstimada !== null && (
                         <CalculoPopover
                           titulo="Conversão estimada"
-                          formula="unidades vendidas no período ÷ visitas da publicação"
+                          formula="unidades vendidas no período, divididas pelas visitas que a publicação recebeu"
                           resultado={`${item.conversaoEstimada.toFixed(2)}%`}
                           itens={[
                             { label: "Unidades vendidas", valor: inteiro.format(item.unidadesVendidas), fracao: item.conversaoEstimada / 100 },

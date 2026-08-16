@@ -107,7 +107,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       ...(marca.margemPercentual === null ? {} : { valorNumerico: marca.margemPercentual, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.margemPercentual === null ? null : {
         titulo: "Margem líquida",
-        formula: "(receita − comissão do Mercado Livre) ÷ receita, só nos itens com comissão informada",
+        formula: "receita menos a comissão do Mercado Livre, dividida pela receita — só nos itens com comissão informada",
         resultado: `${marca.margemPercentual}%`,
         itens: [
           { label: "Margem líquida", valor: marca.margemLiquidaLabel ?? "—" },
@@ -126,7 +126,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       ...(marca.taxaCancelamento === null ? {} : { valorNumerico: marca.taxaCancelamento, formatarNumero: (v: number) => `${v.toFixed(1)}%` }),
       calculo: marca.taxaCancelamento === null ? null : {
         titulo: "Cancelamento",
-        formula: "pedidos cancelados ou devolvidos ÷ total de pedidos do período",
+        formula: "pedidos cancelados ou devolvidos, divididos pelo total de pedidos do período",
         resultado: `${marca.taxaCancelamento}%`,
         itens: [
           { label: "Cancelados ou devolvidos", valor: inteiro.format(marca.pedidosCanceladosOuDevolvidos), fracao: marca.taxaCancelamento / 100 },
@@ -141,7 +141,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       ...(marca.concentracaoTop5 === null ? {} : { valorNumerico: marca.concentracaoTop5, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.concentracaoTop5 === null ? null : {
         titulo: "Concentração nos 5 mais vendidos",
-        formula: "receita dos 5 produtos mais vendidos ÷ receita total (sem cancelados)",
+        formula: "receita dos 5 produtos mais vendidos, dividida pela receita total (sem contar cancelados)",
         resultado: `${marca.concentracaoTop5}%`,
         itens: [
           { label: "Receita dos 5 mais vendidos", valor: moedaCompacta.format(marca.receitaTop5), fracao: marca.concentracaoTop5 / 100 },
@@ -156,7 +156,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       ...(marca.taxaRecorrencia === null ? {} : { valorNumerico: marca.taxaRecorrencia, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.taxaRecorrencia === null ? null : {
         titulo: "Recorrência",
-        formula: "receita de clientes que já compraram antes ÷ receita total (sem cancelados)",
+        formula: "receita de clientes que já tinham comprado antes, dividida pela receita total (sem contar cancelados)",
         resultado: `${marca.taxaRecorrencia}%`,
         itens: [
           { label: "Receita de clientes recorrentes", valor: moedaCompacta.format(marca.receitaRecorrente), fracao: marca.taxaRecorrencia / 100 },

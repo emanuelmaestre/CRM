@@ -190,7 +190,7 @@ export function AtendimentoCard({ dados, carregando }: {
               calculo={dados.taxaResposta !== null && (
                 <CalculoPopover
                   titulo="Taxa de resposta"
-                  formula="perguntas respondidas ÷ total de perguntas que abriram um turno no período"
+                  formula="quantas perguntas foram respondidas, dividido pelo total de perguntas recebidas no período"
                   resultado={`${dados.taxaResposta}%`}
                   itens={[
                     { label: "Respondidas", valor: inteiro.format(dados.respondidas), fracao: dados.taxaResposta / 100 },

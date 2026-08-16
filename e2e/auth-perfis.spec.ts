@@ -10,7 +10,7 @@ test.describe("Autenticação e perfis", () => {
 
   test("visitante é redirecionado para o login", async ({ page }) => {
     await page.context().clearCookies();
-    await page.goto("/dashboard");
+    await page.goto("/metricas");
     await expect(page).toHaveURL(/\/auth\/login/);
   });
 });

@@ -6,6 +6,16 @@ import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
 
+/** Janela de datas escolhida no topo do mosaico, em yyyy-mm-dd. As duas pontas
+ *  vazias significam "últimos 30 dias", resolvido na busca — ver
+ *  `periodoEfetivo` no mosaico. Mora aqui, e não na página, porque desde a
+ *  fusão de Painel e Métricas há uma página só e vários cards que precisam
+ *  do tipo sem depender dela. */
+export interface Periodo {
+  inicio: string;
+  fim: string;
+}
+
 /* ── Card base ─────────────────────────────────────────────────
    Camada tonal: borda de 1px, raio de 20px e sombra ambiente
    (ver .card-surface em globals.css). */

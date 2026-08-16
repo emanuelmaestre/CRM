@@ -26,7 +26,7 @@ export function LoginForm() {
         password: senha,
       });
       if (error) throw error;
-      router.replace("/dashboard");
+      router.replace("/metricas");
       router.refresh();
     } catch {
       setErro(copy.errors.invalidCredentials);
