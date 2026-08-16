@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { Card, CardHead } from "./metricas-primitives";
-import { actionObterPosVenda } from "./actions";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
@@ -14,20 +12,17 @@ import { NumeroAnimado } from "./metricas-primitives";
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const inteiro = new Intl.NumberFormat("pt-BR");
 
-export function PosVendaCard({ inicio, fim }: { inicio: string; fim: string }) {
-  const chave = `${inicio}:${fim}`;
-  const [estado, setEstado] = useState<{ chave: string; dados: PosVendaResultado | null }>({ chave: "", dados: null });
-  useEffect(() => {
-    let ativo = true;
-    actionObterPosVenda({ inicio, fim }).then((dados) => { if (ativo) setEstado({ chave, dados }); });
-    return () => { ativo = false; };
-  }, [chave, inicio, fim]);
-  const carregando = estado.chave !== chave;
-
+/* A busca mora no mosaico (mosaico.tsx), disparada assim que a página
+ * carrega — junto com Saúde da loja e Atendimento. Antes, este card buscava
+ * sozinho ao montar, o que só acontecia quando o bloco abria: cada clique
+ * esperava uma ida ao servidor, e fechar e reabrir refazia a busca do zero.
+ * Como card puramente apresentacional, abrir o bloco só troca o que já
+ * chegou. */
+export function PosVendaCard({ dados, carregando }: { dados: PosVendaResultado | null; carregando: boolean }) {
   return <Card>
     <CardHead title="Logística e pós-venda" subtitle="Cancelamentos, devoluções e impacto financeiro do período" icon={RotateCcw} accent="var(--warning)" />
-    {carregando && !estado.dados ? <div className="grid gap-3 p-5 md:grid-cols-3"><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/></div> :
-      <div className="grid gap-3 p-4 md:grid-cols-3">{estado.dados?.marcas.map((marca) => <article key={marca.brandId} className="rounded-2xl border border-border p-4">
+    {carregando && !dados ? <div className="grid gap-3 p-5 md:grid-cols-3"><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/></div> :
+      <div className="grid gap-3 p-4 md:grid-cols-3">{dados?.marcas.map((marca) => <article key={marca.brandId} className="rounded-2xl border border-border p-4">
         <h3 className="flex h-5 items-center text-sm font-bold">
           {isBrandSlug(marca.marcaSlug) ? <BrandLogo brand={marca.marcaSlug} height={15} /> : marca.marcaLabel}
         </h3>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import { Lightbulb, ShieldCheck, ThumbsDown, ThumbsUp, TrendingDown, TrendingUp } from "lucide-react";
@@ -21,8 +21,8 @@ import { tint } from "@/shared/design-system/color";
 const copy = metricasConfig.acoesCard;
 const ACENTO = "var(--acento-2)";
 
-type Insight = Awaited<ReturnType<typeof actionListarInsights>>[number];
-type Sugestao = Awaited<ReturnType<typeof actionListarSugestoes>>[number];
+export type Insight = Awaited<ReturnType<typeof actionListarInsights>>[number];
+export type Sugestao = Awaited<ReturnType<typeof actionListarSugestoes>>[number];
 
 const STATUS: Record<string, { label: string; color: string }> = copy.statusSugestao;
 
@@ -38,25 +38,36 @@ function tomDoInsight(texto: string): { icon: LucideIcon; cor: string } {
   return { icon: Lightbulb, cor: "var(--selecionado)" };
 }
 
-export function AcoesCard() {
-  const [dados, setDados] = useState<{ carregado: boolean; insights: Insight[]; sugestoes: Sugestao[] }>({
-    carregado: false,
-    insights: [],
-    sugestoes: [],
-  });
+/* A busca inicial mora no mosaico (mosaico.tsx), disparada assim que a
+ * página carrega — antes deste componente sequer montar, já que o bloco só
+ * é montado quando o card abre. Aqui só sincronizamos o que o mosaico já
+ * buscou; `recarregar` (chamado depois de aprovar/rejeitar) continua sendo
+ * uma busca de verdade feita por este componente, porque é o único lugar
+ * que sabe que uma decisão acabou de mudar a lista. */
+export function AcoesCard({ insightsIniciais, sugestoesIniciais, carregandoInicial }: {
+  insightsIniciais: Insight[];
+  sugestoesIniciais: Sugestao[];
+  carregandoInicial: boolean;
+}) {
+  const [dados, setDados] = useState<{ carregado: boolean; insights: Insight[]; sugestoes: Sugestao[] }>(() => (
+    carregandoInicial
+      ? { carregado: false, insights: [], sugestoes: [] }
+      : { carregado: true, insights: insightsIniciais, sugestoes: sugestoesIniciais }
+  ));
   const [decidindo, setDecidindo] = useState<string | null>(null);
 
-  useEffect(() => {
-    let ativo = true;
-    Promise.all([actionListarInsights(), actionListarSugestoes()])
-      .then(([insights, sugestoes]) => {
-        if (ativo) setDados({ carregado: true, insights, sugestoes });
-      })
-      .catch(() => {
-        if (ativo) setDados({ carregado: true, insights: [], sugestoes: [] });
-      });
-    return () => { ativo = false; };
-  }, []);
+  // Ajuste durante a renderização (não em efeito): o mosaico pode terminar
+  // de carregar depois que este card já montou (abriu rápido demais). Só
+  // preenche na transição carregando→pronto, e só se nada local ainda tiver
+  // mudado — depois de aprovar/rejeitar, `dados.carregado` já é true e esta
+  // sincronização para de acontecer, então uma decisão nunca é apagada.
+  const [ultimoCarregandoInicial, setUltimoCarregandoInicial] = useState(carregandoInicial);
+  if (carregandoInicial !== ultimoCarregandoInicial) {
+    setUltimoCarregandoInicial(carregandoInicial);
+    if (!carregandoInicial && !dados.carregado) {
+      setDados({ carregado: true, insights: insightsIniciais, sugestoes: sugestoesIniciais });
+    }
+  }
 
   async function recarregar() {
     const [insights, sugestoes] = await Promise.all([actionListarInsights(), actionListarSugestoes()]);

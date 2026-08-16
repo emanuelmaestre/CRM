@@ -14,25 +14,40 @@ import { NumeroAnimado } from "./metricas-primitives";
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const inteiro = new Intl.NumberFormat("pt-BR");
 
-export function PublicacoesCard({ marcas, inicio, fim }: {
+/** O que o mosaico já buscou ao carregar a página, para a primeira marca (a
+ *  aba que abre por padrão). Trocar de aba dentro do card continua buscando
+ *  na hora — é uma escolha ativa de quem já está com o card aberto, bem
+ *  diferente de esperar só para ver a primeira tela. */
+export interface DesempenhoPreCarregado {
+  brandId: string;
+  inicio: string;
+  fim: string;
+  dados: DesempenhoPublicacoesResultado | null;
+}
+
+export function PublicacoesCard({ marcas, inicio, fim, preCarregado }: {
   marcas: Array<{ brandId: string; marcaLabel: string; slug: string }>;
   inicio: string;
   fim: string;
+  preCarregado?: DesempenhoPreCarregado | null;
 }) {
   const [brandId, setBrandId] = useState(marcas[0]?.brandId ?? "");
-  const [consulta, setConsulta] = useState<{ chave: string; dados: DesempenhoPublicacoesResultado | null }>({ chave: "", dados: null });
   const chave = `${brandId}:${inicio}:${fim}`;
+  const chavePreCarregada = preCarregado && `${preCarregado.brandId}:${preCarregado.inicio}:${preCarregado.fim}`;
+  const [consulta, setConsulta] = useState<{ chave: string; dados: DesempenhoPublicacoesResultado | null }>(() => (
+    chavePreCarregada === chave ? { chave, dados: preCarregado!.dados } : { chave: "", dados: null }
+  ));
   const carregando = consulta.chave !== chave;
   const dados = consulta.dados;
 
   useEffect(() => {
-    if (!brandId) return;
+    if (!brandId || consulta.chave === chave) return;
     let ativo = true;
     actionObterDesempenhoPublicacoes({ brandId, inicio, fim })
       .then((resultado) => { if (ativo) setConsulta({ chave, dados: resultado }); })
       .catch(() => { if (ativo) setConsulta({ chave, dados: null }); });
     return () => { ativo = false; };
-  }, [brandId, inicio, fim, chave]);
+  }, [brandId, inicio, fim, chave, consulta.chave]);
 
   return (
     <Card>

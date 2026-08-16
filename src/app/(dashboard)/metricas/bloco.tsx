@@ -243,17 +243,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao }: {
   return (
     <AnimatePresence>
       {def && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-4">
-          <motion.div
-            aria-hidden="true"
-            onClick={onFechar}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={transicao(reduzir, { duration: 0.18 })}
-            className="absolute inset-0 bg-foreground/25 backdrop-blur-[3px]"
-          />
-
+        <div className="fixed inset-0 z-50">
           <motion.div
             ref={painel}
             layoutId={`bloco-${def.id}`}
@@ -262,7 +252,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao }: {
             aria-labelledby={tituloId}
             tabIndex={-1}
             transition={transicao(reduzir, springs.settle)}
-            className="card-surface relative flex max-h-full w-full max-w-6xl flex-col overflow-hidden outline-none"
+            className="card-surface relative flex h-full w-full flex-col overflow-hidden rounded-none border-0 outline-none"
           >
             <motion.div
               layout="position"

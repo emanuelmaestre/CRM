@@ -23,13 +23,16 @@ import { GiroBaixoCard, MaisVendidosCard, ParadosCard, ReposicaoCard } from "./p
 import { ReclamacoesCard } from "./painel/reclamacoes-card";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
 import { actionContarPedidosPorCanal, actionContarPedidosPorMarca } from "../vendas/actions";
-import { actionObterAtendimento, actionObterPosVenda, actionObterSaudeLoja } from "./actions";
-import { AcoesCard } from "./acoes-card";
+import {
+  actionListarInsights, actionListarSugestoes, actionObterAtendimento,
+  actionObterDesempenhoPublicacoes, actionObterPosVenda, actionObterSaudeLoja,
+} from "./actions";
+import { AcoesCard, type Insight, type Sugestao } from "./acoes-card";
 import { AtendimentoCard } from "./atendimento-card";
 import { ComparacaoCard } from "./comparacao-card";
 import { ComparacaoPeriodoCard } from "./comparacao-periodo-card";
 import { PosVendaCard } from "./pos-venda-card";
-import { PublicacoesCard } from "./publicacoes-card";
+import { PublicacoesCard, type DesempenhoPreCarregado } from "./publicacoes-card";
 import { ReputacaoCard } from "./reputacao-card";
 import { ScoreCard } from "./score-card";
 import { exportarMetricasPDF } from "./exportar-pdf";
@@ -37,6 +40,7 @@ import type { DashboardData } from "@/modules/metricas/application/dashboard.ser
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import type { AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
+import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 
 const copy = metricasConfig.mosaico;
 const blocosCopy = copy.blocos;
@@ -291,6 +295,48 @@ export function Mosaico() {
 
   const carregandoSaude = saude.chave !== chave;
   const carregandoAtendimento = atendimento.chave !== chave;
+
+  /* ── Pós-venda, Recomendações e Publicações (1ª marca) ──
+     Esses três buscavam de dentro do próprio card, e o card só montava
+     quando o bloco abria — cada clique esperava uma ida ao servidor, e
+     fechar e reabrir refazia a busca do zero. Aqui a busca sobe para o
+     mosaico, dispara junto com Saúde da loja e Atendimento assim que a
+     página carrega, e os cards viram (quase) só apresentação. */
+  const [posVenda, setPosVenda] = useState<{ chave: string; dados: PosVendaResultado | null }>({ chave: "", dados: null });
+  useEffect(() => {
+    let ativo = true;
+    actionObterPosVenda({ inicio, fim })
+      .then((dados) => { if (ativo) setPosVenda({ chave, dados }); })
+      .catch(() => { if (ativo) setPosVenda({ chave, dados: null }); });
+    return () => { ativo = false; };
+  }, [chave, inicio, fim]);
+  const carregandoPosVenda = posVenda.chave !== chave;
+
+  const [acoes, setAcoes] = useState<{ carregado: boolean; insights: Insight[]; sugestoes: Sugestao[] }>({
+    carregado: false, insights: [], sugestoes: [],
+  });
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([actionListarInsights(), actionListarSugestoes()])
+      .then(([insights, sugestoes]) => { if (ativo) setAcoes({ carregado: true, insights, sugestoes }); })
+      .catch(() => { if (ativo) setAcoes({ carregado: true, insights: [], sugestoes: [] }); });
+    return () => { ativo = false; };
+  }, []);
+
+  // Só a primeira marca (a aba padrão do card) — trocar de aba com o card já
+  // aberto continua buscando na hora, é uma escolha de quem já está olhando.
+  const [publicacoes, setPublicacoes] = useState<DesempenhoPreCarregado | null>(null);
+  const primeiraMarcaPublicacoes = saude.dados?.marcas[0]?.brandId ?? null;
+  useEffect(() => {
+    if (!primeiraMarcaPublicacoes) return;
+    const inicioEfetivo = inicio ?? diasAtras(29);
+    const fimEfetivo = fim ?? hoje;
+    let ativo = true;
+    actionObterDesempenhoPublicacoes({ brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo })
+      .then((dados) => { if (ativo) setPublicacoes({ brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo, dados }); })
+      .catch(() => { if (ativo) setPublicacoes({ brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo, dados: null }); });
+    return () => { ativo = false; };
+  }, [primeiraMarcaPublicacoes, inicio, fim]);
 
   /* ── Exportar ── */
 
@@ -549,7 +595,7 @@ export function Mosaico() {
         icone: MessageSquare,
         accent: "var(--warning)",
         resumo: { valor: null, legenda: blocosCopy.posVenda.legenda },
-        render: () => <PosVendaCard inicio={inicio ?? diasAtras(29)} fim={fim ?? hoje} />,
+        render: () => <PosVendaCard dados={posVenda.dados} carregando={carregandoPosVenda} />,
       },
       {
         id: "acoes",
@@ -557,7 +603,13 @@ export function Mosaico() {
         icone: Sparkles,
         accent: "var(--acento-1)",
         resumo: { valor: null, legenda: blocosCopy.acoes.legenda },
-        render: () => <AcoesCard />,
+        render: () => (
+          <AcoesCard
+            insightsIniciais={acoes.insights}
+            sugestoesIniciais={acoes.sugestoes}
+            carregandoInicial={!acoes.carregado}
+          />
+        ),
       },
     ];
 
@@ -589,6 +641,7 @@ export function Mosaico() {
             marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
             inicio={inicio ?? diasAtras(29)}
             fim={fim ?? hoje}
+            preCarregado={publicacoes}
           />
         ),
       });
@@ -602,6 +655,7 @@ export function Mosaico() {
     reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroReclamacoes,
     reposicao, filtroReposicao, maisVendidos, filtroMaisVendidos, giroBaixo, filtroGiroBaixo, parados, filtroParados,
     atendimento.dados, carregandoAtendimento, periodo, inicio, fim, marcas, canais,
+    posVenda.dados, carregandoPosVenda, acoes, publicacoes,
   ]);
 
   /* ── Foco ─────────────────────────────────────────────────────── */
