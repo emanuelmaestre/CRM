@@ -112,13 +112,10 @@ export function Bloco({ def, focado, onAbrir }: {
           mesmo quadro em que o painel entra, senão os dois seguram o layoutId
           por um instante e o crescimento vira um piscar. */}
       {!focado && (
-        <motion.button
-            type="button"
+        <motion.div
             layoutId={`bloco-${def.id}`}
-            onClick={onAbrir}
-            aria-label={`Abrir ${def.titulo}`}
             transition={transicao(reduzir, springs.settle)}
-            className="card-surface absolute inset-0 flex w-full flex-col items-stretch gap-2 overflow-hidden p-4 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="card-surface absolute inset-0 flex w-full flex-col items-stretch gap-2 overflow-hidden p-4 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
             style={alerta ? { borderColor: corAlerta(alerta.nivel) } : undefined}
           >
             {/* A miniatura fica atrás e sem eventos: é textura de leitura, não
@@ -136,17 +133,32 @@ export function Bloco({ def, focado, onAbrir }: {
               >
                 <Icone size={14} strokeWidth={1.9} />
               </span>
-              <span className="truncate text-[13px] font-bold tracking-[-0.01em] text-foreground">{def.titulo}</span>
-              <Maximize2 size={13} className="ml-auto shrink-0 text-muted-foreground/50" aria-hidden="true" />
+              {/* O bloco não pode ser um <button>: as pílulas de marca dentro
+                  dele também são, e botão dentro de botão é HTML inválido — o
+                  clique na pílula acabaria abrindo o card. Então o controle é
+                  este botão do título, esticado por ::after sobre o bloco
+                  inteiro. O alvo continua sendo o bloco todo para o mouse, e
+                  o teclado ganha um único foco em vez de um por pílula. */}
+              <button
+                type="button"
+                onClick={onAbrir}
+                aria-label={`Abrir ${def.titulo}`}
+                className="min-w-0 flex-1 truncate text-left text-[13px] font-bold tracking-[-0.01em] text-foreground outline-none after:absolute after:inset-0 after:z-0 after:content-['']"
+              >
+                {def.titulo}
+              </button>
+              <Maximize2 size={13} className="shrink-0 text-muted-foreground/50" aria-hidden="true" />
             </motion.span>
 
-            <div className="relative flex flex-1 flex-col justify-end gap-1.5">
+            <div className="flex flex-1 flex-col justify-end gap-1.5">
               {def.semFiltro ? (
                 /* Bloco sem escolha não fica em branco: as pílulas ocupam o
                    miolo e o próprio bloco vira o seletor. */
                 <div className="flex flex-1 flex-col justify-center gap-2">
                   <p className="text-[11px] leading-snug text-muted-foreground">{metricasConfig.mosaico.semFiltro}</p>
-                  <div className="flex flex-wrap items-center gap-1.5">{def.seletor}</div>
+                  {/* z-10 põe as pílulas acima do ::after que abre o bloco:
+                      escolher uma marca não pode abrir o card por tabela. */}
+                  <div className="relative z-10 flex flex-wrap items-center gap-1.5">{def.seletor}</div>
                 </div>
               ) : def.carregando ? (
                 <span className="h-8 w-2/3 animate-pulse rounded-md bg-muted" aria-label="Carregando" />
@@ -183,11 +195,11 @@ export function Bloco({ def, focado, onAbrir }: {
             {/* Com número na tela, as pílulas encolhem para uma tira no rodapé:
                 continuam à mão sem disputar espaço com o que importa. */}
             {!def.semFiltro && def.seletor && (
-              <div className="relative -mx-1 flex items-center gap-1 overflow-x-auto scrollbar-none px-1 pt-1 [&_button]:h-7 [&_button]:px-2">
+              <div className="relative z-10 -mx-1 flex items-center gap-1 overflow-x-auto scrollbar-none px-1 pt-1 [&_button]:h-7 [&_button]:px-2">
                 {def.seletor}
               </div>
             )}
-        </motion.button>
+        </motion.div>
       )}
     </li>
   );

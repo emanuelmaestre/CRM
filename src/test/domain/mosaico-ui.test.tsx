@@ -40,6 +40,18 @@ describe("bloco do mosaico", () => {
     expect(screen.getByRole("button", { name: "KARZI" })).toBeInTheDocument();
   });
 
+  it("não aninha as pílulas dentro do controle que abre o bloco", () => {
+    // Botão dentro de botão é HTML inválido e, pior, faz o clique na pílula
+    // abrir o card — escolher a marca viraria abrir a tela cheia.
+    renderBloco(bloco({
+      semFiltro: true,
+      seletor: <button type="button">KARZI</button>,
+    }));
+
+    const pilula = screen.getByRole("button", { name: "KARZI" });
+    expect(pilula.closest("button")).toBe(pilula);
+  });
+
   it("não desenha número enquanto carrega", () => {
     renderBloco(bloco({ carregando: true }));
     expect(screen.queryByText("4")).not.toBeInTheDocument();
