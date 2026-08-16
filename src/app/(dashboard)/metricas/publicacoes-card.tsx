@@ -9,6 +9,7 @@ import type { DesempenhoPublicacoesResultado } from "@/modules/metricas/applicat
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { isBrandSlug } from "@/shared/config/brands";
+import { NumeroAnimado } from "./metricas-primitives";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const inteiro = new Intl.NumberFormat("pt-BR");
@@ -62,11 +63,13 @@ export function PublicacoesCard({ marcas, inicio, fim }: {
               <article key={item.itemId} className="rounded-xl border border-border p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><h4 className="truncate text-sm font-semibold">{item.titulo}</h4><p className="mt-0.5 text-xs text-muted-foreground">{item.itemId}</p></div>
-                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-bold tabular-nums">{item.qualidade === null ? "—" : `${item.qualidade}/100`}</span>
+                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-bold tabular-nums">
+                    {item.qualidade === null ? "—" : <><NumeroAnimado valor={item.qualidade} formatar={(v) => inteiro.format(Math.round(v))} />/100</>}
+                  </span>
                 </div>
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                  <div><dt className="flex items-center gap-1 text-xs text-muted-foreground"><Eye size={12} /> Visitas</dt><dd className="mt-1 font-semibold tabular-nums">{item.visitas.toLocaleString("pt-BR")}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Unidades</dt><dd className="mt-1 font-semibold tabular-nums">{item.unidadesVendidas.toLocaleString("pt-BR")}</dd></div>
+                  <div><dt className="flex items-center gap-1 text-xs text-muted-foreground"><Eye size={12} /> Visitas</dt><dd className="mt-1 font-semibold tabular-nums"><NumeroAnimado valor={item.visitas} formatar={(v) => inteiro.format(Math.round(v))} /></dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Unidades</dt><dd className="mt-1 font-semibold tabular-nums"><NumeroAnimado valor={item.unidadesVendidas} formatar={(v) => inteiro.format(Math.round(v))} /></dd></div>
                   <div>
                     <dt className="flex items-center gap-1 text-xs text-muted-foreground">
                       Conversão
@@ -83,9 +86,11 @@ export function PublicacoesCard({ marcas, inicio, fim }: {
                         />
                       )}
                     </dt>
-                    <dd className="mt-1 font-semibold tabular-nums">{item.conversaoEstimada === null ? "—" : `${item.conversaoEstimada.toFixed(2)}%`}</dd>
+                    <dd className="mt-1 font-semibold tabular-nums">
+                      {item.conversaoEstimada === null ? "—" : <NumeroAnimado valor={item.conversaoEstimada} formatar={(v) => `${v.toFixed(2)}%`} />}
+                    </dd>
                   </div>
-                  <div><dt className="text-xs text-muted-foreground">Receita Ads</dt><dd className="mt-1 font-semibold tabular-nums">{moeda.format(item.receita)}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Receita Ads</dt><dd className="mt-1 font-semibold tabular-nums"><NumeroAnimado valor={item.receita} formatar={(v) => moeda.format(v)} /></dd></div>
                 </dl>
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground"><ShieldCheck size={13} /> Qualidade: {item.nivelQualidade ?? "indisponível"}</div>
                 {item.pendencias.length > 0 && <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300"><TriangleAlert size={13} className="mt-0.5 shrink-0" /> {item.pendencias[0]}</p>}

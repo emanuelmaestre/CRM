@@ -146,7 +146,7 @@
       "notesEmpty": "Nenhuma anotação registrada.",
       "notesPlaceholder": "Escreva uma anotação sobre este cliente…",
       "intelligenceTitle": "Inteligência comercial",
-      "churnRiskLabel": "Risco de churn",
+      "churnRiskLabel": "Risco de perda do cliente",
       "nextPurchaseLabel": "Previsão de recompra",
       "repurchaseProbabilityLabel": "Probabilidade de recompra em 30 dias",
       "orderPrefix": "Pedido",

@@ -54,19 +54,31 @@ function SeletorPeriodo({ periodo, onDatas, disabled }: {
   );
 }
 
+/** Sem marca escolhida ("todas"), o pico usa o gradiente genérico de sempre.
+ *  Uma marca escolhida, cor pura dela. Mais de uma, um gradiente que passa
+ *  pela cor de cada uma — a barra vira a prova visual de "isto é a soma
+ *  dessas marcas" sem precisar ler legenda nenhuma. */
+function corDoPico(cores: string[]): string {
+  if (cores.length === 0) return "var(--gradient-signature)";
+  if (cores.length === 1) return cores[0];
+  return `linear-gradient(135deg, ${cores.join(", ")})`;
+}
+
 /* ── Gráfico ───────────────────────────────────────────────────
    Barras em scaleY (propriedade de compositor, não força layout) com
    stagger curto. O pico ganha o gradiente da marca; o resto fica tonal,
    então o olho acha o topo sem precisar ler número. */
-function GraficoSerie({ serie, aoFocar }: {
+function GraficoSerie({ serie, aoFocar, cores }: {
   serie: FaturamentoResumo["serie"];
   aoFocar: (indice: number | null) => void;
+  cores: string[];
 }) {
   const marcas = [0, Math.floor((serie.length - 1) / 2), serie.length - 1];
   const indicePico = serie.reduce(
     (melhor, ponto, indice) => (ponto.valor > (serie[melhor]?.valor ?? 0) ? indice : melhor),
     0,
   );
+  const gradientePico = corDoPico(cores);
 
   return (
     <div>
@@ -88,7 +100,7 @@ function GraficoSerie({ serie, aoFocar }: {
                 style={{
                   height: `${Math.max(ponto.altura, 2)}%`,
                   transformOrigin: "bottom",
-                  background: pico ? "var(--gradient-signature)" : "var(--chart-bar)",
+                  background: pico ? gradientePico : "var(--chart-bar)",
                 }}
               />
             </div>
@@ -114,12 +126,14 @@ function EsqueletoFaturamento() {
   );
 }
 
-export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carregando, semFiltro, scope }: {
+export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carregando, semFiltro, cores = [], scope }: {
   dados: FaturamentoResumo | null;
   periodo: Periodo;
   onDatasPersonalizadas: (inicio: string, fim: string) => void;
   carregando: boolean;
   semFiltro: boolean;
+  /** Cor de cada marca ativa no filtro do card — vazio ("todas"), 1 ou várias. */
+  cores?: string[];
   scope?: React.ReactNode;
 }) {
   const [focado, setFocado] = useState<number | null>(null);
@@ -206,7 +220,7 @@ export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carrega
                 <p className="mb-2 h-4 text-xs font-semibold tabular-nums text-muted-foreground">
                   {pontoFocado ? `${pontoFocado.label} · ${moeda.format(pontoFocado.valor)}` : ""}
                 </p>
-                {dados && <GraficoSerie serie={dados.serie} aoFocar={setFocado} />}
+                {dados && <GraficoSerie serie={dados.serie} aoFocar={setFocado} cores={cores} />}
               </div>
             </motion.div>
           )}

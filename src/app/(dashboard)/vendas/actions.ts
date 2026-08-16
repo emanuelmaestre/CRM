@@ -13,7 +13,7 @@ import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedi
 export async function actionListarPedidosDetalhados(opts: {
   brandIds?: string[];
   canal?: string;
-  status?: string;
+  statuses?: string[];
   busca?: string;
   inicio?: string;
   fim?: string;
@@ -35,7 +35,7 @@ export async function actionListarPedidosDetalhados(opts: {
 export async function actionListarPedidosParaPdf(opts: {
   brandIds?: string[];
   canal?: string;
-  status?: string;
+  statuses?: string[];
   busca?: string;
   inicio?: string;
   fim?: string;

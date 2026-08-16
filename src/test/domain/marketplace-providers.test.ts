@@ -356,6 +356,20 @@ describe("normalização de opiniões do Mercado Livre", () => {
       opinioes: [],
     });
   });
+
+  it("trata rating_average: 0 sem nenhuma opinião como sem nota, não nota zero", () => {
+    // O Mercado Livre manda rating_average 0 (não omite o campo) para anúncio
+    // sem opinião nenhuma — sem essa checagem, esse anúncio ficava
+    // indistinguível de um anúncio com nota 0 de verdade, e o filtro "Com
+    // avaliações" da tela deixava passar itens que não tinham avaliação.
+    const resultado = normalizarAvaliacoesItem({
+      rating_average: 0,
+      paging: { total: 0 },
+    });
+
+    expect(resultado.ratingAverage).toBeNull();
+    expect(resultado.reviewsTotal).toBe(0);
+  });
 });
 
 describe("mensagens de reclamação do Mercado Livre", () => {

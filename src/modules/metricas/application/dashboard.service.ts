@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "drizzle-orm";
-import { differenceInCalendarDays, endOfDay, startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
+import { differenceInCalendarDays, startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
@@ -210,16 +210,19 @@ function condicaoCanalProduto(orgId: string, canais: string[]) {
   )`;
 }
 
-/** "2026-08-14" → meia-noite local de 14/08, não de UTC. `new Date("2026-08-14")`
- *  sozinho cairia na armadilha clássica: strings de data pura (sem hora) são
- *  interpretadas como meia-noite em UTC pelo spec do JS, e como o servidor
- *  roda no fuso de São Paulo (UTC-3), meia-noite UTC vira "dia anterior, 21h"
- *  local — o período inteiro (série, janela, comparativo) aparecia um dia
- *  atrasado. Construir a partir dos componentes ano/mês/dia evita isso: o
- *  Date resultante já nasce à meia-noite no fuso do próprio processo. */
-function parseDataLocal(iso: string): Date {
-  const [ano, mes, dia] = iso.split("-").map(Number);
-  return new Date(ano, mes - 1, dia);
+/** "2026-08-14" → meia-noite (ou 23:59:59.999) em São Paulo, não em UTC nem no
+ *  fuso do processo. `new Date("2026-08-14")` cairia na armadilha clássica:
+ *  strings de data pura viram meia-noite UTC pelo spec do JS, e em produção
+ *  (Vercel) o processo roda em UTC por padrão — meia-noite UTC vira "dia
+ *  anterior, 21h" em Brasília, deslocando janela/série/comparativo. E
+ *  `new Date(ano, mes-1, dia)` só corrige isso se o processo já estiver no
+ *  fuso certo, o que não é garantido fora deste ambiente local. O offset
+ *  `-03:00` fixo funciona em qualquer servidor: Brasil não observa horário de
+ *  verão desde 2019, então América/São Paulo é UTC-3 o ano inteiro. Por isso
+ *  este parse (e o `endOfDay`/`startOfDay` do date-fns, que também dependem
+ *  do fuso do processo) não pode ser usado para os limites do período. */
+function parseDataLocal(iso: string, fimDoDia = false): Date {
+  return new Date(`${iso}T${fimDoDia ? "23:59:59.999" : "00:00:00.000"}-03:00`);
 }
 
 export async function obterDashboardData(
@@ -232,8 +235,8 @@ export async function obterDashboardData(
   // Período personalizado: as duas pontas vêm do usuário (input type=date, sem
   // hora) e substituem a janela fixa da granularidade. A série sempre baldeia
   // por dia aqui — semana/mês não fazem sentido num recorte arbitrário curto.
-  const periodoInicio = filters?.inicio ? startOfDay(parseDataLocal(filters.inicio)) : null;
-  const periodoFim = filters?.fim ? endOfDay(parseDataLocal(filters.fim)) : null;
+  const periodoInicio = filters?.inicio ? parseDataLocal(filters.inicio) : null;
+  const periodoFim = filters?.fim ? parseDataLocal(filters.fim, true) : null;
   const personalizado = periodoInicio !== null && periodoFim !== null;
 
   const fimJanela = personalizado ? periodoFim! : agora;

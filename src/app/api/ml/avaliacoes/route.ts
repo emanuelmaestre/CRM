@@ -34,7 +34,11 @@ export async function GET(): Promise<NextResponse> {
     listingId: linha.listingId,
     title: linha.title,
     permalink: linha.permalink,
-    ratingAverage: linha.ratingAverage,
+    // Defensivo contra linhas gravadas antes da correção em
+    // normalizarAvaliacoesItem: o ML manda rating_average 0 (não null) pra
+    // anúncio sem opinião, e algumas linhas do cache guardaram esse 0 cru.
+    // Reforça aqui pra não depender de recoletar tudo pra corrigir a tela.
+    ratingAverage: linha.reviewsTotal ? linha.ratingAverage : null,
     reviewsTotal: linha.reviewsTotal,
     ratingLevels: linha.ratingLevels as MLDistribuicaoNotas | null,
     opinioes: linha.opinioes as MLOpiniao[],

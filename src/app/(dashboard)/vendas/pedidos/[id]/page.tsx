@@ -41,7 +41,11 @@ const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
  *  esse texto de novo, só insere o traço no ponto onde o nome da marca
  *  aparece — sem achar, mostra cru mesmo (não quebra, só não separa). */
 function contaComSeparador(contaNome: string, brandNome: string): string {
-  const indice = contaNome.indexOf(brandNome);
+  // Case-insensitive: contaNome pode vir "Mercado Livre Armarinhos Lima"
+  // (título) enquanto brandNome é "ARMARINHOS LIMA" (maiúsculo, como fica
+  // guardado em brand.name) — comparar cru nunca batia, então o traço nunca
+  // aparecia pra essa marca.
+  const indice = contaNome.toLocaleLowerCase("pt-BR").indexOf(brandNome.toLocaleLowerCase("pt-BR"));
   if (indice <= 0) return contaNome;
   return `${contaNome.slice(0, indice).trim()} · ${contaNome.slice(indice)}`;
 }
@@ -137,16 +141,20 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <dl className="mt-6 grid gap-3 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-5 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
+      <dl className="mt-6 grid gap-x-5 gap-y-3 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-5 sm:grid-cols-2 lg:flex lg:items-start lg:justify-between lg:gap-x-8">
+        <div className="min-w-0 lg:flex-1">
           <dt className="text-xs text-muted-foreground">{copy.customer}</dt>
-          <dd className="mt-1 font-semibold text-foreground">
-            <Link href={`/clientes/${detalhe.clienteId}`} className="transition-colors hover:text-selecionado hover:underline">
+          <dd className="mt-1 truncate font-semibold text-foreground">
+            <Link
+              href={`/clientes/${detalhe.clienteId}`}
+              title={detalhe.clienteNome}
+              className="transition-colors hover:text-selecionado hover:underline"
+            >
               {detalhe.clienteNome}
             </Link>
           </dd>
         </div>
-        <div>
+        <div className="lg:shrink-0">
           <dt className="text-xs text-muted-foreground">{copy.brand}</dt>
           <dd className="mt-1.5">
             {isBrandSlug(detalhe.brandSlug) ? (
@@ -156,14 +164,13 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
             )}
           </dd>
         </div>
-        <div>
+        <div className="lg:shrink-0">
           <dt className="text-xs text-muted-foreground">{copy.channel}</dt>
-          <dd className="mt-1.5 flex items-center gap-2">
+          <dd className="mt-1.5">
             <ChannelLogo canal={detalhe.canal} size="sm" variant="logo" />
-            <span className="font-semibold text-foreground capitalize">{detalhe.canal}</span>
           </dd>
         </div>
-        <div>
+        <div className="lg:shrink-0">
           <dt className="text-xs text-muted-foreground">{copy.externalAccount}</dt>
           <dd className="mt-1 font-semibold text-foreground capitalize">
             {detalhe.contaNome ? contaComSeparador(detalhe.contaNome, detalhe.brandNome) : copy.legacyAccount}

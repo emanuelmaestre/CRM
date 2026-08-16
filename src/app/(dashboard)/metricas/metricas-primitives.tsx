@@ -65,7 +65,7 @@ export function SectionLabel({ children, hint }: { children: React.ReactNode; hi
    Copiado em espírito do Painel: o número sobe até o valor em vez de
    aparecer pronto, com desaceleração no fim e sem overshoot — em
    score, passar de 100 por um instante seria mentira visual. */
-export function useContagem(valor: number, duracao = 900): number {
+export function useContagem(valor: number, duracao = 1100): number {
   const [exibido, setExibido] = useState(valor);
   const anterior = useRef(valor);
 
@@ -91,6 +91,19 @@ export function useContagem(valor: number, duracao = 900): number {
   }, [valor, duracao]);
 
   return exibido;
+}
+
+/** Wrapper de `useContagem` pra usar dentro de `.map()` sem violar a regra
+ *  de hooks — cada linha de uma lista (marca, anúncio, item) precisa da
+ *  própria instância do contador, e hook não pode ser chamado dentro de um
+ *  laço direto. Um componente por número resolve isso de graça. */
+export function NumeroAnimado({ valor, formatar, duracao }: {
+  valor: number;
+  formatar: (valorAnimado: number) => string;
+  duracao?: number;
+}) {
+  const animado = useContagem(valor, duracao);
+  return <>{formatar(animado)}</>;
 }
 
 /* ── Anel de score ─────────────────────────────────────────────

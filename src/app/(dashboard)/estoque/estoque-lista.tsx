@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, Check, Eye, Hourglass, Link2, Loader2, PackageX, PlugZap2,
+  AlertTriangle, Check, ChevronDown, Eye, Hourglass, Link2, Loader2, PackageX, PlugZap2,
   RefreshCw, Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -237,13 +237,12 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
    estado com comportamentos de toggle diferentes conforme onde a pessoa
    clicasse. O ponto colorido reusa a cor semântica da coluna de saldo, então a
    pílula e a linha do produto falam a mesma língua. */
-function TrilhoEstado({ indicadores, filtro, onFiltro }: {
+function TrilhoEstado({ indicadores, filtro, onFiltro, className }: {
   indicadores: Indicadores | null;
   filtro: Filtro;
   onFiltro: (proximo: Filtro) => void;
+  className?: string;
 }) {
-  const reduzir = useReducedMotion();
-
   const itens: Array<{ id: Filtro; label: string; contagem?: number; cor?: string }> = [
     { id: "todos", label: copy.filters.all, contagem: indicadores?.total },
     { id: "sem_minimo", label: copy.rail.noRule, contagem: indicadores?.semMinimo, cor: "var(--border)" },
@@ -253,37 +252,20 @@ function TrilhoEstado({ indicadores, filtro, onFiltro }: {
   ];
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2">
-      {itens.map((item) => {
-        const ativo = filtro === item.id;
-        return (
-          <motion.button
-            key={item.id}
-            type="button"
-            whileTap={reduzir ? undefined : { scale: 0.96 }}
-            onClick={() => onFiltro(item.id)}
-            aria-pressed={ativo}
-            className={`inline-flex min-h-9 items-center gap-2 rounded-full px-3.5 text-xs font-semibold transition-colors ${
-              ativo
-                ? "border-2 border-selecionado bg-selecionado/07 text-foreground"
-                : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            {item.cor && (
-              <span
-                aria-hidden="true"
-                className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ background: item.cor }}
-              />
-            )}
-            {item.label}
-            {item.contagem !== undefined && (
-              <span className="tabular-nums opacity-60">{item.contagem}</span>
-            )}
-          </motion.button>
-        );
-      })}
-    </div>
+    <label className={className ?? "relative mb-4 inline-flex"}>
+      <select
+        value={filtro}
+        onChange={(event) => onFiltro(event.target.value as Filtro)}
+        className="h-9 min-w-[9rem] appearance-none rounded-full border border-border bg-card py-1.5 pl-3.5 pr-8 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:border-selecionado"
+      >
+        {itens.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.label}{item.contagem !== undefined ? ` (${item.contagem})` : ""}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+    </label>
   );
 }
 
@@ -904,8 +886,8 @@ export function EstoqueLista() {
         onFiltro={trocarFiltro}
       />
 
-      <div className="mb-4 rounded-[1.25rem] bg-card p-2 shadow-[0_2px_16px_rgba(14,15,19,.07)]">
-        <div className="relative">
+      <div className="mb-4 flex flex-col gap-2 rounded-[1.25rem] bg-card p-2 shadow-[0_2px_16px_rgba(14,15,19,.07)] lg:flex-row lg:items-center">
+        <div className="relative lg:min-w-[16rem] lg:flex-1">
           <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={busca}
@@ -914,11 +896,10 @@ export function EstoqueLista() {
             className="min-h-11 w-full rounded-xl border border-border bg-background pl-10 pr-3 text-sm focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow]"
           />
         </div>
+        {escopoDefinido && (
+          <TrilhoEstado indicadores={indicadores} filtro={filtro} onFiltro={trocarFiltro} className="relative inline-flex shrink-0" />
+        )}
       </div>
-
-      {escopoDefinido && (
-        <TrilhoEstado indicadores={indicadores} filtro={filtro} onFiltro={trocarFiltro} />
-      )}
 
       {/* Barra de ação em massa — atalho para quem já está com a lista
           filtrada na mão; a configuração do catálogo inteiro é o wizard. */}

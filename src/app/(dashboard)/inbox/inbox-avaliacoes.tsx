@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, Loader2, RefreshCw, Search, Star } from "lucide-react";
+import { ChevronDown, ExternalLink, Loader2, RefreshCw, Search, Star, UserCheck } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
+import Link from "next/link";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { springs } from "@/shared/design-system/motion-variants";
@@ -32,6 +33,7 @@ type CatalogResponse = {
 
 type Avaliacao = CatalogItem & { brand: string; brandLabel: string };
 type FiltroNota = "todas" | "com_avaliacao" | "sem_avaliacao";
+type Comprador = { clienteId: string; clienteNome: string; pedidoId: string; pedidoCriadoEm: string };
 
 const marcas = settingsConfig.mercadoLivre.brands;
 
@@ -177,12 +179,21 @@ function Distribuicao({ niveis, compacto }: { niveis: MLDistribuicaoNotas; compa
 /* ── Uma opinião ───────────────────────────────────────────────
    Estrelas e data no topo, título em destaque, texto abaixo — a mesma
    ordem de leitura da página do anúncio no Mercado Livre. */
-function Opiniao({ opiniao }: { opiniao: MLOpiniao }) {
+function Opiniao({ opiniao, comprador }: { opiniao: MLOpiniao; comprador?: Comprador }) {
   return (
     <article className="border-b border-border py-3 last:border-0">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <RatingStars nota={opiniao.nota} size={12} />
         <span className="text-[11px] tabular-nums text-muted-foreground">{formatarData(opiniao.criadaEm)}</span>
+        {comprador && (
+          <Link
+            href={`/clientes/${comprador.clienteId}`}
+            title={`Único comprador deste anúncio no período — pedido de ${formatarData(comprador.pedidoCriadoEm)}. O Mercado Livre não confirma quem escreveu a opinião; isto é dedução por cruzamento de dados, não certeza vinda do canal.`}
+            className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success transition-colors hover:bg-success/20"
+          >
+            <UserCheck size={10} strokeWidth={2.5} /> {comprador.clienteNome}
+          </Link>
+        )}
       </div>
       {opiniao.titulo && <h4 className="mt-1.5 text-sm font-bold text-foreground">{opiniao.titulo}</h4>}
       {opiniao.conteudo && (
@@ -195,10 +206,11 @@ function Opiniao({ opiniao }: { opiniao: MLOpiniao }) {
 /* ── Linha de anúncio ──────────────────────────────────────────
    Fechada mostra o veredito (nota + volume). Aberta revela a
    distribuição e o que os compradores escreveram. */
-function LinhaAnuncio({ item, aberta, onAlternar }: {
+function LinhaAnuncio({ item, aberta, onAlternar, identificacoes }: {
   item: Avaliacao;
   aberta: boolean;
   onAlternar: () => void;
+  identificacoes: Record<string, Comprador>;
 }) {
   const reduzido = useReducedMotion();
   const temOpinioes = item.opinioes.length > 0;
@@ -292,7 +304,7 @@ function LinhaAnuncio({ item, aberta, onAlternar }: {
                       O que escreveram
                     </p>
                     {item.opinioes.map((opiniao) => (
-                      <Opiniao key={opiniao.id} opiniao={opiniao} />
+                      <Opiniao key={opiniao.id} opiniao={opiniao} comprador={identificacoes[opiniao.id]} />
                     ))}
                   </>
                 ) : (
@@ -319,6 +331,25 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
   const [busca, setBusca] = useState("");
   const [nota, setNota] = useState<FiltroNota>("todas");
   const [abertos, setAbertos] = useState<ReadonlySet<string>>(new Set());
+  const [identificacoes, setIdentificacoes] = useState<Record<string, Comprador>>({});
+
+  // Cruzamento com pedidos é uma chamada à parte, depois que as opiniões já
+  // estão na tela — não pode atrasar a primeira renderização (que já espera
+  // o cache do ML), e é opcional: se falhar, as opiniões continuam visíveis
+  // sem o selo de comprador, só sem essa informação a mais.
+  useEffect(() => {
+    if (itens.length === 0) return;
+    const corpo = { itens: itens.map((item) => ({ listingId: item.listingId, opinioes: item.opinioes.map((o) => ({ id: o.id, criadaEm: o.criadaEm })) })) };
+    if (corpo.itens.every((item) => item.opinioes.length === 0)) return;
+    let ativo = true;
+    fetch("/api/ml/avaliacoes/identificar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) })
+      .then((response) => response.ok ? response.json() : null)
+      .then((body: { identificacoes?: Record<string, Comprador> } | null) => {
+        if (ativo && body?.identificacoes) setIdentificacoes(body.identificacoes);
+      })
+      .catch(() => {});
+    return () => { ativo = false; };
+  }, [itens]);
 
   /* Carregamento normal lê o cache mantido pelo cron A28 no banco — uma
      consulta só, sem tocar na API do ML, por isso é instantâneo. O botão
@@ -383,15 +414,35 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
 
   const semFiltro = marcasAtivas.size === 0 && canaisAtivos.size === 0;
 
-  const filtrados = useMemo(() => itens.filter((item) => {
-    if (marcasAtivas.size > 0 && !marcasAtivas.has(item.brand)) return false;
-    if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
-    const termo = busca.trim().toLocaleLowerCase("pt-BR");
-    if (termo && !item.title.toLocaleLowerCase("pt-BR").includes(termo) && !item.listingId.toLowerCase().includes(termo)) return false;
-    if (nota === "com_avaliacao" && item.ratingAverage === null) return false;
-    if (nota === "sem_avaliacao" && item.ratingAverage !== null) return false;
-    return true;
-  }), [itens, busca, nota, marcasAtivas, canaisAtivos]);
+  const filtrados = useMemo(() => {
+    const resultado = itens.filter((item) => {
+      if (marcasAtivas.size > 0 && !marcasAtivas.has(item.brand)) return false;
+      if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
+      const termo = busca.trim().toLocaleLowerCase("pt-BR");
+      if (termo && !item.title.toLocaleLowerCase("pt-BR").includes(termo) && !item.listingId.toLowerCase().includes(termo)) return false;
+      if (nota === "com_avaliacao" && item.ratingAverage === null) return false;
+      if (nota === "sem_avaliacao" && item.ratingAverage !== null) return false;
+      return true;
+    });
+
+    // "Notas" (sem filtro) é o modo neutro — sem ordenar, a lista aparecia
+    // numa ordem sem sentido nenhum pra quem está olhando. Opinião mais
+    // recente primeiro dá pra tela um uso natural: "o que aconteceu agora".
+    // Anúncio já vem com `opinioes[0]` sendo a mais nova (ver provider), então
+    // isso é só reaproveitar o que já está pronto — sem opinião nenhuma,
+    // não tem "recente" pra comparar, e o anúncio cai pro final da lista.
+    if (nota === "todas") {
+      return [...resultado].sort((a, b) => {
+        const dataA = a.opinioes[0]?.criadaEm;
+        const dataB = b.opinioes[0]?.criadaEm;
+        if (!dataA && !dataB) return 0;
+        if (!dataA) return 1;
+        if (!dataB) return -1;
+        return dataB.localeCompare(dataA);
+      });
+    }
+    return resultado;
+  }, [itens, busca, nota, marcasAtivas, canaisAtivos]);
 
   // O resumo acompanha o filtro: senão o topo diz uma coisa e a lista outra.
   const distribuicao = useMemo(() => somarDistribuicoes(filtrados), [filtrados]);
@@ -502,6 +553,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
                   item={item}
                   aberta={abertos.has(chave)}
                   onAlternar={() => alternar(chave)}
+                  identificacoes={identificacoes}
                 />
               );
             })}

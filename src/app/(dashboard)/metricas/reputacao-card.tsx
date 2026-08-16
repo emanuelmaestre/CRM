@@ -10,7 +10,7 @@ import { isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { ChaveTaxa, ContaDesconectada, ReputacaoMarca, TaxaReputacao } from "@/modules/metricas/application/reputacao.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
-import { BarraComLimite, Card, CardHead } from "./metricas-primitives";
+import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.reputacaoCard;
@@ -76,7 +76,7 @@ function IndicadorTaxa({ taxa, indice }: { taxa: TaxaReputacao; indice: number }
       <div className="flex items-baseline justify-between gap-2">
         <span className="truncate text-[12px] font-semibold text-foreground">{taxa.label}</span>
         <span className="shrink-0 text-[12px] font-bold tabular-nums" style={{ color: cor }}>
-          {semDado ? "—" : `${taxa.valor}%`}
+          {semDado ? "—" : <NumeroAnimado valor={taxa.valor as number} formatar={(v) => `${v.toFixed(1)}%`} />}
           <span className="ml-1 text-[10px] font-medium text-muted-foreground">
             / {taxa.limite}% {copy.limiteLabel}
           </span>
@@ -92,7 +92,7 @@ function IndicadorTaxa({ taxa, indice }: { taxa: TaxaReputacao; indice: number }
       />
       {taxa.ocorrencias !== null && (
         <span className="text-[10px] tabular-nums text-muted-foreground">
-          {taxa.ocorrencias} {copy.ocorrenciasLabel}
+          <NumeroAnimado valor={taxa.ocorrencias} formatar={(v) => String(Math.round(v))} /> {copy.ocorrenciasLabel}
         </span>
       )}
       {taxa.estourado && acao && (
@@ -133,7 +133,7 @@ function BlocoMarca({ marca, indice }: { marca: ReputacaoMarca; indice: number }
           </div>
           <p className="mt-1 text-[11px] tabular-nums text-muted-foreground">
             {marca.faixaLabel ?? copy.semTermometro}
-            {marca.vendasConcluidas !== null && ` · ${marca.vendasConcluidas} ${copy.vendasLabel}`}
+            {marca.vendasConcluidas !== null && <> · <NumeroAnimado valor={marca.vendasConcluidas} formatar={(v) => String(Math.round(v))} /> {copy.vendasLabel}</>}
             {marca.periodoMetricas && ` · ${marca.periodoMetricas}`}
           </p>
         </div>
@@ -143,10 +143,10 @@ function BlocoMarca({ marca, indice }: { marca: ReputacaoMarca; indice: number }
       {marca.avaliacaoPositiva !== null && (
         <div className="flex flex-wrap items-center gap-3 text-[11px] tabular-nums">
           <span className="inline-flex items-center gap-1 font-semibold text-success">
-            <Star size={11} fill="currentColor" /> {marca.avaliacaoPositiva}% positivas
+            <Star size={11} fill="currentColor" /> <NumeroAnimado valor={marca.avaliacaoPositiva} formatar={(v) => `${v.toFixed(0)}%`} /> positivas
           </span>
-          <span className="text-muted-foreground">{marca.avaliacaoNeutra}% neutras</span>
-          <span className="text-destructive">{marca.avaliacaoNegativa}% negativas</span>
+          <span className="text-muted-foreground"><NumeroAnimado valor={marca.avaliacaoNeutra ?? 0} formatar={(v) => `${v.toFixed(0)}%`} /> neutras</span>
+          <span className="text-destructive"><NumeroAnimado valor={marca.avaliacaoNegativa ?? 0} formatar={(v) => `${v.toFixed(0)}%`} /> negativas</span>
         </div>
       )}
 

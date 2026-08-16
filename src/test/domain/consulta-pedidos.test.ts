@@ -6,14 +6,14 @@ describe("consulta de pedidos", () => {
     const consulta = normalizarConsultaPedidos({
       brandIds: ["00000000-0000-4000-8000-000000000001"],
       canal: "mercadolivre",
-      status: "pago",
+      statuses: ["pago", "entregue"],
       busca: "  pedido 123  ",
       inicio: "2026-08-01T00:00:00-03:00",
       fim: "2026-08-31T23:59:59-03:00",
       offset: 50,
     });
 
-    expect(consulta).toMatchObject({ canal: "mercadolivre", status: "pago", busca: "pedido 123", offset: 50 });
+    expect(consulta).toMatchObject({ canal: "mercadolivre", statuses: ["pago", "entregue"], busca: "pedido 123", offset: 50 });
     expect(consulta.inicio).toBeInstanceOf(Date);
     expect(consulta.fim).toBeInstanceOf(Date);
   });
@@ -24,7 +24,7 @@ describe("consulta de pedidos", () => {
 
   it("rejeita canal, status e identificadores inválidos", () => {
     expect(() => normalizarConsultaPedidos({ canal: "whatsapp" })).toThrow();
-    expect(() => normalizarConsultaPedidos({ status: "inventado" })).toThrow();
+    expect(() => normalizarConsultaPedidos({ statuses: ["inventado"] })).toThrow();
     expect(() => normalizarConsultaPedidos({ brandIds: ["não-é-uuid"] })).toThrow();
   });
 });

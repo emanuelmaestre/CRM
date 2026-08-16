@@ -9,7 +9,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
-import { Card, CardHead } from "./card-primitives";
+import { Card, CardHead, useContagem } from "./card-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { actionListarMensagensReclamacao, actionResponderReclamacao } from "./actions";
 import type { ReclamacaoMensagem } from "@/modules/metricas/application/reclamacoes.service";
@@ -310,6 +310,7 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope }: {
 }) {
   const Icon = getIcon(copy.icon);
   const total = !semFiltro ? (dados?.total ?? 0) : 0;
+  const totalAnimado = useContagem(total);
   const [aberta, setAberta] = useState<string | null>(null);
 
   return (
@@ -325,7 +326,7 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope }: {
             className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
             style={{ background: tint(copy.accent, 10), color: copy.accent }}
           >
-            {total}
+            {Math.round(totalAnimado)}
           </span>
         ) : undefined}
       />

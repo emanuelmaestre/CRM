@@ -54,7 +54,7 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useContagem(valor: number, duracao = 700): number {
+export function useContagem(valor: number, duracao = 900): number {
   const [exibido, setExibido] = useState(valor);
   const anterior = useRef(valor);
 

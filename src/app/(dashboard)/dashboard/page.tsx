@@ -14,6 +14,8 @@ import { actionObterDashboardData, actionObterReclamacoes } from "./actions";
 import { actionContarPedidosPorMarca, actionContarPedidosPorCanal } from "../vendas/actions";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 
 const FILTRO_PADRAO: CardFiltro = { brandId: [], canal: [] };
 
@@ -170,6 +172,25 @@ export default function DashboardPage() {
     return { ...reclamacoes, itens, total: itens.length };
   }, [reclamacoes, marcasSlugReclamacoes]);
 
+  // Cor(es) do pico do gráfico de Faturamento — segue o que está filtrado no
+  // card: marca(s) escolhida(s) manda, sem marca mas com canal(is) escolhido
+  // usa a cor do(s) canal(is) (amarelo do ML, laranja do Shopee, preto do
+  // TikTok — mesma paleta de channelAccent usada nas pílulas), e sem filtro
+  // nenhum ("todas") cai no gradiente genérico de sempre. 1 cor = sólida,
+  // mais de uma = gradiente misturando (ver corDoPico em faturamento-card).
+  const coresMarcaFaturamento = useMemo(
+    () => marcas
+      .filter((item) => filtroFaturamento.brandId.includes(item.brandId))
+      .map((item) => (isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined))
+      .filter((cor): cor is string => Boolean(cor)),
+    [marcas, filtroFaturamento.brandId],
+  );
+  const coresCanalFaturamento = useMemo(
+    () => filtroFaturamento.canal.map((tipo) => channelAccent(tipo)),
+    [filtroFaturamento.canal],
+  );
+  const coresFaturamento = coresMarcaFaturamento.length > 0 ? coresMarcaFaturamento : coresCanalFaturamento;
+
   const trocarDatasPersonalizadas = useCallback((inicio: string, fim: string) => {
     setPeriodo({ inicio, fim });
   }, []);
@@ -189,6 +210,7 @@ export default function DashboardPage() {
           onDatasPersonalizadas={trocarDatasPersonalizadas}
           carregando={faturamento.carregando}
           semFiltro={faturamento.semFiltro}
+          cores={coresFaturamento}
           scope={<ScopeRow marcas={marcas} canais={canais} filtro={filtroFaturamento} onChange={setFiltroFaturamento} />}
         />
       </section>

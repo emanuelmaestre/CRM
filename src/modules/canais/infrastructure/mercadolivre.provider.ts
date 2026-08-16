@@ -313,9 +313,15 @@ export function normalizarAvaliacoesItem(data: MLReviewsResponse): MLRating {
     .sort((a, b) => (b.criadaEm ?? "").localeCompare(a.criadaEm ?? ""))
     .slice(0, MAX_OPINIOES_POR_ANUNCIO);
 
+  // O Mercado Livre devolve `rating_average: 0` — não `null` — para anúncio
+  // sem nenhuma opinião. Sem checar `reviewsTotal`, um anúncio sem avaliação
+  // nenhuma virava indistinguível de um anúncio com nota 0 de verdade: o
+  // filtro "Com avaliações" (que só olha `ratingAverage === null`) deixava
+  // esses itens passarem, e a tela mostrava "0.0" em vez de "—".
+  const reviewsTotal = data.paging?.total ?? (brutas.length || null);
   return {
-    ratingAverage: typeof data.rating_average === "number" ? data.rating_average : null,
-    reviewsTotal: data.paging?.total ?? (brutas.length || null),
+    ratingAverage: reviewsTotal && typeof data.rating_average === "number" ? data.rating_average : null,
+    reviewsTotal,
     ratingLevels: niveis
       ? {
           uma: contar(niveis.one_star),

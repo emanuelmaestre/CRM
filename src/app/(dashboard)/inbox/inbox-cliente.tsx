@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useTransition, useCallback, useRef, useSyncExternalStore } from "react";
+import { useState, useEffect, useTransition, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package, Search, RefreshCw, AlertCircle } from "lucide-react";
+import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
   actionListarConversas,
   actionListarMensagens,
@@ -16,6 +16,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Sheet } from "@/shared/design-system/primitives/Sheet";
 import { stagger, listItem } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
+import { useMobileViewport } from "./use-mobile-viewport";
 import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
 
 type Conversa = Awaited<ReturnType<typeof actionListarConversas>>[number];
@@ -101,19 +102,6 @@ function StatusPill({ status }: { status: string }) {
 }
 
 
-/* ── Viewport ────────────────────────────────────────────── */
-const MOBILE_QUERY = "(max-width: 1023px)";
-
-function assinarViewport(onChange: () => void) {
-  const mq = window.matchMedia(MOBILE_QUERY);
-  mq.addEventListener("change", onChange);
-  return () => mq.removeEventListener("change", onChange);
-}
-
-const lerViewport = () => window.matchMedia(MOBILE_QUERY).matches;
-/* No servidor não há viewport; assume desktop, igual ao estado inicial de antes. */
-const lerViewportNoServidor = () => false;
-
 /* ── Main ────────────────────────────────────────────────── */
 export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   marcasAtivas: ReadonlySet<string>;
@@ -129,9 +117,13 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [enviando, setEnviando]       = useState(false);
   const [texto, setTexto]             = useState("");
-  const isMobile                      = useSyncExternalStore(assinarViewport, lerViewport, lerViewportNoServidor);
+  const isMobile                      = useMobileViewport();
   const [busca, setBusca]             = useState("");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("pendentes");
+  // Recolhido dá mais espaço pra área de mensagem quando a pessoa já sabe o
+  // que quer ler/responder — some a lista, some o botão junto (fica só uma
+  // tira fina com a seta de abrir de volta).
+  const [recolhido, setRecolhido] = useState(false);
   const [, startTransition]           = useTransition();
   const textareaRef                   = useRef<HTMLTextAreaElement>(null);
   const msgEndRef                     = useRef<HTMLDivElement>(null);
@@ -507,16 +499,40 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
           a caixa de conversas ocupar de fato a maior parte da tela, que era
           o pedido: essa lista é a informação principal da página, o painel
           de mensagens só se preenche depois que algo é selecionado. ── */}
-      <div className="w-full lg:w-[26rem] flex-shrink-0 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex flex-col">
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-foreground whitespace-nowrap">
-            {conversasFiltradas.length} {conversasFiltradas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
-          </p>
-          <button type="button" onClick={() => void carregarConversas()} disabled={sincronizando} title="Atualizar conversas" aria-label="Atualizar conversas" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
-            <RefreshCw size={14} className={sincronizando ? "animate-spin" : ""} />
+      {(() => {
+      // O botão de recolher só existe em telas lg; se a janela encolher com
+      // o painel já recolhido, isMobile vira a fonte da verdade — sem isso,
+      // a lista sumiria da tela no mobile sem nenhum jeito de trazer de volta.
+      const efetivamenteRecolhido = recolhido && !isMobile;
+      return (
+      <div className={`w-full flex-shrink-0 flex-col overflow-hidden rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] flex ${efetivamenteRecolhido ? "lg:w-14" : "lg:w-[26rem]"}`}>
+        {efetivamenteRecolhido ? (
+          <button
+            type="button"
+            onClick={() => setRecolhido(false)}
+            title="Expandir painel de conversas"
+            aria-label="Expandir painel de conversas"
+            className="hidden h-14 w-14 flex-shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex"
+          >
+            <PanelLeftOpen size={17} />
           </button>
-        </div>
+        ) : (
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-foreground whitespace-nowrap">
+              {conversasFiltradas.length} {conversasFiltradas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
+            </p>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => void carregarConversas()} disabled={sincronizando} title="Atualizar conversas" aria-label="Atualizar conversas" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+                <RefreshCw size={14} className={sincronizando ? "animate-spin" : ""} />
+              </button>
+              <button type="button" onClick={() => setRecolhido(true)} title="Recolher painel de conversas" aria-label="Recolher painel de conversas" className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:flex">
+                <PanelLeftClose size={14} />
+              </button>
+            </div>
+          </div>
+        )}
 
+        {!efetivamenteRecolhido && <>
         <div className="flex gap-1 border-b border-border bg-muted/10 px-3 py-2">
           {([
             ["pendentes", "Pendentes", totalPendentes],
@@ -614,7 +630,10 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
           </motion.div>
           )}
         </div>
+        </>}
       </div>
+      );
+      })()}
 
       {/* ── Message panel (desktop) ── */}
       <div className="hidden lg:flex flex-1 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col">

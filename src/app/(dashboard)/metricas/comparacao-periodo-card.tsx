@@ -2,7 +2,7 @@
 
 import { TrendingUp } from "lucide-react";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
-import { Card, CardHead } from "./metricas-primitives";
+import { Card, CardHead, NumeroAnimado } from "./metricas-primitives";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { isBrandSlug } from "@/shared/config/brands";
@@ -82,7 +82,9 @@ export function ComparacaoPeriodoCard({ atual, anterior }: { atual: SaudeLojaRes
               />
             )}
           </dt>
-          <dd className={`text-sm font-bold ${item.valor === null ? "text-muted-foreground" : melhora ? "text-success" : "text-destructive"}`}>{item.valor === null ? "Sem base" : `${item.valor >= 0 ? "+" : ""}${item.valor}%`}</dd>
+          <dd className={`text-sm font-bold ${item.valor === null ? "text-muted-foreground" : melhora ? "text-success" : "text-destructive"}`}>
+            {item.valor === null ? "Sem base" : <NumeroAnimado valor={item.valor} formatar={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`} />}
+          </dd>
         </div>;
       })}</dl></article>;
     })}</div>

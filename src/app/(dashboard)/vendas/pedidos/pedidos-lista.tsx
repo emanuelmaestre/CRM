@@ -57,6 +57,29 @@ function statusLabel(status: string) {
   return (pagesConfig.pedidos.statusLabels as Record<string, string>)[status] ?? status;
 }
 
+/* ── Grupos de status ──────────────────────────────────────────
+   O Mercado Livre não distingue Criado/Pago/Separado/Enviado no campo de
+   status do pedido — só Pago e Cancelado realmente acontecem na prática (as
+   outras vêm do status de envio, que esta integração ainda não lê). Um
+   filtro com 9 pílulas prometia uma granularidade que os dados quase nunca
+   entregam. Agrupado em 5, cada opção que junta mais de um status ganha um
+   `title` explicando o quê — a dica aparece passando o mouse, sem precisar
+   de mais nenhum elemento na tela. */
+const GRUPOS_STATUS = [
+  { chave: "", label: "Todos", statuses: [] as string[], dica: undefined as string | undefined },
+  {
+    chave: "aberto", label: "Em aberto", statuses: ["criado", "pago", "separado", "enviado"],
+    dica: "Criado, Pago, Separado e Enviado — o Mercado Livre não informa esses estágios separadamente, então a maior parte dos pedidos fica aqui até ser concluída ou cancelada.",
+  },
+  {
+    chave: "concluido", label: "Concluído", statuses: ["entregue", "avaliacao_solicitada", "concluido"],
+    dica: "Entregue, Avaliação solicitada e Concluído.",
+  },
+  { chave: "cancelado", label: "Cancelado", statuses: ["cancelado"], dica: undefined as string | undefined },
+  { chave: "devolvido", label: "Devolvido", statuses: ["devolvido"], dica: undefined as string | undefined },
+] as const;
+type ChaveGrupoStatus = (typeof GRUPOS_STATUS)[number]["chave"];
+
 function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
 }
@@ -219,7 +242,8 @@ export function PedidosLista() {
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [brandIds, setBrandIds] = useState<string[]>([]);
   const [canal, setCanal] = useState<CanalVenda | "">("");
-  const [status, setStatus] = useState("");
+  const [statusGrupo, setStatusGrupo] = useState<ChaveGrupoStatus>("");
+  const statusesAtivos = GRUPOS_STATUS.find((grupo) => grupo.chave === statusGrupo)?.statuses ?? [];
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
   const [dataInicial, setDataInicial] = useState("");
@@ -244,7 +268,7 @@ export function PedidosLista() {
     return () => window.clearTimeout(task);
   }, [busca]);
 
-  const carregar = useCallback((marcas?: string[], canalAtual?: string, statusAtual?: string, buscaAtual?: string, inicio?: string, fim?: string) => {
+  const carregar = useCallback((marcas?: string[], canalAtual?: string, statusesAtual?: string[], buscaAtual?: string, inicio?: string, fim?: string) => {
     const currentRequest = ++requestId.current;
     startTransition(async () => {
       setLoading(true);
@@ -252,7 +276,7 @@ export function PedidosLista() {
         const res = await actionListarPedidosDetalhados({
           brandIds: marcas?.length ? marcas : undefined,
           canal: canalAtual || undefined,
-          status: statusAtual || undefined,
+          statuses: statusesAtual?.length ? statusesAtual : undefined,
           busca: buscaAtual || undefined,
           inicio: inicioDoDia(inicio ?? ""),
           fim: fimDoDia(fim ?? ""),
@@ -277,9 +301,9 @@ export function PedidosLista() {
 
   useEffect(() => {
     if (!escopoDefinido) return;
-    carregar(brandIds, canal, status, buscaAplicada, dataInicial, dataFinal);
+    carregar(brandIds, canal, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandIds.join(","), canal, status, buscaAplicada, dataInicial, dataFinal, carregar, escopoDefinido]);
+  }, [brandIds.join(","), canal, statusGrupo, buscaAplicada, dataInicial, dataFinal, carregar, escopoDefinido]);
 
   async function carregarMais() {
     setCarregandoMais(true);
@@ -287,7 +311,7 @@ export function PedidosLista() {
       const res = await actionListarPedidosDetalhados({
         brandIds: brandIds.length ? brandIds : undefined,
         canal: canal || undefined,
-        status: status || undefined,
+        statuses: statusesAtivos.length ? [...statusesAtivos] : undefined,
         busca: buscaAplicada || undefined,
         inicio: inicioDoDia(dataInicial),
         fim: fimDoDia(dataFinal),
@@ -302,7 +326,7 @@ export function PedidosLista() {
     }
   }
 
-  const filtrando = brandIds.length > 0 || canal !== "" || status !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
+  const filtrando = brandIds.length > 0 || canal !== "" || statusGrupo !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
 
   async function exportarPdf() {
     if (pedidos.length === 0) return;
@@ -311,7 +335,7 @@ export function PedidosLista() {
       const relatorio = await actionListarPedidosParaPdf({
         brandIds: brandIds.length ? brandIds : undefined,
         canal: canal || undefined,
-        status: status || undefined,
+        statuses: statusesAtivos.length ? [...statusesAtivos] : undefined,
         busca: buscaAplicada || undefined,
         inicio: inicioDoDia(dataInicial),
         fim: fimDoDia(dataFinal),
@@ -351,45 +375,25 @@ export function PedidosLista() {
         ))}
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={() => setStatus("")}
-          aria-pressed={status === ""}
-          className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${
-            status === ""
-              ? "border-2 border-selecionado bg-selecionado/07 text-foreground"
-              : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-          }`}
-        >
-          {copy.statusFilter.all}
-        </button>
-        {Object.keys(pagesConfig.pedidos.statusLabels).map((valor) => {
-          const ativo = status === valor;
-          const cor = CORES_STATUS[valor];
-          return (
-            <button
-              key={valor}
-              type="button"
-              onClick={() => setStatus((atual) => atual === valor ? "" : valor)}
-              aria-pressed={ativo}
-              className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${
-                ativo
-                  ? "border-2 border-selecionado bg-selecionado/07 text-foreground"
-                  : "border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {cor && <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cor }} />}
-              {statusLabel(valor)}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mb-4 grid gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid-cols-[minmax(240px,1fr)_auto_auto_auto] md:items-center">
+      <div className="mb-4 grid gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid-cols-[minmax(200px,1fr)_auto_auto_auto_auto] md:items-center">
         <label className="relative block">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido ou cliente…" className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-selecionado" />
+        </label>
+        <label className="relative inline-flex">
+          <select
+            value={statusGrupo}
+            onChange={(e) => setStatusGrupo(e.target.value as ChaveGrupoStatus)}
+            title={GRUPOS_STATUS.find((grupo) => grupo.chave === statusGrupo)?.dica}
+            className="h-11 appearance-none rounded-xl border border-border bg-background pl-3.5 pr-8 text-sm font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:border-selecionado"
+          >
+            {GRUPOS_STATUS.map((grupo) => (
+              <option key={grupo.chave} value={grupo.chave} title={grupo.dica}>
+                {grupo.chave === "" ? copy.statusFilter.all : grupo.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         </label>
         <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
         <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />

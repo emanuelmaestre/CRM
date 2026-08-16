@@ -142,19 +142,19 @@
     },
     {
       "id": "A13",
-      "nome": "Scores de cliente",
+      "nome": "Notas de cliente",
       "disparo": "Cron",
       "cron": "0 1 * * *"
     },
     {
       "id": "A14",
-      "nome": "Scores de produto",
+      "nome": "Notas de produto",
       "disparo": "Cron",
       "cron": "0 1 * * *"
     },
     {
       "id": "A15",
-      "nome": "Insights do funil (IA)",
+      "nome": "Análises do funil (IA)",
       "disparo": "Cron",
       "cron": "0 6 * * 1"
     },
@@ -220,13 +220,13 @@
     },
     {
       "id": "A27",
-      "nome": "Sync de titulo/preco do anuncio",
+      "nome": "Sincronização de título/preço do anúncio",
       "disparo": "produto/atualizado",
       "cron": null
     },
     {
       "id": "A28",
-      "nome": "Sync de avaliacoes do ML",
+      "nome": "Sincronização de avaliações do Mercado Livre",
       "disparo": "Cron",
       "cron": "*/20 * * * *"
     },

@@ -92,8 +92,8 @@
   },
   "acoesCard": {
     "titulo": "O que fazer com isso",
-    "subtitulo": "Insights do funil e campanhas sugeridas",
-    "insightsVazio": "Nenhum insight ainda",
+    "subtitulo": "Análises do funil e campanhas sugeridas",
+    "insightsVazio": "Nenhuma análise ainda",
     "insightsVazioDescricao": "A IA analisa o funil automaticamente conforme os dados do período chegam.",
     "sugestoesTitulo": "Campanhas sugeridas",
     "sugestoesVazio": "Nenhuma campanha sugerida no momento",

@@ -3,12 +3,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle } from "lucide-react";
+import { ArrowLeft, ChevronDown, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { actionListarPerguntas, actionResponderPergunta } from "./actions";
 import pagesConfig from "@/config/pages.json";
+import { useMobileViewport } from "./use-mobile-viewport";
 
 type Plataforma = "mercadolivre";
 type Status = "pendente" | "respondida";
@@ -94,6 +95,9 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
   // compartilhada (page.tsx), então o que sobrou aqui é só a largura.
   const [sideWidth, setSideWidth] = useState(304);
   const dragState = useRef<{ startX: number; startW: number } | null>(null);
+  const [recolhido, setRecolhido] = useState(false);
+  const isMobile = useMobileViewport();
+  const efetivamenteRecolhido = recolhido && !isMobile;
 
   const carregarPerguntas = useCallback(() => {
     setErroCarregamento(false);
@@ -192,27 +196,41 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
     >
       {/* ── Sidebar ── */}
       <motion.div
-        style={{ width: `min(100%, ${sideWidth}px)`, flexShrink: 0 }}
-        className={`${selecionada ? "hidden lg:flex" : "flex"} relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
+        style={efetivamenteRecolhido ? undefined : { width: `min(100%, ${sideWidth}px)`, flexShrink: 0 }}
+        className={`${selecionada ? "hidden lg:flex" : "flex"} ${efetivamenteRecolhido ? "w-full lg:w-14 lg:flex-shrink-0" : ""} relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
       >
-            {/* Status filter row */}
-            <div className="flex items-center gap-1 overflow-x-auto px-3 py-2 border-b border-border bg-muted/10">
-              {(["todos", "pendente", "respondida"] as const).map((s) => (
-                <motion.button
-                  key={s}
-                  onClick={() => setFiltroStatus(s)}
-                  whileTap={{ scale: 0.96 }}
-                  className={`shrink-0 whitespace-nowrap text-[11px] font-semibold px-2.5 py-1.5 rounded-full transition-colors ${
-                    filtroStatus === s
-                      ? "bg-foreground text-background"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
+            {efetivamenteRecolhido ? (
+              <button
+                type="button"
+                onClick={() => setRecolhido(false)}
+                title="Expandir painel de perguntas"
+                aria-label="Expandir painel de perguntas"
+                className="hidden h-14 w-14 flex-shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex"
+              >
+                <PanelLeftOpen size={17} />
+              </button>
+            ) : (<>
+            {/* Status filter row — seletor único em vez de 3 pílulas: numa
+                sidebar de 304px de largura, "Respondidas" e o botão de
+                sincronizar acabavam saindo da área visível sem rolar. */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/10">
+              <label className="relative min-w-0 flex-1">
+                <select
+                  value={filtroStatus}
+                  onChange={(e) => setFiltroStatus(e.target.value as Status | "todos")}
+                  className="h-9 w-full appearance-none rounded-full border border-border bg-card py-1.5 pl-3 pr-7 text-[11px] font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:border-selecionado"
                 >
-                  {copy.statusFilters[s]} <span className="tabular-nums opacity-70">{s === "todos" ? perguntas.length : s === "pendente" ? pendentes : respondidas}</span>
-                </motion.button>
-              ))}
-              <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} disabled={carregando} title="Atualizar perguntas" aria-label="Atualizar perguntas" className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+                  <option value="todos">{copy.statusFilters.todos} ({perguntas.length})</option>
+                  <option value="pendente">{copy.statusFilters.pendente} ({pendentes})</option>
+                  <option value="respondida">{copy.statusFilters.respondida} ({respondidas})</option>
+                </select>
+                <ChevronDown size={12} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              </label>
+              <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} disabled={carregando} title="Atualizar perguntas" aria-label="Atualizar perguntas" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
                 <RefreshCw size={14} className={carregando ? "animate-spin" : ""} />
+              </button>
+              <button type="button" onClick={() => setRecolhido(true)} title="Recolher painel de perguntas" aria-label="Recolher painel de perguntas" className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:flex">
+                <PanelLeftClose size={14} />
               </button>
             </div>
 
@@ -339,6 +357,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 className="absolute text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
               />
             </div>
+            </>)}
       </motion.div>
 
       {/* ── Right panel ── */}

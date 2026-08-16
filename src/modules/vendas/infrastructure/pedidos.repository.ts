@@ -7,7 +7,7 @@ function filtrosConsulta(orgId: string, opts: ConsultaPedidos): SQL[] {
   const filtros: SQL[] = [eq(pedido.orgId, orgId)];
   if (opts.brandIds?.length) filtros.push(inArray(pedido.brandId, opts.brandIds));
   if (opts.canal) filtros.push(eq(pedido.canal, opts.canal));
-  if (opts.status) filtros.push(eq(pedido.status, opts.status));
+  if (opts.statuses?.length) filtros.push(inArray(pedido.status, opts.statuses));
   if (opts.inicio) filtros.push(gte(pedido.createdAt, opts.inicio));
   if (opts.fim) filtros.push(lte(pedido.createdAt, opts.fim));
   if (opts.busca?.trim()) {

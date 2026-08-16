@@ -136,7 +136,7 @@ export function useContagem(valor: number): number {
     }
 
     const inicio = performance.now();
-    const duracao = 650;
+    const duracao = 850;
     let frame = requestAnimationFrame(function passo(agora: number) {
       const progresso = Math.min((agora - inicio) / duracao, 1);
       const suavizado = 1 - Math.pow(1 - progresso, 4);

@@ -263,11 +263,22 @@ export interface SaudeLojaFiltros {
   brandIds?: string[];
 }
 
+// Offset fixo em vez de `new Date(ano, mes-1, dia, ...)`: aquela forma só
+// nasce à meia-noite de São Paulo se o processo já estiver rodando nesse
+// fuso, o que não é garantido em produção (Vercel roda em UTC por padrão
+// sem `TZ` configurado). Brasil não observa horário de verão desde 2019,
+// então -03:00 é o offset certo o ano inteiro — ver mesma correção em
+// dashboard.service.ts.
 function parseDataLocal(iso: string, fimDoDia: boolean): Date {
-  const [ano, mes, dia] = iso.split("-").map(Number);
-  return fimDoDia
-    ? new Date(ano, mes - 1, dia, 23, 59, 59, 999)
-    : new Date(ano, mes - 1, dia);
+  return new Date(`${iso}T${fimDoDia ? "23:59:59.999" : "00:00:00.000"}-03:00`);
+}
+
+// yyyy-mm-dd de "agora" no calendário de São Paulo — não no calendário do
+// processo. Perto da meia-noite, UTC e Brasília podem estar em dias
+// diferentes; sem isso, "hoje" em produção (processo em UTC) podia ser o dia
+// seguinte ao "hoje" de quem está olhando a tela no Brasil.
+function hojeEmSaoPaulo(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 }
 
 function resolverJanela(filtros?: SaudeLojaFiltros) {
@@ -275,10 +286,11 @@ function resolverJanela(filtros?: SaudeLojaFiltros) {
     return { inicio: parseDataLocal(filtros.inicio, false), fim: parseDataLocal(filtros.fim, true) };
   }
   const fim = new Date();
-  const inicio = new Date(fim);
-  inicio.setDate(inicio.getDate() - 29);
-  inicio.setHours(0, 0, 0, 0);
-  return { inicio, fim };
+  const [ano, mes, dia] = hojeEmSaoPaulo().split("-").map(Number);
+  const inicio = new Date(Date.UTC(ano, mes - 1, dia));
+  inicio.setUTCDate(inicio.getUTCDate() - 29);
+  const inicioIso = inicio.toISOString().slice(0, 10);
+  return { inicio: parseDataLocal(inicioIso, false), fim };
 }
 
 export async function obterSaudeLoja(

@@ -11,7 +11,7 @@ import { springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
-import { BarraComLimite, Card, CardHead } from "./metricas-primitives";
+import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.comparacaoCard;
@@ -51,6 +51,7 @@ function corDaMarca(slug: string): string {
    Os outros indicadores continuam visíveis mesmo quando não são o
    critério de ordenação. É o que separa "comparar" de "olhar um
    ranking": trocar de critério não deveria esconder o resto. */
+const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const moedaCompacta = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact" });
 const inteiro = new Intl.NumberFormat("pt-BR");
 
@@ -68,14 +69,24 @@ interface CampoNumero {
   alerta?: boolean;
   titulo?: string;
   calculo?: CampoCalculo | null;
+  /** Quando presente, o número sobe animado até aqui em vez de aparecer
+   *  pronto — `valor` continua servindo de rótulo estático (título, largura
+   *  do reduced-motion, etc.), `formatarNumero` decide como mostrar cada
+   *  quadro da animação. */
+  valorNumerico?: number;
+  formatarNumero?: (valorAnimado: number) => string;
 }
 
 function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel: string }) {
   const campos: CampoNumero[] = [
-    { label: "Faturamento", valor: marca.faturamentoLabel },
-    { label: "Pedidos", valor: String(marca.pedidos) },
-    { label: "Ticket", valor: marca.ticketMedioLabel },
-    { label: "Nota", valor: marca.notaMedia === null ? "—" : `${marca.notaMedia.toFixed(1)} ★` },
+    { label: "Faturamento", valor: marca.faturamentoLabel, valorNumerico: marca.faturamento, formatarNumero: (v) => moeda.format(v) },
+    { label: "Pedidos", valor: String(marca.pedidos), valorNumerico: marca.pedidos, formatarNumero: (v) => inteiro.format(Math.round(v)) },
+    { label: "Ticket", valor: marca.ticketMedioLabel, valorNumerico: marca.ticketMedio, formatarNumero: (v) => moeda.format(v) },
+    {
+      label: "Nota",
+      valor: marca.notaMedia === null ? "—" : `${marca.notaMedia.toFixed(1)} ★`,
+      ...(marca.notaMedia === null ? {} : { valorNumerico: marca.notaMedia, formatarNumero: (v: number) => `${v.toFixed(1)} ★` }),
+    },
     {
       label: "Reclamações",
       valor: marca.emMediacao > 0
@@ -93,6 +104,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       // a cobertura baixa vira número, para quem quiser conferir.
       label: "Margem",
       valor: marca.margemPercentual === null ? "—" : `${marca.margemPercentual}%`,
+      ...(marca.margemPercentual === null ? {} : { valorNumerico: marca.margemPercentual, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.margemPercentual === null ? null : {
         titulo: "Margem líquida",
         formula: "(receita − comissão do Mercado Livre) ÷ receita, só nos itens com comissão informada",
@@ -111,6 +123,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       // Sobre TODOS os pedidos do período, não só os que entram no faturamento
       // — é a única métrica da tela que conta o que o resto exclui de propósito.
       alerta: (marca.taxaCancelamento ?? 0) > 5,
+      ...(marca.taxaCancelamento === null ? {} : { valorNumerico: marca.taxaCancelamento, formatarNumero: (v: number) => `${v.toFixed(1)}%` }),
       calculo: marca.taxaCancelamento === null ? null : {
         titulo: "Cancelamento",
         formula: "pedidos cancelados ou devolvidos ÷ total de pedidos do período",
@@ -125,6 +138,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
     {
       label: "Top 5 produtos",
       valor: marca.concentracaoTop5 === null ? "—" : `${marca.concentracaoTop5}%`,
+      ...(marca.concentracaoTop5 === null ? {} : { valorNumerico: marca.concentracaoTop5, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.concentracaoTop5 === null ? null : {
         titulo: "Concentração nos 5 mais vendidos",
         formula: "receita dos 5 produtos mais vendidos ÷ receita total (sem cancelados)",
@@ -139,6 +153,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
     {
       label: "Recorrência",
       valor: marca.taxaRecorrencia === null ? "—" : `${marca.taxaRecorrencia}%`,
+      ...(marca.taxaRecorrencia === null ? {} : { valorNumerico: marca.taxaRecorrencia, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.taxaRecorrencia === null ? null : {
         titulo: "Recorrência",
         formula: "receita de clientes que já compraram antes ÷ receita total (sem cancelados)",
@@ -173,7 +188,9 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
             title={campo.titulo}
             className={`truncate text-[12px] font-semibold tabular-nums ${campo.alerta ? "text-destructive" : "text-foreground"}`}
           >
-            {campo.valor}
+            {campo.valorNumerico !== undefined && campo.formatarNumero
+              ? <NumeroAnimado valor={campo.valorNumerico} formatar={campo.formatarNumero} />
+              : campo.valor}
           </dd>
         </div>
       ))}

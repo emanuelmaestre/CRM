@@ -6,7 +6,7 @@ import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
 import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
-import { Card, CardHead } from "./card-primitives";
+import { Card, CardHead, useContagem } from "./card-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import type {
   ProdutoGiroBaixo,
@@ -20,12 +20,16 @@ import type {
    opcional dá a proporção sem gastar uma coluna de texto. A marca vem
    na cor de identidade dela (mesma usada nos filtros) — assim dá pra
    escanear de qual empresa é cada item sem ler o texto todo. */
-function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueLabel, destaqueCor, contexto, medidor, acento }: {
+function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico, formatarDestaque, destaqueLabel, destaqueCor, contexto, medidor, acento }: {
   nome: string;
   sku: string;
   marca: string;
   marcaSlug: string;
   destaque: string;
+  /** Quando presente, o número em destaque sobe animado; `destaque` continua
+   *  servindo pro reduced-motion e pra largura do skeleton. */
+  destaqueNumerico?: number;
+  formatarDestaque?: (valorAnimado: number) => string;
   /** Rótulo curto antes do número em destaque (ex.: "saldo") — só pra quando
    *  o número sozinho não deixa claro o que está sendo medido. */
   destaqueLabel?: string;
@@ -35,6 +39,7 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueLabel, de
   acento: string;
 }) {
   const corMarca = isBrandSlug(marcaSlug) ? getBrandConfig(marcaSlug)?.color : undefined;
+  const destaqueAnimado = useContagem(destaqueNumerico ?? 0);
   return (
     <motion.li variants={listItem} className="border-b border-border px-5 py-3 last:border-0">
       <div className="flex items-start justify-between gap-3">
@@ -50,7 +55,7 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueLabel, de
             style={{ color: destaqueCor ?? "var(--foreground)" }}
           >
             {destaqueLabel && <span className="text-[11px] font-semibold text-muted-foreground">{destaqueLabel}: </span>}
-            {destaque}
+            {destaqueNumerico !== undefined && formatarDestaque ? formatarDestaque(destaqueAnimado) : destaque}
           </p>
           <p className="mt-0.5 text-xs font-semibold tabular-nums text-foreground/80">{contexto}</p>
         </div>
@@ -166,6 +171,8 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope }: {
           marca={item.marcaLabel}
           marcaSlug={item.marca}
           destaque={`${item.quantidade} ${copyVendidos.unitLabel}`}
+          destaqueNumerico={item.quantidade}
+          formatarDestaque={(v) => `${Math.round(v)} ${copyVendidos.unitLabel}`}
           destaqueCor={copyVendidos.accent}
           contexto={item.receita}
           medidor={item.participacao}
@@ -208,6 +215,8 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope }: {
           marca={item.marcaLabel}
           marcaSlug={item.marca}
           destaque={`${item.saldo}`}
+          destaqueNumerico={item.saldo}
+          formatarDestaque={(v) => String(Math.round(v))}
           destaqueLabel={copyReposicao.saldoLabel}
           destaqueCor={copyReposicao.accent}
           contexto={item.coberturaDias !== null
@@ -255,6 +264,10 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope }: {
           destaque={item.quantidade === 0
             ? copyGiro.noSaleLabel
             : `${item.quantidade} ${item.quantidade === 1 ? copyGiro.saleLabel : copyGiro.salesLabel}`}
+          {...(item.quantidade > 0 ? {
+            destaqueNumerico: item.quantidade,
+            formatarDestaque: (v: number) => `${Math.round(v)} ${Math.round(v) === 1 ? copyGiro.saleLabel : copyGiro.salesLabel}`,
+          } : {})}
           destaqueCor={item.quantidade === 0 ? "var(--muted-foreground)" : undefined}
           contexto={`${item.saldo} ${copyGiro.stockLabel} · ${item.valorParado}`}
           acento={copyGiro.accent}
@@ -298,6 +311,10 @@ export function ParadosCard({ itens, carregando, semFiltro, scope }: {
           destaque={item.diasParado !== null
             ? `${item.diasParado} d`
             : copyParados.neverLabel}
+          {...(item.diasParado !== null ? {
+            destaqueNumerico: item.diasParado,
+            formatarDestaque: (v: number) => `${Math.round(v)} d`,
+          } : {})}
           destaqueCor={item.diasParado === null ? "var(--muted-foreground)" : undefined}
           contexto={`${item.valorParado} ${copyParados.stuckLabel}`}
           acento={copyParados.accent}
