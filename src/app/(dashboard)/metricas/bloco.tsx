@@ -40,11 +40,26 @@ export interface ResumoBloco {
   alerta?: { nivel: NivelAlerta; texto: string } | null;
 }
 
+/** As 5 seções do mosaico, na ordem em que aparecem na tela. `label` é o
+ *  rótulo pequeno acima do grupo de blocos. */
+export const SECOES = [
+  { id: "financeiro", label: "Financeiro" },
+  { id: "saude", label: "Saúde da operação" },
+  { id: "atendimento", label: "Atendimento ao cliente" },
+  { id: "estoque", label: "Estoque & catálogo" },
+  { id: "marketing", label: "Marketing" },
+] as const;
+
+export type SecaoId = (typeof SECOES)[number]["id"];
+
 export interface BlocoDef {
   id: string;
   titulo: string;
   icone: React.ElementType;
   accent: string;
+  /** Qual dos 5 grupos do mosaico este bloco pertence — a separação que
+   *  substituiu a grade única de 14 blocos misturados. */
+  secao: SecaoId;
   /** 2 = o dobro da largura. Usado no que merece ser lido primeiro. */
   largura?: 1 | 2;
   carregando?: boolean;
@@ -69,9 +84,10 @@ export interface BlocoDef {
 
 const PESO_ALERTA: Record<NivelAlerta, number> = { critico: 2, atencao: 1 };
 
-/** Ordena o mosaico pondo na frente o que precisa de decisão. Empate mantém a
- *  ordem escrita — a leitura em atos do Painel e de Métricas sobrevive quando
- *  não há nada pegando fogo. */
+/** Ordena um grupo de blocos pondo na frente o que precisa de decisão. Empate
+ *  mantém a ordem escrita — a leitura em atos sobrevive quando não há nada
+ *  pegando fogo. Age só dentro do grupo que recebe: a urgência de um bloco
+ *  de Estoque não faz sentido saltando pra cima de um bloco Financeiro. */
 export function ordenarPorUrgencia(blocos: BlocoDef[]): BlocoDef[] {
   return blocos
     .map((bloco, ordem) => ({ bloco, ordem }))
@@ -81,6 +97,55 @@ export function ordenarPorUrgencia(blocos: BlocoDef[]): BlocoDef[] {
       return pesoB - pesoA || a.ordem - b.ordem;
     })
     .map(({ bloco }) => bloco);
+}
+
+export interface GrupoSecao {
+  id: SecaoId;
+  label: string;
+  blocos: BlocoDef[];
+  /** O pior alerta entre os blocos do grupo — o rótulo da seção ganha um
+   *  sinal desta cor sem precisar abrir nada lá dentro. */
+  alerta: NivelAlerta | null;
+}
+
+/** Agrupa os blocos nas 5 seções (ordem fixa de `SECOES`) e ordena por
+ *  urgência dentro de cada uma. A lista plana devolvida junto é a mesma
+ *  ordem visual, de cima pra baixo — é o que a navegação por setas usa
+ *  para saber qual é "o próximo card". */
+export function agruparPorSecao(blocos: BlocoDef[]): { grupos: GrupoSecao[]; lista: BlocoDef[] } {
+  const grupos = SECOES.map((secao): GrupoSecao => {
+    const doGrupo = ordenarPorUrgencia(blocos.filter((bloco) => bloco.secao === secao.id));
+    const piorAlerta = doGrupo.reduce<NivelAlerta | null>((pior, bloco) => {
+      const nivel = bloco.resumo.alerta?.nivel ?? null;
+      if (!nivel) return pior;
+      if (pior === "critico" || nivel === pior) return pior;
+      return !pior || PESO_ALERTA[nivel] > PESO_ALERTA[pior] ? nivel : pior;
+    }, null);
+    return { id: secao.id, label: secao.label, blocos: doGrupo, alerta: piorAlerta };
+  }).filter((grupo) => grupo.blocos.length > 0);
+
+  return { grupos, lista: grupos.flatMap((grupo) => grupo.blocos) };
+}
+
+/* ── Rótulo de seção ───────────────────────────────────────────── */
+
+/** Caixa alta, discreto, com um ponto na cor do pior alerta do grupo quando
+ *  existe um — a leitura em duas camadas: primeiro os rótulos (onde está o
+ *  problema), só depois os números de cada bloco (o que é o problema). */
+export function RotuloSecao({ label, alerta }: { label: string; alerta: NivelAlerta | null }) {
+  return (
+    <div className="flex items-center gap-2 px-1">
+      <h2 className="text-label-md uppercase text-muted-foreground">{label}</h2>
+      {alerta && (
+        <span
+          aria-hidden="true"
+          className="h-1.5 w-1.5 shrink-0 rounded-full"
+          style={{ background: corAlerta(alerta) }}
+        />
+      )}
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
 }
 
 function corAlerta(nivel: NivelAlerta) {

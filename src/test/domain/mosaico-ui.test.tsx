@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { Bloco, ordenarPorUrgencia, type BlocoDef } from "@/app/(dashboard)/metricas/bloco";
+import { agruparPorSecao, Bloco, ordenarPorUrgencia, type BlocoDef } from "@/app/(dashboard)/metricas/bloco";
 import { Package } from "lucide-react";
 
 /* O mosaico existe para responder "o que precisa de mim?" antes de "quais são
@@ -13,6 +13,7 @@ import { Package } from "lucide-react";
 function bloco(parcial: Partial<BlocoDef> = {}): BlocoDef {
   return {
     id: "reposicao",
+    secao: "estoque",
     titulo: "Repor em breve",
     icone: Package,
     accent: "var(--warning)",
@@ -103,5 +104,39 @@ describe("ordem do mosaico", () => {
     ]);
 
     expect(ordenado.map((item) => item.id)).toEqual(["faturamento", "score", "atendimento"]);
+  });
+});
+
+describe("agrupamento por seção", () => {
+  it("mantém a ordem fixa das seções e ordena por urgência só dentro de cada uma", () => {
+    const { grupos, lista } = agruparPorSecao([
+      bloco({ id: "acoes", secao: "marketing", resumo: { valor: null } }),
+      bloco({ id: "faturamento", secao: "financeiro", resumo: { valor: "R$ 1" } }),
+      // Alerta crítico aqui não pode saltar por cima do bloco Financeiro —
+      // é exatamente o comportamento que a separação em seções corrigiu.
+      bloco({ id: "reposicao", secao: "estoque", resumo: { valor: "4", alerta: { nivel: "critico", texto: "repor" } } }),
+      bloco({ id: "score", secao: "saude", resumo: { valor: "78" } }),
+    ]);
+
+    expect(grupos.map((grupo) => grupo.id)).toEqual(["financeiro", "saude", "estoque", "marketing"]);
+    expect(lista.map((item) => item.id)).toEqual(["faturamento", "score", "reposicao", "acoes"]);
+  });
+
+  it("tira da tela uma seção sem bloco nenhum", () => {
+    const { grupos } = agruparPorSecao([
+      bloco({ id: "faturamento", secao: "financeiro" }),
+    ]);
+
+    expect(grupos).toHaveLength(1);
+    expect(grupos[0].id).toBe("financeiro");
+  });
+
+  it("o rótulo da seção carrega o pior alerta dos blocos dentro dela", () => {
+    const { grupos } = agruparPorSecao([
+      bloco({ id: "reposicao", secao: "estoque", resumo: { valor: "4", alerta: { nivel: "atencao", texto: "repor" } } }),
+      bloco({ id: "parados", secao: "estoque", resumo: { valor: "2", alerta: { nivel: "critico", texto: "parados" } } }),
+    ]);
+
+    expect(grupos[0].alerta).toBe("critico");
   });
 });

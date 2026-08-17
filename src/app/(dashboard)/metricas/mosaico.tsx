@@ -15,7 +15,7 @@ import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import metricasConfig from "@/config/metricas.json";
 
-import { Bloco, Foco, ordenarPorUrgencia, type BlocoDef } from "./bloco";
+import { agruparPorSecao, Bloco, Foco, RotuloSecao, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo } from "./metricas-primitives";
 import { FaturamentoCard } from "./painel/faturamento-card";
@@ -468,6 +468,7 @@ export function Mosaico() {
 
   const blocoFaturamento = useMemo<BlocoDef>(() => ({
     id: "faturamento",
+    secao: "financeiro",
     titulo: blocosCopy.faturamento.titulo,
     icone: TrendingUp,
     accent: "var(--acento-2)",
@@ -498,6 +499,7 @@ export function Mosaico() {
 
   const blocoScore = useMemo<BlocoDef>(() => ({
     id: "score",
+    secao: "saude",
     titulo: blocosCopy.score.titulo,
     icone: Gauge,
     // Enquanto não há dado, cai na mesma cor fixa que score-card.tsx usa no
@@ -521,6 +523,7 @@ export function Mosaico() {
 
   const blocoReputacao = useMemo<BlocoDef>(() => ({
     id: "reputacao",
+    secao: "saude",
     titulo: blocosCopy.reputacao.titulo,
     icone: Store,
     // Mesma cor do ACENTO em reputacao-card.tsx — divergiam (tile e card
@@ -541,6 +544,7 @@ export function Mosaico() {
 
   const blocoComparacao = useMemo<BlocoDef>(() => ({
     id: "comparacao",
+    secao: "financeiro",
     titulo: blocosCopy.comparacao.titulo,
     icone: BarChart3,
     // Mesma cor do ACENTO em comparacao-card.tsx.
@@ -560,6 +564,7 @@ export function Mosaico() {
     if (!saude.dados) return null;
     return {
       id: "evolucao",
+    secao: "financeiro",
       titulo: blocosCopy.evolucao.titulo,
       icone: BarChart3,
       accent: "var(--acento-2)",
@@ -573,6 +578,7 @@ export function Mosaico() {
 
   const blocoReclamacoes = useMemo<BlocoDef>(() => ({
     id: "reclamacoes",
+    secao: "atendimento",
     titulo: blocosCopy.reclamacoes.titulo,
     icone: AlertTriangle,
     accent: "var(--destructive)",
@@ -601,6 +607,7 @@ export function Mosaico() {
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",
+    secao: "estoque",
     titulo: blocosCopy.reposicao.titulo,
     icone: Package,
     accent: "var(--warning)",
@@ -626,6 +633,7 @@ export function Mosaico() {
 
   const blocoAtendimento = useMemo<BlocoDef>(() => ({
     id: "atendimento",
+    secao: "atendimento",
     titulo: blocosCopy.atendimento.titulo,
     icone: Timer,
     // Mesma cor do ACENTO em atendimento-card.tsx.
@@ -646,6 +654,7 @@ export function Mosaico() {
 
   const blocoMaisVendidos = useMemo<BlocoDef>(() => ({
     id: "maisVendidos",
+    secao: "estoque",
     titulo: blocosCopy.maisVendidos.titulo,
     icone: ShoppingBag,
     accent: "var(--acento-1)",
@@ -671,6 +680,7 @@ export function Mosaico() {
 
   const blocoGiroBaixo = useMemo<BlocoDef>(() => ({
     id: "giroBaixo",
+    secao: "estoque",
     titulo: blocosCopy.giroBaixo.titulo,
     icone: TrendingDown,
     accent: "var(--acento-3)",
@@ -693,6 +703,7 @@ export function Mosaico() {
 
   const blocoParados = useMemo<BlocoDef>(() => ({
     id: "parados",
+    secao: "estoque",
     titulo: blocosCopy.parados.titulo,
     icone: Hourglass,
     accent: "var(--muted-foreground)",
@@ -716,6 +727,7 @@ export function Mosaico() {
 
   const blocoPosVenda = useMemo<BlocoDef>(() => ({
     id: "posVenda",
+    secao: "atendimento",
     titulo: blocosCopy.posVenda.titulo,
     icone: MessageSquare,
     accent: "var(--warning)",
@@ -726,6 +738,7 @@ export function Mosaico() {
 
   const blocoAcoes = useMemo<BlocoDef>(() => ({
     id: "acoes",
+    secao: "marketing",
     titulo: blocosCopy.acoes.titulo,
     icone: Sparkles,
     accent: "var(--acento-1)",
@@ -745,6 +758,7 @@ export function Mosaico() {
     if (marcasPublicacoes.length === 0) return null;
     return {
       id: "publicacoes",
+    secao: "marketing",
       titulo: blocosCopy.publicacoes.titulo,
       icone: Megaphone,
       accent: "var(--acento-3)",
@@ -761,9 +775,10 @@ export function Mosaico() {
     };
   }, [marcasPublicacoes, inicio, fim, publicacoes]);
 
-  // Só junta e ordena — o trabalho pesado (recriar cada bloco) já aconteceu
-  // nos memos acima, isolado por grupo.
-  const blocos = useMemo<BlocoDef[]>(() => ordenarPorUrgencia([
+  // Junta, separa em seções (Financeiro / Saúde / Atendimento / Estoque /
+  // Marketing) e ordena por urgência dentro de cada uma — o trabalho pesado
+  // (recriar cada bloco) já aconteceu nos memos acima, isolado por grupo.
+  const { grupos, lista: blocos } = useMemo(() => agruparPorSecao([
     blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoReputacao, blocoComparacao,
     ...(blocoEvolucao ? [blocoEvolucao] : []),
     blocoAtendimento, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
@@ -823,14 +838,24 @@ export function Mosaico() {
           />
         </div>
 
-        <ul
-          data-coachmark="mosaico-grade"
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-        >
-          {blocos.map((bloco) => (
-            <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
+        {/* 5 seções em vez de uma grade só de 14 — cada uma com o próprio
+            rótulo e a própria ordenação por urgência (ver agruparPorSecao em
+            bloco.tsx). Um bloco com alerta sobe dentro do grupo dele, não
+            para cima do mosaico inteiro; o rótulo da seção ganha um ponto na
+            cor do pior alerta, então dá pra saber onde olhar antes de abrir
+            qualquer coisa. */}
+        <div data-coachmark="mosaico-grade" className="flex flex-col gap-6">
+          {grupos.map((grupo) => (
+            <section key={grupo.id} className="flex flex-col gap-3">
+              <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {grupo.blocos.map((bloco) => (
+                  <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       </motion.div>
 
       {/* Atalho de escopo: some sozinho, e some de vez assim que não há bloco
