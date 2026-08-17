@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
-import { Eye, PlugZap2 } from "lucide-react";
+import { Eye, PlugZap2, RefreshCw } from "lucide-react";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { escalonamento, listItem, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
 import { actionListarClientes, actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
@@ -48,6 +48,8 @@ function formatarData(value?: string | Date) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value));
 }
+
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 // Apelido e nome completo só chegam com o primeiro pedido importado do
 // canal — até lá o cliente existe (veio de outro gatilho, ex. mensagem),
@@ -336,11 +338,19 @@ export function ClientesLista() {
         transition={transicao(reduzir, { ...springs.settle, delay: 0.1 })}
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
       >
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
-          <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold tabular-nums text-selecionado">
-            {total} {total === 1 ? "cliente" : "clientes"}
-          </span>
+          <div className="flex items-center gap-3">
+            {clientes[0]?.createdAt && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <RefreshCw size={11} />
+                {dataHora.format(new Date(clientes[0].createdAt))}
+              </span>
+            )}
+            <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold tabular-nums text-selecionado">
+              {total} {total === 1 ? "cliente" : "clientes"}
+            </span>
+          </div>
         </div>
 
         {loading ? (

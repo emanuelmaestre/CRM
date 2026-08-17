@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Split } from "lucide-react";
+import { RefreshCw, Split } from "lucide-react";
 import type { VisaoGeralMarca, VisaoGeralResumo } from "@/modules/anuncios/application/visao-geral.service";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
@@ -13,6 +13,10 @@ const copy = anunciosConfig.organico;
 const ACENTO = "var(--acento-1)";
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const decimal1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+// Vendas/receita aqui são calculadas em cima do snapshot mais recente — sem
+// a hora, "81,9%" parece um número ao vivo quando na verdade é de quando a
+// sincronização rodou pela última vez.
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 const LABEL_CLASSIFICACAO: Record<string, string> = {
   baixa: "Dependência baixa",
@@ -118,6 +122,12 @@ export function OrganicoCard({ resumo, resumoAnterior, marca }: {
             </div>
           )}
         </motion.div>
+      )}
+      {!semDado && (
+        <p className="flex items-center justify-end gap-1.5 border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground sm:px-5">
+          <RefreshCw size={11} />
+          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}
+        </p>
       )}
     </Card>
   );

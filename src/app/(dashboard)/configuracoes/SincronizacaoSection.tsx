@@ -13,6 +13,8 @@ import type { CanalConfiguracao } from "@/modules/canais/application/configuraca
 type Execucao = NonNullable<Awaited<ReturnType<typeof actionObterUltimaSincronizacaoConta>>>;
 type ModuloStatus = "pendente" | "em_andamento" | "concluido" | "erro";
 
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+
 const MODULOS: Array<{ chave: "catalogoStatus" | "pedidosStatus"; label: string }> = [
   { chave: "catalogoStatus", label: "Catálogo" },
   { chave: "pedidosStatus", label: "Pedidos" },
@@ -98,6 +100,12 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        {execucao?.finalizadoEm && !emAndamento && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <RefreshCw size={11} />
+            {dataHora.format(new Date(execucao.finalizadoEm))}
+          </span>
+        )}
         <AnimatePresence mode="popLayout">
           {execucao && (
             <motion.div

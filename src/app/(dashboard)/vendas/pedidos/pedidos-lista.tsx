@@ -14,6 +14,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { escalonamento, fadeUp, springs, variantes } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
@@ -380,21 +381,14 @@ export function PedidosLista() {
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido ou cliente…" className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-selecionado" />
         </label>
-        <label className="relative inline-flex">
-          <select
-            value={statusGrupo}
-            onChange={(e) => setStatusGrupo(e.target.value as ChaveGrupoStatus)}
-            title={GRUPOS_STATUS.find((grupo) => grupo.chave === statusGrupo)?.dica}
-            className="h-11 appearance-none rounded-xl border border-border bg-background pl-3.5 pr-8 text-sm font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:border-selecionado"
-          >
-            {GRUPOS_STATUS.map((grupo) => (
-              <option key={grupo.chave} value={grupo.chave} title={grupo.dica}>
-                {grupo.chave === "" ? copy.statusFilter.all : grupo.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        </label>
+        <SelectPopover
+          valor={statusGrupo}
+          onChange={setStatusGrupo}
+          itens={GRUPOS_STATUS.map((grupo) => ({
+            value: grupo.chave,
+            label: grupo.chave === "" ? copy.statusFilter.all : grupo.label,
+          }))}
+        />
         <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
         <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />
         <button type="button" onClick={exportarPdf} disabled={pedidos.length === 0 || exportando} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted disabled:opacity-40">

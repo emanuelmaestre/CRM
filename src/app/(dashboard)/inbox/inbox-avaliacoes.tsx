@@ -8,6 +8,7 @@ import Link from "next/link";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -59,6 +60,7 @@ function paraDataInput(data: Date): string {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 }
 const hoje = paraDataInput(new Date());
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 /* Trocar de aba desmonta este componente. Sem guardar o resultado, cada volta
    refaz a consulta inteira ao Mercado Livre — que é 1 requisição por anúncio,
@@ -352,6 +354,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
 }) {
   const [itens, setItens] = useState<Avaliacao[]>(() => cacheAvaliacoes?.itens ?? []);
   const [carregando, setCarregando] = useState(() => !cacheValido());
+  const [buscadoEm, setBuscadoEm] = useState<number | null>(() => cacheAvaliacoes?.buscadoEm ?? null);
   const [busca, setBusca] = useState("");
   const [nota, setNota] = useState<FiltroNota>("todas");
   // Vazio dos dois lados = sem recorte, mostra o histórico inteiro — mesmo
@@ -409,7 +412,9 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
     try {
       const itens = forcar ? await carregarAoVivo() : await carregarDoCache();
       setItens(itens);
-      cacheAvaliacoes = { itens, buscadoEm: Date.now() };
+      const agora = Date.now();
+      cacheAvaliacoes = { itens, buscadoEm: agora };
+      setBuscadoEm(agora);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível carregar as avaliações.");
     } finally {
@@ -583,11 +588,15 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">
-            <select value={nota} onChange={(e) => setNota(e.target.value as FiltroNota)} className="h-11 rounded-xl border border-border bg-background px-3 text-sm">
-              <option value="todas">Notas</option>
-              <option value="com_avaliacao">Com avaliações</option>
-              <option value="sem_avaliacao">Sem avaliações</option>
-            </select>
+            <SelectPopover
+              valor={nota}
+              onChange={setNota}
+              itens={[
+                { value: "todas", label: "Notas" },
+                { value: "com_avaliacao", label: "Com avaliações" },
+                { value: "sem_avaliacao", label: "Sem avaliações" },
+              ]}
+            />
             {/* Filtra só os comentários com texto (ver aviso no ícone de
                 info acima) — a nota média e a distribuição não têm como ser
                 recortadas por data, o Mercado Livre não expõe isso. */}
@@ -604,6 +613,12 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
             </button>
           </div>
         </div>
+
+        {buscadoEm && !carregando && (
+          <p className="flex items-center gap-1.5 border-b border-border px-4 py-2 text-[11px] text-muted-foreground">
+            <RefreshCw size={11} /> Atualizado em {dataHora.format(new Date(buscadoEm))}
+          </p>
+        )}
 
         {carregando ? (
           <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">

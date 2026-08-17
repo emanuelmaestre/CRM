@@ -25,6 +25,7 @@ type FiltroStatus = "pendentes" | "resolvidas" | "todas";
 
 const copy = pagesConfig.inbox;
 const conversationCopy = copy.conversation;
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 /* ── Helpers ─────────────────────────────────────────────── */
 function formatarData(iso: Date | string): string {
@@ -518,9 +519,16 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
           </button>
         ) : (
           <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-foreground whitespace-nowrap">
-              {conversasFiltradas.length} {conversasFiltradas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
-            </p>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground whitespace-nowrap">
+                {conversasFiltradas.length} {conversasFiltradas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
+              </p>
+              {conversas[0]?.updatedAt && (
+                <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <RefreshCw size={9} /> {dataHora.format(new Date(conversas[0].updatedAt))}
+                </p>
+              )}
+            </div>
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => void carregarConversas()} disabled={sincronizando} title="Atualizar conversas" aria-label="Atualizar conversas" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
                 <RefreshCw size={14} className={sincronizando ? "animate-spin" : ""} />
@@ -539,7 +547,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
             ["resolvidas", "Resolvidas", totalResolvidas],
             ["todas", "Todas", conversas.length],
           ] as const).map(([valor, rotulo, total]) => (
-            <button key={valor} type="button" onClick={() => setFiltroStatus(valor)} className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${filtroStatus === valor ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"}`}>
+            <button key={valor} type="button" onClick={() => setFiltroStatus(valor)} className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${filtroStatus === valor ? "bg-selecionado text-white" : "text-muted-foreground hover:text-foreground"}`}>
               {rotulo} <span className="tabular-nums opacity-75">{total}</span>
             </button>
           ))}

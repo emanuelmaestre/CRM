@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useTransition } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, Check, ChevronDown, Eye, Hourglass, Link2, Loader2, PackageX, PlugZap2,
+  AlertTriangle, Check, Eye, Hourglass, Link2, Loader2, PackageX, PlugZap2,
   RefreshCw, Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -22,6 +22,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
+import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { springs } from "@/shared/design-system/motion-variants";
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
@@ -49,6 +50,7 @@ const PAGINA = 50;
 const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var(--success)", info: "var(--info)", neutro: "#6F6F6E" };
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
@@ -243,29 +245,19 @@ function TrilhoEstado({ indicadores, filtro, onFiltro, className }: {
   onFiltro: (proximo: Filtro) => void;
   className?: string;
 }) {
-  const itens: Array<{ id: Filtro; label: string; contagem?: number; cor?: string }> = [
-    { id: "todos", label: copy.filters.all, contagem: indicadores?.total },
-    { id: "sem_minimo", label: copy.rail.noRule, contagem: indicadores?.semMinimo, cor: "var(--border)" },
-    { id: "abaixo_minimo", label: copy.filters.belowMin, contagem: indicadores?.abaixoMinimo, cor: COR.critico },
-    { id: "sem_estoque", label: copy.filters.outOfStock, contagem: indicadores?.semEstoque, cor: COR.atencao },
-    { id: "parados", label: copy.filters.stalled, contagem: indicadores?.parados, cor: COR.neutro },
-  ];
-
   return (
-    <label className={className ?? "relative mb-4 inline-flex"}>
-      <select
-        value={filtro}
-        onChange={(event) => onFiltro(event.target.value as Filtro)}
-        className="h-9 min-w-[9rem] appearance-none rounded-full border border-border bg-card py-1.5 pl-3.5 pr-8 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:border-selecionado"
-      >
-        {itens.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.label}{item.contagem !== undefined ? ` (${item.contagem})` : ""}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-    </label>
+    <SelectPopover
+      valor={filtro}
+      onChange={onFiltro}
+      className={className ?? "relative mb-4 inline-flex"}
+      itens={[
+        { value: "todos", label: copy.filters.all, contagem: indicadores?.total },
+        { value: "sem_minimo", label: copy.rail.noRule, contagem: indicadores?.semMinimo, cor: "var(--border)" },
+        { value: "abaixo_minimo", label: copy.filters.belowMin, contagem: indicadores?.abaixoMinimo, cor: COR.critico },
+        { value: "sem_estoque", label: copy.filters.outOfStock, contagem: indicadores?.semEstoque, cor: COR.atencao },
+        { value: "parados", label: copy.filters.stalled, contagem: indicadores?.parados, cor: COR.neutro },
+      ]}
+    />
   );
 }
 
@@ -839,6 +831,21 @@ export function EstoqueLista() {
     });
   }
 
+  // Cada linha carrega o horário em que o saldo daquele canal foi conferido
+  // pela última vez (`verificadoEm`) — o mais recente entre os produtos
+  // carregados é a resposta honesta para "quando isso foi atualizado?",
+  // sem precisar de uma busca extra só para essa data.
+  const ultimaAtualizacao = useMemo(() => {
+    let maisRecente: Date | null = null;
+    for (const produto of produtos) {
+      for (const canal of produto.saldosCanais ?? []) {
+        const data = new Date(canal.verificadoEm);
+        if (!Number.isNaN(data.getTime()) && (!maisRecente || data > maisRecente)) maisRecente = data;
+      }
+    }
+    return maisRecente;
+  }, [produtos]);
+
   const filtrando = filtro !== "todos" || busca.trim() !== "" || brandIds.size > 0 || canaisSelecionados.size > 0;
 
   // Vazio depois de filtrar não é sempre a mesma notícia: "nada abaixo do
@@ -1009,13 +1016,21 @@ export function EstoqueLista() {
         transition={springs.settleFast}
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
       >
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+        <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
-          {/* Sem key: o total é dado crítico e não deve re-animar a cada
-              filtro (PRD §14.5 — "número não dança depois de carregado"). */}
-          <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
-            {total} {total === 1 ? "produto" : "produtos"}
-          </span>
+          <div className="flex items-center gap-3">
+            {ultimaAtualizacao && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <RefreshCw size={11} />
+                {dataHora.format(ultimaAtualizacao)}
+              </span>
+            )}
+            {/* Sem key: o total é dado crítico e não deve re-animar a cada
+                filtro (PRD §14.5 — "número não dança depois de carregado"). */}
+            <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
+              {total} {total === 1 ? "produto" : "produtos"}
+            </span>
+          </div>
         </div>
 
         {/* Skeleton só na primeira carga. Re-filtrar mantém a lista anterior no

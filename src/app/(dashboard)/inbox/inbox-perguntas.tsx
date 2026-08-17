@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronDown, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
+import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { actionListarPerguntas, actionResponderPergunta } from "./actions";
 import pagesConfig from "@/config/pages.json";
@@ -37,6 +38,7 @@ type Pergunta = {
 };
 
 const copy = pagesConfig.inbox.questions;
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const PLAT = copy.platforms as Record<Plataforma, PlatformConfig>;
 
 function normalizarPlataforma(canal: string): Plataforma {
@@ -99,10 +101,12 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
   const isMobile = useMobileViewport();
   const efetivamenteRecolhido = recolhido && !isMobile;
 
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
+
   const carregarPerguntas = useCallback(() => {
     setErroCarregamento(false);
     actionListarPerguntas()
-      .then((itens) => setPerguntas(itens.map(mapearPergunta)))
+      .then((itens) => { setPerguntas(itens.map(mapearPergunta)); setUltimaAtualizacao(new Date()); })
       .catch(() => {
         setErroCarregamento(true);
         toast.error(copy.loadError ?? "Não foi possível carregar as perguntas.");
@@ -214,18 +218,17 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 sidebar de 304px de largura, "Respondidas" e o botão de
                 sincronizar acabavam saindo da área visível sem rolar. */}
             <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/10">
-              <label className="relative min-w-0 flex-1">
-                <select
-                  value={filtroStatus}
-                  onChange={(e) => setFiltroStatus(e.target.value as Status | "todos")}
-                  className="h-9 w-full appearance-none rounded-full border border-border bg-card py-1.5 pl-3 pr-7 text-[11px] font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:border-selecionado"
-                >
-                  <option value="todos">{copy.statusFilters.todos} ({perguntas.length})</option>
-                  <option value="pendente">{copy.statusFilters.pendente} ({pendentes})</option>
-                  <option value="respondida">{copy.statusFilters.respondida} ({respondidas})</option>
-                </select>
-                <ChevronDown size={12} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              </label>
+              <SelectPopover
+                className="relative min-w-0 flex-1"
+                buttonClassName="press-feedback flex h-9 w-full items-center justify-between gap-2 rounded-full border border-border bg-card py-1.5 pl-3 pr-3 text-[11px] font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado"
+                valor={filtroStatus}
+                onChange={setFiltroStatus}
+                itens={[
+                  { value: "todos", label: copy.statusFilters.todos, contagem: perguntas.length },
+                  { value: "pendente", label: copy.statusFilters.pendente, contagem: pendentes },
+                  { value: "respondida", label: copy.statusFilters.respondida, contagem: respondidas },
+                ]}
+              />
               <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} disabled={carregando} title="Atualizar perguntas" aria-label="Atualizar perguntas" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
                 <RefreshCw size={14} className={carregando ? "animate-spin" : ""} />
               </button>
@@ -233,6 +236,12 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 <PanelLeftClose size={14} />
               </button>
             </div>
+
+            {ultimaAtualizacao && (
+              <p className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-[10px] text-muted-foreground">
+                <RefreshCw size={9} /> {dataHora.format(ultimaAtualizacao)}
+              </p>
+            )}
 
             <div className="border-b border-border px-3 py-2.5">
               <label className="relative block">

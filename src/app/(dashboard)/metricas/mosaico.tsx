@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   AlertTriangle, BarChart3, FileText, Gauge, Hourglass, MessageSquare, Megaphone,
-  Package, ShoppingBag, Sparkles, Store, Timer, TrendingDown, TrendingUp,
+  Package, RefreshCw, ShoppingBag, Sparkles, Store, Timer, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
@@ -153,7 +153,9 @@ function MiniSerie({ serie, cor }: { serie: { altura: number }[]; cor: string })
    também dentro do Foco, trocar o período com um card aberto exigiria
    fechar primeiro. As duas instâncias leem e escrevem o mesmo estado
    (props vindas de `Mosaico`), então nunca desincronizam. */
-function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodoLabel, exportar, exportando, temDados }: {
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+
+function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodoLabel, exportar, exportando, temDados, ultimaAtualizacao }: {
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;
   carregandoSaude: boolean;
@@ -162,6 +164,10 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
   exportar: () => void;
   exportando: boolean;
   temDados: boolean;
+  /** Quando os dados que o mosaico está mostrando agora foram buscados —
+   *  não é o "sincronizado com o canal" de Anúncios, é "quando esta tela
+   *  carregou o que você está vendo". Atualiza a cada troca de período. */
+  ultimaAtualizacao: Date | null;
 }) {
   return (
     <>
@@ -185,6 +191,12 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
         {completo ? periodoLabel ?? "" : copy.periodoPadrao}
       </span>
       <span className="hidden h-px flex-1 bg-border sm:block" />
+      {ultimaAtualizacao && (
+        <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground sm:inline-flex">
+          <RefreshCw size={11} />
+          {dataHora.format(ultimaAtualizacao)}
+        </span>
+      )}
       <motion.button
         type="button"
         onClick={exportar}
@@ -316,11 +328,18 @@ export function Mosaico() {
   const [saude, setSaude] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
   const [atendimento, setAtendimento] = useState<{ chave: string; dados: AtendimentoResumo | null }>({ chave: "", dados: null });
   const [anterior, setAnterior] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
+  // Sem timestamp único de servidor pra "isto tudo" — o mosaico é a soma de
+  // ~7 buscas independentes (ver comentário acima sobre cada uma carregar no
+  // próprio ritmo). Saúde da loja é o gatilho mais representativo porque
+  // alimenta a maioria dos cards, então marca "última atualização" quando
+  // ela responde — setado no próprio .then(), não num efeito à parte, pra
+  // não disparar um segundo render encadeado à toa.
+  const [carregadoEm, setCarregadoEm] = useState<Date | null>(null);
 
   useEffect(() => {
     let ativo = true;
     actionObterSaudeLoja({ inicio, fim })
-      .then((resultado) => { if (ativo) setSaude({ chave, dados: resultado }); })
+      .then((resultado) => { if (ativo) { setSaude({ chave, dados: resultado }); setCarregadoEm(new Date()); } })
       .catch(() => {
         if (!ativo) return;
         setSaude({ chave, dados: null });
@@ -835,6 +854,7 @@ export function Mosaico() {
             exportar={exportar}
             exportando={exportando}
             temDados={Boolean(saude.dados)}
+            ultimaAtualizacao={carregadoEm}
           />
         </div>
 
@@ -890,9 +910,6 @@ export function Mosaico() {
         onFechar={fechar}
         onAnterior={() => pular(-1)}
         onProximo={() => pular(1)}
-        posicao={copy.posicao
-          .replace("{atual}", String(indiceAberto + 1))
-          .replace("{total}", String(blocos.length))}
         barraPeriodo={
           <BarraPeriodo
             periodo={periodo}
@@ -903,6 +920,7 @@ export function Mosaico() {
             exportar={exportar}
             exportando={exportando}
             temDados={Boolean(saude.dados)}
+            ultimaAtualizacao={carregadoEm}
           />
         }
       />

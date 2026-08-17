@@ -272,13 +272,11 @@ export function Bloco({ def, focado, onAbrir }: {
 
 /* ── Foco ──────────────────────────────────────────────────────── */
 
-export function Foco({ def, onFechar, onAnterior, onProximo, posicao, barraPeriodo }: {
+export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
   def: BlocoDef | null;
   onFechar: () => void;
   onAnterior: () => void;
   onProximo: () => void;
-  /** "3 de 14" — diz onde você está sem precisar voltar ao mosaico. */
-  posicao: string;
   /** Mesma barra de período/exportar do mosaico, redesenhada aqui — o
    *  painel cobre a tela inteira, então sem isso trocar a data exigiria
    *  fechar o card primeiro. */
@@ -387,8 +385,9 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao, barraPerio
                 {/* Sem botões de seta: pular de card continua valendo pelo
                     teclado (← →, ver o efeito de atalhos acima), mas dois
                     botões a mais no cabeçalho competiam com o fechar e com a
-                    ação do próprio card sem ganhar nada em clareza. */}
-                <span className="hidden shrink-0 text-[11px] tabular-nums text-muted-foreground sm:inline">{posicao}</span>
+                    ação do próprio card sem ganhar nada em clareza. Contador
+                    "X de Y" também saiu — não é informação que ajuda a
+                    decisão de quem está ali, só ruído no cabeçalho. */}
                 <button type="button" onClick={onFechar} aria-label="Fechar" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
                   <X size={15} />
                 </button>
