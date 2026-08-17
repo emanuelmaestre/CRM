@@ -27,11 +27,9 @@ export interface DadosOportunidadeCampanha {
   campanhaId: string;
   campanhaNome: string;
   roasAtual: number | null;
-  roasMinimo: number | null;
   roasAnterior: number | null;
   cvr: number | null;
   gastoAtual: number;
-  lucroEstimado: number | null;
   estoqueDiasCobertura: number | null;
   lostImpressionShareByBudget: number | null;
   lostImpressionShareByAdRank: number | null;
@@ -43,16 +41,15 @@ export interface DadosOportunidadeCampanha {
 const LIMIARES_OPORTUNIDADE = {
   cliquesMinimos: 20,
   cvrBom: 0.03,
-  toleranciaBreakEven: 0.1,
   perdaRelevante: 0.15,
-  estoqueDiasMinimoParaEscalar: 15,
   quedaRoasRelevante: 0.3, // 30% de queda
 } as const;
 
-/** Base do score: lucro estimado quando existe (Fase 2 já cruzou com custo),
- *  senão o gasto da campanha — melhor que nada pra ordenar por relevância. */
+/** Base do score: o gasto da campanha. Já foi "lucro estimado quando
+ *  existe, senão o gasto" — o lucro dependia do custo do produto e nunca
+ *  existiu, então o fallback era o único caminho vivo. */
 function baseDeImpacto(dados: DadosOportunidadeCampanha): number {
-  return dados.lucroEstimado ?? dados.gastoAtual;
+  return dados.gastoAtual;
 }
 
 function scorePorImpacto(gastoOuLucro: number, confiancaAlta: boolean): { impacto: ImpactoOportunidade; score: number } {
@@ -66,37 +63,10 @@ function scorePorImpacto(gastoOuLucro: number, confiancaAlta: boolean): { impact
   return { impacto, score };
 }
 
-/** ROAS acima do break-even com folga + perda relevante por orçamento —
- *  dinheiro rentável sendo deixado na mesa por falta de verba, não de
- *  qualidade do anúncio. */
-export function identificarOportunidadeEscala(dados: DadosOportunidadeCampanha): Oportunidade | null {
-  const L = LIMIARES_OPORTUNIDADE;
-  if (dados.cliques < L.cliquesMinimos) return null;
-  if (dados.roasAtual === null || dados.roasMinimo === null) return null;
-  if (dados.roasAtual <= dados.roasMinimo * (1 + L.toleranciaBreakEven)) return null;
-  if ((dados.lostImpressionShareByBudget ?? 0) <= L.perdaRelevante) return null;
-
-  const estoqueOk = dados.estoqueDiasCobertura === null || dados.estoqueDiasCobertura >= L.estoqueDiasMinimoParaEscalar;
-  const criterios = [
-    `ROAS ${dados.roasAtual.toFixed(2)}x acima do mínimo sustentável (${dados.roasMinimo.toFixed(2)}x)`,
-    `${((dados.lostImpressionShareByBudget ?? 0) * 100).toFixed(0)}% das impressões perdidas por orçamento`,
-    dados.cvr !== null ? `CVR de ${(dados.cvr * 100).toFixed(2)}%` : "CVR sem amostra suficiente",
-  ];
-  if (!estoqueOk) criterios.push(`Estoque cobre só ${Math.round(dados.estoqueDiasCobertura!)} dias — considerar antes de escalar`);
-
-  const { impacto, score } = scorePorImpacto(baseDeImpacto(dados), estoqueOk);
-
-  return {
-    tipo: "escala",
-    campanhaId: dados.campanhaId,
-    campanhaNome: dados.campanhaNome,
-    titulo: "Rentável e limitada por orçamento",
-    explicacao: `Esta campanha está rentável e perde ${((dados.lostImpressionShareByBudget ?? 0) * 100).toFixed(0)}% das oportunidades por orçamento.`,
-    criterios,
-    impacto,
-    scoreImpacto: score,
-  };
-}
+/* A oportunidade de "escala" vivia aqui e saiu com o break-even: ela abria
+   exigindo `roasMinimo`, que vinha do custo do produto — nunca preenchido,
+   então a regra jamais disparou. Chamar uma campanha de "rentável" exige
+   saber o custo, e o sistema não sabe. */
 
 /** Campanha que já performou bem e deteriorou — "recuperação" porque o
  *  histórico prova que o patamar anterior era alcançável, não é uma
@@ -150,47 +120,20 @@ export function identificarOportunidadeRanking(dados: DadosOportunidadeCampanha)
   };
 }
 
-/** Perde exposição principalmente por ORÇAMENTO, numa campanha já
- *  rentável — irmã da oportunidade de escala, mas com o recorte
- *  específico do brief ("mostrar impacto potencial como estimativa"). */
-export function identificarOportunidadePorOrcamento(dados: DadosOportunidadeCampanha): Oportunidade | null {
-  const L = LIMIARES_OPORTUNIDADE;
-  if (dados.cliques < L.cliquesMinimos) return null;
-  const porOrcamento = dados.lostImpressionShareByBudget ?? 0;
-  const porRanking = dados.lostImpressionShareByAdRank ?? 0;
-  if (porOrcamento <= L.perdaRelevante) return null;
-  if (porOrcamento <= porRanking) return null;
-  if (dados.roasAtual === null || dados.roasMinimo === null || dados.roasAtual <= dados.roasMinimo) return null;
+/* A oportunidade "por orçamento" também saiu: além da perda por orçamento,
+   ela exigia ROAS acima do mínimo sustentável para chamar a campanha de
+   rentável — e esse mínimo vinha do custo. Sem ele, sobrava uma afirmação
+   que o sistema não tem como sustentar. */
 
-  const { impacto, score } = scorePorImpacto(baseDeImpacto(dados), true);
-  // Estimativa de gasto adicional possível: repor a fração perdida por
-  // orçamento sobre o gasto atual. É projeção, não garantia — o brief pede
-  // explicitamente para nunca apresentar isso como certeza.
-  const gastoAdicionalEstimado = Math.round(dados.gastoAtual * (porOrcamento / (1 - porOrcamento)) * 100) / 100;
-
-  return {
-    tipo: "orcamento",
-    campanhaId: dados.campanhaId,
-    campanhaNome: dados.campanhaNome,
-    titulo: "Campanha rentável limitada por orçamento",
-    explicacao: `${(porOrcamento * 100).toFixed(0)}% das impressões perdidas por orçamento. Estimativa (não garantia): até R$ ${gastoAdicionalEstimado.toFixed(2)} a mais de investimento diário para capturar essa fatia.`,
-    criterios: [`Perda por orçamento: ${(porOrcamento * 100).toFixed(0)}%`, `ROAS ${dados.roasAtual.toFixed(2)}x acima do mínimo (${dados.roasMinimo.toFixed(2)}x)`],
-    impacto,
-    scoreImpacto: score,
-  };
-}
-
-/** Roda as quatro regras e devolve só o que de fato disparou, ordenado por
- *  score de impacto (maior primeiro) — a leitura da tela é "o que importa
- *  mais primeiro", não a ordem em que os dados chegaram. */
+/** Roda as regras restantes e devolve só o que de fato disparou, ordenado
+ *  por score de impacto (maior primeiro) — a leitura da tela é "o que
+ *  importa mais primeiro", não a ordem em que os dados chegaram. */
 export function identificarOportunidades(
   dados: DadosOportunidadeCampanha,
 ): Oportunidade[] {
   const candidatas = [
-    identificarOportunidadeEscala(dados),
     identificarOportunidadeRecuperacao(dados),
     identificarOportunidadeRanking(dados),
-    identificarOportunidadePorOrcamento(dados),
   ];
   return candidatas
     .filter((item): item is Oportunidade => item !== null)

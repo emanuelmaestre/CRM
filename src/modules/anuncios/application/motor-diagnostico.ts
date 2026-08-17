@@ -46,9 +46,6 @@ export interface DadosDiagnosticoCampanha {
   cpcAnterior: number | null;
   cvrAnterior: number | null;
   roasAtual: number | null;
-  /** Do break-even (Fase 2) — null quando o custo do produto não está
-   *  configurado, e as regras que dependem dele simplesmente não disparam. */
-  roasMinimo: number | null;
   /** Frações 0–1, direto do Mercado Livre. */
   lostImpressionShareByBudget: number | null;
   lostImpressionShareByAdRank: number | null;
@@ -69,7 +66,6 @@ export const LIMIARES_DIAGNOSTICO = {
   cvrBom: 0.03,
   exposicaoAindaComEspaco: 0.3, // soma de perda por orçamento + ranking
   perdaOrcamentoRelevante: 0.15,
-  toleranciaBreakEven: 0.1, // mesma zona "no limite" do break-even (Fase 2)
   estoqueDiasBaixo: 15,
   variacaoCpcRelevante: 0.15,
   variacaoCvrEstavelMax: 0.1,
@@ -126,56 +122,15 @@ export function diagnosticarCampanha(dados: DadosDiagnosticoCampanha): Diagnosti
     });
   }
 
-  // 4. ROAS bom + perda por orçamento — oportunidade de escala real.
-  if (
-    dados.roasAtual !== null && dados.roasMinimo !== null
-    && dados.roasAtual > dados.roasMinimo * (1 + L.toleranciaBreakEven)
-    && (dados.lostImpressionShareByBudget ?? 0) > L.perdaOrcamentoRelevante
-  ) {
-    achados.push({
-      tipo: "roas_bom_perda_orcamento",
-      severidade: "oportunidade",
-      titulo: "Rentável e limitada por orçamento",
-      explicacao: `ROAS de ${dados.roasAtual.toFixed(2)}x está acima do mínimo sustentável (${dados.roasMinimo.toFixed(2)}x), e ${((dados.lostImpressionShareByBudget ?? 0) * 100).toFixed(0)}% das oportunidades são perdidas por orçamento.`,
-      causasPossiveis: ["Orçamento diário abaixo do que a demanda do anúncio suportaria"],
-      acaoRecomendada: "Considerar aumento controlado de orçamento.",
-    });
-  }
+  /* Três regras que existiam aqui — "Rentável e limitada por orçamento",
+     "Perda por orçamento, mas a campanha já não é rentável" e "Rentável,
+     mas o estoque não aguenta escalar" — saíram junto com o break-even.
+     As três abriam com `roasMinimo !== null`, e esse mínimo vinha do custo
+     do produto, que nunca existiu: nenhuma delas jamais disparou. Dizer
+     "rentável" exige saber o custo, e o sistema não sabe — as regras que
+     sobraram falam só de funil, que é o que o Mercado Livre entrega. */
 
-  // 5. ROAS ruim + perda por orçamento — o oposto: aumentar verba pioraria o problema.
-  if (
-    dados.roasAtual !== null && dados.roasMinimo !== null
-    && dados.roasAtual < dados.roasMinimo
-    && (dados.lostImpressionShareByBudget ?? 0) > L.perdaOrcamentoRelevante
-  ) {
-    achados.push({
-      tipo: "roas_ruim_perda_orcamento",
-      severidade: "critico",
-      titulo: "Perda por orçamento, mas a campanha já não é rentável",
-      explicacao: `ROAS de ${dados.roasAtual.toFixed(2)}x está abaixo do mínimo sustentável (${dados.roasMinimo.toFixed(2)}x). Aumentar orçamento aqui ampliaria o prejuízo, não o resultado.`,
-      causasPossiveis: ["Preço, custo do produto ou comissão tornam a campanha estruturalmente não rentável no ROAS atual"],
-      acaoRecomendada: "Corrigir preço, custo ou segmentação antes de tocar no orçamento.",
-      acaoDesencorajada: "Não aumentar orçamento enquanto o ROAS estiver abaixo do mínimo sustentável.",
-    });
-  }
-
-  // 6. ROAS bom + estoque baixo — escalar agora criaria ruptura.
-  if (
-    dados.roasAtual !== null && dados.roasMinimo !== null && dados.roasAtual > dados.roasMinimo
-    && dados.estoqueDiasCobertura !== null && dados.estoqueDiasCobertura < L.estoqueDiasBaixo
-  ) {
-    achados.push({
-      tipo: "roas_bom_estoque_baixo",
-      severidade: "atencao",
-      titulo: "Rentável, mas o estoque não aguenta escalar",
-      explicacao: `ROAS saudável (${dados.roasAtual.toFixed(2)}x), porém o estoque atual cobre só ${Math.round(dados.estoqueDiasCobertura)} dias no ritmo de venda atual.`,
-      causasPossiveis: ["Reposição não acompanhou o crescimento da demanda gerada pela campanha"],
-      acaoRecomendada: "Repor estoque antes de aumentar investimento — ou aceitar o ritmo atual conscientemente.",
-      acaoDesencorajada: "Não escalar orçamento até resolver a cobertura de estoque.",
-    });
-  }
-
-  // 7. CPC subindo, CVR estável — o custo de aquisição está subindo por
+  // 4. CPC subindo, CVR estável — o custo de aquisição está subindo por
   // fora da conversão (provavelmente concorrência/leilão), não por causa
   // do produto em si.
   const varCpc = dados.cpcAtual !== null && dados.cpcAnterior !== null ? variacao(dados.cpcAtual, dados.cpcAnterior) : null;
@@ -191,7 +146,7 @@ export function diagnosticarCampanha(dados: DadosDiagnosticoCampanha): Diagnosti
     });
   }
 
-  // 8. CPC estável, CVR caindo — o problema é o produto/oferta, não o leilão.
+  // 5. CPC estável, CVR caindo — o problema é o produto/oferta, não o leilão.
   if (varCpc !== null && Math.abs(varCpc) <= L.variacaoCpcRelevante && varCvr !== null && varCvr < L.variacaoCvrQuedaRelevante) {
     achados.push({
       tipo: "cpc_estavel_cvr_caindo",

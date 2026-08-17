@@ -143,7 +143,6 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
   onToggle: () => void;
 }) {
   const [anuncios, setAnuncios] = useState<AnuncioDaCampanha[] | null>(null);
-  const lucroPositivo = campanha.lucro.lucroEstimado >= 0;
   const carregandoAnuncios = expandida && anuncios === null;
 
   useEffect(() => {
@@ -174,10 +173,7 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
         )}
         <span className="shrink-0 text-right text-[13px] font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</span>
         <span className="hidden w-16 shrink-0 justify-end text-right text-[13px] font-semibold sm:inline-flex">
-          <Roas valor={campanha.roas} minimo={campanha.breakEven.roasMinimo} />
-        </span>
-        <span className="hidden w-20 shrink-0 text-right text-[13px] font-semibold tabular-nums sm:inline" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}>
-          {moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}
+          <Roas valor={campanha.roas} />
         </span>
       </button>
 

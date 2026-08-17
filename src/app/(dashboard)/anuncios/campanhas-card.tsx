@@ -43,7 +43,6 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
         <>
         <div className="divide-y divide-border px-4 pb-4 pt-2 md:hidden">
           {campanhas.map((campanha) => {
-            const lucroPositivo = campanha.lucro.lucroEstimado >= 0;
             return (
               <article key={campanha.campanhaId} className="py-4 first:pt-2 last:pb-0">
                 <div className="flex items-start justify-between gap-3">
@@ -54,8 +53,7 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
                   <div className="col-span-2"><dt className="text-xs text-muted-foreground">Criada em</dt><dd className="mt-0.5 font-medium tabular-nums">{formatarDataCriacao(campanha.criadaEm)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.investimento)}</dd></div>
                   <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.receita)}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={campanha.roas} minimo={campanha.breakEven.roasMinimo} /></dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">Lucro estimado</dt><dd className="mt-0.5 font-semibold tabular-nums" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}>{moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={campanha.roas} /></dd></div>
                 </dl>
               </article>
             );
@@ -72,7 +70,6 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
             </thead>
             <tbody>
               {campanhas.map((campanha, indice) => {
-                const lucroPositivo = campanha.lucro.lucroEstimado >= 0;
                 return (
                   <motion.tr
                     key={campanha.campanhaId}
@@ -90,10 +87,7 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
                     <td className="px-3 py-2.5 text-right font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(campanha.receita)}</td>
                     <td className="px-3 py-2.5 text-right font-semibold">
-                      <Roas valor={campanha.roas} minimo={campanha.breakEven.roasMinimo} />
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }} title={campanha.lucro.custosIncompletos ? "Estimativa parcial — custo do produto não configurado" : undefined}>
-                      {moeda.format(campanha.lucro.lucroEstimado)}{campanha.lucro.custosIncompletos && "*"}
+                      <Roas valor={campanha.roas} />
                     </td>
                   </motion.tr>
                 );
@@ -101,7 +95,6 @@ export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }
             </tbody>
           </table>
         </div>
-        <p className="px-4 pb-4 text-xs text-muted-foreground">* estimativa parcial — custo do produto ainda não configurado no catálogo.</p>
         </>
       )}
     </Card>

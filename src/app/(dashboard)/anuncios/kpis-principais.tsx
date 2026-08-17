@@ -42,12 +42,13 @@ function NumeroGrande({ label, valor, formatar, cor, sufixo, prefixo, destaque =
 }
 
 export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
-  const lucroPositivo = resumo.lucroTotal >= 0;
-
   return (
     <div className="card-surface p-5">
-      {/* Linha 1 — os quatro números que importam primeiro */}
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
+      {/* Linha 1 — os três números que importam primeiro. Havia um quarto,
+          "Lucro após publicidade", removido junto com o motor de custo: ele
+          era receita menos investimento com um selo de "estimativa parcial"
+          que nunca sairia, porque o custo do produto nunca existiu. */}
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <NumeroGrande label={copy.investimento} valor={resumo.investimentoTotal} formatar={(n) => moeda.format(n)} destaque />
         <NumeroGrande label={copy.receita} valor={resumo.receitaTotal} formatar={(n) => moeda.format(n)} destaque />
         {/* Único KPI com seta: os outros três são dinheiro, e o sinal de menos
@@ -57,20 +58,8 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
           valor={resumo.roasMedio}
           formatar={(n) => `${n.toFixed(2)}x`}
           destaque
-          cor={COR_ROAS[situacaoRoas(resumo.roasMedio, null)]}
-          prefixo={<SetaRoas situacao={situacaoRoas(resumo.roasMedio, null)} />}
-        />
-        <NumeroGrande
-          label={copy.lucro}
-          valor={resumo.lucroTotal}
-          formatar={(n) => moeda.format(n)}
-          destaque
-          cor={lucroPositivo ? "var(--success)" : "var(--destructive)"}
-          sufixo={resumo.lucroIncompleto && (
-            <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-              estimativa parcial
-            </span>
-          )}
+          cor={COR_ROAS[situacaoRoas(resumo.roasMedio)]}
+          prefixo={<SetaRoas situacao={situacaoRoas(resumo.roasMedio)} />}
         />
       </div>
 

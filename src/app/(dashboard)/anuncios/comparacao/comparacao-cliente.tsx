@@ -73,7 +73,6 @@ export function ComparacaoClienteDetalhe() {
       <Card>
         <div className="divide-y divide-border px-4 py-2 md:hidden">
           {marcasOrdenadas.map((marca) => {
-            const lucroPositivo = marca.resumo.lucroTotal >= 0;
             const dependencia = marca.resumo.dependenciaMidia.classificacao;
             return (
               <article key={marca.brandId} className="py-4">
@@ -84,8 +83,7 @@ export function ComparacaoClienteDetalhe() {
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(marca.resumo.investimentoTotal)}</dd></div>
                   <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(marca.resumo.receitaTotal)}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={marca.resumo.roasMedio} /></dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">Lucro</dt><dd className="mt-0.5 font-semibold tabular-nums" style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}>{moeda.format(marca.resumo.lucroTotal)}{marca.resumo.lucroIncompleto && "*"}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={marca.resumo.roasMedio} /></dd></div>
                 </dl>
               </article>
             );
@@ -102,7 +100,6 @@ export function ComparacaoClienteDetalhe() {
             </thead>
             <tbody>
               {marcasOrdenadas.map((marca, indice) => {
-                const lucroPositivo = marca.resumo.lucroTotal >= 0;
                 const dependencia = marca.resumo.dependenciaMidia.classificacao;
                 return (
                   <tr key={marca.brandId} className={indice < marcasOrdenadas.length - 1 ? "border-b border-border" : ""}>
@@ -118,13 +115,6 @@ export function ComparacaoClienteDetalhe() {
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                       {marca.resumo.tacos === null ? "—" : `${marca.resumo.tacos.toFixed(1)}%`}
-                    </td>
-                    <td
-                      className="px-3 py-2.5 text-right font-semibold tabular-nums"
-                      style={{ color: lucroPositivo ? "var(--success)" : "var(--destructive)" }}
-                      title={marca.resumo.lucroIncompleto ? "Estimativa parcial — custo do produto não configurado" : undefined}
-                    >
-                      {moeda.format(marca.resumo.lucroTotal)}{marca.resumo.lucroIncompleto && "*"}
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       {dependencia === null ? (

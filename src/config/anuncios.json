@@ -9,7 +9,6 @@
     "investimento": "Investimento",
     "receita": "Receita atribuída",
     "roas": "ROAS",
-    "lucro": "Lucro após publicidade",
     "acos": "ACOS",
     "tacos": "TACOS",
     "cvr": "CVR",
@@ -20,8 +19,7 @@
     "vendas": "Vendas atribuídas"
   },
   "resumo": {
-    "titulo": "Resumo de hoje",
-    "lucroIncompletoAviso": "Lucro estimado — existem custos ainda não configurados (custo do produto, impostos, frete). O número real de hoje conta só o que já se sabe."
+    "titulo": "Resumo de hoje"
   },
   "atencao": {
     "titulo": "Precisa da sua atenção",
@@ -32,7 +30,15 @@
   "campanhas": {
     "titulo": "Performance por campanha",
     "subtitulo": "Ordenadas por investimento",
-    "colunas": ["Campanha", "Status", "Criada em", "Orçamento", "Investido", "Receita", "ROAS", "Lucro"],
+    "colunas": [
+      "Campanha",
+      "Status",
+      "Criada em",
+      "Orçamento",
+      "Investido",
+      "Receita",
+      "ROAS"
+    ],
     "semDado": "Nenhuma campanha sincronizada ainda",
     "verTodas": "Ver todas as campanhas"
   },
@@ -48,7 +54,14 @@
       "titulo": "Anúncios desta campanha",
       "carregando": "Carregando anúncios…",
       "vazio": "Nenhum anúncio com dado sincronizado para esta campanha.",
-      "colunas": ["Anúncio", "Investido", "Receita", "ROAS", "Cliques", "Vendas"],
+      "colunas": [
+        "Anúncio",
+        "Investido",
+        "Receita",
+        "ROAS",
+        "Cliques",
+        "Vendas"
+      ],
       "recomendado": "ML recomenda anunciar"
     },
     "diagnostico": {
@@ -75,7 +88,15 @@
     "description": "Todos os anúncios da marca, independente da campanha — onde o investimento está indo item por item",
     "voltar": "Voltar para a Visão Geral",
     "vazio": "Nenhum anúncio sincronizado ainda para esta marca.",
-    "colunas": ["Anúncio", "Campanha", "Investido", "Receita", "ROAS", "Cliques", "Vendas"],
+    "colunas": [
+      "Anúncio",
+      "Campanha",
+      "Investido",
+      "Receita",
+      "ROAS",
+      "Cliques",
+      "Vendas"
+    ],
     "recomendado": "ML recomenda anunciar",
     "buyBox": "Ganhando o Buy Box",
     "filtros": {
@@ -89,29 +110,6 @@
       "vazio": "Nenhum anúncio com amostra suficiente e zero venda — nada sinalizado aqui hoje."
     }
   },
-  "rentabilidadeDetalhe": {
-    "metadataTitle": "Rentabilidade — Anúncios",
-    "title": "Rentabilidade",
-    "description": "Lucro real estimado e break-even de cada campanha — o que sustenta ou não o investimento em mídia",
-    "voltar": "Voltar para a Visão Geral",
-    "vazio": "Nenhuma campanha sincronizada ainda",
-    "avisoCustos": "Todo lucro aqui é uma estimativa parcial — custo do produto ainda não configurado no catálogo. Cada campanha lista exatamente o que falta.",
-    "colunas": ["Campanha", "Situação", "Receita", "Investido", "ROAS atual", "ROAS mínimo", "Margem", "Lucro estimado"],
-    "status": {
-      "rentavel": "Rentável",
-      "no_limite": "No limite",
-      "nao_rentavel": "Não rentável",
-      "indeterminado": "Indeterminado"
-    },
-    "resumo": {
-      "lucroTotal": "Lucro total estimado",
-      "rentaveis": "Rentáveis",
-      "noLimite": "No limite",
-      "naoRentaveis": "Não rentáveis",
-      "indeterminadas": "Indeterminadas"
-    },
-    "custosAusentes": "Custos não configurados: "
-  },
   "historicoDetalhe": {
     "metadataTitle": "Histórico — Anúncios",
     "title": "Histórico",
@@ -120,7 +118,14 @@
     "vazio": "Ainda não há histórico suficiente",
     "vazioDescricao": "O histórico se acumula sozinho a cada sincronização diária — volte aqui depois de alguns dias.",
     "umPontoAviso": "Só existe 1 dia de dado sincronizado até agora — a tendência aparece conforme os próximos dias forem sincronizados.",
-    "colunas": ["Data", "Investido", "Receita", "ROAS", "Cliques", "Vendas"],
+    "colunas": [
+      "Data",
+      "Investido",
+      "Receita",
+      "ROAS",
+      "Cliques",
+      "Vendas"
+    ],
     "grafico": {
       "investimento": "Investimento",
       "receita": "Receita"
@@ -137,7 +142,14 @@
     "description": "As mesmas métricas lado a lado, para comparar como cada marca está investindo em mídia",
     "voltar": "Voltar para a Visão Geral",
     "vazio": "Sincronize ao menos duas marcas para comparar",
-    "colunas": ["Marca", "Investido", "Receita", "ROAS", "TACOS", "Lucro", "Dependência de mídia"],
+    "colunas": [
+      "Marca",
+      "Investido",
+      "Receita",
+      "ROAS",
+      "TACOS",
+      "Dependência de mídia"
+    ],
     "dependencia": {
       "baixa": "Baixa",
       "moderada": "Moderada",

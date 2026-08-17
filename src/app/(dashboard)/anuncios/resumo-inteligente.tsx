@@ -69,11 +69,6 @@ export function ResumoInteligente({ resumo, campanhas }: { resumo: VisaoGeralRes
             {frase.texto}
           </motion.p>
         ))}
-        {resumo.lucroIncompleto && (
-          <p className="mt-2 rounded-[0.75rem] bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-700 dark:text-amber-400">
-            {copy.lucroIncompletoAviso}
-          </p>
-        )}
       </div>
     </Card>
   );

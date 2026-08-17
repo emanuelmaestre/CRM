@@ -51,6 +51,6 @@ export async function exportarAnunciosPDF(marca: VisaoGeralMarca, periodo: strin
 
   doc.setFontSize(7.5);
   doc.setTextColor(125);
-  doc.text("Dados de leitura do Mercado Ads. Valores de lucro podem ser parciais quando custos do produto não estiverem cadastrados.", margem, 196);
+  doc.text("Dados de leitura do Mercado Ads.", margem, 196);
   doc.save(`anuncios-${marca.brandSlug}-${new Date().toISOString().slice(0, 10)}.pdf`);
 }

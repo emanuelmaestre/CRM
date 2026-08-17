@@ -2,10 +2,7 @@ import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsAnuncioSnapshot, adsCampanhaSnapshot, brand } from "@/shared/lib/db/schema";
 import { getBrandConfig } from "@/shared/config/brands";
-import {
-  calcularBreakEven, calcularDependenciaMidia, calcularLucroReal,
-  CUSTOS_VAZIOS, type BreakEven, type LucroRealEstimado,
-} from "./metricas-calculadas";
+import { calcularDependenciaMidia } from "./metricas-calculadas";
 import { diagnosticarCampanha, type Diagnostico } from "./motor-diagnostico";
 import { identificarOportunidades, type Oportunidade } from "./oportunidades";
 import { alertasDeDiagnosticos, alertasDeOportunidades, processarAlertas, type GrupoAlertas, type Alerta } from "./alertas";
@@ -15,10 +12,10 @@ import { alertasDeDiagnosticos, alertasDeOportunidades, processarAlertas, type G
    o motor de cálculo (Fase 2) e o motor de diagnóstico (Fase 3), devolve
    uma estrutura pronta pra tela renderizar sem fazer conta nenhuma.
 
-   `produto.custo` não existe no schema hoje (ver auditoria) — todo cálculo
-   de lucro/break-even nasce parcial. Isso não é bug, é o estado real dos
-   dados, e a tela precisa dizer isso, não escondido atrás de um número
-   que parece preciso. */
+   Não há lucro nem break-even aqui: os dois dependiam do custo do produto,
+   que nunca existiu no schema e não será preenchido. O que sobra é o que o
+   Mercado Livre entrega medido — investimento, receita, ROAS, ACOS, TACOS,
+   funil — e nenhum desses precisa de custo para ser verdadeiro. */
 
 export interface CampanhaVisaoGeral {
   campanhaId: string;
@@ -48,8 +45,6 @@ export interface CampanhaVisaoGeral {
   lostImpressionShareByBudget: number | null;
   lostImpressionShareByAdRank: number | null;
   acosBenchmark: number | null;
-  lucro: LucroRealEstimado;
-  breakEven: BreakEven;
   diagnosticos: Diagnostico[];
   oportunidades: Oportunidade[];
 }
@@ -59,10 +54,6 @@ export interface VisaoGeralResumo {
   receitaTotal: number;
   /** Null quando não há investimento no período — ROAS não existe sem gasto. */
   roasMedio: number | null;
-  lucroTotal: number;
-  /** true quando pelo menos uma campanha tem custo incompleto — a tela
-   *  precisa avisar que o lucro consolidado também é parcial. */
-  lucroIncompleto: boolean;
   acosMedio: number | null;
   tacos: number | null;
   vendasPublicitarias: number;
@@ -112,8 +103,8 @@ function paraNumeroOuNull(valor: unknown): number | null {
 
 function resumoVazio(): VisaoGeralResumo {
   return {
-    investimentoTotal: 0, receitaTotal: 0, roasMedio: null, lucroTotal: 0,
-    lucroIncompleto: false, acosMedio: null, tacos: null,
+    investimentoTotal: 0, receitaTotal: 0, roasMedio: null,
+    acosMedio: null, tacos: null,
     vendasPublicitarias: 0, vendasOrganicas: 0,
     receitaOrganica: 0,
     cliques: 0, impressoes: 0, vendas: 0,
@@ -137,14 +128,11 @@ function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
   const vendasOrganicas = campanhas.reduce((s, c) => s + c.vendasOrganicas, 0);
   const receitaOrganica = Math.round(campanhas.reduce((s, c) => s + c.receitaOrganica, 0) * 100) / 100;
   const vendasPublicitarias = campanhas.reduce((s, c) => s + c.vendasDiretas + c.vendasIndiretas, 0);
-  const lucroTotal = Math.round(campanhas.reduce((s, c) => s + c.lucro.lucroEstimado, 0) * 100) / 100;
 
   return {
     investimentoTotal,
     receitaTotal,
     roasMedio: investimentoTotal > 0 ? Math.round((receitaTotal / investimentoTotal) * 100) / 100 : null,
-    lucroTotal,
-    lucroIncompleto: campanhas.some((c) => c.lucro.custosIncompletos),
     acosMedio: receitaTotal > 0 ? Math.round((investimentoTotal / receitaTotal) * 1000) / 10 : null,
     // TACOS: investimento sobre a receita TOTAL (paga + orgânica) — é o que
     // distingue de ACOS, que só olha a receita atribuída à publicidade.
@@ -265,15 +253,6 @@ export async function obterVisaoGeral(
       const roas = investimento > 0 ? paraNumeroOuNull(linha.roas) : null;
       const acos = investimento > 0 ? paraNumeroOuNull(linha.acos) : null;
 
-      // Sem custo do produto configurado (gap real, ver memory) — os dois
-      // motores ainda rodam, só devolvem resultado marcado como incompleto/
-      // indeterminado em vez de inventar um número.
-      const lucro = calcularLucroReal(receita, investimento, vendas, CUSTOS_VAZIOS);
-      const breakEven = calcularBreakEven(receita, investimento, {
-        ...CUSTOS_VAZIOS,
-        unidadesVendidas: vendas,
-      });
-
       const cvrFracao = cliques > 0 ? paraNumeroOuNull(linha.cvr) : null;
       const cvr = cvrFracao !== null ? cvrFracao / 100 : null; // API devolve CVR em % (ex.: 5.26), motor espera fração
       const ctrFracao = impressoes > 0 ? paraNumeroOuNull(linha.ctr) : null;
@@ -283,7 +262,7 @@ export async function obterVisaoGeral(
         ctr: ctrFracao !== null ? ctrFracao / 100 : null,
         cvr,
         cpcAtual: paraNumeroOuNull(linha.cpc), cpcAnterior: null, cvrAnterior: null,
-        roasAtual: roas, roasMinimo: breakEven.roasMinimo,
+        roasAtual: roas,
         lostImpressionShareByBudget: null, lostImpressionShareByAdRank: null,
         estoqueDiasCobertura: null,
       });
@@ -291,8 +270,8 @@ export async function obterVisaoGeral(
       const oportunidades = identificarOportunidades({
         campanhaId: String(linha.campaignId),
         campanhaNome: linha.nome,
-        roasAtual: roas, roasMinimo: breakEven.roasMinimo, roasAnterior: null,
-        cvr, gastoAtual: investimento, lucroEstimado: lucro.custosIncompletos ? null : lucro.lucroEstimado,
+        roasAtual: roas, roasAnterior: null,
+        cvr, gastoAtual: investimento,
         estoqueDiasCobertura: null,
         lostImpressionShareByBudget: null, lostImpressionShareByAdRank: null,
         cliques,
@@ -318,7 +297,7 @@ export async function obterVisaoGeral(
         lostImpressionShareByBudget: paraNumeroOuNull(linha.lostImpressionShareByBudget),
         lostImpressionShareByAdRank: paraNumeroOuNull(linha.lostImpressionShareByAdRank),
         acosBenchmark: paraNumeroOuNull(linha.acosBenchmark),
-        lucro, breakEven, diagnosticos, oportunidades,
+        diagnosticos, oportunidades,
       };
     });
 

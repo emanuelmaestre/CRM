@@ -18,16 +18,19 @@ import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 
 export type SituacaoRoas = "acima" | "abaixo" | "no_limite" | "sem_dado";
 
-/** O corte não é 1.00 e sim o ROAS mínimo da campanha (break-even) —
- *  1.00 só significa "empatou com o gasto de mídia", ignorando custo do
- *  produto e comissão. Quando não há mínimo calculado (falta custo no
- *  catálogo), cai para 1.00 e a leitura fica explícita no title. */
-export function situacaoRoas(roas: number | null, roasMinimo: number | null): SituacaoRoas {
+/** O corte é 1.00x: acima disso a campanha trouxe mais receita do que
+ *  custou de mídia.
+ *
+ *  Já foi o "ROAS mínimo" vindo do break-even, que levava em conta custo
+ *  do produto e comissão — um corte melhor, mas que dependia de um custo
+ *  que nunca existiu no sistema e não será preenchido. Entre um corte
+ *  simples e verdadeiro e um sofisticado que nunca calcula, fica o
+ *  simples: 1.00x significa "a mídia se pagou", nada além disso. */
+export function situacaoRoas(roas: number | null): SituacaoRoas {
   if (roas === null) return "sem_dado";
-  const corte = roasMinimo ?? 1;
-  const margem = corte * 0.1;
-  if (roas > corte + margem) return "acima";
-  if (roas < corte - margem) return "abaixo";
+  const margem = 0.1;
+  if (roas > 1 + margem) return "acima";
+  if (roas < 1 - margem) return "abaixo";
   return "no_limite";
 }
 
@@ -54,26 +57,23 @@ export function SetaRoas({ situacao, size = 18 }: { situacao: SituacaoRoas; size
 }
 
 const DESCRICAO: Record<SituacaoRoas, string> = {
-  acima: "acima do mínimo sustentável",
-  abaixo: "abaixo do mínimo sustentável",
-  no_limite: "no limite do mínimo sustentável",
+  acima: "a mídia se pagou — trouxe mais receita do que custou",
+  abaixo: "a mídia não se pagou — custou mais do que trouxe",
+  no_limite: "a mídia empatou — receita perto do que foi investido",
   sem_dado: "sem investimento no período — ROAS não existe sem gasto",
 };
 
-export function Roas({ valor, minimo = null, className }: {
+export function Roas({ valor, className }: {
   valor: number | null;
-  /** ROAS de break-even da campanha, quando calculável. */
-  minimo?: number | null;
   className?: string;
 }) {
-  const situacao = situacaoRoas(valor, minimo);
-  const referencia = minimo !== null ? `mínimo ${minimo.toFixed(2)}x` : "referência 1.00x (custo do produto não configurado)";
+  const situacao = situacaoRoas(valor);
 
   return (
     <span
       className={`inline-flex items-center justify-end gap-1 tabular-nums ${className ?? ""}`}
       style={{ color: COR_ROAS[situacao] }}
-      title={valor === null ? DESCRICAO.sem_dado : `${valor.toFixed(2)}x — ${DESCRICAO[situacao]} (${referencia})`}
+      title={valor === null ? DESCRICAO.sem_dado : `${valor.toFixed(2)}x — ${DESCRICAO[situacao]}`}
     >
       <SetaRoas situacao={situacao} size={12} />
       {valor === null ? "—" : `${valor.toFixed(2)}x`}
