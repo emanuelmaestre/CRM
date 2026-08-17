@@ -4,7 +4,9 @@ import appConfig from "@/config/app.json";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: appConfig.fullName,
-    short_name: appConfig.identityLabel,
+    // Próprio, e não o identityLabel: o sistema operacional corta o nome sob
+    // o ícone do app instalado, então aqui cabe menos texto que na tela.
+    short_name: appConfig.shortName,
     description: appConfig.description,
     start_url: "/metricas",
     display: "standalone",

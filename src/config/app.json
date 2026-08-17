@@ -1,12 +1,12 @@
 {
   "name": "CRM",
-  "fullName": "CRM — KARZI, WUWU & ARMARINHOS LIMA",
-  "description": "CRM operacional para KARZI, WUWU e ARMARINHOS LIMA",
+  "fullName": "Elisa Lima CRM",
+  "description": "CRM operacional Elisa Lima — KARZI, WUWU e ARMARINHOS LIMA",
   "locale": "pt-BR",
   "metadata": {
-    "titleTemplate": "%s | CRM",
+    "titleTemplate": "%s · Elisa Lima CRM",
     "manifest": "/manifest.json",
-    "appleWebAppTitle": "CRM",
+    "appleWebAppTitle": "Elisa Lima",
     "appleWebAppStatusBarStyle": "default",
     "tiktokDevelopersSiteVerification": "ptbw0AK1yP4OTOYbtaTkuwMBl3ChdjhS"
   },
@@ -16,12 +16,16 @@
     "width": "device-width",
     "initialScale": 1
   },
-  "identityLabel": "CRM LEO",
+  "identityLabel": "Elisa Lima CRM",
   "logo": {
     "alt": "KARZI | WUWU | ARMARINHOS LIMA",
     "homeAriaLabel": "Início"
   },
-  "brandOrder": ["karzi", "wuwu", "armarinhos_lima"],
+  "brandOrder": [
+    "karzi",
+    "wuwu",
+    "armarinhos_lima"
+  ],
   "wizard": {
     "back": "Voltar",
     "cancel": "Cancelar",
@@ -30,5 +34,6 @@
     "next": "Próximo",
     "submit": "Confirmar e salvar",
     "saving": "Salvando…"
-  }
+  },
+  "shortName": "Elisa Lima"
 }
