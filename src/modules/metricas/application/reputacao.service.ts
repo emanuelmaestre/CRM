@@ -1,8 +1,22 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { unstable_cache } from "next/cache";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+
+/** A chamada ao ML por marca é o gargalo real do card Saúde da loja/Termômetro
+ *  — todo carregamento do mosaico batia de novo, para cada marca, na API. O
+ *  termômetro não pula de faixa a cada segundo, então 90s de cache por marca
+ *  cortam a espera sem servir dado velho de verdade. */
+const obterReputacaoDaMarcaComCache = unstable_cache(
+  async (orgId: string, slug: string) => {
+    const provider = await criarMLProvider(slug as Parameters<typeof criarMLProvider>[0]);
+    return provider.obterReputacao();
+  },
+  ["reputacao-marca"],
+  { revalidate: 90 },
+);
 
 /* ── Termômetro do Mercado Livre ─────────────────────────────────
    O ML devolve o nível como string ("5_green"). Traduzimos aqui para
@@ -179,10 +193,7 @@ export async function obterReputacao(ctx: CrudContext): Promise<ReputacaoResulta
   // Uma marca fora do ar não pode derrubar as outras: allSettled em vez de all,
   // e quem falhou vira aviso na tela em vez de erro na página inteira.
   const resultados = await Promise.allSettled(
-    marcas.map(async ({ slug }) => {
-      const provider = await criarMLProvider(slug as Parameters<typeof criarMLProvider>[0]);
-      return provider.obterReputacao();
-    }),
+    marcas.map(({ slug }) => obterReputacaoDaMarcaComCache(ctx.orgId, slug)),
   );
 
   const marcasComFalha: string[] = [];

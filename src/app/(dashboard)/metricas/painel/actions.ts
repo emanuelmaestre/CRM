@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { unstable_cache } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   obterDashboardData,
@@ -20,9 +21,18 @@ export async function actionObterDashboardData(filters?: DashboardFilters) {
 // Separada do painel de propósito: consulta a API do Mercado Livre e é bem mais
 // lenta que as queries locais. Carregando à parte, o painel pinta na hora e só
 // o card de reclamações fica em skeleton.
+//
+// Cacheada por 90s por org: cada visita batia de novo na API do ML, que é o
+// gargalo real do carregamento do mosaico. Reclamação aberta não muda a cada
+// segundo — vale a pena servir do cache em vez de esperar o ML de novo.
 export async function actionObterReclamacoes() {
   const ctx = await getCrudContext();
-  return obterReclamacoesAbertas(ctx);
+  const obterComCache = unstable_cache(
+    () => obterReclamacoesAbertas(ctx),
+    ["metricas-reclamacoes", ctx.orgId],
+    { revalidate: 90, tags: [`reclamacoes-${ctx.orgId}`] },
+  );
+  return obterComCache();
 }
 
 export async function actionListarMensagensReclamacao(marca: string, claimId: string) {
