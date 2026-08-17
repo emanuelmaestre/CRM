@@ -5,52 +5,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Receipt, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
-import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
-import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
-import { Card, CardHead, useContagem, type Periodo } from "../metricas-primitives";
+import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { moeda } from "@/shared/design-system/format";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
 import { tint } from "@/shared/design-system/color";
 
 const copy = dashboardConfig.cards.faturamento;
-
-function paraDataInput(data: Date) {
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
-}
-const hoje = paraDataInput(new Date());
-
-/* ── Seletor de período ───────────────────────────────────────
-   Dois campos de calendário separados, "De:" e "Até:", cada um com seu
-   próprio rótulo e contorno — não uma pílula com as duas datas juntas. */
-function SeletorPeriodo({ periodo, onDatas, disabled }: {
-  periodo: Periodo;
-  onDatas: (inicio: string, fim: string) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="flex flex-wrap items-end gap-2">
-      <CalendarioPopover
-        rotulo="De:"
-        valor={periodo.inicio}
-        max={periodo.fim || hoje}
-        onChange={(inicio) => onDatas(inicio, periodo.fim)}
-        disabled={disabled}
-      />
-      <CalendarioPopover
-        rotulo="Até:"
-        valor={periodo.fim}
-        min={periodo.inicio}
-        max={hoje}
-        onChange={(fim) => onDatas(periodo.inicio, fim)}
-        disabled={disabled}
-        atraso={0.04}
-      />
-    </div>
-  );
-}
 
 /** Sem marca escolhida ("todas"), o pico usa o gradiente genérico de sempre.
  *  Uma marca escolhida, cor pura dela. Mais de uma, um gradiente que passa
@@ -134,10 +97,8 @@ function EsqueletoFaturamento() {
   );
 }
 
-export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carregando, semFiltro, cores = [], scope }: {
+export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope }: {
   dados: FaturamentoResumo | null;
-  periodo: Periodo;
-  onDatasPersonalizadas: (inicio: string, fim: string) => void;
   carregando: boolean;
   semFiltro: boolean;
   /** Cor de cada marca ativa no filtro do card — vazio ("todas"), 1 ou várias. */
@@ -145,7 +106,6 @@ export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carrega
   scope?: React.ReactNode;
 }) {
   const [focado, setFocado] = useState<number | null>(null);
-  const Icon = getIcon(copy.icon);
   const valorAnimado = useContagem(dados?.totalNumerico ?? 0);
   const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
   const variacao = dados?.variacaoPercentual ?? null;
@@ -154,14 +114,7 @@ export function FaturamentoCard({ dados, periodo, onDatasPersonalizadas, carrega
 
   return (
     <Card>
-      <CardHead
-        title={copy.title}
-        subtitle={dados?.janelaLabel}
-        icon={Icon}
-        accent={copy.accent}
-        scope={scope}
-        trailing={<SeletorPeriodo periodo={periodo} onDatas={onDatasPersonalizadas} disabled={carregando} />}
-      />
+      <CardHead scope={scope} />
 
       {/* Troca por crossfade, nunca desmontando o Card — evita o "piscar"
           ao mudar de filtro. Com conteúdo anterior na tela, uma busca em

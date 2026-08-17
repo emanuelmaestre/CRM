@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronDown, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
-import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -303,34 +303,30 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
   );
 }
 
-export function ReclamacoesCard({ dados, carregando, semFiltro, scope }: {
+export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot }: {
   dados: ReclamacoesResultado | null;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
+  acaoSlot?: HTMLElement | null;
 }) {
-  const Icon = getIcon(copy.icon);
   const total = !semFiltro ? (dados?.total ?? 0) : 0;
   const totalAnimado = useContagem(total);
   const [aberta, setAberta] = useState<string | null>(null);
 
+  const contagem = total > 0 ? (
+    <span
+      className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+      style={{ background: tint(copy.accent, 10), color: copy.accent }}
+    >
+      {Math.round(totalAnimado)}
+    </span>
+  ) : null;
+
   return (
     <Card>
-      <CardHead
-        title={copy.title}
-        subtitle={copy.subtitle}
-        icon={Icon}
-        accent={copy.accent}
-        scope={scope}
-        trailing={total > 0 ? (
-          <span
-            className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
-            style={{ background: tint(copy.accent, 10), color: copy.accent }}
-          >
-            {Math.round(totalAnimado)}
-          </span>
-        ) : undefined}
-      />
+      <CardHead scope={scope} />
+      {acaoSlot && contagem && createPortal(contagem, acaoSlot)}
 
       {semFiltro && (
         <EmptyState

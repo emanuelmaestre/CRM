@@ -35,35 +35,21 @@ export function Card({ children, className, style }: {
   );
 }
 
-/* ── Cabeçalho de card ─────────────────────────────────────────
-   Ícone tonal na cor do assunto + título e subtítulo. `scope` é o filtro de
-   marca/canal de um card (Faturamento, Reposição etc.) — cards sem filtro
-   simplesmente não passam essa prop. */
-export function CardHead({ title, subtitle, icon: Icon, accent, scope, trailing, className }: {
-  title: string;
-  subtitle?: string;
-  icon: React.ElementType;
-  accent: string;
+/* ── Topo do card ──────────────────────────────────────────────
+   Ícone, título e subtítulo saíram daqui — desde a fusão em mosaico, todo
+   card só é renderizado dentro do painel de foco (bloco.tsx), que já tem o
+   próprio cabeçalho com essas três coisas. Repeti-las aqui era o motivo do
+   painel parecer "duas telas empilhadas". O que sobra de função real deste
+   componente é: (1) reservar o respiro do topo do card, que antes vinha
+   junto do título, e (2) mostrar `scope` — o filtro de marca/canal, que
+   continua vivendo dentro do card porque é interação, não decoração. */
+export function CardHead({ scope, className }: {
   scope?: React.ReactNode;
-  trailing?: React.ReactNode;
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-3 px-4 pt-4 sm:px-5 sm:pt-5", className)}>
-      <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-initial">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-          style={{ background: tint(accent, 9), color: accent }}
-        >
-          <Icon size={17} strokeWidth={1.9} />
-        </span>
-        <div className="min-w-0">
-          <h3 className="truncate text-[15px] font-bold tracking-[-0.01em] text-foreground">{title}</h3>
-          {subtitle && <p className="mt-0.5 truncate text-xs text-muted-foreground">{subtitle}</p>}
-        </div>
-      </div>
-      {scope && <div className="order-3 flex w-full flex-wrap items-center justify-start gap-2 sm:order-none sm:w-auto sm:min-w-40 sm:flex-1 sm:justify-center">{scope}</div>}
-      {trailing && <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">{trailing}</div>}
+    <div className={cn("flex flex-wrap items-center gap-2 px-4 pt-4 sm:px-5 sm:pt-5", className)}>
+      {scope}
     </div>
   );
 }

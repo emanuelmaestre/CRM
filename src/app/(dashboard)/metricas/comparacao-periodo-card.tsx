@@ -1,6 +1,5 @@
 "use client";
 
-import { TrendingUp } from "lucide-react";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { Card, CardHead, NumeroAnimado } from "./metricas-primitives";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -59,7 +58,7 @@ function montarItens(marca: SaudeMarca, base: SaudeMarca | undefined): ItemCompa
 export function ComparacaoPeriodoCard({ atual, anterior }: { atual: SaudeLojaResultado; anterior: SaudeLojaResultado | null }) {
   const anteriorPorMarca = new Map((anterior?.marcas ?? []).map((marca) => [marca.brandId, marca]));
   return <Card>
-    <CardHead title="Período atual × anterior" subtitle="Mesma duração, imediatamente anterior ao intervalo selecionado" icon={TrendingUp} accent="var(--info)" />
+    <CardHead />
     {atual.marcas.length === 0 ? (
       <EmptyState illustration="generic" title="Nenhuma marca ativa para comparar" description="Conecte um canal para a evolução entre períodos aparecer aqui." />
     ) : <div className="grid gap-3 p-4 md:grid-cols-3">{atual.marcas.map((marca) => {

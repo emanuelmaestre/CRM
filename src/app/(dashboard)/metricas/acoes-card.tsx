@@ -19,7 +19,6 @@ import { Card, CardHead } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.acoesCard;
-const ACENTO = "var(--acento-2)";
 
 export type Insight = Awaited<ReturnType<typeof actionListarInsights>>[number];
 export type Sugestao = Awaited<ReturnType<typeof actionListarSugestoes>>[number];
@@ -93,7 +92,7 @@ export function AcoesCard({ insightsIniciais, sugestoesIniciais, carregandoInici
 
   return (
     <Card>
-      <CardHead title={copy.titulo} subtitle={copy.subtitulo} icon={Lightbulb} accent={ACENTO} />
+      <CardHead />
 
       {!carregado ? (
         <div className="space-y-3 px-5 pb-5 pt-4">

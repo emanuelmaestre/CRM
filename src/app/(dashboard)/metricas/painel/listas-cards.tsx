@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { EmptyState, type IllustrationType } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
-import { getIcon } from "@/shared/config/icon-registry";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -89,11 +88,7 @@ function EsqueletoLista() {
 }
 
 /* ── Casca de card de lista ───────────────────────────────────── */
-function ListaCard({ titulo, subtitulo, icone, acento, vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazioDescricao, scope, children }: {
-  titulo: string;
-  subtitulo: string;
-  icone: string;
-  acento: string;
+function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazioDescricao, scope, children }: {
   vazio: boolean;
   carregando: boolean;
   semFiltro: boolean;
@@ -103,14 +98,13 @@ function ListaCard({ titulo, subtitulo, icone, acento, vazio, carregando, semFil
   scope?: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const Icon = getIcon(icone);
   // Troca de conteúdo é feita por crossfade (AnimatePresence), nunca por
   // desmontar o Card inteiro — é isso que evita o "piscar" ao trocar de
   // filtro. Enquanto uma busca nova está em voo mas já existe conteúdo
   // anterior na tela, ele fica visível e só esmaece um pouco.
   return (
     <Card>
-      <CardHead title={titulo} subtitle={subtitulo} icon={Icon} accent={acento} scope={scope} />
+      <CardHead scope={scope} />
       <motion.div
         animate={{ opacity: carregando ? 0.55 : 1 }}
         transition={springs.settleFast}
@@ -151,10 +145,6 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope }: {
   const lista = itens ?? [];
   return (
     <ListaCard
-      titulo={copyVendidos.title}
-      subtitulo={copyVendidos.subtitle}
-      icone={copyVendidos.icon}
-      acento={copyVendidos.accent}
       vazio={lista.length === 0}
       carregando={carregando}
       semFiltro={semFiltro}
@@ -195,10 +185,6 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope }: {
   const lista = itens ?? [];
   return (
     <ListaCard
-      titulo={copyReposicao.title}
-      subtitulo={copyReposicao.subtitle}
-      icone={copyReposicao.icon}
-      acento={copyReposicao.accent}
       vazio={lista.length === 0}
       carregando={carregando}
       semFiltro={semFiltro}
@@ -242,10 +228,6 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope }: {
   const lista = itens ?? [];
   return (
     <ListaCard
-      titulo={copyGiro.title}
-      subtitulo={copyGiro.subtitle}
-      icone={copyGiro.icon}
-      acento={copyGiro.accent}
       vazio={lista.length === 0}
       carregando={carregando}
       semFiltro={semFiltro}
@@ -289,10 +271,6 @@ export function ParadosCard({ itens, carregando, semFiltro, scope }: {
   const lista = itens ?? [];
   return (
     <ListaCard
-      titulo={copyParados.title}
-      subtitulo={copyParados.subtitle}
-      icone={copyParados.icon}
-      acento={copyParados.accent}
       vazio={lista.length === 0}
       carregando={carregando}
       semFiltro={semFiltro}

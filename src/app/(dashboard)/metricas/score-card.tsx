@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { HeartPulse, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
@@ -14,7 +15,6 @@ import { AnelScore, AvisoParcial, BarraComLimite, Card, CardHead } from "./metri
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 
 const copy = metricasConfig.score;
-const ACENTO = "var(--acento-2)";
 
 /** Chave da visão consolidada. Não é um brandId — nenhum uuid colide com isto. */
 const CONSOLIDADO = "__consolidado__";
@@ -188,9 +188,12 @@ function Esqueleto() {
   );
 }
 
-export function ScoreCard({ dados, carregando }: {
+export function ScoreCard({ dados, carregando, acaoSlot }: {
   dados: SaudeLojaResultado | null;
   carregando: boolean;
+  /** Nó do cabeçalho do Foco onde o botão "Como é calculado" é portado —
+   *  ver `BlocoDef.render` em bloco.tsx. */
+  acaoSlot?: HTMLElement | null;
 }) {
   const [escopo, setEscopo] = useState<string>(CONSOLIDADO);
   const [explicando, setExplicando] = useState(false);
@@ -209,24 +212,26 @@ export function ScoreCard({ dados, carregando }: {
   const faixaLabel = consolidado ? dados?.faixaGeralLabel ?? null : marcaSelecionada?.faixaLabel ?? null;
   const cor = (consolidado ? dados?.faixaGeralCor : marcaSelecionada?.faixaCor) ?? "var(--muted-foreground)";
 
+  const botaoComoCalculado = (
+    <button
+      type="button"
+      onClick={() => setExplicando((atual) => !atual)}
+      aria-expanded={explicando}
+      className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+    >
+      <Info size={13} /> Como é calculado
+    </button>
+  );
+
   return (
     <Card>
-      <CardHead
-        title={copy.titulo}
-        subtitle={dados ? `${copy.subtitulo} · ${dados.periodoLabel}` : copy.subtitulo}
-        icon={HeartPulse}
-        accent={ACENTO}
-        trailing={
-          <button
-            type="button"
-            onClick={() => setExplicando((atual) => !atual)}
-            aria-expanded={explicando}
-            className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
-          >
-            <Info size={13} /> Como é calculado
-          </button>
-        }
-      />
+      {/* O ícone/título/subtítulo já vivem no cabeçalho do Foco (bloco.tsx) —
+          repeti-los aqui era a "segunda tela" que fazia o painel parecer uma
+          página dentro da página. O botão migra pro mesmo cabeçalho via
+          portal, em vez de abrir um segundo abaixo dele. CardHead continua
+          aqui sem props: é só o respiro do topo do card agora. */}
+      <CardHead />
+      {acaoSlot && createPortal(botaoComoCalculado, acaoSlot)}
 
       <AnimatePresence initial={false}>
         {explicando && (

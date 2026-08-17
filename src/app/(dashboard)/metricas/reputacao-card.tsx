@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { AlertTriangle, Award, Gauge, PlugZap, Star } from "lucide-react";
+import { AlertTriangle, Award, PlugZap, Star } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
@@ -14,7 +14,6 @@ import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primit
 import { tint } from "@/shared/design-system/color";
 
 const copy = metricasConfig.reputacaoCard;
-const ACENTO = "var(--acento-1)";
 
 /* ── Termômetro ────────────────────────────────────────────────
    As cinco faixas do Mercado Livre desenhadas como cinco degraus que
@@ -206,17 +205,7 @@ export function ReputacaoCard({ dados, carregando }: {
 
   return (
     <Card>
-      <CardHead
-        title={copy.titulo}
-        // Não usa o período escolhido no seletor da página: o Mercado Livre
-        // não deixa recortar a janela do termômetro, ela vem fixa por métrica
-        // (60 ou 365 dias — ver `periodoMetricas`, já mostrado por marca
-        // abaixo). Rotular este card com o período do filtro sugeriria que
-        // mudar a data muda os números aqui, o que nunca acontece.
-        subtitle={copy.subtituloJanelaPropria}
-        icon={Gauge}
-        accent={ACENTO}
-      />
+      <CardHead />
 
       {carregando && !dados ? (
         <div className="space-y-3 px-5 pb-5 pt-4">

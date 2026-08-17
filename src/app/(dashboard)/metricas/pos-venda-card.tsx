@@ -1,6 +1,5 @@
 "use client";
 
-import { RotateCcw } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { Card, CardHead } from "./metricas-primitives";
@@ -19,7 +18,7 @@ import { inteiro, moeda } from "@/shared/design-system/format";
  * chegou. */
 export function PosVendaCard({ dados, carregando }: { dados: PosVendaResultado | null; carregando: boolean }) {
   return <Card>
-    <CardHead title="Logística e pós-venda" subtitle="Cancelamentos, devoluções e impacto financeiro do período" icon={RotateCcw} accent="var(--warning)" />
+    <CardHead />
     {carregando && !dados ? <div className="grid gap-3 p-5 md:grid-cols-3"><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/></div> :
       !dados || dados.marcas.length === 0 ? (
         <EmptyState illustration="generic" title="Nenhum pedido no período" description="Sem pedido nenhum na janela escolhida, não há cancelamento ou devolução para medir." />

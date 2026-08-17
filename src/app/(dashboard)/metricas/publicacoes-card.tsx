@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, Eye, ShieldCheck, TriangleAlert } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Eye, ShieldCheck, TriangleAlert } from "lucide-react";
 import { actionObterDesempenhoPublicacoes } from "./actions";
 import { Card, CardHead } from "./metricas-primitives";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
@@ -23,11 +24,12 @@ export interface DesempenhoPreCarregado {
   dados: DesempenhoPublicacoesResultado | null;
 }
 
-export function PublicacoesCard({ marcas, inicio, fim, preCarregado }: {
+export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }: {
   marcas: Array<{ brandId: string; marcaLabel: string; slug: string }>;
   inicio: string;
   fim: string;
   preCarregado?: DesempenhoPreCarregado | null;
+  acaoSlot?: HTMLElement | null;
 }) {
   const [brandId, setBrandId] = useState(marcas[0]?.brandId ?? "");
   const chave = `${brandId}:${inicio}:${fim}`;
@@ -47,26 +49,24 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado }: {
     return () => { ativo = false; };
   }, [brandId, inicio, fim, chave, consulta.chave]);
 
+  const abasMarca = (
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Marca das publicações">
+      {marcas.map((marca) => (
+        <button key={marca.brandId} type="button" role="tab" aria-selected={brandId === marca.brandId}
+          onClick={() => setBrandId(marca.brandId)}
+          className={`flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${brandId === marca.brandId ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}>
+          {isBrandSlug(marca.slug)
+            ? <BrandLogo brand={marca.slug} height={13} className={brandId === marca.brandId ? "brightness-0 invert" : undefined} />
+            : marca.marcaLabel}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <Card>
-      <CardHead
-        title="Desempenho das publicações"
-        icon={BarChart3}
-        accent="var(--acento-2)"
-        trailing={
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Marca das publicações">
-            {marcas.map((marca) => (
-              <button key={marca.brandId} type="button" role="tab" aria-selected={brandId === marca.brandId}
-                onClick={() => setBrandId(marca.brandId)}
-                className={`flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${brandId === marca.brandId ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}>
-                {isBrandSlug(marca.slug)
-                  ? <BrandLogo brand={marca.slug} height={13} className={brandId === marca.brandId ? "brightness-0 invert" : undefined} />
-                  : marca.marcaLabel}
-              </button>
-            ))}
-          </div>
-        }
-      />
+      <CardHead />
+      {acaoSlot && createPortal(abasMarca, acaoSlot)}
       <div className="px-4 pb-5 pt-4 sm:px-5">
         {carregando ? <Skeleton className="h-52 w-full" /> : !dados || dados.itens.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Nenhuma publicação com dados disponível.</p>

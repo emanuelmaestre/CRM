@@ -147,6 +147,59 @@ function MiniSerie({ serie, cor }: { serie: { altura: number }[]; cor: string })
   );
 }
 
+/* ── Barra de período/exportar ─────────────────────────────────────
+   Mora aqui, e não só no topo do mosaico, porque desde que o painel de foco
+   virou tela cheia ele cobre essa barra por completo — sem redesenhá-la
+   também dentro do Foco, trocar o período com um card aberto exigiria
+   fechar primeiro. As duas instâncias leem e escrevem o mesmo estado
+   (props vindas de `Mosaico`), então nunca desincronizam. */
+function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodoLabel, exportar, exportando, temDados }: {
+  periodo: Periodo;
+  trocarDatas: (inicio: string, fim: string) => void;
+  carregandoSaude: boolean;
+  completo: boolean;
+  periodoLabel?: string;
+  exportar: () => void;
+  exportando: boolean;
+  temDados: boolean;
+}) {
+  return (
+    <>
+      <CalendarioPopover
+        rotulo="De:"
+        valor={periodo.inicio}
+        max={periodo.fim || hoje}
+        onChange={(valor) => trocarDatas(valor, periodo.fim)}
+        disabled={carregandoSaude}
+      />
+      <CalendarioPopover
+        rotulo="Até:"
+        valor={periodo.fim}
+        min={periodo.inicio}
+        max={hoje}
+        onChange={(valor) => trocarDatas(periodo.inicio, valor)}
+        disabled={carregandoSaude}
+        atraso={0.04}
+      />
+      <span className="text-[11px] text-muted-foreground">
+        {completo ? periodoLabel ?? "" : copy.periodoPadrao}
+      </span>
+      <span className="hidden h-px flex-1 bg-border sm:block" />
+      <motion.button
+        type="button"
+        onClick={exportar}
+        disabled={exportando || !temDados}
+        whileHover={temDados ? { scale: 1.03 } : undefined}
+        whileTap={temDados ? { scale: 0.97 } : undefined}
+        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[0.75rem] border border-border px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+      >
+        <FileText size={13} />
+        {exportando ? metricasConfig.exportacao.gerando : metricasConfig.exportacao.acao}
+      </motion.button>
+    </>
+  );
+}
+
 const TOUR: CoachMarkStep[] = [
   {
     target: '[data-coachmark="mosaico-periodo"]',
@@ -431,18 +484,17 @@ export function Mosaico() {
             .replace("{ticket}", dadosFaturamento.ticketMedio)
         : blocosCopy.faturamento.legenda,
     },
+    subtitulo: dadosFaturamento?.janelaLabel,
     render: () => (
       <FaturamentoCard
         dados={dadosFaturamento}
-        periodo={periodo}
-        onDatasPersonalizadas={trocarDatas}
         carregando={faturamento.carregando}
         semFiltro={faturamento.semFiltro}
         cores={coresFaturamento}
         scope={escopo(filtroFaturamento, setFiltroFaturamento)}
       />
     ),
-  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, filtroFaturamento, coresFaturamento, periodo, trocarDatas, escopo]);
+  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, filtroFaturamento, coresFaturamento, escopo]);
 
   const blocoScore = useMemo<BlocoDef>(() => ({
     id: "score",
@@ -463,7 +515,8 @@ export function Mosaico() {
         ? { nivel: saude.dados.scoreGeral < 30 ? "critico" : "atencao", texto: saude.dados.faixaGeralLabel ?? "Atenção" }
         : null,
     },
-    render: () => <ScoreCard dados={saude.dados} carregando={carregandoSaude} />,
+    subtitulo: saude.dados ? `${metricasConfig.score.subtitulo} · ${saude.dados.periodoLabel}` : metricasConfig.score.subtitulo,
+    render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
   }), [saude.dados, carregandoSaude]);
 
   const blocoReputacao = useMemo<BlocoDef>(() => ({
@@ -478,6 +531,11 @@ export function Mosaico() {
       valor: null,
       legenda: saude.dados?.reputacaoIndisponivel ? metricasConfig.reputacaoCard.semTermometro : blocosCopy.reputacao.legenda,
     },
+    // Não usa o período escolhido no seletor: o Mercado Livre não deixa
+    // recortar a janela do termômetro (vem fixa por métrica, 60 ou 365 dias).
+    // Rotular com o período do filtro sugeriria que mudar a data muda o
+    // número aqui, o que nunca acontece.
+    subtitulo: metricasConfig.reputacaoCard.subtituloJanelaPropria,
     render: () => <ReputacaoCard dados={saude.dados} carregando={carregandoSaude} />,
   }), [saude.dados, carregandoSaude]);
 
@@ -492,7 +550,8 @@ export function Mosaico() {
       valor: saude.dados ? String(saude.dados.marcas.length) : null,
       legenda: blocosCopy.comparacao.legenda,
     },
-    render: () => <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} />,
+    subtitulo: metricasConfig.comparacaoCard.subtitulo,
+    render: (acaoSlot) => <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
   }), [saude.dados, carregandoSaude]);
 
   // Só existe com dado: Evolução precisa de uma janela anterior para
@@ -505,6 +564,7 @@ export function Mosaico() {
       icone: BarChart3,
       accent: "var(--acento-2)",
       resumo: { valor: null, legenda: blocosCopy.evolucao.legenda },
+      subtitulo: "Mesma duração, imediatamente anterior ao intervalo selecionado",
       render: () => (
         <ComparacaoPeriodoCard atual={saude.dados!} anterior={anterior.chave === chave ? anterior.dados : null} />
       ),
@@ -525,7 +585,8 @@ export function Mosaico() {
         ? { nivel: "critico", texto: "abertas" }
         : null,
     },
-    render: () => (
+    subtitulo: "Casos abertos no Mercado Livre",
+    render: (acaoSlot) => (
       <ReclamacoesCard
         dados={reclamacoesVisiveis}
         carregando={carregandoReclamacoes}
@@ -533,6 +594,7 @@ export function Mosaico() {
         // Sem pílulas de canal: o Mercado Livre não separa reclamação por
         // canal de venda, então filtrar por canal aqui não mudaria nada.
         scope={escopo(filtroReclamacoes, setFiltroReclamacoes, false)}
+        acaoSlot={acaoSlot}
       />
     ),
   }), [reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroReclamacoes, escopo]);
@@ -551,6 +613,7 @@ export function Mosaico() {
         ? { nivel: "atencao", texto: "repor" }
         : null,
     },
+    subtitulo: "Ainda acima do mínimo — dá tempo de comprar",
     render: () => (
       <ReposicaoCard
         itens={reposicao.dados?.reposicao ?? null}
@@ -577,6 +640,7 @@ export function Mosaico() {
         ? `${metricasConfig.atendimentoCard.medianaLabel}: ${atendimento.dados.medianaLabel}`
         : blocosCopy.atendimento.legenda,
     },
+    subtitulo: metricasConfig.atendimentoCard.subtitulo,
     render: () => <AtendimentoCard dados={atendimento.dados} carregando={carregandoAtendimento} />,
   }), [atendimento.dados, carregandoAtendimento]);
 
@@ -594,6 +658,7 @@ export function Mosaico() {
       legenda: maisVendidos.dados?.maisVendidos[0]?.nome ?? blocosCopy.maisVendidos.legenda,
       rodape: blocosCopy.maisVendidos.legenda,
     },
+    subtitulo: "Campeões de saída no período",
     render: () => (
       <MaisVendidosCard
         itens={maisVendidos.dados?.maisVendidos ?? null}
@@ -615,6 +680,7 @@ export function Mosaico() {
       valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixo.length) : null,
       legenda: blocosCopy.giroBaixo.legenda,
     },
+    subtitulo: "Vendem pouco ou nada no período",
     render: () => (
       <GiroBaixoCard
         itens={giroBaixo.dados?.giroBaixo ?? null}
@@ -637,6 +703,7 @@ export function Mosaico() {
       legenda: blocosCopy.parados.legenda,
       alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
     },
+    subtitulo: "Sem nenhuma saída há mais de 90 dias",
     render: () => (
       <ParadosCard
         itens={parados.dados?.parados ?? null}
@@ -653,6 +720,7 @@ export function Mosaico() {
     icone: MessageSquare,
     accent: "var(--warning)",
     resumo: { valor: null, legenda: blocosCopy.posVenda.legenda },
+    subtitulo: "Cancelamentos, devoluções e impacto financeiro do período",
     render: () => <PosVendaCard dados={posVenda.dados} carregando={carregandoPosVenda} />,
   }), [posVenda.dados, carregandoPosVenda]);
 
@@ -662,6 +730,7 @@ export function Mosaico() {
     icone: Sparkles,
     accent: "var(--acento-1)",
     resumo: { valor: null, legenda: blocosCopy.acoes.legenda },
+    subtitulo: metricasConfig.acoesCard.subtitulo,
     render: () => (
       <AcoesCard
         insightsIniciais={acoes.insights}
@@ -680,12 +749,13 @@ export function Mosaico() {
       icone: Megaphone,
       accent: "var(--acento-3)",
       resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
-      render: () => (
+      render: (acaoSlot) => (
         <PublicacoesCard
           marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
           inicio={inicio ?? diasAtras(29)}
           fim={fim ?? hoje}
           preCarregado={publicacoes}
+          acaoSlot={acaoSlot}
         />
       ),
     };
@@ -741,38 +811,16 @@ export function Mosaico() {
             um card aberto — trocar a janela não exige fechar nada. */}
         <div className="sticky top-0 z-30 -mx-1 flex flex-wrap items-center gap-2 bg-background/85 px-1 py-2 backdrop-blur" data-coachmark="mosaico-periodo">
           <span className="text-label-md uppercase text-muted-foreground">{copy.periodoLabel}</span>
-          <CalendarioPopover
-            rotulo="De:"
-            valor={periodo.inicio}
-            max={periodo.fim || hoje}
-            onChange={(valor) => trocarDatas(valor, periodo.fim)}
-            disabled={carregandoSaude}
+          <BarraPeriodo
+            periodo={periodo}
+            trocarDatas={trocarDatas}
+            carregandoSaude={carregandoSaude}
+            completo={completo}
+            periodoLabel={saude.dados?.periodoLabel}
+            exportar={exportar}
+            exportando={exportando}
+            temDados={Boolean(saude.dados)}
           />
-          <CalendarioPopover
-            rotulo="Até:"
-            valor={periodo.fim}
-            min={periodo.inicio}
-            max={hoje}
-            onChange={(valor) => trocarDatas(periodo.inicio, valor)}
-            disabled={carregandoSaude}
-            atraso={0.04}
-          />
-          <span className="text-[11px] text-muted-foreground">
-            {completo ? saude.dados?.periodoLabel ?? "" : copy.periodoPadrao}
-          </span>
-          <span className="hidden h-px flex-1 bg-border sm:block" />
-
-          <motion.button
-            type="button"
-            onClick={exportar}
-            disabled={exportando || !saude.dados}
-            whileHover={saude.dados ? { scale: 1.03 } : undefined}
-            whileTap={saude.dados ? { scale: 0.97 } : undefined}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[0.75rem] border border-border px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
-          >
-            <FileText size={13} />
-            {exportando ? metricasConfig.exportacao.gerando : metricasConfig.exportacao.acao}
-          </motion.button>
         </div>
 
         <ul
@@ -820,6 +868,18 @@ export function Mosaico() {
         posicao={copy.posicao
           .replace("{atual}", String(indiceAberto + 1))
           .replace("{total}", String(blocos.length))}
+        barraPeriodo={
+          <BarraPeriodo
+            periodo={periodo}
+            trocarDatas={trocarDatas}
+            carregandoSaude={carregandoSaude}
+            completo={completo}
+            periodoLabel={saude.dados?.periodoLabel}
+            exportar={exportar}
+            exportando={exportando}
+            temDados={Boolean(saude.dados)}
+          />
+        }
       />
     </>
   );

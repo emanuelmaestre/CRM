@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { MessagesSquare, TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -62,7 +62,6 @@ function LinhaCanal({ canal, indice }: { canal: AtendimentoPorCanal; indice: num
 }
 
 const copy = metricasConfig.atendimentoCard;
-const ACENTO = "var(--acento-1)";
 
 /* ── Barra empilhada ───────────────────────────────────────────
    Uma barra só, dividida pelas faixas de espera, em vez de cinco
@@ -158,12 +157,7 @@ export function AtendimentoCard({ dados, carregando }: {
 
   return (
     <Card>
-      <CardHead
-        title={copy.titulo}
-        subtitle={copy.subtitulo}
-        icon={MessagesSquare}
-        accent={ACENTO}
-      />
+      <CardHead />
 
       {carregando && !dados ? (
         <div className="space-y-3 px-5 pb-5 pt-4">

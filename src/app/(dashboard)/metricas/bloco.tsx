@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Maximize2, TrendingDown, TrendingUp, X } from "lucide-react";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
@@ -56,8 +56,15 @@ export interface BlocoDef {
   semFiltro?: boolean;
   /** Miniatura opcional (série, anel) desenhada atrás do número. */
   miniatura?: React.ReactNode;
-  /** O card inteiro. Função porque só é montado quando o bloco abre. */
-  render: () => React.ReactNode;
+  /** Linha curta sob o título, só quando o card está em foco — o mosaico não
+   *  usa isto, é o cabeçalho único do Foco que precisa dela. */
+  subtitulo?: string;
+  /** O card inteiro. Função porque só é montado quando o bloco abre.
+   *  `acaoSlot` é o nó do DOM que o Foco reserva na própria barra de
+   *  cabeçalho — um card com uma ação própria (aba, botão "como é
+   *  calculado") a `createPortal` ali dentro, em vez de desenhar um segundo
+   *  cabeçalho por conta própria. Cards sem ação ignoram o parâmetro. */
+  render: (acaoSlot: HTMLElement | null) => React.ReactNode;
 }
 
 const PESO_ALERTA: Record<NivelAlerta, number> = { critico: 2, atencao: 1 };
@@ -200,17 +207,26 @@ export function Bloco({ def, focado, onAbrir }: {
 
 /* ── Foco ──────────────────────────────────────────────────────── */
 
-export function Foco({ def, onFechar, onAnterior, onProximo, posicao }: {
+export function Foco({ def, onFechar, onAnterior, onProximo, posicao, barraPeriodo }: {
   def: BlocoDef | null;
   onFechar: () => void;
   onAnterior: () => void;
   onProximo: () => void;
   /** "3 de 14" — diz onde você está sem precisar voltar ao mosaico. */
   posicao: string;
+  /** Mesma barra de período/exportar do mosaico, redesenhada aqui — o
+   *  painel cobre a tela inteira, então sem isso trocar a data exigiria
+   *  fechar o card primeiro. */
+  barraPeriodo?: React.ReactNode;
 }) {
   const reduzir = useReducedMotion();
   const tituloId = useId();
   const painel = useRef<HTMLDivElement>(null);
+  // Nó do DOM onde o card em foco porta a própria ação (aba, botão "como é
+  // calculado") — via state, não ref direta, porque o valor só existe depois
+  // do primeiro commit, e `render(acaoSlot)` precisa disparar de novo quando
+  // ele aparece.
+  const [acaoSlot, setAcaoSlot] = useState<HTMLDivElement | null>(null);
 
   // Prende o Tab dentro do painel e devolve o foco a quem abriu o bloco ao
   // fechar — sem isso, Tab escapa para trás do modal em tela cheia e fechar
@@ -234,12 +250,20 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao }: {
   }, [def, onFechar, onAnterior, onProximo]);
 
   // Trava a rolagem de trás: com o painel ocupando a tela, rolar o mosaico
-  // por baixo só desalinha o ponto de retorno.
+  // por baixo só desalinha o ponto de retorno. O `<html>` entra junto com o
+  // `<body>` — travar só o body deixava o navegador desenhar as duas barras
+  // de rolagem ao mesmo tempo (a da janela e a do conteúdo do painel).
   useEffect(() => {
     if (!def) return;
-    const anterior = document.body.style.overflow;
+    const raiz = document.documentElement;
+    const anteriorHtml = raiz.style.overflow;
+    const anteriorBody = document.body.style.overflow;
+    raiz.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = anterior; };
+    return () => {
+      raiz.style.overflow = anteriorHtml;
+      document.body.style.overflow = anteriorBody;
+    };
   }, [def]);
 
   useEffect(() => {
@@ -260,29 +284,60 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao }: {
             transition={transicao(reduzir, springs.settle)}
             className="card-surface relative flex h-full w-full flex-col overflow-hidden rounded-none border-0 outline-none"
           >
-            <motion.div
-              layout="position"
-              className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3"
-            >
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                style={{ background: tint(def.accent, 9), color: def.accent }}
-              >
-                <def.icone size={16} strokeWidth={1.9} />
-              </span>
-              <h2 id={tituloId} className="truncate text-[15px] font-bold tracking-[-0.01em] text-foreground">
-                {def.titulo}
-              </h2>
-              <span className="ml-auto hidden text-[11px] tabular-nums text-muted-foreground sm:inline">{posicao}</span>
-              <button type="button" onClick={onAnterior} aria-label="Card anterior" className="press-feedback rounded-full p-1.5 text-muted-foreground hover:bg-muted">
-                <ArrowLeft size={15} />
-              </button>
-              <button type="button" onClick={onProximo} aria-label="Próximo card" className="press-feedback rounded-full p-1.5 text-muted-foreground hover:bg-muted">
-                <ArrowRight size={15} />
-              </button>
-              <button type="button" onClick={onFechar} aria-label="Fechar" className="press-feedback rounded-full p-1.5 text-muted-foreground hover:bg-muted">
-                <X size={15} />
-              </button>
+            {/* Cabeçalho único do card em foco — identidade + navegação numa
+                linha, período e ação própria do card na linha de baixo. Antes
+                disto, o painel mostrava este cabeçalho E o cabeçalho que cada
+                card desenhava por conta própria (ícone e título de novo,
+                subtítulo de novo): duas telas empilhadas em vez de uma. */}
+            <motion.div layout="position" className="flex shrink-0 flex-col gap-2 border-b border-border px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                  style={{ background: tint(def.accent, 9), color: def.accent }}
+                >
+                  <def.icone size={16} strokeWidth={1.9} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <h2 id={tituloId} className="truncate text-[15px] font-bold tracking-[-0.01em] text-foreground">
+                    {def.titulo}
+                  </h2>
+                  {/* Crossfade por key: trocar de card com as setas troca o
+                      texto num movimento, não num corte — o mesmo tratamento
+                      que o conteúdo abaixo já tinha, agora também aqui. */}
+                  <AnimatePresence mode="wait" initial={false}>
+                    {def.subtitulo && (
+                      <motion.p
+                        key={def.id}
+                        initial={reduzir ? false : { opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        transition={transicao(reduzir, springs.settleFast)}
+                        className="truncate text-[11px] text-muted-foreground"
+                      >
+                        {def.subtitulo}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <span className="hidden shrink-0 text-[11px] tabular-nums text-muted-foreground sm:inline">{posicao}</span>
+                <button type="button" onClick={onAnterior} aria-label="Card anterior" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
+                  <ArrowLeft size={15} />
+                </button>
+                <button type="button" onClick={onProximo} aria-label="Próximo card" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
+                  <ArrowRight size={15} />
+                </button>
+                <button type="button" onClick={onFechar} aria-label="Fechar" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
+                  <X size={15} />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {barraPeriodo}
+                {/* Alvo do portal: sempre presente no DOM, mesmo vazio — um
+                    card com ação própria (aba, "como é calculado") a desenha
+                    aqui via createPortal quando monta. */}
+                <div ref={setAcaoSlot} className="ml-auto flex flex-wrap items-center justify-end gap-2 empty:hidden" />
+              </div>
             </motion.div>
 
             {/* O conteúdo entra depois que o painel termina de crescer. É esse
@@ -303,7 +358,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao }: {
                     painel isso vira borda sobre borda, então ela é achatada
                     aqui — o painel já é o card agora. */}
                 <div className="[&>section]:border-0 [&>section]:bg-transparent [&>section]:shadow-none [&>section]:px-0 [&>section]:pt-0">
-                  {def.render()}
+                  {def.render(acaoSlot)}
                 </div>
               </div>
             </motion.div>

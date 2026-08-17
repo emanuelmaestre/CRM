@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "framer-motion";
-import { Crown, Scale } from "lucide-react";
+import { Crown } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
@@ -196,9 +197,10 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
   );
 }
 
-export function ComparacaoCard({ dados, carregando }: {
+export function ComparacaoCard({ dados, carregando, acaoSlot }: {
   dados: SaudeLojaResultado | null;
   carregando: boolean;
+  acaoSlot?: HTMLElement | null;
 }) {
   const [criterio, setCriterio] = useState<Criterio>("score");
   const reduzir = useReducedMotion();
@@ -222,41 +224,38 @@ export function ComparacaoCard({ dados, carregando }: {
     [ordenadas, criterio],
   );
 
+  const abasCriterio = (
+    <div className="flex flex-wrap gap-0.5 rounded-[0.75rem] bg-muted p-1" role="tablist" aria-label={copy.ordenarPor}>
+      {copy.criterios.map((opcao) => {
+        const ativo = opcao.chave === criterio;
+        return (
+          <button
+            key={opcao.chave}
+            type="button"
+            role="tab"
+            aria-selected={ativo}
+            onClick={() => setCriterio(opcao.chave as Criterio)}
+            className="press-feedback relative rounded-[0.5rem] px-2.5 py-1 text-[11px] font-semibold transition-colors"
+            style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
+          >
+            {ativo && (
+              <motion.span
+                layoutId="metricas-criterio"
+                transition={springs.settleFast}
+                className="absolute inset-0 rounded-[0.5rem] bg-card shadow-[0_1px_4px_rgba(14,15,19,.10)]"
+              />
+            )}
+            <span className="relative z-10">{opcao.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <Card>
-      <CardHead
-        title={copy.titulo}
-        subtitle={copy.subtitulo}
-        icon={Scale}
-        accent={ACENTO}
-        trailing={
-          <div className="flex flex-wrap gap-0.5 rounded-[0.75rem] bg-muted p-1" role="tablist" aria-label={copy.ordenarPor}>
-            {copy.criterios.map((opcao) => {
-              const ativo = opcao.chave === criterio;
-              return (
-                <button
-                  key={opcao.chave}
-                  type="button"
-                  role="tab"
-                  aria-selected={ativo}
-                  onClick={() => setCriterio(opcao.chave as Criterio)}
-                  className="press-feedback relative rounded-[0.5rem] px-2.5 py-1 text-[11px] font-semibold transition-colors"
-                  style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
-                >
-                  {ativo && (
-                    <motion.span
-                      layoutId="metricas-criterio"
-                      transition={springs.settleFast}
-                      className="absolute inset-0 rounded-[0.5rem] bg-card shadow-[0_1px_4px_rgba(14,15,19,.10)]"
-                    />
-                  )}
-                  <span className="relative z-10">{opcao.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        }
-      />
+      <CardHead />
+      {acaoSlot && createPortal(abasCriterio, acaoSlot)}
 
       {carregando && !dados ? (
         <div className="space-y-3 px-5 pb-5 pt-4">
