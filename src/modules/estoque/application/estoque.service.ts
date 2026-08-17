@@ -134,14 +134,15 @@ export type EstadoEstoque = "abaixo_minimo" | "sem_estoque" | "sem_minimo";
  *  a pergunta na tela deixa de ser "quanto tenho" e vira "quanto tenho ali". */
 function saldoExpr(orgId: string, canalTipos?: readonly string[]): SQL<number> {
   const filtroCanal = canalTipos && canalTipos.length > 0
-    ? sql`and ${channelAccount.tipo} in ${canalTipos}`
+    ? sql`and conta_saldo."tipo" in ${canalTipos}`
     : sql``;
   return sql<number>`coalesce((
-    select max(${estoqueCanalSaldo.saldo})
-    from ${estoqueCanalSaldo}
-    inner join ${channelAccount} on ${channelAccount.id} = ${estoqueCanalSaldo.channelAccountId}
-    where ${estoqueCanalSaldo.produtoId} = ${produto.id}
-      and ${estoqueCanalSaldo.orgId} = ${orgId}
+    select max(saldo_canal."saldo")
+    from "estoque_canal_saldo" saldo_canal
+    inner join "channel_account" conta_saldo
+      on conta_saldo."id" = saldo_canal."channel_account_id"
+    where saldo_canal."produto_id" = "produto"."id"
+      and saldo_canal."org_id" = ${orgId}
       ${filtroCanal}
   ), 0)`;
 }
@@ -151,14 +152,15 @@ function saldoExpr(orgId: string, canalTipos?: readonly string[]): SQL<number> {
 function saldosPorCanalExpr(orgId: string): SQL<Array<{ canal: string; saldo: number; verificadoEm: string }>> {
   return sql`coalesce((
     select json_agg(json_build_object(
-      'canal', ${channelAccount.tipo},
-      'saldo', ${estoqueCanalSaldo.saldo},
-      'verificadoEm', ${estoqueCanalSaldo.verificadoEm}
-    ) order by ${channelAccount.tipo})
-    from ${estoqueCanalSaldo}
-    inner join ${channelAccount} on ${channelAccount.id} = ${estoqueCanalSaldo.channelAccountId}
-    where ${estoqueCanalSaldo.produtoId} = ${produto.id}
-      and ${estoqueCanalSaldo.orgId} = ${orgId}
+      'canal', conta_saldo."tipo",
+      'saldo', saldo_canal."saldo",
+      'verificadoEm', saldo_canal."verificado_em"
+    ) order by conta_saldo."tipo")
+    from "estoque_canal_saldo" saldo_canal
+    inner join "channel_account" conta_saldo
+      on conta_saldo."id" = saldo_canal."channel_account_id"
+    where saldo_canal."produto_id" = "produto"."id"
+      and saldo_canal."org_id" = ${orgId}
   ), '[]'::json)`;
 }
 
