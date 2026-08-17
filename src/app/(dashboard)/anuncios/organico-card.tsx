@@ -7,10 +7,12 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { BarraSimples, Card, CardHead } from "./anuncios-primitives";
+import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.organico;
 const ACENTO = "var(--acento-1)";
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const decimal1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 const LABEL_CLASSIFICACAO: Record<string, string> = {
   baixa: "Dependência baixa",
@@ -19,12 +21,29 @@ const LABEL_CLASSIFICACAO: Record<string, string> = {
   critica: "Dependência crítica",
 };
 
-export function OrganicoCard({ resumo }: { resumo: VisaoGeralResumo }) {
+/** O rótulo diz a faixa; o veredito diz o que fazer com essa informação —
+ *  sem isso, "dependência crítica" soa como alarme mesmo quando é esperado
+ *  (marca nova sem histórico orgânico ainda). */
+const VEREDITO_CLASSIFICACAO: Record<string, string> = {
+  baixa: "O orgânico já sustenta a maior parte das vendas — a mídia paga está sendo um complemento, não uma muleta.",
+  moderada: "Um equilíbrio saudável entre mídia paga e orgânico. Nenhuma das duas carrega a operação sozinha.",
+  alta: "A maior parte das vendas depende de mídia paga. Não é automaticamente ruim: uma marca nova sem histórico orgânico pode estar saudável assim mesmo — mas vale acompanhar se essa dependência está caindo com o tempo.",
+  critica: "Quase todas as vendas vêm de mídia paga — hoje, sem investimento em anúncio, as vendas cairiam quase a zero. Vale entender se é uma fase (lançamento) ou um padrão que precisa de atenção.",
+};
+
+export function OrganicoCard({ resumo, resumoAnterior }: { resumo: VisaoGeralResumo; resumoAnterior?: VisaoGeralResumo | null }) {
   const totalVendas = resumo.vendasPublicitarias + resumo.vendasOrganicas;
   const semDado = totalVendas === 0;
 
   const percentualPago = totalVendas > 0 ? Math.round((resumo.vendasPublicitarias / totalVendas) * 1000) / 10 : 0;
   const percentualOrganico = totalVendas > 0 ? Math.round((resumo.vendasOrganicas / totalVendas) * 1000) / 10 : 0;
+
+  const percentualAnterior = resumo.dependenciaMidia.percentual !== null && resumoAnterior
+    ? resumoAnterior.dependenciaMidia.percentual
+    : null;
+  const variacaoPontos = percentualAnterior !== null && resumo.dependenciaMidia.percentual !== null
+    ? Math.round((resumo.dependenciaMidia.percentual - percentualAnterior) * 10) / 10
+    : null;
 
   return (
     <Card>
@@ -61,11 +80,24 @@ export function OrganicoCard({ resumo }: { resumo: VisaoGeralResumo }) {
 
           {resumo.dependenciaMidia.classificacao && (
             <div className="mt-4 rounded-[0.9rem] bg-muted/50 px-3.5 py-3">
-              <p className="text-[12px] font-semibold text-foreground">
-                {LABEL_CLASSIFICACAO[resumo.dependenciaMidia.classificacao]} — {resumo.dependenciaMidia.percentual}%
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[12px] font-semibold text-foreground">
+                  {LABEL_CLASSIFICACAO[resumo.dependenciaMidia.classificacao]} — {resumo.dependenciaMidia.percentual}%
+                </p>
+                {variacaoPontos !== null && variacaoPontos !== 0 && (
+                  <span
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                    style={{
+                      background: tint(variacaoPontos > 0 ? "var(--destructive)" : "var(--success)", 9),
+                      color: variacaoPontos > 0 ? "var(--destructive)" : "var(--success)",
+                    }}
+                  >
+                    {variacaoPontos > 0 ? "▲" : "▼"} {decimal1.format(Math.abs(variacaoPontos))}pp vs. período anterior
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                Não é automaticamente bom ou ruim: uma marca nova sem histórico orgânico pode depender bastante de mídia e estar saudável mesmo assim.
+                {VEREDITO_CLASSIFICACAO[resumo.dependenciaMidia.classificacao]}
               </p>
               <div className="mt-2">
                 <BarraSimples valor={resumo.dependenciaMidia.percentual ?? 0} maximo={100} cor={ACENTO} />

@@ -17,32 +17,179 @@ const decimal2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maxi
 const percentual = (valor: number) => `${decimal1.format(valor)}%`;
 const roasTexto = (valor: number) => `${decimal2.format(valor)}x`;
 
+function descricaoReceita(resumo: VisaoGeralResumo) {
+  const valor = moeda.format(resumo.receitaTotal);
+  const vendas = Math.max(0, resumo.vendas);
+  const ticketMedio = vendas > 0 ? resumo.receitaTotal / vendas : null;
+  let leitura: string;
+
+  if (resumo.receitaTotal <= 0) {
+    leitura = `Receita atribuída atual: ${valor}. Neste período, a plataforma não atribuiu vendas aos anúncios, então o retorno da mídia aparece zerado.`;
+  } else if (ticketMedio !== null) {
+    const vendasTexto = vendas === 1 ? "1 venda atribuída aos anúncios" : `${inteiro.format(vendas)} vendas atribuídas aos anúncios`;
+    leitura = `Receita atribuída atual: ${valor}. A plataforma associou esse faturamento a ${vendasTexto}, com média de ${moeda.format(ticketMedio)} por venda.`;
+  } else {
+    leitura = `Receita atribuída atual: ${valor}. A plataforma associou esse faturamento aos anúncios, mas não informou quantidade de vendas para calcular o ticket médio.`;
+  }
+
+  return {
+    descricao: `${leitura} Use este valor para medir ROAS, ACOS e retorno da mídia paga.`,
+    observacao: "Receita, nesta tela, é o valor total vendido que a plataforma atribuiu aos anúncios. Não é lucro: ainda não desconta investimento em mídia, custo do produto, taxas, frete ou impostos.",
+  };
+}
+
+function descricaoRoas(valor: number | null) {
+  if (valor === null) {
+    return "Sem investimento no período, o ROAS fica sem dado. Ele só existe quando há gasto em anúncios para comparar com a receita atribuída.";
+  }
+
+  const explicacao = `ROAS atual: ${roasTexto(valor)}. ROAS é a receita atribuída dividida pelo investimento em anúncios. Neste período, cada ${moeda.format(1)} investido voltou como ${moeda.format(valor)} em receita atribuída.`;
+
+  if (valor < 1) {
+    return `${explicacao} Como está abaixo de 1,00x, a mídia ainda não se pagou.`;
+  }
+
+  if (valor === 1) {
+    return `${explicacao} Em 1,00x, a mídia apenas empatou: recuperou o investimento, mas ainda não gerou retorno acima dele.`;
+  }
+
+  return `${explicacao} Como está acima de 1,00x, a mídia se pagou; quanto maior o ROAS, melhor o retorno.`;
+}
+
+function descricaoVendas(resumo: VisaoGeralResumo) {
+  const vendas = Math.max(0, resumo.vendas);
+
+  if (vendas === 0) {
+    return {
+      descricao: "Vendas atribuídas atual: 0. Nenhuma compra foi associada aos anúncios neste período. Quando isso acontece, conversão, receita atribuída e ROAS tendem a ficar sem força.",
+      observacao: "Atribuída não quer dizer que o anúncio foi o único motivo da compra. Quer dizer que, pelas regras da plataforma, essa venda entrou na conta da mídia.",
+    };
+  }
+
+  const vendasTexto = vendas === 1 ? "1 venda atribuída" : `${inteiro.format(vendas)} vendas atribuídas`;
+  const leituraConversao = resumo.cliques > 0 && resumo.cvrMedio !== null
+    ? ` Com ${inteiro.format(resumo.cliques)} cliques, isso representa CVR de ${percentual(resumo.cvrMedio)}.`
+    : "";
+
+  return {
+    descricao: `Vendas atribuídas atual: ${inteiro.format(vendas)}. São ${vendasTexto} que a plataforma conectou aos anúncios no período.${leituraConversao} Use junto com Receita atribuída e ROAS para entender se o tráfego virou venda real.`,
+    observacao: "Atribuída não quer dizer que o anúncio foi o único motivo da compra. Quer dizer que, pelas regras da plataforma, essa venda entrou na conta da mídia.",
+  };
+}
+
+function descricaoCvr(resumo: VisaoGeralResumo) {
+  const observacao = "Clique é a visita gerada pelo anúncio. Conversão é quando esse clique vira venda atribuída. CVR não mede custo nem receita; ele mede a qualidade do tráfego depois do clique.";
+
+  if (resumo.cvrMedio === null || resumo.cliques <= 0) {
+    return {
+      descricao: "Sem cliques no período, o CVR fica sem dado. Ele só existe quando há visitas geradas por anúncio para comparar com as vendas atribuídas.",
+      observacao,
+    };
+  }
+
+  const vendas = Math.max(0, resumo.vendas);
+  let leitura: string;
+
+  if (vendas === 0 || resumo.cvrMedio === 0) {
+    leitura = "Os cliques ainda não estão virando venda atribuída. Vale revisar página do produto, preço, oferta e qualidade do público.";
+  } else if (resumo.cvrMedio < 1) {
+    leitura = "A conversão está baixa: muita gente clica, mas pouca gente compra. O gargalo pode estar depois do clique.";
+  } else if (resumo.cvrMedio < 3) {
+    leitura = "A conversão está em faixa moderada. Compare com CPC e ROAS para saber se o custo do tráfego ainda compensa.";
+  } else {
+    leitura = "A conversão mostra bom sinal: uma parte relevante dos cliques está virando venda. Depois confirme o retorno olhando ROAS e ACOS.";
+  }
+
+  return {
+    descricao: `CVR atual: ${percentual(resumo.cvrMedio)}. CVR é vendas atribuídas divididas pelos cliques: ${inteiro.format(vendas)} vendas a partir de ${inteiro.format(resumo.cliques)} cliques. Isso equivale a cerca de ${decimal1.format(resumo.cvrMedio)} vendas a cada 100 cliques. ${leitura}`,
+    observacao,
+  };
+}
+
+function descricaoCtr(resumo: VisaoGeralResumo) {
+  const observacao = "Impressão é cada vez que o anúncio apareceu para alguém. Clique é quando a pessoa demonstrou interesse e entrou no anúncio. CTR não mede venda; ele mede o interesse inicial gerado pela vitrine.";
+
+  if (resumo.ctrMedio === null || resumo.impressoes <= 0) {
+    return {
+      descricao: "Sem impressões no período, o CTR fica sem dado. Ele só existe quando há exibições do anúncio para comparar com os cliques.",
+      observacao,
+    };
+  }
+
+  const cliquesPorMil = (resumo.cliques / resumo.impressoes) * 1000;
+  let leitura: string;
+
+  if (resumo.ctrMedio < 0.5) {
+    leitura = "Como está abaixo de 0,5%, muita gente viu o anúncio, mas pouca gente clicou. Vale revisar criativo, oferta, título ou público.";
+  } else if (resumo.ctrMedio < 1.5) {
+    leitura = "Esse nível mostra interesse moderado. O anúncio está gerando cliques, mas ainda pode melhorar criativo, oferta ou segmentação.";
+  } else {
+    leitura = "Esse nível mostra bom sinal de interesse. Depois, olhe CVR e ROAS para confirmar se esses cliques estão virando venda com retorno.";
+  }
+
+  return {
+    descricao: `CTR atual: ${percentual(resumo.ctrMedio)}. CTR é cliques divididos por impressões: de ${inteiro.format(resumo.impressoes)} exibições, ${inteiro.format(resumo.cliques)} viraram clique. Isso equivale a cerca de ${decimal1.format(cliquesPorMil)} cliques a cada 1.000 impressões. ${leitura}`,
+    observacao,
+  };
+}
+
+function descricaoCpc(resumo: VisaoGeralResumo) {
+  const observacao = "Clique não é venda. CPC mostra quanto custou trazer uma visita pelo anúncio; depois, CVR, Receita atribuída e ROAS mostram se essa visita virou resultado.";
+
+  if (resumo.cpcMedio === null || resumo.cliques <= 0) {
+    return {
+      descricao: "Sem cliques no período, o CPC médio fica sem dado. Ele só existe quando há visitas geradas por anúncio para dividir o investimento.",
+      observacao,
+    };
+  }
+
+  let leitura: string;
+
+  if (resumo.investimentoTotal <= 0) {
+    leitura = "Como não houve investimento registrado, o custo por clique aparece zerado ou sem peso financeiro neste período.";
+  } else if (resumo.cpcMedio <= 1) {
+    leitura = "Esse custo por clique está baixo; depois confira se os cliques têm qualidade olhando CVR e ROAS.";
+  } else if (resumo.cpcMedio <= 3) {
+    leitura = "Esse custo por clique está em uma faixa intermediária. A qualidade depende de quantos desses cliques viram venda.";
+  } else {
+    leitura = "Esse custo por clique está alto. Para fazer sentido, esses cliques precisam converter bem e gerar ROAS saudável.";
+  }
+
+  return {
+    descricao: `CPC médio atual: ${moeda.format(resumo.cpcMedio)}. CPC é o investimento em anúncios dividido pelos cliques: ${moeda.format(resumo.investimentoTotal)} dividido por ${inteiro.format(resumo.cliques)} cliques. Em média, cada visita gerada pelo anúncio custou ${moeda.format(resumo.cpcMedio)}. ${leitura}`,
+    observacao,
+  };
+}
+
 function descricaoKpi(resumo: VisaoGeralResumo) {
   const receitaTotal = resumo.receitaTotal + resumo.receitaOrganica;
+  const receita = descricaoReceita(resumo);
+  const vendas = descricaoVendas(resumo);
+  const cvr = descricaoCvr(resumo);
+  const ctr = descricaoCtr(resumo);
+  const cpc = descricaoCpc(resumo);
+
   return {
     investimento: `Neste período, a marca investiu ${moeda.format(resumo.investimentoTotal)} em anúncios. Esse gasto entra nos cálculos de ROAS, ACOS, TACOS e CPC.`,
-    receita: `Os anúncios geraram ${moeda.format(resumo.receitaTotal)} em receita atribuída pelo canal. Essa é a receita usada para medir retorno da mídia paga.`,
-    roas: resumo.roasMedio === null
-      ? "Sem investimento no período, o ROAS fica sem dado. Ele só existe quando há gasto para comparar com a receita atribuída."
-      : `ROAS atual: ${roasTexto(resumo.roasMedio)}. Cada ${moeda.format(1)} investido trouxe ${moeda.format(resumo.roasMedio)} em receita atribuída; acima de 1,00x a mídia se pagou.`,
+    receita: receita.descricao,
+    receitaObservacao: receita.observacao,
+    roas: descricaoRoas(resumo.roasMedio),
     acos: resumo.acosMedio === null
       ? "Sem receita atribuída no período, o ACOS fica sem dado. Ele mostra quanto da receita de anúncios foi consumido pelo investimento."
       : `ACOS atual: ${percentual(resumo.acosMedio)}. A cada ${moeda.format(100)} de receita atribuída, ${moeda.format(resumo.acosMedio)} corresponderam ao investimento em mídia; quanto menor, mais eficiente.`,
     tacos: resumo.tacos === null
       ? "Sem receita total no período, o TACOS fica sem dado. Ele compara investimento com vendas pagas e orgânicas juntas."
       : `TACOS atual: ${percentual(resumo.tacos)}. A mídia consumiu ${moeda.format(resumo.tacos)} a cada ${moeda.format(100)} de receita total (${moeda.format(receitaTotal)} somando ads e orgânico).`,
-    cvr: resumo.cvrMedio === null
-      ? "Sem cliques no período, a taxa de conversão fica sem dado. Ela mede quantos cliques viram venda."
-      : `CVR atual: ${percentual(resumo.cvrMedio)}. Foram ${inteiro.format(resumo.vendas)} vendas atribuídas a partir de ${inteiro.format(resumo.cliques)} cliques.`,
-    ctr: resumo.ctrMedio === null
-      ? "Sem impressões no período, a taxa de clique fica sem dado. Ela mede se o anúncio exibido gerou interesse."
-      : `CTR atual: ${percentual(resumo.ctrMedio)}. Foram ${inteiro.format(resumo.cliques)} cliques em ${inteiro.format(resumo.impressoes)} impressões.`,
-    cpc: resumo.cpcMedio === null
-      ? "Sem cliques no período, o CPC médio fica sem dado. Ele mostra quanto custou, em média, cada visita gerada por anúncio."
-      : `CPC médio atual: ${moeda.format(resumo.cpcMedio)}. É o investimento de ${moeda.format(resumo.investimentoTotal)} dividido por ${inteiro.format(resumo.cliques)} cliques.`,
+    cvr: cvr.descricao,
+    cvrObservacao: cvr.observacao,
+    ctr: ctr.descricao,
+    ctrObservacao: ctr.observacao,
+    cpc: cpc.descricao,
+    cpcObservacao: cpc.observacao,
     impressoes: `Os anúncios apareceram ${inteiro.format(resumo.impressoes)} vezes no período. Use junto com CTR para saber se a vitrine está gerando interesse.`,
     cliques: `Os anúncios receberam ${inteiro.format(resumo.cliques)} cliques. Compare com impressões (CTR) e vendas (CVR) para entender onde o funil perde força.`,
-    vendas: `Foram ${inteiro.format(resumo.vendas)} vendas atribuídas aos anúncios no período. Esse número alimenta a leitura de conversão e retorno da mídia.`,
+    vendas: vendas.descricao,
+    vendasObservacao: vendas.observacao,
   };
 }
 
@@ -52,9 +199,10 @@ function descricaoKpi(resumo: VisaoGeralResumo) {
    métricas secundárias, menores, mesma leitura mas sem competir com as
    primárias por atenção. Nada de 15 cards iguais. */
 
-function NumeroGrande({ label, descricao, valor, formatar, cor, sufixo, prefixo, destaque = false }: {
+function NumeroGrande({ label, descricao, observacao, valor, formatar, cor, sufixo, prefixo, destaque = false }: {
   label: string;
   descricao: string;
+  observacao?: string;
   valor: number | null;
   formatar: (n: number) => string;
   cor?: string;
@@ -71,7 +219,7 @@ function NumeroGrande({ label, descricao, valor, formatar, cor, sufixo, prefixo,
         {valor === null ? "—" : formatar(animado)}
       </p>
       <p className="mt-1.5 text-xs font-medium text-muted-foreground">
-        <RotuloComInfo descricao={descricao}>{label}</RotuloComInfo>
+        <RotuloComInfo descricao={descricao} observacao={observacao}>{label}</RotuloComInfo>
       </p>
       {sufixo}
     </motion.div>
@@ -89,7 +237,7 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
           que nunca sairia, porque o custo do produto nunca existiu. */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
         <NumeroGrande label={copy.investimento} descricao={infoKpi.investimento} valor={resumo.investimentoTotal} formatar={(n) => moeda.format(n)} destaque />
-        <NumeroGrande label={copy.receita} descricao={infoKpi.receita} valor={resumo.receitaTotal} formatar={(n) => moeda.format(n)} destaque />
+        <NumeroGrande label={copy.receita} descricao={infoKpi.receita} observacao={infoKpi.receitaObservacao} valor={resumo.receitaTotal} formatar={(n) => moeda.format(n)} destaque />
         {/* Único KPI com seta: os outros três são dinheiro, e o sinal de menos
             já diferencia sem depender de cor. ROAS não tem sinal. */}
         <NumeroGrande
@@ -112,23 +260,23 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
       >
         <Secundaria label={copy.acos} descricao={infoKpi.acos} valor={resumo.acosMedio} formatar={(n) => `${n.toFixed(1)}%`} />
         <Secundaria label={copy.tacos} descricao={infoKpi.tacos} valor={resumo.tacos} formatar={(n) => `${n.toFixed(1)}%`} />
-        <Secundaria label={copy.cvr} descricao={infoKpi.cvr} valor={resumo.cvrMedio} formatar={(n) => `${n.toFixed(1)}%`} />
-        <Secundaria label={copy.ctr} descricao={infoKpi.ctr} valor={resumo.ctrMedio} formatar={(n) => `${n.toFixed(2)}%`} />
-        <Secundaria label={copy.cpc} descricao={infoKpi.cpc} valor={resumo.cpcMedio} formatar={(n) => moeda.format(n)} />
+        <Secundaria label={copy.cvr} descricao={infoKpi.cvr} observacao={infoKpi.cvrObservacao} valor={resumo.cvrMedio} formatar={(n) => `${n.toFixed(1)}%`} />
+        <Secundaria label={copy.ctr} descricao={infoKpi.ctr} observacao={infoKpi.ctrObservacao} valor={resumo.ctrMedio} formatar={(n) => `${n.toFixed(2)}%`} />
+        <Secundaria label={copy.cpc} descricao={infoKpi.cpc} observacao={infoKpi.cpcObservacao} valor={resumo.cpcMedio} formatar={(n) => moeda.format(n)} />
         <Secundaria label={copy.impressoes} descricao={infoKpi.impressoes} valor={resumo.impressoes} formatar={(n) => Math.round(n).toLocaleString("pt-BR")} />
         <Secundaria label={copy.cliques} descricao={infoKpi.cliques} valor={resumo.cliques} formatar={(n) => Math.round(n).toLocaleString("pt-BR")} />
-        <Secundaria label={copy.vendas} descricao={infoKpi.vendas} valor={resumo.vendas} formatar={(n) => Math.round(n).toLocaleString("pt-BR")} />
+        <Secundaria label={copy.vendas} descricao={infoKpi.vendas} observacao={infoKpi.vendasObservacao} valor={resumo.vendas} formatar={(n) => Math.round(n).toLocaleString("pt-BR")} />
       </motion.div>
     </div>
   );
 }
 
-function Secundaria({ label, descricao, valor, formatar }: { label: string; descricao: string; valor: number | null; formatar: (n: number) => string }) {
+function Secundaria({ label, descricao, observacao, valor, formatar }: { label: string; descricao: string; observacao?: string; valor: number | null; formatar: (n: number) => string }) {
   return (
     <motion.div variants={fadeUp} className="min-w-0">
       <p className="text-[15px] font-bold tabular-nums text-foreground">{valor === null ? "—" : formatar(valor)}</p>
       <p className="mt-0.5 text-[11px] text-muted-foreground">
-        <RotuloComInfo descricao={descricao}>{label}</RotuloComInfo>
+        <RotuloComInfo descricao={descricao} observacao={observacao}>{label}</RotuloComInfo>
       </p>
     </motion.div>
   );

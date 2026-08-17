@@ -56,10 +56,13 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function RotuloComInfo({ children, descricao }: {
+export function RotuloComInfo({ children, descricao, observacao }: {
   children: string;
   descricao: string;
+  observacao?: string;
 }) {
+  const titulo = observacao ? `${children}: ${descricao} Observação: ${observacao}` : `${children}: ${descricao}`;
+
   return (
     <span className="inline-flex max-w-full items-center gap-1 align-middle">
       <span className="min-w-0 truncate">{children}</span>
@@ -68,7 +71,7 @@ export function RotuloComInfo({ children, descricao }: {
           <button
             type="button"
             aria-label={`Explicar indicador ${children}`}
-            title={`${children}: ${descricao}`}
+            title={titulo}
             className="press-feedback inline-flex h-4 min-h-0 w-4 min-w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/75 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Info aria-hidden="true" size={11} strokeWidth={2.35} />
@@ -79,11 +82,17 @@ export function RotuloComInfo({ children, descricao }: {
             align="start"
             sideOffset={6}
             collisionPadding={12}
-            className="z-[100] w-[min(18rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-3 text-left normal-case shadow-[0_12px_32px_rgba(14,15,19,.18)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+            className="z-[100] w-[min(21rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-3 text-left normal-case shadow-[0_12px_32px_rgba(14,15,19,.18)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
           >
             <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como ler este número</p>
             <p className="mt-0.5 text-[13px] font-bold text-foreground">{children}</p>
             <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">{descricao}</p>
+            {observacao && (
+              <div className="mt-2 rounded-lg border border-border bg-muted/45 px-2.5 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground">Observação</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{observacao}</p>
+              </div>
+            )}
             <PopoverPrimitive.Arrow className="fill-card" />
           </PopoverPrimitive.Content>
         </PopoverPrimitive.Portal>

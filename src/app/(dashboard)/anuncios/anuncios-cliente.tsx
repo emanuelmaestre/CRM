@@ -16,7 +16,6 @@ import { actionObterVisaoGeralAnuncios } from "./actions";
 import { AtencaoCard } from "./atencao-card";
 import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
-import { OportunidadesCard } from "./oportunidades-card";
 import { OrganicoCard } from "./organico-card";
 import { ResumoInteligente } from "./resumo-inteligente";
 import { RotuloComInfo, SectionLabel } from "./anuncios-primitives";
@@ -236,13 +235,10 @@ export function AnunciosCliente() {
         <CampanhasCard campanhas={marca.campanhas} />
       </section>
 
-      {/* Ato 4 — onde escalar/corrigir, e o que a mídia paga está puxando */}
+      {/* Ato 4 — o que a mídia paga está puxando */}
       <section className="flex flex-col gap-3">
-        <SectionLabel>Oportunidades e dependência de mídia</SectionLabel>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <OportunidadesCard oportunidades={marca.oportunidades} />
-          <OrganicoCard resumo={marca.resumo} />
-        </div>
+        <SectionLabel>Dependência de mídia</SectionLabel>
+        <OrganicoCard resumo={marca.resumo} resumoAnterior={marcaAnterior?.resumo ?? null} />
       </section>
     </motion.div>
   );
