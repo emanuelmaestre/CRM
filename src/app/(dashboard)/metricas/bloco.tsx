@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Maximize2, TrendingDown, TrendingUp, X } from "lucide-react";
+import { Maximize2, TrendingDown, TrendingUp, X } from "lucide-react";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
 import { useFocusTrap } from "@/shared/design-system/primitives/useFocusTrap";
 import metricasConfig from "@/config/metricas.json";
@@ -319,13 +319,11 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao, barraPerio
                     )}
                   </AnimatePresence>
                 </div>
+                {/* Sem botões de seta: pular de card continua valendo pelo
+                    teclado (← →, ver o efeito de atalhos acima), mas dois
+                    botões a mais no cabeçalho competiam com o fechar e com a
+                    ação do próprio card sem ganhar nada em clareza. */}
                 <span className="hidden shrink-0 text-[11px] tabular-nums text-muted-foreground sm:inline">{posicao}</span>
-                <button type="button" onClick={onAnterior} aria-label="Card anterior" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
-                  <ArrowLeft size={15} />
-                </button>
-                <button type="button" onClick={onProximo} aria-label="Próximo card" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
-                  <ArrowRight size={15} />
-                </button>
                 <button type="button" onClick={onFechar} aria-label="Fechar" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
                   <X size={15} />
                 </button>
