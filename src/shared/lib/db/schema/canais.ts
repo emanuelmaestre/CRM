@@ -4,7 +4,7 @@ import {
 import { org, brand } from "./org";
 
 export const canalContaTipoEnum = pgEnum("canal_conta_tipo", [
-  "mercadolivre", "shopee", "tiktokshop", "olist",
+  "mercadolivre", "shopee", "tiktokshop",
   "whatsapp", "instagram", "facebook",
   "gmail", "gcalendar", "cobranca",
 ]);
@@ -37,7 +37,7 @@ export const sincronizacaoModuloStatusEnum = pgEnum("sincronizacao_modulo_status
 ]);
 
 /** Uma execução da "Central de Sincronização" (Configurações), disparada
- *  manualmente por conta de canal — cada módulo (catálogo, pedidos) roda em
+ *  manualmente por conta de canal — cada módulo roda em
  *  background via Inngest e atualiza sua própria coluna de status aqui, pra
  *  a tela poder mostrar progresso real em vez de um spinner mudo por 20s+. */
 export const sincronizacaoExecucao = pgTable("sincronizacao_execucao", {
@@ -50,6 +50,21 @@ export const sincronizacaoExecucao = pgTable("sincronizacao_execucao", {
   pedidosStatus: sincronizacaoModuloStatusEnum("pedidos_status").notNull().default("pendente"),
   pedidosResultado: jsonb("pedidos_resultado"),
   pedidosErro: text("pedidos_erro"),
+  anunciosStatus: sincronizacaoModuloStatusEnum("anuncios_status").notNull().default("pendente"),
+  anunciosResultado: jsonb("anuncios_resultado"),
+  anunciosErro: text("anuncios_erro"),
+  avaliacoesStatus: sincronizacaoModuloStatusEnum("avaliacoes_status").notNull().default("pendente"),
+  avaliacoesResultado: jsonb("avaliacoes_resultado"),
+  avaliacoesErro: text("avaliacoes_erro"),
+  reputacaoStatus: sincronizacaoModuloStatusEnum("reputacao_status").notNull().default("pendente"),
+  reputacaoResultado: jsonb("reputacao_resultado"),
+  reputacaoErro: text("reputacao_erro"),
+  reclamacoesStatus: sincronizacaoModuloStatusEnum("reclamacoes_status").notNull().default("pendente"),
+  reclamacoesResultado: jsonb("reclamacoes_resultado"),
+  reclamacoesErro: text("reclamacoes_erro"),
+  mensagensStatus: sincronizacaoModuloStatusEnum("mensagens_status").notNull().default("pendente"),
+  mensagensResultado: jsonb("mensagens_resultado"),
+  mensagensErro: text("mensagens_erro"),
   iniciadoEm: timestamp("iniciado_em", { withTimezone: true }).notNull().defaultNow(),
   finalizadoEm: timestamp("finalizado_em", { withTimezone: true }),
 }, (t) => [

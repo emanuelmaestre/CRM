@@ -92,7 +92,7 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
 2. Completar inbox por canal (foco atual: Mercado Livre; Shopee e TikTok Shop adiados para fase
    futura, fora da pendencia ativa):
    - envio oficial por marketplace quando a politica permitir;
-   - evidencias reais de mensagens recebidas por Mercado Livre e Olist;
+   - evidencias reais de mensagens recebidas por Mercado Livre;
    - estados de entrega/falha por provider.
 3. Completar validacao real de canais:
    - editar/remover `channel_account` com regra de impacto;
@@ -117,8 +117,7 @@ Este arquivo registra a revisao local feita contra o PRD do CRM LEO e o que foi 
   chaves de producao configuradas e A18/A23/A24 rodando no cron real; OpenAI configurada (ao menos
   1 execucao real e bem-sucedida registrada em `llm_run`). Esses tres itens **nao sao mais
   bloqueio**.
-- Credenciais e conta real de Olist (unico marketplace do escopo atual ainda sem `channel_account`;
-  Shopee e TikTok Shop ficam para fase futura, fora da pendencia ativa).
+- Shopee e TikTok Shop ficam para fase futura, fora da pendencia ativa.
 - Confirmacao especifica para aplicar migration 0014 no Supabase remoto conectado.
 - Bucket/politicas de Storage em ambiente alvo.
 - Homologacao real antes de liberar `EXTERNAL_SENDS_ENABLED=true`.
@@ -166,8 +165,7 @@ codigo reais escondidas atras do rotulo "pendente externo" nos DoDs — corrigid
 - Confirmar o `code` real de chat da Shopee com logs de webhook reais durante a homologacao da
   conta (hoje assumido `20` por analogia com integracoes de referencia, nao documentado oficialmente
   pela Shopee).
-- Decidir e documentar se Olist (ERP sem chat nativo) deve alimentar o inbox unificado, para nao
-  sugerir paridade total de inbox nos "4 canais fechados" onde ela nao se aplica.
+- A paridade de inbox deve considerar apenas os canais mantidos.
 - Implementar o disparo real de resposta de pergunta pela API oficial de cada marketplace quando a
   politica permitir (hoje a resposta fica registrada apenas internamente).
 

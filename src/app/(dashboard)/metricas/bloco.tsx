@@ -71,6 +71,11 @@ export interface BlocoDef {
   semFiltro?: boolean;
   /** Miniatura opcional (série, anel) desenhada atrás do número. */
   miniatura?: React.ReactNode;
+  /** Prévia do conteúdo do card — lista ou barras, desenhada no primeiro
+   *  plano (ao contrário da miniatura, que é textura de fundo). É o que
+   *  faz um card sem "número só" (Reclamações, Publicações) mostrar algo
+   *  de verdade no tile fechado, em vez de só uma frase genérica. */
+  previa?: React.ReactNode;
   /** Linha curta sob o título, só quando o card está em foco — o mosaico não
    *  usa isto, é o cabeçalho único do Foco que precisa dela. */
   subtitulo?: string;
@@ -168,6 +173,43 @@ function Variacao({ valor, subirEhRuim }: { valor: number; subirEhRuim?: boolean
   );
 }
 
+/** Prévia em lista — nome + valor dos 2 primeiros itens, pra quem tem uma
+ *  fila (reclamação, produto, sugestão) em vez de um número só. */
+export function MiniLista({ itens }: { itens: Array<{ label: string; valor: string }> }) {
+  if (itens.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-0.5">
+      {itens.slice(0, 2).map((item, indice) => (
+        <li key={indice} className="flex items-center justify-between gap-2 text-[11px]">
+          <span className="min-w-0 truncate text-muted-foreground">{item.label}</span>
+          <span className="shrink-0 font-semibold tabular-nums text-foreground">{item.valor}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Prévia em barras — comparação lado a lado (marca, faixa de SLA) numa
+ *  régua 0–100, pra quem é fundamentalmente uma comparação, não um total. */
+export function MiniBarras({ itens }: { itens: Array<{ label: string; valor: number; cor?: string }> }) {
+  if (itens.length === 0) return null;
+  return (
+    <ul className="flex flex-col gap-1">
+      {itens.slice(0, 3).map((item, indice) => (
+        <li key={indice} className="flex items-center gap-1.5">
+          <span className="w-12 shrink-0 truncate text-[10px] text-muted-foreground">{item.label}</span>
+          <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <span
+              className="block h-full rounded-full"
+              style={{ width: `${Math.max(item.valor, 3)}%`, background: item.cor ?? "var(--acento-2)" }}
+            />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /* ── Bloco ─────────────────────────────────────────────────────── */
 
 export function Bloco({ def, focado, onAbrir }: {
@@ -234,8 +276,12 @@ export function Bloco({ def, focado, onAbrir }: {
               ) : resumo.valor === null ? (
                 /* Nem todo card se resume a um número — Publicações e Pós-venda
                    buscam os próprios dados só quando abrem. Aqui o bloco diz o
-                   que há dentro em vez de fingir um valor. */
-                <p className="text-[12px] leading-snug text-muted-foreground">{resumo.legenda ?? "Abrir para ver"}</p>
+                   que há dentro em vez de fingir um valor, e a prévia (quando
+                   existe) mostra o conteúdo de verdade, não só a frase. */
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-[12px] leading-snug text-muted-foreground">{resumo.legenda ?? "Abrir para ver"}</p>
+                  {def.previa}
+                </div>
               ) : (
                 <>
                   <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -245,6 +291,7 @@ export function Bloco({ def, focado, onAbrir }: {
                     )}
                   </span>
                   {resumo.legenda && <span className="text-[11px] text-muted-foreground">{resumo.legenda}</span>}
+                  {def.previa}
                 </>
               )}
 

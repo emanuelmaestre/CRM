@@ -4,6 +4,25 @@ import { brand, channelAccount, mlAvaliacaoAnuncio } from "@/shared/lib/db/schem
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { isBrandSlug } from "@/shared/config/brands";
 
+async function listarContasMercadoLivreAvaliacoes(orgId: string, channelAccountId?: string) {
+  const condicoes = [
+    eq(channelAccount.orgId, orgId),
+    eq(channelAccount.tipo, "mercadolivre"),
+    eq(channelAccount.status, "conectado"),
+  ];
+  if (channelAccountId) condicoes.push(eq(channelAccount.id, channelAccountId));
+
+  return db
+    .select({
+      channelAccountId: channelAccount.id,
+      brandId: channelAccount.brandId,
+      brandSlug: brand.slug,
+    })
+    .from(channelAccount)
+    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
+    .where(and(...condicoes));
+}
+
 /** Espelha o loop de paginação que a tela de Avaliações fazia no navegador
  *  (ver inbox-avaliacoes.tsx) — só que rodando no servidor, uma vez por
  *  conta, com o resultado salvo em `ml_avaliacao_anuncio` em vez de
@@ -12,20 +31,21 @@ export async function sincronizarAvaliacoesMercadoLivre(orgId: string): Promise<
   contasVerificadas: number;
   anunciosSincronizados: number;
 }> {
-  const contas = await db
-    .select({
-      channelAccountId: channelAccount.id,
-      brandId: channelAccount.brandId,
-      brandSlug: brand.slug,
-    })
-    .from(channelAccount)
-    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
-    .where(and(
-      eq(channelAccount.orgId, orgId),
-      eq(channelAccount.tipo, "mercadolivre"),
-      eq(channelAccount.status, "conectado"),
-    ));
+  return sincronizarAvaliacoesMercadoLivrePorConta(orgId);
+}
 
+export async function sincronizarAvaliacoesMercadoLivreConta(orgId: string, channelAccountId: string): Promise<{
+  contasVerificadas: number;
+  anunciosSincronizados: number;
+}> {
+  return sincronizarAvaliacoesMercadoLivrePorConta(orgId, channelAccountId);
+}
+
+async function sincronizarAvaliacoesMercadoLivrePorConta(orgId: string, channelAccountId?: string): Promise<{
+  contasVerificadas: number;
+  anunciosSincronizados: number;
+}> {
+  const contas = await listarContasMercadoLivreAvaliacoes(orgId, channelAccountId);
   let anunciosSincronizados = 0;
 
   for (const conta of contas) {

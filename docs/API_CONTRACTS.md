@@ -39,7 +39,6 @@ validacao, erro visivel e isolamento por org/marca.
 |---|---|---|---|
 | `/api/webhooks/shopee` | `POST` | Eventos Shopee | Verifica assinatura, busca detalhe oficial quando necessario e normaliza pedido. |
 | `/api/webhooks/tiktokshop` | `POST` | Eventos TikTok Shop | Verifica assinatura, suporta eventos de pedido e mensagens/perguntas. |
-| `/api/webhooks/olist` | `POST` | Eventos Olist | Valida resource oficial e seller configurado antes de persistir. |
 | `/api/tiktok-verify` | `GET` | Verificacao TikTok | Responde challenge/verify token conforme politica do provedor. |
 
 ## Server Actions Internas

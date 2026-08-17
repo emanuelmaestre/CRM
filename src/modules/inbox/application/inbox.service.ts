@@ -134,13 +134,15 @@ export async function receberMensagem(input: {
   return { conversaId: resultado.conversaId, mensagemId: resultado.mensagemId };
 }
 
-/** Busca ativa das conversas pós-venda dos pedidos recentes de todas as
- *  marcas com Mercado Livre conectado — preenche a aba Conversas sem
- *  depender exclusivamente do webhook, que só reage a eventos a partir do
- *  momento em que passa a estar no ar. Idempotente: reaproveita a mesma
- *  dedupe por providerMessageId do webhook (receberMensagem). */
-export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroativos = 90): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
-  const contas = await db
+async function listarContasMercadoLivreConversas(orgId: string, channelAccountId?: string) {
+  const condicoes = [
+    eq(channelAccount.orgId, orgId),
+    eq(channelAccount.tipo, "mercadolivre"),
+    eq(channelAccount.status, "conectado"),
+  ];
+  if (channelAccountId) condicoes.push(eq(channelAccount.id, channelAccountId));
+
+  return db
     .select({
       channelAccountId: channelAccount.id,
       brandId: channelAccount.brandId,
@@ -148,12 +150,32 @@ export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroa
     })
     .from(channelAccount)
     .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
-    .where(and(
-      eq(channelAccount.orgId, orgId),
-      eq(channelAccount.tipo, "mercadolivre"),
-      eq(channelAccount.status, "conectado"),
-    ));
+    .where(and(...condicoes));
+}
 
+/** Busca ativa das conversas pós-venda dos pedidos recentes de todas as
+ *  marcas com Mercado Livre conectado — preenche a aba Conversas sem
+ *  depender exclusivamente do webhook, que só reage a eventos a partir do
+ *  momento em que passa a estar no ar. Idempotente: reaproveita a mesma
+ *  dedupe por providerMessageId do webhook (receberMensagem). */
+export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroativos = 90): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
+  return sincronizarConversasMercadoLivrePorConta(orgId, diasRetroativos);
+}
+
+export async function sincronizarConversasMercadoLivreConta(
+  orgId: string,
+  channelAccountId: string,
+  diasRetroativos = 90,
+): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
+  return sincronizarConversasMercadoLivrePorConta(orgId, diasRetroativos, channelAccountId);
+}
+
+async function sincronizarConversasMercadoLivrePorConta(
+  orgId: string,
+  diasRetroativos: number,
+  channelAccountId?: string,
+): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
+  const contas = await listarContasMercadoLivreConversas(orgId, channelAccountId);
   const desde = new Date(Date.now() - diasRetroativos * 24 * 60 * 60 * 1000);
   let mensagensNovas = 0;
 

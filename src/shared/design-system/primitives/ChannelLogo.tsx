@@ -7,7 +7,6 @@ type Channel =
   | "shopee"
   | "tiktok"
   | "tiktokshop"
-  | "olist"
   | "instagram"
   | string;
 

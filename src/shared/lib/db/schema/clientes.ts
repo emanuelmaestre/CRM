@@ -7,7 +7,7 @@ import { appUser } from "./users";
 
 export const canalEnum = pgEnum("canal_tipo", [
   "whatsapp", "instagram", "facebook", "email", "mercadolivre",
-  "shopee", "tiktokshop", "olist", "manual",
+  "shopee", "tiktokshop", "manual",
 ]);
 
 export const finalidadeEnum = pgEnum("finalidade_consentimento", [

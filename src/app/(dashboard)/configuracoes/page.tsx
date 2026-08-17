@@ -14,15 +14,13 @@ import { CanaisPorMarca } from "./CanaisPorMarca";
 import { useMercadoLivreStatus } from "./useMercadoLivreStatus";
 import { AutomacoesSection } from "./AutomacoesSection";
 import { SincronizacaoSection } from "./SincronizacaoSection";
+import { UsuariosSection } from "./UsuariosSection";
 import settingsConfig from "@/config/settings.json";
-import permissionsConfig from "@/config/permissions.json";
 import {
-  actionAtualizarUsuario,
   actionListarConfiguracaoCanais,
   actionListarUsuarios,
   actionObterResumoConfiguracoes,
 } from "./actions";
-import type { Perfil } from "@/shared/lib/auth/authorization";
 import { toast } from "sonner";
 
 const PendingIcon = getIcon(settingsConfig.status.pendingIcon);
@@ -96,7 +94,6 @@ export default function ConfiguracoesPage() {
   const [resumo, setResumo] = useState<ResumoConfiguracoes | null>(null);
   const [carregandoUsuarios, setCarregandoUsuarios] = useState(true);
   const [carregandoCanais, setCarregandoCanais] = useState(true);
-  const [alterandoUsuario, setAlterandoUsuario] = useState<string | null>(null);
 
   const recarregarCanais = useCallback(async () => {
     setCarregandoCanais(true);
@@ -129,18 +126,9 @@ export default function ConfiguracoesPage() {
       });
   }, []);
 
-  async function alterarUsuario(usuario: UsuarioResumo, perfil: Perfil, ativo: boolean) {
-    setAlterandoUsuario(usuario.id);
-    try {
-      const atualizado = await actionAtualizarUsuario({ userId: usuario.id, perfil, ativo });
-      setUsuarios((atuais) => atuais.map((item) => item.id === atualizado.id ? atualizado : item));
-      toast.success(settingsConfig.users.messages.updateSuccess);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : settingsConfig.users.messages.updateError);
-    } finally {
-      setAlterandoUsuario(null);
-    }
-  }
+  const ordenarUsuarios = useCallback((items: UsuarioResumo[]) =>
+    [...items].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })),
+  []);
 
   return (
     <div>
@@ -151,60 +139,23 @@ export default function ConfiguracoesPage() {
 
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
 
-        <Card title={settingsConfig.sections.acesso.title} icon={getIcon(settingsConfig.sections.acesso.icon)}>
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-            <p className="text-sm font-semibold text-foreground">
-              {resumo?.organizationName ?? settingsConfig.loading}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                {resumo?.activeBrands.length ?? 0} marca{resumo?.activeBrands.length === 1 ? "" : "s"}
-              </span>
-              <span className="rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-                {canais.filter((item) => item.status === "conectado").length}/{canais.length} canais conectados
-              </span>
-            </div>
-          </div>
-
-          <div className="border-t border-border pt-3">
-            {carregandoUsuarios && <p className="text-sm text-muted-foreground">{settingsConfig.users.loading}</p>}
-            {!carregandoUsuarios && usuarios.length === 0 && (
-              <p className="text-sm text-muted-foreground">{settingsConfig.users.empty}</p>
-            )}
-            <div className="divide-y divide-border">
-              {usuarios.map((usuario) => (
-                <div key={usuario.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{usuario.nome}</p>
-                    <p className="truncate text-xs text-muted-foreground">{usuario.email}</p>
-                  </div>
-                  <select
-                    aria-label={`Perfil de ${usuario.nome}`}
-                    value={usuario.perfil}
-                    disabled={alterandoUsuario === usuario.id}
-                    onChange={(event) => alterarUsuario(usuario, event.target.value as Perfil, usuario.ativo)}
-                    className="h-9 rounded-lg border border-border bg-card px-2 text-xs text-foreground"
-                  >
-                    {Object.entries(permissionsConfig.profiles).map(([perfil, dados]) => (
-                      <option key={perfil} value={perfil}>{dados.label}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={alterandoUsuario === usuario.id}
-                    onClick={() => alterarUsuario(usuario, usuario.perfil, !usuario.ativo)}
-                    className={`h-9 rounded-lg px-3 text-xs font-semibold disabled:opacity-50 ${
-                      usuario.ativo
-                        ? "bg-success/10 text-success"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {usuario.ativo ? settingsConfig.users.deactivate : settingsConfig.users.activate}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+        <Card
+          title="Usuários"
+          description="Acessos, perfis e senhas temporárias da organização"
+          icon={getIcon("UsersRound")}
+        >
+          <UsuariosSection
+            usuarios={usuarios}
+            loading={carregandoUsuarios}
+            organizationName={resumo?.organizationName ?? null}
+            marcasAtivas={resumo?.activeBrands.length ?? 0}
+            canaisConectados={canais.filter((item) => item.status === "conectado").length}
+            canaisTotal={canais.length}
+            onUsuarioCriado={(usuario) => setUsuarios((atuais) => ordenarUsuarios([...atuais, usuario]))}
+            onUsuarioAtualizado={(usuario) =>
+              setUsuarios((atuais) => ordenarUsuarios(atuais.map((item) => item.id === usuario.id ? usuario : item)))
+            }
+          />
         </Card>
 
         <SectionHeading title={settingsConfig.sections.canais.title} icon={getIcon(settingsConfig.sections.canais.icon)} />
@@ -235,7 +186,6 @@ export default function ConfiguracoesPage() {
 
         <Card
           title="Central de sincronização"
-          description="Catálogo e pedidos sob demanda, por conta — roda em segundo plano."
           icon={getIcon("Repeat")}
         >
           {carregandoCanais ? (

@@ -17,10 +17,10 @@ import {
 import type { PedidoNormalizado } from "../domain/ports";
 import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, mapearStatusPedido } from "../domain/order-status";
 
-type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop" | "olist";
+type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop";
 
 function toCanal(canal: string): CanalSuportado {
-  if (canal === "shopee" || canal === "mercadolivre" || canal === "tiktokshop" || canal === "olist") return canal;
+  if (canal === "shopee" || canal === "mercadolivre" || canal === "tiktokshop") return canal;
   throw new Error(`Canal de pedido não suportado: ${canal}.`);
 }
 

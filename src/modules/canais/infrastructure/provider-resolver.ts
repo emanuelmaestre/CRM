@@ -1,14 +1,13 @@
 import type { ChannelProvider } from "../domain/ports";
 import { criarMLProvider } from "./mercadolivre.provider";
-import { criarOlistProvider } from "./olist.provider";
 import { criarShopeeProvider } from "./shopee.provider";
 import { criarTikTokShopProvider } from "./tiktokshop.provider";
 import { isBrandSlug } from "@/shared/config/brands";
 
-export type Marketplace = "mercadolivre" | "shopee" | "tiktokshop" | "olist";
+export type Marketplace = "mercadolivre" | "shopee" | "tiktokshop";
 
 export function isMarketplace(value: string): value is Marketplace {
-  return value === "mercadolivre" || value === "shopee" || value === "tiktokshop" || value === "olist";
+  return value === "mercadolivre" || value === "shopee" || value === "tiktokshop";
 }
 
 export async function resolverChannelProvider(
@@ -21,6 +20,5 @@ export async function resolverChannelProvider(
     case "mercadolivre": return criarMLProvider(brandSlug);
     case "shopee": return criarShopeeProvider(brandSlug);
     case "tiktokshop": return criarTikTokShopProvider(brandSlug);
-    case "olist": return criarOlistProvider(brandSlug);
   }
 }

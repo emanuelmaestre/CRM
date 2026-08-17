@@ -22,7 +22,6 @@ até a homologação real dos conectores, do isolamento entre marcas e dos dispa
 | Isolamento de marca | pronta para homologação externa | FK composta, conta/pedido e SKU protegidos por marca; falta ensaio real KARZI × WUWU × Armarinhos Lima |
 | Conectores — Mercado Livre | **conectado e operando** | as três contas (KARZI, WUWU, Armarinhos Lima) estão com status `conectado` e token válido; renovação automática pelo job A23 confirmada em execução real |
 | Conectores — Shopee / TikTok Shop | código verificado; conexão adiada | providers e webhooks testados; sem credenciais reais configuradas (status `degradado` no health-check) — fora do foco atual por decisão de produto |
-| Conectores — Olist | código verificado; produção bloqueada | provider testado; ainda sem `channel_account` cadastrada |
 | CRM operacional (Fase A) | concluída | aceite e evidências em `fase-a-dod.json` |
 | Réguas e automações | pronta para homologação externa | seis gates aprovados; outbound real permanece bloqueado por `EXTERNAL_SENDS_ENABLED=false` |
 | Inbox Mercado Livre | pronta para homologação externa | os três tipos oficiais de mensagem (pós-venda, perguntas pré-venda, mensagem de reclamação) têm ingestão e resposta reais no código; falta homologação com volume real de eventos |
@@ -59,7 +58,6 @@ até a homologação real dos conectores, do isolamento entre marcas e dos dispa
   conectividade**, mas falta calibração/volume para aceite operacional pleno.
 - Shopee, TikTok Shop: sem credenciais reais — fora do escopo ativo por decisão de produto (fase
   futura), não é mais tratado como pendência do ciclo atual.
-- Olist: ainda sem `channel_account` cadastrada.
 - Catálogo de produtos: desatualizado frente ao catálogo real do Mercado Livre por marca — bloqueia
   ingestão de pedidos com SKU ainda não mapeado (ver evidência do job A24 acima).
 - Storage (`documentos`) e ensaio de restore de backup: ainda não homologados no ambiente alvo.
@@ -74,8 +72,7 @@ A Fase B só pode ser marcada como concluída após:
    corrida limpa);
 3. conferir baixa e saldo remoto ponta a ponta por `estoque.sincronizado`;
 4. homologar mensagens/perguntas oficiais do Mercado Livre com volume real;
-5. conectar Olist quando as credenciais estiverem disponíveis;
-6. executar outbound aprovado sem duplicação, mantendo os seis gates ativos.
+5. executar outbound aprovado sem duplicação, mantendo os seis gates ativos.
 
 Shopee e TikTok Shop saem deste gate — passam a ser tratados em uma fase própria, futura.
 

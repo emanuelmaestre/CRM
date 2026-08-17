@@ -9,13 +9,17 @@ import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
  *  — todo carregamento do mosaico batia de novo, para cada marca, na API. O
  *  termômetro não pula de faixa a cada segundo, então 90s de cache por marca
  *  cortam a espera sem servir dado velho de verdade. */
+export const REPUTACAO_CACHE_TAG = "reputacao-mercadolivre";
+
+async function obterReputacaoDaMarca(orgId: string, slug: string) {
+  const provider = await criarMLProvider(slug as Parameters<typeof criarMLProvider>[0]);
+  return provider.obterReputacao();
+}
+
 const obterReputacaoDaMarcaComCache = unstable_cache(
-  async (orgId: string, slug: string) => {
-    const provider = await criarMLProvider(slug as Parameters<typeof criarMLProvider>[0]);
-    return provider.obterReputacao();
-  },
+  obterReputacaoDaMarca,
   ["reputacao-marca"],
-  { revalidate: 90 },
+  { revalidate: 90, tags: [REPUTACAO_CACHE_TAG] },
 );
 
 /* ── Termômetro do Mercado Livre ─────────────────────────────────
@@ -165,17 +169,20 @@ function montarTaxa(
 /** Marcas com conta do Mercado Livre conectada. Compartilhado com o serviço de
  *  reclamações em espírito, mas devolvendo o brandId — o painel filtra por id,
  *  não por slug. */
-async function marcasConectadas(ctx: CrudContext) {
+async function marcasConectadas(ctx: CrudContext, channelAccountId?: string) {
+  const condicoes = [
+    eq(channelAccount.orgId, ctx.orgId),
+    eq(channelAccount.tipo, "mercadolivre"),
+    eq(channelAccount.status, "conectado"),
+    eq(brand.active, true),
+  ];
+  if (channelAccountId) condicoes.push(eq(channelAccount.id, channelAccountId));
+
   const contas = await ctx.db
     .select({ brandId: channelAccount.brandId, slug: brand.slug })
     .from(channelAccount)
     .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
-    .where(and(
-      eq(channelAccount.orgId, ctx.orgId),
-      eq(channelAccount.tipo, "mercadolivre"),
-      eq(channelAccount.status, "conectado"),
-      eq(brand.active, true),
-    ));
+    .where(and(...condicoes));
 
   const porSlug = new Map<string, string>();
   for (const conta of contas) {
@@ -184,16 +191,20 @@ async function marcasConectadas(ctx: CrudContext) {
   return [...porSlug.entries()].map(([slug, brandId]) => ({ slug, brandId }));
 }
 
-export async function obterReputacao(ctx: CrudContext): Promise<ReputacaoResultado> {
-  const marcas = await marcasConectadas(ctx);
+export async function obterReputacao(
+  ctx: CrudContext,
+  opcoes: { channelAccountId?: string; ignorarCache?: boolean } = {},
+): Promise<ReputacaoResultado> {
+  const marcas = await marcasConectadas(ctx, opcoes.channelAccountId);
   if (marcas.length === 0) {
     return { marcas: [], marcasComFalha: [], semContaConectada: true };
   }
 
   // Uma marca fora do ar não pode derrubar as outras: allSettled em vez de all,
   // e quem falhou vira aviso na tela em vez de erro na página inteira.
+  const buscarReputacao = opcoes.ignorarCache ? obterReputacaoDaMarca : obterReputacaoDaMarcaComCache;
   const resultados = await Promise.allSettled(
-    marcas.map(({ slug }) => obterReputacaoDaMarcaComCache(ctx.orgId, slug)),
+    marcas.map(({ slug }) => buscarReputacao(ctx.orgId, slug)),
   );
 
   const marcasComFalha: string[] = [];

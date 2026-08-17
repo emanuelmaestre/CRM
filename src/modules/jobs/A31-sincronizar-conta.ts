@@ -7,15 +7,51 @@ import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.serv
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { emitirEvento } from "@/shared/events";
 import type { CrudContext } from "@/shared/lib/crud-factory";
+import { sincronizarAnunciosMercadoLivreConta } from "@/modules/anuncios/application/sincronizacao.service";
+import { sincronizarAvaliacoesMercadoLivreConta } from "@/modules/canais/application/avaliacoes.service";
+import { sincronizarConversasMercadoLivreConta } from "@/modules/inbox/application/inbox.service";
+import { obterReclamacoesAbertas } from "@/modules/metricas/application/reclamacoes.service";
+import { obterReputacao } from "@/modules/metricas/application/reputacao.service";
 
-/** Disparo manual da Central de Sincronização (Configurações) — catálogo e
- *  pedidos de UMA conta, cada módulo atualizando sua própria coluna de
+type ExecucaoPatch = Partial<typeof sincronizacaoExecucao.$inferInsert>;
+type ModuloSincronizacao =
+  | "catalogo"
+  | "pedidos"
+  | "anuncios"
+  | "avaliacoes"
+  | "reputacao"
+  | "reclamacoes"
+  | "mensagens";
+
+const COLUNAS: Record<ModuloSincronizacao, { status: keyof ExecucaoPatch; resultado: keyof ExecucaoPatch; erro: keyof ExecucaoPatch }> = {
+  catalogo: { status: "catalogoStatus", resultado: "catalogoResultado", erro: "catalogoErro" },
+  pedidos: { status: "pedidosStatus", resultado: "pedidosResultado", erro: "pedidosErro" },
+  anuncios: { status: "anunciosStatus", resultado: "anunciosResultado", erro: "anunciosErro" },
+  avaliacoes: { status: "avaliacoesStatus", resultado: "avaliacoesResultado", erro: "avaliacoesErro" },
+  reputacao: { status: "reputacaoStatus", resultado: "reputacaoResultado", erro: "reputacaoErro" },
+  reclamacoes: { status: "reclamacoesStatus", resultado: "reclamacoesResultado", erro: "reclamacoesErro" },
+  mensagens: { status: "mensagensStatus", resultado: "mensagensResultado", erro: "mensagensErro" },
+};
+
+function erroLegivel(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function semSuporte(modulo: string, tipo: string) {
+  return {
+    semSuporte: true,
+    mensagem: `${modulo} ainda não tem sincronização ativa para contas ${tipo}.`,
+  };
+}
+
+/** Disparo manual da Central de Sincronização (Configurações) — fila completa
+ *  de UMA conta, cada módulo atualizando sua própria coluna de
  *  status em sincronizacao_execucao pra tela poder mostrar progresso real
  *  (não é lote noturno como A24/A27: é "clicou, quero ver andando agora"). */
 export const A31_sincronizarConta = inngest.createFunction(
   {
     id: "A31-sincronizar-conta",
-    name: "A31 — Sincronização manual de conta (catálogo + pedidos)",
+    name: "A31 — Sincronização manual de conta (fila completa)",
     idempotency: "event.data.execucaoId",
     triggers: [{ event: "canal/sincronizacao.solicitada" }],
   },
@@ -36,67 +72,111 @@ export const A31_sincronizarConta = inngest.createFunction(
     );
     if (!conta) throw new Error("Conta de canal não encontrada para sincronização.");
 
-    // Só o Mercado Livre tem importação de catálogo pronta hoje — Shopee e
-    // TikTok Shop ainda não têm esse módulo implementado, então o passo
-    // fica marcado como "concluído" sem trabalho, em vez de erro.
-    await step.run("catalogo-em-andamento", () =>
-      db.update(sincronizacaoExecucao).set({ catalogoStatus: "em_andamento" }).where(eq(sincronizacaoExecucao.id, execucaoId)),
-    );
-    try {
-      const ctx: CrudContext = { orgId, perfil: "admin", db };
-      const resultadoCatalogo = conta.tipo === "mercadolivre"
-        ? await step.run("catalogo", () => importarCatalogoContaMercadoLivre(ctx, channelAccountId))
-        : { produtosCriados: 0, ignorados: 0, semSuporte: true };
-      await step.run("catalogo-concluido", () =>
-        db.update(sincronizacaoExecucao)
-          .set({ catalogoStatus: "concluido", catalogoResultado: resultadoCatalogo })
-          .where(eq(sincronizacaoExecucao.id, execucaoId)),
-      );
-    } catch (error) {
-      await step.run("catalogo-erro", () =>
-        db.update(sincronizacaoExecucao)
-          .set({ catalogoStatus: "erro", catalogoErro: String(error) })
-          .where(eq(sincronizacaoExecucao.id, execucaoId)),
-      );
+    const ctx: CrudContext = { orgId, perfil: "admin", db };
+
+    async function atualizarExecucao(patch: ExecucaoPatch) {
+      await db.update(sincronizacaoExecucao).set(patch).where(eq(sincronizacaoExecucao.id, execucaoId));
     }
 
-    await step.run("pedidos-em-andamento", () =>
-      db.update(sincronizacaoExecucao).set({ pedidosStatus: "em_andamento" }).where(eq(sincronizacaoExecucao.id, execucaoId)),
-    );
-    try {
-      const resultadoPedidos = await step.run("pedidos", async () => {
-        const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug ?? "");
-        if (!provider) return { encontrados: 0, novos: 0 };
-        const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
-        const pedidos = await provider.buscarPedidos(desde);
-        let novos = 0;
-        for (const pedidoBruto of pedidos) {
-          const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
-          const resultado = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
-          if (resultado.novo) novos += 1;
-        }
-        return { encontrados: pedidos.length, novos };
-      });
-      await step.run("pedidos-concluido", () =>
-        db.update(sincronizacaoExecucao)
-          .set({ pedidosStatus: "concluido", pedidosResultado: resultadoPedidos, finalizadoEm: new Date() })
-          .where(eq(sincronizacaoExecucao.id, execucaoId)),
-      );
-    } catch (error) {
-      await step.run("pedidos-erro", () =>
-        db.update(sincronizacaoExecucao)
-          .set({ pedidosStatus: "erro", pedidosErro: String(error), finalizadoEm: new Date() })
-          .where(eq(sincronizacaoExecucao.id, execucaoId)),
-      );
+    function patchStatus(modulo: ModuloSincronizacao, status: "pendente" | "em_andamento" | "concluido" | "erro", extra: ExecucaoPatch = {}): ExecucaoPatch {
+      return { [COLUNAS[modulo].status]: status, ...extra } as ExecucaoPatch;
+    }
+
+    function patchResultado(modulo: ModuloSincronizacao, resultado: unknown): ExecucaoPatch {
+      return patchStatus(modulo, "concluido", { [COLUNAS[modulo].resultado]: resultado } as ExecucaoPatch);
+    }
+
+    function patchErro(modulo: ModuloSincronizacao, error: unknown): ExecucaoPatch {
+      return patchStatus(modulo, "erro", { [COLUNAS[modulo].erro]: erroLegivel(error) } as ExecucaoPatch);
+    }
+
+    async function executarModulo(modulo: ModuloSincronizacao, trabalho: () => Promise<unknown>): Promise<{ ok: true; resultado: unknown } | { ok: false; erro: string }> {
+      await step.run(`${modulo}-em-andamento`, () => atualizarExecucao(patchStatus(modulo, "em_andamento")));
+      try {
+        const resultado = await step.run(modulo, trabalho);
+        await step.run(`${modulo}-concluido`, () => atualizarExecucao(patchResultado(modulo, resultado)));
+        return { ok: true, resultado };
+      } catch (error) {
+        await step.run(`${modulo}-erro`, () => atualizarExecucao(patchErro(modulo, error)));
+        return { ok: false, erro: erroLegivel(error) };
+      }
+    }
+
+    await executarModulo("catalogo", async () => (
+      conta.tipo === "mercadolivre"
+        ? importarCatalogoContaMercadoLivre(ctx, channelAccountId)
+        : { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) }
+    ));
+
+    const resultadoPedidos = await executarModulo("pedidos", async () => {
+      const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug ?? "");
+      if (!provider) return { encontrados: 0, novos: 0, ...semSuporte("Pedidos", conta.tipo) };
+      const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
+      const pedidos = await provider.buscarPedidos(desde);
+      let novos = 0;
+      for (const pedidoBruto of pedidos) {
+        const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
+        const resultado = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
+        if (resultado.novo) novos += 1;
+      }
+      return { encontrados: pedidos.length, novos };
+    });
+    if (!resultadoPedidos.ok) {
       await emitirEvento({
         tipo: "canal.degradado",
         orgId,
         brandId: conta.brandId,
         entidade: "channel_account",
         entidadeId: channelAccountId,
-        payload: { motivo: "falha-sincronizacao-manual-pedidos", erro: String(error) },
+        payload: { motivo: "falha-sincronizacao-manual-pedidos", erro: resultadoPedidos.erro },
       });
     }
+
+    await executarModulo("anuncios", async () => (
+      conta.tipo === "mercadolivre"
+        ? sincronizarAnunciosMercadoLivreConta(ctx, channelAccountId)
+        : semSuporte("Product Ads", conta.tipo)
+    ));
+
+    await executarModulo("avaliacoes", async () => (
+      conta.tipo === "mercadolivre"
+        ? sincronizarAvaliacoesMercadoLivreConta(orgId, channelAccountId)
+        : semSuporte("Avaliações", conta.tipo)
+    ));
+
+    await executarModulo("reputacao", async () => {
+      if (conta.tipo !== "mercadolivre") return semSuporte("Reputação/Termômetro", conta.tipo);
+      const resultado = await obterReputacao(ctx, { channelAccountId, ignorarCache: true });
+      const marca = resultado.marcas[0];
+      return {
+        marcas: resultado.marcas.length,
+        marcasComFalha: resultado.marcasComFalha,
+        termometro: marca?.faixaLabel ?? null,
+        vendasConcluidas: marca?.vendasConcluidas ?? null,
+        semContaConectada: resultado.semContaConectada,
+      };
+    });
+
+    await executarModulo("reclamacoes", async () => {
+      if (conta.tipo !== "mercadolivre") return semSuporte("Reclamações", conta.tipo);
+      const resultado = await obterReclamacoesAbertas(ctx, { channelAccountId });
+      return {
+        total: resultado.total,
+        emMediacao: resultado.itens.filter((item) => item.emMediacao).length,
+        marcasComFalha: resultado.marcasComFalha,
+        semContaConectada: resultado.semContaConectada,
+      };
+    });
+
+    await executarModulo("mensagens", async () => (
+      conta.tipo === "mercadolivre"
+        ? sincronizarConversasMercadoLivreConta(orgId, channelAccountId, 90)
+        : semSuporte("Mensagens", conta.tipo)
+    ));
+
+    await step.run("finalizar-execucao", () =>
+      atualizarExecucao({ finalizadoEm: new Date() }),
+    );
 
     return { execucaoId };
   },

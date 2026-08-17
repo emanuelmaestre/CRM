@@ -203,7 +203,7 @@ migrations e docs vivos desde o dia 1).
 | Jobs/Filas | **Inngest** (funções duráveis, cron, retry, chave de idempotência) | serverless-friendly; validado no Viratour |
 | Cache/Rate limit | **Upstash Redis** | validado no Viratour |
 | WhatsApp | **Z-API** atrás da interface `MessagingProvider` | experiência real; Meta Cloud API como plano B plugável |
-| Marketplaces | APIs oficiais (**Mercado Livre, Shopee, TikTok Shop, Olist** — lista fechada) atrás de `ChannelProvider` | Cláusula 10.2 permite trocar fornecedor |
+| Marketplaces | APIs oficiais (**Mercado Livre, Shopee, TikTok Shop** — lista fechada) atrás de `ChannelProvider` | Cláusula 10.2 permite trocar fornecedor |
 | **IA** | **OpenAI** via `AiService` central — `gpt-4.1-mini` (triagem/estruturação) + `gpt-4.1` (insights executivos) + embeddings p/ busca semântica (P2) | decisão de stack do projeto; modelos em camadas por custo |
 | Documentos | **@react-pdf/renderer** (PDF) + **docx** (Word) | exigência do Anexo I item 05 |
 | E-mail/Agenda | Gmail API / Google Calendar API | Anexo I item 03 |
@@ -223,7 +223,6 @@ migrations e docs vivos desde o dia 1).
   │ Mercado Livre    │           │ WhatsApp (Z-API) │          │ Gmail        │
   │ Shopee           │           │ Instagram DM     │          │ G. Calendar  │
   │ TikTok Shop      │           │ Facebook Msg     │          │ Cobranças    │
-  │ Olist            │           └──────────────────┘          │ OpenAI       │
   └──────────────────┘                                         └──────────────┘
         │  ▲                            │  ▲                        │  ▲
   pedidos│  │estoque              msgs  │  │respostas       chamadas│  │retornos
@@ -447,7 +446,7 @@ de escopo estranho. (Padrão de "lifecycle canônico" da metodologia estudada.)*
 
 ```
  0. Gestor configura canais, réguas, templates e limiares (por marca)
- 1. Pedido nasce em um canal (ML, Shopee, TikTok, Olist, loja, manual)
+ 1. Pedido nasce em um canal (ML, Shopee, TikTok, loja, manual)
  2. Sistema ingere, normaliza e deduplica o pedido            → A1
  3. Cliente é resolvido/criado no motor de identidade (1 ficha p/ org)
  4. Pagamento confirmado → baixa no livro-razão de estoque    → A2
@@ -491,16 +490,15 @@ BillingProvider    → criarCobranca, webhookStatus
 MailProvider       → enviar, sincronizarAgenda
 ```
 
-**Canais de venda — lista fechada (definida em 17/07/2026):** Mercado Livre, Shopee, TikTok Shop
-e Olist. Loja online própria (Nuvemshop/Shopify/Tray) **não** está contratada — se surgir depois,
-entra como Evolução (Cláusula 4.3).
+**Canais de venda — lista fechada (atualizada em 17/08/2026):** Mercado Livre, Shopee e TikTok Shop.
+Loja online própria (Nuvemshop/Shopify/Tray) **não** está contratada — se surgir depois, entra
+como Evolução (Cláusula 4.3).
 
 | Conector | Tipo | Nota |
 |---|---|---|
 | Mercado Livre | Channel + avaliação | OAuth; mensagens pós-venda só pelo canal oficial |
 | Shopee | Channel | API oficial |
 | TikTok Shop | Channel | API oficial |
-| Olist | Channel (hub — Amazon e outros via Olist) | API oficial |
 | WhatsApp (Z-API) | Messaging | 1 instância por marca (sigilo entre marcas) |
 | Instagram/Facebook | Messaging | Meta Graph; DMs no inbox, por conta de marca |
 | Cobranças | Billing | gateway definido na Fase 1 (Asaas já dominado) |
@@ -875,7 +873,7 @@ Cada fase termina com homologação navegável + checklist de aceite assinável 
 
 | Fase | Semanas | Entregas | Aceite (resumo) |
 |---|---|---|---|
-| **1 · Entendimento** | 1 | levantamento de processos e contas reais por marca, fluxos, protótipo navegável, `docs/` inicial. Canais de venda **já fechados** (ML, Shopee, TikTok Shop, Olist — 17/07/2026); resta confirmar contas por marca, gateway de cobrança e nº de WhatsApp | cliente valida protótipo e mapa de contas **por escrito** |
+| **1 · Entendimento** | 1 | levantamento de processos e contas reais por marca, fluxos, protótipo navegável, `docs/` inicial. Canais de venda **já fechados** (ML, Shopee, TikTok Shop — atualizado em 17/08/2026); resta confirmar contas por marca, gateway de cobrança e nº de WhatsApp | cliente valida protótipo e mapa de contas **por escrito** |
 | **2 · CRM Core (MVP)** | 2–3 | auth+perfis, clientes 360º, funil, tarefas/agenda, estoque manual com livro-razão, auditoria, shell do painel | equipe navega em homologação; CRUD+RLS testados |
 | **3 · Integrações** | 4–5 | conectores, inbox, pedidos, baixa+sync de estoque, réguas com gates, importação | pedido real ≤5min; baixa correta; gates comprovados |
 | **4 · Inteligência** | 6–7 | scores, sugestões com aprovação, insights, documentos, painel de consumo, **calibração assistida** | scores conferidos; 0 disparos sem aprovação |
@@ -1054,7 +1052,7 @@ lifecycle canônico e princípios de engenharia do caso CareLoop; fundamentos Su
 que travam ou destravam o cronograma inteiro. Sair da reunião sem esses dados = Fase 1 incompleta.*
 
 **1. Canais e contas (por marca)**
-- Quais contas existem hoje para KARZI e para WUWU? (ML, Shopee, TikTok, Olist, loja, WhatsApp, IG/FB)
+- Quais contas existem hoje para KARZI e para WUWU? (ML, Shopee, TikTok, loja, WhatsApp, IG/FB)
 - Quem é o titular de cada conta? Quem tem a senha/acesso? Há verificação pendente em alguma?
 - Qual número de WhatsApp atende cada marca? Já é WhatsApp Business?
 

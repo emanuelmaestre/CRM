@@ -1,10 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
 import { listarHistoricoAutomacoes } from "@/modules/reguas/application/reguas.service";
-import { atualizarUsuario, listarUsuarios } from "@/modules/usuarios/application/usuarios.service";
+import {
+  atualizarUsuario,
+  criarUsuarioComSenha,
+  listarUsuarios,
+  redefinirSenhaUsuario,
+} from "@/modules/usuarios/application/usuarios.service";
 import {
   atualizarContaCanalConfiguracao,
   criarContaCanalConfiguracao,
@@ -25,6 +30,7 @@ import {
 } from "@/modules/importacao/application/importacao-historica.service";
 import { inngest } from "@/shared/lib/inngest/client";
 import { dispararSincronizacaoConta, obterUltimaSincronizacaoConta } from "@/modules/canais/application/sincronizacao.service";
+import { REPUTACAO_CACHE_TAG } from "@/modules/metricas/application/reputacao.service";
 
 export async function actionListarUsuarios() {
   return listarUsuarios(await getCrudContext());
@@ -36,12 +42,28 @@ export async function actionAtualizarUsuario(input: unknown) {
   return resultado;
 }
 
+export async function actionCriarUsuarioComSenha(input: unknown) {
+  const resultado = await criarUsuarioComSenha(await getCrudContext(), input);
+  revalidatePath("/configuracoes");
+  return resultado;
+}
+
+export async function actionRedefinirSenhaUsuario(input: unknown) {
+  const resultado = await redefinirSenhaUsuario(await getCrudContext(), input);
+  revalidatePath("/configuracoes");
+  return resultado;
+}
+
 export async function actionListarConfiguracaoCanais() {
   return listarConfiguracaoCanais(await getCrudContext());
 }
 
 export async function actionDispararSincronizacaoConta(channelAccountId: string) {
-  const execucao = await dispararSincronizacaoConta(await getCrudContext(), channelAccountId);
+  const ctx = await getCrudContext();
+  const execucao = await dispararSincronizacaoConta(ctx, channelAccountId);
+  revalidateTag(`reclamacoes-${ctx.orgId}`, "max");
+  revalidateTag(REPUTACAO_CACHE_TAG, "max");
+  revalidatePath("/metricas");
   return execucao;
 }
 

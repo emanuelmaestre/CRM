@@ -2,6 +2,7 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, type DB } from "@/shared/lib/db";
 import { eventoDominio } from "@/shared/lib/db/schema";
 import { inngest } from "@/shared/lib/inngest/client";
+import { notificarAdminWhatsApp } from "@/shared/lib/whatsapp/notificacoes-admin";
 
 export type DomainEventType =
   | "cliente.criado"
@@ -15,7 +16,9 @@ export type DomainEventType =
   | "cliente.segmento_excluido"
   | "produto.criado"
   | "produto.atualizado"
+  | "usuario.criado"
   | "usuario.perfil_atualizado"
+  | "usuario.senha_redefinida"
   | "oportunidade.criada"
   | "oportunidade.movida"
   | "oportunidade.excluida"
@@ -97,6 +100,10 @@ export async function persistirEvento(
 }
 
 export async function despacharEvento(event: PersistedDomainEvent): Promise<void> {
+  // Independente do Inngest: aviso de WhatsApp para o admin nunca pode
+  // bloquear nem ser bloqueado pelo restante do despacho.
+  void notificarAdminWhatsApp(event);
+
   const inngestName = INNGEST_EVENT_MAP[event.tipo];
   if (!inngestName) return;
 

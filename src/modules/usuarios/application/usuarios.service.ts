@@ -1,16 +1,73 @@
+import { createClient } from "@supabase/supabase-js";
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { appUser, auditLog } from "@/shared/lib/db/schema";
 import { persistirEvento } from "@/shared/events";
 
+const PerfilSchema = z.enum(["admin", "gestor", "vendedor"]);
+const SenhaTemporariaSchema = z.string()
+  .min(8, "A senha precisa ter pelo menos 8 caracteres.")
+  .max(128, "A senha deve ter no máximo 128 caracteres.")
+  .regex(/[A-Za-zÀ-ÿ]/, "Inclua pelo menos uma letra.")
+  .regex(/\d/, "Inclua pelo menos um número.");
+
 export const AtualizarUsuarioSchema = z.object({
   userId: z.string().uuid(),
-  perfil: z.enum(["admin", "gestor", "vendedor"]),
+  perfil: PerfilSchema,
   ativo: z.boolean(),
 });
 
+export const CriarUsuarioSchema = z.object({
+  nome: z.string().trim().min(2, "Informe o nome do usuário.").max(120),
+  email: z.string().trim().email("Informe um e-mail válido.").transform((email) => email.toLowerCase()),
+  perfil: PerfilSchema,
+  senha: SenhaTemporariaSchema,
+});
+
+export const RedefinirSenhaUsuarioSchema = z.object({
+  userId: z.string().uuid(),
+  senha: SenhaTemporariaSchema,
+});
+
 export type AtualizarUsuarioInput = z.infer<typeof AtualizarUsuarioSchema>;
+export type CriarUsuarioInput = z.infer<typeof CriarUsuarioSchema>;
+export type RedefinirSenhaUsuarioInput = z.infer<typeof RedefinirSenhaUsuarioSchema>;
+
+function criarSupabaseAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase Admin não configurado. Defina NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+type SupabaseAdminClient = ReturnType<typeof criarSupabaseAdminClient>;
+
+async function buscarUsuarioAuthPorEmail(adminClient: SupabaseAdminClient, email: string) {
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+
+    const encontrado = data.users.find((user) => user.email?.toLowerCase() === email);
+    if (encontrado) return encontrado;
+    if (data.users.length < 1000) break;
+  }
+
+  return null;
+}
+
+function mensagemErroSupabase(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? `${fallback} (${error.message})` : fallback;
+}
 
 export function validarAlteracaoDoProprioAdmin(
   actorId: string | undefined,
@@ -34,6 +91,129 @@ export async function listarUsuarios(ctx: CrudContext) {
     .from(appUser)
     .where(eq(appUser.orgId, ctx.orgId))
     .orderBy(asc(appUser.nome));
+}
+
+export async function criarUsuarioComSenha(ctx: CrudContext, rawInput: unknown) {
+  assertPerfil(ctx, ["admin"]);
+  const input = CriarUsuarioSchema.parse(rawInput);
+
+  const usuarioExistente = await ctx.db
+    .select({ id: appUser.id })
+    .from(appUser)
+    .where(eq(appUser.email, input.email))
+    .then((rows) => rows[0]);
+
+  if (usuarioExistente) {
+    throw new Error("Já existe um usuário com este e-mail.");
+  }
+
+  const adminClient = criarSupabaseAdminClient();
+  const usuarioAuthExistente = await buscarUsuarioAuthPorEmail(adminClient, input.email);
+  let authUserId = usuarioAuthExistente?.id;
+  let authCriadoNestaOperacao = false;
+
+  try {
+    if (usuarioAuthExistente) {
+      const { data, error } = await adminClient.auth.admin.updateUserById(usuarioAuthExistente.id, {
+        password: input.senha,
+        user_metadata: {
+          ...usuarioAuthExistente.user_metadata,
+          full_name: input.nome,
+          crm_org_id: ctx.orgId,
+          perfil: input.perfil,
+        },
+      });
+      if (error) throw error;
+      authUserId = data.user?.id ?? usuarioAuthExistente.id;
+    } else {
+      const { data, error } = await adminClient.auth.admin.createUser({
+        email: input.email,
+        password: input.senha,
+        email_confirm: true,
+        user_metadata: {
+          full_name: input.nome,
+          crm_org_id: ctx.orgId,
+          perfil: input.perfil,
+        },
+      });
+      if (error) throw error;
+      if (!data.user?.id) throw new Error("Supabase não retornou o usuário criado.");
+      authUserId = data.user.id;
+      authCriadoNestaOperacao = true;
+    }
+  } catch (error) {
+    throw new Error(mensagemErroSupabase(error, "Não foi possível criar o usuário no Supabase Auth."));
+  }
+
+  const usuarioComMesmoAuth = await ctx.db
+    .select({ id: appUser.id })
+    .from(appUser)
+    .where(eq(appUser.id, authUserId))
+    .then((rows) => rows[0]);
+
+  if (usuarioComMesmoAuth) {
+    if (authCriadoNestaOperacao) {
+      await adminClient.auth.admin.deleteUser(authUserId).catch(() => undefined);
+    }
+    throw new Error("Este acesso já está provisionado no CRM.");
+  }
+
+  try {
+    const [criado] = await ctx.db
+      .insert(appUser)
+      .values({
+        id: authUserId,
+        orgId: ctx.orgId,
+        email: input.email,
+        nome: input.nome,
+        perfil: input.perfil,
+        ativo: true,
+      })
+      .returning({
+        id: appUser.id,
+        email: appUser.email,
+        nome: appUser.nome,
+        perfil: appUser.perfil,
+        ativo: appUser.ativo,
+      });
+
+    await ctx.db.insert(auditLog).values({
+      orgId: ctx.orgId,
+      autorId: ctx.userId,
+      autorTipo: "usuario",
+      entidade: "app_user",
+      entidadeId: criado.id,
+      acao: "usuario_criado",
+      depois: {
+        email: criado.email,
+        nome: criado.nome,
+        perfil: criado.perfil,
+        ativo: criado.ativo,
+        origemAuth: usuarioAuthExistente ? "auth_existente" : "auth_criado",
+      },
+    });
+
+    await persistirEvento({
+      tipo: "usuario.criado",
+      orgId: ctx.orgId,
+      entidade: "app_user",
+      entidadeId: criado.id,
+      payload: {
+        email: criado.email,
+        nome: criado.nome,
+        perfil: criado.perfil,
+        ativo: criado.ativo,
+        authExistente: Boolean(usuarioAuthExistente),
+      },
+    }, ctx.db);
+
+    return criado;
+  } catch (error) {
+    if (authCriadoNestaOperacao) {
+      await adminClient.auth.admin.deleteUser(authUserId).catch(() => undefined);
+    }
+    throw error;
+  }
 }
 
 export async function atualizarUsuario(ctx: CrudContext, rawInput: unknown) {
@@ -100,4 +280,61 @@ export async function atualizarUsuario(ctx: CrudContext, rawInput: unknown) {
   }, ctx.db);
 
   return atualizado;
+}
+
+export async function redefinirSenhaUsuario(ctx: CrudContext, rawInput: unknown) {
+  assertPerfil(ctx, ["admin"]);
+  const input = RedefinirSenhaUsuarioSchema.parse(rawInput);
+
+  const usuario = await ctx.db
+    .select({
+      id: appUser.id,
+      email: appUser.email,
+      nome: appUser.nome,
+      perfil: appUser.perfil,
+      ativo: appUser.ativo,
+    })
+    .from(appUser)
+    .where(and(eq(appUser.id, input.userId), eq(appUser.orgId, ctx.orgId)))
+    .then((rows) => rows[0]);
+
+  if (!usuario) throw new Error("Usuário não encontrado.");
+
+  const adminClient = criarSupabaseAdminClient();
+  const { error } = await adminClient.auth.admin.updateUserById(usuario.id, {
+    password: input.senha,
+  });
+
+  if (error) {
+    throw new Error(mensagemErroSupabase(error, "Não foi possível redefinir a senha no Supabase Auth."));
+  }
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    autorId: ctx.userId,
+    autorTipo: "usuario",
+    entidade: "app_user",
+    entidadeId: usuario.id,
+    acao: "senha_redefinida",
+    depois: {
+      email: usuario.email,
+      nome: usuario.nome,
+      perfil: usuario.perfil,
+      ativo: usuario.ativo,
+    },
+  });
+
+  await persistirEvento({
+    tipo: "usuario.senha_redefinida",
+    orgId: ctx.orgId,
+    entidade: "app_user",
+    entidadeId: usuario.id,
+    payload: {
+      email: usuario.email,
+      perfil: usuario.perfil,
+      ativo: usuario.ativo,
+    },
+  }, ctx.db);
+
+  return usuario;
 }

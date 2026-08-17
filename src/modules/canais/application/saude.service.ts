@@ -5,7 +5,6 @@ import { emitirEvento } from "@/shared/events";
 import { criarShopeeProvider } from "../infrastructure/shopee.provider";
 import { criarMLProvider } from "../infrastructure/mercadolivre.provider";
 import { criarTikTokShopProvider } from "../infrastructure/tiktokshop.provider";
-import { criarOlistProvider } from "../infrastructure/olist.provider";
 import type { ChannelProvider } from "../domain/ports";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
@@ -15,7 +14,6 @@ async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<Cha
       case "shopee":       return criarShopeeProvider(brandSlug);
       case "mercadolivre": return await criarMLProvider(brandSlug);
       case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
-      case "olist":        return criarOlistProvider(brandSlug);
       default:             return null;
     }
   } catch {
@@ -111,7 +109,7 @@ const CORE_ENV = [
 const INNGEST_ENV = ["INNGEST_SIGNING_KEY", "INNGEST_EVENT_KEY"];
 const OPENAI_ENV = ["OPENAI_API_KEY"];
 const STORAGE_BUCKET = "documentos";
-const CANAIS_GO_LIVE = ["mercadolivre", "shopee", "tiktokshop", "olist"] as const;
+const CANAIS_GO_LIVE = ["mercadolivre", "shopee", "tiktokshop"] as const;
 
 function configured(name: string): boolean {
   const value = process.env[name]?.trim();

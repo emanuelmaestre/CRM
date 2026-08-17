@@ -1,19 +1,19 @@
 {
   "phase": "B",
   "name": "Operação Conectada",
-  "updatedAt": "2026-08-02",
+  "updatedAt": "2026-08-17",
   "status": "ready_for_external_homologation",
   "summary": "As três contas reais do Mercado Livre foram autenticadas e validadas, o A23 foi corrigido e a descoberta assistida de anúncios/SKUs foi implantada. As chaves Inngest existem em Production; o aceite final ainda depende da confirmação dos mapeamentos, sincronização dos novos jobs e provas ponta a ponta.",
   "criteria": [
     {
       "id": "connectors",
       "status": "verified_locally",
-      "evidence": "Foco atual de homologação é o Mercado Livre: as três identidades reais foram confirmadas e o catálogo trata SELLER_SKU e variações. Providers Shopee, TikTok Shop v202309 e Olist Partner API têm testes contratuais, timeouts, validação de respostas e health-check no código, mas a conexão e homologação real desses canais foi adiada para uma fase futura — não são pendência ativa deste ciclo."
+      "evidence": "Foco atual de homologação é o Mercado Livre: as três identidades reais foram confirmadas e o catálogo trata SELLER_SKU e variações. Providers Shopee e TikTok Shop v202309 têm testes contratuais, timeouts, validação de respostas e health-check no código, mas a conexão e homologação real desses canais foi adiada para uma fase futura — não são pendência ativa deste ciclo."
     },
     {
       "id": "webhooks",
       "status": "verified_locally",
-      "evidence": "Webhooks limitam payload a 1 MB, validam schemas e assinaturas disponíveis; Olist aceita o payload oficial por resource e valida os dados consultando a API autenticada."
+      "evidence": "Webhooks limitam payload a 1 MB e validam schemas e assinaturas disponíveis para os canais mantidos no escopo."
     },
     {
       "id": "order_ingestion_sla",
@@ -23,7 +23,7 @@
     {
       "id": "stock_sync_reconciliation",
       "status": "external_validation_pending",
-      "evidence": "Baixa idempotente, resolução de externalSkuId, sync com retry, evento estoque.sincronizado e reconciliação local/remota estão implementados; falta prova real nos quatro canais."
+      "evidence": "Baixa idempotente, resolução de externalSkuId, sync com retry, evento estoque.sincronizado e reconciliação local/remota estão implementados; falta prova real nos canais mantidos no escopo."
     },
     {
       "id": "order_status_reconciliation",
@@ -83,7 +83,7 @@
     "externalSendsEnabled": false,
     "notes": [
       "As três contas Mercado Livre de KARZI, WUWU e Armarinhos Lima estão conectadas; os demais marketplaces permanecem desconectados.",
-      "IDs externos de Mercado Livre foram cadastrados; Shopee e TikTok Shop têm cadastro adiado para fase futura; Olist ainda não possui channel_account.",
+      "IDs externos de Mercado Livre foram cadastrados; Shopee e TikTok Shop têm cadastro adiado para fase futura.",
       "Os três tokens OAuth do Mercado Livre foram renovados e os seller IDs conferem com 3328823991, 2901062325 e 3222790734.",
       "Catálogo real: Armarinhos Lima 458 anúncios ativos, KARZI 17 e WUWU 175; todos os 277 candidatos auditados na primeira página possuem SELLER_SKU.",
       "INNGEST_SIGNING_KEY e INNGEST_EVENT_KEY estão presentes no ambiente Production da Vercel.",
@@ -93,7 +93,6 @@
   "externalBlockers": [
     "Sincronizar /api/inngest no Inngest após o deploy e comprovar A25/A26 registrados.",
     "Comprovar execuções concluídas de A18, A23 e A24 em produção.",
-    "Configurar credenciais e conectar Olist por marca.",
     "Confirmar na tela de Configurações os mapeamentos produto/listing/SKU/variação do Mercado Livre; cadastrar os mapeamentos dos demais canais quando conectados.",
     "Executar um pedido real via Mercado Livre e comprovar latência de até 5 minutos, baixa e evento estoque.sincronizado.",
     "Receber e comprovar ao menos uma mensagem real do Mercado Livre no inbox.",

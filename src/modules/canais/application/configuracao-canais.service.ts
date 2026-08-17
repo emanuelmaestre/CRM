@@ -19,28 +19,24 @@ const CANAIS_PRIORITARIOS = [
   "mercadolivre",
   "shopee",
   "tiktokshop",
-  "olist",
 ] as const;
 
 const CANAL_LABEL: Record<string, string> = {
   mercadolivre: "Mercado Livre",
   shopee: "Shopee",
   tiktokshop: "TikTok Shop",
-  olist: "Olist",
 };
 
 const ENV_POR_CANAL: Record<string, string[]> = {
   mercadolivre: ["ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_SELLER_ID_{BRAND}"],
   shopee: ["SHOPEE_PARTNER_ID", "SHOPEE_PARTNER_KEY", "SHOPEE_SHOP_ID_{BRAND}", "SHOPEE_ACCESS_TOKEN_{BRAND}"],
   tiktokshop: ["TIKTOK_APP_KEY", "TIKTOK_APP_SECRET", "TIKTOK_SHOP_ID_{BRAND}", "TIKTOK_SHOP_CIPHER_{BRAND}", "TIKTOK_ACCESS_TOKEN_{BRAND}"],
-  olist: ["OLIST_ID_TOKEN_{BRAND}", "OLIST_SELLER_ID_{BRAND}", "OLIST_WEBHOOK_SECRET"],
 };
 
 const EXTERNAL_ID_ENV: Record<string, string | null> = {
   mercadolivre: "ML_SELLER_ID_{BRAND}",
   shopee: "SHOPEE_SHOP_ID_{BRAND}",
   tiktokshop: "TIKTOK_SHOP_ID_{BRAND}",
-  olist: "OLIST_SELLER_ID_{BRAND}",
 };
 
 function envName(template: string, brandSlug: string) {
@@ -71,7 +67,7 @@ export interface CanalConfiguracao {
 
 const ContaCanalInputSchema = z.object({
   brandId: z.string().uuid(),
-  tipo: z.enum(["mercadolivre", "shopee", "tiktokshop", "olist"]),
+  tipo: z.enum(["mercadolivre", "shopee", "tiktokshop"]),
   nome: z.string().trim().min(2).max(120),
   externalAccountId: z.string().trim().max(200).optional(),
 }).superRefine((data, ctx) => {

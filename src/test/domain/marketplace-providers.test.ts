@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MercadoLivreProvider, normalizarAvaliacoesItem } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { OlistProvider } from "@/modules/canais/infrastructure/olist.provider";
 import { ShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 
 describe("contratos dos providers de marketplace", () => {
@@ -265,48 +264,6 @@ describe("contratos dos providers de marketplace", () => {
     expect(url.searchParams.get("sign")).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("segue o contrato oficial Olist Partner API com JWT, resource e stock", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        next: null,
-        results: [{
-          code: "OL-1",
-          status: "approved",
-          seller_id: "seller-1",
-          total_amount: "30.00",
-          total_freight: "5.00",
-          created_at: "2026-07-23T06:00:00.000Z",
-          customer: { name: "Cliente", document_number: "doc", phones: [{ phone: "5511" }] },
-          seller_order_items: [
-            { product_sku: "EXT-1", seller_product_code: "SKU-1", price: "15.00" },
-            { product_sku: "EXT-1", seller_product_code: "SKU-1", price: "15.00" },
-          ],
-        }],
-      }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-
-    const provider = new OlistProvider({
-      idToken: "jwt",
-      sellerId: "seller-1",
-      baseUrl: "https://partners-api.olist.com",
-    });
-    const pedidos = await provider.buscarPedidos(new Date("2026-07-23T05:55:00.000Z"));
-    await provider.sincronizarEstoque({ listingId: "OLIST-SKU" }, 7);
-
-    expect(pedidos[0]).toMatchObject({
-      providerOrderId: "OL-1",
-      status: "approved",
-      itens: [{ skuExterno: "SKU-1", quantidade: 2, precoUnitario: "15.00" }],
-    });
-    const listHeaders = fetchMock.mock.calls[0][1].headers as Record<string, string>;
-    expect(listHeaders.Authorization).toBe("JWT jwt");
-    expect(String(fetchMock.mock.calls[0][0])).toContain("/v1/seller-orders/");
-    expect(String(fetchMock.mock.calls[1][0])).toContain("/v1/seller-products/OLIST-SKU/");
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({
-      stock: [{ quantity: 7, availability_days: 0 }],
-    });
-  });
 });
 
 describe("normalização de opiniões do Mercado Livre", () => {

@@ -1,14 +1,14 @@
 ﻿-- ===== PARTE 1: TABELAS (gerado pelo Drizzle) =====
 
 CREATE TYPE "public"."perfil" AS ENUM('admin', 'gestor', 'vendedor');--> statement-breakpoint
-CREATE TYPE "public"."canal_tipo" AS ENUM('whatsapp', 'instagram', 'facebook', 'email', 'mercadolivre', 'shopee', 'tiktokshop', 'olist', 'manual');--> statement-breakpoint
+CREATE TYPE "public"."canal_tipo" AS ENUM('whatsapp', 'instagram', 'facebook', 'email', 'mercadolivre', 'shopee', 'tiktokshop', 'manual');--> statement-breakpoint
 CREATE TYPE "public"."finalidade_consentimento" AS ENUM('marketing', 'avaliacao', 'suporte', 'cobranca');--> statement-breakpoint
 CREATE TYPE "public"."status_consentimento" AS ENUM('ativo', 'revogado');--> statement-breakpoint
 CREATE TYPE "public"."movimento_tipo" AS ENUM('entrada', 'saida', 'ajuste', 'reserva', 'estorno');--> statement-breakpoint
 CREATE TYPE "public"."pedido_status" AS ENUM('criado', 'pago', 'separado', 'enviado', 'entregue', 'avaliacao_solicitada', 'concluido', 'cancelado', 'devolvido');--> statement-breakpoint
 CREATE TYPE "public"."tarefa_status" AS ENUM('pendente', 'em_andamento', 'concluida', 'cancelada');--> statement-breakpoint
 CREATE TYPE "public"."canal_conta_status" AS ENUM('conectado', 'degradado', 'desconectado');--> statement-breakpoint
-CREATE TYPE "public"."canal_conta_tipo" AS ENUM('mercadolivre', 'shopee', 'tiktokshop', 'olist', 'whatsapp', 'instagram', 'facebook', 'gmail', 'gcalendar', 'cobranca');--> statement-breakpoint
+CREATE TYPE "public"."canal_conta_tipo" AS ENUM('mercadolivre', 'shopee', 'tiktokshop', 'whatsapp', 'instagram', 'facebook', 'gmail', 'gcalendar', 'cobranca');--> statement-breakpoint
 CREATE TYPE "public"."conversa_status" AS ENUM('nova', 'em_atendimento', 'aguardando_cliente', 'resolvida', 'arquivada');--> statement-breakpoint
 CREATE TYPE "public"."mensagem_direcao" AS ENUM('entrada', 'saida');--> statement-breakpoint
 CREATE TYPE "public"."execucao_status" AS ENUM('elegivel', 'gates_aprovados', 'agendada', 'enviada', 'confirmada', 'falhou', 'falha_definitiva', 'bloqueada');--> statement-breakpoint

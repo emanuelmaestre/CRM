@@ -13,11 +13,9 @@ import { isBrandSlug } from "@/shared/config/brands";
 import { springs, stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
-import { AtencaoCard } from "./atencao-card";
 import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
 import { OrganicoCard } from "./organico-card";
-import { ResumoInteligente } from "./resumo-inteligente";
 import { RotuloComInfo, SectionLabel } from "./anuncios-primitives";
 import { exportarAnunciosPDF } from "./exportar-pdf";
 import type { VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
@@ -44,32 +42,6 @@ function periodoInicial() {
   const inicio = new Date();
   inicio.setDate(inicio.getDate() - 29);
   return { inicio: paraISO(inicio), fim: paraISO(fim) };
-}
-
-function descricaoComparacao({
-  label,
-  atual,
-  anterior,
-  variacao,
-  dias,
-  leitura,
-}: {
-  label: string;
-  atual: string;
-  anterior: string | null;
-  variacao: number | null;
-  dias: number;
-  leitura: string;
-}) {
-  const periodo = periodoAnteriorTexto(dias);
-  const verboBase = dias === 1 ? "ficou" : "ficaram";
-  if (anterior === null) {
-    return `${label}: valor atual ${atual}. Ainda não há período anterior carregado para comparar com ${periodo}. ${leitura}`;
-  }
-  if (variacao === null) {
-    return `${label}: valor atual ${atual}. Sem base de variação porque ${periodo} ${verboBase} em ${anterior}. ${leitura}`;
-  }
-  return `${label}: ${atual} no período atual contra ${anterior} ${periodoAnteriorComPreposicao(dias)}. Variação de ${variacaoTexto(variacao)}. ${leitura}`;
 }
 
 function descricaoComparacaoRoas({
@@ -375,14 +347,7 @@ export function AnunciosCliente() {
 
       <ComparativoPeriodo atual={marca} anterior={marcaAnterior} dias={Math.max(1, Math.round((new Date(`${periodo.fim}T12:00:00`).getTime() - new Date(`${periodo.inicio}T12:00:00`).getTime()) / 86_400_000) + 1)} />
 
-      {/* Ato 2 — leitura editorial + o que pede decisão agora, lado a lado
-          em telas largas (a mesma altura visual, duas prioridades diferentes) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <ResumoInteligente resumo={marca.resumo} campanhas={marca.campanhas} />
-        <AtencaoCard individuais={marca.alertasIndividuais} grupos={marca.alertasAgrupados} />
-      </div>
-
-      {/* Ato 3 — performance por campanha, a tabela de trabalho */}
+      {/* Ato 2 — performance por campanha, a tabela de trabalho */}
       <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2 px-1">
           <h2 className="text-label-md uppercase text-muted-foreground">Campanhas</h2>
@@ -405,7 +370,7 @@ export function AnunciosCliente() {
         <CampanhasCard campanhas={marca.campanhas} marca={marca} />
       </section>
 
-      {/* Ato 4 — o que a mídia paga está puxando */}
+      {/* Ato 3 — o que a mídia paga está puxando */}
       <section className="flex flex-col gap-3">
         <SectionLabel>Dependência de mídia</SectionLabel>
         <OrganicoCard resumo={marca.resumo} resumoAnterior={marcaAnterior?.resumo ?? null} marca={marca} />

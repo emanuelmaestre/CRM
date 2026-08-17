@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const { loadEnvConfig } = require("@next/env");
 loadEnvConfig(process.cwd());
 
-const marketplaces = ["mercadolivre", "shopee", "tiktokshop", "olist"];
+const marketplaces = ["mercadolivre", "shopee", "tiktokshop"];
 const requiredGlobalEnv = [
   "DATABASE_URL",
   "DEFAULT_ORG_ID",
@@ -130,7 +130,6 @@ try {
         mercadolivre: `ML_SELLER_ID_${upper}`,
         shopee: `SHOPEE_SHOP_ID_${upper}`,
         tiktokshop: `TIKTOK_SHOP_ID_${upper}`,
-        olist: `OLIST_SELLER_ID_${upper}`,
       }[channel];
       if (account.status !== "conectado") {
         accountBlockers.push(`${channel}/${account.brand}: status ${account.status}`);
@@ -147,14 +146,12 @@ try {
   const credentialEnv = {
     shopee: ["SHOPEE_PARTNER_ID", "SHOPEE_PARTNER_KEY"],
     tiktokshop: ["TIKTOK_APP_KEY", "TIKTOK_APP_SECRET"],
-    olist: ["OLIST_API_BASE_URL"],
   };
   for (const account of accounts) {
     const upper = account.brand.toUpperCase();
     const perBrand = {
       shopee: [`SHOPEE_ACCESS_TOKEN_${upper}`, `SHOPEE_SHOP_ID_${upper}`],
       tiktokshop: [`TIKTOK_ACCESS_TOKEN_${upper}`, `TIKTOK_SHOP_CIPHER_${upper}`, `TIKTOK_SHOP_ID_${upper}`],
-      olist: [`OLIST_ID_TOKEN_${upper}`, `OLIST_SELLER_ID_${upper}`],
     }[account.tipo] ?? [];
     missingEnv.push(
       ...(credentialEnv[account.tipo] ?? []).filter((name) => !configured(name)),

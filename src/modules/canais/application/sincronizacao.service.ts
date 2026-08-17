@@ -3,8 +3,8 @@ import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
 import { inngest } from "@/shared/lib/inngest/client";
 
-/** Central de Sincronização (Configurações): dispara catálogo + pedidos pra
- *  UMA conta de canal em background, em vez do usuário esperar uma chamada
+/** Central de Sincronização (Configurações): dispara a fila completa de uma
+ *  conta de canal em background, em vez do usuário esperar uma chamada
  *  síncrona que pode estourar o timeout sob a fila de conexão única do
  *  banco. A execução fica registrada aqui; a tela faz polling do status em
  *  vez de segurar a requisição aberta. */

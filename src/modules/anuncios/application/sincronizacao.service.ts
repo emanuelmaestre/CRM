@@ -287,14 +287,16 @@ async function sincronizarMarca(
   return { brandId, brandSlug, status: "ok", campanhas: campanhas.length, anuncios: anuncios.length };
 }
 
-/** Ponto de entrada da Fase 1: sincroniza todas as marcas com conta do
- *  Mercado Livre conectada. Isolamento total entre marcas — o retorno é uma
- *  lista de resultados, nunca uma exceção que pare tudo no meio. */
-export async function sincronizarAnunciosMercadoLivre(
-  ctx: CrudContext,
-  referencia: Date = new Date(),
-): Promise<ResultadoSincronizacaoMarca[]> {
-  const contas = await ctx.db
+async function listarContasMercadoLivreAds(ctx: CrudContext, channelAccountId?: string) {
+  const condicoes = [
+    eq(channelAccount.orgId, ctx.orgId),
+    eq(channelAccount.tipo, "mercadolivre"),
+    eq(channelAccount.status, "conectado"),
+    eq(brand.active, true),
+  ];
+  if (channelAccountId) condicoes.push(eq(channelAccount.id, channelAccountId));
+
+  return ctx.db
     .select({
       contaId: channelAccount.id,
       brandId: channelAccount.brandId,
@@ -302,17 +304,35 @@ export async function sincronizarAnunciosMercadoLivre(
     })
     .from(channelAccount)
     .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
-    .where(and(
-      eq(channelAccount.orgId, ctx.orgId),
-      eq(channelAccount.tipo, "mercadolivre"),
-      eq(channelAccount.status, "conectado"),
-      eq(brand.active, true),
-    ));
+    .where(and(...condicoes));
+}
 
+/** Ponto de entrada da Fase 1: sincroniza todas as marcas com conta do
+ *  Mercado Livre conectada. Isolamento total entre marcas — o retorno é uma
+ *  lista de resultados, nunca uma exceção que pare tudo no meio. */
+export async function sincronizarAnunciosMercadoLivre(
+  ctx: CrudContext,
+  referencia: Date = new Date(),
+): Promise<ResultadoSincronizacaoMarca[]> {
+  const contas = await listarContasMercadoLivreAds(ctx);
   const resultados: ResultadoSincronizacaoMarca[] = [];
   for (const conta of contas) {
     if (!isBrandSlug(conta.brandSlug)) continue;
     resultados.push(await sincronizarMarca(ctx, conta.contaId, conta.brandId, conta.brandSlug, referencia));
   }
   return resultados;
+}
+
+/** Variante usada pela Central de Sincronização: o operador clicou em uma
+ *  conta específica, então Product Ads precisa respeitar esse escopo em vez
+ *  de varrer todas as marcas da organização. */
+export async function sincronizarAnunciosMercadoLivreConta(
+  ctx: CrudContext,
+  channelAccountId: string,
+  referencia: Date = new Date(),
+): Promise<ResultadoSincronizacaoMarca> {
+  const conta = await listarContasMercadoLivreAds(ctx, channelAccountId).then((rows) => rows[0]);
+  if (!conta) throw new Error("Conta Mercado Livre conectada não encontrada para sincronizar Product Ads.");
+  if (!isBrandSlug(conta.brandSlug)) throw new Error("Marca Mercado Livre inválida para sincronizar Product Ads.");
+  return sincronizarMarca(ctx, conta.contaId, conta.brandId, conta.brandSlug, referencia);
 }

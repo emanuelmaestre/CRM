@@ -94,7 +94,7 @@ export async function avaliarGates(input: GateInput): Promise<GateResult> {
   }
 
   // Gate 2 — contatos originados em marketplace permanecem no canal de origem.
-  const canaisMarketplace = ["mercadolivre", "shopee", "tiktokshop", "olist"];
+  const canaisMarketplace = ["mercadolivre", "shopee", "tiktokshop"];
   if (canaisMarketplace.includes(input.canalOrigem) && input.canal !== input.canalOrigem) {
     return { aprovado: false, gateBloqueado: "gate_2", motivo: `Cliente de ${input.canalOrigem} não pode ser abordado fora do canal de origem` };
   }

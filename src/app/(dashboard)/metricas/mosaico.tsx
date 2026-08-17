@@ -15,7 +15,7 @@ import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import metricasConfig from "@/config/metricas.json";
 
-import { agruparPorSecao, Bloco, Foco, RotuloSecao, type BlocoDef } from "./bloco";
+import { agruparPorSecao, Bloco, Foco, MiniBarras, MiniLista, RotuloSecao, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo } from "./metricas-primitives";
 import { FaturamentoCard } from "./painel/faturamento-card";
@@ -537,6 +537,11 @@ export function Mosaico() {
         : null,
     },
     subtitulo: saude.dados ? `${metricasConfig.score.subtitulo} · ${saude.dados.periodoLabel}` : metricasConfig.score.subtitulo,
+    previa: saude.dados && saude.dados.marcas.length > 1 ? (
+      <MiniBarras itens={saude.dados.marcas.map((marca) => ({
+        label: marca.marcaLabel, valor: marca.score ?? 0, cor: marca.faixaCor ?? undefined,
+      }))} />
+    ) : undefined,
     render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
   }), [saude.dados, carregandoSaude]);
 
@@ -574,6 +579,11 @@ export function Mosaico() {
       legenda: blocosCopy.comparacao.legenda,
     },
     subtitulo: metricasConfig.comparacaoCard.subtitulo,
+    previa: saude.dados && saude.dados.marcas.length > 1 ? (
+      <MiniBarras itens={saude.dados.marcas.map((marca) => ({
+        label: marca.marcaLabel, valor: marca.score ?? 0, cor: marca.faixaCor ?? undefined,
+      }))} />
+    ) : undefined,
     render: (acaoSlot) => <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
   }), [saude.dados, carregandoSaude]);
 
@@ -611,6 +621,11 @@ export function Mosaico() {
         : null,
     },
     subtitulo: "Casos abertos no Mercado Livre",
+    previa: reclamacoesVisiveis && reclamacoesVisiveis.itens.length > 0 ? (
+      <MiniLista itens={reclamacoesVisiveis.itens.map((item) => ({
+        label: item.marcaLabel, valor: item.diasAberta !== null ? `${item.diasAberta}d` : "—",
+      }))} />
+    ) : undefined,
     render: (acaoSlot) => (
       <ReclamacoesCard
         dados={reclamacoesVisiveis}
@@ -640,6 +655,11 @@ export function Mosaico() {
         : null,
     },
     subtitulo: "Ainda acima do mínimo — dá tempo de comprar",
+    previa: reposicao.dados && reposicao.dados.reposicao.length > 0 ? (
+      <MiniLista itens={reposicao.dados.reposicao.map((item) => ({
+        label: item.nome, valor: `${item.saldo}/${item.minimo}`,
+      }))} />
+    ) : undefined,
     render: () => (
       <ReposicaoCard
         itens={reposicao.dados?.reposicao ?? null}
@@ -668,6 +688,11 @@ export function Mosaico() {
         : blocosCopy.atendimento.legenda,
     },
     subtitulo: metricasConfig.atendimentoCard.subtitulo,
+    previa: atendimento.dados && atendimento.dados.faixas.length > 0 ? (
+      <MiniBarras itens={atendimento.dados.faixas.map((faixa) => ({
+        label: faixa.label, valor: faixa.participacao, cor: faixa.cor,
+      }))} />
+    ) : undefined,
     render: () => <AtendimentoCard dados={atendimento.dados} carregando={carregandoAtendimento} />,
   }), [atendimento.dados, carregandoAtendimento]);
 
@@ -687,6 +712,13 @@ export function Mosaico() {
       rodape: blocosCopy.maisVendidos.legenda,
     },
     subtitulo: "Campeões de saída no período",
+    // Pula o item 0: ele já aparece como legenda logo acima, repeti-lo na
+    // prévia seria a mesma informação duas vezes na mesma tela.
+    previa: maisVendidos.dados && maisVendidos.dados.maisVendidos.length > 1 ? (
+      <MiniLista itens={maisVendidos.dados.maisVendidos.slice(1, 3).map((item) => ({
+        label: item.nome, valor: `${item.quantidade}un`,
+      }))} />
+    ) : undefined,
     render: () => (
       <MaisVendidosCard
         itens={maisVendidos.dados?.maisVendidos ?? null}
@@ -710,6 +742,11 @@ export function Mosaico() {
       legenda: blocosCopy.giroBaixo.legenda,
     },
     subtitulo: "Vendem pouco ou nada no período",
+    previa: giroBaixo.dados && giroBaixo.dados.giroBaixo.length > 0 ? (
+      <MiniLista itens={giroBaixo.dados.giroBaixo.map((item) => ({
+        label: item.nome, valor: `${item.quantidade}un`,
+      }))} />
+    ) : undefined,
     render: () => (
       <GiroBaixoCard
         itens={giroBaixo.dados?.giroBaixo ?? null}
@@ -734,6 +771,11 @@ export function Mosaico() {
       alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
     },
     subtitulo: "Sem nenhuma saída há mais de 90 dias",
+    previa: parados.dados && parados.dados.parados.length > 0 ? (
+      <MiniLista itens={parados.dados.parados.map((item) => ({
+        label: item.nome, valor: item.diasParado !== null ? `${item.diasParado}d` : "—",
+      }))} />
+    ) : undefined,
     render: () => (
       <ParadosCard
         itens={parados.dados?.parados ?? null}
@@ -752,6 +794,17 @@ export function Mosaico() {
     accent: "var(--warning)",
     resumo: { valor: null, legenda: blocosCopy.posVenda.legenda },
     subtitulo: "Cancelamentos, devoluções e impacto financeiro do período",
+    previa: posVenda.dados ? (() => {
+      const porMotivo = new Map<string, number>();
+      for (const marca of posVenda.dados.marcas) {
+        for (const item of marca.principaisMotivos) {
+          porMotivo.set(item.motivo, (porMotivo.get(item.motivo) ?? 0) + item.quantidade);
+        }
+      }
+      const itens = [...porMotivo.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2)
+        .map(([motivo, quantidade]) => ({ label: motivo, valor: `${quantidade}x` }));
+      return itens.length > 0 ? <MiniLista itens={itens} /> : undefined;
+    })() : undefined,
     render: () => <PosVendaCard dados={posVenda.dados} carregando={carregandoPosVenda} />,
   }), [posVenda.dados, carregandoPosVenda]);
 
@@ -763,6 +816,12 @@ export function Mosaico() {
     accent: "var(--acento-1)",
     resumo: { valor: null, legenda: blocosCopy.acoes.legenda },
     subtitulo: metricasConfig.acoesCard.subtitulo,
+    previa: acoes.carregado && (acoes.sugestoes.length + acoes.insights.length > 0) ? (
+      <MiniLista itens={[
+        ...acoes.sugestoes.map((item) => ({ label: item.titulo, valor: "sugestão" })),
+        ...acoes.insights.map((item) => ({ label: item.titulo, valor: "insight" })),
+      ]} />
+    ) : undefined,
     render: () => (
       <AcoesCard
         insightsIniciais={acoes.insights}
@@ -782,6 +841,16 @@ export function Mosaico() {
       icone: Megaphone,
       accent: "var(--acento-3)",
       resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
+      // Só a primeira marca (mesmo pré-carregamento que o card usa) — trocar
+      // de aba com o card fechado não é possível, então a prévia é honesta
+      // sobre mostrar só o que já foi buscado.
+      previa: publicacoes?.dados?.itens && publicacoes.dados.itens.length > 0 ? (
+        <MiniLista itens={[...publicacoes.dados.itens]
+          .sort((a, b) => b.unidadesVendidas - a.unidadesVendidas)
+          .slice(0, 2)
+          .map((item) => ({ label: item.titulo, valor: `${item.unidadesVendidas}un` }))}
+        />
+      ) : undefined,
       render: (acaoSlot) => (
         <PublicacoesCard
           marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}

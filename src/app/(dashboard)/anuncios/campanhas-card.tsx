@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { motion } from "framer-motion";
-import { BarChart3 } from "lucide-react";
+import { AlertCircle, BarChart3, Info, Sparkles } from "lucide-react";
+import type { Alerta, GrupoAlertas } from "@/modules/anuncios/application/alertas";
 import type { CampanhaVisaoGeral, VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
@@ -11,6 +14,7 @@ import { Roas } from "./roas";
 import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.campanhas;
+const atencaoCopy = anunciosConfig.atencao;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 const decimal2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -30,6 +34,13 @@ const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
   paused: { label: "Pausada", cor: "var(--warning)" },
 };
 
+const COR_PRIORIDADE: Record<Alerta["prioridade"], string> = {
+  critico: "var(--destructive)",
+  importante: "var(--escala-2)",
+  oportunidade: "var(--success)",
+  informativo: "var(--info)",
+};
+
 function BadgeStatus({ status }: { status: string }) {
   const info = STATUS_LABEL[status] ?? { label: status, cor: "var(--muted-foreground)" };
   return (
@@ -42,6 +53,122 @@ function BadgeStatus({ status }: { status: string }) {
 
 function plural(valor: number, singular: string, pluralTexto: string) {
   return valor === 1 ? singular : pluralTexto;
+}
+
+function contarAlertas(individuais: Alerta[], grupos: GrupoAlertas[]) {
+  const criticos = individuais.filter((alerta) => alerta.prioridade === "critico").length
+    + grupos.filter((grupo) => grupo.prioridade === "critico").length;
+  const oportunidades = individuais.filter((alerta) => alerta.prioridade === "oportunidade").length
+    + grupos.filter((grupo) => grupo.prioridade === "oportunidade").length;
+
+  return { total: individuais.length + grupos.length, criticos, oportunidades };
+}
+
+function LinhaAlertaResumo({ alerta }: { alerta: Alerta }) {
+  const cor = COR_PRIORIDADE[alerta.prioridade];
+  return (
+    <li className="rounded-[0.8rem] border border-border bg-card p-3" style={{ borderLeft: `3px solid ${cor}` }}>
+      <div className="flex items-start gap-2">
+        <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: cor }} />
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-bold text-foreground">{alerta.campanhaNome}</p>
+          <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{alerta.descricao}</p>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function LinhaGrupoResumo({ grupo }: { grupo: GrupoAlertas }) {
+  const cor = COR_PRIORIDADE[grupo.prioridade];
+  return (
+    <li className="rounded-[0.8rem] border border-border bg-card p-3" style={{ borderLeft: `3px solid ${cor}` }}>
+      <div className="flex items-start gap-2">
+        <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ background: cor }} />
+        <div className="min-w-0">
+          <p className="text-[13px] font-bold text-foreground">
+            {grupo.alertas.length} campanhas · {grupo.tituloBase}
+          </p>
+          <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+            {grupo.alertas.map((alerta) => alerta.campanhaNome).join(", ")}
+          </p>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function AlertasPerformanceInfo({ individuais, grupos }: { individuais: Alerta[]; grupos: GrupoAlertas[] }) {
+  const { total, criticos, oportunidades } = contarAlertas(individuais, grupos);
+  if (total === 0) return null;
+
+  const individuaisVisiveis = individuais.slice(0, 5);
+  const gruposVisiveis = grupos.slice(0, 3);
+  const totalVisivel = individuaisVisiveis.length + gruposVisiveis.length;
+  const restantes = Math.max(0, total - totalVisivel);
+  const resumo = `${criticos} crítico${criticos !== 1 ? "s" : ""} · ${oportunidades} oportunidade${oportunidades !== 1 ? "s" : ""}`;
+
+  return (
+    <PopoverPrimitive.Root>
+      <PopoverPrimitive.Trigger asChild>
+        <button
+          type="button"
+          aria-label={`${atencaoCopy.titulo}: ${resumo}`}
+          title={`${atencaoCopy.titulo}: ${resumo}`}
+          className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-[11px] font-bold text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Info size={13} strokeWidth={2.35} className="text-muted-foreground" />
+          <span className="hidden sm:inline">Atenção</span>
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive/10 px-1 text-[10px] font-bold text-destructive">
+            {total}
+          </span>
+        </button>
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          align="end"
+          sideOffset={8}
+          collisionPadding={12}
+          className="z-[100] flex max-h-[min(30rem,var(--radix-popover-content-available-height))] w-[min(27rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-xl border border-border bg-card text-left shadow-[0_16px_40px_rgba(14,15,19,.20)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          <div className="border-b border-border px-4 py-3">
+            <div className="flex items-start gap-2.5">
+              <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <AlertCircle size={14} />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-foreground">{atencaoCopy.titulo}</p>
+                <p className="mt-0.5 text-[12px] text-muted-foreground">{resumo}</p>
+              </div>
+            </div>
+            <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+              Estes sinais vêm dos diagnósticos e oportunidades das campanhas sincronizadas. Use junto com Investido, Receita e ROAS antes de decidir orçamento.
+            </p>
+          </div>
+
+          <div className="min-h-0 overflow-y-auto px-4 py-3">
+            <ul className="flex flex-col gap-2">
+              {individuaisVisiveis.map((alerta) => (
+                <LinhaAlertaResumo key={alerta.chave} alerta={alerta} />
+              ))}
+              {gruposVisiveis.map((grupo) => (
+                <LinhaGrupoResumo key={grupo.tituloBase} grupo={grupo} />
+              ))}
+            </ul>
+          </div>
+
+          <Link
+            href="/anuncios/alertas"
+            className="flex items-center gap-1.5 border-t border-border px-4 py-2.5 text-[11px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Sparkles size={11} />
+            {restantes > 0 ? `+${restantes} outros — ` : ""}{atencaoCopy.verTodas} →
+          </Link>
+          <PopoverPrimitive.Arrow className="fill-card" />
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  );
 }
 
 function descricaoStatus(campanhas: CampanhaVisaoGeral[]) {
@@ -135,7 +262,12 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
         subtitle={copy.subtitulo}
         icon={BarChart3}
         accent="var(--acento-2)"
-        trailing={<MarcaBadge brandSlug={marca.brandSlug} brandLabel={marca.brandLabel} />}
+        trailing={(
+          <>
+            <AlertasPerformanceInfo individuais={marca.alertasIndividuais} grupos={marca.alertasAgrupados} />
+            <MarcaBadge brandSlug={marca.brandSlug} brandLabel={marca.brandLabel} />
+          </>
+        )}
       />
       {campanhas.length === 0 ? (
         <EmptyState illustration="reports" title={copy.semDado} />

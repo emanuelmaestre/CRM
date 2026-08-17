@@ -239,6 +239,20 @@
       "when": 1786796985053,
       "tag": "0033_productive_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1786997409099,
+      "tag": "0034_giant_skin",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1786998784689,
+      "tag": "0035_remarkable_johnny_blaze",
+      "breakpoints": true
     }
   ]
 }

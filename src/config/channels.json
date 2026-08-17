@@ -52,15 +52,6 @@
       "iconAspect": 0.8722,
       "iconScale": 1.07
     },
-    "olist": {
-      "label": "Olist",
-      "logo": null,
-      "fallback": "OL",
-      "accent": "#F05B22",
-      "logoDark": false,
-      "iconAspect": 1,
-      "iconScale": 1
-    },
     "instagram": {
       "label": "Instagram",
       "logo": null,

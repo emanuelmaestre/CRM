@@ -37,17 +37,23 @@ export interface ReclamacoesResultado {
   semContaConectada: boolean;
 }
 
-export async function obterReclamacoesAbertas(ctx: CrudContext): Promise<ReclamacoesResultado> {
+export async function obterReclamacoesAbertas(
+  ctx: CrudContext,
+  opcoes: { channelAccountId?: string } = {},
+): Promise<ReclamacoesResultado> {
+  const condicoes = [
+    eq(channelAccount.orgId, ctx.orgId),
+    eq(channelAccount.tipo, "mercadolivre"),
+    eq(channelAccount.status, "conectado"),
+    eq(brand.active, true),
+  ];
+  if (opcoes.channelAccountId) condicoes.push(eq(channelAccount.id, opcoes.channelAccountId));
+
   const contas = await ctx.db
     .select({ marca: brand.slug })
     .from(channelAccount)
     .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
-    .where(and(
-      eq(channelAccount.orgId, ctx.orgId),
-      eq(channelAccount.tipo, "mercadolivre"),
-      eq(channelAccount.status, "conectado"),
-      eq(brand.active, true),
-    ));
+    .where(and(...condicoes));
 
   const marcas = [...new Set(contas.map((item) => item.marca))].filter(isBrandSlug);
   if (marcas.length === 0) {

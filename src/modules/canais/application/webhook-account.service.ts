@@ -4,7 +4,7 @@ import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { brandEnvSuffix, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
-type Marketplace = "mercadolivre" | "shopee" | "tiktokshop" | "olist";
+type Marketplace = "mercadolivre" | "shopee" | "tiktokshop";
 
 const AccountConfigSchema = z.object({
   orgId: z.uuid(),
@@ -18,7 +18,6 @@ const EXTERNAL_ID_ENV: Record<Marketplace, string> = {
   mercadolivre: "ML_SELLER_ID",
   shopee: "SHOPEE_SHOP_ID",
   tiktokshop: "TIKTOK_SHOP_ID",
-  olist: "OLIST_SELLER_ID",
 };
 
 export async function resolverContaWebhookMarketplace(
