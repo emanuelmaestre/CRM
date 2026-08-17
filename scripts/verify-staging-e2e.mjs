@@ -26,7 +26,7 @@ for (const variable of requiredVariables) {
 }
 
 const baseUrl = new URL(process.env.STAGING_E2E_BASE_URL);
-if (!baseUrl.hostname.includes("git-dev") || baseUrl.hostname === "karzi-wuwu.vercel.app") {
+if (!baseUrl.hostname.includes("git-dev") || baseUrl.hostname === "elisa-lima.vercel.app") {
   throw new Error("A verificação autenticada só pode executar no Preview estável da branch dev.");
 }
 if (process.env.STAGING_E2E_CONFIRMATION !== "create-temporary-user") {

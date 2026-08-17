@@ -84,7 +84,7 @@
     "staging_responsive_checks": 60,
     "staging_functional_checks": 8,
     "breakpoints": [360, 768, 1024, 1920],
-    "staging_url": "https://karzi-wuwu-git-dev-emanuelmaestre.vercel.app",
+    "staging_url": "https://elisa-lima-git-dev-emanuelmaestre.vercel.app",
     "verified_at": "2026-08-01"
   },
   "final_corrections": {

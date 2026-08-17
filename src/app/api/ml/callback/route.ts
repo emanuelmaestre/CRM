@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { obterAppUrl, obterUrlCallbackMercadoLivre } from "@/shared/config/app-url";
 import { createClient } from "@supabase/supabase-js";
 import { brandEnvSuffix, getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
@@ -77,7 +78,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://karzi-wuwu.vercel.app";
+  const appUrl = obterAppUrl();
 
   if (error) {
     return NextResponse.redirect(`${appUrl}/configuracoes?ml_error=${encodeURIComponent(error)}`);
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const clientId     = process.env.ML_CLIENT_ID!;
   const clientSecret = process.env.ML_CLIENT_SECRET!;
-  const redirectUri  = `${appUrl}/api/ml/callback`;
+  const redirectUri = obterUrlCallbackMercadoLivre();
 
   // Troca o code por tokens
   const tokenRes = await fetch("https://api.mercadolibre.com/oauth/token", {

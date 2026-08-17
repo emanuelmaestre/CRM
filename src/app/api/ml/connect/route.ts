@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { obterUrlCallbackMercadoLivre } from "@/shared/config/app-url";
 import { createHash, randomBytes } from "crypto";
 import { authorizeRoute } from "@/shared/lib/auth/session";
 import { isBrandSlug } from "@/shared/config/brands";
@@ -22,8 +23,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const clientId = process.env.ML_CLIENT_ID;
   if (!clientId) return NextResponse.json({ error: "ML_CLIENT_ID não configurado" }, { status: 500 });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://karzi-wuwu.vercel.app";
-  const redirectUri = `${appUrl}/api/ml/callback`;
+  const redirectUri = obterUrlCallbackMercadoLivre();
 
   const { verifier, challenge } = gerarPkce();
   const state = `${brand}:${randomBytes(16).toString("hex")}`;
