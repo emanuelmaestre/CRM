@@ -382,6 +382,22 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
   const cor = CORES_ESTADO[estado];
   const proporcao = minimo > 0 ? Math.min(saldo / (minimo * 2), 1) : 0;
 
+  // Vibra o número só no instante em que a linha piora (ok → abaixo/sem
+  // estoque) — não no carregamento da página nem enquanto já está ruim. O
+  // gatilho real de hoje é editar o mínimo: baixar a régua pode fazer uma
+  // linha que já estava "ok" cair no vermelho na hora, e o tremor confirma
+  // que foi aquela edição que mudou o veredito, não um refresh qualquer.
+  const estadoAnterior = useRef(estado);
+  const [alerta, setAlerta] = useState(false);
+  useEffect(() => {
+    const piorou = estado !== "ok" && estadoAnterior.current === "ok";
+    estadoAnterior.current = estado;
+    if (!piorou || reduzir) return;
+    setAlerta(true);
+    const timer = setTimeout(() => setAlerta(false), 420);
+    return () => clearTimeout(timer);
+  }, [estado, reduzir]);
+
   const rotulo = estado === "sem_estoque"
     ? copy.saldoCell.outOfStock
     : estado === "sem_regua"
@@ -390,13 +406,15 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
 
   return (
     <div className="w-[104px] ml-auto">
-      <p
+      <motion.p
         data-testid={testId}
+        animate={alerta ? { x: [0, -2, 2, -2, 2, 0] } : { x: 0 }}
+        transition={springs.momentum}
         className="text-[15px] font-bold tabular-nums leading-none text-right"
         style={{ color: estado === "ok" ? "var(--foreground)" : (cor ?? "var(--foreground)") }}
       >
         {saldo}
-      </p>
+      </motion.p>
       <p
         className="mt-1 text-right text-[10px] leading-none tabular-nums"
         style={{ color: estado === "abaixo" || estado === "sem_estoque" ? (cor ?? undefined) : "var(--muted-foreground)" }}

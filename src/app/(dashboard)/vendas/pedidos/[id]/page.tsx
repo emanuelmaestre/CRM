@@ -13,6 +13,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { podeCancelar, type PedidoStatus } from "@/modules/vendas/domain/state-machine";
 import { CancelarPedidoModal } from "./cancelar-pedido-modal";
+import { StatusPedidoBadge } from "./status-pedido-badge";
 
 function moeda(valor: string | null): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(valor ?? 0));
@@ -127,16 +128,11 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span
-            data-testid="status-pedido"
-            className="rounded-full px-3 py-1.5 text-sm font-semibold"
-            style={{
-              background: `color-mix(in srgb, ${CORES_STATUS[detalhe.status] ?? "var(--muted-foreground)"} 10%, transparent)`,
-              color: CORES_STATUS[detalhe.status] ?? "var(--muted-foreground)",
-            }}
-          >
-            {statusLabel(detalhe.status)}
-          </span>
+          <StatusPedidoBadge
+            key={detalhe.status}
+            label={statusLabel(detalhe.status)}
+            cor={CORES_STATUS[detalhe.status] ?? "var(--muted-foreground)"}
+          />
           {canManage && podeCancelarEsse && <CancelarPedidoModal pedidoId={detalhe.id} />}
         </div>
       </div>

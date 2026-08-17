@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Download, Plus, ShieldCheck, Trash2, XCircle } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { SectionCard } from "@/shared/design-system/primitives/SectionCard";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
+import { escalonamento, listItem, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
 import {
   actionAnonimizarSolicitacaoLgpd,
   actionConcluirExportacaoLgpd,
@@ -63,6 +65,7 @@ export default function AdminLgpdPage() {
     () => clientes.find((item) => item.id === clienteId),
     [clientes, clienteId],
   );
+  const reduzir = useReducedMotion();
 
   async function carregar() {
     setLoading(true);
@@ -214,13 +217,19 @@ export default function AdminLgpdPage() {
             ) : solicitacoes.length === 0 ? (
               <EmptyState illustration="generic" title="Nenhuma solicitacao" description="Solicitacoes LGPD abertas aparecerao aqui." />
             ) : (
-              <div className="grid gap-3">
+              <motion.div variants={escalonamento(reduzir)} initial="hidden" animate="show" className="grid gap-3">
                 {solicitacoes.map((item) => {
                   const aberta = item.status === "aberta" || item.status === "em_analise";
                   const podeAnonimizar = aberta && (item.tipo === "anonimizacao" || item.tipo === "exclusao");
                   const podeExportar = aberta && item.tipo === "exportacao";
                   return (
-                    <article key={item.id} className="rounded-xl border border-border bg-background/60 p-4">
+                    <motion.article
+                      key={item.id}
+                      layout
+                      variants={variantes(reduzir, listItem)}
+                      transition={transicao(reduzir, springs.settle)}
+                      className="rounded-xl border border-border bg-background/60 p-4"
+                    >
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -237,8 +246,20 @@ export default function AdminLgpdPage() {
                           </p>
                           {item.motivo && <p className="mt-2 text-sm text-muted-foreground">{item.motivo}</p>}
                         </div>
-                        {aberta && (
-                          <div className="flex flex-col gap-2 lg:w-[360px]">
+                        {/* A solicitação continua na lista depois de resolvida — é
+                            registro de auditoria, não fila descartável. O que dá a
+                            sensação de "processado" é a área de ações recolhendo
+                            (fade + altura) em vez de a linha inteira sumir, o que
+                            seria mentir sobre o dado (a solicitação não some). */}
+                        <AnimatePresence initial={false}>
+                          {aberta && (
+                          <motion.div
+                            initial={reduzir ? false : { opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={transicao(reduzir, springs.settle)}
+                            className="flex flex-col gap-2 overflow-hidden lg:w-[360px]"
+                          >
                             {podeExportar && (
                               <button
                                 type="button"
@@ -284,13 +305,14 @@ export default function AdminLgpdPage() {
                                 <XCircle size={16} />
                               </button>
                             </div>
-                          </div>
-                        )}
+                          </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
-                    </article>
+                    </motion.article>
                   );
                 })}
-              </div>
+              </motion.div>
             )}
         </SectionCard>
       </div>

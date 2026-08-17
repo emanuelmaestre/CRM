@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { X, Plus, Trash2, Link2, Radio, Check, Pencil } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -12,6 +12,7 @@ import {
   actionRemoverMapeamentoCanal,
 } from "./actions";
 import { inputClass } from "@/shared/design-system/primitives/WizardLayout";
+import { listItem, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
 import { analisarTituloProduto } from "@/shared/lib/produto-titulo";
 import channelsConfig from "@/config/channels.json";
 import pagesConfig from "@/config/pages.json";
@@ -50,6 +51,16 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
   const [novoSkuId, setNovoSkuId] = useState("");
   const [novoWarehouseId, setNovoWarehouseId] = useState("");
   const [pending, startTransition]    = useTransition();
+  // Marca qual conta acabou de ganhar um mapeamento, só para dar o selo de
+  // sucesso momentâneo no item recém-criado — some sozinho, não é estado
+  // permanente de nada.
+  const [recemConectado, setRecemConectado] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!recemConectado) return;
+    const timer = setTimeout(() => setRecemConectado(null), 1800);
+    return () => clearTimeout(timer);
+  }, [recemConectado]);
 
   const carregar = useCallback(() => {
     setLoading(true);
@@ -100,6 +111,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
           novoWarehouseId,
         );
         toast.success(copy.messages.saveSuccess);
+        setRecemConectado(novaContaId);
         setNovaContaId("");
         setNovoListingId("");
         setNovoSkuId("");
@@ -128,22 +140,30 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
   );
   const contaSelecionada = contas.find((item) => item.id === novaContaId);
   const nomeExibicao = analisarTituloProduto(produtoNome).produto;
+  // Único modal do app cujas transições (todas em JS via Framer Motion) não
+  // respeitavam prefers-reduced-motion — a regra CSS global não cobre isso.
+  const reduzir = useReducedMotion();
 
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0 }}
+        initial={reduzir ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={transicao(reduzir, { duration: 0.18 })}
         className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-4"
         style={{ background: "rgba(14,15,19,0.6)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
       >
         <motion.div
-          initial={{ opacity: 0, y: 32, scale: 0.97 }}
+          initial={reduzir ? false : { opacity: 0, y: 32, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.97 }}
-          transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+          // springs.drawer: mesmo spring nomeado do design system para
+          // "sobe de baixo e assenta com uma leve sobra" — antes era uma
+          // duração/easing digitados à mão, fora do vocabulário do resto do
+          // app.
+          transition={transicao(reduzir, springs.drawer)}
           role="dialog"
           aria-modal="true"
           className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-[1.25rem] bg-card shadow-[0_8px_40px_rgba(14,15,19,.18)]"
@@ -195,8 +215,9 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                   {mapeamentos.filter(m => m.ativo).map((m) => (
                     <motion.div
                       key={m.id}
-                      initial={{ opacity: 0, x: -6 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      variants={variantes(reduzir, listItem)}
+                      initial="hidden"
+                      animate="show"
                       className="flex items-center gap-3 pl-3 pr-2 py-3 rounded-[0.75rem] bg-muted/50 border border-border"
                       style={{ borderLeft: `3px solid ${accentDoCanal(m.contaTipo)}` }}
                     >
@@ -206,6 +227,21 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                         <p className="text-xs text-muted-foreground font-mono truncate">{m.externalListingId}</p>
                         {m.externalSkuId && <p className="text-[11px] text-muted-foreground font-mono truncate">{copy.skuPrefix} {m.externalSkuId}</p>}
                       </div>
+                      <AnimatePresence>
+                        {recemConectado === m.channelAccountId && (
+                          <motion.span
+                            initial={reduzir ? false : { opacity: 0, scale: 0.6 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={transicao(reduzir, springs.settle)}
+                            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                            style={{ background: "var(--success)", color: "white" }}
+                            aria-hidden="true"
+                          >
+                            <Check size={13} strokeWidth={3} />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
                       <button
                         onClick={() => remover(m.id)}
                         disabled={pending}
@@ -283,9 +319,10 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                   <AnimatePresence>
                     {novaContaId && (
                       <motion.div
-                        initial={{ opacity: 0, height: 0 }}
+                        initial={reduzir ? false : { opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
+                        transition={transicao(reduzir, springs.settle)}
                         className="space-y-3 overflow-hidden"
                       >
                         <div>
@@ -329,8 +366,8 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                   </AnimatePresence>
 
                   <motion.button
-                    whileHover={pending || !novaContaId ? undefined : { scale: 1.02 }}
-                    whileTap={pending || !novaContaId ? undefined : { scale: 0.97 }}
+                    whileHover={reduzir || pending || !novaContaId ? undefined : { scale: 1.02 }}
+                    whileTap={reduzir || pending || !novaContaId ? undefined : { scale: 0.97 }}
                     onClick={salvar}
                     disabled={pending || !novaContaId}
                     className="w-full h-11 flex items-center justify-center gap-2 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-40"

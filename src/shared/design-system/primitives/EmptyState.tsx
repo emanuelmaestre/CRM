@@ -5,9 +5,9 @@ import {
   BarChart2, AlertTriangle, CircleOff, ShieldOff, TrendingUp, TrendingDown,
   ShoppingBag, Hourglass, Ruler, CheckCircle2, LucideIcon,
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "../cn";
-import { springs } from "../motion-variants";
+import { springs, transicao } from "../motion-variants";
 import {
   ClientsIllustration, ConversationIllustration, ReportsIllustration, GenericIllustration,
   RevenueIllustration, BestSellersIllustration, RestockIllustration,
@@ -70,19 +70,24 @@ export function EmptyState({
 }: EmptyStateProps) {
   const Icon = icons[illustration] ?? CircleOff;
   const Illustration = illustrations[illustration];
+  // O único primitivo genuinamente compartilhado do design system que ainda
+  // ignorava prefers-reduced-motion — está em quase toda tela vazia do
+  // sistema (Clientes, Estoque, Inbox, Métricas), então corrigir aqui
+  // resolve em todo lugar de uma vez.
+  const reduzir = useReducedMotion();
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 4, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={springs.settleFast}
+      transition={transicao(reduzir, springs.settleFast)}
       className={cn("flex flex-col items-center justify-center px-4 py-10 text-center sm:py-14", className)}
     >
       {Illustration ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ ...springs.settle, delay: 0.04 }}
+          transition={transicao(reduzir, { ...springs.settle, delay: 0.04 })}
           className="mb-4"
         >
           <Illustration />
@@ -100,7 +105,7 @@ export function EmptyState({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ ...springs.settleFast, delay: 0.2 }}
+          transition={transicao(reduzir, { ...springs.settleFast, delay: 0.2 })}
           className="mt-5 flex w-full max-w-xs justify-center [&>*]:max-w-full"
         >
           {action}

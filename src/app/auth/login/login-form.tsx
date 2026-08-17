@@ -4,6 +4,8 @@ import { useState } from "react";
 import { createClient } from "@/shared/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { fadeUp, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 
 const copy = pagesConfig.login;
@@ -14,6 +16,7 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const router = useRouter();
+  const reduzir = useReducedMotion();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -72,19 +75,31 @@ export function LoginForm() {
           placeholder={copy.fields.password.placeholder}
         />
       </div>
-      {erro && (
-        <p id="login-error" role="alert" className="rounded-xl bg-destructive/10 px-3 py-2.5 text-sm font-medium text-destructive">
-          {erro}
-        </p>
-      )}
-      <button
+      <AnimatePresence>
+        {erro && (
+          <motion.p
+            id="login-error"
+            role="alert"
+            variants={variantes(reduzir, fadeUp)}
+            initial="hidden"
+            animate="show"
+            exit={{ opacity: 0, y: -4, transition: transicao(reduzir, springs.settleFast) }}
+            className="rounded-xl bg-destructive/10 px-3 py-2.5 text-sm font-medium text-destructive"
+          >
+            {erro}
+          </motion.p>
+        )}
+      </AnimatePresence>
+      <motion.button
         type="submit"
         disabled={loading}
+        whileTap={reduzir || loading ? undefined : { scale: 0.98 }}
+        transition={springs.settleFast}
         className="w-full h-11 rounded-[0.75rem] font-semibold text-sm text-white disabled:opacity-60"
         style={{ background: "var(--gradient-signature)" }}
       >
         {loading ? copy.actions.submitting : copy.actions.submit}
-      </button>
+      </motion.button>
     </form>
   );
 }

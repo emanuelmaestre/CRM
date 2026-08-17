@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
 import { Eye, PlugZap2 } from "lucide-react";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
-import { springs } from "@/shared/design-system/motion-variants";
+import { escalonamento, listItem, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
 import { actionListarClientes, actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -173,8 +173,17 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
   );
 }
 
+/** `listItem` desliza no eixo x — bom numa lista estreita, mas numa linha de
+ *  tabela larga o deslize lê estranho. Aqui a entrada é só um fade, mesma
+ *  ideia de "chegou um de cada vez" sem o movimento lateral. */
+function variantesLinha(reduzir: boolean | null) {
+  if (reduzir) return listItem;
+  return { hidden: { opacity: 0 }, show: { opacity: 1, transition: springs.settleFast } };
+}
+
 export function ClientesLista() {
   const router = useRouter();
+  const reduzir = useReducedMotion();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [total, setTotal] = useState(0);
   const [busca, setBusca] = useState("");
@@ -308,9 +317,9 @@ export function ClientesLista() {
       {/* Tela limpa: sem escopo, nada de tabela — mesmo padrão do Estoque. */}
       {!escopoDefinido ? (
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
+          initial={reduzir ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={springs.settleFast}
+          transition={transicao(reduzir, springs.settleFast)}
           className="rounded-[1.25rem] bg-card px-6 py-14 text-center shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
           <div className="mx-auto flex max-w-md flex-col items-center gap-4">
@@ -322,9 +331,9 @@ export function ClientesLista() {
         </motion.div>
       ) : (
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={reduzir ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.1 }}
+        transition={transicao(reduzir, { ...springs.settle, delay: 0.1 })}
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
@@ -346,9 +355,15 @@ export function ClientesLista() {
           />
         ) : (
           <>
-          <div className="md:hidden divide-y divide-border" data-testid="clientes-cards">
+          <motion.div
+            variants={escalonamento(reduzir)}
+            initial="hidden"
+            animate="show"
+            className="md:hidden divide-y divide-border"
+            data-testid="clientes-cards"
+          >
             {clientes.map((c) => (
-              <div key={c.id} className="p-4 space-y-3">
+              <motion.div variants={variantes(reduzir, listItem)} key={c.id} className="p-4 space-y-3">
                 <button
                   type="button"
                   onClick={() => router.push(`/clientes/${c.id}`)}
@@ -376,9 +391,9 @@ export function ClientesLista() {
                     <Eye size={17} strokeWidth={2} />
                   </button>
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
           <div className="hidden md:block table-scroll" data-testid="clientes-table">
             <table className="w-full min-w-[1120px] table-fixed text-sm">
               <colgroup>
@@ -397,13 +412,11 @@ export function ClientesLista() {
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
-              <tbody>
-                {clientes.map((c, i) => (
+              <motion.tbody variants={escalonamento(reduzir)} initial="hidden" animate="show">
+                {clientes.map((c) => (
                   <motion.tr
                     key={c.id}
-                    initial={{ opacity: 0, x: -6 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05, duration: 0.25 }}
+                    variants={variantesLinha(reduzir)}
                     whileHover={{ backgroundColor: "rgba(0,0,0,0.018)" }}
                     className="border-b border-border last:border-0"
                   >
@@ -431,7 +444,7 @@ export function ClientesLista() {
                     </td>
                   </motion.tr>
                 ))}
-              </tbody>
+              </motion.tbody>
             </table>
           </div>
           </>
