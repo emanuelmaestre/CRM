@@ -140,6 +140,7 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
     return (
       <CalculoPopover
         titulo="Score consolidado"
+        significado="Resume a saúde de todas as marcas em uma nota única de 0 a 100. Marcas com maior faturamento influenciam mais o resultado consolidado."
         formula={porFaturamento
           ? "média dos scores de cada marca, ponderada pelo faturamento do período"
           : "média simples dos scores de cada marca (nenhuma faturou no período)"}
@@ -161,6 +162,7 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
   return (
     <CalculoPopover
       titulo={`Score · ${marcaSelecionada.marcaLabel}`}
+      significado="Resume a saúde desta marca em uma nota de 0 a 100, combinando reputação, pós-venda, satisfação, atendimento e catálogo."
       formula="média ponderada das notas dos pilares medidos (0–100 cada)"
       resultado={String(score)}
       itens={medidos.map((pilar) => ({
@@ -219,9 +221,10 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
       type="button"
       onClick={() => setExplicando((atual) => !atual)}
       aria-expanded={explicando}
+      title="Entenda quais dados formam o Score de Saúde da Loja"
       className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
     >
-      <Info size={13} /> Como é calculado
+      <Info aria-hidden="true" size={13} /> Entenda o score
     </button>
   );
 
@@ -355,7 +358,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
               {!consolidado && marcaSelecionada && marcaSelecionada.pilaresMedidos < 5 && (
                 <div className="mt-4">
                   <AvisoParcial>
-                    <Info size={13} className="mt-[1px] shrink-0" />
+                    <Info aria-hidden="true" size={13} className="mt-[1px] shrink-0" />
                     <span>
                       {copy.parcialPrefixo} <strong className="font-semibold text-foreground">{marcaSelecionada.pilaresMedidos}</strong> {copy.parcialSufixo}.
                     </span>

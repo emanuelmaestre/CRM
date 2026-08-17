@@ -13,7 +13,7 @@
   "score": {
     "titulo": "Score de Saúde da Loja",
     "subtitulo": "Cinco pilares, um número",
-    "explicacao": "Média ponderada dos pilares abaixo. Pilar sem dado não vira zero — ele sai da conta, e o peso é redistribuído.",
+    "explicacao": "O score resume a saúde da loja em uma nota de 0 a 100. Ele combina reputação, pós-venda, satisfação, atendimento e catálogo. Cada pilar tem um peso; quando um deles ainda não possui dados, ele não recebe nota zero: sai temporariamente do cálculo e seu peso é distribuído entre os pilares medidos.",
     "parcialPrefixo": "Leitura parcial:",
     "parcialSufixo": "de 5 pilares com dado",
     "semDado": "Ainda não há dado suficiente para calcular",

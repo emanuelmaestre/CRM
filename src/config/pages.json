@@ -158,9 +158,9 @@
       },
       "address": {
         "title": "Endereço de entrega",
-        "subtitle": "Vindo do último pedido do Mercado Livre com endereço disponível",
+        "subtitle": "Este endereço veio do pedido mais recente do Mercado Livre que disponibilizou dados de entrega. Ele pode ser diferente do endereço usado pelo cliente em outros pedidos.",
         "pendingField": "Aguardando envio",
-        "pendingSubtitle": "Nenhum dado de entrega ainda — assim que o Mercado Livre liberar o envio deste pedido, o endereço aparece aqui automaticamente.",
+        "pendingSubtitle": "O Mercado Livre ainda não disponibilizou um endereço de entrega para este cliente. Quando um pedido liberar esses dados, o endereço mais recente aparecerá aqui automaticamente.",
         "viewOnMap": "Ver no mapa",
         "nicknameLabel": "Apelido"
       },

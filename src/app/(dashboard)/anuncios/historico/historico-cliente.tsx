@@ -101,7 +101,7 @@ function GraficoHistorico({ pontos }: { pontos: PontoHistorico[] }) {
         )}
         {pontos.length === 1 && (
           <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted-foreground">
-            <Info size={12} className="mt-0.5 shrink-0" /> {copy.umPontoAviso}
+            <Info aria-hidden="true" size={12} className="mt-0.5 shrink-0" /> {copy.umPontoAviso}
           </p>
         )}
       </div>

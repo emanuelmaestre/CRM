@@ -299,12 +299,12 @@ export function Cliente360({
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium"
                         style={{ color: "var(--warning)", background: "color-mix(in srgb, #B57A00 10%, transparent)" }}
                       >
-                        <Info size={12} strokeWidth={2.25} className="shrink-0" />
+                        <Info aria-hidden="true" size={12} strokeWidth={2.25} className="shrink-0" />
                         {copy.address.pendingSubtitle}
                       </p>
                     ) : (
                       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Info size={12} strokeWidth={2} className="shrink-0" />
+                        <Info aria-hidden="true" size={12} strokeWidth={2} className="shrink-0" />
                         {copy.address.subtitle}
                       </p>
                     )}

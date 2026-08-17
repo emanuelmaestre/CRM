@@ -72,6 +72,9 @@ export function ComparacaoPeriodoCard({ atual, anterior }: { atual: SaudeLojaRes
             {item.valor !== null && (
               <CalculoPopover
                 titulo={item.label}
+                significado={item.label === "Cancelamento"
+                  ? "Mostra quantos pontos percentuais a taxa de cancelamento subiu ou caiu entre os dois períodos. Resultado negativo representa melhora."
+                  : `Mostra quanto ${item.label.toLowerCase()} cresceu ou caiu entre dois períodos equivalentes. Resultado positivo representa crescimento.`}
                 formula={item.formula}
                 resultado={`${item.valor >= 0 ? "+" : ""}${item.valor}%`}
                 periodoLabel={`${atual.periodoLabel} vs. ${anterior?.periodoLabel ?? "período anterior"}`}

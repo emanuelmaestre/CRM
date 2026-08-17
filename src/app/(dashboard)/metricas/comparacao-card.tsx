@@ -56,6 +56,7 @@ function corDaMarca(slug: string): string {
 
 interface CampoCalculo {
   titulo: string;
+  significado: string;
   formula: string;
   resultado: string;
   itens: CalculoItem[];
@@ -106,6 +107,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       ...(marca.margemPercentual === null ? {} : { valorNumerico: marca.margemPercentual, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.margemPercentual === null ? null : {
         titulo: "Margem líquida",
+        significado: "Estima quanto da receita considerada permanece depois de descontar a comissão conhecida do Mercado Livre. Quanto maior, melhor a margem após publicidade e comissão.",
         formula: "receita menos a comissão do Mercado Livre, dividida pela receita — só nos itens com comissão informada",
         resultado: `${marca.margemPercentual}%`,
         itens: [
@@ -125,6 +127,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       ...(marca.taxaCancelamento === null ? {} : { valorNumerico: marca.taxaCancelamento, formatarNumero: (v: number) => `${v.toFixed(1)}%` }),
       calculo: marca.taxaCancelamento === null ? null : {
         titulo: "Cancelamento",
+        significado: "Mostra a parcela de todos os pedidos que foi cancelada ou devolvida. Quanto menor, mais saudável está a operação da marca.",
         formula: "pedidos cancelados ou devolvidos, divididos pelo total de pedidos do período",
         resultado: `${marca.taxaCancelamento}%`,
         itens: [
@@ -140,6 +143,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       ...(marca.concentracaoTop5 === null ? {} : { valorNumerico: marca.concentracaoTop5, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.concentracaoTop5 === null ? null : {
         titulo: "Concentração nos 5 mais vendidos",
+        significado: "Mostra quanto da receita depende dos cinco produtos líderes. Uma concentração alta aumenta o impacto caso um desses itens pare de vender ou fique indisponível.",
         formula: "receita dos 5 produtos mais vendidos, dividida pela receita total (sem contar cancelados)",
         resultado: `${marca.concentracaoTop5}%`,
         itens: [
@@ -155,6 +159,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
       ...(marca.taxaRecorrencia === null ? {} : { valorNumerico: marca.taxaRecorrencia, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.taxaRecorrencia === null ? null : {
         titulo: "Recorrência",
+        significado: "Mostra quanto da receita veio de clientes que já haviam comprado anteriormente da mesma marca. Quanto maior, maior a retenção de clientes.",
         formula: "receita de clientes que já tinham comprado antes, dividida pela receita total (sem contar cancelados)",
         resultado: `${marca.taxaRecorrencia}%`,
         itens: [
@@ -175,6 +180,7 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
             {campo.calculo && (
               <CalculoPopover
                 titulo={campo.calculo.titulo}
+                significado={campo.calculo.significado}
                 formula={campo.calculo.formula}
                 resultado={campo.calculo.resultado}
                 itens={campo.calculo.itens}

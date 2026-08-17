@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ScoreCard } from "@/app/(dashboard)/metricas/score-card";
 import { AtendimentoCard } from "@/app/(dashboard)/metricas/atendimento-card";
 import { ComparacaoCard } from "@/app/(dashboard)/metricas/comparacao-card";
@@ -7,6 +7,15 @@ import { ReputacaoCard } from "@/app/(dashboard)/metricas/reputacao-card";
 import { BarraComLimite } from "@/app/(dashboard)/metricas/metricas-primitives";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import type { AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
+import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
+
+class ResizeObserverMock implements ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+globalThis.ResizeObserver ??= ResizeObserverMock;
 
 /* Render de verdade dos cards de Métricas. O que se protege aqui é a promessa
    central da tela: dado ausente aparece como ausente, nunca como zero. É o tipo
@@ -73,6 +82,34 @@ function resultado(parcial: Partial<SaudeLojaResultado> = {}): SaudeLojaResultad
 }
 
 describe("cards de Métricas", () => {
+  it("explica cada indicador em linguagem de negócio e mostra a origem do cálculo", async () => {
+    render(
+      <CalculoPopover
+        titulo="Taxa de resposta"
+        significado="Mostra a parcela das perguntas que recebeu resposta."
+        formula="perguntas respondidas divididas pelas perguntas recebidas"
+        resultado="80%"
+        periodoLabel="01/08 a 15/08"
+        itens={[
+          { label: "Respondidas", valor: "8", fracao: 0.8 },
+          { label: "Recebidas", valor: "10" },
+        ]}
+        nota="Mensagens seguidas do mesmo cliente formam um único turno."
+      />,
+    );
+
+    const gatilho = screen.getByRole("button", { name: "Entenda o indicador Taxa de resposta" });
+    expect(gatilho).toHaveAttribute("title", "Entenda o indicador: Taxa de resposta");
+    fireEvent.click(gatilho);
+
+    expect(await screen.findByText("O que significa")).toBeInTheDocument();
+    expect(screen.getByText("Como é calculado")).toBeInTheDocument();
+    expect(screen.getByText("Dados usados")).toBeInTheDocument();
+    expect(screen.getByText("Período analisado")).toBeInTheDocument();
+    expect(screen.getByText("Importante")).toBeInTheDocument();
+    expect(screen.getByText("Mostra a parcela das perguntas que recebeu resposta.")).toBeInTheDocument();
+  });
+
   it("mostra o score consolidado e admite a leitura parcial da marca", async () => {
     render(<ScoreCard dados={resultado()} carregando={false} />);
 

@@ -270,7 +270,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     className="flex flex-col items-center justify-center py-12 text-center px-4"
                   >
-                    <HelpCircle size={24} strokeWidth={1.5} className="text-muted-foreground mb-2" />
+                    <HelpCircle aria-hidden="true" size={24} strokeWidth={1.5} className="text-muted-foreground mb-2" />
                     <p className="text-sm text-muted-foreground">{copy.empty}</p>
                   </motion.div>
                 ) : (
@@ -376,7 +376,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 transition={{ delay: 0.08, type: "spring", stiffness: 260, damping: 22 }}
                 className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center"
               >
-                <HelpCircle size={22} strokeWidth={1.5} />
+                <HelpCircle aria-hidden="true" size={22} strokeWidth={1.5} />
               </motion.div>
               <motion.p
                 initial={{ opacity: 0, y: 4 }}

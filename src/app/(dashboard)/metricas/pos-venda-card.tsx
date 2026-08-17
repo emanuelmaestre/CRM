@@ -38,6 +38,7 @@ export function PosVendaCard({ dados, carregando }: { dados: PosVendaResultado |
               {marca.taxaProblemas !== null && (
                 <CalculoPopover
                   titulo="Taxa de problemas"
+                  significado="Indica a parcela dos pedidos que terminou em cancelamento ou devolução. Quanto menor, mais saudável está o pós-venda."
                   formula="pedidos cancelados e devolvidos somados, divididos pelo total de pedidos do período"
                   resultado={`${marca.taxaProblemas}%`}
                   itens={[

@@ -21,6 +21,8 @@ export interface CalculoItem {
 
 interface CalculoPopoverProps {
   titulo: string;
+  /** Explica em linguagem de negócio o que o indicador revela. */
+  significado: string;
   periodoLabel?: string;
   /** Frase curta, ex.: "pedidos cancelados ou devolvidos ÷ total de pedidos". */
   formula: string;
@@ -30,7 +32,7 @@ interface CalculoPopoverProps {
   nota?: string;
 }
 
-export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado, nota }: CalculoPopoverProps) {
+export function CalculoPopover({ titulo, significado, periodoLabel, formula, itens, resultado, nota }: CalculoPopoverProps) {
   const reduzir = useReducedMotion();
   const barra = itens.find((item) => item.fracao !== undefined);
 
@@ -39,10 +41,11 @@ export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado
       <PopoverPrimitive.Trigger asChild>
         <button
           type="button"
-          aria-label={`Como calculamos: ${titulo}`}
-          className="press-feedback inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/40 opacity-70 transition-all hover:text-foreground hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`Entenda o indicador ${titulo}`}
+          title={`Entenda o indicador: ${titulo}`}
+          className="press-feedback inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground shadow-sm transition-all hover:border-primary/30 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Info size={15} strokeWidth={2.25} />
+          <Info aria-hidden="true" size={15} strokeWidth={2.25} />
         </button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
@@ -50,13 +53,23 @@ export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado
           align="start"
           sideOffset={8}
           collisionPadding={12}
-          className="z-[100] w-[22rem] origin-[var(--radix-popover-content-transform-origin)] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="z-[100] w-[min(23rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[16px] font-bold text-foreground">{titulo}</p>
-            <span className="shrink-0 text-[16px] font-bold tabular-nums text-foreground">{resultado}</span>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Entenda o indicador</p>
+              <p className="mt-0.5 text-[16px] font-bold text-foreground">{titulo}</p>
+            </div>
+            <span className="shrink-0 rounded-lg bg-muted px-2.5 py-1 text-[16px] font-bold tabular-nums text-foreground">{resultado}</span>
           </div>
-          <p className="mt-1 text-[13px] text-muted-foreground">{formula}</p>
+          <section className="mt-4">
+            <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">O que significa</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-foreground/85">{significado}</p>
+          </section>
+          <section className="mt-3">
+            <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Como é calculado</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{formula}</p>
+          </section>
 
           {barra && (
             <motion.div
@@ -76,7 +89,8 @@ export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado
             </motion.div>
           )}
 
-          <dl className="mt-4 space-y-2">
+          <p className="mt-4 text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Dados usados</p>
+          <dl className="mt-2 space-y-2">
             {itens.map((item) => (
               <div key={item.label} className="flex items-center justify-between gap-3 text-[14px]">
                 <dt className="text-muted-foreground">{item.label}</dt>
@@ -88,10 +102,16 @@ export function CalculoPopover({ titulo, periodoLabel, formula, itens, resultado
           {(periodoLabel || nota) && (
             <div className="mt-4 border-t border-border pt-3">
               {periodoLabel && (
-                <p className="text-[12px] font-semibold text-foreground">Comparando {periodoLabel}</p>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Período analisado</p>
+                  <p className="mt-1 text-[12px] font-semibold text-foreground">{periodoLabel}</p>
+                </div>
               )}
               {nota && (
-                <p className={`text-[12px] leading-relaxed text-muted-foreground/80 ${periodoLabel ? "mt-1" : ""}`}>{nota}</p>
+                <div className={periodoLabel ? "mt-3" : ""}>
+                  <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Importante</p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground/90">{nota}</p>
+                </div>
               )}
             </div>
           )}

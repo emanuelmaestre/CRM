@@ -158,6 +158,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                     {copy.comparisonLabel}
                     <CalculoPopover
                       titulo="Variação de faturamento"
+                      significado="Mostra se a receita cresceu ou caiu em comparação com uma janela anterior de mesma duração. Valor positivo representa crescimento; negativo, queda."
                       formula="quanto o faturamento do período atual variou em relação ao período anterior, em porcentagem"
                       resultado={`${positiva ? "+" : ""}${variacao}%`}
                       periodoLabel={`${dados.janelaLabel} vs. ${dados.janelaAnteriorLabel}`}

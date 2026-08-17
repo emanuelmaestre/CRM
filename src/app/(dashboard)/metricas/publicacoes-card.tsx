@@ -89,6 +89,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                       {item.conversaoEstimada !== null && (
                         <CalculoPopover
                           titulo="Conversão estimada"
+                          significado="Estima quantas visitas à publicação se transformaram em unidades vendidas. Uma taxa maior indica melhor aproveitamento do tráfego recebido."
                           formula="unidades vendidas no período, divididas pelas visitas que a publicação recebeu"
                           resultado={`${item.conversaoEstimada.toFixed(2)}%`}
                           itens={[
