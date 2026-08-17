@@ -290,59 +290,48 @@ export function UsuariosSection({
   return (
     <>
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-foreground">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
                 <UsersRound size={13} />
                 {organizationName ?? "Organização"}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
-                <UserCheck size={13} />
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
                 {totalAtivos} ativo{totalAtivos === 1 ? "" : "s"}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
+              <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck size={13} />
                 {totalAdmins} admin{totalAdmins === 1 ? "" : "s"}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
                 {marcasAtivas} marca{marcasAtivas === 1 ? "" : "s"} · {canaisConectados}/{canaisTotal} canais
               </span>
             </div>
-            <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              Crie acessos com senha temporária, ajuste o perfil de cada pessoa e pause entradas sem apagar histórico.
+            <p className="flex max-w-3xl items-center gap-1.5 text-xs leading-relaxed text-muted-foreground">
+              <LockKeyhole size={13} />
+              Senhas temporárias aparecem só no painel de criação ou redefinição. Depois disso, o CRM não salva o texto.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={abrirCriacao}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-[0.75rem] bg-primary px-4 text-sm font-bold text-white shadow-[0_4px_14px_rgba(155,48,217,.24)] transition-transform hover:-translate-y-0.5 disabled:opacity-60"
-          >
-            <UserPlus size={17} />
-            Novo usuário
-          </button>
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-[0.9rem] border border-border bg-muted/25 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-2.5">
-            <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-[0.65rem] bg-background text-muted-foreground">
-              <LockKeyhole size={15} />
-            </span>
-            <div>
-              <p className="text-sm font-bold text-foreground">A senha é entregue uma vez</p>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                O CRM cria ou redefine a senha no Supabase Auth, mas não salva esse texto. Copie e envie por um canal seguro.
-              </p>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+            <div className="relative sm:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+              <input
+                value={busca}
+                onChange={(event) => setBusca(event.target.value)}
+                placeholder="Buscar usuário"
+                className="h-10 w-full rounded-[0.65rem] border border-border bg-transparent pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-[border-color,box-shadow] focus:border-primary/50 focus:shadow-[0_0_0_3px_rgba(155,48,217,.10)]"
+              />
             </div>
-          </div>
-          <div className="relative sm:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-            <input
-              value={busca}
-              onChange={(event) => setBusca(event.target.value)}
-              placeholder="Buscar usuário"
-              className="h-10 w-full rounded-[0.75rem] border border-border bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 focus:shadow-[0_0_0_3px_rgba(155,48,217,.10)]"
-            />
+            <button
+              type="button"
+              onClick={abrirCriacao}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-[0.65rem] bg-foreground px-3.5 text-sm font-semibold text-background shadow-none transition-colors hover:bg-foreground/90 disabled:opacity-60"
+            >
+              <UserPlus size={16} />
+              Novo usuário
+            </button>
           </div>
         </div>
 
@@ -365,8 +354,8 @@ export function UsuariosSection({
             </button>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-[0.9rem] border border-border">
-            <div className="hidden grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] items-center gap-3 border-b border-border bg-muted/40 px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:grid">
+          <div className="overflow-hidden border-y border-border">
+            <div className="hidden grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] items-center gap-3 border-b border-border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:grid">
               <span>Usuário</span>
               <span>Perfil</span>
               <span>Status</span>
@@ -375,19 +364,18 @@ export function UsuariosSection({
             <div className="divide-y divide-border">
               {usuariosFiltrados.map((usuario) => {
                 const alterando = usuarioEmAlteracao === usuario.id;
-                const perfil = perfilMap[usuario.perfil];
 
                 return (
                   <motion.div
                     key={usuario.id}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] md:items-center"
+                    className="grid gap-3 px-3 py-3.5 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] md:items-center"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <span className={cn(
-                        "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold",
-                        usuario.ativo ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                        usuario.ativo ? "bg-muted text-foreground" : "bg-muted text-muted-foreground",
                       )}>
                         {initials(usuario.nome, usuario.email)}
                       </span>
@@ -403,18 +391,17 @@ export function UsuariosSection({
                         value={usuario.perfil}
                         disabled={alterando}
                         onChange={(event) => alterarUsuario(usuario, event.target.value as Perfil, usuario.ativo)}
-                        className="h-10 w-full rounded-[0.75rem] border border-border bg-background px-2.5 text-sm font-semibold text-foreground outline-none focus:border-primary/50 disabled:opacity-60"
+                        className="h-9 w-full rounded-[0.6rem] border border-transparent bg-transparent px-2.5 text-sm font-semibold text-foreground outline-none transition-colors hover:border-border hover:bg-background focus:border-primary/50 focus:bg-background disabled:opacity-60"
                       >
                         {PERFIS.map(([value, dados]) => (
                           <option key={value} value={value}>{dados.label}</option>
                         ))}
                       </select>
-                      <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">{perfil.description}</p>
                     </div>
 
                     <span className={cn(
-                      "inline-flex h-8 w-fit items-center gap-1.5 rounded-full px-2.5 text-xs font-bold",
-                      usuario.ativo ? "bg-success/10 text-success" : "bg-muted text-muted-foreground",
+                      "inline-flex h-7 w-fit items-center gap-1.5 text-xs font-semibold",
+                      usuario.ativo ? "text-success" : "text-muted-foreground",
                     )}>
                       <span className={cn("h-1.5 w-1.5 rounded-full", usuario.ativo ? "bg-success" : "bg-muted-foreground")} />
                       {statusLabel(usuario.ativo)}
@@ -425,7 +412,7 @@ export function UsuariosSection({
                         type="button"
                         disabled={alterando}
                         onClick={() => abrirRedefinicao(usuario)}
-                        className="inline-flex h-10 items-center gap-1.5 rounded-[0.7rem] border border-border px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-[0.6rem] border border-transparent px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground disabled:opacity-50"
                       >
                         <KeyRound size={14} />
                         Senha
@@ -435,10 +422,10 @@ export function UsuariosSection({
                         disabled={alterando}
                         onClick={() => alterarUsuario(usuario, usuario.perfil, !usuario.ativo)}
                         className={cn(
-                          "inline-flex h-10 items-center gap-1.5 rounded-[0.7rem] px-3 text-xs font-bold transition-colors disabled:opacity-50",
+                          "inline-flex h-9 items-center gap-1.5 rounded-[0.6rem] border border-transparent px-2.5 text-xs font-semibold transition-colors disabled:opacity-50",
                           usuario.ativo
-                            ? "bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            : "bg-success/10 text-success hover:bg-success/15",
+                            ? "text-muted-foreground hover:border-destructive/20 hover:bg-destructive/5 hover:text-destructive"
+                            : "text-success hover:border-success/20 hover:bg-success/10",
                         )}
                       >
                         {alterando ? (
