@@ -21,7 +21,7 @@ function canalLabel(tipo: string) {
  *  fundo tingido — var(--x) não entra em color-mix em todo navegador suportado,
  *  então o fundo usa a mesma cor em baixa opacidade via CSS var diretamente. */
 function corAtiva(cor: string) {
-  return { borderColor: cor, background: `color-mix(in srgb, ${cor} 8%, transparent)` };
+  return { color: cor, background: `color-mix(in srgb, ${cor} 16%, transparent)` };
 }
 
 function Pilula({ ativo, desabilitado, onClick, rotulo, iconOnly, accent, children }: {
@@ -48,7 +48,7 @@ function Pilula({ ativo, desabilitado, onClick, rotulo, iconOnly, accent, childr
         desabilitado
           ? "cursor-not-allowed border border-border text-muted-foreground opacity-40"
           : ativo
-            ? "border-2 text-foreground"
+            ? "border border-transparent font-bold"
             : "border border-border text-muted-foreground hover:bg-muted"
       }`}
     >
