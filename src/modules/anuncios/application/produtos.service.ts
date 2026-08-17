@@ -41,6 +41,9 @@ export interface AnuncioProduto {
 
 export interface ProdutosResultado {
   dataSnapshot: string | null;
+  /** Timestamp real da sincronização (ISO, com hora) — `dataSnapshot` é só
+   *  o dia do calendário. Ver `criadoEm` em `ads_campanha_snapshot`. */
+  sincronizadoEm: string | null;
   anuncios: AnuncioProduto[];
   desperdicio: DesperdicioEstimado;
 }
@@ -62,16 +65,17 @@ export async function obterProdutosDaMarca(
   ctx: CrudContext,
   opcoes: { brandId: string },
 ): Promise<ProdutosResultado> {
-  const ultimaData = await ctx.db
-    .select({ data: adsCampanhaSnapshot.data })
+  const ultimoSnapshot = await ctx.db
+    .select({ data: adsCampanhaSnapshot.data, criadoEm: adsCampanhaSnapshot.criadoEm })
     .from(adsCampanhaSnapshot)
     .where(and(eq(adsCampanhaSnapshot.orgId, ctx.orgId), eq(adsCampanhaSnapshot.brandId, opcoes.brandId)))
-    .orderBy(desc(adsCampanhaSnapshot.data))
+    .orderBy(desc(adsCampanhaSnapshot.data), desc(adsCampanhaSnapshot.criadoEm))
     .limit(1)
-    .then((rows) => rows[0]?.data ?? null);
+    .then((rows) => rows[0] ?? null);
+  const ultimaData = ultimoSnapshot?.data ?? null;
 
   if (!ultimaData) {
-    return { dataSnapshot: null, anuncios: [], desperdicio: { totalEmAtencao: 0, itens: [] } };
+    return { dataSnapshot: null, sincronizadoEm: null, anuncios: [], desperdicio: { totalEmAtencao: 0, itens: [] } };
   }
 
   const [campanhas, itens] = await Promise.all([
@@ -130,6 +134,7 @@ export async function obterProdutosDaMarca(
 
   return {
     dataSnapshot: ultimaData,
+    sincronizadoEm: ultimoSnapshot?.criadoEm?.toISOString() ?? null,
     anuncios,
     desperdicio: calcularDesperdicio(itensParaDesperdicio, CRITERIOS_DESPERDICIO_PADRAO),
   };

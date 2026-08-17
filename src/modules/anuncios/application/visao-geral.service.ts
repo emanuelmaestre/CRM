@@ -73,6 +73,11 @@ export interface VisaoGeralMarca {
   brandSlug: string;
   brandLabel: string;
   dataSnapshot: string | null;
+  /** Quando a sincronização de fato rodou (ISO, com hora) — diferente de
+   *  `dataSnapshot`, que é só o dia do calendário a que as métricas se
+   *  referem. `data` na tabela é uma coluna `date`, sem hora nenhuma; quem
+   *  carrega hora é `criadoEm`, o timestamp real da linha. */
+  sincronizadoEm: string | null;
   resumo: VisaoGeralResumo;
   campanhas: CampanhaVisaoGeral[];
   alertasIndividuais: Alerta[];
@@ -170,13 +175,16 @@ export async function obterVisaoGeral(
     // Snapshot mais recente disponível por campanha — não necessariamente
     // "hoje": se a sincronização de hoje ainda não rodou, mostra o último
     // dado que existe em vez de aparentar que não há dado nenhum.
-    const ultimaData = await ctx.db
-      .select({ data: adsCampanhaSnapshot.data })
+    // `criadoEm` junto pra saber a que horas essa sincronização rodou —
+    // `data` sozinha só diz o dia, não a hora.
+    const ultimoSnapshot = await ctx.db
+      .select({ data: adsCampanhaSnapshot.data, criadoEm: adsCampanhaSnapshot.criadoEm })
       .from(adsCampanhaSnapshot)
       .where(and(eq(adsCampanhaSnapshot.orgId, ctx.orgId), eq(adsCampanhaSnapshot.brandId, marca.id)))
-      .orderBy(desc(adsCampanhaSnapshot.data))
+      .orderBy(desc(adsCampanhaSnapshot.data), desc(adsCampanhaSnapshot.criadoEm))
       .limit(1)
-      .then((rows) => rows[0]?.data ?? null);
+      .then((rows) => rows[0] ?? null);
+    const ultimaData = ultimoSnapshot?.data ?? null;
 
     if (!ultimaData) continue; // marca sem nenhum snapshot ainda — nem aparece na lista
 
@@ -315,6 +323,7 @@ export async function obterVisaoGeral(
       brandSlug: marca.slug,
       brandLabel: getBrandConfig(marca.slug)?.label ?? marca.nome,
       dataSnapshot: ultimaData,
+      sincronizadoEm: ultimoSnapshot?.criadoEm?.toISOString() ?? null,
       resumo: agregarResumo(campanhas),
       campanhas: campanhas.sort((a, b) => b.investimento - a.investimento),
       alertasIndividuais,

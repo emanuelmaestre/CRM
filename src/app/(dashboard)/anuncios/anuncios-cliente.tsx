@@ -30,6 +30,10 @@ const inteiro = new Intl.NumberFormat("pt-BR");
 const decimal1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const decimal2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+// Só para "última sincronização" — diferente de diaMesAno (usado no rótulo
+// do período), essa precisa da hora: dataSnapshot é só o dia, sincronizadoEm
+// é o instante real em que o job rodou.
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const roasTexto = (valor: number | null) => valor === null ? "sem dado" : `${decimal2.format(valor)}x`;
 const variacaoTexto = (valor: number) => `${valor >= 0 ? "+" : ""}${decimal1.format(valor)}%`;
 const periodoAnteriorTexto = (dias: number) => dias === 1 ? "o dia anterior" : `os ${dias} dias anteriores`;
@@ -193,7 +197,7 @@ export function AnunciosCliente() {
         </button>
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
-          {copy.header.eyebrow}: {marca.dataSnapshot ? diaMesAno.format(new Date(`${marca.dataSnapshot}T00:00:00`)) : "—"}
+          {copy.header.eyebrow}: {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}
         </span>
       </div>
 

@@ -17,7 +17,7 @@ import type { VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/ap
 import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.alertasDetalhe;
-const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 type Filtro = "todos" | Exclude<PrioridadeAlerta, "informativo">;
 
@@ -81,7 +81,7 @@ export function AlertasClienteDetalhe() {
         <span className="h-px flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
-          {marca.dataSnapshot ? diaMesAno.format(new Date(`${marca.dataSnapshot}T00:00:00`)) : "—"}
+          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}
         </span>
       </div>
 

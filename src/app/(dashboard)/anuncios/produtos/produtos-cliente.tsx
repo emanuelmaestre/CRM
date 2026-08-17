@@ -17,7 +17,7 @@ import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral
 
 const copy = anunciosConfig.produtosDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 type Filtro = "todos" | "recomendados" | "desperdicio";
 const FILTROS = ["todos", "recomendados", "desperdicio"] as const satisfies readonly Filtro[];
@@ -93,7 +93,7 @@ export function ProdutosClienteDetalhe() {
         <span className="h-px flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
-          {dados?.dataSnapshot ? diaMesAno.format(new Date(`${dados.dataSnapshot}T00:00:00`)) : "—"}
+          {dados?.sincronizadoEm ? dataHora.format(new Date(dados.sincronizadoEm)) : "—"}
         </span>
       </div>
 
