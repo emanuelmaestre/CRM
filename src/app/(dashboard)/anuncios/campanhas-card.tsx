@@ -2,11 +2,11 @@
 
 import { motion } from "framer-motion";
 import { BarChart3 } from "lucide-react";
-import type { CampanhaVisaoGeral } from "@/modules/anuncios/application/visao-geral.service";
+import type { CampanhaVisaoGeral, VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
-import { Card, CardHead } from "./anuncios-primitives";
+import { Card, CardHead, MarcaBadge } from "./anuncios-primitives";
 import { Roas } from "./roas";
 import { tint } from "@/shared/design-system/color";
 
@@ -33,10 +33,16 @@ function BadgeStatus({ status }: { status: string }) {
   );
 }
 
-export function CampanhasCard({ campanhas }: { campanhas: CampanhaVisaoGeral[] }) {
+export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGeral[]; marca: VisaoGeralMarca }) {
   return (
     <Card>
-      <CardHead title={copy.titulo} subtitle={copy.subtitulo} icon={BarChart3} accent="var(--acento-2)" />
+      <CardHead
+        title={copy.titulo}
+        subtitle={copy.subtitulo}
+        icon={BarChart3}
+        accent="var(--acento-2)"
+        trailing={<MarcaBadge brandSlug={marca.brandSlug} brandLabel={marca.brandLabel} />}
+      />
       {campanhas.length === 0 ? (
         <EmptyState illustration="reports" title={copy.semDado} />
       ) : (

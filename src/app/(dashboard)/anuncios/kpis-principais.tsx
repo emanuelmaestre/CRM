@@ -56,6 +56,59 @@ function descricaoRoas(valor: number | null) {
   return `${explicacao} Como está acima de 1,00x, a mídia se pagou; quanto maior o ROAS, melhor o retorno.`;
 }
 
+function descricaoAcos(resumo: VisaoGeralResumo) {
+  const observacao = "ACOS olha só a receita atribuída aos anúncios. TACOS olha a receita total, somando ads e orgânico. ACOS baixo ajuda na eficiência, mas não é lucro: ainda não desconta custo do produto, taxas, frete ou impostos.";
+
+  if (resumo.acosMedio === null || resumo.receitaTotal <= 0) {
+    return {
+      descricao: "Sem receita atribuída no período, o ACOS fica sem dado. Ele precisa de receita gerada pelos anúncios para comparar com o investimento em mídia.",
+      observacao,
+    };
+  }
+
+  let leitura: string;
+
+  if (resumo.acosMedio <= 15) {
+    leitura = "Esse peso está baixo: a mídia consumiu uma fatia pequena da receita atribuída.";
+  } else if (resumo.acosMedio <= 30) {
+    leitura = "Esse peso está em faixa intermediária. Pode ser saudável, mas depende da margem real dos produtos.";
+  } else {
+    leitura = "Esse peso está alto: uma parte grande da receita atribuída está sendo consumida pela mídia.";
+  }
+
+  return {
+    descricao: `ACOS atual: ${percentual(resumo.acosMedio)}. ACOS é investimento em anúncios dividido pela receita atribuída: ${moeda.format(resumo.investimentoTotal)} de mídia sobre ${moeda.format(resumo.receitaTotal)} de receita atribuída. Isso significa que, a cada ${moeda.format(100)} de receita atribuída, ${moeda.format(resumo.acosMedio)} foram consumidos por mídia. ${leitura}`,
+    observacao,
+  };
+}
+
+function descricaoTacos(resumo: VisaoGeralResumo) {
+  const receitaTotal = resumo.receitaTotal + resumo.receitaOrganica;
+  const observacao = "TACOS olha o peso da mídia no negócio inteiro. Diferente do ACOS, ele usa receita total: anúncios mais orgânico. Ainda assim, não é lucro nem margem.";
+
+  if (resumo.tacos === null || receitaTotal <= 0) {
+    return {
+      descricao: "Sem receita total no período, o TACOS fica sem dado. Ele precisa de vendas pagas e/ou orgânicas para comparar com o investimento em mídia.",
+      observacao,
+    };
+  }
+
+  let leitura: string;
+
+  if (resumo.tacos <= 10) {
+    leitura = "Esse peso está baixo: a mídia representa uma fatia pequena da receita total.";
+  } else if (resumo.tacos <= 20) {
+    leitura = "Esse peso está em faixa de atenção saudável: a mídia tem impacto relevante, mas ainda não domina a receita total.";
+  } else {
+    leitura = "Esse peso está alto: a operação está mais dependente de mídia paga para gerar receita total.";
+  }
+
+  return {
+    descricao: `TACOS atual: ${percentual(resumo.tacos)}. TACOS é investimento em anúncios dividido pela receita total: ${moeda.format(resumo.investimentoTotal)} de mídia sobre ${moeda.format(receitaTotal)} de receita total (${moeda.format(resumo.receitaTotal)} de ads + ${moeda.format(resumo.receitaOrganica)} orgânica). Isso significa que, a cada ${moeda.format(100)} vendidos no total, ${moeda.format(resumo.tacos)} vieram como peso de mídia. ${leitura}`,
+    observacao,
+  };
+}
+
 function descricaoVendas(resumo: VisaoGeralResumo) {
   const vendas = Math.max(0, resumo.vendas);
 
@@ -162,8 +215,9 @@ function descricaoCpc(resumo: VisaoGeralResumo) {
 }
 
 function descricaoKpi(resumo: VisaoGeralResumo) {
-  const receitaTotal = resumo.receitaTotal + resumo.receitaOrganica;
   const receita = descricaoReceita(resumo);
+  const acos = descricaoAcos(resumo);
+  const tacos = descricaoTacos(resumo);
   const vendas = descricaoVendas(resumo);
   const cvr = descricaoCvr(resumo);
   const ctr = descricaoCtr(resumo);
@@ -174,12 +228,10 @@ function descricaoKpi(resumo: VisaoGeralResumo) {
     receita: receita.descricao,
     receitaObservacao: receita.observacao,
     roas: descricaoRoas(resumo.roasMedio),
-    acos: resumo.acosMedio === null
-      ? "Sem receita atribuída no período, o ACOS fica sem dado. Ele mostra quanto da receita de anúncios foi consumido pelo investimento."
-      : `ACOS atual: ${percentual(resumo.acosMedio)}. A cada ${moeda.format(100)} de receita atribuída, ${moeda.format(resumo.acosMedio)} corresponderam ao investimento em mídia; quanto menor, mais eficiente.`,
-    tacos: resumo.tacos === null
-      ? "Sem receita total no período, o TACOS fica sem dado. Ele compara investimento com vendas pagas e orgânicas juntas."
-      : `TACOS atual: ${percentual(resumo.tacos)}. A mídia consumiu ${moeda.format(resumo.tacos)} a cada ${moeda.format(100)} de receita total (${moeda.format(receitaTotal)} somando ads e orgânico).`,
+    acos: acos.descricao,
+    acosObservacao: acos.observacao,
+    tacos: tacos.descricao,
+    tacosObservacao: tacos.observacao,
     cvr: cvr.descricao,
     cvrObservacao: cvr.observacao,
     ctr: ctr.descricao,
@@ -258,8 +310,8 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } } }}
         className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4 lg:grid-cols-8"
       >
-        <Secundaria label={copy.acos} descricao={infoKpi.acos} valor={resumo.acosMedio} formatar={(n) => `${n.toFixed(1)}%`} />
-        <Secundaria label={copy.tacos} descricao={infoKpi.tacos} valor={resumo.tacos} formatar={(n) => `${n.toFixed(1)}%`} />
+        <Secundaria label={copy.acos} descricao={infoKpi.acos} observacao={infoKpi.acosObservacao} valor={resumo.acosMedio} formatar={(n) => `${n.toFixed(1)}%`} />
+        <Secundaria label={copy.tacos} descricao={infoKpi.tacos} observacao={infoKpi.tacosObservacao} valor={resumo.tacos} formatar={(n) => `${n.toFixed(1)}%`} />
         <Secundaria label={copy.cvr} descricao={infoKpi.cvr} observacao={infoKpi.cvrObservacao} valor={resumo.cvrMedio} formatar={(n) => `${n.toFixed(1)}%`} />
         <Secundaria label={copy.ctr} descricao={infoKpi.ctr} observacao={infoKpi.ctrObservacao} valor={resumo.ctrMedio} formatar={(n) => `${n.toFixed(2)}%`} />
         <Secundaria label={copy.cpc} descricao={infoKpi.cpc} observacao={infoKpi.cpcObservacao} valor={resumo.cpcMedio} formatar={(n) => moeda.format(n)} />

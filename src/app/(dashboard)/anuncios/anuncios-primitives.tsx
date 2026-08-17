@@ -7,6 +7,8 @@ import { Info } from "lucide-react";
 import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
+import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { isBrandSlug } from "@/shared/config/brands";
 
 /* Mesmos primitivos visuais de Métricas (Card/CardHead/SectionLabel/
    useContagem) — repetidos aqui em vez de importados de outra rota, pelo
@@ -15,6 +17,18 @@ import { tint } from "@/shared/design-system/color";
    dependendo da outra. O objetivo do brief ("parecer que sempre fez parte
    do produto") é sobre a linguagem visual ser idêntica, não sobre
    compartilhar o arquivo. */
+
+/** Repete a marca ativa no cabeçalho de cards que ficam abaixo da primeira
+ *  dobra — o seletor de marca no topo da página já sai de vista ao rolar,
+ *  e sem isso não dá pra saber a que marca aquele card pertence sem rolar
+ *  de volta. */
+export function MarcaBadge({ brandSlug, brandLabel }: { brandSlug: string; brandLabel: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+      {isBrandSlug(brandSlug) ? <BrandLogo brand={brandSlug} height={12} /> : brandLabel}
+    </span>
+  );
+}
 
 export function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (

@@ -36,6 +36,7 @@ const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 const roasTexto = (valor: number | null) => valor === null ? "sem dado" : `${decimal2.format(valor)}x`;
 const variacaoTexto = (valor: number) => `${valor >= 0 ? "+" : ""}${decimal1.format(valor)}%`;
 const periodoAnteriorTexto = (dias: number) => dias === 1 ? "o dia anterior" : `os ${dias} dias anteriores`;
+const periodoAnteriorComPreposicao = (dias: number) => dias === 1 ? "no dia anterior" : `nos ${dias} dias anteriores`;
 const paraISO = (data: Date) => `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 const hojeISO = paraISO(new Date());
 function periodoInicial() {
@@ -68,7 +69,176 @@ function descricaoComparacao({
   if (variacao === null) {
     return `${label}: valor atual ${atual}. Sem base de variação porque ${periodo} ${verboBase} em ${anterior}. ${leitura}`;
   }
-  return `${label}: ${atual} no período atual contra ${anterior} em ${periodo}. Variação de ${variacaoTexto(variacao)}. ${leitura}`;
+  return `${label}: ${atual} no período atual contra ${anterior} ${periodoAnteriorComPreposicao(dias)}. Variação de ${variacaoTexto(variacao)}. ${leitura}`;
+}
+
+function descricaoComparacaoRoas({
+  atual,
+  anterior,
+  variacao,
+  dias,
+}: {
+  atual: number | null;
+  anterior: number | null;
+  variacao: number | null;
+  dias: number;
+}) {
+  const observacao = "ROAS compara receita atribuída com investimento. Uma alta indica mais retorno por real investido; ainda assim, confirme junto com investimento, receita e margem, porque ROAS não é lucro.";
+  const atualTexto = roasTexto(atual);
+
+  if (anterior === null) {
+    return {
+      descricao: `ROAS atual: ${atualTexto}. Ainda não há período anterior carregado para comparar com ${periodoAnteriorTexto(dias)}. Use este número para ver quanto cada real investido está retornando em receita atribuída agora.`,
+      observacao,
+    };
+  }
+
+  const anteriorTexto = roasTexto(anterior);
+
+  if (variacao === null) {
+    return {
+      descricao: `ROAS atual: ${atualTexto}. No período anterior, era ${anteriorTexto}. Sem base percentual confiável porque o período anterior ficou zerado ou sem dado. Compare a direção do número, mas evite ler como crescimento percentual.`,
+      observacao,
+    };
+  }
+
+  const leitura = variacao > 0
+    ? "A eficiência melhorou: cada real investido passou a retornar mais receita atribuída."
+    : variacao < 0
+      ? "A eficiência piorou: cada real investido passou a retornar menos receita atribuída."
+      : "A eficiência ficou estável: cada real investido retornou praticamente a mesma receita atribuída.";
+
+  return {
+    descricao: `ROAS atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. A variação foi de ${variacaoTexto(variacao)}. ${leitura}`,
+    observacao,
+  };
+}
+
+function descricaoComparacaoInvestimento({
+  atual,
+  anterior,
+  variacao,
+  dias,
+}: {
+  atual: number;
+  anterior: number | null;
+  variacao: number | null;
+  dias: number;
+}) {
+  const observacao = "Investimento é o gasto de mídia registrado nos anúncios. Ele não inclui custo do produto, taxas, frete, impostos ou outras despesas da operação.";
+  const atualTexto = moeda.format(atual);
+
+  if (anterior === null) {
+    return {
+      descricao: `Investimento atual: ${atualTexto}. Ainda não há período anterior carregado para comparar com ${periodoAnteriorTexto(dias)}. Use este valor junto com Receita Ads e ROAS para entender se o gasto está trazendo retorno.`,
+      observacao,
+    };
+  }
+
+  const anteriorTexto = moeda.format(anterior);
+
+  if (variacao === null) {
+    return {
+      descricao: `Investimento atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. Sem base percentual confiável porque o período anterior ficou zerado. Compare o valor absoluto, mas evite ler como crescimento percentual.`,
+      observacao,
+    };
+  }
+
+  const leitura = variacao > 0
+    ? "O gasto em mídia aumentou; confira se Receita Ads, conversões e ROAS cresceram junto."
+    : variacao < 0
+      ? "O gasto em mídia diminuiu; se receita ou conversões caíram, parte da queda pode vir de menor volume de investimento."
+      : "O gasto em mídia ficou praticamente estável em relação ao período anterior.";
+
+  return {
+    descricao: `Investimento atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. A variação foi de ${variacaoTexto(variacao)}. ${leitura}`,
+    observacao,
+  };
+}
+
+function descricaoComparacaoReceitaAds({
+  atual,
+  anterior,
+  variacao,
+  dias,
+}: {
+  atual: number;
+  anterior: number | null;
+  variacao: number | null;
+  dias: number;
+}) {
+  const observacao = "Receita Ads é a receita que a plataforma atribuiu aos anúncios. Não é receita total da marca e não é lucro: ainda não desconta mídia, custo do produto, taxas, frete ou impostos.";
+  const atualTexto = moeda.format(atual);
+
+  if (anterior === null) {
+    return {
+      descricao: `Receita Ads atual: ${atualTexto}. Ainda não há período anterior carregado para comparar com ${periodoAnteriorTexto(dias)}. Use este valor junto com investimento e ROAS para entender o retorno da mídia paga.`,
+      observacao,
+    };
+  }
+
+  const anteriorTexto = moeda.format(anterior);
+
+  if (variacao === null) {
+    return {
+      descricao: `Receita Ads atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. Sem base percentual confiável porque o período anterior ficou zerado. Compare o valor absoluto, mas evite ler como crescimento percentual.`,
+      observacao,
+    };
+  }
+
+  const leitura = variacao > 0
+    ? "A receita atribuída aos anúncios cresceu; confira se esse aumento veio com ROAS saudável e investimento controlado."
+    : variacao < 0
+      ? "A receita atribuída aos anúncios caiu; veja se a queda veio de menos investimento, menos conversões ou pior eficiência."
+      : "A receita atribuída aos anúncios ficou praticamente estável em relação ao período anterior.";
+
+  return {
+    descricao: `Receita Ads atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. A variação foi de ${variacaoTexto(variacao)}. ${leitura}`,
+    observacao,
+  };
+}
+
+function descricaoComparacaoConversoes({
+  atual,
+  anterior,
+  variacao,
+  dias,
+}: {
+  atual: number;
+  anterior: number | null;
+  variacao: number | null;
+  dias: number;
+}) {
+  const observacao = "Conversões, nesta tela, são vendas atribuídas aos anúncios pelas regras da plataforma. Mais conversões não significa automaticamente mais lucro: confirme junto com investimento, receita, CVR e ROAS.";
+  const atualTexto = inteiro.format(atual);
+  const conversaoAtual = atual === 1 ? "1 venda atribuída" : `${atualTexto} vendas atribuídas`;
+
+  if (anterior === null) {
+    return {
+      descricao: `Conversões atuais: ${atualTexto}. Neste período, os anúncios geraram ${conversaoAtual}. Ainda não há período anterior carregado para comparar com ${periodoAnteriorTexto(dias)}.`,
+      observacao,
+    };
+  }
+
+  const anteriorTexto = inteiro.format(anterior);
+
+  if (variacao === null) {
+    return {
+      descricao: `Conversões atuais: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, foram ${anteriorTexto}. Sem base percentual confiável porque o período anterior ficou zerado. Compare o volume absoluto, mas evite ler como crescimento percentual.`,
+      observacao,
+    };
+  }
+
+  const leitura = variacao > 0
+    ? "Os anúncios geraram mais vendas atribuídas do que antes; confira se o crescimento veio acompanhado de receita e ROAS saudáveis."
+    : variacao < 0
+      ? "Os anúncios geraram menos vendas atribuídas do que antes; confira se a queda veio de menos cliques, CVR pior ou investimento menor."
+      : "Os anúncios mantiveram praticamente o mesmo volume de vendas atribuídas do período anterior.";
+
+  return {
+    descricao: `Conversões atuais: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, foram ${anteriorTexto}. A variação foi de ${variacaoTexto(variacao)}. ${leitura}`,
+    observacao,
+  };
 }
 
 /* ── Seletor de marca ─────────────────────────────────────────
@@ -232,13 +402,13 @@ export function AnunciosCliente() {
             {copy.campanhas.verTodas} →
           </Link>
         </div>
-        <CampanhasCard campanhas={marca.campanhas} />
+        <CampanhasCard campanhas={marca.campanhas} marca={marca} />
       </section>
 
       {/* Ato 4 — o que a mídia paga está puxando */}
       <section className="flex flex-col gap-3">
         <SectionLabel>Dependência de mídia</SectionLabel>
-        <OrganicoCard resumo={marca.resumo} resumoAnterior={marcaAnterior?.resumo ?? null} />
+        <OrganicoCard resumo={marca.resumo} resumoAnterior={marcaAnterior?.resumo ?? null} marca={marca} />
       </section>
     </motion.div>
   );
@@ -251,58 +421,58 @@ function ComparativoPeriodo({ atual, anterior, dias }: { atual: VisaoGeralMarca;
   const receitaAnterior = anterior?.resumo.receitaTotal ?? null;
   const roasAnterior = anterior?.resumo.roasMedio ?? null;
   const conversoesAnteriores = anterior?.resumo.vendas ?? null;
+  const comparacaoInvestimento = descricaoComparacaoInvestimento({
+    atual: atual.resumo.investimentoTotal,
+    anterior: investimentoAnterior,
+    variacao: variacao(atual.resumo.investimentoTotal, investimentoAnterior ?? 0),
+    dias,
+  });
+  const comparacaoReceitaAds = descricaoComparacaoReceitaAds({
+    atual: atual.resumo.receitaTotal,
+    anterior: receitaAnterior,
+    variacao: variacao(atual.resumo.receitaTotal, receitaAnterior ?? 0),
+    dias,
+  });
+  const comparacaoRoas = descricaoComparacaoRoas({
+    atual: atual.resumo.roasMedio,
+    anterior: roasAnterior,
+    variacao: variacaoRoas(atual.resumo.roasMedio, roasAnterior),
+    dias,
+  });
+  const comparacaoConversoes = descricaoComparacaoConversoes({
+    atual: atual.resumo.vendas,
+    anterior: conversoesAnteriores,
+    variacao: variacao(atual.resumo.vendas, conversoesAnteriores ?? 0),
+    dias,
+  });
   const itens = [
     {
       label: "Investimento",
-      descricao: descricaoComparacao({
-        label: "Investimento",
-        atual: moeda.format(atual.resumo.investimentoTotal),
-        anterior: investimentoAnterior === null ? null : moeda.format(investimentoAnterior),
-        variacao: variacao(atual.resumo.investimentoTotal, investimentoAnterior ?? 0),
-        dias,
-        leitura: "Mostra se o gasto em mídia aumentou ou diminuiu.",
-      }),
+      descricao: comparacaoInvestimento.descricao,
+      observacao: comparacaoInvestimento.observacao,
       valor: variacao(atual.resumo.investimentoTotal, investimentoAnterior ?? 0),
     },
     {
       label: "Receita Ads",
-      descricao: descricaoComparacao({
-        label: "Receita Ads",
-        atual: moeda.format(atual.resumo.receitaTotal),
-        anterior: receitaAnterior === null ? null : moeda.format(receitaAnterior),
-        variacao: variacao(atual.resumo.receitaTotal, receitaAnterior ?? 0),
-        dias,
-        leitura: "Mostra se a receita atribuída aos anúncios acompanhou o investimento.",
-      }),
+      descricao: comparacaoReceitaAds.descricao,
+      observacao: comparacaoReceitaAds.observacao,
       valor: variacao(atual.resumo.receitaTotal, receitaAnterior ?? 0),
     },
     {
       label: "ROAS",
-      descricao: descricaoComparacao({
-        label: "ROAS",
-        atual: roasTexto(atual.resumo.roasMedio),
-        anterior: anterior === null ? null : roasTexto(roasAnterior),
-        variacao: variacaoRoas(atual.resumo.roasMedio, roasAnterior),
-        dias,
-        leitura: "Mostra se cada real investido está retornando mais ou menos receita.",
-      }),
+      descricao: comparacaoRoas.descricao,
+      observacao: comparacaoRoas.observacao,
       valor: variacaoRoas(atual.resumo.roasMedio, roasAnterior),
     },
     {
       label: "Conversões",
-      descricao: descricaoComparacao({
-        label: "Conversões",
-        atual: inteiro.format(atual.resumo.vendas),
-        anterior: conversoesAnteriores === null ? null : inteiro.format(conversoesAnteriores),
-        variacao: variacao(atual.resumo.vendas, conversoesAnteriores ?? 0),
-        dias,
-        leitura: "Mostra se os anúncios estão gerando mais ou menos vendas atribuídas.",
-      }),
+      descricao: comparacaoConversoes.descricao,
+      observacao: comparacaoConversoes.observacao,
       valor: variacao(atual.resumo.vendas, conversoesAnteriores ?? 0),
     },
   ];
   return <section className="rounded-2xl border border-border bg-card px-4 py-3">
     <div className="flex flex-wrap items-center gap-3"><p className="text-xs font-semibold text-foreground">Comparação com {periodoAnteriorTexto(dias)}</p><span className="h-px flex-1 bg-border" /></div>
-    <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">{itens.map((item) => <div key={item.label}><dt className="text-[10px] uppercase text-muted-foreground"><RotuloComInfo descricao={item.descricao}>{item.label}</RotuloComInfo></dt><dd className={`mt-0.5 text-sm font-bold ${item.valor === null ? "text-muted-foreground" : item.valor >= 0 ? "text-success" : "text-destructive"}`}>{item.valor === null ? "Sem base" : variacaoTexto(item.valor)}</dd></div>)}</dl>
+    <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">{itens.map((item) => <div key={item.label}><dt className="text-[10px] uppercase text-muted-foreground"><RotuloComInfo descricao={item.descricao} observacao={item.observacao}>{item.label}</RotuloComInfo></dt><dd className={`mt-0.5 text-sm font-bold ${item.valor === null ? "text-muted-foreground" : item.valor >= 0 ? "text-success" : "text-destructive"}`}>{item.valor === null ? "Sem base" : variacaoTexto(item.valor)}</dd></div>)}</dl>
   </section>;
 }

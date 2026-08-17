@@ -45,7 +45,12 @@ describe("rótulos de Anúncios com informação", () => {
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ACOS" }));
 
     expect(await screen.findByText(/ACOS atual: 25,0%/i)).toBeInTheDocument();
-    expect(screen.getByText(/A cada R\$ 100,00 de receita atribuída/i)).toBeInTheDocument();
+    expect(screen.getByText(/ACOS é investimento em anúncios dividido pela receita atribuída/i)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*1\.200,00 de mídia sobre R\$\s*4\.800,00 de receita atribuída/i)).toBeInTheDocument();
+    expect(screen.getByText(/a cada R\$\s*100,00 de receita atribuída, R\$\s*25,00/i)).toBeInTheDocument();
+    expect(screen.getByText("Observação")).toBeInTheDocument();
+    expect(screen.getByText(/ACOS olha só a receita atribuída aos anúncios/i)).toBeInTheDocument();
+    expect(screen.getByText(/ACOS baixo ajuda na eficiência, mas não é lucro/i)).toBeInTheDocument();
   });
 
   it("explica o ROAS de forma didática e dinâmica", async () => {
@@ -125,5 +130,19 @@ describe("rótulos de Anúncios com informação", () => {
     expect(screen.getByText(/bom sinal/i)).toBeInTheDocument();
     expect(screen.getByText("Observação")).toBeInTheDocument();
     expect(screen.getByText(/Conversão é quando esse clique vira venda atribuída/i)).toBeInTheDocument();
+  });
+
+  it("explica TACOS com receita total e observação sobre ACOS", async () => {
+    render(<KpisPrincipais resumo={resumo()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador TACOS" }));
+
+    expect(await screen.findByText(/TACOS atual: 12,5%/i)).toBeInTheDocument();
+    expect(screen.getByText(/TACOS é investimento em anúncios dividido pela receita total/i)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*1\.200,00 de mídia sobre R\$\s*10\.000,00 de receita total/i)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*4\.800,00 de ads \+ R\$\s*5\.200,00 orgânica/i)).toBeInTheDocument();
+    expect(screen.getByText(/a cada R\$\s*100,00 vendidos no total, R\$\s*12,50/i)).toBeInTheDocument();
+    expect(screen.getByText("Observação")).toBeInTheDocument();
+    expect(screen.getByText(/Diferente do ACOS, ele usa receita total/i)).toBeInTheDocument();
   });
 });

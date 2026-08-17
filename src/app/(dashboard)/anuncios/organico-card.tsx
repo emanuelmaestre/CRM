@@ -2,11 +2,11 @@
 
 import { motion } from "framer-motion";
 import { Split } from "lucide-react";
-import type { VisaoGeralResumo } from "@/modules/anuncios/application/visao-geral.service";
+import type { VisaoGeralMarca, VisaoGeralResumo } from "@/modules/anuncios/application/visao-geral.service";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
-import { BarraSimples, Card, CardHead } from "./anuncios-primitives";
+import { BarraSimples, Card, CardHead, MarcaBadge } from "./anuncios-primitives";
 import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.organico;
@@ -31,7 +31,14 @@ const VEREDITO_CLASSIFICACAO: Record<string, string> = {
   critica: "Quase todas as vendas vêm de mídia paga — hoje, sem investimento em anúncio, as vendas cairiam quase a zero. Vale entender se é uma fase (lançamento) ou um padrão que precisa de atenção.",
 };
 
-export function OrganicoCard({ resumo, resumoAnterior }: { resumo: VisaoGeralResumo; resumoAnterior?: VisaoGeralResumo | null }) {
+export function OrganicoCard({ resumo, resumoAnterior, marca }: {
+  resumo: VisaoGeralResumo;
+  resumoAnterior?: VisaoGeralResumo | null;
+  /** O filtro de marca fica só no topo da página — cards mais abaixo, fora
+   *  da primeira dobra, perdem essa referência quando a pessoa rola. A logo
+   *  aqui repete o contexto sem precisar rolar de volta pra conferir. */
+  marca: VisaoGeralMarca;
+}) {
   const totalVendas = resumo.vendasPublicitarias + resumo.vendasOrganicas;
   const semDado = totalVendas === 0;
 
@@ -47,7 +54,13 @@ export function OrganicoCard({ resumo, resumoAnterior }: { resumo: VisaoGeralRes
 
   return (
     <Card>
-      <CardHead title={copy.titulo} subtitle={copy.descricao} icon={Split} accent={ACENTO} />
+      <CardHead
+        title={copy.titulo}
+        subtitle={copy.descricao}
+        icon={Split}
+        accent={ACENTO}
+        trailing={<MarcaBadge brandSlug={marca.brandSlug} brandLabel={marca.brandLabel} />}
+      />
       {semDado ? (
         <EmptyState illustration="generic" title={copy.semVenda} />
       ) : (
