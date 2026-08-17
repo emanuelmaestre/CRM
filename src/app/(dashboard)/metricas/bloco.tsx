@@ -350,14 +350,15 @@ export function Foco({ def, onFechar, onAnterior, onProximo, posicao, barraPerio
               {/* O fundo do painel ocupa a tela inteira (é a tela cheia
                   pedida), mas o conteúdo trava numa largura confortável de
                   leitura — mesma medida do resto do app (DashboardLayout) —
-                  para não esticar texto e grids num monitor ultrawide. */}
+                  para não esticar texto e grids num monitor ultrawide.
+
+                  Sem camada de achatamento aqui: o `Card` deixou de ter
+                  superfície própria (ver metricas-primitives.tsx), então o
+                  conteúdo já encosta direto no painel. A tentativa antiga de
+                  apagar a borda por CSS nunca funcionou — `.card-surface`
+                  está fora de @layer e vencia os utilitários do Tailwind. */}
               <div className="mx-auto w-full max-w-[1440px]">
-                {/* O card traz a própria superfície (.card-surface). Dentro do
-                    painel isso vira borda sobre borda, então ela é achatada
-                    aqui — o painel já é o card agora. */}
-                <div className="[&>section]:border-0 [&>section]:bg-transparent [&>section]:shadow-none [&>section]:px-0 [&>section]:pt-0">
-                  {def.render(acaoSlot)}
-                </div>
+                {def.render(acaoSlot)}
               </div>
             </motion.div>
           </motion.div>

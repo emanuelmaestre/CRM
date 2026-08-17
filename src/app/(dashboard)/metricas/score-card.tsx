@@ -92,7 +92,7 @@ function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
     >
       <div className="flex items-baseline justify-between gap-3">
         <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className={`truncate text-[13px] font-semibold ${semDado ? "text-muted-foreground" : "text-foreground"}`}>
+          <span className={`truncate text-[14px] font-semibold ${semDado ? "text-muted-foreground" : "text-foreground"}`}>
             {pilar.label}
           </span>
           <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">
@@ -100,17 +100,19 @@ function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
           </span>
         </span>
         <span
-          className="shrink-0 text-[13px] font-bold tabular-nums"
+          className="shrink-0 text-[17px] font-bold tabular-nums"
           style={{ color: cor }}
         >
           {semDado ? "—" : Math.round(pilar.nota as number)}
         </span>
       </div>
+      {/* 8px, não 10 como a barra de marca: são cinco linhas empilhadas aqui
+          contra três lá — a mesma altura viraria uma parede de barras. */}
       <BarraComLimite
         valor={pilar.nota ?? 0}
         maximo={100}
         cor={cor}
-        altura={6}
+        altura={8}
         atraso={0.08 + indice * 0.05}
       />
       <p className="text-[11px] leading-snug text-muted-foreground">{pilar.detalhe}</p>
@@ -259,9 +261,12 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
             <SeletorEscopo marcas={dados.marcas} valor={escopo} onChange={setEscopo} />
           </div>
 
-          <div className="mt-5 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+          {/* Anel maior e mais respiro entre ele e a lista: no painel de foco
+              em tela cheia, o conteúdo antigo ocupava menos da metade da
+              altura e sobrava um vazio grande embaixo. */}
+          <div className="mt-6 flex flex-col items-center gap-8 sm:flex-row sm:items-start sm:gap-10">
             <div className="flex flex-col items-center gap-2">
-              <AnelScore valor={score} cor={cor} faixaLabel={faixaLabel} />
+              <AnelScore valor={score} cor={cor} faixaLabel={faixaLabel} tamanho={224} />
               {score !== null && (
                 <span className="flex items-center gap-1 text-[10.5px] font-semibold text-muted-foreground/70">
                   Ver a conta
@@ -289,7 +294,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
                     animate={{ opacity: 1, y: 0 }}
                     exit={reduzir ? undefined : { opacity: 0, y: -6 }}
                     transition={springs.settleFast}
-                    className="flex flex-col gap-3"
+                    className="flex flex-col gap-4"
                   >
                     {dados.marcas.map((marca, indice) => (
                       <motion.li
@@ -302,19 +307,19 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
                         <button
                           type="button"
                           onClick={() => setEscopo(marca.brandId)}
-                          className="press-feedback flex w-full flex-col gap-1.5 rounded-[0.9rem] px-2 py-1.5 text-left transition-colors hover:bg-muted"
+                          className="press-feedback flex w-full flex-col gap-2 rounded-[0.9rem] px-2 py-2.5 text-left transition-colors hover:bg-muted"
                         >
                           <span className="flex items-baseline justify-between gap-3">
                             <span className="flex min-w-0 items-center gap-2">
                               {isBrandSlug(marca.marca)
-                                ? <BrandLogo brand={marca.marca} height={15} />
-                                : <span className="truncate text-[13px] font-semibold text-foreground">{marca.marcaLabel}</span>}
-                              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                ? <BrandLogo brand={marca.marca} height={17} />
+                                : <span className="truncate text-[14px] font-semibold text-foreground">{marca.marcaLabel}</span>}
+                              <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 {marca.faixaLabel ?? "sem dado"}
                               </span>
                             </span>
                             <span
-                              className="shrink-0 text-[15px] font-bold tabular-nums"
+                              className="shrink-0 text-[20px] font-bold tabular-nums"
                               style={{ color: marca.faixaCor ?? "var(--muted-foreground)" }}
                             >
                               {marca.score ?? "—"}
@@ -324,7 +329,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
                             valor={marca.score ?? 0}
                             maximo={100}
                             cor={marca.faixaCor ?? "var(--muted-foreground)"}
-                            altura={6}
+                            altura={10}
                             atraso={0.1 + indice * 0.05}
                           />
                         </button>

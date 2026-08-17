@@ -15,10 +15,20 @@ export interface Periodo {
 }
 
 /* ── Card base ─────────────────────────────────────────────────
-   Mesma superfície em todo o módulo (.card-surface): borda de 1px, raio de
-   20px e sombra ambiente — os cards que vieram do Painel e os que já eram
-   de Métricas usam o mesmo primitivo desde a fusão, para não parecerem dois
-   apps colados dentro do mesmo sistema. */
+   Só layout, sem superfície própria — nem borda, nem fundo, nem sombra.
+   Desde a fusão em mosaico, todo card daqui é renderizado exclusivamente
+   dentro do painel de foco (bloco.tsx), que já é a superfície da tela: a
+   borda do card virava moldura sobre moldura, desenhando uma "página
+   dentro da página".
+
+   Isto não é um `card-surface` sobrescrito depois — é a ausência dele. A
+   tentativa anterior (achatar com `[&>section]:border-0` no Foco) não
+   funcionava: `.card-surface` mora fora de qualquer @layer no globals.css,
+   e pela cascata do CSS estilo sem layer vence utilitário do Tailwind (que
+   vive em @layer utilities) por mais específico que o seletor seja.
+
+   O `.card-surface` continua valendo para quem é superfície de verdade: o
+   tile do mosaico e os cards do módulo Anúncios. */
 export function Card({ children, className, style }: {
   children: React.ReactNode;
   className?: string;
@@ -27,7 +37,7 @@ export function Card({ children, className, style }: {
   return (
     <motion.section
       variants={fadeUp}
-      className={cn("card-surface relative flex flex-col overflow-hidden", className)}
+      className={cn("relative flex flex-col", className)}
       style={style}
     >
       {children}
@@ -182,14 +192,21 @@ export function AnelScore({ valor, cor, tamanho = 168, faixaLabel }: {
           <span className="text-3xl font-bold text-muted-foreground">—</span>
         ) : (
           <>
+            {/* Número e faixa acompanham o diâmetro em vez de tamanho fixo:
+                o anel cresceu no painel de foco, e um número de 32px dentro
+                de um anel de 224px ficaria perdido no meio do vazio. As
+                proporções batem o visual antigo no tamanho padrão (168). */}
             <span
               className="text-stat-lg leading-none"
-              style={{ color: cor }}
+              style={{ color: cor, fontSize: Math.round(tamanho * 0.2) }}
             >
               {Math.round(exibido)}
             </span>
             {faixaLabel && (
-              <span className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.08em]" style={{ color: cor }}>
+              <span
+                className="mt-1.5 font-bold uppercase tracking-[0.08em]"
+                style={{ color: cor, fontSize: Math.max(11, Math.round(tamanho * 0.058)) }}
+              >
                 {faixaLabel}
               </span>
             )}
