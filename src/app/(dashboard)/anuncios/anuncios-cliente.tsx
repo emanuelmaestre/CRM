@@ -19,13 +19,20 @@ import { KpisPrincipais } from "./kpis-principais";
 import { OportunidadesCard } from "./oportunidades-card";
 import { OrganicoCard } from "./organico-card";
 import { ResumoInteligente } from "./resumo-inteligente";
-import { SectionLabel } from "./anuncios-primitives";
+import { RotuloComInfo, SectionLabel } from "./anuncios-primitives";
 import { exportarAnunciosPDF } from "./exportar-pdf";
 import type { VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
 
 const copy = anunciosConfig;
 
+const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const inteiro = new Intl.NumberFormat("pt-BR");
+const decimal1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const decimal2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+const roasTexto = (valor: number | null) => valor === null ? "sem dado" : `${decimal2.format(valor)}x`;
+const variacaoTexto = (valor: number) => `${valor >= 0 ? "+" : ""}${decimal1.format(valor)}%`;
+const periodoAnteriorTexto = (dias: number) => dias === 1 ? "o dia anterior" : `os ${dias} dias anteriores`;
 const paraISO = (data: Date) => `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 const hojeISO = paraISO(new Date());
 function periodoInicial() {
@@ -33,6 +40,32 @@ function periodoInicial() {
   const inicio = new Date();
   inicio.setDate(inicio.getDate() - 29);
   return { inicio: paraISO(inicio), fim: paraISO(fim) };
+}
+
+function descricaoComparacao({
+  label,
+  atual,
+  anterior,
+  variacao,
+  dias,
+  leitura,
+}: {
+  label: string;
+  atual: string;
+  anterior: string | null;
+  variacao: number | null;
+  dias: number;
+  leitura: string;
+}) {
+  const periodo = periodoAnteriorTexto(dias);
+  const verboBase = dias === 1 ? "ficou" : "ficaram";
+  if (anterior === null) {
+    return `${label}: valor atual ${atual}. Ainda não há período anterior carregado para comparar com ${periodo}. ${leitura}`;
+  }
+  if (variacao === null) {
+    return `${label}: valor atual ${atual}. Sem base de variação porque ${periodo} ${verboBase} em ${anterior}. ${leitura}`;
+  }
+  return `${label}: ${atual} no período atual contra ${anterior} em ${periodo}. Variação de ${variacaoTexto(variacao)}. ${leitura}`;
 }
 
 /* ── Seletor de marca ─────────────────────────────────────────
@@ -213,14 +246,63 @@ export function AnunciosCliente() {
 
 function ComparativoPeriodo({ atual, anterior, dias }: { atual: VisaoGeralMarca; anterior: VisaoGeralMarca | null; dias: number }) {
   const variacao = (valor: number, base: number) => base === 0 ? null : Math.round(((valor - base) / Math.abs(base)) * 1000) / 10;
+  const variacaoRoas = (valor: number | null, base: number | null) => base === null ? null : variacao(valor ?? 0, base);
+  const investimentoAnterior = anterior?.resumo.investimentoTotal ?? null;
+  const receitaAnterior = anterior?.resumo.receitaTotal ?? null;
+  const roasAnterior = anterior?.resumo.roasMedio ?? null;
+  const conversoesAnteriores = anterior?.resumo.vendas ?? null;
   const itens = [
-    { label: "Investimento", valor: variacao(atual.resumo.investimentoTotal, anterior?.resumo.investimentoTotal ?? 0) },
-    { label: "Receita Ads", valor: variacao(atual.resumo.receitaTotal, anterior?.resumo.receitaTotal ?? 0) },
-    { label: "ROAS", valor: variacao(atual.resumo.roasMedio ?? 0, anterior?.resumo.roasMedio ?? 0) },
-    { label: "Conversões", valor: variacao(atual.resumo.vendas, anterior?.resumo.vendas ?? 0) },
+    {
+      label: "Investimento",
+      descricao: descricaoComparacao({
+        label: "Investimento",
+        atual: moeda.format(atual.resumo.investimentoTotal),
+        anterior: investimentoAnterior === null ? null : moeda.format(investimentoAnterior),
+        variacao: variacao(atual.resumo.investimentoTotal, investimentoAnterior ?? 0),
+        dias,
+        leitura: "Mostra se o gasto em mídia aumentou ou diminuiu.",
+      }),
+      valor: variacao(atual.resumo.investimentoTotal, investimentoAnterior ?? 0),
+    },
+    {
+      label: "Receita Ads",
+      descricao: descricaoComparacao({
+        label: "Receita Ads",
+        atual: moeda.format(atual.resumo.receitaTotal),
+        anterior: receitaAnterior === null ? null : moeda.format(receitaAnterior),
+        variacao: variacao(atual.resumo.receitaTotal, receitaAnterior ?? 0),
+        dias,
+        leitura: "Mostra se a receita atribuída aos anúncios acompanhou o investimento.",
+      }),
+      valor: variacao(atual.resumo.receitaTotal, receitaAnterior ?? 0),
+    },
+    {
+      label: "ROAS",
+      descricao: descricaoComparacao({
+        label: "ROAS",
+        atual: roasTexto(atual.resumo.roasMedio),
+        anterior: anterior === null ? null : roasTexto(roasAnterior),
+        variacao: variacaoRoas(atual.resumo.roasMedio, roasAnterior),
+        dias,
+        leitura: "Mostra se cada real investido está retornando mais ou menos receita.",
+      }),
+      valor: variacaoRoas(atual.resumo.roasMedio, roasAnterior),
+    },
+    {
+      label: "Conversões",
+      descricao: descricaoComparacao({
+        label: "Conversões",
+        atual: inteiro.format(atual.resumo.vendas),
+        anterior: conversoesAnteriores === null ? null : inteiro.format(conversoesAnteriores),
+        variacao: variacao(atual.resumo.vendas, conversoesAnteriores ?? 0),
+        dias,
+        leitura: "Mostra se os anúncios estão gerando mais ou menos vendas atribuídas.",
+      }),
+      valor: variacao(atual.resumo.vendas, conversoesAnteriores ?? 0),
+    },
   ];
   return <section className="rounded-2xl border border-border bg-card px-4 py-3">
-    <div className="flex flex-wrap items-center gap-3"><p className="text-xs font-semibold text-foreground">Comparação com os {dias === 1 ? "dia anterior" : `${dias} dias anteriores`}</p><span className="h-px flex-1 bg-border" /></div>
-    <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">{itens.map((item) => <div key={item.label}><dt className="text-[10px] uppercase text-muted-foreground">{item.label}</dt><dd className={`mt-0.5 text-sm font-bold ${item.valor === null ? "text-muted-foreground" : item.valor >= 0 ? "text-success" : "text-destructive"}`}>{item.valor === null ? "Sem base" : `${item.valor >= 0 ? "+" : ""}${item.valor}%`}</dd></div>)}</dl>
+    <div className="flex flex-wrap items-center gap-3"><p className="text-xs font-semibold text-foreground">Comparação com {periodoAnteriorTexto(dias)}</p><span className="h-px flex-1 bg-border" /></div>
+    <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">{itens.map((item) => <div key={item.label}><dt className="text-[10px] uppercase text-muted-foreground"><RotuloComInfo descricao={item.descricao}>{item.label}</RotuloComInfo></dt><dd className={`mt-0.5 text-sm font-bold ${item.valor === null ? "text-muted-foreground" : item.valor >= 0 ? "text-success" : "text-destructive"}`}>{item.valor === null ? "Sem base" : variacaoTexto(item.valor)}</dd></div>)}</dl>
   </section>;
 }

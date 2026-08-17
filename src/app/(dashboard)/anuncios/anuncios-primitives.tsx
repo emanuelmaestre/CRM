@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { motion } from "framer-motion";
+import { Info } from "lucide-react";
 import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
@@ -51,6 +53,42 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
       <h2 className="text-label-md uppercase text-muted-foreground">{children}</h2>
       <span className="h-px flex-1 bg-border" />
     </div>
+  );
+}
+
+export function RotuloComInfo({ children, descricao }: {
+  children: string;
+  descricao: string;
+}) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 align-middle">
+      <span className="min-w-0 truncate">{children}</span>
+      <PopoverPrimitive.Root>
+        <PopoverPrimitive.Trigger asChild>
+          <button
+            type="button"
+            aria-label={`Explicar indicador ${children}`}
+            title={`${children}: ${descricao}`}
+            className="press-feedback inline-flex h-4 min-h-0 w-4 min-w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/75 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Info aria-hidden="true" size={11} strokeWidth={2.35} />
+          </button>
+        </PopoverPrimitive.Trigger>
+        <PopoverPrimitive.Portal>
+          <PopoverPrimitive.Content
+            align="start"
+            sideOffset={6}
+            collisionPadding={12}
+            className="z-[100] w-[min(18rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-3 text-left normal-case shadow-[0_12px_32px_rgba(14,15,19,.18)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como ler este número</p>
+            <p className="mt-0.5 text-[13px] font-bold text-foreground">{children}</p>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">{descricao}</p>
+            <PopoverPrimitive.Arrow className="fill-card" />
+          </PopoverPrimitive.Content>
+        </PopoverPrimitive.Portal>
+      </PopoverPrimitive.Root>
+    </span>
   );
 }
 

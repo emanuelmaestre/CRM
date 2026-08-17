@@ -20,6 +20,7 @@ const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const diaMes = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
 
 const PERIODOS = [7, 30, 90] as const;
+type PeriodoHistorico = (typeof PERIODOS)[number];
 
 function Esqueleto() {
   return (
@@ -77,9 +78,15 @@ function GraficoLinha({ pontos, cor, largura = 640, altura = 140 }: {
   );
 }
 
-function GraficoHistorico({ pontos }: { pontos: PontoHistorico[] }) {
+function avisoUmPonto(ponto: PontoHistorico, dias: PeriodoHistorico) {
+  const periodo = copy.periodos[String(dias) as "7" | "30" | "90"];
+  return `Só existe 1 dia de dado sincronizado neste filtro (${diaMes.format(new Date(`${ponto.data}T00:00:00`))}), embora o período escolhido seja ${periodo}. A tendência aparece quando houver pelo menos 2 dias sincronizados.`;
+}
+
+function GraficoHistorico({ pontos, dias }: { pontos: PontoHistorico[]; dias: PeriodoHistorico }) {
   const investimento = pontos.map((p, i) => ({ x: i, y: p.investimento }));
   const receita = pontos.map((p, i) => ({ x: i, y: p.receita }));
+  const aviso = pontos.length === 1 ? avisoUmPonto(pontos[0], dias) : null;
 
   return (
     <Card>
@@ -99,9 +106,12 @@ function GraficoHistorico({ pontos }: { pontos: PontoHistorico[] }) {
             <span>{diaMes.format(new Date(`${pontos[pontos.length - 1].data}T00:00:00`))}</span>
           </div>
         )}
-        {pontos.length === 1 && (
+        {aviso && (
           <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted-foreground">
-            <Info aria-hidden="true" size={12} className="mt-0.5 shrink-0" /> {copy.umPontoAviso}
+            <span title={aviso} className="mt-0.5 inline-flex shrink-0">
+              <Info aria-hidden="true" size={12} />
+            </span>
+            {aviso}
           </p>
         )}
       </div>
@@ -114,7 +124,7 @@ export function HistoricoClienteDetalhe() {
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
   const [pontos, setPontos] = useState<PontoHistorico[] | null>(null);
   const [pontosBrandId, setPontosBrandId] = useState<string | null>(null);
-  const [dias, setDias] = useState<(typeof PERIODOS)[number]>(30);
+  const [dias, setDias] = useState<PeriodoHistorico>(30);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -184,7 +194,7 @@ export function HistoricoClienteDetalhe() {
         </div>
       ) : (
         <>
-          <GraficoHistorico pontos={pontos} />
+          <GraficoHistorico pontos={pontos} dias={dias} />
 
           <Card>
             <div className="divide-y divide-border px-4 py-2 md:hidden">
