@@ -11,6 +11,29 @@ export const springs = {
   drawer: { type: "spring" as const, bounce: 0.2, duration: 0.3 },
 };
 
+/**
+ * Eases não-spring, para casos onde a curva precisa ser fixa (ex: preenchimento
+ * de barra até um valor calculado, entrada de texto). Nomes seguem o uso já
+ * predominante no código antes desta padronização — não são valores novos.
+ */
+export const eases = {
+  /** Desaceleração padrão (Material "standard"). Uso mais comum do projeto. */
+  standard: [0, 0, 0.2, 1] as const,
+  /** Saída mais suave e alongada, para transições de destaque/maior duração. */
+  emphasized: [0.22, 1, 0.36, 1] as const,
+};
+
+/**
+ * Durations soltas (sem spring), para usar com `eases` acima.
+ * quick = microinteração (hover/tap/toggle), base = transição padrão de UI,
+ * relaxed = entrada com mais destaque (cards grandes, seções).
+ */
+export const durations = {
+  quick: 0.15,
+  base: 0.2,
+  relaxed: 0.3,
+};
+
 export const stagger = {
   hidden: {},
   show: { transition: { staggerChildren: 0.04 } },
