@@ -443,7 +443,7 @@ export function PedidosLista() {
           sozinha (é o controle principal), status+Hoje juntos (são atalhos
           de refinar), De:/Até: lado a lado (são um par). O PDF saiu daqui —
           foi morar perto do contador de pedidos, que é o que ele exporta. */}
-      <div className="mb-4 flex flex-col gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid md:grid-cols-[minmax(200px,1fr)_auto_auto] md:items-center">
+      <div className="mb-4 flex flex-col gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid md:grid-cols-[minmax(200px,1fr)_auto] md:items-center">
         <label className="relative block">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido ou cliente…" className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-selecionado" />
@@ -459,6 +459,8 @@ export function PedidosLista() {
               }))}
             />
           </div>
+          <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
+          <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />
           <BotaoHoje
             ativo={dataInicial === hoje && dataFinal === hoje}
             disabled={loading}
@@ -468,10 +470,6 @@ export function PedidosLista() {
               setDataFinal(jaEstaEmHoje ? "" : hoje);
             }}
           />
-        </div>
-        <div className="flex items-center justify-center gap-2">
-          <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
-          <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />
         </div>
       </div>
 
