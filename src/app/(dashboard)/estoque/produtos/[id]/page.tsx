@@ -15,5 +15,5 @@ export default async function ProdutoDetalhePage({ params }: { params: Promise<{
     throw error;
   }
 
-  return <ProdutoDetalhe initialData={data} canManage={ctx.perfil === "admin" || ctx.perfil === "gestor"} />;
+  return <ProdutoDetalhe initialData={data} />;
 }

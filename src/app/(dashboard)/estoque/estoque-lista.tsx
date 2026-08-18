@@ -739,9 +739,17 @@ export function EstoqueLista() {
   }, [brandIdsKey, busca, filtro, canaisKey, carregar, escopoDefinido]);
 
   useEffect(() => {
+    // Mesma regra da lista de produtos: sem empresa (ou busca) escolhida,
+    // não há "resultado" nenhum a mostrar — os cards de saúde estavam
+    // buscando o indicador de qualquer jeito, sem esperar o escopo, e
+    // mostravam números reais (agregados do catálogo inteiro) por cima da
+    // tela que dizia "Escolha uma empresa para começar". Contraditório.
+    // (O indicador antigo em memória não vaza pra tela: FaixaSaude só é
+    // renderizada com escopo definido, ver JSX mais abaixo.)
+    if (!escopoDefinido) return;
     carregarIndicadores(brandIdsArray, canaisArray);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandIdsKey, canaisKey, carregarIndicadores]);
+  }, [brandIdsKey, canaisKey, carregarIndicadores, escopoDefinido]);
 
   // Detalhe de encalhe (dias parado, capital preso) só interessa quando a
   // pessoa está olhando justamente esses produtos.
@@ -924,12 +932,14 @@ export function EstoqueLista() {
             na tela de listagem do dia a dia. */}
       </motion.div>
 
-      <FaixaSaude
-        indicadores={indicadores}
-        erro={erroIndicadores}
-        filtro={filtro}
-        onFiltro={trocarFiltro}
-      />
+      {escopoDefinido && (
+        <FaixaSaude
+          indicadores={indicadores}
+          erro={erroIndicadores}
+          filtro={filtro}
+          onFiltro={trocarFiltro}
+        />
+      )}
 
       <div className="mb-4 flex flex-col gap-2 rounded-[1.25rem] bg-card p-2 shadow-[0_2px_16px_rgba(14,15,19,.07)] lg:flex-row lg:items-center">
         <div className="relative lg:min-w-[16rem] lg:flex-1">

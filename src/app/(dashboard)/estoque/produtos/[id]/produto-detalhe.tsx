@@ -1,10 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { ArrowLeft, Boxes, Car, Check, Layers, Link2, Pencil, Ruler, X } from "lucide-react";
-import { actionEditarProduto } from "../../actions";
+import { ArrowLeft, Boxes, Car, Layers, Link2, Ruler } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig } from "@/shared/config/brands";
@@ -36,27 +33,10 @@ function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
 }
 
-export function ProdutoDetalhe({ initialData, canManage }: { initialData: ProdutoData; canManage: boolean }) {
+export function ProdutoDetalhe({ initialData }: { initialData: ProdutoData }) {
   const router = useRouter();
-  const [data, setData] = useState(initialData);
-  const [editando, setEditando] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const data = initialData;
   const p = data.produto;
-
-  function submit(formData: FormData) {
-    startTransition(async () => {
-      try {
-        const nome = formData.get("nome") as string;
-        const preco = formData.get("preco") as string;
-        const atualizado = await actionEditarProduto(p.id, nome, preco);
-        setData((atual) => ({ ...atual, produto: { ...atual.produto, ...atualizado } }));
-        setEditando(false);
-        toast.success(editCopy.success);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : editCopy.error);
-      }
-    });
-  }
 
   return (
     <div className="space-y-6" data-testid="produto-detalhe">
@@ -70,38 +50,9 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
         >
           <ArrowLeft size={17} />
         </button>
-        {canManage && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setEditando((v) => !v)}
-              title={editando ? editCopy.cancel : editCopy.button}
-              aria-label={editando ? editCopy.cancel : editCopy.button}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
-            >
-              {editando ? <X size={14} /> : <Pencil size={14} />}
-            </button>
-          </div>
-        )}
       </div>
 
       <section className="rounded-[1.25rem] border border-border bg-card p-5">
-        {editando ? (
-          <form action={submit} className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1.5 text-sm md:col-span-2">
-              <span>{editCopy.fields.name}</span>
-              <input name="nome" required minLength={2} defaultValue={p.nome} className="w-full min-h-11 rounded-xl border border-border bg-background px-3" />
-            </label>
-            <label className="space-y-1.5 text-sm">
-              <span>{editCopy.fields.price}</span>
-              <input name="preco" type="number" step="0.01" min="0.01" required defaultValue={p.preco} className="w-full min-h-11 rounded-xl border border-border bg-background px-3" />
-            </label>
-            <p className="text-[11px] text-muted-foreground md:col-span-2">{editCopy.syncHint}</p>
-            <button disabled={pending} className="md:col-span-2 min-h-11 justify-self-start px-5 rounded-xl text-white font-semibold inline-flex items-center gap-2 disabled:opacity-50" style={{ background: "var(--gradient-signature)" }}>
-              <Check size={17} /> {pending ? editCopy.submitting : editCopy.submit}
-            </button>
-          </form>
-        ) : (
           <div>
             {(() => {
               const titulo = analisarTituloProduto(p.nome);
@@ -196,7 +147,6 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
               </div>
             </dl>
           </div>
-        )}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
