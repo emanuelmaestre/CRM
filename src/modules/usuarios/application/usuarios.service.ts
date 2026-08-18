@@ -30,9 +30,14 @@ export const RedefinirSenhaUsuarioSchema = z.object({
   senha: SenhaTemporariaSchema,
 });
 
+export const ExcluirUsuarioSchema = z.object({
+  userId: z.string().uuid(),
+});
+
 export type AtualizarUsuarioInput = z.infer<typeof AtualizarUsuarioSchema>;
 export type CriarUsuarioInput = z.infer<typeof CriarUsuarioSchema>;
 export type RedefinirSenhaUsuarioInput = z.infer<typeof RedefinirSenhaUsuarioSchema>;
+export type ExcluirUsuarioInput = z.infer<typeof ExcluirUsuarioSchema>;
 
 function criarSupabaseAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -280,6 +285,85 @@ export async function atualizarUsuario(ctx: CrudContext, rawInput: unknown) {
   }, ctx.db);
 
   return atualizado;
+}
+
+function ehViolacaoDeChaveEstrangeira(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  return (error as { code?: string }).code === "23503";
+}
+
+/** Exclui de verdade quando dá — e quando não dá, diz por quê em vez de só
+ *  desativar em silêncio.
+ *
+ *  `app_user.id` é referenciado por anotação de cliente, resolução de LGPD,
+ *  responsável por conversa/pedido e solicitação de régua (sem cascade,
+ *  de propósito: perder quem resolveu uma reclamação ou autorizou um envio
+ *  seria pior que manter o rótulo). Um usuário com qualquer histórico não
+ *  sai limpo — o DELETE esbarra em 23503 (violação de chave estrangeira) e
+ *  o fallback anonimiza em vez de travar a ação: e-mail e nome viram
+ *  rótulos genéricos, o login é removido do Supabase Auth, e a linha
+ *  continua existindo só para as referências antigas não ficarem órfãs. */
+export async function excluirUsuario(ctx: CrudContext, rawInput: unknown) {
+  assertPerfil(ctx, ["admin"]);
+  const input = ExcluirUsuarioSchema.parse(rawInput);
+
+  if (ctx.userId === input.userId) {
+    throw new Error("Você não pode excluir o próprio acesso.");
+  }
+
+  const atual = await ctx.db
+    .select()
+    .from(appUser)
+    .where(and(eq(appUser.id, input.userId), eq(appUser.orgId, ctx.orgId)))
+    .then((rows) => rows[0]);
+
+  if (!atual) throw new Error("Usuário não encontrado.");
+
+  if (atual.perfil === "admin" && atual.ativo) {
+    const adminsAtivos = await ctx.db
+      .select({ id: appUser.id })
+      .from(appUser)
+      .where(and(
+        eq(appUser.orgId, ctx.orgId),
+        eq(appUser.perfil, "admin"),
+        eq(appUser.ativo, true),
+      ));
+    if (adminsAtivos.length <= 1) {
+      throw new Error("A organização precisa manter ao menos um administrador ativo.");
+    }
+  }
+
+  const adminClient = criarSupabaseAdminClient();
+  await adminClient.auth.admin.deleteUser(atual.id).catch(() => undefined);
+
+  let excluidoDeVerdade = true;
+  try {
+    await ctx.db.delete(appUser).where(and(eq(appUser.id, input.userId), eq(appUser.orgId, ctx.orgId)));
+  } catch (error) {
+    if (!ehViolacaoDeChaveEstrangeira(error)) throw error;
+    excluidoDeVerdade = false;
+    await ctx.db
+      .update(appUser)
+      .set({
+        email: `removed-${atual.id}@example.invalid`,
+        nome: "Usuário removido",
+        ativo: false,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(appUser.id, input.userId), eq(appUser.orgId, ctx.orgId)));
+  }
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    autorId: ctx.userId,
+    autorTipo: "usuario",
+    entidade: "app_user",
+    entidadeId: input.userId,
+    acao: excluidoDeVerdade ? "usuario_excluido" : "usuario_anonimizado",
+    antes: { email: atual.email, nome: atual.nome, perfil: atual.perfil, ativo: atual.ativo },
+  });
+
+  return { excluidoDeVerdade };
 }
 
 export async function redefinirSenhaUsuario(ctx: CrudContext, rawInput: unknown) {

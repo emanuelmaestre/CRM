@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion } from "framer-motion";
 import {
+  AlertTriangle,
   CheckCircle2,
   Copy,
   Eye,
@@ -17,6 +18,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Trash2,
   User,
   UserCheck,
   UserMinus,
@@ -28,11 +30,23 @@ import { toast } from "sonner";
 import permissionsConfig from "@/config/permissions.json";
 import type { Perfil } from "@/shared/lib/auth/authorization";
 import { cn } from "@/shared/design-system/cn";
+import { tint } from "@/shared/design-system/color";
 import {
   actionAtualizarUsuario,
   actionCriarUsuarioComSenha,
+  actionExcluirUsuario,
   actionRedefinirSenhaUsuario,
 } from "./actions";
+
+// Cada perfil ganha a própria cor de identidade — mesmo princípio de "cada
+// marca tinge com a própria cor" usado no resto do sistema (ver
+// scope-row.tsx). Sem isso, a lista de usuários era a única tela onde tudo
+// tinha a mesma cor neutra, e "quem é admin" exigia ler cada linha.
+const PERFIL_COR: Record<Perfil, string> = {
+  admin: "var(--primary)",
+  gestor: "var(--info)",
+  vendedor: "var(--acento-2)",
+};
 
 export interface UsuarioResumo {
   id: string;
@@ -51,6 +65,7 @@ interface UsuariosSectionProps {
   canaisTotal: number;
   onUsuarioCriado: (usuario: UsuarioResumo) => void;
   onUsuarioAtualizado: (usuario: UsuarioResumo) => void;
+  onUsuarioExcluido: (userId: string) => void;
 }
 
 type PainelModo = { tipo: "criar" } | { tipo: "senha"; usuario: UsuarioResumo };
@@ -185,6 +200,7 @@ export function UsuariosSection({
   canaisTotal,
   onUsuarioCriado,
   onUsuarioAtualizado,
+  onUsuarioExcluido,
 }: UsuariosSectionProps) {
   const [busca, setBusca] = useState("");
   const [painel, setPainel] = useState<PainelModo | null>(null);
@@ -194,6 +210,8 @@ export function UsuariosSection({
   const [salvando, setSalvando] = useState(false);
   const [concluido, setConcluido] = useState(false);
   const [usuarioEmAlteracao, setUsuarioEmAlteracao] = useState<string | null>(null);
+  const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<UsuarioResumo | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
 
   const totalAtivos = usuarios.filter((usuario) => usuario.ativo).length;
   const totalAdmins = usuarios.filter((usuario) => usuario.ativo && usuario.perfil === "admin").length;
@@ -263,6 +281,25 @@ export function UsuariosSection({
     }
   }
 
+  async function confirmarExclusao() {
+    if (!usuarioParaExcluir) return;
+    setExcluindo(true);
+    try {
+      const resultado = await actionExcluirUsuario({ userId: usuarioParaExcluir.id });
+      onUsuarioExcluido(usuarioParaExcluir.id);
+      toast.success(
+        resultado.excluidoDeVerdade
+          ? "Usuário excluído."
+          : "O login foi removido. Como este usuário tem histórico vinculado (anotações, pedidos ou mensagens), o registro ficou anonimizado em vez de apagado — é o que preserva esse histórico.",
+      );
+      setUsuarioParaExcluir(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível excluir este usuário.");
+    } finally {
+      setExcluindo(false);
+    }
+  }
+
   async function salvarFormulario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!painel || !podeSalvar || concluido) return;
@@ -290,29 +327,36 @@ export function UsuariosSection({
   return (
     <>
       <div className="space-y-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="min-w-0 space-y-2">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-                <UsersRound size={13} />
-                {organizationName ?? "Organização"}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                {totalAtivos} ativo{totalAtivos === 1 ? "" : "s"}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck size={13} />
-                {totalAdmins} admin{totalAdmins === 1 ? "" : "s"}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                {marcasAtivas} marca{marcasAtivas === 1 ? "" : "s"} · {canaisConectados}/{canaisTotal} canais
-              </span>
-            </div>
-            <p className="flex max-w-3xl items-center gap-1.5 text-xs leading-relaxed text-muted-foreground">
-              <LockKeyhole size={13} />
-              Senhas temporárias aparecem só no painel de criação ou redefinição. Depois disso, o CRM não salva o texto.
-            </p>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5 pr-1 text-xs font-semibold text-foreground">
+              <UsersRound size={13} />
+              {organizationName ?? "Organização"}
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
+              style={{ background: tint("var(--success)", 10), color: "var(--success)" }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              {totalAtivos} ativo{totalAtivos === 1 ? "" : "s"}
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
+              style={{ background: tint(PERFIL_COR.admin, 10), color: PERFIL_COR.admin }}
+            >
+              <ShieldCheck size={12} />
+              {totalAdmins} admin{totalAdmins === 1 ? "" : "s"}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+              {marcasAtivas} marca{marcasAtivas === 1 ? "" : "s"} · {canaisConectados}/{canaisTotal} canais
+            </span>
+            <span
+              className="ml-0.5 inline-flex shrink-0 text-muted-foreground"
+              title="Senhas temporárias aparecem só no painel de criação ou redefinição. Depois disso, o CRM não salva o texto."
+            >
+              <LockKeyhole size={13} aria-hidden="true" />
+              <span className="sr-only">Senhas temporárias aparecem só no painel de criação ou redefinição. Depois disso, o CRM não salva o texto.</span>
+            </span>
           </div>
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
             <div className="relative sm:w-72">
@@ -365,18 +409,23 @@ export function UsuariosSection({
               {usuariosFiltrados.map((usuario) => {
                 const alterando = usuarioEmAlteracao === usuario.id;
 
+                const corPerfil = PERFIL_COR[usuario.perfil];
+
                 return (
                   <motion.div
                     key={usuario.id}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="grid gap-3 px-3 py-3.5 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] md:items-center"
+                    className={cn(
+                      "grid gap-3 px-3 py-3.5 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] md:items-center",
+                      !usuario.ativo && "opacity-60",
+                    )}
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className={cn(
-                        "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
-                        usuario.ativo ? "bg-muted text-foreground" : "bg-muted text-muted-foreground",
-                      )}>
+                      <span
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                        style={{ background: tint(corPerfil, usuario.ativo ? 14 : 8), color: usuario.ativo ? corPerfil : "var(--muted-foreground)" }}
+                      >
                         {initials(usuario.nome, usuario.email)}
                       </span>
                       <div className="min-w-0">
@@ -391,7 +440,8 @@ export function UsuariosSection({
                         value={usuario.perfil}
                         disabled={alterando}
                         onChange={(event) => alterarUsuario(usuario, event.target.value as Perfil, usuario.ativo)}
-                        className="h-9 w-full rounded-[0.6rem] border border-transparent bg-transparent px-2.5 text-sm font-semibold text-foreground outline-none transition-colors hover:border-border hover:bg-background focus:border-primary/50 focus:bg-background disabled:opacity-60"
+                        style={{ color: corPerfil, background: tint(corPerfil, 9) }}
+                        className="h-9 w-full rounded-full border border-transparent px-3 text-sm font-bold outline-none transition-[filter] hover:brightness-95 focus:ring-2 focus:ring-offset-1 disabled:opacity-60"
                       >
                         {PERFIS.map(([value, dados]) => (
                           <option key={value} value={value}>{dados.label}</option>
@@ -399,10 +449,13 @@ export function UsuariosSection({
                       </select>
                     </div>
 
-                    <span className={cn(
-                      "inline-flex h-7 w-fit items-center gap-1.5 text-xs font-semibold",
-                      usuario.ativo ? "text-success" : "text-muted-foreground",
-                    )}>
+                    <span
+                      className="inline-flex h-7 w-fit items-center gap-1.5 rounded-full px-2.5 text-xs font-bold"
+                      style={{
+                        background: tint(usuario.ativo ? "var(--success)" : "var(--muted-foreground)", 10),
+                        color: usuario.ativo ? "var(--success)" : "var(--muted-foreground)",
+                      }}
+                    >
                       <span className={cn("h-1.5 w-1.5 rounded-full", usuario.ativo ? "bg-success" : "bg-muted-foreground")} />
                       {statusLabel(usuario.ativo)}
                     </span>
@@ -436,6 +489,16 @@ export function UsuariosSection({
                           <UserCheck size={14} />
                         )}
                         {usuario.ativo ? "Pausar" : "Ativar"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={alterando}
+                        onClick={() => setUsuarioParaExcluir(usuario)}
+                        aria-label={`Excluir ${usuario.nome}`}
+                        title="Excluir"
+                        className="inline-flex h-9 items-center justify-center rounded-[0.6rem] border border-transparent px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-destructive/20 hover:bg-destructive/5 hover:text-destructive disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
                       </button>
                     </div>
                   </motion.div>
@@ -639,6 +702,48 @@ export function UsuariosSection({
                 </div>
               </div>
             </form>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+
+      <DialogPrimitive.Root open={usuarioParaExcluir !== null} onOpenChange={(open) => { if (!open && !excluindo) setUsuarioParaExcluir(null); }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in" />
+          <DialogPrimitive.Content className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[1.1rem] border border-border bg-card text-left shadow-[0_18px_48px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=open]:animate-in sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(26rem,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2">
+            <div className="flex items-start gap-3 px-5 py-5">
+              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                <AlertTriangle size={18} />
+              </span>
+              <div className="min-w-0">
+                <DialogPrimitive.Title className="text-sm font-bold text-foreground">
+                  Excluir {usuarioParaExcluir?.nome}?
+                </DialogPrimitive.Title>
+                <DialogPrimitive.Description className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  O login é removido do Supabase Auth imediatamente. Se este usuário nunca autorizou nada, comentou ou
+                  ficou responsável por um cliente/pedido/conversa, o registro some por completo. Se tiver histórico
+                  vinculado, o CRM anonimiza em vez de apagar — para não perder quem resolveu o quê.
+                </DialogPrimitive.Description>
+              </div>
+            </div>
+            <div className="flex gap-2 border-t border-border px-5 py-4">
+              <button
+                type="button"
+                onClick={() => setUsuarioParaExcluir(null)}
+                disabled={excluindo}
+                className="h-11 flex-1 rounded-[0.75rem] border border-border text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarExclusao}
+                disabled={excluindo}
+                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[0.75rem] bg-destructive text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {excluindo ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                Excluir
+              </button>
+            </div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>

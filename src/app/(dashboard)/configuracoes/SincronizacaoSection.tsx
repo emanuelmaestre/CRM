@@ -334,8 +334,8 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
 
       <div className="flex flex-col gap-2 xl:items-end">
         <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-          <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-muted px-2.5 text-[11px] font-semibold text-muted-foreground">
-            <Clock3 size={12} />
+          <span className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+            <Clock3 size={12} className="shrink-0" />
             {rotuloUltima(execucao)}
           </span>
           <SincronizacaoInfo conta={conta} execucao={execucao} />
