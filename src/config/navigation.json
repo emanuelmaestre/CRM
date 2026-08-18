@@ -44,7 +44,7 @@
     {
       "id": "anuncios",
       "href": "/anuncios",
-      "label": "Marketing",
+      "label": "Publicidade",
       "icon": "Megaphone",
       "mobilePriority": 4,
       "profiles": [

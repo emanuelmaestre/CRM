@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ import { isBrandSlug } from "@/shared/config/brands";
 import { springs, stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
-import { actionDispararSincronizacaoConta, actionListarConfiguracaoCanais } from "../configuracoes/actions";
+import { actionDispararSincronizacaoConta, actionListarConfiguracaoCanais, actionObterUltimaSincronizacaoConta } from "../configuracoes/actions";
 import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
 import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
@@ -34,6 +34,29 @@ const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-d
 // do período), essa precisa da hora: dataSnapshot é só o dia, sincronizadoEm
 // é o instante real em que o job rodou.
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+type ExecucaoSync = NonNullable<Awaited<ReturnType<typeof actionObterUltimaSincronizacaoConta>>>;
+type ModuloStatusSync = "pendente" | "em_andamento" | "concluido" | "erro";
+// Mesmos 7 módulos que a Central de Sincronização (Configurações) acompanha —
+// duplicado aqui de propósito (páginas irmãs, não uma dependendo da outra,
+// ver comentário em anuncios-primitives.tsx) só para calcular uma
+// porcentagem simples; a tela de Configurações é quem mostra o detalhe por
+// módulo, aqui basta um número só.
+const CHAVES_MODULOS_SYNC = [
+  "catalogoStatus", "pedidosStatus", "anunciosStatus", "avaliacoesStatus",
+  "reputacaoStatus", "reclamacoesStatus", "mensagensStatus",
+] as const;
+
+function percentualSync(execucao: ExecucaoSync | null): number {
+  if (!execucao) return 0;
+  const pontos = CHAVES_MODULOS_SYNC.reduce((total, chave) => {
+    const status = execucao[chave] as ModuloStatusSync;
+    if (status === "concluido" || status === "erro") return total + 1;
+    if (status === "em_andamento") return total + 0.45;
+    return total;
+  }, 0);
+  return Math.round((pontos / CHAVES_MODULOS_SYNC.length) * 100);
+}
+
 const roasTexto = (valor: number | null) => valor === null ? "sem dado" : `${decimal2.format(valor)}x`;
 const variacaoTexto = (valor: number) => `${valor >= 0 ? "+" : ""}${decimal1.format(valor)}%`;
 const periodoAnteriorTexto = (dias: number) => dias === 1 ? "o dia anterior" : `os ${dias} dias anteriores`;
@@ -277,6 +300,8 @@ export function AnunciosCliente() {
   const [exportando, setExportando] = useState(false);
   const [contas, setContas] = useState<CanalConfiguracao[]>([]);
   const [sincronizando, setSincronizando] = useState(false);
+  const [execucaoSync, setExecucaoSync] = useState<ExecucaoSync | null>(null);
+  const intervaloSync = useRef<ReturnType<typeof setInterval> | null>(null);
   const dados = consulta.dados;
   const chavePeriodo = `${periodo.inicio}:${periodo.fim}`;
   const carregando = consulta.chave !== chavePeriodo;
@@ -307,6 +332,10 @@ export function AnunciosCliente() {
     actionListarConfiguracaoCanais().then(setContas).catch(() => setContas([]));
   }, []);
 
+  useEffect(() => () => {
+    if (intervaloSync.current) clearInterval(intervaloSync.current);
+  }, []);
+
   if (carregando) return <Esqueleto />;
 
   if (!dados || dados.semDados) {
@@ -322,23 +351,45 @@ export function AnunciosCliente() {
 
   const contaMercadoLivre = contas.find((conta) => conta.brandId === marca.brandId && conta.canal === "mercadolivre");
 
+  function pararPollingSync() {
+    if (intervaloSync.current) clearInterval(intervaloSync.current);
+    intervaloSync.current = null;
+  }
+
+  // A fila roda em background (catálogo, Product Ads, avaliações etc. — ver
+  // Central de Sincronização em Configurações, que segue o mesmo padrão). O
+  // disparo em si responde em menos de 1s, bem antes do trabalho de verdade
+  // terminar; parar o spinner nesse instante e reler o banco (ainda com o
+  // dado antigo) fazia o botão voltar ao normal sem que nada tivesse
+  // realmente atualizado — parecia travado ou que o clique não fez nada.
+  // Agora o spinner com % fica até `finalizadoEm` aparecer de verdade.
+  async function verificarSync(channelAccountId: string) {
+    const execucao = await actionObterUltimaSincronizacaoConta(channelAccountId);
+    setExecucaoSync(execucao);
+    if (execucao && !execucao.finalizadoEm) return;
+    pararPollingSync();
+    setSincronizando(false);
+    if (execucao) {
+      toast.success("Sincronização concluída. Números atualizados.");
+      buscar();
+    }
+  }
+
   async function sincronizarAgora() {
     if (!contaMercadoLivre?.channelAccountId) {
       toast.error("Nenhuma conta do Mercado Livre conectada para esta marca.");
       return;
     }
+    const channelAccountId = contaMercadoLivre.channelAccountId;
     setSincronizando(true);
+    setExecucaoSync(null);
     try {
-      await actionDispararSincronizacaoConta(contaMercadoLivre.channelAccountId);
-      toast.success("Sincronização iniciada. Os números atualizam assim que ela terminar.");
-      // A fila roda no próprio job — não esperamos ela aqui. Um recarregamento
-      // simples do que já está pronto no banco é o que a tela pode oferecer
-      // sem travar esperando a fila inteira (catálogo, Product Ads, avaliações
-      // etc.) terminar.
-      buscar();
+      await actionDispararSincronizacaoConta(channelAccountId);
+      toast.success("Sincronização iniciada — acompanhando o progresso.");
+      pararPollingSync();
+      intervaloSync.current = setInterval(() => void verificarSync(channelAccountId), 1500);
     } catch {
       toast.error("Não foi possível iniciar a sincronização.");
-    } finally {
       setSincronizando(false);
     }
   }
@@ -381,8 +432,10 @@ export function AnunciosCliente() {
           className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
           <FileText size={14} /> {exportando ? "Gerando…" : "Exportar PDF"}
         </button>
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          {copy.header.eyebrow}: {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground" style={sincronizando ? { color: "var(--acento-2)" } : undefined}>
+          {sincronizando
+            ? `Sincronizando… ${percentualSync(execucaoSync)}%`
+            : `${copy.header.eyebrow}: ${marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}`}
         </span>
         <button
           type="button"

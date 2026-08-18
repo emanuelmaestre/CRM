@@ -7,7 +7,7 @@ export const MODULOS_CATALOGO = [
   { id: "inbox", label: "Mensagens", icon: "MessageSquare" },
   { id: "vendas", label: "Vendas", icon: "ShoppingCart" },
   { id: "estoque", label: "Estoque", icon: "Package" },
-  { id: "anuncios", label: "Marketing", icon: "Megaphone" },
+  { id: "anuncios", label: "Publicidade", icon: "Megaphone" },
   { id: "configuracoes", label: "Configurações", icon: "Settings" },
 ] as const;
 
