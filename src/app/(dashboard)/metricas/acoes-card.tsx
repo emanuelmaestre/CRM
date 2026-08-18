@@ -197,7 +197,7 @@ export function AcoesCard({ insightsIniciais, sugestoesIniciais, carregandoInici
                           {sugestao.status === "sugerida" && (
                             <div className="flex shrink-0 gap-2">
                               <motion.button
-                                whileHover={{ scale: 1.03 }}
+                                whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.97 }}
                                 disabled={ocupado}
                                 onClick={() => decidir(sugestao.id, true)}

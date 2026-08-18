@@ -288,7 +288,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                           onClick={() => setNovaContaId("")}
                           className="inline-flex items-center gap-1 shrink-0 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                         >
-                          <Pencil size={11} /> {copy.changeAccount}
+                          <Pencil size={14} /> {copy.changeAccount}
                         </button>
                       </div>
                     ) : (

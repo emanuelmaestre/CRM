@@ -368,7 +368,7 @@ export default function ConfigurarAlertasEstoque() {
               de campos numa decisão só. */}
           <div className="rounded-[0.75rem] border border-[rgba(37,99,235,.26)] bg-[rgba(37,99,235,.06)] p-4">
             <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-info">
-              <Eye size={13} strokeWidth={2} />
+              <Eye size={14} strokeWidth={2} />
               {copy.regua.previewTitle}
               {simulando && <Loader2 size={12} className="animate-spin" />}
             </p>

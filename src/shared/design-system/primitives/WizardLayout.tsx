@@ -59,7 +59,7 @@ export function WizardLayout({
           aria-label={appConfig.wizard.cancel}
           className="ml-auto flex min-h-11 min-w-11 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
         >
-          <X size={18} />
+          <X size={16} />
         </button>
       </div>
 

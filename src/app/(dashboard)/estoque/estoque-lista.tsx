@@ -47,7 +47,7 @@ type ProdutoParado = Awaited<ReturnType<typeof actionListarProdutosParados>>[num
 const copy = pagesConfig.estoque;
 const PAGINA = 50;
 
-const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var(--success)", info: "var(--info)", neutro: "#6F6F6E" };
+const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var(--success)", info: "var(--info)", neutro: "var(--armarinhos-lima)" };
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
@@ -1064,7 +1064,7 @@ export function EstoqueLista() {
                 action={
                   canManage && !filtrando ? (
                     <motion.button
-                      whileHover={reduzir ? undefined : { scale: 1.03 }}
+                      whileHover={reduzir ? undefined : { scale: 1.02 }}
                       whileTap={reduzir ? undefined : { scale: 0.97 }}
                       onClick={sincronizar}
                       disabled={sincronizando}
@@ -1151,7 +1151,7 @@ export function EstoqueLista() {
                             aria-label="Ver produto"
                             className="h-11 w-11 inline-flex items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-[rgba(155,48,217,.4)] hover:bg-muted active:scale-[.97]"
                           >
-                            <Eye size={16} strokeWidth={2} />
+                            <Eye size={14} strokeWidth={2} />
                           </Link>
                           <button
                             type="button"

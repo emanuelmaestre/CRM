@@ -356,7 +356,7 @@ export function MLCatalogMappingSection({
                         disabled={!item.externalSku || mapeado}
                         onChange={(event) => setSelections((current) => ({ ...current, [key]: event.target.value }))}
                         className={`min-h-11 min-w-0 rounded-xl border bg-background px-3 text-sm disabled:opacity-60 ${
-                          podeVincular && !mapeado ? "border-[var(--brand-primary,#7C3AED)]" : "border-border"
+                          podeVincular && !mapeado ? "border-[var(--acento-2)]" : "border-border"
                         }`}
                       >
                         <option value="">{config.selectProduct}</option>

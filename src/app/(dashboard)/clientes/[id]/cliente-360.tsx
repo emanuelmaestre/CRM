@@ -58,7 +58,7 @@ const SEGMENTO_COR: Record<string, string> = {
   "Campeão": "var(--success)",
   "Leal": "var(--info)",
   "Em risco": "var(--warning)",
-  "Adormecido": "#C2621A",
+  "Adormecido": "var(--escala-2)",
   "Perdido": "var(--destructive)",
 };
 
@@ -208,7 +208,7 @@ export function Cliente360({
             aria-label={editing ? copy.actions.cancel : copy.actions.edit}
             className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
           >
-            {editing ? <X size={17} /> : <Pencil size={17} />}
+            {editing ? <X size={14} /> : <Pencil size={14} />}
           </button>
         </div>
       </div>
@@ -247,7 +247,7 @@ export function Cliente360({
                   <p className="text-sm text-muted-foreground mt-1">{[cliente.email, cliente.telefone].filter(Boolean).join(" · ")}</p>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <span key={tag.id} className="rounded-full px-2.5 py-1 text-xs font-semibold" style={{ color: tag.cor ?? undefined, background: tint(tag.cor ?? "#64748b", 12) }}>{tag.nome}</span>)}</div>
+              <div className="flex flex-wrap gap-2">{data.tags.map((tag) => <span key={tag.id} className="rounded-full px-2.5 py-1 text-xs font-semibold" style={{ color: tag.cor ?? undefined, background: tint(tag.cor ?? "var(--tag-fallback)", 12) }}>{tag.nome}</span>)}</div>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {[
@@ -335,8 +335,8 @@ export function Cliente360({
               <span
                 className="px-2.5 py-1 rounded-full text-xs font-semibold"
                 style={{
-                  color: SEGMENTO_COR[data.score.segmento] ?? "#64748b",
-                  background: tint(SEGMENTO_COR[data.score.segmento] ?? "#64748b", 12),
+                  color: SEGMENTO_COR[data.score.segmento] ?? "var(--tag-fallback)",
+                  background: tint(SEGMENTO_COR[data.score.segmento] ?? "var(--tag-fallback)", 12),
                 }}
               >
                 {data.score.segmento}

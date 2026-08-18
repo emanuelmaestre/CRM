@@ -51,9 +51,12 @@ export function MLChannelActions({ slug, brandLabel, status }: Props) {
 
           <motion.a
             href={`/api/ml/connect?brand=${slug}`}
-            whileHover={{ scale: 1.04 }}
+            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm"
+            // #FFE600/#1a1a00: amarelo e texto de marca do próprio Mercado
+            // Livre no botão "Conectar" — não é token nosso de propósito,
+            // é a identidade visual do provedor sendo conectado.
             style={{
               background: conectado ? "var(--muted)" : "#FFE600",
               color: conectado ? "var(--muted-foreground)" : "#1a1a00",

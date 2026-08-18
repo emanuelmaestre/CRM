@@ -3,7 +3,7 @@
 import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -202,6 +202,7 @@ export function UsuariosSection({
   onUsuarioAtualizado,
   onUsuarioExcluido,
 }: UsuariosSectionProps) {
+  const reduzir = useReducedMotion();
   const [busca, setBusca] = useState("");
   const [painel, setPainel] = useState<PainelModo | null>(null);
   const [form, setForm] = useState<FormState>({ nome: "", email: "", perfil: "vendedor", senha: "" });
@@ -414,7 +415,7 @@ export function UsuariosSection({
                 return (
                   <motion.div
                     key={usuario.id}
-                    initial={{ opacity: 0, y: 4 }}
+                    initial={reduzir ? false : { opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={cn(
                       "grid gap-3 px-3 py-3.5 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] md:items-center",
@@ -532,7 +533,7 @@ export function UsuariosSection({
               </div>
               <DialogPrimitive.Close asChild>
                 <button type="button" aria-label="Fechar" className={iconButtonClass}>
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </DialogPrimitive.Close>
             </div>
@@ -619,7 +620,7 @@ export function UsuariosSection({
                         className={iconButtonClass}
                         aria-label={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
                       >
-                        {senhaVisivel ? <EyeOff size={17} /> : <Eye size={17} />}
+                        {senhaVisivel ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
                   </Field>
@@ -740,7 +741,7 @@ export function UsuariosSection({
                 disabled={excluindo}
                 className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[0.75rem] bg-destructive text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {excluindo ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                {excluindo ? <Loader2 className="animate-spin" size={14} /> : <Trash2 size={14} />}
                 Excluir
               </button>
             </div>

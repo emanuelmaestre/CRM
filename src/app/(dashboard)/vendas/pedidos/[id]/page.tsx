@@ -190,7 +190,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
       </div>
 
       {detalhe.canceladoMotivo && (
-        <div className="mt-3 rounded-[1.25rem] border px-5 py-3.5" style={{ borderColor: "color-mix(in srgb, #C21820 30%, transparent)", background: "color-mix(in srgb, #C21820 6%, var(--card))" }}>
+        <div className="mt-3 rounded-[1.25rem] border px-5 py-3.5" style={{ borderColor: "color-mix(in srgb, var(--destructive) 30%, transparent)", background: "color-mix(in srgb, var(--destructive) 6%, var(--card))" }}>
           <p className="text-xs font-semibold" style={{ color: "var(--destructive)" }}>{copy.canceledReasonLabel}</p>
           <p className="mt-0.5 text-sm text-foreground">{detalhe.canceladoMotivo}</p>
         </div>

@@ -178,7 +178,7 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
         type="button"
         onClick={exportar}
         disabled={exportando || !temDados}
-        whileHover={temDados ? { scale: 1.03 } : undefined}
+        whileHover={temDados ? { scale: 1.02 } : undefined}
         whileTap={temDados ? { scale: 0.97 } : undefined}
         className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[0.75rem] border border-border px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
       >

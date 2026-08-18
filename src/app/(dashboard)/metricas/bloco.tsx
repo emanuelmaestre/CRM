@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Maximize2, TrendingDown, TrendingUp, X } from "lucide-react";
+import { Maximize2, MousePointerClick, TrendingDown, TrendingUp, X } from "lucide-react";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
 import { useFocusTrap } from "@/shared/design-system/primitives/useFocusTrap";
 import metricasConfig from "@/config/metricas.json";
@@ -217,8 +217,12 @@ export function Bloco({ def, focado, onAbrir }: {
               {def.semFiltro ? (
                 /* Sem marca escolhida, o tile não vira formulário — ele só diz
                    o que vai aparecer quando abrir. A escolha em si acontece
-                   dentro do card em foco. */
-                <p className="text-[12px] leading-snug text-muted-foreground">{metricasConfig.mosaico.semFiltro}</p>
+                   dentro do card em foco. O ícone de toque existe para não se
+                   confundir com skeleton/erro: é convite, não estado quebrado. */
+                <p className="flex items-center gap-1.5 text-[12px] leading-snug text-muted-foreground">
+                  <MousePointerClick size={12} strokeWidth={2} className="shrink-0" aria-hidden="true" />
+                  {metricasConfig.mosaico.semFiltro}
+                </p>
               ) : def.carregando ? (
                 <span className="h-8 w-2/3 animate-pulse rounded-md bg-muted" role="status" aria-label="Carregando" />
               ) : resumo.valor === null ? (
@@ -376,7 +380,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                     "X de Y" também saiu — não é informação que ajuda a
                     decisão de quem está ali, só ruído no cabeçalho. */}
                 <button type="button" onClick={onFechar} aria-label="Fechar" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
-                  <X size={15} />
+                  <X size={16} />
                 </button>
               </div>
 

@@ -411,7 +411,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                 {selecionada.status !== "resolvida" && selecionada.status !== "arquivada" && (
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <motion.button
-                      whileHover={{ scale: 1.03 }}
+                      whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => avancarStatus("resolvida")}
                       className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950 dark:hover:bg-emerald-900 transition-colors"
@@ -420,7 +420,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                       {conversationCopy.resolve}
                     </motion.button>
                     <motion.button
-                      whileHover={{ scale: 1.03 }}
+                      whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => avancarStatus("arquivada")}
                       className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -496,7 +496,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                     {texto.length}/350
                   </span>
                   <motion.button
-                    whileHover={{ scale: 1.06, y: -1 }}
+                    whileHover={{ scale: 1.02, y: -1 }}
                     whileTap={{ scale: 0.94 }}
                     onClick={enviar}
                     disabled={!texto.trim() || enviando}

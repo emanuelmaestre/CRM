@@ -1,7 +1,7 @@
 "use client";
 
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { BarChart3, Info } from "lucide-react";
 import type { Alerta, GrupoAlertas } from "@/modules/anuncios/application/alertas";
 import type { CampanhaVisaoGeral, VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
@@ -206,6 +206,7 @@ function descricaoCabecalhos(campanhas: CampanhaVisaoGeral[]): Record<string, In
 export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGeral[]; marca: VisaoGeralMarca }) {
   const infosCabecalho = descricaoCabecalhos(campanhas);
   const alertasPorCampanhaId = alertasPorCampanha(marca.alertasIndividuais, marca.alertasAgrupados);
+  const reduzir = useReducedMotion();
 
   return (
     <Card>
@@ -260,9 +261,9 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
                 return (
                   <motion.tr
                     key={campanha.campanhaId}
-                    initial={{ opacity: 0 }}
+                    initial={reduzir ? false : { opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ ...springs.settleFast, delay: indice * 0.03 }}
+                    transition={reduzir ? { duration: 0 } : { ...springs.settleFast, delay: indice * 0.03 }}
                     className={indice < campanhas.length - 1 ? "border-b border-border" : ""}
                   >
                     <td className="max-w-[220px] px-3 py-2.5 font-medium text-foreground">

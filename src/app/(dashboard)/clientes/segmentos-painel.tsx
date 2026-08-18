@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import pagesConfig from "@/config/pages.json";
+import { tint } from "@/shared/design-system/color";
 import {
   actionCriarSegmento, actionExcluirSegmento, actionListarSegmentos, actionListarTagsReferencia,
 } from "./segmentos-actions";
@@ -127,8 +128,8 @@ export function SegmentosPainel() {
                         onClick={() => alternarTag(item.id)}
                         className="px-2.5 py-1 rounded-full text-xs font-semibold border"
                         style={{
-                          borderColor: item.cor ?? "#64748b",
-                          background: tagIds.includes(item.id) ? `${item.cor ?? "#64748b"}30` : "transparent",
+                          borderColor: item.cor ?? "var(--tag-fallback)",
+                          background: tagIds.includes(item.id) ? tint(item.cor ?? "var(--tag-fallback)", 18) : "transparent",
                           color: item.cor ?? undefined,
                         }}
                       >

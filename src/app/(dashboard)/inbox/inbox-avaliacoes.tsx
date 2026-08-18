@@ -148,7 +148,7 @@ function RatingStars({ nota, size = 15 }: { nota: number | null; size?: number }
             <Star size={size} className="fill-muted text-border" />
             {preenchimento > 0 && (
               <span className="absolute inset-0 overflow-hidden" style={{ width: `${preenchimento * 100}%` }}>
-                <Star size={size} className="fill-[#FFB900] text-[#FFB900]" />
+                <Star size={size} className="fill-[var(--rating)] text-[var(--rating)]" />
               </span>
             )}
           </span>
@@ -173,13 +173,13 @@ function Distribuicao({ niveis, compacto }: { niveis: MLDistribuicaoNotas; compa
         return (
           <div key={chave} className="flex items-center gap-2">
             <span className="w-3 text-right text-[11px] font-semibold tabular-nums text-muted-foreground">{rotulo}</span>
-            <Star size={11} className="fill-[#FFB900] text-[#FFB900]" aria-hidden />
+            <Star size={11} className="fill-[var(--rating)] text-[var(--rating)]" aria-hidden />
             <div className={`flex-1 overflow-hidden rounded-full bg-muted ${compacto ? "h-1.5" : "h-2"}`}>
               <motion.div
                 initial={reduzido ? false : { scaleX: 0 }}
                 animate={{ scaleX: proporcao }}
                 transition={{ ...springs.settle, delay: indice * 0.04 }}
-                className="h-full rounded-full bg-[#FFB900]"
+                className="h-full rounded-full bg-[var(--rating)]"
                 style={{ transformOrigin: "left", width: "100%" }}
               />
             </div>

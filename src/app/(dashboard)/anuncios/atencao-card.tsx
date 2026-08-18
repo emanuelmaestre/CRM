@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { Alerta, GrupoAlertas } from "@/modules/anuncios/application/alertas";
 import { springs } from "@/shared/design-system/motion-variants";
 
@@ -20,11 +20,12 @@ export const EMOJI_PRIORIDADE: Record<Alerta["prioridade"], string> = {
 
 export function LinhaAlerta({ alerta, indice }: { alerta: Alerta; indice: number }) {
   const cor = COR_PRIORIDADE[alerta.prioridade];
+  const reduzir = useReducedMotion();
   return (
     <motion.li
-      initial={{ opacity: 0, x: -6 }}
+      initial={reduzir ? false : { opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ ...springs.settleFast, delay: indice * 0.05 }}
+      transition={reduzir ? { duration: 0 } : { ...springs.settleFast, delay: indice * 0.05 }}
       className="flex items-start gap-2.5 rounded-[0.9rem] border border-border p-3"
       style={{ borderLeft: `3px solid ${cor}` }}
     >
@@ -39,11 +40,12 @@ export function LinhaAlerta({ alerta, indice }: { alerta: Alerta; indice: number
 
 export function LinhaGrupo({ grupo, indice }: { grupo: GrupoAlertas; indice: number }) {
   const cor = COR_PRIORIDADE[grupo.prioridade];
+  const reduzir = useReducedMotion();
   return (
     <motion.li
-      initial={{ opacity: 0, x: -6 }}
+      initial={reduzir ? false : { opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ ...springs.settleFast, delay: indice * 0.05 }}
+      transition={reduzir ? { duration: 0 } : { ...springs.settleFast, delay: indice * 0.05 }}
       className="flex items-start gap-2.5 rounded-[0.9rem] border border-border p-3"
       style={{ borderLeft: `3px solid ${cor}` }}
     >

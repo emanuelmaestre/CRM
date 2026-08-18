@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Info } from "lucide-react";
 import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
@@ -147,12 +147,13 @@ export function BarraSimples({ valor, maximo, cor, atraso = 0, altura = 7 }: {
   valor: number; maximo: number; cor: string; atraso?: number; altura?: number;
 }) {
   const largura = maximo > 0 ? Math.max(0, Math.min((valor / maximo) * 100, 100)) : 0;
+  const reduzir = useReducedMotion();
   return (
     <div className="w-full overflow-hidden rounded-full" style={{ height: altura, background: "var(--chart-bar)" }}>
       <motion.div
-        initial={{ scaleX: 0 }}
+        initial={reduzir ? false : { scaleX: 0 }}
         animate={{ scaleX: largura / 100 }}
-        transition={{ ...springs.settle, delay: atraso }}
+        transition={reduzir ? { duration: 0 } : { ...springs.settle, delay: atraso }}
         className="h-full w-full rounded-l-full"
         style={{ background: cor, transformOrigin: "left" }}
       />

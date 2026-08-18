@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { isBrandSlug } from "@/shared/config/brands";
@@ -19,6 +19,7 @@ interface Props {
  */
 export function ChannelConnectionStrip({ canal, items }: Props) {
   const conectadas = items.filter((item) => item.pronto || item.status === "conectado").length;
+  const reduzir = useReducedMotion();
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
@@ -30,9 +31,9 @@ export function ChannelConnectionStrip({ canal, items }: Props) {
           return (
             <motion.div
               key={item.id}
-              initial={{ opacity: 0, y: 4 }}
+              initial={reduzir ? false : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.22, delay: index * 0.05, ease: [0, 0, 0.2, 1] }}
+              transition={reduzir ? { duration: 0 } : { duration: 0.22, delay: index * 0.05, ease: [0, 0, 0.2, 1] }}
               className="flex min-h-9 items-center gap-2 rounded-full border border-border px-3 text-xs font-semibold text-foreground"
             >
               <StatusDot conectado={conectado} />

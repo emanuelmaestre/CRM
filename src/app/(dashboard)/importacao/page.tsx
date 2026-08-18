@@ -203,7 +203,7 @@ function StepPrevia({ resultado }: { resultado: PreviewResult }) {
           <div className="px-4 py-3 border-b border-destructive/20">
             <p className="text-sm font-semibold text-destructive">{cfg.labels.errorsTitle}</p>
           </div>
-          <div className="divide-y divide-[#C21820]/10 max-h-48 overflow-y-auto">
+          <div className="divide-y divide-[var(--destructive)]/10 max-h-48 overflow-y-auto">
             {resultado.erros.map((e) => (
               <div key={e.linha} className="flex gap-3 px-4 py-2.5">
                 <span className="text-xs font-semibold text-destructive shrink-0 tabular-nums">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ChevronDown, RefreshCw, Sparkles } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -144,6 +144,7 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
 }) {
   const [anuncios, setAnuncios] = useState<AnuncioDaCampanha[] | null>(null);
   const carregandoAnuncios = expandida && anuncios === null;
+  const reduzir = useReducedMotion();
 
   useEffect(() => {
     if (!expandida || anuncios !== null) return;
@@ -180,10 +181,10 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
       <AnimatePresence initial={false}>
         {expandida && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
+            initial={reduzir ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={springs.settleFast}
+            exit={reduzir ? undefined : { height: 0, opacity: 0 }}
+            transition={reduzir ? { duration: 0 } : springs.settleFast}
             className="overflow-hidden"
           >
             <div className="grid grid-cols-1 gap-4 border-t border-border bg-muted/40 px-3 py-4 lg:grid-cols-2">

@@ -284,7 +284,7 @@ export default function AdminLgpdPage() {
                                   onClick={() => anonimizar(item)}
                                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-destructive px-4 text-sm font-semibold text-white disabled:opacity-50"
                                 >
-                                  <Trash2 size={15} /> Anonimizar
+                                  <Trash2 size={14} /> Anonimizar
                                 </button>
                               </>
                             )}

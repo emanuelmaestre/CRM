@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -23,6 +23,7 @@ interface Props {
  */
 export function MLConnectionStrip({ status }: Props) {
   const { detalhes, carregando, atualizar } = status;
+  const reduzir = useReducedMotion();
 
   const marcas = mlConfig.brands.filter((item) => isBrandSlug(item.slug));
   const conectadas = marcas.filter((item) => detalhes[item.slug as BrandSlug]?.conectado).length;
@@ -42,9 +43,9 @@ export function MLConnectionStrip({ status }: Props) {
           return (
             <motion.div
               key={slug}
-              initial={{ opacity: 0, y: 4 }}
+              initial={reduzir ? false : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.22, delay: index * 0.05, ease: [0, 0, 0.2, 1] }}
+              transition={reduzir ? { duration: 0 } : { duration: 0.22, delay: index * 0.05, ease: [0, 0, 0.2, 1] }}
               className="flex min-h-9 items-center gap-2 rounded-full border border-border px-3 text-xs font-semibold text-foreground"
             >
               <StatusDot conectado={conectado} alerta={alerta} />

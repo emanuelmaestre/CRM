@@ -330,7 +330,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
         initial={{ opacity: 0, y: -4, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ ...springs.settleFast, delay: atraso }}
-        whileHover={disabled ? undefined : { scale: 1.06 }}
+        whileHover={disabled ? undefined : { scale: 1.02 }}
         whileTap={disabled ? undefined : { scale: 0.95 }}
         title={rotuloCompleto}
         aria-label={rotuloCompleto}

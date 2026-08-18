@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { VisaoGeralResumo } from "@/modules/anuncios/application/visao-geral.service";
 import { springs, fadeUp } from "@/shared/design-system/motion-variants";
@@ -338,13 +338,14 @@ function Secundaria({ label, descricao, observacao, valor, formatar }: { label: 
  *  null (não há histórico multi-dia ainda), mas o componente já existe
  *  pronto pro dia em que a Fase "Tendência" ligar isso a período anterior. */
 export function Variacao({ percentual }: { percentual: number | null }) {
+  const reduzir = useReducedMotion();
   if (percentual === null) return null;
   const positiva = percentual >= 0;
   return (
     <motion.span
-      initial={{ opacity: 0 }}
+      initial={reduzir ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={springs.settleFast}
+      transition={reduzir ? { duration: 0 } : springs.settleFast}
       className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
       style={{ background: positiva ? tint("var(--success)", 12) : tint("var(--destructive)", 12), color: positiva ? "var(--success)" : "var(--destructive)" }}
     >

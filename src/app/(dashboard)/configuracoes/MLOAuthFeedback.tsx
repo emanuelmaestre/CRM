@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import settingsConfig from "@/config/settings.json";
 
@@ -40,6 +40,7 @@ export function MLOAuthFeedback({ onConectado }: { onConectado?: () => void }) {
   const [feedback, setFeedback] = useState<Feedback | null>(() =>
     derivarFeedback(new URLSearchParams(searchParams.toString())),
   );
+  const reduzir = useReducedMotion();
 
   // Limpa os parâmetros do retorno OAuth depois de derivar o feedback inicial.
   useEffect(() => {
@@ -59,10 +60,10 @@ export function MLOAuthFeedback({ onConectado }: { onConectado?: () => void }) {
     <AnimatePresence>
       {feedback && (
         <motion.div
-          initial={{ opacity: 0, y: -6, height: 0 }}
+          initial={reduzir ? false : { opacity: 0, y: -6, height: 0 }}
           animate={{ opacity: 1, y: 0, height: "auto" }}
-          exit={{ opacity: 0, y: -6, height: 0 }}
-          transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+          exit={reduzir ? undefined : { opacity: 0, y: -6, height: 0 }}
+          transition={reduzir ? { duration: 0 } : { duration: 0.24, ease: [0, 0, 0.2, 1] }}
           className="overflow-hidden"
         >
           <div
@@ -88,7 +89,7 @@ export function MLOAuthFeedback({ onConectado }: { onConectado?: () => void }) {
               aria-label={mlConfig.labels.closeFeedback}
               className="-my-1 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-current opacity-70 transition-opacity hover:bg-current/10 hover:opacity-100"
             >
-              <X size={15} strokeWidth={2.5} />
+              <X size={16} strokeWidth={2.5} />
             </button>
           </div>
         </motion.div>

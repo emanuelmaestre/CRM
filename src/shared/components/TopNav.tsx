@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Popover from "@radix-ui/react-popover";
 import { cn } from "@/shared/design-system/cn";
@@ -21,6 +21,7 @@ const LogoutIcon = getIcon(navigationConfig.utilities.logout.icon);
 export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; email: string }) {
   const pathname = usePathname();
   const router   = useRouter();
+  const reduzir  = useReducedMotion();
   const [bell, setBell] = useState(false);
   const initials = nome.split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("")
     || email[0]?.toUpperCase()
@@ -44,7 +45,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
       {/* Logo */}
       <Link href={navigationConfig.homeHref} className="flex items-center shrink-0 group" aria-label={appConfig.logo.homeAriaLabel}>
         <motion.span
-          whileHover={{ scale: 1.03 }}
+          whileHover={{ scale: 1.02 }}
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
           className="flex items-center"
         >
@@ -60,9 +61,9 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
           return (
             <motion.div
               key={item.href}
-              initial={{ opacity: 0, y: -4 }}
+              initial={reduzir ? false : { opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 + 0.1, duration: 0.2, ease: [0, 0, 0.2, 1] }}
+              transition={reduzir ? { duration: 0 } : { delay: i * 0.03 + 0.1, duration: 0.2, ease: [0, 0, 0.2, 1] }}
             >
               <Link
                 href={item.href}
@@ -103,8 +104,8 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
         <Popover.Root open={bell} onOpenChange={setBell}>
           <Popover.Trigger asChild>
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.96 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
               aria-label={navigationConfig.utilities.notifications.label}
               aria-expanded={bell}
               className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
@@ -127,7 +128,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
 
         {/* Settings */}
         {navigationConfig.utilities.settings.profiles.includes(perfil) && (
-          <motion.div whileHover={{ scale: 1.05 }} transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}>
+          <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}>
             <Link
               href={navigationConfig.utilities.settings.href}
               aria-label={navigationConfig.utilities.settings.label}
@@ -148,7 +149,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <motion.button
-              whileHover={{ scale: 1.03 }}
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               title={`${nome} · ${nomePerfil(perfil)}`}
               aria-label={`Abrir menu de ${nome}`}

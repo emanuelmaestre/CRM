@@ -79,7 +79,7 @@ export function ProdutoDetalhe({ initialData, canManage }: { initialData: Produt
               aria-label={editando ? editCopy.cancel : editCopy.button}
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
             >
-              {editando ? <X size={17} /> : <Pencil size={16} />}
+              {editando ? <X size={14} /> : <Pencil size={14} />}
             </button>
           </div>
         )}

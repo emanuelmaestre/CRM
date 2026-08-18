@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { RefreshCw, Split } from "lucide-react";
 import type { VisaoGeralMarca, VisaoGeralResumo } from "@/modules/anuncios/application/visao-geral.service";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -45,6 +45,7 @@ export function OrganicoCard({ resumo, resumoAnterior, marca }: {
 }) {
   const totalVendas = resumo.vendasPublicitarias + resumo.vendasOrganicas;
   const semDado = totalVendas === 0;
+  const reduzir = useReducedMotion();
 
   const percentualPago = totalVendas > 0 ? Math.round((resumo.vendasPublicitarias / totalVendas) * 1000) / 10 : 0;
   const percentualOrganico = totalVendas > 0 ? Math.round((resumo.vendasOrganicas / totalVendas) * 1000) / 10 : 0;
@@ -68,12 +69,12 @@ export function OrganicoCard({ resumo, resumoAnterior, marca }: {
       {semDado ? (
         <EmptyState illustration="generic" title={copy.semVenda} />
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={springs.settleFast} className="px-4 pb-5 pt-2 sm:px-5">
+        <motion.div initial={reduzir ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={reduzir ? { duration: 0 } : springs.settleFast} className="px-4 pb-5 pt-2 sm:px-5">
           <div className="flex h-5 w-full overflow-hidden rounded-full" style={{ background: "var(--chart-bar)" }}>
             <motion.div
-              initial={{ scaleX: 0 }}
+              initial={reduzir ? false : { scaleX: 0 }}
               animate={{ scaleX: percentualPago / 100 }}
-              transition={springs.settle}
+              transition={reduzir ? { duration: 0 } : springs.settle}
               className="h-full"
               style={{ background: ACENTO, transformOrigin: "left", width: "100%" }}
             />

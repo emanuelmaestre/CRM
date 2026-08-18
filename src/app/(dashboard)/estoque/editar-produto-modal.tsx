@@ -77,7 +77,7 @@ export function EditarProdutoModal({ produtoId, produtoNome, preco, onSuccess }:
                 aria-label={copy.button}
                 className="absolute right-14 top-2.5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <Pencil size={15} strokeWidth={2} />
+                <Pencil size={14} strokeWidth={2} />
               </button>
             )}
 

@@ -84,6 +84,12 @@
      cor de ninguém. */
   --selecionado: var(--acento-2);
 
+  /* Estrelas de avaliação (Inbox) e cor padrão de tag sem cor definida
+     (Cliente 360) viviam como hex soltos (#FFB900, #64748b) em vez de
+     token — nomeados aqui pra não se perder de novo. */
+  --rating: var(--karzi-accent);
+  --tag-fallback: var(--muted-foreground);
+
   /* Fontes */
   --font-inter: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-sora: "Sora", "Segoe UI", ui-sans-serif, system-ui, sans-serif;

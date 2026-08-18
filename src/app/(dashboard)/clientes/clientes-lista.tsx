@@ -398,7 +398,7 @@ export function ClientesLista() {
                     aria-label={copy.actions.view}
                     className="inline-flex h-11 w-11 items-center justify-center rounded-[0.625rem] border border-primary/30 bg-primary/5 text-primary transition-colors hover:bg-primary/10"
                   >
-                    <Eye size={17} strokeWidth={2} />
+                    <Eye size={14} strokeWidth={2} />
                   </button>
                 </div>
               </motion.div>
@@ -448,7 +448,7 @@ export function ClientesLista() {
                           aria-label={copy.actions.view}
                           className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-primary/30 bg-primary/5 text-primary transition-colors hover:bg-primary/10"
                         >
-                          <Eye size={15} strokeWidth={2} />
+                          <Eye size={14} strokeWidth={2} />
                         </button>
                       </div>
                     </td>

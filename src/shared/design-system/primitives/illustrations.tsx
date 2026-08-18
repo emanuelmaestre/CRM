@@ -15,7 +15,7 @@ export function ClientsIllustration() {
       <circle cx="74" cy="30" r="8" fill="var(--card)" stroke="var(--border)" strokeWidth="2" />
       <defs>
         <linearGradient id="clients-grad" x1="30" y1="14" x2="58" y2="34" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -35,7 +35,7 @@ export function ConversationIllustration() {
       <circle cx="66" cy="41" r="2.5" fill="url(#conv-grad)" />
       <defs>
         <linearGradient id="conv-grad" x1="28" y1="24" x2="84" y2="58" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -53,7 +53,7 @@ export function ReportsIllustration() {
       <rect x="64" y="30" width="10" height="20" rx="2" fill="var(--card)" />
       <defs>
         <linearGradient id="reports-grad" x1="48" y1="16" x2="58" y2="50" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -73,7 +73,7 @@ export function RevenueIllustration() {
       <circle cx="60" cy="10" r="3.5" fill="var(--card)" stroke="url(#revenue-grad)" strokeWidth="2" />
       <defs>
         <linearGradient id="revenue-grad" x1="18" y1="10" x2="67" y2="48" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -92,7 +92,7 @@ export function BestSellersIllustration() {
       <path d="M38 48h7" stroke="var(--border)" strokeWidth="2" strokeLinecap="round" />
       <defs>
         <linearGradient id="best-grad" x1="32" y1="8" x2="56" y2="46" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -112,7 +112,7 @@ export function RestockIllustration() {
       <path d="M6 54h76" stroke="var(--border)" strokeWidth="2" strokeLinecap="round" />
       <defs>
         <linearGradient id="restock-grad" x1="58" y1="6" x2="80" y2="46" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -130,7 +130,7 @@ export function SlowMovingIllustration() {
       <circle cx="16" cy="22" r="3" fill="var(--card)" stroke="var(--border)" strokeWidth="2" />
       <defs>
         <linearGradient id="slow-grad" x1="56" y1="36" x2="68" y2="46" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -149,7 +149,7 @@ export function DeadStockIllustration() {
       <path d="M65 46c1.6-3 6.4-3 8 0" stroke="url(#dead-grad)" strokeWidth="2" strokeLinecap="round" fill="none" />
       <defs>
         <linearGradient id="dead-grad" x1="60" y1="12" x2="80" y2="54" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -168,7 +168,7 @@ export function ComplaintsIllustration() {
       <circle cx="60" cy="45" r="1.75" fill="url(#complaints-grad)" />
       <defs>
         <linearGradient id="complaints-grad" x1="38" y1="24" x2="82" y2="58" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -190,7 +190,7 @@ export function NoThresholdIllustration() {
       <circle cx="80" cy="18" r="3.5" fill="var(--card)" stroke="url(#nothreshold-grad)" strokeWidth="2" />
       <defs>
         <linearGradient id="nothreshold-grad" x1="6" y1="14" x2="80" y2="24" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -211,7 +211,7 @@ export function HealthyStockIllustration() {
       <path d="M68 14.5l3.6 4L80 9" stroke="url(#healthy-grad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
       <defs>
         <linearGradient id="healthy-grad" x1="6" y1="9" x2="80" y2="22" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>
@@ -227,7 +227,7 @@ export function GenericIllustration() {
       <circle cx="44" cy="14" r="6" fill="url(#generic-grad)" />
       <defs>
         <linearGradient id="generic-grad" x1="38" y1="8" x2="50" y2="20" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#E3131B" />
+          <stop stopColor="var(--karzi)" />
           <stop offset="1" stopColor="var(--selecionado)" />
         </linearGradient>
       </defs>

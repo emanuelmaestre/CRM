@@ -55,7 +55,11 @@ function TextoComPlaceholder({ texto }: { texto: string }) {
 /** Prévia fiel de como o aviso chega de verdade — bolha verde, rabinho,
  *  hora e check duplo, igual ao WhatsApp. É o "me surpreenda": em vez de só
  *  listar o texto do modelo, mostra a mensagem no contexto em que o admin
- *  vai realmente lê-la. */
+ *  vai realmente lê-la.
+ *
+ *  As cores aqui dentro (#dcf8c6, #111b21, #4a5b52, #53bdeb) são as cores
+ *  reais do WhatsApp, não os tokens do CRM — exceção deliberada, porque o
+ *  objetivo é imitar o app de terceiro, não a nossa identidade visual. */
 function BolhaWhatsApp({ modelo }: { modelo: string }) {
   const reduzir = useReducedMotion();
   return (
