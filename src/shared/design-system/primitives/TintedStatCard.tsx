@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import { springs } from "../motion-variants";
 
@@ -36,15 +36,33 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
       type={onClick ? "button" : undefined}
       onClick={onClick}
       aria-pressed={onClick ? ativo : undefined}
-      whileHover={reduzir || !onClick ? undefined : { y: -2 }}
-      whileTap={reduzir || !onClick ? undefined : { scale: 0.98 }}
-      transition={springs.settleFast}
-      className="rounded-[1.15rem] border-2 p-4 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_7px_22px_rgba(14,15,19,.09)]"
+      whileHover={reduzir || !onClick ? undefined : { y: -4, scale: 1.02 }}
+      whileTap={reduzir || !onClick ? undefined : { scale: 0.94 }}
+      transition={springs.momentum}
+      className="relative overflow-hidden rounded-[1.15rem] border-2 p-4 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_10px_28px_rgba(14,15,19,.12)]"
       style={{
         borderColor: ativo ? cor : "transparent",
         background: "var(--card)",
       }}
     >
+      {/* Pulso de seleção: só quando é clicável e acaba de ativar — anel na
+       *  cor do card que nasce colado e se expande sumindo (AnimatePresence
+       *  monta uma vez por ativação, não é loop). */}
+      {onClick && (
+        <AnimatePresence>
+          {ativo && !reduzir && (
+            <motion.span
+              key="halo"
+              initial={{ opacity: 0.5, scale: 0.85 }}
+              animate={{ opacity: 0, scale: 1.5 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="pointer-events-none absolute inset-0 rounded-[1.15rem]"
+              style={{ border: `2px solid ${cor}` }}
+            />
+          )}
+        </AnimatePresence>
+      )}
       <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: cor }}>
         <Icon size={15} strokeWidth={1.75} />
         {label}

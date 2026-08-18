@@ -23,7 +23,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
-import { springs } from "@/shared/design-system/motion-variants";
+import { springs, variantes, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
@@ -175,20 +175,34 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
   return (
     <div data-tour="estoque-saude" className="mb-4 flex flex-col gap-3">
       {cards.length > 0 && (
-        <div className={`grid gap-3 ${cards.length === 1 ? "grid-cols-1 sm:max-w-xs" : cards.length === 2 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-3"}`}>
-          {cards.map((card) => (
-            <AlertCard
+        <motion.div
+          variants={staggerExagerado}
+          initial="hidden"
+          animate="show"
+          className={`grid gap-3 ${cards.length === 1 ? "grid-cols-1 sm:max-w-xs" : cards.length === 2 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-3"}`}
+        >
+          {cards.map((card, indice) => (
+            <motion.div
               key={card.id}
-              label={card.label}
-              valor={card.valor}
-              sub={card.sub}
-              icon={card.icon}
-              tom={card.tom}
-              ativo={filtro === card.id}
-              onClick={() => onFiltro(card.id)}
-            />
+              variants={entradaExagerada}
+              // Com 3 cards, a grade é 2 colunas até o lg — o terceiro sobra
+              // sozinho na linha, com metade da largura vazia do lado. Ele
+              // estica pras duas colunas só nesse intervalo (2-col); no lg,
+              // que já tem 3 colunas de verdade, volta ao tamanho normal.
+              className={indice === cards.length - 1 && cards.length % 2 === 1 && cards.length > 1 ? "col-span-2 lg:col-span-1" : undefined}
+            >
+              <AlertCard
+                label={card.label}
+                valor={card.valor}
+                sub={card.sub}
+                icon={card.icon}
+                tom={card.tom}
+                ativo={filtro === card.id}
+                onClick={() => onFiltro(card.id)}
+              />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Nada a resolver: uma linha em vez de quatro cards em zero. */}
@@ -381,7 +395,7 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
     <div className="w-[104px] ml-auto">
       <motion.p
         data-testid={testId}
-        animate={alerta ? { x: [0, -2, 2, -2, 2, 0] } : { x: 0 }}
+        animate={alerta ? { x: [0, -4, 4, -4, 4, -2, 2, 0], scale: [1, 1.12, 1] } : { x: 0, scale: 1 }}
         transition={springs.momentum}
         className="text-[15px] font-bold tabular-nums leading-none text-right"
         style={{ color: estado === "ok" ? "var(--foreground)" : (cor ?? "var(--foreground)") }}
@@ -431,6 +445,27 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
   );
 }
 
+/** Pulso de seleção: anel na cor da pílula que nasce colado nela e se
+ *  expande sumindo — só toca quando `ativo` PASSA a ser true (monta uma
+ *  vez via AnimatePresence, não é loop). Reduced motion não monta nada. */
+function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; reduzir: boolean | null }) {
+  return (
+    <AnimatePresence>
+      {ativo && !reduzir && (
+        <motion.span
+          key="halo"
+          initial={{ opacity: 0.55, scale: 0.82 }}
+          animate={{ opacity: 0, scale: 1.4 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{ border: `2px solid ${cor}` }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
 /* ── Seletor de canal ─────────────────────────────────────────
    Separa "de quem é o dado" por canal de venda (Mercado Livre, Shopee,
    TikTok Shop — ordem fechada do PRD §M3), não por marca: o saldo
@@ -449,14 +484,15 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
   return (
     <motion.button
       type="button"
+      variants={entradaExagerada}
       onClick={conectado ? onClick : undefined}
       disabled={!conectado}
-      whileHover={conectado && !reduzir ? { y: -1 } : undefined}
-      whileTap={conectado && !reduzir ? { scale: 0.97 } : undefined}
+      whileHover={conectado && !reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={conectado && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={label}
       title={conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
-      className={`inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
+      className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         !conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
@@ -464,6 +500,7 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
     >
+      <HaloSelecao ativo={ativo} cor="var(--selecionado)" reduzir={reduzir} />
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
       {conectado ? (
         <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
@@ -504,14 +541,15 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
   return (
     <motion.button
       type="button"
+      variants={entradaExagerada}
       onClick={bloqueada ? undefined : onClick}
       disabled={bloqueada}
-      whileHover={!bloqueada && !reduzir ? { y: -1 } : undefined}
-      whileTap={!bloqueada && !reduzir ? { scale: 0.97 } : undefined}
+      whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={nome}
       title={bloqueada ? copy.brandSelector.emptyHint.replace("{marca}", nome) : undefined}
-      className={`inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
+      className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
           : ativo
@@ -520,6 +558,7 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
       }`}
       style={ativo ? { borderColor: brandColor(slug) } : undefined}
     >
+      <HaloSelecao ativo={ativo} cor={brandColor(slug)} reduzir={reduzir} />
       {temIdentidade
         ? <BrandLogo brand={slug} height={17} />
         : <span className="text-sm font-semibold text-foreground">{nome}</span>}
@@ -847,9 +886,9 @@ export function EstoqueLista() {
           blocos empilhados (botões, depois um bloco centralizado enorme só
           para os filtros), consumindo altura sem motivo: filtro e ação
           convivem bem lado a lado, como em Clientes. */}
-      <div className="mb-5 flex flex-wrap items-center justify-center gap-3">
+      <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="mb-5 flex flex-wrap items-center justify-center gap-3">
         <div className="flex flex-wrap items-center justify-center gap-2.5">
-          <div data-tour="estoque-empresa" className="flex flex-wrap justify-center gap-2.5">
+          <motion.div variants={staggerExagerado} data-tour="estoque-empresa" className="flex flex-wrap justify-center gap-2.5">
             {marcas.map((marca) => (
               <MarcaPill
                 key={marca.brandId}
@@ -860,13 +899,13 @@ export function EstoqueLista() {
                 onClick={() => alternarMarca(marca.brandId)}
               />
             ))}
-          </div>
+          </motion.div>
 
           {marcas.length > 0 && canais.length > 0 && (
             <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
           )}
 
-          <div className="flex flex-wrap justify-center gap-2.5">
+          <motion.div variants={staggerExagerado} className="flex flex-wrap justify-center gap-2.5">
             {canais.map((item) => (
               <CanalPill
                 key={item.tipo}
@@ -877,13 +916,13 @@ export function EstoqueLista() {
                 onClick={() => alternarCanal(item.tipo)}
               />
             ))}
-          </div>
+          </motion.div>
         </div>
         {/* "Sincronizar" e "Configurar alertas" saíram daqui: viraram
             entradas fixas em Configurações (Central de sincronização e
             Áreas administrativas) — não precisam de destaque permanente
             na tela de listagem do dia a dia. */}
-      </div>
+      </motion.div>
 
       <FaixaSaude
         indicadores={indicadores}
@@ -1062,14 +1101,14 @@ export function EstoqueLista() {
           ) : (
             <div>
               {/* Mobile: cartão com os campos que decidem — saldo e mínimo */}
-              <div className="md:hidden divide-y divide-border" data-testid="estoque-cards">
+              <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="md:hidden divide-y divide-border" data-testid="estoque-cards">
                 {produtos.map((p) => {
                   const saldo = p.saldo ?? 0;
                   const parado = filtro === "parados" ? parados.get(p.id) : undefined;
                   const estado = estadoLinha(saldo, p.estoqueMinimo);
                   const corEstado = CORES_ESTADO[estado];
                   return (
-                    <article key={p.id} className="relative p-4 pl-5 space-y-3">
+                    <motion.article key={p.id} variants={variantes(reduzir, entradaExagerada)} className="relative p-4 pl-5 space-y-3">
                       <span
                         aria-hidden="true"
                         className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-sm"
@@ -1143,10 +1182,10 @@ export function EstoqueLista() {
                           </button>
                         </div>
                       )}
-                    </article>
+                    </motion.article>
                   );
                 })}
-              </div>
+              </motion.div>
 
               <div className="hidden md:block table-scroll" data-testid="estoque-table">
                 <table className="w-full text-sm">
