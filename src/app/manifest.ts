@@ -10,8 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: appConfig.description,
     start_url: "/metricas",
     display: "standalone",
-    background_color: "#0E0F13",
-    theme_color: "#0E0F13",
+    background_color: appConfig.viewport.themeColor,
+    theme_color: appConfig.viewport.themeColor,
     orientation: "portrait-primary",
     icons: [
       { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },

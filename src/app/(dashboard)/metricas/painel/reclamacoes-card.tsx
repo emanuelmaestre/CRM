@@ -67,7 +67,7 @@ function formatarMensagem(texto: string): React.ReactNode {
     const badge = trecho.match(/^<span class="message-badge">([\s\S]*?)<\/span>$/);
     if (badge) {
       return (
-        <span key={indice} className="mx-1 inline-block rounded-full bg-amber-400/20 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+        <span key={indice} className="mx-1 inline-block rounded-full bg-amber-400/20 px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide text-amber-600">
           {badge[1]}
         </span>
       );

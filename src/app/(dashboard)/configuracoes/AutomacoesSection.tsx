@@ -37,7 +37,7 @@ function TextoComPlaceholder({ texto }: { texto: string }) {
           return (
             <span
               key={indice}
-              className="mx-[1px] inline-block rounded-[0.3rem] bg-black/8 px-1 font-mono text-[10.5px] font-semibold text-[#075e54] dark:bg-white/12 dark:text-[#e9fbe7]"
+              className="mx-[1px] inline-block rounded-[0.3rem] bg-black/8 px-1 font-mono text-[10.5px] font-semibold text-[#075e54]"
             >
               {parte.slice(1, -1)}
             </span>

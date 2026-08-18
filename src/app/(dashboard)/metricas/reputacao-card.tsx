@@ -236,7 +236,7 @@ export function ReputacaoCard({ dados, carregando }: {
           ))}
 
           {dados && dados.marcasComFalha.length > 0 && (
-            <p className="flex items-start gap-1.5 rounded-[0.75rem] bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-400">
+            <p className="flex items-start gap-1.5 rounded-[0.75rem] bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700">
               <AlertTriangle size={12} className="mt-[2px] shrink-0" />
               {copy.falhaParcial} {dados.marcasComFalha.join(", ")}.
             </p>

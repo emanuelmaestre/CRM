@@ -69,10 +69,10 @@ function paraIsoFim(value: string) {
 }
 
 function statusTone(status: string) {
-  if (status === "concluido") return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300";
-  if (["erro", "concluido_com_erros", "com_erros"].includes(status)) return "bg-red-500/10 text-red-700 dark:text-red-300";
-  if (status === "pronto") return "bg-violet-500/10 text-violet-700 dark:text-violet-300";
-  return "bg-amber-500/10 text-amber-700 dark:text-amber-300";
+  if (status === "concluido") return "bg-emerald-500/10 text-emerald-700";
+  if (["erro", "concluido_com_erros", "com_erros"].includes(status)) return "bg-red-500/10 text-red-700";
+  if (status === "pronto") return "bg-violet-500/10 text-violet-700";
+  return "bg-amber-500/10 text-amber-700";
 }
 
 function stageLabel(fase: string) {
@@ -85,7 +85,7 @@ function HistoricalFlowIllustration() {
     <div
       role="img"
       aria-label={config.illustrationLabel}
-      className="relative min-h-52 overflow-hidden rounded-[1.5rem] border border-white/70 bg-[radial-gradient(circle_at_15%_20%,rgba(250,204,21,.34),transparent_35%),radial-gradient(circle_at_85%_70%,rgba(124,58,237,.22),transparent_42%),linear-gradient(145deg,rgba(255,255,255,.92),rgba(245,243,255,.72))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,.8)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_15%_20%,rgba(250,204,21,.16),transparent_36%),radial-gradient(circle_at_85%_70%,rgba(124,58,237,.18),transparent_44%),linear-gradient(145deg,rgba(24,24,27,.92),rgba(30,27,48,.82))]"
+      className="relative min-h-52 overflow-hidden rounded-[1.5rem] border border-white/70 bg-[radial-gradient(circle_at_15%_20%,rgba(250,204,21,.34),transparent_35%),radial-gradient(circle_at_85%_70%,rgba(124,58,237,.22),transparent_42%),linear-gradient(145deg,rgba(255,255,255,.92),rgba(245,243,255,.72))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,.8)]"
     >
       <div className="absolute inset-x-10 top-1/2 h-px border-t border-dashed border-violet-400/50" />
 
@@ -97,27 +97,27 @@ function HistoricalFlowIllustration() {
               initial={reduceMotion ? false : { opacity: 0, x: -12, rotate: -4 }}
               animate={{ opacity: 1, x: item * 12, y: item * 10, rotate: item * 2 - 2 }}
               transition={{ delay: item * 0.12, duration: 0.45 }}
-              className="absolute left-0 top-2 w-24 rounded-xl border border-black/5 bg-white p-3 shadow-lg shadow-amber-950/10 dark:border-white/10 dark:bg-zinc-900"
+              className="absolute left-0 top-2 w-24 rounded-xl border border-black/5 bg-white p-3 shadow-lg shadow-amber-950/10"
             >
               <div className="mb-2 flex items-center justify-between">
                 <FileJson2 size={14} className="text-amber-500" />
                 <span className="h-1.5 w-5 rounded-full bg-amber-300/70" />
               </div>
-              <span className="block h-1.5 w-14 rounded-full bg-zinc-200 dark:bg-zinc-700" />
-              <span className="mt-1.5 block h-1.5 w-9 rounded-full bg-zinc-100 dark:bg-zinc-800" />
+              <span className="block h-1.5 w-14 rounded-full bg-zinc-200" />
+              <span className="mt-1.5 block h-1.5 w-9 rounded-full bg-zinc-100" />
             </motion.div>
           ))}
         </div>
 
-        <div className="relative z-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.4rem] border border-violet-300/50 bg-white/90 shadow-xl shadow-violet-900/10 backdrop-blur dark:border-violet-400/20 dark:bg-zinc-900/90">
-          <ShieldCheck size={34} className="text-violet-600 dark:text-violet-300" strokeWidth={1.7} />
+        <div className="relative z-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.4rem] border border-violet-300/50 bg-white/90 shadow-xl shadow-violet-900/10 backdrop-blur">
+          <ShieldCheck size={34} className="text-violet-600" strokeWidth={1.7} />
           <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
             <Check size={13} strokeWidth={3} />
           </span>
         </div>
 
-        <div className="flex h-28 w-28 shrink-0 flex-col items-center justify-center rounded-[1.4rem] border border-white/80 bg-white/75 shadow-xl shadow-violet-950/10 backdrop-blur dark:border-white/10 dark:bg-zinc-900/70">
-          <Database size={28} className="text-violet-600 dark:text-violet-300" strokeWidth={1.6} />
+        <div className="flex h-28 w-28 shrink-0 flex-col items-center justify-center rounded-[1.4rem] border border-white/80 bg-white/75 shadow-xl shadow-violet-950/10 backdrop-blur">
+          <Database size={28} className="text-violet-600" strokeWidth={1.6} />
           <span className="mt-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">CRM</span>
           <div className="mt-2 flex gap-1">
             {[0, 1, 2].map((item) => <span key={item} className="h-1.5 w-1.5 rounded-full bg-emerald-400" />)}
@@ -141,7 +141,7 @@ function ProtectionGrid() {
             transition={{ delay: 0.08 * index }}
             className="flex items-start gap-3 rounded-xl border border-border/80 bg-background/65 p-3"
           >
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
               <Icon size={15} />
             </span>
             <span>
@@ -180,9 +180,9 @@ function ProgressRail({ value, phase }: { value: number; phase: string }) {
 function SummaryGrid({ lote }: { lote: LoteDetalhe }) {
   const stats = [
     { label: config.summary.found, value: lote.total ?? 0, icon: PackageCheck, tone: "text-foreground" },
-    { label: config.summary.ready, value: lote.aceitos, icon: CheckCircle2, tone: "text-emerald-600 dark:text-emerald-300" },
-    { label: config.summary.quarantine, value: lote.rejeitados, icon: CircleAlert, tone: "text-amber-600 dark:text-amber-300" },
-    { label: config.summary.duplicates, value: lote.duplicados, icon: ArchiveRestore, tone: "text-violet-600 dark:text-violet-300" },
+    { label: config.summary.ready, value: lote.aceitos, icon: CheckCircle2, tone: "text-emerald-600" },
+    { label: config.summary.quarantine, value: lote.rejeitados, icon: CircleAlert, tone: "text-amber-600" },
+    { label: config.summary.duplicates, value: lote.duplicados, icon: ArchiveRestore, tone: "text-violet-600" },
   ];
   return (
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -337,7 +337,7 @@ export function MLHistoricalImportSection() {
         {active?.status === "concluido" && <Celebration />}
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(340px,.92fr)] xl:items-center">
           <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/15 bg-violet-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-violet-700 dark:text-violet-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/15 bg-violet-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-violet-700">
               <Sparkles size={11} /> {config.eyebrow}
             </span>
             <h3 className="mt-3 text-xl font-black tracking-tight text-foreground sm:text-2xl">{config.title}</h3>
@@ -374,7 +374,7 @@ export function MLHistoricalImportSection() {
                         <p className="text-sm font-black text-foreground">Preparar novo lote</p>
                         <p className="mt-1 text-xs leading-5 text-muted-foreground">Primeiro analisamos o JSON remoto. Nada entra no CRM nesta etapa.</p>
                       </div>
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/15 text-amber-600 dark:text-amber-300">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400/15 text-amber-600">
                         <FileJson2 size={17} />
                       </span>
                     </div>
@@ -427,7 +427,7 @@ export function MLHistoricalImportSection() {
 
                         {active.pendencias.length > 0 && (
                           <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
-                            <p className="flex items-center gap-2 text-xs font-black text-amber-700 dark:text-amber-300"><CircleAlert size={14} /> {config.quarantine.title}</p>
+                            <p className="flex items-center gap-2 text-xs font-black text-amber-700"><CircleAlert size={14} /> {config.quarantine.title}</p>
                             <div className="mt-2 space-y-1.5">
                               {active.pendencias.map((item) => {
                                 const messages = Array.isArray(item.erros)
@@ -436,7 +436,7 @@ export function MLHistoricalImportSection() {
                                 return <p key={item.providerRecordId} className="text-[11px] leading-5 text-muted-foreground"><span className="font-bold text-foreground">#{item.providerRecordId}</span> · {messages.join(" ")}</p>;
                               })}
                             </div>
-                            <p className="mt-2 text-[11px] font-medium text-amber-700/80 dark:text-amber-300/80">{config.quarantine.hint}</p>
+                            <p className="mt-2 text-[11px] font-medium text-amber-700/80">{config.quarantine.hint}</p>
                           </div>
                         )}
 
@@ -456,7 +456,7 @@ export function MLHistoricalImportSection() {
                         )}
 
                         {active.status === "concluido" && (
-                          <div className="mt-4 flex items-start gap-3 rounded-xl bg-emerald-500/10 p-4 text-emerald-700 dark:text-emerald-300">
+                          <div className="mt-4 flex items-start gap-3 rounded-xl bg-emerald-500/10 p-4 text-emerald-700">
                             <CheckCircle2 size={19} className="mt-0.5 shrink-0" />
                             <p className="text-xs font-bold leading-5">{config.success}</p>
                           </div>

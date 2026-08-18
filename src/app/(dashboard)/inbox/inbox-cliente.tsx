@@ -415,7 +415,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => avancarStatus("resolvida")}
-                      className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950 dark:hover:bg-emerald-900 transition-colors"
+                      className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
                     >
                       <CheckCheck size={13} strokeWidth={2.5} />
                       {conversationCopy.resolve}

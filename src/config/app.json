@@ -11,8 +11,7 @@
     "tiktokDevelopersSiteVerification": "ptbw0AK1yP4OTOYbtaTkuwMBl3ChdjhS"
   },
   "viewport": {
-    "lightThemeColor": "#F7F7F8",
-    "darkThemeColor": "#0E0F13",
+    "themeColor": "#F7F7F8",
     "width": "device-width",
     "initialScale": 1
   },

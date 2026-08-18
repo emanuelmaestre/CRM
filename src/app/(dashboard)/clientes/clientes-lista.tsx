@@ -61,7 +61,7 @@ const AGUARDANDO_ENVIO = "Aguardando envio";
 function CampoOuAguardando({ valor }: { valor?: string | null }) {
   const v = valor?.trim();
   if (v && v !== "—") return <>{v}</>;
-  return <span className="text-amber-600 dark:text-amber-400">{AGUARDANDO_ENVIO}</span>;
+  return <span className="text-amber-600">{AGUARDANDO_ENVIO}</span>;
 }
 
 function enderecoResumo(c: Cliente) {

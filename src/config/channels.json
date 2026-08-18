@@ -21,7 +21,6 @@
       "logo": "/logos/mercadolivre-icon.svg",
       "fallback": "ML",
       "accent": "#FFE600",
-      "logoDark": false,
       "iconAspect": 1.4458,
       "iconScale": 0.83
     },
@@ -30,7 +29,6 @@
       "logo": "/logos/shopee-icon.svg",
       "fallback": "SP",
       "accent": "#EE4D2D",
-      "logoDark": false,
       "iconAspect": 0.8845,
       "iconScale": 1.06
     },
@@ -39,7 +37,6 @@
       "logo": "/logos/tiktok-icon.svg",
       "fallback": "TK",
       "accent": "#111111",
-      "logoDark": true,
       "iconAspect": 0.8722,
       "iconScale": 1.07
     },
@@ -48,7 +45,6 @@
       "logo": "/logos/tiktok-icon.svg",
       "fallback": "TK",
       "accent": "#111111",
-      "logoDark": true,
       "iconAspect": 0.8722,
       "iconScale": 1.07
     },
@@ -57,7 +53,6 @@
       "logo": null,
       "fallback": "IG",
       "accent": "#E1306C",
-      "logoDark": false,
       "iconAspect": 1,
       "iconScale": 1
     }

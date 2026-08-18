@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { ThemeProvider } from "@/shared/lib/theme-provider";
 import { MotionProvider } from "@/shared/providers/motion-provider";
 import appConfig from "@/config/app.json";
 import { Toaster } from "sonner";
@@ -20,28 +19,23 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: appConfig.viewport.lightThemeColor },
-    { media: "(prefers-color-scheme: dark)", color: appConfig.viewport.darkThemeColor },
-  ],
+  themeColor: appConfig.viewport.themeColor,
   width: appConfig.viewport.width,
   initialScale: appConfig.viewport.initialScale,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang={appConfig.locale} suppressHydrationWarning>
+    <html lang={appConfig.locale}>
       <body className="font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <MotionProvider>
-            {children}
-            <Toaster
-              richColors
-              position="top-right"
-              mobileOffset={{ top: "max(1rem, env(safe-area-inset-top))", left: "1rem", right: "1rem" }}
-            />
-          </MotionProvider>
-        </ThemeProvider>
+        <MotionProvider>
+          {children}
+          <Toaster
+            richColors
+            position="top-right"
+            mobileOffset={{ top: "max(1rem, env(safe-area-inset-top))", left: "1rem", right: "1rem" }}
+          />
+        </MotionProvider>
       </body>
     </html>
   );

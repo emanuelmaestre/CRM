@@ -19,7 +19,7 @@ export function ElisaLimaLogo({ variant = "header", className }: ElisaLimaLogoPr
       unoptimized
       sizes={login ? "(max-width: 640px) 240px, 290px" : "120px"}
       className={cn(
-        "h-auto object-contain dark:brightness-0 dark:invert",
+        "h-auto object-contain",
         login ? "w-[min(72vw,18rem)]" : "w-[7.5rem]",
         className,
       )}

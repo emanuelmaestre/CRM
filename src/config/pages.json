@@ -53,7 +53,7 @@
     "fields": {
       "email": {
         "label": "E-mail",
-        "placeholder": "voce@plastleo.com.br"
+        "placeholder": "usuario@empresa.com.br"
       },
       "password": {
         "label": "Senha",

@@ -18,7 +18,6 @@ interface ChannelConfig {
   logo: string | null;
   fallback: string;
   accent: string;
-  logoDark: boolean;
   iconAspect: number;
   iconScale: number;
 }
@@ -71,7 +70,6 @@ export function ChannelLogo({ canal, size = "sm", variant = "badge", className =
     logo: null,
     fallback: canal.slice(0, 2).toUpperCase(),
     accent: channelsConfig.fallback.accent,
-    logoDark: false,
     iconAspect: channelsConfig.fallback.iconAspect,
     iconScale: channelsConfig.fallback.iconScale,
   };
@@ -90,7 +88,6 @@ export function ChannelLogo({ canal, size = "sm", variant = "badge", className =
       width={iconW}
       height={iconH}
       style={{ height: iconH, width: iconW, flexShrink: 0, display: "block", objectFit: "contain" }}
-      className={cfg.logoDark ? "dark:invert" : ""}
     />
   ) : (
     <span

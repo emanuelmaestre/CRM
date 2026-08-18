@@ -110,12 +110,12 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                   <div><dt className="text-xs text-muted-foreground">Receita Ads</dt><dd className="mt-1 font-semibold tabular-nums"><NumeroAnimado valor={item.receita} formatar={(v) => moeda.format(v)} /></dd></div>
                 </dl>
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground"><ShieldCheck size={13} /> Qualidade: {item.nivelQualidade ?? "indisponível"}</div>
-                {item.pendencias.length > 0 && <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300"><TriangleAlert size={13} className="mt-0.5 shrink-0" /> {item.pendencias[0]}</p>}
+                {item.pendencias.length > 0 && <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700"><TriangleAlert size={13} className="mt-0.5 shrink-0" /> {item.pendencias[0]}</p>}
               </article>
             ))}
           </div>
         )}
-        {dados?.parcial && <p className="mt-4 text-xs text-amber-700 dark:text-amber-300">Algumas publicações inativas não possuem score de qualidade no Mercado Livre.</p>}
+        {dados?.parcial && <p className="mt-4 text-xs text-amber-700">Algumas publicações inativas não possuem score de qualidade no Mercado Livre.</p>}
       </div>
     </Card>
   );
