@@ -14,6 +14,8 @@ interface NumeroAnimadoProps {
   duracao?: number;
   className?: string;
   style?: React.CSSProperties;
+  /** Formata o valor a cada frame — moeda, milhar, etc. Padrão: inteiro puro. */
+  formatar?: (valor: number) => string;
 }
 
 /**
@@ -30,10 +32,11 @@ export function NumeroAnimado({
   duracao = 0.6,
   className,
   style,
+  formatar = (atual) => String(Math.round(atual)),
 }: NumeroAnimadoProps) {
   const reduzir = useReducedMotion();
   const contagem = useMotionValue(0);
-  const texto = useTransform(contagem, (atual) => String(Math.round(atual)));
+  const texto = useTransform(contagem, (atual) => formatar(atual));
   const jaAnimou = useRef(false);
 
   useEffect(() => {
@@ -48,7 +51,7 @@ export function NumeroAnimado({
 
   // Sem animação, nada de MotionValue: renderizar o valor direto evita o frame
   // inicial em "0" que a contagem precisa como ponto de partida.
-  if (reduzir) return <span className={className} style={style}>{valor}</span>;
+  if (reduzir) return <span className={className} style={style}>{formatar(valor)}</span>;
 
   return <motion.span className={className} style={style}>{texto}</motion.span>;
 }

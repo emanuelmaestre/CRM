@@ -16,7 +16,8 @@ import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioP
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
-import { escalonamento, fadeUp, springs, variantes } from "@/shared/design-system/motion-variants";
+import { springs, variantes, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
+import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -99,6 +100,27 @@ function canalLabel(canal: string) {
   return items[canal]?.label ?? canal;
 }
 
+/** Pulso de seleção: anel na cor da pílula que nasce colado nela e se
+ *  expande sumindo — só toca quando `ativo` PASSA a ser true (monta uma
+ *  vez via AnimatePresence, não é loop). Reduced motion não monta nada. */
+function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; reduzir: boolean | null }) {
+  return (
+    <AnimatePresence>
+      {ativo && !reduzir && (
+        <motion.span
+          key="halo"
+          initial={{ opacity: 0.55, scale: 0.82 }}
+          animate={{ opacity: 0, scale: 1.4 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{ border: `2px solid ${cor}` }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
 /* ── Pílula de marca/canal ──────────────────────────────────────
    Mesmo padrão compacto usado em Inbox/Estoque: uma barra só, marca e canal
    lado a lado, ao contrário do card duplo empilhado que existia antes — pra
@@ -114,14 +136,15 @@ function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; on
   return (
     <motion.button
       type="button"
+      variants={entradaExagerada}
       onClick={bloqueada ? undefined : onClick}
       disabled={bloqueada}
-      whileHover={!bloqueada && !reduzir ? { y: -1 } : undefined}
-      whileTap={!bloqueada && !reduzir ? { scale: 0.97 } : undefined}
+      whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={marca.nome}
       title={bloqueada ? copy.brandSelector.emptyHint.replace("{marca}", marca.nome) : undefined}
-      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
+      className={`relative inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
           : ativo
@@ -130,6 +153,7 @@ function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; on
       }`}
       style={ativo ? { borderColor: brandColor(slug) } : undefined}
     >
+      <HaloSelecao ativo={ativo} cor={brandColor(slug)} reduzir={reduzir} />
       {temIdentidade
         ? <BrandLogo brand={slug} height={13} />
         : <span className="text-[13px] font-semibold text-foreground">{marca.nome}</span>}
@@ -145,14 +169,15 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
   return (
     <motion.button
       type="button"
+      variants={entradaExagerada}
       onClick={canal.conectado ? onClick : undefined}
       disabled={!canal.conectado}
-      whileHover={canal.conectado && !reduzir ? { y: -1 } : undefined}
-      whileTap={canal.conectado && !reduzir ? { scale: 0.97 } : undefined}
+      whileHover={canal.conectado && !reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={canal.conectado && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={label}
       title={canal.conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
-      className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 transition-colors ${
+      className={`relative inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 transition-colors ${
         !canal.conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
@@ -160,6 +185,7 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
     >
+      <HaloSelecao ativo={ativo} cor="var(--selecionado)" reduzir={reduzir} />
       <ChannelLogo canal={canal.tipo} size="xs" variant="logo" />
       <span className="text-[11px] tabular-nums text-muted-foreground">{canal.total}</span>
     </motion.button>
@@ -183,8 +209,8 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
         <td className="px-4 py-3 font-semibold">
           <span className="inline-flex items-center gap-1.5">
             <motion.span
-              animate={{ rotate: aberta ? 90 : 0 }}
-              transition={reduzir ? { duration: 0 } : springs.settleFast}
+              animate={{ rotate: aberta ? 90 : 0, scale: aberta ? 1.15 : 1 }}
+              transition={reduzir ? { duration: 0 } : springs.momentum}
               className="text-muted-foreground"
             >
               <ChevronDown size={13} className="-rotate-90" />
@@ -367,58 +393,86 @@ export function PedidosLista() {
 
   return (
     <div>
-      {/* Barra de escopo — empresa e canal na mesma linha, centralizada. */}
-      <div className="mb-4 flex flex-wrap items-center justify-center gap-2 w-fit mx-auto">
-        {marcas.map((marca) => (
-          <MarcaPill
-            key={marca.brandId}
-            marca={marca}
-            ativo={brandIds.includes(marca.brandId)}
-            onClick={() => setBrandIds((atual) => atual.includes(marca.brandId)
-              ? atual.filter((id) => id !== marca.brandId)
-              : [...atual, marca.brandId])}
-          />
-        ))}
+      {/* Barra de escopo — empresa e canal. No desktop tudo numa linha,
+          centralizado; no mobile empilha e cada fileira rola por dentro se
+          precisar (mesmo padrão já usado em Inbox e Clientes). */}
+      <motion.div
+        variants={staggerExagerado}
+        initial="hidden"
+        animate="show"
+        className="mb-4 flex flex-col items-center gap-2 lg:w-fit lg:mx-auto lg:flex-row lg:flex-wrap"
+      >
+        <motion.div
+          variants={staggerExagerado}
+          className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible"
+        >
+          {marcas.map((marca) => (
+            <MarcaPill
+              key={marca.brandId}
+              marca={marca}
+              ativo={brandIds.includes(marca.brandId)}
+              onClick={() => setBrandIds((atual) => atual.includes(marca.brandId)
+                ? atual.filter((id) => id !== marca.brandId)
+                : [...atual, marca.brandId])}
+            />
+          ))}
+        </motion.div>
 
-        <span aria-hidden="true" className="h-5 w-px bg-border" />
+        <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
 
-        {canais.map((item) => (
-          <CanalPill
-            key={item.tipo}
-            canal={item}
-            ativo={canal === item.tipo}
-            onClick={() => setCanal((atual) => atual === item.tipo ? "" : item.tipo)}
-          />
-        ))}
-      </div>
+        <motion.div
+          variants={staggerExagerado}
+          className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible"
+        >
+          {canais.map((item) => (
+            <CanalPill
+              key={item.tipo}
+              canal={item}
+              ativo={canal === item.tipo}
+              onClick={() => setCanal((atual) => atual === item.tipo ? "" : item.tipo)}
+            />
+          ))}
+        </motion.div>
+      </motion.div>
 
-      <div className="mb-4 grid gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid-cols-[minmax(200px,1fr)_auto_auto_auto_auto_auto] md:items-center">
+      {/* Filtros — no desktop, uma linha só como sempre foi (busca cresce,
+          o resto tem largura própria). No mobile isso empilhava em 6 blocos
+          de largura cheia, um por baixo do outro, e os dois botões de
+          calendário (De:/Até:) ficavam idênticos e sem rótulo visível, um
+          embaixo do outro — impossível saber qual era qual. Agora: busca
+          sozinha (é o controle principal), status+Hoje juntos (são atalhos
+          de refinar), De:/Até: lado a lado (são um par). O PDF saiu daqui —
+          foi morar perto do contador de pedidos, que é o que ele exporta. */}
+      <div className="mb-4 flex flex-col gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid md:grid-cols-[minmax(200px,1fr)_auto_auto] md:items-center">
         <label className="relative block">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido ou cliente…" className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-selecionado" />
         </label>
-        <SelectPopover
-          valor={statusGrupo}
-          onChange={setStatusGrupo}
-          itens={GRUPOS_STATUS.map((grupo) => ({
-            value: grupo.chave,
-            label: grupo.chave === "" ? copy.statusFilter.all : grupo.label,
-          }))}
-        />
-        <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
-        <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />
-        <BotaoHoje
-          ativo={dataInicial === hoje && dataFinal === hoje}
-          disabled={loading}
-          onClick={() => {
-            const jaEstaEmHoje = dataInicial === hoje && dataFinal === hoje;
-            setDataInicial(jaEstaEmHoje ? "" : hoje);
-            setDataFinal(jaEstaEmHoje ? "" : hoje);
-          }}
-        />
-        <button type="button" onClick={exportarPdf} disabled={pedidos.length === 0 || exportando} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted disabled:opacity-40">
-          {exportando ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1 md:flex-initial">
+            <SelectPopover
+              valor={statusGrupo}
+              onChange={setStatusGrupo}
+              itens={GRUPOS_STATUS.map((grupo) => ({
+                value: grupo.chave,
+                label: grupo.chave === "" ? copy.statusFilter.all : grupo.label,
+              }))}
+            />
+          </div>
+          <BotaoHoje
+            ativo={dataInicial === hoje && dataFinal === hoje}
+            disabled={loading}
+            onClick={() => {
+              const jaEstaEmHoje = dataInicial === hoje && dataFinal === hoje;
+              setDataInicial(jaEstaEmHoje ? "" : hoje);
+              setDataFinal(jaEstaEmHoje ? "" : hoje);
+            }}
+          />
+        </div>
+        <div className="flex items-center justify-center gap-2">
+          <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
+          <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />
+        </div>
       </div>
 
       {!escopoDefinido ? (
@@ -433,20 +487,25 @@ export function PedidosLista() {
       ) : (
       <div className="flex flex-col gap-4">
       <motion.section
-        variants={escalonamento(reduzir)}
+        variants={staggerExagerado}
         initial="hidden"
         animate="show"
         className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
         aria-label="Resumo das vendas filtradas"
       >
         {[
-          { label: "Faturamento", valor: dinheiro.format(resumo.faturamento), icon: CircleDollarSign, cor: "var(--success)" },
-          { label: "Pedidos", valor: resumo.totalPedidos.toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
-          { label: "Ticket médio", valor: dinheiro.format(resumo.ticketMedio), icon: ReceiptText, cor: "var(--acento-2)" },
-          { label: "Cancelados/devolvidos", valor: resumo.cancelados.toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
+          { label: "Faturamento", numero: resumo.faturamento, formatar: (v: number) => dinheiro.format(v), icon: CircleDollarSign, cor: "var(--success)" },
+          { label: "Pedidos", numero: resumo.totalPedidos, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
+          { label: "Ticket médio", numero: resumo.ticketMedio, formatar: (v: number) => dinheiro.format(v), icon: ReceiptText, cor: "var(--acento-2)" },
+          { label: "Cancelados/devolvidos", numero: resumo.cancelados, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
         ].map((card) => (
-          <motion.div key={card.label} variants={variantes(reduzir, fadeUp)}>
-            <TintedStatCard label={card.label} valor={card.valor} icon={card.icon} cor={card.cor} />
+          <motion.div key={card.label} variants={variantes(reduzir, entradaExagerada)}>
+            <TintedStatCard
+              label={card.label}
+              valor={<NumeroAnimado valor={card.numero} formatar={card.formatar} apenasPrimeiraVez={false} duracao={0.5} />}
+              icon={card.icon}
+              cor={card.cor}
+            />
           </motion.div>
         ))}
       </motion.section>
@@ -477,8 +536,19 @@ export function PedidosLista() {
               <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
             </button>
             <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
-              {total} {total === 1 ? "pedido" : "pedidos"}
+              <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "pedido" : "pedidos"}
             </span>
+            {/* PDF exporta o resultado filtrado atual — mora aqui, ao lado
+                do que ele exporta, em vez de competir por espaço lá em cima
+                com os controles de filtro. */}
+            <button
+              type="button"
+              onClick={exportarPdf}
+              disabled={pedidos.length === 0 || exportando}
+              className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+            >
+              {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />} PDF
+            </button>
           </div>
         </div>
 
@@ -496,10 +566,10 @@ export function PedidosLista() {
             />
           ) : (
             <>
-              <div className="divide-y divide-border md:hidden" data-testid="pedidos-cards">
+              <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="divide-y divide-border md:hidden" data-testid="pedidos-cards">
                 {pedidos.map((item) => (
+                  <motion.div key={item.id} variants={variantes(reduzir, entradaExagerada)}>
                   <Link
-                    key={item.id}
                     href={`/vendas/pedidos/${item.id}`}
                     className="block px-4 py-4 transition-colors hover:bg-muted/30 focus-visible:bg-muted/30"
                   >
@@ -528,8 +598,9 @@ export function PedidosLista() {
                       <span className="text-xs font-semibold text-selecionado">Ver detalhes</span>
                     </div>
                   </Link>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
               <div className="hidden table-scroll md:block">
               <table className="w-full min-w-[560px] text-left text-sm">
                 <thead className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
