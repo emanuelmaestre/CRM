@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo } from "@/shared/lib/db/schema";
 import { persistirEvento, despacharEvento } from "@/shared/events";
@@ -38,6 +38,9 @@ async function importarCatalogoDaConta(ctx: CrudContext, conta: ContaParaImporta
           eq(produtoCanal.orgId, ctx.orgId),
           eq(produtoCanal.channelAccountId, conta.channelAccountId),
           eq(produtoCanal.externalListingId, item.listingId),
+          item.variationId
+            ? eq(produtoCanal.externalWarehouseId, item.variationId)
+            : isNull(produtoCanal.externalWarehouseId),
         ))
         .then((rows) => rows[0]);
       if (jaMapeado) { ignorados += 1; continue; }
@@ -45,20 +48,47 @@ async function importarCatalogoDaConta(ctx: CrudContext, conta: ContaParaImporta
       const sku = item.externalSku?.trim() || `ml-${item.listingId}${item.variationId ? `-${item.variationId}` : ""}`;
 
       try {
-        await ctx.db.transaction(async (tx) => {
-          const [criado] = await tx.insert(produto).values({
-            orgId: ctx.orgId,
-            brandId: conta.brandId,
-            sku,
-            nome: item.title,
-            preco: item.price,
-            estoqueMinimo: 0,
-            ativo: true,
-          }).returning();
+        const mapeado = await ctx.db.transaction(async (tx) => {
+          const existente = await tx
+            .select({ id: produto.id })
+            .from(produto)
+            .where(and(
+              eq(produto.orgId, ctx.orgId),
+              eq(produto.brandId, conta.brandId),
+              eq(produto.sku, sku),
+              isNull(produto.deletedAt),
+            ))
+            .then((rows) => rows[0]);
+
+          const criado = existente ? null : await tx
+            .insert(produto)
+            .values({
+              orgId: ctx.orgId,
+              brandId: conta.brandId,
+              sku,
+              nome: item.title,
+              preco: item.price,
+              estoqueMinimo: 0,
+              ativo: true,
+            })
+            .returning()
+            .then((rows) => rows[0]);
+          const produtoId = existente?.id ?? criado!.id;
+
+          const vinculoDoProduto = await tx
+            .select({ id: produtoCanal.id })
+            .from(produtoCanal)
+            .where(and(
+              eq(produtoCanal.orgId, ctx.orgId),
+              eq(produtoCanal.produtoId, produtoId),
+              eq(produtoCanal.channelAccountId, conta.channelAccountId),
+            ))
+            .then((rows) => rows[0]);
+          if (vinculoDoProduto) return false;
 
           const [vinculo] = await tx.insert(produtoCanal).values({
             orgId: ctx.orgId,
-            produtoId: criado.id,
+            produtoId,
             channelAccountId: conta.channelAccountId,
             externalListingId: item.listingId,
             externalSkuId: item.externalSku,
@@ -70,34 +100,39 @@ async function importarCatalogoDaConta(ctx: CrudContext, conta: ContaParaImporta
           // não nascer zerado esperando a coleta noturna (A5).
           await tx.insert(estoqueCanalSaldo).values({
             orgId: ctx.orgId,
-            produtoId: criado.id,
+            produtoId,
             channelAccountId: conta.channelAccountId,
             produtoCanalId: vinculo.id,
             saldo: item.availableQuantity,
           });
 
-          await tx.insert(auditLog).values({
-            orgId: ctx.orgId,
-            brandId: conta.brandId,
-            autorId: ctx.userId,
-            autorTipo: ctx.userId ? "usuario" : "sistema",
-            entidade: "produto",
-            entidadeId: criado.id,
-            acao: "create",
-            depois: criado,
-          });
+          if (criado) {
+            await tx.insert(auditLog).values({
+              orgId: ctx.orgId,
+              brandId: conta.brandId,
+              autorId: ctx.userId,
+              autorTipo: ctx.userId ? "usuario" : "sistema",
+              entidade: "produto",
+              entidadeId: criado.id,
+              acao: "create",
+              depois: criado,
+            });
 
-          const evento = await persistirEvento({
-            tipo: "produto.criado",
-            orgId: ctx.orgId,
-            brandId: conta.brandId,
-            entidade: "produto",
-            entidadeId: criado.id,
-            payload: { sku: criado.sku, nome: criado.nome, origem: "importacao-mercadolivre" },
-          }, tx);
-          await despacharEvento(evento);
+            const evento = await persistirEvento({
+              tipo: "produto.criado",
+              orgId: ctx.orgId,
+              brandId: conta.brandId,
+              entidade: "produto",
+              entidadeId: criado.id,
+              payload: { sku: criado.sku, nome: criado.nome, origem: "importacao-mercadolivre" },
+            }, tx);
+            await despacharEvento(evento);
+          }
+
+          return true;
         });
-        produtosCriados += 1;
+        if (mapeado) produtosCriados += 1;
+        else ignorados += 1;
       } catch (error) {
         // SKU duplicado (unique por org) é o caso esperado quando o
         // mesmo produto já existe sob outro anúncio/canal — segue o
