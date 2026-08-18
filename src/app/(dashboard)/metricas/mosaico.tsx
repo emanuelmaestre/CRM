@@ -180,7 +180,7 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
         disabled={exportando || !temDados}
         whileHover={temDados ? { scale: 1.02 } : undefined}
         whileTap={temDados ? { scale: 0.97 } : undefined}
-        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-[0.75rem] border border-border px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
+        className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[0.75rem] border border-border px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
       >
         <FileText size={13} />
         {exportando ? metricasConfig.exportacao.gerando : metricasConfig.exportacao.acao}
@@ -819,7 +819,7 @@ export function Mosaico() {
 
         {/* Período e exportar ficam fixos no topo, e continuam alcançáveis com
             um card aberto — trocar a janela não exige fechar nada. */}
-        <div className="sticky top-0 z-30 -mx-1 flex flex-wrap items-center gap-2 bg-background/85 px-1 py-2 backdrop-blur" data-coachmark="mosaico-periodo">
+        <div className="sticky top-0 z-30 -mx-1 flex flex-wrap items-center gap-2 bg-background/85 px-1 py-2 backdrop-blur md:top-14 [@media_(min-width:768px)_and_(max-height:500px)]:top-0" data-coachmark="mosaico-periodo">
           <span className="text-label-md uppercase text-muted-foreground">{copy.periodoLabel}</span>
           <BarraPeriodo
             periodo={periodo}
@@ -844,7 +844,7 @@ export function Mosaico() {
           {grupos.map((grupo) => (
             <section key={grupo.id} className="flex flex-col gap-3">
               <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
-              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {grupo.blocos.map((bloco) => (
                   <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
                 ))}
@@ -867,7 +867,7 @@ export function Mosaico() {
             exit={{ opacity: 0, y: 12 }}
             role="status"
             aria-live="polite"
-            className="fixed inset-x-0 bottom-20 z-[60] mx-auto flex w-fit max-w-[92vw] items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-[0_8px_28px_rgba(14,15,19,.16)] sm:bottom-6"
+            className="fixed inset-x-0 bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] z-[60] mx-auto flex w-fit max-w-[92vw] items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-[0_8px_28px_rgba(14,15,19,.16)] sm:bottom-6"
           >
             <span className="hidden text-[11px] text-muted-foreground sm:inline">{copy.usarEmTodosDica}</span>
             <button

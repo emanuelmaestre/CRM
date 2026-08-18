@@ -2,11 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Maximize2, MousePointerClick, TrendingDown, TrendingUp, X } from "lucide-react";
+import { X } from "lucide-react";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
 import { useFocusTrap } from "@/shared/design-system/primitives/useFocusTrap";
-import metricasConfig from "@/config/metricas.json";
-import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
 
 /* ── Mosaico → Foco ────────────────────────────────────────────────
@@ -82,21 +80,6 @@ export interface BlocoDef {
 
 const PESO_ALERTA: Record<NivelAlerta, number> = { critico: 2, atencao: 1 };
 
-/** Ordena um grupo de blocos pondo na frente o que precisa de decisão. Empate
- *  mantém a ordem escrita — a leitura em atos sobrevive quando não há nada
- *  pegando fogo. Age só dentro do grupo que recebe: a urgência de um bloco
- *  de Estoque não faz sentido saltando pra cima de um bloco Financeiro. */
-export function ordenarPorUrgencia(blocos: BlocoDef[]): BlocoDef[] {
-  return blocos
-    .map((bloco, ordem) => ({ bloco, ordem }))
-    .sort((a, b) => {
-      const pesoA = a.bloco.resumo.alerta ? PESO_ALERTA[a.bloco.resumo.alerta.nivel] : 0;
-      const pesoB = b.bloco.resumo.alerta ? PESO_ALERTA[b.bloco.resumo.alerta.nivel] : 0;
-      return pesoB - pesoA || a.ordem - b.ordem;
-    })
-    .map(({ bloco }) => bloco);
-}
-
 export interface GrupoSecao {
   id: SecaoId;
   label: string;
@@ -106,13 +89,17 @@ export interface GrupoSecao {
   alerta: NivelAlerta | null;
 }
 
-/** Agrupa os blocos nas 5 seções (ordem fixa de `SECOES`) e ordena por
- *  urgência dentro de cada uma. A lista plana devolvida junto é a mesma
- *  ordem visual, de cima pra baixo — é o que a navegação por setas usa
- *  para saber qual é "o próximo card". */
+/** Agrupa os blocos nas 5 seções (ordem fixa de `SECOES`). Dentro de cada
+ *  seção a ordem também é fixa — a mesma sempre, na ordem em que os blocos
+ *  são definidos em `mosaico.tsx` — para o botão compacto ficar sempre no
+ *  mesmo lugar. O pior alerta do grupo ainda tinge o rótulo da seção (ver
+ *  `RotuloSecao`); é o único sinal de urgência que sobrou fora do card
+ *  aberto. A lista plana devolvida junto é a mesma ordem visual, de cima
+ *  pra baixo — é o que a navegação por setas usa para saber qual é "o
+ *  próximo card". */
 export function agruparPorSecao(blocos: BlocoDef[]): { grupos: GrupoSecao[]; lista: BlocoDef[] } {
   const grupos = SECOES.map((secao): GrupoSecao => {
-    const doGrupo = ordenarPorUrgencia(blocos.filter((bloco) => bloco.secao === secao.id));
+    const doGrupo = blocos.filter((bloco) => bloco.secao === secao.id);
     const piorAlerta = doGrupo.reduce<NivelAlerta | null>((pior, bloco) => {
       const nivel = bloco.resumo.alerta?.nivel ?? null;
       if (!nivel) return pior;
@@ -150,111 +137,49 @@ function corAlerta(nivel: NivelAlerta) {
   return nivel === "critico" ? "var(--escala-1)" : "var(--escala-3)";
 }
 
-/* ── Variação ──────────────────────────────────────────────────── */
-
-function Variacao({ valor, subirEhRuim }: { valor: number; subirEhRuim?: boolean }) {
-  const subiu = valor > 0;
-  const bom = subirEhRuim ? !subiu : subiu;
-  const Icone = subiu ? TrendingUp : TrendingDown;
-  const cor = valor === 0 ? "var(--muted-foreground)" : bom ? "var(--escala-5)" : "var(--escala-2)";
-
-  return (
-    <span className="inline-flex items-center gap-1 text-[12px] font-semibold tabular-nums" style={{ color: cor }}>
-      <Icone size={13} strokeWidth={2.2} />
-      {valor > 0 ? "+" : ""}{valor.toFixed(1).replace(".", ",")}%
-    </span>
-  );
-}
-
 /* ── Bloco ─────────────────────────────────────────────────────── */
 
+/** Botão compacto: ícone + nome, nada mais. O mosaico virou um índice de
+ *  navegação para os 14 cards — quem quer o número abre o card (decisão
+ *  deliberada: sem prévia de valor, sem sinal de alerta, sem seta). A
+ *  ordem dentro de cada seção é a mesma sempre (ver `agruparPorSecao`,
+ *  que não reordena mais por urgência). */
 export function Bloco({ def, focado, onAbrir }: {
   def: BlocoDef;
   focado: boolean;
   onAbrir: () => void;
 }) {
   const reduzir = useReducedMotion();
-  const { resumo, icone: Icone, accent } = def;
-  const alerta = resumo.alerta ?? null;
+  const { icone: Icone, accent } = def;
 
   return (
-    <li className={cn("relative min-h-44", def.largura === 2 && "sm:col-span-2")}>
+    <li className="relative">
       {/* Sem AnimatePresence de propósito: o bloco precisa sair da árvore no
           mesmo quadro em que o painel entra, senão os dois seguram o layoutId
           por um instante e o crescimento vira um piscar. */}
       {!focado && (
         <motion.div
-            layoutId={`bloco-${def.id}`}
-            transition={transicao(reduzir, springs.settle)}
-            className="card-surface absolute inset-0 flex w-full flex-col items-stretch gap-2 overflow-hidden p-4 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
-            style={alerta ? { borderColor: corAlerta(alerta.nivel) } : undefined}
+          layoutId={`bloco-${def.id}`}
+          transition={transicao(reduzir, springs.settle)}
+          className="card-surface relative flex w-full cursor-pointer items-center gap-2.5 overflow-hidden px-3.5 py-3 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
+        >
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+            style={{ background: tint(accent, 9), color: accent }}
           >
-            <motion.span layout="position" className="relative flex items-center gap-2">
-              <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                style={{ background: tint(accent, 9), color: accent }}
-              >
-                <Icone size={14} strokeWidth={1.9} />
-              </span>
-              {/* O bloco não pode ser um <button>: as pílulas de marca dentro
-                  dele também são, e botão dentro de botão é HTML inválido — o
-                  clique na pílula acabaria abrindo o card. Então o controle é
-                  este botão do título, esticado por ::after sobre o bloco
-                  inteiro. O alvo continua sendo o bloco todo para o mouse, e
-                  o teclado ganha um único foco em vez de um por pílula. */}
-              <button
-                type="button"
-                onClick={onAbrir}
-                aria-label={`Abrir ${def.titulo}`}
-                className="min-w-0 flex-1 truncate text-left text-[13px] font-bold tracking-[-0.01em] text-foreground outline-none after:absolute after:inset-0 after:z-0 after:content-['']"
-              >
-                {def.titulo}
-              </button>
-              <Maximize2 size={13} className="shrink-0 text-muted-foreground/50" aria-hidden="true" />
-            </motion.span>
-
-            <div className="flex flex-1 flex-col justify-end gap-1.5">
-              {def.semFiltro ? (
-                /* Sem marca escolhida, o tile não vira formulário — ele só diz
-                   o que vai aparecer quando abrir. A escolha em si acontece
-                   dentro do card em foco. O ícone de toque existe para não se
-                   confundir com skeleton/erro: é convite, não estado quebrado. */
-                <p className="flex items-center gap-1.5 text-[12px] leading-snug text-muted-foreground">
-                  <MousePointerClick size={12} strokeWidth={2} className="shrink-0" aria-hidden="true" />
-                  {metricasConfig.mosaico.semFiltro}
-                </p>
-              ) : def.carregando ? (
-                <span className="h-8 w-2/3 animate-pulse rounded-md bg-muted" role="status" aria-label="Carregando" />
-              ) : resumo.valor === null ? (
-                <p className="text-[12px] leading-snug text-muted-foreground">{resumo.legenda ?? "Abrir para ver"}</p>
-              ) : (
-                <>
-                  <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="text-stat-md leading-none tabular-nums text-foreground">{resumo.valor}</span>
-                    {resumo.variacao !== null && resumo.variacao !== undefined && (
-                      <Variacao valor={resumo.variacao} subirEhRuim={resumo.subirEhRuim} />
-                    )}
-                  </span>
-                  {resumo.legenda && <span className="text-[11px] text-muted-foreground">{resumo.legenda}</span>}
-                </>
-              )}
-
-              {alerta && (
-                <span
-                  className="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em]"
-                  style={{ background: tint(corAlerta(alerta.nivel), 12), color: corAlerta(alerta.nivel) }}
-                >
-                  {alerta.texto}
-                </span>
-              )}
-              {/* resumo.valor !== null: sem número, o rodapé repetiria a mesma
-                  frase que já apareceu como descrição logo acima — ex.: "Vendem
-                  mais" sem nenhum produto no período mostraria "no topo do
-                  período" duas vezes seguidas. */}
-              {!alerta && resumo.rodape && resumo.valor !== null && (
-                <span className="truncate text-[11px] text-muted-foreground/80">{resumo.rodape}</span>
-              )}
-            </div>
+            <Icone size={14} strokeWidth={1.9} />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-left text-[13px] font-bold tracking-[-0.01em] text-foreground">
+            {def.titulo}
+          </span>
+          <button
+            type="button"
+            onClick={onAbrir}
+            aria-label={`Abrir ${def.titulo}`}
+            className="absolute inset-0 z-10 rounded-[inherit] outline-none"
+          >
+            <span className="sr-only">{def.titulo}</span>
+          </button>
         </motion.div>
       )}
     </li>
@@ -336,14 +261,14 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
             aria-labelledby={tituloId}
             tabIndex={-1}
             transition={transicao(reduzir, springs.settle)}
-            className="card-surface relative flex h-full w-full flex-col overflow-hidden rounded-none border-0 outline-none"
+            className="card-surface relative flex h-dvh min-h-dvh w-full flex-col overflow-hidden rounded-none border-0 outline-none"
           >
             {/* Cabeçalho único do card em foco — identidade + navegação numa
                 linha, período e ação própria do card na linha de baixo. Antes
                 disto, o painel mostrava este cabeçalho E o cabeçalho que cada
                 card desenhava por conta própria (ícone e título de novo,
                 subtítulo de novo): duas telas empilhadas em vez de uma. */}
-            <motion.div layout="position" className="flex shrink-0 flex-col gap-2 border-b border-border px-4 py-3">
+            <motion.div layout="position" className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
               <div className="flex items-center gap-2">
                 <span
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
@@ -379,17 +304,19 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                     ação do próprio card sem ganhar nada em clareza. Contador
                     "X de Y" também saiu — não é informação que ajuda a
                     decisão de quem está ali, só ruído no cabeçalho. */}
-                <button type="button" onClick={onFechar} aria-label="Fechar" className="press-feedback shrink-0 rounded-full p-1.5 text-muted-foreground hover:bg-muted">
+                <button type="button" onClick={onFechar} aria-label="Fechar" className="press-feedback flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
                   <X size={16} />
                 </button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {barraPeriodo}
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  {barraPeriodo}
+                </div>
                 {/* Alvo do portal: sempre presente no DOM, mesmo vazio — um
                     card com ação própria (aba, "como é calculado") a desenha
                     aqui via createPortal quando monta. */}
-                <div ref={setAcaoSlot} className="ml-auto flex flex-wrap items-center justify-end gap-2 empty:hidden" />
+                <div ref={setAcaoSlot} className="flex min-w-0 flex-wrap items-center justify-start gap-2 empty:hidden sm:ml-auto sm:justify-end" />
               </div>
             </motion.div>
 

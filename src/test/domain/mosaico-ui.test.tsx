@@ -1,14 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { agruparPorSecao, Bloco, ordenarPorUrgencia, type BlocoDef } from "@/app/(dashboard)/metricas/bloco";
+import { agruparPorSecao, Bloco, type BlocoDef } from "@/app/(dashboard)/metricas/bloco";
 import { Package } from "lucide-react";
 
-/* O mosaico existe para responder "o que precisa de mim?" antes de "quais são
-   os números?". Os três contratos protegidos aqui são exatamente os que somem
-   sem ninguém notar: bloco sem filtro não pode inventar um valor, bloco com
-   pendência tem que subir na ordem, e bloco em foco não pode ficar montado no
-   grid — se ficar, ele e o painel disputam o mesmo layoutId e o crescimento
-   vira um salto. */
+/* O mosaico virou um índice de navegação: o bloco fechado mostra só ícone e
+   nome, nunca número, dica de filtro ou selo de alerta — quem quer o dado
+   abre o card. Os contratos protegidos aqui são exatamente os que somem sem
+   ninguém notar: o fechado não vaza nenhum valor por engano em nenhum
+   estado, o único controle é o que abre o card, a ordem dentro de cada
+   seção é sempre a mesma (sem reordenar por urgência), e o card em foco não
+   fica montado no grid — se ficasse, ele e o painel disputariam o mesmo
+   layoutId e o crescimento viraria um salto. */
 
 function bloco(parcial: Partial<BlocoDef> = {}): BlocoDef {
   return {
@@ -28,45 +30,34 @@ function renderBloco(def: BlocoDef, focado = false) {
 }
 
 describe("bloco do mosaico", () => {
-  it("não mostra o número nem pílula nenhuma quando falta escolher marca", () => {
-    // Escolher marca é coisa de dentro do card aberto — o mosaico só avisa o
-    // que vai aparecer, sem virar formulário.
+  it("mostra só o nome do card, nunca o número, resumo ou dica de filtro", () => {
     renderBloco(bloco({
       semFiltro: true,
-      resumo: { valor: "4", legenda: "itens perto do mínimo" },
+      resumo: { valor: "4", legenda: "itens perto do mínimo", rodape: "algum rodapé" },
     }));
 
+    expect(screen.getByText("Repor em breve")).toBeInTheDocument();
     expect(screen.queryByText("4")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /karzi|wuwu|lima/i })).not.toBeInTheDocument();
-    expect(screen.getByText("Abra para escolher a marca.")).toBeInTheDocument();
+    expect(screen.queryByText("itens perto do mínimo")).not.toBeInTheDocument();
+    expect(screen.queryByText("algum rodapé")).not.toBeInTheDocument();
+  });
+
+  it("não mostra selo de alerta nem indicador de carregamento no fechado", () => {
+    renderBloco(bloco({
+      carregando: true,
+      resumo: { valor: "2", alerta: { nivel: "critico", texto: "abertas" } },
+    }));
+
+    expect(screen.queryByText("abertas")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("o único controle do bloco é o que abre o card", () => {
     // Guarda a limpeza visual: um tile não é botão dentro de botão nem uma
-    // fileira de pílulas — é um card com um único alvo de clique.
+    // fileira de pílulas — é um botão compacto com um único alvo de clique.
     renderBloco(bloco());
     expect(screen.getAllByRole("button")).toHaveLength(1);
-  });
-
-  it("não repete a mesma frase como número e como rodapé quando não há valor", () => {
-    // Achado real: "Vendem mais" sem produto no período usava a mesma legenda
-    // como descrição central e como rodapé — a frase aparecia duas vezes.
-    renderBloco(bloco({
-      resumo: { valor: null, legenda: "no topo do período", rodape: "no topo do período" },
-    }));
-    expect(screen.getAllByText("no topo do período")).toHaveLength(1);
-  });
-
-  it("não desenha número enquanto carrega", () => {
-    renderBloco(bloco({ carregando: true }));
-    expect(screen.queryByText("4")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Carregando")).toBeInTheDocument();
-  });
-
-  it("descreve o card quando não há um número que o resuma", () => {
-    // Publicações e Pós-venda buscam os próprios dados só ao abrir.
-    renderBloco(bloco({ id: "posVenda", resumo: { valor: null, legenda: "Cancelamento, atraso e devolução" } }));
-    expect(screen.getByText("Cancelamento, atraso e devolução")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir Repor em breve" })).toBeInTheDocument();
   });
 
   it("desmonta o bloco em foco para o painel assumir o layoutId", () => {
@@ -83,43 +74,30 @@ describe("bloco do mosaico", () => {
   });
 });
 
-describe("ordem do mosaico", () => {
-  it("põe na frente o que precisa de decisão, crítico antes de atenção", () => {
-    const ordenado = ordenarPorUrgencia([
-      bloco({ id: "faturamento", resumo: { valor: "R$ 1", alerta: null } }),
-      bloco({ id: "parados", resumo: { valor: "3", alerta: { nivel: "atencao", texto: "parados" } } }),
-      bloco({ id: "reclamacoes", resumo: { valor: "2", alerta: { nivel: "critico", texto: "abertas" } } }),
-    ]);
-
-    expect(ordenado.map((item) => item.id)).toEqual(["reclamacoes", "parados", "faturamento"]);
-  });
-
-  it("preserva a ordem escrita quando nada pede ação", () => {
-    // Sem nada pegando fogo, a leitura em atos herdada do Painel e de Métricas
-    // continua valendo — urgência reordena, não embaralha.
-    const ordenado = ordenarPorUrgencia([
-      bloco({ id: "faturamento", resumo: { valor: "R$ 1" } }),
-      bloco({ id: "score", resumo: { valor: "78" } }),
-      bloco({ id: "atendimento", resumo: { valor: "90%" } }),
-    ]);
-
-    expect(ordenado.map((item) => item.id)).toEqual(["faturamento", "score", "atendimento"]);
-  });
-});
-
 describe("agrupamento por seção", () => {
-  it("mantém a ordem fixa das seções e ordena por urgência só dentro de cada uma", () => {
+  it("mantém a ordem fixa das seções e a ordem escrita dentro de cada uma", () => {
     const { grupos, lista } = agruparPorSecao([
       bloco({ id: "acoes", secao: "marketing", resumo: { valor: null } }),
       bloco({ id: "faturamento", secao: "financeiro", resumo: { valor: "R$ 1" } }),
-      // Alerta crítico aqui não pode saltar por cima do bloco Financeiro —
-      // é exatamente o comportamento que a separação em seções corrigiu.
+      // Alerta crítico aqui não pode saltar pra frente de nenhum outro bloco
+      // — a ordem dentro da seção é sempre a escrita, alerta ou não.
       bloco({ id: "reposicao", secao: "estoque", resumo: { valor: "4", alerta: { nivel: "critico", texto: "repor" } } }),
       bloco({ id: "score", secao: "saude", resumo: { valor: "78" } }),
     ]);
 
     expect(grupos.map((grupo) => grupo.id)).toEqual(["financeiro", "saude", "estoque", "marketing"]);
-    expect(lista.map((item) => item.id)).toEqual(["faturamento", "score", "reposicao", "acoes"]);
+    expect(lista.map((item: BlocoDef) => item.id)).toEqual(["faturamento", "score", "reposicao", "acoes"]);
+  });
+
+  it("preserva a ordem escrita mesmo com vários blocos alertando na mesma seção", () => {
+    const { lista } = agruparPorSecao([
+      bloco({ id: "parados", secao: "estoque", resumo: { valor: "3", alerta: { nivel: "atencao", texto: "parados" } } }),
+      bloco({ id: "reposicao", secao: "estoque", resumo: { valor: "4", alerta: { nivel: "critico", texto: "repor" } } }),
+    ]);
+
+    // "reposicao" tem o alerta mais grave, mas veio depois na lista — sem
+    // reordenar por urgência, continua depois.
+    expect(lista.map((item: BlocoDef) => item.id)).toEqual(["parados", "reposicao"]);
   });
 
   it("tira da tela uma seção sem bloco nenhum", () => {
