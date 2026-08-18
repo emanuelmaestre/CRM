@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { tint } from "@/shared/design-system/color";
-import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, Clock3, Info, Loader2, MinusCircle, RefreshCw, Sparkles, X, XCircle } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { AlertTriangle, CheckCircle2, Clock3, Info, Loader2, MinusCircle, RefreshCw, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { getBrandConfig } from "@/shared/config/brands";
@@ -20,42 +20,49 @@ const MODULOS = [
   {
     chave: "catalogoStatus",
     resultado: "catalogoResultado",
+    erro: "catalogoErro",
     label: "Catálogo",
     descricao: "Produtos, SKUs, variações, preços e saldo que o canal informa.",
   },
   {
     chave: "pedidosStatus",
     resultado: "pedidosResultado",
+    erro: "pedidosErro",
     label: "Pedidos",
     descricao: "Vendas recentes, clientes, itens e status para alimentar CRM e estoque.",
   },
   {
     chave: "anunciosStatus",
     resultado: "anunciosResultado",
+    erro: "anunciosErro",
     label: "Product Ads",
     descricao: "Campanhas, anúncios e métricas de mídia paga usadas no módulo Anúncios.",
   },
   {
     chave: "avaliacoesStatus",
     resultado: "avaliacoesResultado",
+    erro: "avaliacoesErro",
     label: "Avaliações",
     descricao: "Notas, opiniões e média dos anúncios ativos para satisfação e reputação.",
   },
   {
     chave: "reputacaoStatus",
     resultado: "reputacaoResultado",
+    erro: "reputacaoErro",
     label: "Termômetro",
     descricao: "Faixa de reputação, Mercado Líder e taxas que afetam a saúde da loja.",
   },
   {
     chave: "reclamacoesStatus",
     resultado: "reclamacoesResultado",
+    erro: "reclamacoesErro",
     label: "Reclamações",
     descricao: "Reclamações abertas e mediações que exigem atenção no pós-venda.",
   },
   {
     chave: "mensagensStatus",
     resultado: "mensagensResultado",
+    erro: "mensagensErro",
     label: "Mensagens",
     descricao: "Conversas pós-venda recentes que podem não ter chegado por webhook.",
   },
@@ -98,7 +105,7 @@ function useNumeroAnimado(valor: number, duracao = 700) {
   return exibido;
 }
 
-function SeloModulo({ label, status, resultado }: { label: string; status: ModuloStatus; resultado: unknown }) {
+function SeloModulo({ label, status, resultado, erro }: { label: string; status: ModuloStatus; resultado: unknown; erro?: string | null }) {
   const ignorado = status === "concluido" && resultadoSemSuporte(resultado);
   const config = ignorado ? {
     icon: MinusCircle,
@@ -109,9 +116,66 @@ function SeloModulo({ label, status, resultado }: { label: string; status: Modul
     pendente: { icon: null, cor: "var(--muted-foreground)", bg: "transparent", texto: "Na fila" },
     em_andamento: { icon: Loader2, cor: "var(--acento-2)", bg: tint("var(--acento-2)", 8), texto: "Sincronizando…" },
     concluido: { icon: CheckCircle2, cor: "var(--success)", bg: tint("var(--success)", 8), texto: "Concluído" },
-    erro: { icon: XCircle, cor: "var(--destructive)", bg: tint("var(--destructive)", 8), texto: "Falhou" },
+    erro: { icon: XCircle, cor: "var(--destructive)", bg: tint("var(--destructive)", 16), texto: "Falhou" },
   }[status];
   const Icon = config.icon;
+  const conteudo = (
+    <>
+      {Icon && (
+        <Icon size={12} strokeWidth={2.5} className={status === "em_andamento" ? "animate-spin" : ""} style={{ color: config.cor }} />
+      )}
+      <span className="text-[11px] font-semibold" style={{ color: status === "pendente" ? "var(--muted-foreground)" : config.cor }}>
+        {label} · {config.texto}
+      </span>
+    </>
+  );
+
+  // Só o módulo com falha é acionável — é o único caso onde há mais
+  // informação por trás do selo (o motivo do erro) que vale a pena expor.
+  if (status === "erro" && erro) {
+    return (
+      <DialogPrimitive.Root>
+        <DialogPrimitive.Trigger asChild>
+          <motion.button
+            layout
+            type="button"
+            title="Ver motivo da falha"
+            className="press-feedback inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors hover:brightness-95"
+            style={{ background: config.bg, borderColor: `color-mix(in srgb, ${config.cor} 35%, transparent)` }}
+          >
+            {conteudo}
+          </motion.button>
+        </DialogPrimitive.Trigger>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in" />
+          <DialogPrimitive.Content className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[1.1rem] border border-border bg-card text-left shadow-[0_18px_48px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(28rem,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2">
+            <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+              <div className="flex items-start gap-2.5">
+                <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("var(--destructive)", 12), color: "var(--destructive)" }}>
+                  <XCircle size={14} />
+                </span>
+                <div>
+                  <DialogPrimitive.Title className="text-[15px] font-bold text-foreground">{label} falhou</DialogPrimitive.Title>
+                  <DialogPrimitive.Description className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
+                    Os demais módulos continuaram normalmente — só este precisou ser refeito.
+                  </DialogPrimitive.Description>
+                </div>
+              </div>
+              <DialogPrimitive.Close asChild>
+                <button type="button" aria-label="Fechar" className="press-feedback inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                  <X size={16} />
+                </button>
+              </DialogPrimitive.Close>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Motivo</p>
+              <p className="mt-1.5 rounded-lg border border-border bg-muted/35 px-3 py-2.5 text-[12.5px] leading-relaxed text-foreground">{erro}</p>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    );
+  }
 
   return (
     <motion.div
@@ -119,12 +183,7 @@ function SeloModulo({ label, status, resultado }: { label: string; status: Modul
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
       style={{ background: config.bg }}
     >
-      {Icon && (
-        <Icon size={12} strokeWidth={2.5} className={status === "em_andamento" ? "animate-spin" : ""} style={{ color: config.cor }} />
-      )}
-      <span className="text-[11px] font-semibold" style={{ color: status === "pendente" ? "var(--muted-foreground)" : config.cor }}>
-        {label} · {config.texto}
-      </span>
+      {conteudo}
     </motion.div>
   );
 }
@@ -143,13 +202,14 @@ function percentualExecucao(execucao: Execucao | null) {
 function ProgressoCircular({ valor, emAndamento, comErro }: { valor: number; emAndamento: boolean; comErro: boolean }) {
   const animado = useNumeroAnimado(valor);
   const cor = comErro ? "var(--destructive)" : valor >= 100 ? "var(--success)" : "var(--acento-2)";
+  const reduzir = useReducedMotion();
 
   return (
     <div
       className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full p-[2px] shadow-inner"
       style={{ background: `conic-gradient(${cor} ${Math.max(0, Math.min(animado, 100)) * 3.6}deg, var(--muted) 0deg)` }}
     >
-      {emAndamento && (
+      {emAndamento && !reduzir && (
         <motion.span
           aria-hidden="true"
           className="absolute inset-[-3px] rounded-full border border-primary/25"
@@ -158,7 +218,11 @@ function ProgressoCircular({ valor, emAndamento, comErro }: { valor: number; emA
         />
       )}
       <div className="grid h-full w-full place-items-center rounded-full bg-card">
-        <span className="text-[11px] font-black tabular-nums text-foreground">{Math.round(animado)}%</span>
+        {comErro && !emAndamento ? (
+          <AlertTriangle size={16} strokeWidth={2.5} style={{ color: "var(--destructive)" }} />
+        ) : (
+          <span className="text-[11px] font-black tabular-nums text-foreground">{Math.round(animado)}%</span>
+        )}
       </div>
     </div>
   );
@@ -212,7 +276,7 @@ function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; exec
                   aria-label="Fechar explicação"
                   className="press-feedback inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <X size={17} />
+                  <X size={16} />
                 </button>
               </DialogPrimitive.Close>
             </div>
@@ -246,6 +310,7 @@ function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; exec
 }
 
 function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
+  const reduzir = useReducedMotion();
   const [execucao, setExecucao] = useState<Execucao | null>(null);
   const [disparando, setDisparando] = useState(false);
   const intervalo = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -308,6 +373,11 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
   const corMarca = getBrandConfig(conta.brand)?.color;
   const percentual = percentualExecucao(execucao);
   const comErro = Boolean(execucao && MODULOS.some((modulo) => execucao[modulo.chave] === "erro"));
+  // Quem falhou vai pra frente da fila visual — é o que precisa de ação,
+  // não deveria depender de vasculhar as outras 6 pílulas verdes pra achar.
+  const modulosOrdenados = comErro
+    ? [...MODULOS].sort((a, b) => Number(execucao?.[b.chave] === "erro") - Number(execucao?.[a.chave] === "erro"))
+    : MODULOS;
   const modulosResolvidos = execucao
     ? MODULOS.filter((modulo) => {
         const status = execucao[modulo.chave] as ModuloStatus;
@@ -323,7 +393,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
         : "Sincronização completa";
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border py-3 last:border-0 xl:flex-row xl:items-center xl:justify-between">
+    <div className="flex flex-col gap-3 border-b border-border py-3 last:border-0 xl:flex-row xl:items-start xl:justify-between">
       <div className="flex items-center gap-2.5">
         <ChannelLogo canal={conta.canal} size="sm" variant="badge" />
         <div>
@@ -356,9 +426,9 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           {execucao && (
             <motion.div
               key="status"
-              initial={{ opacity: 0, y: -4 }}
+              initial={reduzir ? false : { opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
+              exit={reduzir ? undefined : { opacity: 0 }}
               className="flex flex-wrap items-center gap-2 xl:justify-end"
             >
               <div className="flex items-center gap-2 rounded-full border border-border bg-background/70 px-2.5 py-1.5">
@@ -369,12 +439,13 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
                 </div>
               </div>
               <div className="flex max-w-[46rem] flex-wrap items-center gap-1.5">
-                {MODULOS.map((modulo) => (
+                {modulosOrdenados.map((modulo) => (
                   <SeloModulo
                     key={modulo.chave}
                     label={modulo.label}
                     status={execucao[modulo.chave] as ModuloStatus}
                     resultado={execucao[modulo.resultado]}
+                    erro={execucao[modulo.erro] as string | null}
                   />
                 ))}
               </div>
