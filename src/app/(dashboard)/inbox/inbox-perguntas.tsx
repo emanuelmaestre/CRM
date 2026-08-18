@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { stagger, listItem as cardVariant, springs } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { Sheet } from "@/shared/design-system/primitives/Sheet";
 import { actionListarPerguntas, actionResponderPergunta } from "./actions";
 import pagesConfig from "@/config/pages.json";
 import { useMobileViewport } from "./use-mobile-viewport";
@@ -195,6 +196,12 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
     setResposta(texto);
   }
 
+  function fecharSelecao() {
+    setSelecionada(null);
+    setResposta("");
+    setAtalhosAbertos(false);
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
@@ -212,7 +219,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
         animate={{ width: efetivamenteRecolhido ? 56 : isMobile ? "100%" : Math.min(sideWidth, 10000) }}
         transition={reduzirMovimento ? { duration: 0 } : springs.settle}
         style={{ maxWidth: "100%", flexShrink: 0 }}
-        className={`${selecionada ? "hidden lg:flex" : "flex"} w-full relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
+        className="flex w-full relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col"
       >
         <AnimatePresence mode="wait" initial={false}>
             {efetivamenteRecolhido ? (
@@ -410,8 +417,11 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
         </AnimatePresence>
       </motion.div>
 
-      {/* ── Right panel ── */}
-      <div className={`${selecionada ? "flex" : "hidden lg:flex"} flex-1 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col min-w-0`}>
+      {/* ── Right panel — mesmo padrão de Conversas: painel fixo lado a lado
+          no desktop, bottom sheet arrastável (mesma altura, 88dvh) no
+          mobile em vez de trocar de lugar com a lista dentro do card. ── */}
+      {(() => {
+      const panelContent = (
         <AnimatePresence mode="wait">
           {!selecionada ? (
             <motion.div
@@ -446,14 +456,6 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
             >
               {/* Context header */}
               <div className="flex items-center gap-3 border-b border-border px-3 py-3 sm:px-5 sm:py-4">
-                <button
-                  type="button"
-                  onClick={() => { setSelecionada(null); setResposta(""); setAtalhosAbertos(false); }}
-                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
-                  aria-label="Voltar para a lista de perguntas"
-                >
-                  <ArrowLeft size={18} />
-                </button>
                 <motion.span
                   initial={{ scale: 0.85, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -640,7 +642,21 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      );
+      return (
+        <>
+          <div className="hidden lg:flex flex-1 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col min-w-0">
+            {panelContent}
+          </div>
+
+          {isMobile && (
+            <Sheet open={!!selecionada} onOpenChange={(open) => { if (!open) fecharSelecao(); }} className="h-[88dvh]">
+              {panelContent}
+            </Sheet>
+          )}
+        </>
+      );
+      })()}
     </motion.div>
   );
 }
