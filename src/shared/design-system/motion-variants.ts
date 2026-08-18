@@ -55,6 +55,27 @@ export const fadeUpMomentum = {
   show: { opacity: 1, y: 0, scale: 1, transition: springs.momentum },
 };
 
+/* ── Motion exagerado ──────────────────────────────────────────────
+   Vocabulário mais intenso que o padrão acima — bounce visível em vez de
+   fade sutil, stagger mais espaçado. Nasceu no mosaico de Métricas (pedido
+   explícito do usuário) e foi estendido pro módulo de Inbox (Conversas,
+   Perguntas, Avaliações) pelo mesmo motivo. Não é o padrão do resto do
+   app — só usar onde foi pedido de propósito. */
+
+/** Stagger mais forte que `stagger` (0.04s): 0.07s entre itens + atraso
+ *  inicial, pra entrada em leque ficar visível em vez de instantânea. */
+export const staggerExagerado = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07, delayChildren: 0.03 } },
+};
+
+/** Entrada em leque com bounce visível — usar em cada item de uma lista
+ *  que usa `staggerExagerado` no pai. */
+export const entradaExagerada = {
+  hidden: { opacity: 0, scale: 0.82, y: 10 },
+  show: { opacity: 1, scale: 1, y: 0, transition: springs.momentum },
+};
+
 /* ── Movimento reduzido ────────────────────────────────────────────
    A regra @media (prefers-reduced-motion: reduce) no globals.css zera
    animações e transições de CSS — e dá uma falsa sensação de cobertura,

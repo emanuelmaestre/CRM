@@ -14,7 +14,7 @@ import {
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Sheet } from "@/shared/design-system/primitives/Sheet";
-import { stagger, listItem, springs } from "@/shared/design-system/motion-variants";
+import { springs, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import { useMobileViewport } from "./use-mobile-viewport";
 import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
@@ -66,9 +66,9 @@ function formatarContato(c: {
 
 /* ── Animation variants ──────────────────────────────────── */
 const msgIn = (saida: boolean) => ({
-  initial: { opacity: 0, y: 6, scale: 0.95, x: saida ? 8 : -8 },
+  initial: { opacity: 0, y: 10, scale: 0.88, x: saida ? 14 : -14 },
   animate: { opacity: 1, y: 0, scale: 1, x: 0 },
-  transition: { duration: 0.2, ease: [0, 0, 0.2, 1] as [number,number,number,number] },
+  transition: springs.momentum,
 });
 
 /* ── Avatar ───────────────────────────────────────────────── */
@@ -421,8 +421,8 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                 {selecionada.status !== "resolvida" && selecionada.status !== "arquivada" && (
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.97 }}
+                      whileHover={{ scale: 1.05, y: -1 }}
+                      whileTap={{ scale: 0.94 }}
                       onClick={() => avancarStatus("resolvida")}
                       className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
                     >
@@ -430,8 +430,8 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                       {conversationCopy.resolve}
                     </motion.button>
                     <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.97 }}
+                      whileHover={{ scale: 1.05, y: -1 }}
+                      whileTap={{ scale: 0.94 }}
                       onClick={() => avancarStatus("arquivada")}
                       className="flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                     >
@@ -629,11 +629,12 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
               <p className="text-xs">Nenhuma conversa encontrada com esse filtro.</p>
             </div>
           ) : (
-          <motion.div variants={stagger} initial="hidden" animate="show">
+          <motion.div variants={staggerExagerado} initial="hidden" animate="show">
             {conversasFiltradas.map((c) => (
               <motion.button
                 key={c.id}
-                variants={listItem}
+                variants={entradaExagerada}
+                whileTap={{ scale: 0.985 }}
                 onClick={(e) => { e.currentTarget.blur(); abrirConversa(c); }}
                 whileHover={{ backgroundColor: "rgba(0,0,0,0.025)" }}
                 className={`w-full text-left px-4 py-3.5 border-b border-border last:border-0 relative flex items-start gap-3 transition-colors ${
@@ -656,14 +657,14 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                 </AnimatePresence>
 
                 {/* Channel logo or avatar */}
-                <div className="relative flex-shrink-0 mt-0.5">
+                <motion.div whileHover={{ rotate: 6, scale: 1.08 }} transition={springs.momentum} className="relative flex-shrink-0 mt-0.5">
                   <ContactAvatar c={c} size="sm" />
                   {c.canalTipo && (
                     <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center w-4 h-4 rounded-full bg-white border border-border shadow-sm overflow-hidden">
                       <ChannelLogo canal={c.canalTipo} size="xs" variant="logo" />
                     </span>
                   )}
-                </div>
+                </motion.div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">

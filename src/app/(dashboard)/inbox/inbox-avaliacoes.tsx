@@ -11,7 +11,7 @@ import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioP
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
-import { springs } from "@/shared/design-system/motion-variants";
+import { springs, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import settingsConfig from "@/config/settings.json";
@@ -179,7 +179,7 @@ function Distribuicao({ niveis, compacto }: { niveis: MLDistribuicaoNotas; compa
               <motion.div
                 initial={reduzido ? false : { scaleX: 0 }}
                 animate={{ scaleX: proporcao }}
-                transition={{ ...springs.settle, delay: indice * 0.04 }}
+                transition={{ ...springs.momentum, delay: indice * 0.07 }}
                 className="h-full rounded-full bg-[var(--rating)]"
                 style={{ transformOrigin: "left", width: "100%" }}
               />
@@ -242,16 +242,21 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
   const ultimaOpiniaoEm = temOpinioes ? formatarData(item.opinioes[0].criadaEm) : "";
 
   return (
-    <div className="border-b border-border last:border-0">
+    <motion.div variants={entradaExagerada} className="border-b border-border last:border-0">
       <button
         type="button"
         onClick={onAlternar}
         disabled={!temDetalhe}
         aria-expanded={aberta}
-        className="press-feedback flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
+        className="press-feedback flex w-full flex-col gap-2 px-4 py-3.5 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent sm:flex-row sm:items-center sm:gap-4"
       >
+        {/* No mobile o título vira 2 linhas em vez de truncar numa linha só
+            competindo por espaço com o bloco de nota — a régua de estrelas +
+            contagem + número vira uma linha própria embaixo (ver abaixo),
+            então o título não sobra espremido e a seta de expandir nunca
+            fica fora da tela. No desktop nada muda. */}
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold text-foreground">{item.title}</h3>
+          <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground [overflow-wrap:anywhere] sm:line-clamp-none sm:truncate">{item.title}</h3>
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
             <span className="font-mono text-[11px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">Anúncio: {item.listingId}</span>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -269,26 +274,26 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="text-right">
-            <RatingStars nota={item.ratingAverage} />
-            <p className="mt-0.5 text-[11px] tabular-nums text-muted-foreground">
+        <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+          <div className="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-0">
+            <RatingStars nota={item.ratingAverage} size={13} />
+            <p className="text-[11px] tabular-nums text-muted-foreground sm:mt-0.5">
               {item.reviewsTotal ? `${item.reviewsTotal} opiniões` : "Sem opiniões"}
             </p>
           </div>
-          <span className={`w-10 text-right text-xl font-black tabular-nums ${baixa ? "text-destructive" : "text-foreground"}`}>
+          <span className={`text-right text-xl font-black tabular-nums sm:w-10 ${baixa ? "text-destructive" : "text-foreground"}`}>
             {item.ratingAverage?.toFixed(1) ?? "—"}
           </span>
           {temDetalhe ? (
             <motion.span
-              animate={{ rotate: aberta ? 180 : 0 }}
-              transition={reduzido ? { duration: 0 } : springs.settleFast}
-              className="text-muted-foreground"
+              animate={{ rotate: aberta ? 180 : 0, scale: aberta ? 1.15 : 1 }}
+              transition={reduzido ? { duration: 0 } : springs.momentum}
+              className="shrink-0 text-muted-foreground"
             >
               <ChevronDown size={16} />
             </motion.span>
           ) : (
-            <span className="w-4" />
+            <span className="w-4 shrink-0" />
           )}
         </div>
       </button>
@@ -344,7 +349,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 
@@ -641,7 +646,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
             description="Ajuste a busca, a marca ou a faixa de nota para ver as opiniões."
           />
         ) : (
-          <div>
+          <motion.div variants={staggerExagerado} initial="hidden" animate="show">
             {filtrados.map((item) => {
               const chave = `${item.brand}:${item.listingId}`;
               return (
@@ -655,7 +660,7 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
                 />
               );
             })}
-          </div>
+          </motion.div>
         )}
       </section>
     </div>

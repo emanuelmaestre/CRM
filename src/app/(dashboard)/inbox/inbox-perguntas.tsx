@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { stagger, listItem as cardVariant, springs } from "@/shared/design-system/motion-variants";
+import { springs, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { Sheet } from "@/shared/design-system/primitives/Sheet";
@@ -329,7 +329,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                     <p className="text-sm text-muted-foreground">{copy.empty}</p>
                   </motion.div>
                 ) : (
-                  <motion.div variants={stagger} initial="hidden" animate="show">
+                  <motion.div variants={staggerExagerado} initial="hidden" animate="show">
                     {filtradas.map((p) => {
                       const urg = urgency(p.horasAtras, p.status);
                       const isActive = selecionada?.id === p.id;
@@ -337,7 +337,8 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                       return (
                         <motion.button
                           key={p.id}
-                          variants={cardVariant}
+                          variants={entradaExagerada}
+                          whileTap={{ scale: 0.985 }}
                           onClick={() => { setSelecionada(p); setResposta(""); setAtalhosAbertos(false); }}
                           className={`w-full text-left border-b border-border last:border-0 relative flex items-stretch transition-colors ${
                             isActive ? "bg-muted/60" : "hover:bg-muted/30"
@@ -545,8 +546,8 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                       <motion.button
                         type="button"
                         onClick={() => setAtalhosAbertos((v) => !v)}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.94 }}
+                        whileHover={{ scale: 1.1, rotate: -8 }}
+                        whileTap={{ scale: 0.9 }}
                         title={copy.quickReply}
                         aria-label={copy.quickReply}
                         aria-expanded={atalhosAbertos}
@@ -572,10 +573,10 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                             />
                             <motion.div
                               key="menu"
-                              initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                              initial={{ opacity: 0, y: 10, scale: 0.85 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 6, scale: 0.97 }}
-                              transition={{ duration: 0.15 }}
+                              exit={{ opacity: 0, y: 6, scale: 0.9, transition: { duration: 0.12 } }}
+                              transition={springs.momentum}
                               className="absolute bottom-full left-0 z-50 mb-2 w-[min(16rem,calc(100vw-5rem))] rounded-[0.875rem] border border-border bg-card p-2 shadow-[0_8px_24px_rgba(14,15,19,.14)]"
                             >
                               <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground">
