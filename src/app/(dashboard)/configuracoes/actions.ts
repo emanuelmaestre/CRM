@@ -34,6 +34,7 @@ import { inngest } from "@/shared/lib/inngest/client";
 import { whatsappAlertaConfigurado } from "@/shared/lib/whatsapp/notificacoes-admin";
 import { dispararSincronizacaoConta, obterUltimaSincronizacaoConta } from "@/modules/canais/application/sincronizacao.service";
 import { REPUTACAO_CACHE_TAG } from "@/modules/metricas/application/reputacao.service";
+import { listarRotinasAgendadas } from "@/modules/jobs/application/rotinas-agendadas.service";
 import {
   baixarBackup,
   exportarTabelaBackup,
@@ -135,6 +136,12 @@ export async function actionListarHistoricoAutomacoes() {
   const ctx = await getCrudContext();
   assertPerfil(ctx, ["admin", "gestor"]);
   return listarHistoricoAutomacoes(ctx.orgId);
+}
+
+export async function actionListarRotinasAgendadas() {
+  const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
+  return listarRotinasAgendadas(ctx);
 }
 
 export async function actionObterResumoConfiguracoes() {

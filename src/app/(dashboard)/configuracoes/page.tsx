@@ -17,9 +17,11 @@ import { AutomacoesSection } from "./AutomacoesSection";
 import { BackupSection } from "./BackupSection";
 import { SincronizacaoSection } from "./SincronizacaoSection";
 import { UsuariosSection } from "./UsuariosSection";
+import { RotinasAgendadasSection } from "./RotinasAgendadasSection";
 import settingsConfig from "@/config/settings.json";
 import {
   actionListarConfiguracaoCanais,
+  actionListarRotinasAgendadas,
   actionListarUsuarios,
   actionObterResumoConfiguracoes,
 } from "./actions";
@@ -31,6 +33,7 @@ const ExternalIcon = getIcon(settingsConfig.openAction.icon);
 type UsuarioResumo = Awaited<ReturnType<typeof actionListarUsuarios>>[number];
 type CanalConfiguracao = Awaited<ReturnType<typeof actionListarConfiguracaoCanais>>[number];
 type ResumoConfiguracoes = Awaited<ReturnType<typeof actionObterResumoConfiguracoes>>;
+type RotinasAgendadas = Awaited<ReturnType<typeof actionListarRotinasAgendadas>>;
 
 /** Título que separa os blocos temáticos da página, no lugar da pilha de cards. */
 function SectionHeading({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
@@ -124,8 +127,10 @@ export default function ConfiguracoesPage() {
   const [usuarios, setUsuarios] = useState<UsuarioResumo[]>([]);
   const [canais, setCanais] = useState<CanalConfiguracao[]>([]);
   const [resumo, setResumo] = useState<ResumoConfiguracoes | null>(null);
+  const [rotinasAgendadas, setRotinasAgendadas] = useState<RotinasAgendadas | null>(null);
   const [carregandoUsuarios, setCarregandoUsuarios] = useState(true);
   const [carregandoCanais, setCarregandoCanais] = useState(true);
+  const [carregandoRotinas, setCarregandoRotinas] = useState(true);
 
   const recarregarCanais = useCallback(async () => {
     setCarregandoCanais(true);
@@ -145,16 +150,19 @@ export default function ConfiguracoesPage() {
       actionListarUsuarios(),
       actionListarConfiguracaoCanais(),
       actionObterResumoConfiguracoes(),
+      actionListarRotinasAgendadas(),
     ])
-      .then(([usuariosIniciais, canaisIniciais, resumoInicial]) => {
+      .then(([usuariosIniciais, canaisIniciais, resumoInicial, rotinasIniciais]) => {
         setUsuarios(usuariosIniciais);
         setCanais(canaisIniciais);
         setResumo(resumoInicial);
+        setRotinasAgendadas(rotinasIniciais);
       })
       .catch(() => toast.error("Não foi possível carregar as configurações."))
       .finally(() => {
         setCarregandoUsuarios(false);
         setCarregandoCanais(false);
+        setCarregandoRotinas(false);
       });
   }, []);
 
@@ -247,6 +255,13 @@ export default function ConfiguracoesPage() {
           icon={getIcon(settingsConfig.automacoes.icon)}
         >
           <AutomacoesSection />
+        </Card>
+
+        <Card
+          title="Rotinas agendadas"
+          icon={getIcon("Clock")}
+        >
+          <RotinasAgendadasSection data={rotinasAgendadas} loading={carregandoRotinas} />
         </Card>
 
         <Card
