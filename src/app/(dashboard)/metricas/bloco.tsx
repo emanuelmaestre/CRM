@@ -170,7 +170,14 @@ export function Bloco({ def, focado, onAbrir }: {
             <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
             <Icone size={14} strokeWidth={1.9} className="hidden lg:block" />
           </span>
-          <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] lg:text-[13.5px]">
+          {/* text-wrap:balance evita que uma quebra de linha deixe só 1-2
+              letras orfãs na segunda linha (ex.: "Recomendaçõe" / "s" em
+              telas largas de celular como iPhone Pro Max, onde o card de
+              2 colunas é largo o bastante pro título quase caber numa
+              linha só) — distribui os caracteres de forma mais equilibrada
+              entre as linhas em vez de quebrar no primeiro ponto que não
+              coube. */}
+          <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] lg:text-[13.5px]">
             {def.titulo}
           </span>
           <button
