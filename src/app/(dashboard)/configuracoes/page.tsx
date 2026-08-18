@@ -2,7 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import type { LucideIcon } from "lucide-react";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
+import { Info, type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { SectionCard as Card } from "@/shared/design-system/primitives/SectionCard";
 import { fadeUp, stagger } from "@/shared/design-system/motion-variants";
@@ -41,6 +42,36 @@ function SectionHeading({ title, icon: Icon }: { title: string; icon: LucideIcon
       <Icon size={16} strokeWidth={1.75} className="text-muted-foreground" />
       {title}
     </motion.h2>
+  );
+}
+
+/** Ícone ⓘ compacto pra explicação que hoje só cabia como legenda sempre
+ *  visível embaixo do título do card — mesmo padrão do resto do sistema
+ *  (BackupSection etc.): abre devagar (300ms), some rápido. */
+function InfoBotao({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+  return (
+    <PopoverPrimitive.Root>
+      <PopoverPrimitive.Trigger asChild>
+        <button
+          type="button"
+          aria-label={rotulo}
+          className="press-feedback inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Info aria-hidden="true" size={13} strokeWidth={2.25} />
+        </button>
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          align="start"
+          sideOffset={8}
+          collisionPadding={12}
+          className="z-[100] w-[min(20rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] rounded-[0.9rem] border border-border bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]"
+        >
+          <p className="text-[12.5px] leading-relaxed text-muted-foreground">{children}</p>
+          <PopoverPrimitive.Arrow className="fill-card" />
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
   );
 }
 
@@ -139,8 +170,8 @@ export default function ConfiguracoesPage() {
 
         <Card
           title="Usuários"
-          description="Acessos, perfis e senhas temporárias da organização"
           icon={getIcon("UsersRound")}
+          actions={<InfoBotao rotulo="Sobre os usuários">Acessos, perfis e senhas temporárias da organização.</InfoBotao>}
         >
           <UsuariosSection
             usuarios={usuarios}

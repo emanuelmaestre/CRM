@@ -203,81 +203,73 @@ export function BackupSection() {
         </motion.button>
       </div>
 
-      <div className="rounded-[0.9rem] border border-border bg-background/60 p-4">
-        <AnimatePresence mode="wait" initial={false}>
-          {!emAndamento && !concluido && (
-            <motion.p
-              key="parado"
-              initial={reduzir ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="text-[12px] leading-relaxed text-muted-foreground"
-            >
-              Exportação sob demanda dos dados da organização, em JSON e CSV.
-            </motion.p>
-          )}
+      <AnimatePresence initial={false}>
+        {(emAndamento || concluido) && (
+          <motion.div
+            key="progresso"
+            initial={reduzir ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="rounded-[0.9rem] border border-border bg-background/60 p-4"
+          >
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: concluido ? "var(--success)" : "var(--primary)" }}
+                initial={{ width: 0 }}
+                animate={{ width: `${percentual}%` }}
+                transition={springs.settle}
+              />
+            </div>
 
-          {(emAndamento || concluido) && (
-            <motion.div key="progresso" initial={reduzir ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            {/* Enquanto roda, a lista fica aberta — é o que mostra progresso
+                real acontecendo. Uma vez concluído, 9 linhas idênticas com ✓
+                só repetem o que a barra cheia já disse; vira um resumo de
+                uma linha, com o detalhe disponível sob clique pra quem quiser
+                conferir tabela por tabela. */}
+            {!concluido ? (
+              <motion.ul variants={stagger} initial="hidden" animate="show" className="mt-3 space-y-1.5">
+                {TABELAS_BACKUP.map((tabela) => (
+                  <LinhaTabela key={tabela.chave} label={tabela.label} estado={progresso[tabela.chave]} linhas={linhasPorTabela[tabela.chave]} reduzir={reduzir} />
+                ))}
+                <LinhaTabela label="Compactando e salvando o arquivo" estado={finalizando ? "processando" : "pendente"} reduzir={reduzir} />
+              </motion.ul>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setVerDetalhes((v) => !v)}
+                className="mt-3 flex w-full items-center justify-between gap-2 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-success" />
+                  {TABELAS_BACKUP.length} de {TABELAS_BACKUP.length} tabelas exportadas
+                </span>
+                <motion.span animate={{ rotate: verDetalhes ? 180 : 0 }} transition={springs.settleFast}>
+                  <ChevronDown size={14} />
+                </motion.span>
+              </button>
+            )}
+
+            <AnimatePresence initial={false}>
+              {concluido && verDetalhes && (
                 <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: concluido ? "var(--success)" : "var(--primary)" }}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${percentual}%` }}
-                  transition={springs.settle}
-                />
-              </div>
-
-              {/* Enquanto roda, a lista fica aberta — é o que mostra progresso
-                  real acontecendo. Uma vez concluído, 9 linhas idênticas com ✓
-                  só repetem o que a barra cheia já disse; vira um resumo de
-                  uma linha, com o detalhe disponível sob clique pra quem quiser
-                  conferir tabela por tabela. */}
-              {!concluido ? (
-                <motion.ul variants={stagger} initial="hidden" animate="show" className="mt-3 space-y-1.5">
-                  {TABELAS_BACKUP.map((tabela) => (
-                    <LinhaTabela key={tabela.chave} label={tabela.label} estado={progresso[tabela.chave]} linhas={linhasPorTabela[tabela.chave]} reduzir={reduzir} />
-                  ))}
-                  <LinhaTabela label="Compactando e salvando o arquivo" estado={finalizando ? "processando" : "pendente"} reduzir={reduzir} />
-                </motion.ul>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setVerDetalhes((v) => !v)}
-                  className="mt-3 flex w-full items-center justify-between gap-2 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
+                  initial={reduzir ? false : { height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={springs.settleFast}
+                  className="overflow-hidden"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircle2 size={14} className="text-success" />
-                    {TABELAS_BACKUP.length} de {TABELAS_BACKUP.length} tabelas exportadas
-                  </span>
-                  <motion.span animate={{ rotate: verDetalhes ? 180 : 0 }} transition={springs.settleFast}>
-                    <ChevronDown size={14} />
-                  </motion.span>
-                </button>
+                  <ul className="mt-2 space-y-1.5 border-t border-border pt-2">
+                    {TABELAS_BACKUP.map((tabela) => (
+                      <LinhaTabela key={tabela.chave} label={tabela.label} estado="concluida" linhas={linhasPorTabela[tabela.chave]} reduzir={reduzir} />
+                    ))}
+                  </ul>
+                </motion.div>
               )}
-
-              <AnimatePresence initial={false}>
-                {concluido && verDetalhes && (
-                  <motion.div
-                    initial={reduzir ? false : { height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={springs.settleFast}
-                    className="overflow-hidden"
-                  >
-                    <ul className="mt-2 space-y-1.5 border-t border-border pt-2">
-                      {TABELAS_BACKUP.map((tabela) => (
-                        <LinhaTabela key={tabela.chave} label={tabela.label} estado="concluida" linhas={linhasPorTabela[tabela.chave]} reduzir={reduzir} />
-                      ))}
-                    </ul>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Fora do card do checklist, de propósito — é um resultado, não mais
           um item da lista de progresso. */}

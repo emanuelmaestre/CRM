@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { tint } from "@/shared/design-system/color";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { springs } from "@/shared/design-system/motion-variants";
 import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, Info, Loader2, MinusCircle, RefreshCw, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -314,7 +314,6 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
   const reduzir = useReducedMotion();
   const [execucao, setExecucao] = useState<Execucao | null>(null);
   const [disparando, setDisparando] = useState(false);
-  const [verDetalhes, setVerDetalhes] = useState(false);
   const intervalo = useRef<ReturnType<typeof setInterval> | null>(null);
   const consultarRef = useRef<() => Promise<void>>(async () => {});
 
@@ -412,6 +411,57 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           </span>
           <SincronizacaoInfo conta={conta} execucao={execucao} />
 
+          <AnimatePresence mode="popLayout">
+            {execucao && (
+              <motion.div
+                key="status"
+                initial={reduzir ? false : { opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduzir ? undefined : { opacity: 0 }}
+              >
+                <PopoverPrimitive.Root>
+                  <PopoverPrimitive.Trigger asChild>
+                    <button
+                      type="button"
+                      className="group press-feedback flex items-center gap-2 rounded-full border border-border bg-background/70 py-1.5 pl-2.5 pr-2 transition-colors hover:bg-muted"
+                    >
+                      <ProgressoCircular valor={percentual} emAndamento={emAndamento} comErro={comErro} />
+                      <div className="min-w-0 pr-1 text-left">
+                        <p className="text-[11px] font-bold text-foreground">{statusResumo}</p>
+                        <p className="text-[10px] font-medium text-muted-foreground">{modulosResolvidos} de {MODULOS.length} módulos resolvidos</p>
+                      </div>
+                      <ChevronDown size={13} className="shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                    </button>
+                  </PopoverPrimitive.Trigger>
+                  <PopoverPrimitive.Portal>
+                    <PopoverPrimitive.Content
+                      align="end"
+                      sideOffset={8}
+                      collisionPadding={12}
+                      // Flutuante de propósito: as pílulas de módulo não fazem parte
+                      // do fluxo da linha — se fossem inline, abrir empurraria as
+                      // outras contas pra baixo. Aqui a linha nunca muda de altura.
+                      className="z-[100] w-[min(24rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] rounded-[1rem] border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.20)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]"
+                    >
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {modulosOrdenados.map((modulo) => (
+                          <SeloModulo
+                            key={modulo.chave}
+                            label={modulo.label}
+                            status={execucao[modulo.chave] as ModuloStatus}
+                            resultado={execucao[modulo.resultado]}
+                            erro={execucao[modulo.erro] as string | null}
+                          />
+                        ))}
+                      </div>
+                      <PopoverPrimitive.Arrow className="fill-card" />
+                    </PopoverPrimitive.Content>
+                  </PopoverPrimitive.Portal>
+                </PopoverPrimitive.Root>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <motion.button
             type="button"
             whileTap={{ scale: 0.97 }}
@@ -423,65 +473,6 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
             {emAndamento ? "Sincronizando…" : "Sincronizar"}
           </motion.button>
         </div>
-
-        <AnimatePresence mode="popLayout">
-          {execucao && (
-            <motion.div
-              key="status"
-              initial={reduzir ? false : { opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduzir ? undefined : { opacity: 0 }}
-              className="flex flex-col items-start gap-2 xl:items-end"
-            >
-              {emAndamento ? (
-                <div className="flex items-center gap-2 rounded-full border border-border bg-background/70 px-2.5 py-1.5">
-                  <ProgressoCircular valor={percentual} emAndamento={emAndamento} comErro={comErro} />
-                  <div className="min-w-0 pr-1">
-                    <p className="text-[11px] font-bold text-foreground">{statusResumo}</p>
-                    <p className="text-[10px] font-medium text-muted-foreground">{modulosResolvidos} de {MODULOS.length} módulos resolvidos</p>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setVerDetalhes((atual) => !atual)}
-                  aria-expanded={verDetalhes}
-                  className="press-feedback flex items-center gap-2 rounded-full border border-border bg-background/70 py-1.5 pl-2.5 pr-2 transition-colors hover:bg-muted"
-                >
-                  <ProgressoCircular valor={percentual} emAndamento={emAndamento} comErro={comErro} />
-                  <div className="min-w-0 pr-1 text-left">
-                    <p className="text-[11px] font-bold text-foreground">{statusResumo}</p>
-                    <p className="text-[10px] font-medium text-muted-foreground">{modulosResolvidos} de {MODULOS.length} módulos resolvidos</p>
-                  </div>
-                  <ChevronDown size={13} className={`shrink-0 text-muted-foreground transition-transform ${verDetalhes ? "rotate-180" : ""}`} />
-                </button>
-              )}
-
-              <AnimatePresence initial={false}>
-                {(emAndamento || verDetalhes) && (
-                  <motion.div
-                    key="pills"
-                    initial={reduzir ? false : { opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={reduzir ? undefined : { opacity: 0, height: 0 }}
-                    transition={springs.settleFast}
-                    className="flex max-w-[46rem] flex-wrap items-center gap-1.5 overflow-hidden xl:justify-end"
-                  >
-                    {modulosOrdenados.map((modulo) => (
-                      <SeloModulo
-                        key={modulo.chave}
-                        label={modulo.label}
-                        status={execucao[modulo.chave] as ModuloStatus}
-                        resultado={execucao[modulo.resultado]}
-                        erro={execucao[modulo.erro] as string | null}
-                      />
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
