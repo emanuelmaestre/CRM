@@ -1,6 +1,7 @@
 {
   "karzi": {
     "label": "KARZI",
+    "cnpj": "57.899.124/0001-78",
     "color": "var(--karzi)",
     "logo": "/logos/karzi.svg",
     "logoSize": { "width": 213, "height": 72 },
@@ -14,6 +15,7 @@
   },
   "wuwu": {
     "label": "WUWU",
+    "cnpj": "57.899.124/0001-78",
     "color": "var(--wuwu)",
     "logo": "/logos/wuwu.svg",
     "logoSize": { "width": 517, "height": 251 },
@@ -27,6 +29,7 @@
   },
   "armarinhos_lima": {
     "label": "ARMARINHOS LIMA",
+    "cnpj": "24.264.245/0001-94",
     "color": "var(--armarinhos-lima)",
     "logo": "/logos/armarinhos-lima.svg",
     "logoSize": { "width": 1439, "height": 718 },

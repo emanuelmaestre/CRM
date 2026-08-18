@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   if (!existingOrg) {
     await db.insert(org).values({
       id: orgId,
-      name: "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA",
+      name: "Elisa Lima CRM",
       cnpj: "24264245000194",
       active: true,
     });
