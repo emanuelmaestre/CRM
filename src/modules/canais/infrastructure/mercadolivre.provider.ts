@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   AnuncioCanalDados, ChannelProvider, EnderecoEntregaNormalizado, EstoqueCanalRef, PedidoNormalizado, SaudeConector,
 } from "../domain/ports";
@@ -935,6 +935,17 @@ export class MercadoLivreProvider implements ChannelProvider {
   }
 }
 
+// Um único client reaproveitado entre chamadas (não um novo por vez) e um
+// cache curto por marca: a auditoria de performance mediu esta consulta
+// (marca + canal_tokens, via API REST do Supabase) em 1,3 milhão de chamadas
+// em 28 dias — ~23% do tempo de banco do sistema somado às consultas
+// irmãs — porque o webhook do Mercado Livre chama isto a cada notificação,
+// sem cache nenhum. TTL curto (60s) porque o token muda por refresh (A23),
+// não a cada request; a checagem de expiração abaixo já usa a mesma folga.
+let supabaseTokenClient: SupabaseClient | null = null;
+const cacheTokenPorMarca = new Map<string, { valor: { access_token?: string; refresh_token?: string; expires_at?: string } | null; expiraEm: number }>();
+const TTL_CACHE_TOKEN_MS = 60_000;
+
 export async function obterTokenMercadoLivre(brandSlug: BrandSlug): Promise<{
   accessToken: string;
   refreshToken: string;
@@ -945,8 +956,13 @@ export async function obterTokenMercadoLivre(brandSlug: BrandSlug): Promise<{
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   let tokenRow: { access_token?: string; refresh_token?: string; expires_at?: string } | null = null;
-  if (orgId && supabaseUrl && serviceRoleKey) {
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const cacheKey = `${orgId}:${brandSlug}`;
+  const emCache = cacheTokenPorMarca.get(cacheKey);
+  if (emCache && emCache.expiraEm > Date.now()) {
+    tokenRow = emCache.valor;
+  } else if (orgId && supabaseUrl && serviceRoleKey) {
+    supabaseTokenClient ??= createClient(supabaseUrl, serviceRoleKey);
+    const supabase = supabaseTokenClient;
     const marca = await supabase
       .from("brand")
       .select("id")
@@ -964,6 +980,7 @@ export async function obterTokenMercadoLivre(brandSlug: BrandSlug): Promise<{
         .maybeSingle();
       tokenRow = result.data;
     }
+    cacheTokenPorMarca.set(cacheKey, { valor: tokenRow, expiraEm: Date.now() + TTL_CACHE_TOKEN_MS });
   }
 
   const tokenBancoExpirado = tokenRow?.expires_at

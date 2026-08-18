@@ -1,4 +1,4 @@
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, mlAvaliacaoAnuncio } from "@/shared/lib/db/schema";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
@@ -64,35 +64,42 @@ async function sincronizarAvaliacoesMercadoLivrePorConta(orgId: string, channelA
       }
 
       const listingIdsAtivos = [...anuncios.keys()];
-      for (const item of anuncios.values()) {
-        await db.insert(mlAvaliacaoAnuncio).values({
-          orgId,
-          brandId: conta.brandId,
-          channelAccountId: conta.channelAccountId,
-          listingId: item.listingId,
-          title: item.title,
-          permalink: item.permalink,
-          ratingAverage: item.ratingAverage,
-          reviewsTotal: item.reviewsTotal,
-          ratingLevels: item.ratingLevels,
-          opinioes: item.opinioes,
-          atualizadoEm: new Date(),
-        }).onConflictDoUpdate({
+      // Um insert em lote em vez de um await por anúncio: a auditoria de
+      // performance mediu essa linha como 291 mil chamadas em 28 dias
+      // (7,7% de todo o tempo de banco do sistema) — ~145 round-trips
+      // sequenciais por execução do job, quando 1 resolvia. `excluded.*`
+      // mantém a mesma resolução de conflito de antes, só que por linha,
+      // não por valor fixo da conta (que já era o mesmo em ambos os casos).
+      const linhas = [...anuncios.values()].map((item) => ({
+        orgId,
+        brandId: conta.brandId,
+        channelAccountId: conta.channelAccountId,
+        listingId: item.listingId,
+        title: item.title,
+        permalink: item.permalink,
+        ratingAverage: item.ratingAverage,
+        reviewsTotal: item.reviewsTotal,
+        ratingLevels: item.ratingLevels,
+        opinioes: item.opinioes,
+        atualizadoEm: new Date(),
+      }));
+      if (linhas.length > 0) {
+        await db.insert(mlAvaliacaoAnuncio).values(linhas).onConflictDoUpdate({
           target: [mlAvaliacaoAnuncio.orgId, mlAvaliacaoAnuncio.listingId],
           set: {
-            brandId: conta.brandId,
-            channelAccountId: conta.channelAccountId,
-            title: item.title,
-            permalink: item.permalink,
-            ratingAverage: item.ratingAverage,
-            reviewsTotal: item.reviewsTotal,
-            ratingLevels: item.ratingLevels,
-            opinioes: item.opinioes,
-            atualizadoEm: new Date(),
+            brandId: sql`excluded.brand_id`,
+            channelAccountId: sql`excluded.channel_account_id`,
+            title: sql`excluded.title`,
+            permalink: sql`excluded.permalink`,
+            ratingAverage: sql`excluded.rating_average`,
+            reviewsTotal: sql`excluded.reviews_total`,
+            ratingLevels: sql`excluded.rating_levels`,
+            opinioes: sql`excluded.opinioes`,
+            atualizadoEm: sql`excluded.atualizado_em`,
           },
         });
-        anunciosSincronizados += 1;
       }
+      anunciosSincronizados += linhas.length;
 
       // Anúncio pausado/removido no ML some da lista ativa — tira do cache
       // pra não mostrar nota de algo que não está mais à venda.
