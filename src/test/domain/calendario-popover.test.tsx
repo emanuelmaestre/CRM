@@ -80,6 +80,6 @@ describe("CalendarioPopover", () => {
 
     fireEvent.click(gatilho);
 
-    expect(screen.getByRole("dialog")).toHaveStyle({ left: "712px" });
+    expect(screen.getByRole("dialog")).toHaveStyle({ left: "664px" });
   });
 });

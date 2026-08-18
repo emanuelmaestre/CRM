@@ -38,11 +38,11 @@
       "rows": [
         {
           "label": "Último backup automático",
-          "value": "—"
+          "value": "-"
         },
         {
           "label": "Último teste de restauração",
-          "value": "—"
+          "value": "-"
         },
         {
           "label": "RPO alvo",

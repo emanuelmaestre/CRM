@@ -9,6 +9,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { isBrandSlug } from "@/shared/config/brands";
 import { springs, stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
@@ -363,6 +364,11 @@ export function AnunciosCliente() {
         <div className="flex flex-wrap items-end gap-2" aria-label="Período dos anúncios">
           <CalendarioPopover rotulo="De:" valor={periodo.inicio} max={periodo.fim || hojeISO} onChange={(inicio) => setPeriodo((atual) => ({ ...atual, inicio }))} disabled={carregando} />
           <CalendarioPopover rotulo="Até:" valor={periodo.fim} min={periodo.inicio} max={hojeISO} onChange={(fim) => setPeriodo((atual) => ({ ...atual, fim }))} disabled={carregando} atraso={0.04} />
+          <BotaoHoje
+            ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
+            disabled={carregando}
+            onClick={() => setPeriodo({ inicio: hojeISO, fim: hojeISO })}
+          />
         </div>
         <span className="h-px flex-1 bg-border" />
         <button type="button" onClick={exportar} disabled={exportando}

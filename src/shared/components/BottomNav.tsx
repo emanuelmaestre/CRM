@@ -61,7 +61,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
           <Dialog.Overlay className="fixed inset-0 z-40 bg-foreground/20" />
           <Dialog.Content
             aria-describedby={undefined}
-            className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-h,64px)+env(safe-area-inset-bottom))] z-50 max-h-[calc(100dvh-5rem-env(safe-area-inset-top))] overflow-y-auto border-t border-border bg-card p-2 pb-3 shadow-[0_-8px_28px_rgba(14,15,19,.12)] outline-none"
+            className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-h,64px)_+_env(safe-area-inset-bottom))] z-50 max-h-[calc(100dvh_-_5rem_-_env(safe-area-inset-top))] overflow-y-auto border-t border-border bg-card p-2 pb-3 shadow-[0_-8px_28px_rgba(14,15,19,.12)] outline-none"
           >
               <Dialog.Title className="sr-only">{MORE.sheetAriaLabel}</Dialog.Title>
               <div className="grid grid-cols-2 gap-1 min-[380px]:grid-cols-3">
@@ -118,7 +118,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
               </motion.span>
 
               <span className={cn(
-                "relative z-10 max-w-full truncate text-[11px] font-medium transition-colors",
+                "relative z-10 max-w-full truncate text-[10px] font-medium transition-colors min-[360px]:text-[11px]",
                 on ? "text-foreground" : "text-muted-foreground",
               )}>
                 {item.label}
@@ -150,7 +150,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
               <MoreIcon size={20} strokeWidth={maisAberto || algumDoMaisAtivo ? 2.25 : 1.75} />
             </motion.span>
             <span className={cn(
-              "relative z-10 text-[11px] font-medium transition-colors",
+              "relative z-10 text-[10px] font-medium transition-colors min-[360px]:text-[11px]",
               maisAberto || algumDoMaisAtivo ? "text-foreground" : "text-muted-foreground",
             )}>
               {MORE.label}

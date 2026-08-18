@@ -17,7 +17,7 @@
     }
   },
   "terms": {
-    "metadataTitle": "Termos de Serviço — CRM das marcas",
+    "metadataTitle": "Termos de Serviço - CRM das marcas",
     "title": "Termos de Serviço",
     "lastUpdated": "Última atualização: julho de 2026",
     "sections": [
@@ -27,7 +27,7 @@
       },
       {
         "title": "2. Uso dos dados",
-        "content": "Os dados de clientes e pedidos coletados via integrações de marketplace são utilizados exclusivamente para fins operacionais internos — gestão de pedidos, atendimento ao cliente e análise de desempenho. Nenhum dado é compartilhado com terceiros sem autorização expressa."
+        "content": "Os dados de clientes e pedidos coletados via integrações de marketplace são utilizados exclusivamente para fins operacionais internos - gestão de pedidos, atendimento ao cliente e análise de desempenho. Nenhum dado é compartilhado com terceiros sem autorização expressa."
       },
       {
         "title": "3. Acesso e segurança",
@@ -85,8 +85,8 @@
     "channelSelector": {
       "label": "Canal",
       "multiHint": "Selecione um ou mais",
-      "disconnectedHint": "{canal} ainda não está conectado — conecte em Configurações para liberar o filtro.",
-      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Configurações para liberar o filtro."
+      "disconnectedHint": "{canal} ainda não está conectado - conecte em Configurações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados - conecte em Configurações para liberar o filtro."
     },
     "escolha": {
       "title": "Escolha uma empresa ou canal para começar"
@@ -195,14 +195,14 @@
     "syncAction": "Sincronizar",
     "syncingAction": "Sincronizando…",
     "syncSuccess": "{criados} produto(s) importado(s) do Mercado Livre.",
-    "syncNothingNew": "Catálogo já está em dia — nenhum anúncio novo encontrado.",
+    "syncNothingNew": "Catálogo já está em dia - nenhum anúncio novo encontrado.",
     "syncError": "Não foi possível sincronizar com o Mercado Livre.",
     "searchPlaceholder": "Buscar por SKU ou produto…",
     "channelSelector": {
       "label": "Canal",
       "multiHint": "Selecione um ou mais",
-      "disconnectedHint": "{canal} ainda não está conectado — conecte em Configurações para liberar o filtro.",
-      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Configurações para liberar o filtro."
+      "disconnectedHint": "{canal} ainda não está conectado - conecte em Configurações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados - conecte em Configurações para liberar o filtro."
     },
     "brandSelector": {
       "label": "Empresa",
@@ -222,7 +222,7 @@
       "setupDescription": "{semMinimo} de {total} SKUs estão sem mínimo definido. Sem essa régua, “abaixo do mínimo” será sempre 0 e o alerta automático não dispara.",
       "setupAction": "Configurar alertas",
       "partialTitle": "Parte do catálogo ainda não avisa",
-      "partialDescription": "{semMinimo} de {total} SKUs seguem sem mínimo definido — esses não entram em nenhum alerta.",
+      "partialDescription": "{semMinimo} de {total} SKUs seguem sem mínimo definido - esses não entram em nenhum alerta.",
       "calmTitle": "Catálogo em ordem",
       "calmDescription": "{monitorados} SKUs monitorados · nada abaixo do mínimo · nada sem estoque",
       "reviewAction": "Rever régua"
@@ -241,7 +241,7 @@
       "steps": [
         {
           "title": "Escolha as empresas",
-          "description": "A tela abre limpa e você marca de quem quer ver o estoque — uma, duas ou as três juntas. Clicar numa empresa ativa desmarca. O canal ao lado também aceita mais de um e estreita ainda mais."
+          "description": "A tela abre limpa e você marca de quem quer ver o estoque - uma, duas ou as três juntas. Clicar numa empresa ativa desmarca. O canal ao lado também aceita mais de um e estreita ainda mais."
         },
         {
           "title": "Mínimo é a régua do alerta",
@@ -344,7 +344,7 @@
         "type": "Tipo de movimento",
         "quantity": "Quantidade",
         "note": "Observação",
-        "notePlaceholder": "Opcional — ex.: nota fiscal, motivo da perda…"
+        "notePlaceholder": "Opcional - ex.: nota fiscal, motivo da perda…"
       },
       "types": {
         "entrada": {
@@ -380,7 +380,7 @@
       "accountFieldLabel": "Conta de canal",
       "changeAccount": "Trocar",
       "accountPlaceholder": "Selecione a conta de canal…",
-      "disconnectedSuffix": "— desconectado",
+      "disconnectedSuffix": "- desconectado",
       "listingFieldLabel": "ID do anúncio (listingId)",
       "listingPlaceholder": "ID do anúncio no canal (listingId)",
       "skuFieldLabel": "SKU / modelo externo",
@@ -427,8 +427,8 @@
     },
     "channelSelector": {
       "label": "Canal",
-      "disconnectedHint": "{canal} ainda não está conectado — conecte em Configurações para liberar o filtro.",
-      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados — conecte em Configurações para liberar o filtro."
+      "disconnectedHint": "{canal} ainda não está conectado - conecte em Configurações para liberar o filtro.",
+      "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados - conecte em Configurações para liberar o filtro."
     },
     "statusFilter": {
       "label": "Status",

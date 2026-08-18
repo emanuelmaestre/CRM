@@ -14,6 +14,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
 import { escalonamento, fadeUp, springs, variantes } from "@/shared/design-system/motion-variants";
@@ -42,6 +43,14 @@ function inicioDoDia(data: string): string | undefined {
 function fimDoDia(data: string): string | undefined {
   return data ? `${data}T23:59:59.999-03:00` : undefined;
 }
+
+// toISOString() converte pro fuso UTC — perto da meia-noite local isso troca
+// o dia. Montar a string a partir de getFullYear/Month/Date mantém o dia local.
+function paraDataInput(data: Date): string {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
+
+const hoje = paraDataInput(new Date());
 
 const CORES_STATUS: Record<string, string> = {
   criado: "var(--muted-foreground)",
@@ -399,6 +408,11 @@ export function PedidosLista() {
         />
         <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
         <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />
+        <BotaoHoje
+          ativo={dataInicial === hoje && dataFinal === hoje}
+          disabled={loading}
+          onClick={() => { setDataInicial(hoje); setDataFinal(hoje); }}
+        />
         <button type="button" onClick={exportarPdf} disabled={pedidos.length === 0 || exportando} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted disabled:opacity-40">
           {exportando ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF
         </button>

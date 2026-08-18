@@ -27,7 +27,7 @@
     "reposicao": {
       "icon": "Package",
       "title": "Repor em breve",
-      "subtitle": "Ainda acima do mínimo — dá tempo de comprar",
+      "subtitle": "Ainda acima do mínimo - dá tempo de comprar",
       "accent": "var(--warning)",
       "saldoLabel": "saldo",
       "minLabel": "mín.",
@@ -69,7 +69,7 @@
       "daysLabel": "dias",
       "todayLabel": "aberta hoje",
       "orderLabel": "Ver pedido",
-      "partialLabel": "Lista parcial — falha ao consultar",
+      "partialLabel": "Lista parcial - falha ao consultar",
       "emptyTitle": "Nenhuma reclamação aberta",
       "emptyDescription": "Nada pendente de resposta no Mercado Livre agora.",
       "disconnectedTitle": "Mercado Livre desconectado",

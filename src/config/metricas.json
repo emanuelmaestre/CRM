@@ -26,17 +26,17 @@
     "semTermometro": "Sem termômetro ainda",
     "semTermometroDescricao": "O Mercado Livre só atribui termômetro depois de um volume mínimo de vendas concluídas.",
     "semConta": "Nenhuma conta do Mercado Livre conectada",
-    "semContaDescricao": "Sem conexão não é reputação zero — é reputação desconhecida. Conecte em Configurações.",
+    "semContaDescricao": "Sem conexão não é reputação zero - é reputação desconhecida. Conecte em Configurações.",
     "limiteLabel": "limite",
     "ocorrenciasLabel": "casos no período",
     "vendasLabel": "vendas concluídas",
     "falhaParcial": "Não foi possível consultar:",
     "acoes": {
       "reclamacao": "Responda as reclamações abertas antes de virarem mediação.",
-      "cancelamento": "Cancelamento quase sempre é anúncio com saldo errado — reconcilie o estoque.",
+      "cancelamento": "Cancelamento quase sempre é anúncio com saldo errado - reconcilie o estoque.",
       "atrasoEnvio": "Despache no mesmo dia útil: o atraso conta mesmo quando a entrega chega no prazo."
     },
-    "subtituloJanelaPropria": "Janela própria do Mercado Livre — não muda com o período acima",
+    "subtituloJanelaPropria": "Janela própria do Mercado Livre - não muda com o período acima",
     "contaDesconectada": "conta desconectada",
     "contaDegradada": "conta com falha intermitente",
     "verificadoEm": "última verificação",
@@ -169,7 +169,7 @@
     ],
     "atendimentoResumo": "{perguntas} perguntas · {taxa}% respondidas · mediana {mediana}",
     "semDado": "sem dado",
-    "rodape": "Pilar sem dado sai do cálculo e o peso é redistribuído — o score nunca trata ausência como zero.",
+    "rodape": "Pilar sem dado sai do cálculo e o peso é redistribuído - o score nunca trata ausência como zero.",
     "atendimentoPorCanalTitulo": "Atendimento por canal",
     "atendimentoPorCanalColunas": [
       "Canal",
@@ -190,7 +190,7 @@
     "periodoLabel": "Período",
     "periodoPadrao": "Últimos 30 dias",
     "usarEmTodos": "Usar em todos os cards",
-    "usarEmTodosDica": "Cada card filtra sozinho — isto só preenche os que ainda estão vazios.",
+    "usarEmTodosDica": "Cada card filtra sozinho - isto só preenche os que ainda estão vazios.",
     "semFiltro": "Abra para escolher a marca.",
     "posicao": "{atual} de {total}",
     "blocos": {

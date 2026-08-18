@@ -28,7 +28,7 @@
       "errorsTitle": "Linhas com erro",
       "line": "Linha",
       "reason": "Motivo",
-      "noErrors": "Nenhum erro encontrado — todos os registros serão importados.",
+      "noErrors": "Nenhum erro encontrado - todos os registros serão importados.",
       "fileType": ".csv, .xlsx ou .json",
       "fileAriaLabel": "Arquivo de importação (CSV, XLSX ou JSON)",
       "unsupportedFormat": "Formato não suportado. Envie um arquivo .csv, .xlsx ou .json.",
@@ -64,7 +64,7 @@
       "onlyWithoutLabel": "Somente produtos sem mínimo definido",
       "onlyWithoutHint": "Recomendado: preserva os mínimos que você já ajustou à mão.",
       "scopeCount": "{n} produto(s) no escopo",
-      "scopeEmpty": "Nenhum produto neste escopo — ajuste o canal ou a marca.",
+      "scopeEmpty": "Nenhum produto neste escopo - ajuste o canal ou a marca.",
       "loading": "Contando produtos…"
     },
     "regua": {
@@ -95,9 +95,9 @@
       "summaryChanged": "Terão o mínimo alterado",
       "summaryAlerting": "Entram em alerta hoje",
       "listTitle": "Entram em alerta assim que você aplicar",
-      "listHint": "Desmarque um SKU para deixá-lo de fora — ele fica sem mínimo e não alerta.",
+      "listHint": "Desmarque um SKU para deixá-lo de fora - ele fica sem mínimo e não alerta.",
       "listTruncated": "Mostrando os primeiros {mostrados} de {total}. Os demais também recebem a régua.",
-      "listEmpty": "Nenhum produto entra em alerta com esta régua — só a régua é gravada.",
+      "listEmpty": "Nenhum produto entra em alerta com esta régua - só a régua é gravada.",
       "excludedCount": "{n} SKU(s) fora",
       "balanceLabel": "saldo",
       "minimumLabel": "mín",
@@ -106,7 +106,7 @@
     "actions": { "submit": "Aplicar régua", "submitting": "Aplicando…" },
     "messages": {
       "success": "Régua aplicada a {n} produto(s).",
-      "nothingChanged": "Nenhum produto precisou de alteração — a régua já estava em vigor.",
+      "nothingChanged": "Nenhum produto precisou de alteração - a régua já estava em vigor.",
       "error": "Erro ao aplicar a régua de alertas.",
       "scopeError": "Erro ao carregar marcas e canais."
     }

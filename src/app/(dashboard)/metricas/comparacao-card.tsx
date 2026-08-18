@@ -219,7 +219,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot }: {
             role="tab"
             aria-selected={ativo}
             onClick={() => setCriterio(opcao.chave as Criterio)}
-            className="press-feedback relative rounded-[0.5rem] px-2.5 py-1 text-[11px] font-semibold transition-colors"
+            className="press-feedback relative flex h-11 items-center rounded-[0.5rem] px-3 text-[11px] font-semibold transition-colors"
             style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             {ativo && (

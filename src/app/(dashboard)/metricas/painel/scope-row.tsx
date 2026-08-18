@@ -44,7 +44,7 @@ function Pilula({ ativo, desabilitado, onClick, rotulo, iconOnly, accent, childr
       aria-label={rotulo}
       title={rotulo}
       style={ativo && !desabilitado && accent ? corAtiva(accent) : undefined}
-      className={`inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full transition-colors ${iconOnly ? "px-3" : "px-3.5"} text-[13px] font-semibold ${
+      className={`inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full transition-colors ${iconOnly ? "px-3" : "px-3.5"} text-[13px] font-semibold ${
         desabilitado
           ? "cursor-not-allowed border border-border text-muted-foreground opacity-40"
           : ativo

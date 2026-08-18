@@ -51,7 +51,7 @@ export const AnimatedInfoTrigger = React.forwardRef<HTMLButtonElement, AnimatedI
           if (event.key === "Enter" || event.key === " ") dispararPulso();
           onKeyDown?.(event);
         }}
-        className={cn("relative isolate overflow-visible", className)}
+        className={cn("relative isolate overflow-hidden", className)}
         {...props}
       >
         <AnimatePresence>
@@ -60,10 +60,10 @@ export const AnimatedInfoTrigger = React.forwardRef<HTMLButtonElement, AnimatedI
               key={pulso}
               aria-hidden="true"
               initial={{ opacity: 0.62, scale: 0.35 }}
-              animate={{ opacity: 0, scale: 1.85 }}
+              animate={{ opacity: 0, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.48, ease: eases.emphasized }}
-              className="pointer-events-none absolute inset-[-6px] -z-10 rounded-full border border-primary/35 bg-primary/10"
+              className="pointer-events-none absolute inset-0 -z-10 rounded-full border border-primary/35 bg-primary/10"
             />
           )}
         </AnimatePresence>

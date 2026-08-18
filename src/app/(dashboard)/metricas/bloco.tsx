@@ -161,7 +161,7 @@ export function Bloco({ def, focado, onAbrir }: {
         <motion.div
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
-          className="card-surface relative flex w-full cursor-pointer items-center gap-2.5 overflow-hidden px-3.5 py-3 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
+          className="card-surface relative flex min-h-14 w-full cursor-pointer items-center gap-2.5 overflow-hidden px-3.5 py-3 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
         >
           <span
             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
@@ -169,7 +169,7 @@ export function Bloco({ def, focado, onAbrir }: {
           >
             <Icone size={14} strokeWidth={1.9} />
           </span>
-          <span className="min-w-0 flex-1 truncate text-left text-[13px] font-bold tracking-[-0.01em] text-foreground">
+          <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere]">
             {def.titulo}
           </span>
           <button
@@ -177,9 +177,7 @@ export function Bloco({ def, focado, onAbrir }: {
             onClick={onAbrir}
             aria-label={`Abrir ${def.titulo}`}
             className="absolute inset-0 z-10 rounded-[inherit] outline-none"
-          >
-            <span className="sr-only">{def.titulo}</span>
-          </button>
+          />
         </motion.div>
       )}
     </li>
@@ -277,7 +275,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                   <def.icone size={16} strokeWidth={1.9} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <h2 id={tituloId} className="truncate text-[15px] font-bold tracking-[-0.01em] text-foreground">
+                  <h2 id={tituloId} className="text-[15px] font-bold leading-tight tracking-[-0.01em] text-foreground [overflow-wrap:anywhere]">
                     {def.titulo}
                   </h2>
                   {/* Crossfade por key: trocar de card com as setas troca o
@@ -291,7 +289,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
                         transition={transicao(reduzir, springs.settleFast)}
-                        className="truncate text-[11px] text-muted-foreground"
+                        className="line-clamp-2 text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere]"
                       >
                         {def.subtitulo}
                       </motion.p>

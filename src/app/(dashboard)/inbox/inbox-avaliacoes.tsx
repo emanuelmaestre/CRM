@@ -8,6 +8,7 @@ import Link from "next/link";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
@@ -602,6 +603,11 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
                 recortadas por data, o Mercado Livre não expõe isso. */}
             <CalendarioPopover rotulo="De:" valor={dataInicio} max={dataFim || hoje} onChange={setDataInicio} />
             <CalendarioPopover rotulo="Até:" valor={dataFim} min={dataInicio} max={hoje} onChange={setDataFim} atraso={0.04} />
+            <BotaoHoje
+              ativo={dataInicio === hoje && dataFim === hoje}
+              disabled={carregando}
+              onClick={() => { setDataInicio(hoje); setDataFim(hoje); }}
+            />
             <button
               type="button"
               onClick={() => void carregar(true)}

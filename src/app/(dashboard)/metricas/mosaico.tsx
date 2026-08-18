@@ -9,6 +9,7 @@ import {
   Package, RefreshCw, ShoppingBag, Sparkles, Store, Timer, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { stagger } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -163,6 +164,11 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
         onChange={(valor) => trocarDatas(periodo.inicio, valor)}
         disabled={carregandoSaude}
         atraso={0.04}
+      />
+      <BotaoHoje
+        ativo={periodo.inicio === hoje && periodo.fim === hoje}
+        disabled={carregandoSaude}
+        onClick={() => trocarDatas(hoje, hoje)}
       />
       <span className="text-[11px] text-muted-foreground">
         {completo ? periodoLabel ?? "" : copy.periodoPadrao}
@@ -844,7 +850,7 @@ export function Mosaico() {
           {grupos.map((grupo) => (
             <section key={grupo.id} className="flex flex-col gap-3">
               <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
-              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              <ul className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {grupo.blocos.map((bloco) => (
                   <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
                 ))}

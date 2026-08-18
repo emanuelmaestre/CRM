@@ -74,7 +74,7 @@ function NotificationBell() {
           whileTap={{ scale: 0.97 }}
           aria-label={navigationConfig.utilities.notifications.label}
           aria-expanded={aberto}
-          className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+          className="relative hidden h-11 w-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
         >
           <BellIcon size={15} strokeWidth={1.75} />
           <AnimatePresence>
@@ -208,7 +208,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
                 aria-current={active ? "page" : undefined}
                 title={item.label}
                 className={cn(
-                  "relative flex h-14 min-w-10 items-center justify-center gap-1.5 px-2 text-sm font-medium transition-colors xl:px-3",
+                  "relative flex h-14 min-w-11 items-center justify-center gap-1.5 px-2 text-sm font-medium transition-colors xl:px-3",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -247,7 +247,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
               href={navigationConfig.utilities.settings.href}
               aria-label={navigationConfig.utilities.settings.label}
               className={cn(
-                "hidden h-10 w-10 items-center justify-center rounded-lg transition-colors md:flex",
+                "hidden h-11 w-11 items-center justify-center rounded-lg transition-colors md:flex",
                 pathname === navigationConfig.utilities.settings.href
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -267,7 +267,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
               whileTap={{ scale: 0.97 }}
               title={`${nome} · ${nomePerfil(perfil)}`}
               aria-label={`Abrir menu de ${nome}`}
-              className="flex h-10 min-w-10 items-center gap-2 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="flex h-11 min-w-11 items-center gap-2 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <div className="relative">
                 <div

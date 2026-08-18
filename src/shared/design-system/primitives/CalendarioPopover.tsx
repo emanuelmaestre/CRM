@@ -27,7 +27,7 @@ import { springs } from "../motion-variants";
    aconteceu na primeira versão. Fora da árvore do card, o calendário
    flutua por cima de qualquer coisa. */
 
-const LARGURA_PAINEL = 288;
+const LARGURA_PAINEL_MAX = 336;
 const ALTURA_PAINEL_ESTIMADA = 380;
 const MARGEM_VIEWPORT = 8;
 
@@ -66,6 +66,7 @@ function montarGrade(mesReferencia: Date): Date[] {
 interface Posicao {
   top: number;
   left: number;
+  largura: number;
   alinhadoDireita: boolean;
   /** O painel abre para cima quando não sobra espaço embaixo — a origem da
    *  animação de entrada acompanha, senão o calendário "nasceria" do lado
@@ -91,18 +92,20 @@ function useEstaNoCliente(): boolean {
 
 function calcularPosicao(gatilho: HTMLElement): Posicao {
   const rect = gatilho.getBoundingClientRect();
+  const margem = window.innerWidth < 360 ? 4 : MARGEM_VIEWPORT;
+  const largura = Math.min(LARGURA_PAINEL_MAX, window.innerWidth - margem * 2);
   const espacoAbaixo = window.innerHeight - rect.bottom;
-  const paraCima = espacoAbaixo < ALTURA_PAINEL_ESTIMADA + MARGEM_VIEWPORT && rect.top > espacoAbaixo;
-  const alinhadoDireita = rect.left + LARGURA_PAINEL > window.innerWidth - MARGEM_VIEWPORT;
-  const esquerdaDesejada = alinhadoDireita ? rect.right - LARGURA_PAINEL : rect.left;
+  const paraCima = espacoAbaixo < ALTURA_PAINEL_ESTIMADA + margem && rect.top > espacoAbaixo;
+  const alinhadoDireita = rect.left + largura > window.innerWidth - margem;
+  const esquerdaDesejada = alinhadoDireita ? rect.right - largura : rect.left;
 
   const left = Math.min(
-    Math.max(esquerdaDesejada, MARGEM_VIEWPORT),
-    window.innerWidth - LARGURA_PAINEL - MARGEM_VIEWPORT,
+    Math.max(esquerdaDesejada, margem),
+    window.innerWidth - largura - margem,
   );
   const top = paraCima ? rect.top - 8 : rect.bottom + 8;
 
-  return { top, left, paraCima, alinhadoDireita };
+  return { top, left, largura, paraCima, alinhadoDireita };
 }
 
 interface CalendarioPopoverProps {
@@ -211,7 +214,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
         position: "fixed",
         top: posicao.top,
         left: posicao.left,
-        width: LARGURA_PAINEL,
+        width: posicao.largura,
         transform: posicao.paraCima ? "translateY(-100%)" : undefined,
         transformOrigin: `${posicao.paraCima ? "bottom" : "top"} ${posicao.alinhadoDireita ? "right" : "left"}`,
       }}
@@ -224,7 +227,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
           type="button"
           aria-label="Mês anterior"
           onClick={() => navegar(-1)}
-          className="press-feedback flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="press-feedback flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ChevronLeft size={16} />
         </button>
@@ -235,13 +238,13 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
           type="button"
           aria-label="Próximo mês"
           onClick={() => navegar(1)}
-          className="press-feedback flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="press-feedback flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ChevronRight size={16} />
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1 px-3 pt-3">
+      <div className="grid grid-cols-7 gap-y-1 px-2 pt-3">
         {DIAS_SEMANA.map((dia, indice) => (
           <span key={`${dia}-${indice}`} className="flex h-6 items-center justify-center text-[10px] font-bold uppercase text-muted-foreground/70">
             {dia}
@@ -252,7 +255,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
       {/* O mês desliza na direção da navegação — feedback espacial de
           que se está indo "para frente" ou "para trás" no calendário,
           não só um conteúdo trocando de lugar. */}
-      <div className="relative overflow-hidden px-3 pb-2" style={{ height: 216 }}>
+      <div className="relative overflow-hidden px-2 pb-2" style={{ height: 264 }}>
         <AnimatePresence mode="popLayout" custom={direcao} initial={false}>
           <motion.div
             key={format(mesVisivel, "yyyy-MM")}
@@ -261,7 +264,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
             animate={{ x: 0, opacity: 1 }}
             exit={reduzir ? undefined : { x: direcao >= 0 ? -24 : 24, opacity: 0 }}
             transition={springs.settleFast}
-            className="absolute inset-x-3 grid grid-cols-7 gap-y-1"
+            className="absolute inset-x-2 grid grid-cols-7 gap-y-1"
           >
             {grade.map((dia) => {
               const foraDoMes = !isSameMonth(dia, mesVisivel);
@@ -279,7 +282,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
                   aria-current={hoje ? "date" : undefined}
                   aria-pressed={selecionado}
                   className={cn(
-                    "press-feedback relative flex h-8 w-8 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums transition-colors",
+                    "press-feedback relative flex h-10 w-full min-w-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums transition-colors",
                     bloqueado && "cursor-not-allowed text-muted-foreground/25",
                     !bloqueado && foraDoMes && "text-muted-foreground/35 hover:bg-muted",
                     !bloqueado && !foraDoMes && !selecionado && "text-foreground hover:bg-muted",
@@ -305,7 +308,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
         <button
           type="button"
           onClick={() => { onChange(""); setAberto(false); }}
-          className="press-feedback rounded-[0.5rem] px-2 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="press-feedback inline-flex h-10 items-center rounded-[0.5rem] px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           Limpar
         </button>
@@ -313,7 +316,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
           type="button"
           onClick={() => { const hoje = new Date(); if (!foraDoLimite(hoje)) escolher(hoje); }}
           disabled={foraDoLimite(new Date())}
-          className="press-feedback rounded-[0.5rem] px-2 py-1 text-[11px] font-bold transition-colors hover:bg-muted disabled:opacity-40"
+          className="press-feedback inline-flex h-10 items-center rounded-[0.5rem] px-3 text-[11px] font-bold transition-colors hover:bg-muted disabled:opacity-40"
           style={{ color: "var(--selecionado)" }}
         >
           Hoje
@@ -351,7 +354,7 @@ export function CalendarioPopover({ rotulo, valor, min, max, onChange, disabled,
           });
         }}
         className={cn(
-          "group relative inline-flex h-9 w-9 items-center justify-center rounded-[0.75rem] border transition-all duration-200 disabled:opacity-50",
+          "group relative inline-flex h-11 w-11 items-center justify-center rounded-[0.75rem] border transition-all duration-200 disabled:opacity-50",
           selecionada
             ? "border-[color-mix(in_srgb,var(--selecionado)_45%,var(--border))] bg-[color-mix(in_srgb,#9B30D9_8%,var(--card))]"
             : "border-border bg-muted hover:border-[rgba(155,48,217,.4)] hover:bg-card",

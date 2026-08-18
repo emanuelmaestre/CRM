@@ -58,7 +58,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
           <button key={marca.brandId} type="button" role="tab" aria-selected={ativo}
             onClick={() => setBrandId(marca.brandId)}
             style={ativo && accent ? { color: accent, background: `color-mix(in srgb, ${accent} 16%, transparent)` } : undefined}
-            className={`flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${ativo ? "" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}>
+            className={`flex h-11 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${ativo ? "" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}>
             {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={13} /> : marca.marcaLabel}
           </button>
         );

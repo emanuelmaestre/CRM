@@ -158,33 +158,35 @@ export function AnelScore({ valor, cor, tamanho = 168, faixaLabel }: {
 
       <svg
         viewBox="0 0 160 160"
-        className="relative h-full w-full -rotate-[225deg]"
+        className="relative h-full w-full"
         role="img"
         aria-label={valor === null ? "Score indisponível" : `Score ${Math.round(valor)} de 100${faixaLabel ? `, ${faixaLabel}` : ""}`}
       >
-        <circle
-          cx="80"
-          cy="80"
-          r={RAIO}
-          fill="none"
-          stroke="var(--chart-bar)"
-          strokeWidth="13"
-          strokeLinecap="round"
-          strokeDasharray={`${COMPRIMENTO_ARCO} ${CIRCUNFERENCIA}`}
-        />
-        <motion.circle
-          cx="80"
-          cy="80"
-          r={RAIO}
-          fill="none"
-          stroke={cor}
-          strokeWidth="13"
-          strokeLinecap="round"
-          strokeDasharray={`${COMPRIMENTO_ARCO} ${CIRCUNFERENCIA}`}
-          initial={reduzir ? false : { strokeDashoffset: COMPRIMENTO_ARCO }}
-          animate={{ strokeDashoffset: COMPRIMENTO_ARCO * (1 - preenchido) }}
-          transition={reduzir ? { duration: 0 } : { type: "spring", bounce: 0, duration: 1.1 }}
-        />
+        <g transform="rotate(-225 80 80)">
+          <circle
+            cx="80"
+            cy="80"
+            r={RAIO}
+            fill="none"
+            stroke="var(--chart-bar)"
+            strokeWidth="13"
+            strokeLinecap="round"
+            strokeDasharray={`${COMPRIMENTO_ARCO} ${CIRCUNFERENCIA}`}
+          />
+          <motion.circle
+            cx="80"
+            cy="80"
+            r={RAIO}
+            fill="none"
+            stroke={cor}
+            strokeWidth="13"
+            strokeLinecap="round"
+            strokeDasharray={`${COMPRIMENTO_ARCO} ${CIRCUNFERENCIA}`}
+            initial={reduzir ? false : { strokeDashoffset: COMPRIMENTO_ARCO }}
+            animate={{ strokeDashoffset: COMPRIMENTO_ARCO * (1 - preenchido) }}
+            transition={reduzir ? { duration: 0 } : { type: "spring", bounce: 0, duration: 1.1 }}
+          />
+        </g>
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">

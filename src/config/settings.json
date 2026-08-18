@@ -19,7 +19,7 @@
     "description": "Avisos automáticos no WhatsApp e histórico de disparos das réguas",
     "icon": "Repeat",
     "columns": ["Quando", "Régua", "Cliente", "Marca", "Status", "Gate", "Motivo"],
-    "emptyNoRules": "Nenhuma régua cadastrada — por isso não há disparos. As réguas ainda não podem ser criadas pelo sistema.",
+    "emptyNoRules": "Nenhuma régua cadastrada - por isso não há disparos. As réguas ainda não podem ser criadas pelo sistema.",
     "emptyNoRuns": "Nenhum disparo registrado ainda.",
     "loadError": "Erro ao carregar o histórico de automações."
   },

@@ -249,7 +249,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
             transition={springs.settleFast}
             className="overflow-hidden px-5"
           >
-            <p className="mt-3 rounded-[0.9rem] border border-border bg-muted/50 px-3.5 py-3 text-[12px] leading-relaxed text-muted-foreground">
+            <p className="mx-auto mt-3 max-w-2xl rounded-[0.9rem] border border-border bg-muted/50 px-3.5 py-3 text-[12px] leading-relaxed text-muted-foreground">
               {copy.explicacao}
             </p>
           </motion.div>

@@ -43,7 +43,7 @@
     "verTodas": "Ver todas as campanhas"
   },
   "campanhasDetalhe": {
-    "metadataTitle": "Campanhas — Anúncios",
+    "metadataTitle": "Campanhas - Anúncios",
     "title": "Campanhas",
     "description": "Todas as campanhas da marca, com diagnóstico e os anúncios que compõem cada uma",
     "voltar": "Voltar para a Visão Geral",
@@ -69,7 +69,7 @@
     }
   },
   "alertasDetalhe": {
-    "metadataTitle": "Alertas — Anúncios",
+    "metadataTitle": "Alertas - Anúncios",
     "title": "Central de Alertas",
     "description": "Todos os sinais críticos e oportunidades das campanhas da marca, sem limite de itens",
     "voltar": "Voltar para a Visão Geral",
@@ -83,9 +83,9 @@
     }
   },
   "produtosDetalhe": {
-    "metadataTitle": "Produtos — Anúncios",
+    "metadataTitle": "Produtos - Anúncios",
     "title": "Produtos",
-    "description": "Todos os anúncios da marca, independente da campanha — onde o investimento está indo item por item",
+    "description": "Todos os anúncios da marca, independente da campanha - onde o investimento está indo item por item",
     "voltar": "Voltar para a Visão Geral",
     "vazio": "Nenhum anúncio sincronizado ainda para esta marca.",
     "colunas": [
@@ -107,17 +107,17 @@
     "desperdicio": {
       "titulo": "Gasto sem retorno",
       "descricao": "Anúncios com cliques ou gasto suficiente para uma leitura confiável, e nenhuma venda no período.",
-      "vazio": "Nenhum anúncio com amostra suficiente e zero venda — nada sinalizado aqui hoje."
+      "vazio": "Nenhum anúncio com amostra suficiente e zero venda - nada sinalizado aqui hoje."
     }
   },
   "historicoDetalhe": {
-    "metadataTitle": "Histórico — Anúncios",
+    "metadataTitle": "Histórico - Anúncios",
     "title": "Histórico",
     "description": "Evolução diária de investimento, receita e ROAS da marca",
     "voltar": "Voltar para a Visão Geral",
     "vazio": "Ainda não há histórico suficiente",
-    "vazioDescricao": "O histórico se acumula sozinho a cada sincronização diária — volte aqui depois de alguns dias.",
-    "umPontoAviso": "Só existe 1 dia de dado sincronizado até agora — a tendência aparece conforme os próximos dias forem sincronizados.",
+    "vazioDescricao": "O histórico se acumula sozinho a cada sincronização diária - volte aqui depois de alguns dias.",
+    "umPontoAviso": "Só existe 1 dia de dado sincronizado até agora - a tendência aparece conforme os próximos dias forem sincronizados.",
     "colunas": [
       "Data",
       "Investido",
@@ -137,7 +137,7 @@
     }
   },
   "comparacaoDetalhe": {
-    "metadataTitle": "Comparação — Anúncios",
+    "metadataTitle": "Comparação - Anúncios",
     "title": "Comparação entre marcas",
     "description": "As mesmas métricas lado a lado, para comparar como cada marca está investindo em mídia",
     "voltar": "Voltar para a Visão Geral",

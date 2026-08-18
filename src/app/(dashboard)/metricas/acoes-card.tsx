@@ -195,13 +195,13 @@ export function AcoesCard({ insightsIniciais, sugestoesIniciais, carregandoInici
                           </div>
 
                           {sugestao.status === "sugerida" && (
-                            <div className="flex shrink-0 gap-2">
+                            <div className="flex shrink-0 flex-wrap gap-2">
                               <motion.button
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.97 }}
                                 disabled={ocupado}
                                 onClick={() => decidir(sugestao.id, true)}
-                                className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                                className="inline-flex h-11 items-center gap-1.5 rounded-[0.5rem] px-3 text-[11px] font-semibold text-white disabled:opacity-50"
                                 style={{ background: "var(--gradient-signature)" }}
                               >
                                 <ThumbsUp size={12} /> {copy.aprovar}
@@ -210,7 +210,7 @@ export function AcoesCard({ insightsIniciais, sugestoesIniciais, carregandoInici
                                 type="button"
                                 disabled={ocupado}
                                 onClick={() => decidir(sugestao.id, false)}
-                                className="press-feedback inline-flex items-center gap-1.5 rounded-[0.5rem] border border-border px-3 py-1.5 text-[11px] font-semibold transition-colors hover:bg-muted disabled:opacity-50"
+                                className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-[0.5rem] border border-border px-3 text-[11px] font-semibold transition-colors hover:bg-muted disabled:opacity-50"
                               >
                                 <ThumbsDown size={12} /> {copy.rejeitar}
                               </button>
