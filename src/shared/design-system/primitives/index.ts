@@ -1,4 +1,5 @@
 export { BrandChip } from "./BrandChip";
+export { AnimatedInfoPopover, AnimatedInfoTrigger } from "./AnimatedInfoPopover";
 export { EmptyState } from "./EmptyState";
 export { PageHeader } from "./PageHeader";
 export { StatCard } from "./StatCard";

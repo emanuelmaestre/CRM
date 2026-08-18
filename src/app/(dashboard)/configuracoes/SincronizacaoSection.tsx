@@ -5,9 +5,10 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { tint } from "@/shared/design-system/color";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, Info, Loader2, MinusCircle, RefreshCw, Sparkles, X, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, Loader2, MinusCircle, RefreshCw, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { getBrandConfig } from "@/shared/config/brands";
 import { actionDispararSincronizacaoConta, actionObterUltimaSincronizacaoConta } from "./actions";
 import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
@@ -207,7 +208,7 @@ function ProgressoCircular({ valor, emAndamento, comErro }: { valor: number; emA
 
   return (
     <div
-      className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full p-[2px] shadow-inner"
+      className="relative grid h-8 w-8 shrink-0 place-items-center rounded-full p-[2px] shadow-inner"
       style={{ background: `conic-gradient(${cor} ${Math.max(0, Math.min(animado, 100)) * 3.6}deg, var(--muted) 0deg)` }}
     >
       {emAndamento && !reduzir && (
@@ -220,9 +221,9 @@ function ProgressoCircular({ valor, emAndamento, comErro }: { valor: number; emA
       )}
       <div className="grid h-full w-full place-items-center rounded-full bg-card">
         {comErro && !emAndamento ? (
-          <AlertTriangle size={16} strokeWidth={2.5} style={{ color: "var(--destructive)" }} />
+          <AlertTriangle size={13} strokeWidth={2.5} style={{ color: "var(--destructive)" }} />
         ) : (
-          <span className="text-[11px] font-black tabular-nums text-foreground">{Math.round(animado)}%</span>
+          <span className="text-[9px] font-black tabular-nums text-foreground">{Math.round(animado)}%</span>
         )}
       </div>
     </div>
@@ -245,19 +246,18 @@ function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; exec
   return (
     <DialogPrimitive.Root>
       <DialogPrimitive.Trigger asChild>
-        <button
-          type="button"
+        <AnimatedInfoTrigger
           aria-label={`Explicar sincronização de ${conta.canalLabel} ${conta.brandLabel}`}
           title="O que este botão sincroniza"
+          iconSize={14}
+          iconStrokeWidth={2.3}
           className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Info aria-hidden="true" size={14} strokeWidth={2.3} />
-        </button>
+        />
       </DialogPrimitive.Trigger>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=open]:duration-300" />
         <DialogPrimitive.Content
-          className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[1.1rem] border border-border bg-card text-left shadow-[0_18px_48px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)] sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(34rem,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2"
+          className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[1.1rem] border border-border bg-card text-left shadow-[0_18px_48px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)] sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(34rem,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:data-[state=open]:slide-in-from-bottom-0"
         >
           <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
             <div>
@@ -388,7 +388,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
         : "Sincronização completa";
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border py-3 last:border-0 xl:flex-row xl:items-start xl:justify-between">
+    <div className="flex flex-col gap-3 border-b border-border py-3 last:border-0 xl:flex-row xl:items-center xl:justify-between">
       <div className="flex items-center gap-2.5">
         <ChannelLogo canal={conta.canal} size="sm" variant="badge" />
         <div>
@@ -401,8 +401,8 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           separada, sem grid compartilhado entre elas — só travando a
           largura de cada coluna é que "Sincronizar", o status e o relógio
           caem exatamente no mesmo x em toda linha, com ou sem alerta. */}
-      <div className="flex flex-wrap items-center gap-2 xl:grid xl:grid-cols-[15rem_minmax(0,13rem)_2rem_auto] xl:items-center">
-        <div className="flex justify-start">
+      <div className="flex flex-wrap items-center gap-2 xl:grid xl:grid-cols-[13rem_minmax(0,13rem)_2rem_auto] xl:items-center">
+        <div className="flex min-h-9 items-center justify-start xl:justify-center">
           <AnimatePresence mode="popLayout">
             {execucao && (
               <motion.div
@@ -415,10 +415,10 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
                   <PopoverPrimitive.Trigger asChild>
                     <button
                       type="button"
-                      className="group press-feedback flex items-center gap-2 rounded-full border border-border bg-card py-1.5 pl-2.5 pr-2 transition-colors hover:bg-muted"
+                      className="group press-feedback flex h-9 max-w-full items-center gap-1.5 rounded-full border border-border bg-card py-0 pl-1.5 pr-2 transition-colors hover:bg-muted"
                     >
                       <ProgressoCircular valor={percentual} emAndamento={emAndamento} comErro={comErro} />
-                      <p className="min-w-0 pr-1 text-left text-[11px] font-bold text-foreground">{statusResumo}</p>
+                      <p className="min-w-0 pr-0.5 text-left text-[11px] font-bold leading-tight text-foreground">{statusResumo}</p>
                       <ChevronDown size={13} className="shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                     </button>
                   </PopoverPrimitive.Trigger>

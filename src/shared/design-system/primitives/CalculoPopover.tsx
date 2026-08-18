@@ -1,9 +1,8 @@
 "use client";
 
-import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { Info } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { springs } from "../motion-variants";
+import { AnimatedInfoPopover, AnimatedInfoTrigger } from "./AnimatedInfoPopover";
 
 /* ── "Como chegamos nesse número" ─────────────────────────────────
    Card mostra o resultado; ninguém mostrava a conta. O gatilho fica quase
@@ -37,29 +36,25 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
   const barra = itens.find((item) => item.fracao !== undefined);
 
   return (
-    <PopoverPrimitive.Root>
-      <PopoverPrimitive.Trigger asChild>
-        <button
-          type="button"
+    <AnimatedInfoPopover
+      trigger={(
+        <AnimatedInfoTrigger
           aria-label={`Entenda o indicador ${titulo}`}
           title={`Entenda o indicador: ${titulo}`}
+          iconSize={15}
           className="press-feedback inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground shadow-sm transition-all hover:border-primary/30 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Info aria-hidden="true" size={15} strokeWidth={2.25} />
-        </button>
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          align="start"
-          sideOffset={8}
-          collisionPadding={12}
-          // O Radix já calcula quanto espaço sobra até a borda da tela nessa
-          // direção e expõe em --radix-popover-content-available-height —
-          // sem travar nisso, um conteúdo longo (5 pilares + período + nota)
-          // simplesmente estourava por cima do cabeçalho do card quando
-          // virava pra "top" por falta de espaço embaixo do gatilho.
-          className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(23rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] flex-col overflow-y-auto overscroll-contain rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]"
-        >
+        />
+      )}
+      align="start"
+      sideOffset={8}
+      collisionPadding={12}
+      // O Radix já calcula quanto espaço sobra até a borda da tela nessa
+      // direção e expõe em --radix-popover-content-available-height —
+      // sem travar nisso, um conteúdo longo (5 pilares + período + nota)
+      // simplesmente estourava por cima do cabeçalho do card quando
+      // virava pra "top" por falta de espaço embaixo do gatilho.
+      className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(23rem,calc(100vw-1.5rem))] flex-col overflow-y-auto overscroll-contain rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+    >
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Entenda o indicador</p>
@@ -121,9 +116,6 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
             </div>
           )}
 
-          <PopoverPrimitive.Arrow className="fill-card" />
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
+    </AnimatedInfoPopover>
   );
 }

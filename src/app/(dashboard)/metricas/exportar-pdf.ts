@@ -77,7 +77,6 @@ export async function exportarMetricasPDF(
       marca.emMediacao > 0
         ? `${marca.reclamacoesAbertas} (${marca.emMediacao} em mediação)`
         : String(marca.reclamacoesAbertas),
-      marca.margemPercentual === null ? "—" : `${marca.margemPercentual}% (cob. ${marca.margemCoberturaPercentual}%)`,
     ]),
     styles: { fontSize: 8.5, cellPadding: 2 },
     headStyles: { fillColor: [155, 48, 217], fontSize: 8.5 },

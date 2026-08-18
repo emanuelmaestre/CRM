@@ -68,10 +68,6 @@
       {
         "chave": "notaMedia",
         "label": "Nota média"
-      },
-      {
-        "chave": "margem",
-        "label": "Margem"
       }
     ],
     "lider": "Líder"
@@ -163,8 +159,7 @@
       "Pedidos",
       "Ticket médio",
       "Nota",
-      "Reclamações",
-      "Margem"
+      "Reclamações"
     ],
     "atendimentoTitulo": "Funil de atendimento",
     "atendimentoColunas": [

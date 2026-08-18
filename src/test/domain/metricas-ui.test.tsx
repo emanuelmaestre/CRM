@@ -49,11 +49,6 @@ function marca(parcial: Partial<SaudeMarca> = {}): SaudeMarca {
     emMediacao: 1,
     reputacao: null,
     atendimento: null,
-    margemPercentual: null,
-    margemLiquidaLabel: null,
-    margemCoberturaPercentual: 0,
-    margemReceitaComTaxaConhecidaLabel: null,
-    margemComissaoTotalLabel: null,
     taxaCancelamento: null,
     totalPedidosBrutos: 0,
     pedidosCanceladosOuDevolvidos: 0,
@@ -192,7 +187,7 @@ describe("cards de Métricas", () => {
     expect(screen.getByText(/nenhuma mensagem de cliente no período/i)).toBeInTheDocument();
   });
 
-  it("BarraComLimite não espelha a barra quando o valor é negativo (margem no vermelho)", () => {
+  it("BarraComLimite não espelha a barra quando o valor é negativo", () => {
     const { container } = render(<BarraComLimite valor={-15} maximo={40} cor="var(--destructive)" />);
     const preenchimento = container.querySelector(".rounded-l-full") as HTMLElement;
     // scaleX negativo faria o CSS espelhar a barra para o lado errado em vez

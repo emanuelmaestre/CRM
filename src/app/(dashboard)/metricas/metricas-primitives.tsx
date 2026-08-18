@@ -232,10 +232,9 @@ export function BarraComLimite({ valor, maximo, limite, cor, atraso = 0, altura 
   altura?: number;
 }) {
   const reduzir = useReducedMotion();
-  // Piso em 0: todo indicador aqui é não-negativo, exceto Margem (comissão
-  // pode superar o preço em casos raros). Sem o Math.max, valor negativo
-  // vira scaleX negativo — e CSS não "esconde" isso, espelha a barra
-  // inteira para o outro lado, o oposto de "barra vazia".
+  // Piso em 0: os indicadores renderizados aqui são não-negativos. Sem o
+  // Math.max, um dado ruim que viesse negativo viraria scaleX negativo — e
+  // CSS não "esconde" isso, espelha a barra inteira para o outro lado.
   const largura = maximo > 0 ? Math.max(0, Math.min((valor / maximo) * 100, 100)) : 0;
   const posicaoLimite = limite !== undefined && maximo > 0 ? Math.min((limite / maximo) * 100, 100) : null;
 

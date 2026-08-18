@@ -19,7 +19,7 @@ import { inteiro, moeda, moedaCompacta } from "@/shared/design-system/format";
 const copy = metricasConfig.comparacaoCard;
 const ACENTO = "var(--acento-3)";
 
-type Criterio = "score" | "faturamento" | "pedidos" | "ticketMedio" | "notaMedia" | "margem";
+type Criterio = "score" | "faturamento" | "pedidos" | "ticketMedio" | "notaMedia";
 
 /** Valor bruto do critério — é o que ordena e o que dimensiona a barra. */
 function valorDe(marca: SaudeMarca, criterio: Criterio): number | null {
@@ -29,7 +29,6 @@ function valorDe(marca: SaudeMarca, criterio: Criterio): number | null {
     case "pedidos": return marca.pedidos;
     case "ticketMedio": return marca.ticketMedio;
     case "notaMedia": return marca.notaMedia;
-    case "margem": return marca.margemPercentual;
   }
 }
 
@@ -41,7 +40,6 @@ function rotuloDe(marca: SaudeMarca, criterio: Criterio): string {
     case "pedidos": return String(marca.pedidos);
     case "ticketMedio": return marca.ticketMedioLabel;
     case "notaMedia": return marca.notaMedia === null ? "—" : `${marca.notaMedia.toFixed(1)} ★`;
-    case "margem": return marca.margemPercentual === null ? "—" : `${marca.margemPercentual}%`;
   }
 }
 
@@ -97,26 +95,6 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
     {
       label: "Resposta",
       valor: marca.atendimento?.medianaLabel ?? "—",
-    },
-    {
-      // Cobertura baixa some do rótulo em vez de assustar com um "(12%)"
-      // que a maioria não vai parar para interpretar — o popover é onde
-      // a cobertura baixa vira número, para quem quiser conferir.
-      label: "Margem",
-      valor: marca.margemPercentual === null ? "—" : `${marca.margemPercentual}%`,
-      ...(marca.margemPercentual === null ? {} : { valorNumerico: marca.margemPercentual, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
-      calculo: marca.margemPercentual === null ? null : {
-        titulo: "Margem líquida",
-        significado: "Estima quanto da receita considerada permanece depois de descontar a comissão conhecida do Mercado Livre. Quanto maior, melhor a margem após publicidade e comissão.",
-        formula: "receita menos a comissão do Mercado Livre, dividida pela receita — só nos itens com comissão informada",
-        resultado: `${marca.margemPercentual}%`,
-        itens: [
-          { label: "Margem líquida", valor: marca.margemLiquidaLabel ?? "—" },
-          { label: "Receita considerada", valor: marca.margemReceitaComTaxaConhecidaLabel ?? "—" },
-          { label: "Comissão descontada", valor: marca.margemComissaoTotalLabel ?? "—" },
-        ],
-        nota: `Cobre ${marca.margemCoberturaPercentual}% da receita da marca: só entram pedidos do Mercado Livre com a comissão informada. Outros canais e pedidos antigos ficam de fora, sem virar "comissão zero".`,
-      },
     },
     {
       label: "Cancelamento",

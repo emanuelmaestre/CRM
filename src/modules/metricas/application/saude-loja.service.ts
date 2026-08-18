@@ -18,7 +18,6 @@ import {
   type ReputacaoResultado,
 } from "./reputacao.service";
 import { obterReclamacoesAbertas, type ReclamacoesResultado } from "./reclamacoes.service";
-import { obterMargemPorMarca } from "./margem.service";
 import { obterCrescimentoPorMarca } from "./crescimento.service";
 
 /* ── Score de Saúde da Loja ──────────────────────────────────────
@@ -96,20 +95,6 @@ export interface SaudeMarca {
   emMediacao: number;
   reputacao: ReputacaoMarca | null;
   atendimento: AtendimentoResumo | null;
-  /** Margem líquida sobre a receita com comissão conhecida (ver
-   *  margem.service.ts) — deliberadamente fora dos 5 pilares do score: saúde
-   *  operacional e rentabilidade são perguntas diferentes, e misturar as duas
-   *  deixaria uma loja com margem ruim mas atendimento impecável parecendo
-   *  "doente" por um motivo que os pilares não explicam. Null sem nenhum item
-   *  com taxa conhecida no período. */
-  margemPercentual: number | null;
-  margemLiquidaLabel: string | null;
-  /** 0–100: fração da receita da marca que entrou nessa conta de margem. */
-  margemCoberturaPercentual: number;
-  /** Receita (com comissão conhecida) e comissão total — numerador/denominador
-   *  exatos por trás de `margemPercentual`. */
-  margemReceitaComTaxaConhecidaLabel: string | null;
-  margemComissaoTotalLabel: string | null;
   /** 0–100: fração dos pedidos do período cancelada ou devolvida. Conta sobre
    *  TODOS os pedidos (ao contrário do resto do módulo, que os exclui) —
    *  aqui é exatamente o que se quer medir. Null sem nenhum pedido no período. */
@@ -262,10 +247,10 @@ export interface SaudeLojaFiltros {
   fim?: string;
   brandIds?: string[];
   /** Pula reputação/reclamações (API do ML, lentas), atendimento por marca e
-   *  margem — pilares e score saem null. Para quando só se precisa de
-   *  faturamento/pedidos/ticket/cancelamento, como a janela "anterior" do
-   *  card Evolução: rodar a consulta inteira de novo só pra descartar quase
-   *  tudo dobra o tempo de carregamento à toa. */
+   *  pilares de score. Para quando só se precisa de faturamento/pedidos/ticket/
+   *  cancelamento, como a janela "anterior" do card Evolução: rodar a consulta
+   *  inteira de novo só pra descartar quase tudo dobra o tempo de carregamento
+   *  à toa. */
   leve?: boolean;
 }
 
@@ -428,16 +413,7 @@ export async function obterSaudeLoja(
   const reputacaoPorMarca = new Map(reputacao.marcas.map((linha) => [linha.brandId, linha]));
   const atendimento = new Map(atendimentoPorMarca);
 
-  // Depende do faturamento por marca (cobertura = receita com taxa conhecida
-  // ÷ receita total), então só entra depois do Promise.all de cima resolver
-  // — não dá pra rodar em paralelo com a query que produz esse número.
-  const receitaTotalPorMarca = new Map(
-    idsVisiveis.map((id) => [id, paraNumero(vendas.get(id)?.receita)]),
-  );
-  const [margemPorMarca, crescimentoPorMarca] = await Promise.all([
-    leve ? Promise.resolve(new Map()) : obterMargemPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis, receitaTotalPorMarca }),
-    obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis }),
-  ]);
+  const crescimentoPorMarca = await obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis });
 
   const resultado: SaudeMarca[] = marcas.map((item) => {
     const venda = vendas.get(item.id);
@@ -460,7 +436,6 @@ export async function obterSaudeLoja(
     const atendimentoMarca = atendimento.get(item.id) ?? null;
 
     const reclamacoesDaMarca = reclamacoes.itens.filter((linha) => linha.marca === item.slug);
-    const margemMarca = margemPorMarca.get(item.id) ?? null;
     const crescimentoMarca = crescimentoPorMarca.get(item.id) ?? null;
 
     const calculos: Record<ChavePilar, { nota: number | null; detalhe: string }> = {
@@ -503,11 +478,6 @@ export async function obterSaudeLoja(
       emMediacao: reclamacoesDaMarca.filter((linha) => linha.emMediacao).length,
       reputacao: reputacaoMarca,
       atendimento: atendimentoMarca,
-      margemPercentual: margemMarca?.margemPercentual ?? null,
-      margemLiquidaLabel: margemMarca ? moeda.format(margemMarca.margemLiquida) : null,
-      margemCoberturaPercentual: margemMarca?.coberturaPercentual ?? 0,
-      margemReceitaComTaxaConhecidaLabel: margemMarca ? moeda.format(margemMarca.receitaComTaxaConhecida) : null,
-      margemComissaoTotalLabel: margemMarca ? moeda.format(margemMarca.comissaoTotal) : null,
       taxaCancelamento: crescimentoMarca?.taxaCancelamento ?? null,
       totalPedidosBrutos: crescimentoMarca?.totalPedidosBrutos ?? 0,
       pedidosCanceladosOuDevolvidos: crescimentoMarca?.pedidosCanceladosOuDevolvidos ?? 0,

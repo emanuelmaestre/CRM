@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Check, ChevronDown, MessageCircle } from "lucide-react";
+import { Bot, Check, ChevronDown, MessageCircle } from "lucide-react";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import settingsConfig from "@/config/settings.json";
 import { tint } from "@/shared/design-system/color";
@@ -52,37 +52,99 @@ function TextoComPlaceholder({ texto }: { texto: string }) {
   );
 }
 
-/** Prévia fiel de como o aviso chega de verdade — bolha verde, rabinho,
- *  hora e check duplo, igual ao WhatsApp. É o "me surpreenda": em vez de só
- *  listar o texto do modelo, mostra a mensagem no contexto em que o admin
- *  vai realmente lê-la.
+/** Três bolinhas subindo e descendo em sequência — o indicador "digitando…"
+ *  real do WhatsApp, não um spinner genérico. */
+function PontosDigitando() {
+  return (
+    <span className="flex items-center gap-1">
+      {[0, 1, 2].map((indice) => (
+        <motion.span
+          key={indice}
+          className="h-[6px] w-[6px] rounded-full"
+          style={{ background: "#4a5b52" }}
+          animate={{ y: [0, -3, 0] }}
+          transition={{ duration: 0.9, repeat: Infinity, delay: indice * 0.15, ease: "easeInOut" }}
+        />
+      ))}
+    </span>
+  );
+}
+
+/** Prévia fiel de como o aviso chega de verdade — cabeçalho de contato,
+ *  "digitando…" antes do texto surgir, bolha verde, rabinho, hora e check
+ *  duplo, igual ao WhatsApp. É o "me surpreenda": em vez de só listar o
+ *  texto do modelo, mostra a mensagem no contexto em que o admin vai
+ *  realmente lê-la — e deixa claro, pelo cabeçalho, que é um modelo/prévia,
+ *  não uma conversa real acontecendo agora.
  *
- *  As cores aqui dentro (#dcf8c6, #111b21, #4a5b52, #53bdeb) são as cores
- *  reais do WhatsApp, não os tokens do CRM — exceção deliberada, porque o
- *  objetivo é imitar o app de terceiro, não a nossa identidade visual. */
+ *  As cores aqui dentro (#dcf8c6, #111b21, #4a5b52, #53bdeb, #075e54...) são
+ *  as cores reais do WhatsApp, não os tokens do CRM — exceção deliberada,
+ *  porque o objetivo é imitar o app de terceiro, não a nossa identidade
+ *  visual. */
 function BolhaWhatsApp({ modelo }: { modelo: string }) {
   const reduzir = useReducedMotion();
+  const [digitando, setDigitando] = useState(!reduzir);
+
+  useEffect(() => {
+    if (reduzir) return;
+    const tempo = setTimeout(() => setDigitando(false), 1100);
+    return () => clearTimeout(tempo);
+  }, [reduzir]);
+
   return (
     <motion.div
       initial={reduzir ? false : { opacity: 0, y: -6, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={springs.settleFast}
-      className="relative ml-11 mt-2 max-w-[22rem] rounded-lg rounded-tl-none px-3 py-2 shadow-sm"
-      style={{ background: "#dcf8c6" }}
+      className="ml-11 mt-2 max-w-[22rem] overflow-hidden rounded-lg shadow-sm"
     >
-      <span
-        className="absolute -left-[7px] top-0 h-0 w-0"
-        style={{ borderTop: "8px solid #dcf8c6", borderLeft: "8px solid transparent" }}
-        aria-hidden="true"
-      />
-      <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-[#111b21]">
-        <TextoComPlaceholder texto={modelo} />
-      </p>
-      <span className="mt-1 flex items-center justify-end gap-1 text-[10px] text-[#4a5b52]">
-        {horaAgora}
-        <Check size={12} className="-mr-1.5" strokeWidth={2.5} />
-        <Check size={12} strokeWidth={2.5} style={{ color: "#53bdeb" }} />
-      </span>
+      {/* Cabeçalho de contato — comunica "isto é um modelo/prévia de como o
+          aviso chega no WhatsApp", não uma conversa real acontecendo. */}
+      <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ background: "#075e54" }}>
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15 text-white">
+          <Bot size={13} strokeWidth={2} />
+        </span>
+        <div className="min-w-0 leading-tight">
+          <p className="truncate text-[11px] font-semibold text-white">Avisos automáticos · CRM</p>
+          <p className="text-[9.5px] text-white/70">modelo de mensagem</p>
+        </div>
+      </div>
+
+      <div className="relative px-3 py-2" style={{ background: "#dcf8c6" }}>
+        <span
+          className="absolute -left-[7px] top-0 h-0 w-0"
+          style={{ borderTop: "8px solid #dcf8c6", borderLeft: "8px solid transparent" }}
+          aria-hidden="true"
+        />
+        <AnimatePresence mode="wait" initial={false}>
+          {digitando ? (
+            <motion.div
+              key="digitando"
+              initial={reduzir ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center py-[3px]"
+            >
+              <PontosDigitando />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="texto"
+              initial={reduzir ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              <p className="whitespace-pre-wrap text-[12.5px] leading-relaxed text-[#111b21]">
+                <TextoComPlaceholder texto={modelo} />
+              </p>
+              <span className="mt-1 flex items-center justify-end gap-1 text-[10px] text-[#4a5b52]">
+                {horaAgora}
+                <Check size={12} className="-mr-1.5" strokeWidth={2.5} />
+                <Check size={12} strokeWidth={2.5} style={{ color: "#53bdeb" }} />
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }
@@ -131,6 +193,17 @@ function AutomacoesWhatsApp() {
           </span>
         )}
       </div>
+
+      {/* Substitui a legenda estática que morava no Card (page.tsx) — o
+          número e o tom mudam de verdade com o estado da integração, em vez
+          de repetir sempre o mesmo texto genérico. */}
+      <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
+        {ativo === null
+          ? "Carregando status da integração…"
+          : ativo
+            ? `${CATALOGO_AUTOMACOES_WHATSAPP.length} avisos automáticos ligados no WhatsApp — cobrindo estoque, atendimento, vendas e operação.`
+            : `Configure a Z-API para começar a receber os ${CATALOGO_AUTOMACOES_WHATSAPP.length} avisos abaixo no WhatsApp.`}
+      </p>
 
       <ul className="divide-y divide-border overflow-hidden rounded-[0.9rem] border border-border bg-background/60">
         {CATALOGO_AUTOMACOES_WHATSAPP.map((item, indice) => {

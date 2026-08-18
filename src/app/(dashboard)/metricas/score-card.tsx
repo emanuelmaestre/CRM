@@ -7,6 +7,7 @@ import { Info } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
+import { AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
@@ -217,15 +218,16 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
   const cor = (consolidado ? dados?.faixaGeralCor : marcaSelecionada?.faixaCor) ?? "var(--muted-foreground)";
 
   const botaoComoCalculado = (
-    <button
+    <AnimatedInfoTrigger
       type="button"
       onClick={() => setExplicando((atual) => !atual)}
       aria-expanded={explicando}
       title="Entenda quais dados formam o Score de Saúde da Loja"
+      iconSize={13}
       className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
     >
-      <Info aria-hidden="true" size={13} /> Entenda o score
-    </button>
+      Entenda o score
+    </AnimatedInfoTrigger>
   );
 
   return (
@@ -241,9 +243,9 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
       <AnimatePresence initial={false}>
         {explicando && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={reduzir ? false : { opacity: 0, height: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
+            animate={{ opacity: 1, height: "auto", scale: 1, y: 0, filter: "blur(0px)" }}
+            exit={reduzir ? undefined : { opacity: 0, height: 0, scale: 0.98, y: -2 }}
             transition={springs.settleFast}
             className="overflow-hidden px-5"
           >

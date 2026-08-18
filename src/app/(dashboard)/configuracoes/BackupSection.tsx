@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import * as PopoverPrimitive from "@radix-ui/react-popover";
 import {
-  CheckCircle2, ChevronDown, CircleDashed, DatabaseBackup, Download, Info, Loader2,
+  CheckCircle2, ChevronDown, CircleDashed, DatabaseBackup, Download, Loader2,
 } from "lucide-react";
 import { springs, stagger, variantes, fadeUp } from "@/shared/design-system/motion-variants";
 import { tint } from "@/shared/design-system/color";
+import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { TABELAS_BACKUP, type ChaveTabelaBackup } from "@/modules/backups/application/tabelas";
 import {
   actionBaixarBackup, actionExportarTabelaBackup, actionFinalizarBackup,
@@ -160,23 +160,19 @@ export function BackupSection() {
             <DatabaseBackup size={13} />
             Exportar
           </p>
-          <PopoverPrimitive.Root>
-            <PopoverPrimitive.Trigger asChild>
-              <button
-                type="button"
+          <AnimatedInfoPopover
+            trigger={(
+              <AnimatedInfoTrigger
                 aria-label="Como funciona a exportação"
+                iconSize={13}
                 className="press-feedback inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Info aria-hidden="true" size={13} strokeWidth={2.25} />
-              </button>
-            </PopoverPrimitive.Trigger>
-            <PopoverPrimitive.Portal>
-              <PopoverPrimitive.Content
-                align="start"
-                sideOffset={8}
-                collisionPadding={12}
-                className="z-[100] w-[min(20rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] rounded-[0.9rem] border border-border bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]"
-              >
+              />
+            )}
+            align="start"
+            sideOffset={8}
+            collisionPadding={12}
+            className="z-[100] w-[min(20rem,calc(100vw-1.5rem))] rounded-[0.9rem] border border-border bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+          >
                 <p className="text-[13px] font-semibold text-foreground">Exportação sob demanda dos dados da organização, em JSON e CSV</p>
                 <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
                   Gera um ZIP com JSON e CSV de {TABELAS_BACKUP.length} tabelas — clientes, produtos, pedidos, canais,
@@ -185,10 +181,7 @@ export function BackupSection() {
                 <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
                   Fica disponível para download por 24h. Depois disso, basta gerar um novo a partir daqui.
                 </p>
-                <PopoverPrimitive.Arrow className="fill-card" />
-              </PopoverPrimitive.Content>
-            </PopoverPrimitive.Portal>
-          </PopoverPrimitive.Root>
+          </AnimatedInfoPopover>
         </div>
         <motion.button
           type="button"
