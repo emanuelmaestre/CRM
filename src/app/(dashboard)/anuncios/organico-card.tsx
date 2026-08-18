@@ -82,11 +82,11 @@ export function OrganicoCard({ resumo, resumoAnterior, marca }: {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-[12px]">
             <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: ACENTO }} />
-              {percentualPago}% via publicidade
+              {decimal1.format(percentualPago)}% via publicidade
             </span>
             <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
               <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
-              {percentualOrganico}% orgânico
+              {decimal1.format(percentualOrganico)}% orgânico
             </span>
           </div>
 
@@ -94,6 +94,18 @@ export function OrganicoCard({ resumo, resumoAnterior, marca }: {
             <div><dt className="text-xs text-muted-foreground">Receita via publicidade</dt><dd className="mt-1 font-semibold tabular-nums">{moeda.format(resumo.receitaTotal)}</dd></div>
             <div className="text-right"><dt className="text-xs text-muted-foreground">Receita orgânica</dt><dd className="mt-1 font-semibold tabular-nums">{moeda.format(resumo.receitaOrganica)}</dd></div>
           </dl>
+
+          {/* O que a porcentagem esconde: quanto dinheiro, em R$, some se a
+              mídia paga parar amanhã. "81,9%" é abstrato; "some quase R$
+              10 mil" é o número que faz alguém agir. */}
+          <div className="mt-3 rounded-xl border border-dashed border-border px-3.5 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[.04em] text-muted-foreground">Se a mídia paga parasse hoje</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-foreground">
+              A receita cairia de <span className="font-bold tabular-nums">{moeda.format(resumo.receitaTotal + resumo.receitaOrganica)}</span> para
+              {" "}<span className="font-bold tabular-nums">{moeda.format(resumo.receitaOrganica)}</span> — uma perda de{" "}
+              <span className="font-bold tabular-nums" style={{ color: "var(--destructive)" }}>{moeda.format(resumo.receitaTotal)}</span> só neste período.
+            </p>
+          </div>
 
           {resumo.dependenciaMidia.classificacao && (
             <div className="mt-4 rounded-[0.9rem] bg-muted/50 px-3.5 py-3">

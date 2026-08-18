@@ -41,6 +41,16 @@ const COR_PRIORIDADE: Record<Alerta["prioridade"], string> = {
   informativo: "var(--info)",
 };
 
+// Mesma ordem de gravidade de alertas.ts (não exportada de lá) — crítico
+// primeiro, para o número da linha refletir o alerta mais sério, não o mais
+// recente.
+const ORDEM_PRIORIDADE_LOCAL: Record<Alerta["prioridade"], number> = {
+  critico: 0,
+  importante: 1,
+  informativo: 2,
+  oportunidade: 3,
+};
+
 function BadgeStatus({ status }: { status: string }) {
   const info = STATUS_LABEL[status] ?? { label: status, cor: "var(--muted-foreground)" };
   return (
@@ -171,6 +181,64 @@ function AlertasPerformanceInfo({ individuais, grupos }: { individuais: Alerta[]
   );
 }
 
+function alertasPorCampanha(individuais: Alerta[], grupos: GrupoAlertas[]): Map<string, Alerta[]> {
+  const mapa = new Map<string, Alerta[]>();
+  const adicionar = (alerta: Alerta) => {
+    const lista = mapa.get(alerta.campanhaId);
+    if (lista) lista.push(alerta);
+    else mapa.set(alerta.campanhaId, [alerta]);
+  };
+  individuais.forEach(adicionar);
+  grupos.forEach((grupo) => grupo.alertas.forEach(adicionar));
+  return mapa;
+}
+
+/** Mesmo sinal do resumo do cabeçalho, mas escopado à campanha da linha —
+ *  quem está olhando "Liquida 7.7" não deveria precisar abrir o resumo geral
+ *  e caçar o próprio nome no meio de outras 10 campanhas. */
+function AtencaoLinha({ alertas }: { alertas: Alerta[] }) {
+  if (alertas.length === 0) return null;
+  const maisGrave = alertas.reduce((pior, atual) => (
+    ORDEM_PRIORIDADE_LOCAL[atual.prioridade] < ORDEM_PRIORIDADE_LOCAL[pior.prioridade] ? atual : pior
+  ));
+  const cor = COR_PRIORIDADE[maisGrave.prioridade];
+
+  return (
+    <PopoverPrimitive.Root>
+      <PopoverPrimitive.Trigger asChild>
+        <button
+          type="button"
+          aria-label={`${alertas.length} ${plural(alertas.length, "sinal", "sinais")} de atenção nesta campanha`}
+          title="O que precisa de atenção nesta campanha"
+          onClick={(e) => e.stopPropagation()}
+          className="press-feedback inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold transition-transform hover:scale-110"
+          style={{ background: tint(cor, 14), color: cor }}
+        >
+          {alertas.length}
+        </button>
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          align="start"
+          sideOffset={6}
+          collisionPadding={12}
+          className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card text-left shadow-[0_16px_40px_rgba(14,15,19,.20)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          <ul className="flex flex-col divide-y divide-border">
+            {alertas.map((alerta) => (
+              <li key={alerta.chave} className="flex items-start gap-2 px-3 py-2.5">
+                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: COR_PRIORIDADE[alerta.prioridade] }} />
+                <p className="text-[12px] leading-relaxed text-foreground">{alerta.descricao}</p>
+              </li>
+            ))}
+          </ul>
+          <PopoverPrimitive.Arrow className="fill-card" />
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  );
+}
+
 function descricaoStatus(campanhas: CampanhaVisaoGeral[]) {
   const contagem = campanhas.reduce<Record<string, number>>((total, campanha) => {
     total[campanha.status] = (total[campanha.status] ?? 0) + 1;
@@ -254,6 +322,7 @@ function descricaoCabecalhos(campanhas: CampanhaVisaoGeral[]): Record<string, In
 
 export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGeral[]; marca: VisaoGeralMarca }) {
   const infosCabecalho = descricaoCabecalhos(campanhas);
+  const alertasPorCampanhaId = alertasPorCampanha(marca.alertasIndividuais, marca.alertasAgrupados);
 
   return (
     <Card>
@@ -278,7 +347,10 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
             return (
               <article key={campanha.campanhaId} className="py-4 first:pt-2 last:pb-0">
                 <div className="flex items-start justify-between gap-3">
-                  <h4 className="min-w-0 text-sm font-semibold leading-snug text-foreground">{campanha.nome}</h4>
+                  <h4 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold leading-snug text-foreground">
+                    <span className="min-w-0 truncate">{campanha.nome}</span>
+                    <AtencaoLinha alertas={alertasPorCampanhaId.get(campanha.campanhaId) ?? []} />
+                  </h4>
                   <BadgeStatus status={campanha.status} />
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -315,7 +387,12 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
                     transition={{ ...springs.settleFast, delay: indice * 0.03 }}
                     className={indice < campanhas.length - 1 ? "border-b border-border" : ""}
                   >
-                    <td className="max-w-[220px] truncate px-3 py-2.5 font-medium text-foreground">{campanha.nome}</td>
+                    <td className="max-w-[220px] px-3 py-2.5 font-medium text-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <span className="min-w-0 truncate">{campanha.nome}</span>
+                        <AtencaoLinha alertas={alertasPorCampanhaId.get(campanha.campanhaId) ?? []} />
+                      </span>
+                    </td>
                     <td className="px-3 py-2.5"><BadgeStatus status={campanha.status} /></td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-xs tabular-nums text-muted-foreground">{formatarDataCriacao(campanha.criadaEm)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">

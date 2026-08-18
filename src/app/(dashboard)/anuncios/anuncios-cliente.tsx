@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -13,6 +13,8 @@ import { isBrandSlug } from "@/shared/config/brands";
 import { springs, stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
+import { actionDispararSincronizacaoConta, actionListarConfiguracaoCanais } from "../configuracoes/actions";
+import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
 import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
 import { OrganicoCard } from "./organico-card";
@@ -272,11 +274,13 @@ export function AnunciosCliente() {
   const [periodo, setPeriodo] = useState(periodoInicial);
   const [consulta, setConsulta] = useState<{ chave: string; dados: VisaoGeralResultado | null; anterior: VisaoGeralResultado | null }>({ chave: "", dados: null, anterior: null });
   const [exportando, setExportando] = useState(false);
+  const [contas, setContas] = useState<CanalConfiguracao[]>([]);
+  const [sincronizando, setSincronizando] = useState(false);
   const dados = consulta.dados;
   const chavePeriodo = `${periodo.inicio}:${periodo.fim}`;
   const carregando = consulta.chave !== chavePeriodo;
 
-  useEffect(() => {
+  const buscar = useCallback(() => {
     let ativo = true;
     const inicio = new Date(`${periodo.inicio}T12:00:00`);
     const fim = new Date(`${periodo.fim}T12:00:00`);
@@ -296,6 +300,12 @@ export function AnunciosCliente() {
     return () => { ativo = false; };
   }, [periodo.inicio, periodo.fim, chavePeriodo]);
 
+  useEffect(() => buscar(), [buscar]);
+
+  useEffect(() => {
+    actionListarConfiguracaoCanais().then(setContas).catch(() => setContas([]));
+  }, []);
+
   if (carregando) return <Esqueleto />;
 
   if (!dados || dados.semDados) {
@@ -308,6 +318,29 @@ export function AnunciosCliente() {
 
   const marca = dados.marcas.find((item) => item.brandId === marcaAtiva) ?? dados.marcas[0];
   const marcaAnterior = consulta.anterior?.marcas.find((item) => item.brandId === marca.brandId) ?? null;
+
+  const contaMercadoLivre = contas.find((conta) => conta.brandId === marca.brandId && conta.canal === "mercadolivre");
+
+  async function sincronizarAgora() {
+    if (!contaMercadoLivre?.channelAccountId) {
+      toast.error("Nenhuma conta do Mercado Livre conectada para esta marca.");
+      return;
+    }
+    setSincronizando(true);
+    try {
+      await actionDispararSincronizacaoConta(contaMercadoLivre.channelAccountId);
+      toast.success("Sincronização iniciada. Os números atualizam assim que ela terminar.");
+      // A fila roda no próprio job — não esperamos ela aqui. Um recarregamento
+      // simples do que já está pronto no banco é o que a tela pode oferecer
+      // sem travar esperando a fila inteira (catálogo, Product Ads, avaliações
+      // etc.) terminar.
+      buscar();
+    } catch {
+      toast.error("Não foi possível iniciar a sincronização.");
+    } finally {
+      setSincronizando(false);
+    }
+  }
 
   async function exportar() {
     setExportando(true);
@@ -337,9 +370,18 @@ export function AnunciosCliente() {
           <FileText size={14} /> {exportando ? "Gerando…" : "Exportar PDF"}
         </button>
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <RefreshCw size={11} />
           {copy.header.eyebrow}: {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}
         </span>
+        <button
+          type="button"
+          onClick={sincronizarAgora}
+          disabled={sincronizando || !contaMercadoLivre?.channelAccountId}
+          aria-label="Sincronizar agora com o Mercado Livre"
+          title={contaMercadoLivre?.channelAccountId ? "Sincronizar agora" : "Nenhuma conta do Mercado Livre conectada para esta marca"}
+          className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado disabled:opacity-50"
+        >
+          <RefreshCw size={13} className={sincronizando ? "animate-spin" : ""} />
+        </button>
       </div>
 
       {/* Ato 1 — os quatro números que respondem "o que está acontecendo" */}
