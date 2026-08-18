@@ -178,9 +178,9 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                 <div className="flex items-center gap-3 sm:border-l sm:border-border sm:pl-6">
                   <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{copy.operatedBy}</span>
                   <span className="flex items-center gap-3">
-                    <ElisaLimaLogo variant="header" className="!h-4 !w-auto shrink-0" />
+                    <ElisaLimaLogo variant="header" className="!h-6 !w-auto shrink-0" />
                     <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
-                    <BrandLogoGroup height={15} />
+                    <BrandLogoGroup height={16} />
                   </span>
                 </div>
               </div>
@@ -336,10 +336,10 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                   </div>
                 </dl>
                 <div className="mt-4 flex flex-wrap items-center gap-4">
-                  <ElisaLimaLogo variant="header" className="!h-4 !w-auto shrink-0" />
+                  <ElisaLimaLogo variant="header" className="!h-6 !w-auto shrink-0" />
                   <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
                   {appConfig.brandOrder.map((brand) => (
-                    <BrandLogo key={brand} brand={brand as BrandSlug} height={14} />
+                    <BrandLogo key={brand} brand={brand as BrandSlug} height={15} />
                   ))}
                 </div>
               </div>
