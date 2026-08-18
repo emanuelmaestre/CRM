@@ -161,22 +161,25 @@ export function Bloco({ def, focado, onAbrir }: {
         <motion.div
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
-          className="card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-2 overflow-hidden px-3 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 lg:gap-2.5 lg:px-3.5 lg:py-3"
+          className="card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-1.5 overflow-hidden px-2.5 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 lg:gap-2.5 lg:px-3.5 lg:py-3"
         >
           <span
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full lg:h-7 lg:w-7"
+            className="flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center rounded-full lg:h-7 lg:w-7"
             style={{ background: tint(accent, 9), color: accent }}
           >
             <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
             <Icone size={14} strokeWidth={1.9} className="hidden lg:block" />
           </span>
-          {/* text-wrap:balance evita que uma quebra de linha deixe só 1-2
-              letras orfãs na segunda linha (ex.: "Recomendaçõe" / "s" em
-              telas largas de celular como iPhone Pro Max, onde o card de
-              2 colunas é largo o bastante pro título quase caber numa
-              linha só) — distribui os caracteres de forma mais equilibrada
-              entre as linhas em vez de quebrar no primeiro ponto que não
-              coube. */}
+          {/* O título mais longo ("Recomendações") passa raspando na largura
+              de um card de 2 colunas no celular, e quem tem tamanho de texto
+              aumentado no iOS renderiza a fonte ~33% maior sem que o layout
+              mude junto — aí a palavra estoura por poucos pixels e o
+              overflow-wrap joga só o "s" pra segunda linha. Por isso o gap,
+              o padding e o ícone são menores que no desktop: compram ~8px
+              de folga, o suficiente pra palavra caber inteira nesse caso.
+              (text-wrap:balance não resolve sozinho — é uma palavra só, não
+              há como equilibrar entre linhas; serve pros títulos de 2-3
+              palavras.) */}
           <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] lg:text-[13.5px]">
             {def.titulo}
           </span>
