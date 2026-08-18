@@ -413,7 +413,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                   {(selecionada.clienteNomeCompleto || selecionada.clienteNome || selecionada.remetenteNome) && (
                     <p className="flex items-center gap-1 text-[11px] text-muted-foreground truncate mt-0.5">
                       <Package size={11} strokeWidth={2} className="flex-shrink-0 opacity-70" />
-                      <span className="truncate">{selecionada.produtoResumo ?? formatarPacote(selecionada.externalId)}</span>
+                      <span className="truncate font-semibold text-foreground">{selecionada.produtoResumo ?? formatarPacote(selecionada.externalId)}</span>
                     </p>
                   )}
                 </div>
@@ -469,8 +469,8 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                         >
                           {m.conteudo}
                         </div>
-                        <p className={`text-[10px] mt-1 px-1 tabular-nums ${saida ? "text-muted-foreground" : "text-muted-foreground"}`}>
-                          {formatarData(m.createdAt)}
+                        <p className="text-[10px] mt-1 px-1 tabular-nums text-muted-foreground">
+                          {dataHora.format(new Date(m.createdAt))}
                         </p>
                       </motion.div>
                     );
@@ -687,7 +687,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
                   {(c.clienteNomeCompleto || c.clienteNome || c.remetenteNome) && (
                     <p className="flex items-center gap-1 text-[10px] text-muted-foreground truncate mt-1">
                       <Package size={10} strokeWidth={2} className="flex-shrink-0 opacity-70" />
-                      <span className="truncate">{c.produtoResumo ?? formatarPacote(c.externalId)}</span>
+                      <span className="truncate font-semibold text-foreground">{c.produtoResumo ?? formatarPacote(c.externalId)}</span>
                     </p>
                   )}
                 </div>
