@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   AlertTriangle, BarChart3, Gauge, Hourglass, MessageSquare, Megaphone,
-  Package, RefreshCw, ShoppingBag, Sparkles, Store, Timer, TrendingDown, TrendingUp,
+  Package, RefreshCw, ShoppingBag, Sparkles, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
@@ -25,21 +25,18 @@ import { ReclamacoesCard } from "./painel/reclamacoes-card";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
 import { actionContarPedidosPorCanal, actionContarPedidosPorMarca } from "../vendas/actions";
 import {
-  actionListarInsights, actionListarSugestoes, actionObterAtendimento,
+  actionListarInsights, actionListarSugestoes,
   actionObterDesempenhoPublicacoes, actionObterPosVenda, actionObterSaudeLoja,
 } from "./actions";
 import { AcoesCard, type Insight, type Sugestao } from "./acoes-card";
-import { AtendimentoCard } from "./atendimento-card";
 import { ComparacaoCard } from "./comparacao-card";
 import { ComparacaoPeriodoCard } from "./comparacao-periodo-card";
 import { PosVendaCard } from "./pos-venda-card";
 import { PublicacoesCard, type DesempenhoPreCarregado } from "./publicacoes-card";
-import { ReputacaoCard } from "./reputacao-card";
 import { ScoreCard } from "./score-card";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
-import type { AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 
 const copy = metricasConfig.mosaico;
@@ -297,7 +294,6 @@ export function Mosaico() {
   const chave = `${inicio ?? ""}..${fim ?? ""}`;
 
   const [saude, setSaude] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
-  const [atendimento, setAtendimento] = useState<{ chave: string; dados: AtendimentoResumo | null }>({ chave: "", dados: null });
   const [anterior, setAnterior] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
   // Sem timestamp único de servidor pra "isto tudo" — o mosaico é a soma de
   // ~7 buscas independentes (ver comentário acima sobre cada uma carregar no
@@ -337,20 +333,7 @@ export function Mosaico() {
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
 
-  useEffect(() => {
-    let ativo = true;
-    actionObterAtendimento({ inicio, fim })
-      .then((resultado) => { if (ativo) setAtendimento({ chave, dados: resultado }); })
-      .catch(() => {
-        if (!ativo) return;
-        setAtendimento({ chave, dados: null });
-        toast.error(metricasConfig.erros.carregar, { id: "metricas-atendimento" });
-      });
-    return () => { ativo = false; };
-  }, [chave, inicio, fim]);
-
   const carregandoSaude = saude.chave !== chave;
-  const carregandoAtendimento = atendimento.chave !== chave;
 
   /* ── Pós-venda, Recomendações e Publicações (1ª marca) ──
      Esses três buscavam de dentro do próprio card, e o card só montava
@@ -492,27 +475,6 @@ export function Mosaico() {
     render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
   }), [saude.dados, carregandoSaude]);
 
-  const blocoReputacao = useMemo<BlocoDef>(() => ({
-    id: "reputacao",
-    secao: "saude",
-    titulo: blocosCopy.reputacao.titulo,
-    icone: Store,
-    // Mesma cor do ACENTO em reputacao-card.tsx — divergiam (tile e card
-    // aberto mostravam cores diferentes para o mesmo bloco).
-    accent: "var(--acento-1)",
-    carregando: carregandoSaude,
-    resumo: {
-      valor: null,
-      legenda: saude.dados?.reputacaoIndisponivel ? metricasConfig.reputacaoCard.semTermometro : blocosCopy.reputacao.legenda,
-    },
-    // Não usa o período escolhido no seletor: o Mercado Livre não deixa
-    // recortar a janela do termômetro (vem fixa por métrica, 60 ou 365 dias).
-    // Rotular com o período do filtro sugeriria que mudar a data muda o
-    // número aqui, o que nunca acontece.
-    subtitulo: metricasConfig.reputacaoCard.subtituloJanelaPropria,
-    render: () => <ReputacaoCard dados={saude.dados} carregando={carregandoSaude} />,
-  }), [saude.dados, carregandoSaude]);
-
   const blocoComparacao = useMemo<BlocoDef>(() => ({
     id: "comparacao",
     secao: "financeiro",
@@ -601,27 +563,6 @@ export function Mosaico() {
       />
     ),
   }), [reposicao, filtroReposicao, escopo]);
-
-  const blocoAtendimento = useMemo<BlocoDef>(() => ({
-    id: "atendimento",
-    secao: "atendimento",
-    titulo: blocosCopy.atendimento.titulo,
-    icone: Timer,
-    // Mesma cor do ACENTO em atendimento-card.tsx.
-    accent: "var(--acento-1)",
-    carregando: carregandoAtendimento,
-    resumo: {
-      valor: atendimento.dados?.taxaResposta !== null && atendimento.dados?.taxaResposta !== undefined
-        ? `${Math.round(atendimento.dados.taxaResposta)}%`
-        : null,
-      variacao: atendimento.dados?.variacaoTaxaResposta ?? null,
-      legenda: atendimento.dados?.medianaLabel
-        ? `${metricasConfig.atendimentoCard.medianaLabel}: ${atendimento.dados.medianaLabel}`
-        : blocosCopy.atendimento.legenda,
-    },
-    subtitulo: metricasConfig.atendimentoCard.subtitulo,
-    render: () => <AtendimentoCard dados={atendimento.dados} carregando={carregandoAtendimento} />,
-  }), [atendimento.dados, carregandoAtendimento]);
 
   const blocoMaisVendidos = useMemo<BlocoDef>(() => ({
     id: "maisVendidos",
@@ -750,13 +691,13 @@ export function Mosaico() {
   // Marketing) e ordena por urgência dentro de cada uma — o trabalho pesado
   // (recriar cada bloco) já aconteceu nos memos acima, isolado por grupo.
   const { grupos, lista: blocos } = useMemo(() => agruparPorSecao([
-    blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoReputacao, blocoComparacao,
+    blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
     ...(blocoEvolucao ? [blocoEvolucao] : []),
-    blocoAtendimento, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
+    blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
     ...(blocoPublicacoes ? [blocoPublicacoes] : []),
   ]), [
-    blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoReputacao, blocoComparacao,
-    blocoEvolucao, blocoAtendimento, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
+    blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
+    blocoEvolucao, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
     blocoPublicacoes,
   ]);
 

@@ -21,7 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
     dir: "ltr",
     shortcuts: [
       { name: "Clientes", short_name: "Clientes", url: "/clientes", description: "Abrir lista de clientes" },
-      { name: "Inbox", short_name: "Inbox", url: "/inbox", description: "Abrir inbox unificado" },
+      { name: "Avaliações", short_name: "Avaliações", url: "/avaliacoes", description: "Abrir avaliações do Mercado Livre" },
       { name: "Vendas", short_name: "Vendas", url: "/vendas", description: "Abrir pedidos" },
     ],
   };

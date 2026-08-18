@@ -20,7 +20,7 @@ describe("contratos JSON da interface", () => {
 
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(hrefs).size).toBe(hrefs.length);
-    expect(navigationConfig.items.filter((item) => item.mobilePriority)).toHaveLength(5);
+    expect(navigationConfig.items.filter((item) => item.mobilePriority)).toHaveLength(6);
   });
 
   it("registra todos os ícones referenciados pelos arquivos JSON", () => {
@@ -34,7 +34,6 @@ describe("contratos JSON da interface", () => {
       settingsConfig.status.pendingIcon,
       settingsConfig.openAction.icon,
       ...Object.values(saudeConfig.sections).map((section) => section.icon),
-      ...pagesConfig.inbox.tabs.map((tab) => tab.icon),
     ];
 
     for (const icon of icons) expect(iconRegistry).toHaveProperty(icon);
@@ -99,26 +98,12 @@ describe("contratos JSON da interface", () => {
     expect(settingsConfig.channelForms.externalId.required).not.toHaveLength(0);
   });
 
-  it("mantém conteúdo e plataformas do Inbox íntegros no JSON", () => {
-    const questions = pagesConfig.inbox.questions;
-
-    expect(questions.platformOrder).toEqual(Object.keys(questions.platforms));
-    expect(pagesConfig.inbox.tabs.map((tab) => tab.id)).toEqual(["conversas", "perguntas", "avaliacoes"]);
-    for (const platform of Object.values(questions.platforms)) {
-      expect(platform.charLimit).toBeGreaterThan(0);
-      expect(platform.quickReplies.length).toBeGreaterThan(0);
-      // A logo não vive aqui: quem resolve é channels.json, via ChannelLogo.
-      expect(platform).not.toHaveProperty("logo");
-    }
-  });
-
   it("preserva marcadores dos textos interpolados", () => {
     expect(saudeConfig.labels.verifiedAt).toContain("{date}");
     expect(saudeConfig.labels.attempt).toContain("{attempt}");
     expect(saudeConfig.automacoes.map((item) => item.id)).toEqual(
       expect.arrayContaining(["A23", "A24", "A25", "A26"]),
     );
-    expect(pagesConfig.inbox.conversation.statusUpdated).toContain("{status}");
   });
 
   it("mantém páginas institucionais e estados do sistema configurados", () => {

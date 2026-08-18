@@ -353,7 +353,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
   );
 }
 
-export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
+export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens }: {
   marcasAtivas: ReadonlySet<string>;
   canaisAtivos: ReadonlySet<string>;
   onContagens: (valores: { marcas: Record<string, number>; canais: Record<string, number> }) => void;

@@ -53,10 +53,10 @@
       ]
     },
     {
-      "id": "inbox",
-      "href": "/inbox",
-      "label": "Mensagens",
-      "icon": "MessageSquare",
+      "id": "avaliacoes",
+      "href": "/avaliacoes",
+      "label": "Avaliações",
+      "icon": "Star",
       "mobilePriority": 5,
       "profiles": [
         "admin",

@@ -4,7 +4,7 @@
 export const MODULOS_CATALOGO = [
   { id: "metricas", label: "Métricas", icon: "LayoutDashboard" },
   { id: "clientes", label: "Clientes", icon: "Users" },
-  { id: "inbox", label: "Mensagens", icon: "MessageSquare" },
+  { id: "avaliacoes", label: "Avaliações", icon: "Star" },
   { id: "vendas", label: "Vendas", icon: "ShoppingCart" },
   { id: "estoque", label: "Estoque", icon: "Package" },
   { id: "anuncios", label: "Publicidade", icon: "Megaphone" },
