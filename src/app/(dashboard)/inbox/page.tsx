@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { InboxCliente } from "./inbox-cliente";
 import { InboxPerguntas } from "./inbox-perguntas";
 import { InboxAvaliacoes } from "./inbox-avaliacoes";
-import { FiltroEscopoBar } from "./filtro-escopo";
+import { FiltroEscopoBar, EmpresasRow, CanaisRow } from "./filtro-escopo";
 import pagesConfig from "@/config/pages.json";
 
 type Aba = "conversas" | "perguntas" | "avaliacoes";
@@ -48,16 +48,56 @@ export default function InboxPage() {
     });
   }
 
+  const tabBar = (
+    <div className="flex gap-1 p-1 rounded-[0.875rem] bg-muted w-fit flex-shrink-0">
+      {ABAS.map((a) => {
+        const active = aba === a.id;
+        return (
+          <motion.button
+            key={a.id}
+            onClick={() => setAba(a.id)}
+            whileTap={{ scale: 0.97 }}
+            className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-[0.625rem] text-sm font-medium transition-colors whitespace-nowrap"
+            style={{ color: active ? "var(--foreground)" : "var(--muted-foreground)" }}
+          >
+            {active && (
+              <motion.span
+                layoutId="inbox-tab"
+                className="absolute inset-0 rounded-[0.625rem] bg-card shadow-[0_1px_4px_rgba(14,15,19,.10)]"
+                transition={{ type: "spring", stiffness: 380, damping: 32 }}
+              />
+            )}
+            <span className="relative z-10">{a.label}</span>
+          </motion.button>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-3">
       {/* Header + Tabs — compacto de propósito: a conversa é o conteúdo, não
           o cabeçalho, então título, filtro e abas dividem uma linha só sempre
-          que a largura permitir, em vez de empilhar e comer altura útil. */}
-      <div className="flex flex-nowrap items-center justify-center gap-3">
+          que a largura permitir, em vez de empilhar e comer altura útil.
+          Abaixo de lg não cabe empresa + canal + abas numa linha só sem
+          cortar pílulas pra fora da viewport, então empilha em 3 linhas:
+          canal, empresa, abas — cada uma centralizada e rolando por dentro
+          se precisar, em vez de uma barra só que escondia o resto. */}
+      {/* tabBar é montado uma única vez (não duplicado por breakpoint) porque
+          seu botão ativo usa layoutId do framer-motion — duas cópias no DOM
+          ao mesmo tempo colidiriam nesse id mesmo com uma escondida via CSS. */}
+      <div className="flex flex-col items-center gap-2 lg:flex-row lg:justify-center lg:gap-3">
+        <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin flex justify-center lg:hidden">
+          <CanaisRow canaisAtivos={canaisAtivos} onToggleCanal={alternarCanal} contagemCanal={contagens[aba].canais} />
+        </div>
+        <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin flex justify-center lg:hidden">
+          <EmpresasRow marcasAtivas={marcasAtivas} onToggleMarca={alternarMarca} contagemMarca={contagens[aba].marcas} />
+        </div>
+
         {/* Barra de escopo única — vale pras três abas ao mesmo tempo, em vez
             de cada uma ter a sua. Rola por dentro em vez de quebrar linha,
             pra não empurrar a tab bar pra baixo em telas mais estreitas. */}
-        <div className="min-w-0 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin">
+        <div className="hidden lg:block min-w-0 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin">
           <FiltroEscopoBar
             marcasAtivas={marcasAtivas}
             canaisAtivos={canaisAtivos}
@@ -68,30 +108,7 @@ export default function InboxPage() {
           />
         </div>
 
-        {/* Tab bar */}
-        <div className="flex gap-1 p-1 rounded-[0.875rem] bg-muted w-fit flex-shrink-0">
-          {ABAS.map((a) => {
-            const active = aba === a.id;
-            return (
-              <motion.button
-                key={a.id}
-                onClick={() => setAba(a.id)}
-                whileTap={{ scale: 0.97 }}
-                className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-[0.625rem] text-sm font-medium transition-colors whitespace-nowrap"
-                style={{ color: active ? "var(--foreground)" : "var(--muted-foreground)" }}
-              >
-                {active && (
-                  <motion.span
-                    layoutId="inbox-tab"
-                    className="absolute inset-0 rounded-[0.625rem] bg-card shadow-[0_1px_4px_rgba(14,15,19,.10)]"
-                    transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                  />
-                )}
-                <span className="relative z-10">{a.label}</span>
-              </motion.button>
-            );
-          })}
-        </div>
+        {tabBar}
       </div>
 
       {/* Conteúdo da aba — as três ficam montadas desde a entrada na página,

@@ -52,23 +52,16 @@ function CanalFiltroPill({ tipo, total, ativo, onClick }: {
   );
 }
 
-/** Barra única de escopo Empresa/Canal, compartilhada pelas três abas do
- *  Inbox (Conversas, Perguntas, Avaliações) — antes cada aba tinha a sua
- *  própria, com contagens e seleção independentes; agora escolher uma
- *  empresa ou canal aqui filtra as três ao mesmo tempo. As contagens somam
- *  o que está carregado nas três abas (conversa + pergunta + anúncio), não
- *  o total de cada uma isolada — é um indicador de atividade, não uma
- *  contagem exata de "itens" (que teria naturezas diferentes por aba). */
-export function FiltroEscopoBar({
-  marcasAtivas, canaisAtivos, onToggleMarca, onToggleCanal, contagemMarca, contagemCanal,
-}: {
+type FiltroEscopoProps = {
   marcasAtivas: ReadonlySet<string>;
   canaisAtivos: ReadonlySet<string>;
   onToggleMarca: (slug: string) => void;
   onToggleCanal: (tipo: string) => void;
   contagemMarca: Record<string, number>;
   contagemCanal: Record<string, number>;
-}) {
+};
+
+export function EmpresasRow({ marcasAtivas, onToggleMarca, contagemMarca }: Pick<FiltroEscopoProps, "marcasAtivas" | "onToggleMarca" | "contagemMarca">) {
   return (
     <div className="flex flex-nowrap items-center gap-2 w-fit">
       {BRAND_SLUGS.map((slug) => (
@@ -81,9 +74,13 @@ export function FiltroEscopoBar({
           onClick={() => onToggleMarca(slug)}
         />
       ))}
+    </div>
+  );
+}
 
-      <span aria-hidden="true" className="h-7 w-px bg-border flex-shrink-0" />
-
+export function CanaisRow({ canaisAtivos, onToggleCanal, contagemCanal }: Pick<FiltroEscopoProps, "canaisAtivos" | "onToggleCanal" | "contagemCanal">) {
+  return (
+    <div className="flex flex-nowrap items-center gap-2 w-fit">
       {CANAIS_VENDA.map((tipo) => (
         <CanalFiltroPill
           key={tipo}
@@ -93,6 +90,28 @@ export function FiltroEscopoBar({
           onClick={() => onToggleCanal(tipo)}
         />
       ))}
+    </div>
+  );
+}
+
+/** Barra única de escopo Empresa/Canal, compartilhada pelas três abas do
+ *  Inbox (Conversas, Perguntas, Avaliações) — antes cada aba tinha a sua
+ *  própria, com contagens e seleção independentes; agora escolher uma
+ *  empresa ou canal aqui filtra as três ao mesmo tempo. As contagens somam
+ *  o que está carregado nas três abas (conversa + pergunta + anúncio), não
+ *  o total de cada uma isolada — é um indicador de atividade, não uma
+ *  contagem exata de "itens" (que teria naturezas diferentes por aba).
+ *  Usada como uma linha só a partir do breakpoint lg; abaixo disso o
+ *  Inbox monta EmpresasRow/CanaisRow separadas, empilhadas, porque numa
+ *  tela estreita as duas listas de pílulas não cabem lado a lado sem
+ *  empurrar uma pra fora da viewport (era o que causava "Karzi" sumir
+ *  no mobile: a barra rolava e escondia o resto). */
+export function FiltroEscopoBar(props: FiltroEscopoProps) {
+  return (
+    <div className="flex flex-nowrap items-center gap-2 w-fit">
+      <EmpresasRow marcasAtivas={props.marcasAtivas} onToggleMarca={props.onToggleMarca} contagemMarca={props.contagemMarca} />
+      <span aria-hidden="true" className="h-7 w-px bg-border flex-shrink-0" />
+      <CanaisRow canaisAtivos={props.canaisAtivos} onToggleCanal={props.onToggleCanal} contagemCanal={props.contagemCanal} />
     </div>
   );
 }
