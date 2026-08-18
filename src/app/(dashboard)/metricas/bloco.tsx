@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
-import { springs, transicao, variantes } from "@/shared/design-system/motion-variants";
+import { springs, transicao } from "@/shared/design-system/motion-variants";
 import { useFocusTrap } from "@/shared/design-system/primitives/useFocusTrap";
 import { tint } from "@/shared/design-system/color";
 
@@ -120,7 +120,7 @@ export function agruparPorSecao(blocos: BlocoDef[]): { grupos: GrupoSecao[]; lis
 export function RotuloSecao({ label, alerta }: { label: string; alerta: NivelAlerta | null }) {
   return (
     <div className="flex items-center gap-2 px-1">
-      <h2 className="text-label-md whitespace-nowrap uppercase text-muted-foreground">{label}</h2>
+      <h2 className="text-label-md uppercase text-muted-foreground">{label}</h2>
       {alerta && (
         <span
           aria-hidden="true"
@@ -128,11 +128,7 @@ export function RotuloSecao({ label, alerta }: { label: string; alerta: NivelAle
           style={{ background: corAlerta(alerta) }}
         />
       )}
-      {/* No desktop cada seção vira um agrupamento lado a lado (ver
-          mosaico.tsx) — a régua que ia até a borda da tela não faz mais
-          sentido esticada dentro de um bloco que só tem a própria largura;
-          a borda entre grupos assume esse papel ali. */}
-      <span className="h-px flex-1 bg-border lg:hidden" />
+      <span className="h-px flex-1 bg-border" />
     </div>
   );
 }
@@ -143,21 +139,11 @@ function corAlerta(nivel: NivelAlerta) {
 
 /* ── Bloco ─────────────────────────────────────────────────────── */
 
-/** Entrada em leque: pop com bounce visível (não o fade sutil do resto do
- *  app) — decisão deliberada só para este mosaico, confirmada com o
- *  usuário ("exagerar" motion aqui). */
-const entradaBloco = {
-  hidden: { opacity: 0, scale: 0.82, y: 10 },
-  show: { opacity: 1, scale: 1, y: 0, transition: springs.momentum },
-};
-
 /** Botão compacto: ícone + nome, nada mais. O mosaico virou um índice de
  *  navegação para os 14 cards — quem quer o número abre o card (decisão
  *  deliberada: sem prévia de valor, sem sinal de alerta, sem seta). A
  *  ordem dentro de cada seção é a mesma sempre (ver `agruparPorSecao`,
- *  que não reordena mais por urgência). No desktop (lg+) o botão tem
- *  largura fixa e igual para todos — quem preenche a linha inteira é o
- *  `flex-wrap` das seções em `mosaico.tsx`, não um card esticado. */
+ *  que não reordena mais por urgência). */
 export function Bloco({ def, focado, onAbrir }: {
   def: BlocoDef;
   focado: boolean;
@@ -167,29 +153,24 @@ export function Bloco({ def, focado, onAbrir }: {
   const { icone: Icone, accent } = def;
 
   return (
-    <li className="relative lg:w-52 lg:shrink-0">
+    <li className="relative">
       {/* Sem AnimatePresence de propósito: o bloco precisa sair da árvore no
           mesmo quadro em que o painel entra, senão os dois seguram o layoutId
           por um instante e o crescimento vira um piscar. */}
       {!focado && (
         <motion.div
           layoutId={`bloco-${def.id}`}
-          variants={variantes(reduzir, entradaBloco)}
-          whileHover={reduzir ? undefined : { y: -4, scale: 1.035 }}
-          whileTap={reduzir ? undefined : { scale: 0.94 }}
-          transition={transicao(reduzir, springs.momentum)}
-          className="card-surface group relative flex min-h-11 w-full cursor-pointer items-center gap-2 overflow-hidden px-3 py-2.5 text-left transition-shadow hover:shadow-[0_10px_28px_rgba(14,15,19,.14)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 lg:gap-2.5 lg:px-4 lg:py-3.5"
+          transition={transicao(reduzir, springs.settle)}
+          className="card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-2 overflow-hidden px-3 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 lg:gap-2.5 lg:px-3.5 lg:py-3"
         >
-          <motion.span
-            whileHover={reduzir ? undefined : { rotate: 10, scale: 1.1 }}
-            transition={springs.momentum}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full lg:h-8 lg:w-8"
+          <span
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full lg:h-7 lg:w-7"
             style={{ background: tint(accent, 9), color: accent }}
           >
             <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
-            <Icone size={16} strokeWidth={1.9} className="hidden lg:block" />
-          </motion.span>
-          <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] lg:text-[14px]">
+            <Icone size={14} strokeWidth={1.9} className="hidden lg:block" />
+          </span>
+          <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] lg:text-[13.5px]">
             {def.titulo}
           </span>
           <button

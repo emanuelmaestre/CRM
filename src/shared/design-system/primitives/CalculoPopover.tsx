@@ -42,7 +42,7 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
           aria-label={`Entenda o indicador ${titulo}`}
           title={`Entenda o indicador: ${titulo}`}
           iconSize={15}
-          className="press-feedback inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground shadow-sm transition-all hover:border-primary/30 hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="press-feedback inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       )}
       align="start"

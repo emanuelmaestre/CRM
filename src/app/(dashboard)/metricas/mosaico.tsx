@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   AlertTriangle, BarChart3, Gauge, Hourglass, MessageSquare, Megaphone,
@@ -11,7 +11,7 @@ import {
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
-import { fadeUp, stagger, variantes } from "@/shared/design-system/motion-variants";
+import { stagger } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import metricasConfig from "@/config/metricas.json";
@@ -183,19 +183,9 @@ const TOUR: CoachMarkStep[] = [
   },
 ];
 
-/** Stagger mais forte que o padrão do resto do app (`stagger` em
- *  motion-variants.ts, 0.04s) — decisão deliberada só para este mosaico,
- *  pedida explicitamente pelo usuário ("exagerar" motion aqui, sem
- *  propagar isso para o resto do sistema). */
-const staggerExagerado = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.07, delayChildren: 0.03 } },
-};
-
 /* ── Mosaico ───────────────────────────────────────────────────── */
 
 export function Mosaico() {
-  const reduzir = useReducedMotion();
   const router = useRouter();
   const params = useSearchParams();
   const cardAberto = params.get("card");
@@ -790,60 +780,40 @@ export function Mosaico() {
       <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-3">
         {marcas.length > 0 && <CoachMarks storageKey="crm-leo:coachmarks:mosaico:v1" steps={TOUR} />}
 
+        {/* Período, "Hoje" e exportar saíram do topo do mosaico — só fazem
+            sentido dentro de um card aberto (ver `Foco` mais abaixo), onde
+            o dado que eles afetam está de fato na tela. Aqui em cima sobra
+            só a informação passiva: quando os números foram buscados. */}
+        {carregadoEm && (
+          <div className="sticky top-0 z-30 flex justify-end bg-background/85 px-1 py-1.5 backdrop-blur md:top-14 [@media_(min-width:768px)_and_(max-height:500px)]:top-0 lg:static lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground lg:fixed lg:bottom-4 lg:right-4 lg:z-20 lg:rounded-full lg:bg-card/90 lg:px-3 lg:py-1.5 lg:shadow-[0_2px_10px_rgba(14,15,19,.08)] lg:backdrop-blur">
+              <RefreshCw size={11} />
+              Atualizado às {dataHora.format(carregadoEm)}
+            </span>
+          </div>
+        )}
+
         {/* 5 seções em vez de uma grade só de 14 — cada uma com o próprio
             rótulo e a própria ordenação por urgência (ver agruparPorSecao em
             bloco.tsx). Um bloco com alerta sobe dentro do grupo dele, não
             para cima do mosaico inteiro; o rótulo da seção ganha um ponto na
             cor do pior alerta, então dá pra saber onde olhar antes de abrir
-            qualquer coisa.
-
-            No mobile cada seção continua empilhada e com largura cheia (o
-            usuário confirmou que ali já está certo). No desktop (lg+) as
-            seções viram grupos lado a lado que se acomodam em `flex-wrap`:
-            uma seção de 2 itens não fica mais sozinha numa linha com metade
-            do espaço vazio — ela divide a linha com a seção seguinte que
-            couber, e só quebra pra próxima linha quando não sobra espaço. O
-            "Atualizado às" entra como o último item desse mesmo fluxo, em
-            vez de morar numa barra própria — cai na mesma linha sempre que
-            houver espaço sobrando no final. */}
-        <motion.div
-          data-coachmark="mosaico-grade"
-          variants={staggerExagerado}
-          className="flex flex-col gap-3.5 lg:flex-row lg:flex-wrap lg:items-start lg:gap-x-7 lg:gap-y-5"
-        >
+            qualquer coisa. */}
+        <div data-coachmark="mosaico-grade" className="flex flex-col gap-3.5 lg:gap-6">
           {grupos.map((grupo) => (
-            <motion.section
-              key={grupo.id}
-              variants={staggerExagerado}
-              className="flex flex-col gap-2 lg:w-fit lg:shrink-0 [&:not(:last-child)]:lg:border-r [&:not(:last-child)]:lg:border-border [&:not(:last-child)]:lg:pr-7"
-            >
+            <section key={grupo.id} className="flex flex-col gap-2">
               <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
-              <motion.ul
-                variants={staggerExagerado}
-                className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-nowrap lg:gap-2.5"
-              >
+              {/* lg:grid-cols-4 é o mínimo seguro: a maior seção (Estoque)
+                  tem 4 itens — menos colunas que isso faria ela quebrar em
+                  2 linhas e arriscar reintroduzir rolagem no desktop. */}
+              <ul className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 lg:gap-3 xl:grid-cols-5 2xl:grid-cols-6">
                 {grupo.blocos.map((bloco) => (
                   <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
                 ))}
-              </motion.ul>
-            </motion.section>
+              </ul>
+            </section>
           ))}
-
-          {/* Período, "Hoje" e exportar saíram do topo do mosaico — só fazem
-              sentido dentro de um card aberto (ver `Foco` mais abaixo), onde
-              o dado que eles afetam está de fato na tela. O que sobra aqui é
-              só a informação passiva de quando os números foram buscados,
-              flutuando no fim do mesmo fluxo das seções. */}
-          {carregadoEm && (
-            <motion.div
-              variants={variantes(reduzir, fadeUp)}
-              className="flex items-center gap-1.5 self-center whitespace-nowrap text-[11px] text-muted-foreground lg:ml-auto"
-            >
-              <RefreshCw size={11} />
-              Atualizado às {dataHora.format(carregadoEm)}
-            </motion.div>
-          )}
-        </motion.div>
+        </div>
       </motion.div>
 
       {/* Atalho de escopo: some sozinho, e some de vez assim que não há bloco
