@@ -12,6 +12,7 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  LayoutGrid,
   Loader2,
   LockKeyhole,
   Mail,
@@ -32,10 +33,12 @@ import {
 import { toast } from "sonner";
 import permissionsConfig from "@/config/permissions.json";
 import type { Perfil } from "@/shared/lib/auth/authorization";
+import { MODULOS_CATALOGO, MODULOS_TODOS, normalizarModulos, type ModuloId } from "@/config/modulos";
+import { getIcon } from "@/shared/config/icon-registry";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
-import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import {
+  actionAtualizarModulosUsuario,
   actionAtualizarUsuario,
   actionCriarUsuarioComSenha,
   actionExcluirUsuario,
@@ -43,21 +46,24 @@ import {
   actionRenomearUsuario,
 } from "./actions";
 
-// Cada perfil ganha a própria cor de identidade — mesmo princípio de "cada
+// Cor única de identidade pra qualquer cargo — mesmo princípio de "cada
 // marca tinge com a própria cor" usado no resto do sistema (ver
-// scope-row.tsx). Sem isso, a lista de usuários era a única tela onde tudo
-// tinha a mesma cor neutra, e "quem é admin" exigia ler cada linha.
-const PERFIL_COR: Record<Perfil, string> = {
-  admin: "var(--primary)",
-  gestor: "var(--info)",
-  vendedor: "var(--acento-2)",
-};
+// scope-row.tsx), só que agora por pessoa, não por perfil: perfil é sempre
+// "admin" pra quem é criado hoje em diante, então deixou de servir como
+// diferenciador visual da lista.
+const CARGO_COR = "var(--primary)";
+
+/** Sugestões de cargo — atalho de um clique, não uma lista fechada. Quem
+ *  cria o usuário pode digitar qualquer outra coisa no campo. */
+const CARGOS_SUGERIDOS = ["Desenvolvedor", "Diretor", "Publicitário"];
 
 export interface UsuarioResumo {
   id: string;
   email: string;
   nome: string;
   perfil: Perfil;
+  cargo: string | null;
+  modulosVisiveis: unknown;
   ativo: boolean;
 }
 
@@ -73,21 +79,24 @@ interface UsuariosSectionProps {
   onUsuarioExcluido: (userId: string) => void;
 }
 
-type PainelModo = { tipo: "criar" } | { tipo: "senha"; usuario: UsuarioResumo };
+type PainelModo =
+  | { tipo: "criar" }
+  | { tipo: "senha"; usuario: UsuarioResumo }
+  | { tipo: "modulos"; usuario: UsuarioResumo };
 
 interface FormState {
   nome: string;
   email: string;
-  perfil: Perfil;
+  cargo: string;
+  modulosVisiveis: ModuloId[];
   senha: string;
 }
 
-const PERFIS = Object.entries(permissionsConfig.profiles) as Array<[
-  Perfil,
-  { label: string; description: string },
-]>;
-
 const perfilMap = permissionsConfig.profiles as Record<Perfil, { label: string; description: string }>;
+
+function alternarModulo(atual: ModuloId[], id: ModuloId): ModuloId[] {
+  return atual.includes(id) ? atual.filter((m) => m !== id) : [...atual, id];
+}
 
 const inputClass =
   "h-11 w-full rounded-[0.75rem] border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition-[border-color,box-shadow] focus:border-primary/50 focus:shadow-[0_0_0_3px_rgba(155,48,217,.10)] disabled:cursor-not-allowed disabled:bg-muted/50 disabled:text-muted-foreground";
@@ -210,7 +219,7 @@ export function UsuariosSection({
   const reduzir = useReducedMotion();
   const [busca, setBusca] = useState("");
   const [painel, setPainel] = useState<PainelModo | null>(null);
-  const [form, setForm] = useState<FormState>({ nome: "", email: "", perfil: "vendedor", senha: "" });
+  const [form, setForm] = useState<FormState>({ nome: "", email: "", cargo: "", modulosVisiveis: [...MODULOS_TODOS], senha: "" });
   const [senhaVisivel, setSenhaVisivel] = useState(true);
   const [copiado, setCopiado] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -223,24 +232,27 @@ export function UsuariosSection({
   const [renomeando, setRenomeando] = useState(false);
 
   const totalAtivos = usuarios.filter((usuario) => usuario.ativo).length;
-  const totalAdmins = usuarios.filter((usuario) => usuario.ativo && usuario.perfil === "admin").length;
   const senha = medirSenha(form.senha);
   const modoCriacao = painel?.tipo === "criar";
+  const modoModulos = painel?.tipo === "modulos";
+  const cargoValido = form.cargo.trim().length >= 2;
   const podeSalvar = modoCriacao
-    ? form.nome.trim().length >= 2 && form.email.includes("@") && senha.score >= 2
+    ? form.nome.trim().length >= 2 && form.email.includes("@") && senha.score >= 2 && cargoValido && form.modulosVisiveis.length >= 1
+    : modoModulos
+    ? cargoValido && form.modulosVisiveis.length >= 1
     : senha.score >= 2;
 
   const usuariosFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     if (!termo) return usuarios;
     return usuarios.filter((usuario) =>
-      `${usuario.nome} ${usuario.email} ${perfilMap[usuario.perfil].label}`.toLowerCase().includes(termo),
+      `${usuario.nome} ${usuario.email} ${usuario.cargo ?? perfilMap[usuario.perfil].label}`.toLowerCase().includes(termo),
     );
   }, [busca, usuarios]);
 
   function abrirCriacao() {
     setPainel({ tipo: "criar" });
-    setForm({ nome: "", email: "", perfil: "vendedor", senha: gerarSenhaTemporaria() });
+    setForm({ nome: "", email: "", cargo: "", modulosVisiveis: [...MODULOS_TODOS], senha: gerarSenhaTemporaria() });
     setSenhaVisivel(true);
     setCopiado(false);
     setConcluido(false);
@@ -251,7 +263,8 @@ export function UsuariosSection({
     setForm({
       nome: usuario.nome,
       email: usuario.email,
-      perfil: usuario.perfil,
+      cargo: usuario.cargo ?? "",
+      modulosVisiveis: normalizarModulos(usuario.modulosVisiveis),
       senha: gerarSenhaTemporaria(),
     });
     setSenhaVisivel(true);
@@ -259,9 +272,22 @@ export function UsuariosSection({
     setConcluido(false);
   }
 
+  function abrirEdicaoModulos(usuario: UsuarioResumo) {
+    setPainel({ tipo: "modulos", usuario });
+    setForm({
+      nome: usuario.nome,
+      email: usuario.email,
+      cargo: usuario.cargo ?? "",
+      modulosVisiveis: normalizarModulos(usuario.modulosVisiveis),
+      senha: "",
+    });
+    setCopiado(false);
+    setConcluido(false);
+  }
+
   function fecharPainel() {
     setPainel(null);
-    setForm({ nome: "", email: "", perfil: "vendedor", senha: "" });
+    setForm({ nome: "", email: "", cargo: "", modulosVisiveis: [...MODULOS_TODOS], senha: "" });
     setCopiado(false);
     setConcluido(false);
     setSalvando(false);
@@ -277,12 +303,12 @@ export function UsuariosSection({
     }
   }
 
-  async function alterarUsuario(usuario: UsuarioResumo, perfil: Perfil, ativo: boolean) {
+  async function alternarAtivo(usuario: UsuarioResumo) {
     setUsuarioEmAlteracao(usuario.id);
     try {
-      const atualizado = await actionAtualizarUsuario({ userId: usuario.id, perfil, ativo });
+      const atualizado = await actionAtualizarUsuario({ userId: usuario.id, perfil: "admin", ativo: !usuario.ativo });
       onUsuarioAtualizado(atualizado);
-      toast.success("Acesso atualizado.");
+      toast.success(atualizado.ativo ? "Acesso reativado." : "Acesso pausado.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível atualizar este acesso.");
     } finally {
@@ -337,10 +363,25 @@ export function UsuariosSection({
     setSalvando(true);
     try {
       if (painel.tipo === "criar") {
-        const criado = await actionCriarUsuarioComSenha(form);
+        const criado = await actionCriarUsuarioComSenha({
+          nome: form.nome,
+          email: form.email,
+          cargo: form.cargo.trim(),
+          modulosVisiveis: form.modulosVisiveis,
+          senha: form.senha,
+        });
         onUsuarioCriado(criado);
         setConcluido(true);
         toast.success("Usuário criado. Copie a senha temporária para entregar o acesso.");
+      } else if (painel.tipo === "modulos") {
+        const atualizado = await actionAtualizarModulosUsuario({
+          userId: painel.usuario.id,
+          cargo: form.cargo.trim(),
+          modulosVisiveis: form.modulosVisiveis,
+        });
+        onUsuarioAtualizado(atualizado);
+        toast.success("Cargo e módulos atualizados.");
+        fecharPainel();
       } else {
         const atualizado = await actionRedefinirSenhaUsuario({ userId: painel.usuario.id, senha: form.senha });
         onUsuarioAtualizado(atualizado);
@@ -372,10 +413,10 @@ export function UsuariosSection({
             </span>
             <span
               className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
-              style={{ background: tint(PERFIL_COR.admin, 10), color: PERFIL_COR.admin }}
+              style={{ background: tint(CARGO_COR, 10), color: CARGO_COR }}
             >
               <ShieldCheck size={12} />
-              {totalAdmins} admin{totalAdmins === 1 ? "" : "s"}
+              {usuarios.length} acesso{usuarios.length === 1 ? "" : "s"}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
               {marcasAtivas} marca{marcasAtivas === 1 ? "" : "s"} · {canaisConectados}/{canaisTotal} canais
@@ -429,16 +470,16 @@ export function UsuariosSection({
           </div>
         ) : (
           <div className="overflow-hidden border-y border-border">
-            <div className="hidden grid-cols-[minmax(12rem,1.6fr)_9rem_5rem] items-center gap-3 border-b border-border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:grid">
+            <div className="hidden grid-cols-[minmax(12rem,1.6fr)_11rem_5rem] items-center gap-3 border-b border-border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:grid">
               <span>Usuário</span>
-              <span>Perfil</span>
+              <span>Cargo · Módulos</span>
               <span className="text-right">Ações</span>
             </div>
             <div className="divide-y divide-border">
               {usuariosFiltrados.map((usuario) => {
                 const alterando = usuarioEmAlteracao === usuario.id;
-
-                const corPerfil = PERFIL_COR[usuario.perfil];
+                const modulosDoUsuario = normalizarModulos(usuario.modulosVisiveis);
+                const rotuloCargo = usuario.cargo || perfilMap[usuario.perfil].label;
 
                 return (
                   <motion.div
@@ -446,7 +487,7 @@ export function UsuariosSection({
                     initial={reduzir ? false : { opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={cn(
-                      "grid gap-3 px-3 py-3 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(12rem,1.6fr)_9rem_5rem] md:items-center",
+                      "grid gap-3 px-3 py-3 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(12rem,1.6fr)_11rem_5rem] md:items-center",
                       !usuario.ativo && "opacity-60",
                     )}
                   >
@@ -454,7 +495,7 @@ export function UsuariosSection({
                       <span className="relative inline-flex h-9 w-9 shrink-0">
                         <span
                           className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold"
-                          style={{ background: tint(corPerfil, usuario.ativo ? 14 : 8), color: usuario.ativo ? corPerfil : "var(--muted-foreground)" }}
+                          style={{ background: tint(CARGO_COR, usuario.ativo ? 14 : 8), color: usuario.ativo ? CARGO_COR : "var(--muted-foreground)" }}
                         >
                           {initials(usuario.nome, usuario.email)}
                         </span>
@@ -472,21 +513,26 @@ export function UsuariosSection({
                       </div>
                     </div>
 
-                    <SelectPopover
-                      className="relative inline-flex w-fit"
-                      buttonClassName="press-feedback inline-flex h-8 w-fit items-center gap-1.5 rounded-full border border-transparent px-2.5 text-xs font-bold outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-60"
-                      buttonStyle={{ color: corPerfil, background: tint(corPerfil, 9) }}
+                    <button
+                      type="button"
+                      onClick={() => abrirEdicaoModulos(usuario)}
                       disabled={alterando}
-                      valor={usuario.perfil}
-                      onChange={(perfil) => alterarUsuario(usuario, perfil, usuario.ativo)}
-                      itens={PERFIS.map(([value, dados]) => ({ value, label: dados.label, cor: PERFIL_COR[value] }))}
-                    />
+                      title="Editar cargo e módulos visíveis"
+                      className="press-feedback inline-flex w-fit items-center gap-1.5 rounded-full border border-transparent py-1 pl-2.5 pr-1.5 text-xs font-bold outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-60"
+                      style={{ color: CARGO_COR, background: tint(CARGO_COR, 9) }}
+                    >
+                      {rotuloCargo}
+                      <span className="inline-flex items-center gap-1 rounded-full bg-card/70 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
+                        {modulosDoUsuario.length}/{MODULOS_CATALOGO.length}
+                        <Pencil size={9} />
+                      </span>
+                    </button>
 
                     <div className="flex items-center justify-start gap-1 md:justify-end">
                       <button
                         type="button"
                         disabled={alterando}
-                        onClick={() => alterarUsuario(usuario, usuario.perfil, !usuario.ativo)}
+                        onClick={() => alternarAtivo(usuario)}
                         aria-label={usuario.ativo ? `Pausar ${usuario.nome}` : `Ativar ${usuario.nome}`}
                         title={usuario.ativo ? "Pausar" : "Ativar"}
                         className={cn(
@@ -567,12 +613,14 @@ export function UsuariosSection({
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5">
               <div className="space-y-1">
                 <DialogPrimitive.Title className="flex items-center gap-2 text-base font-bold text-foreground">
-                  {modoCriacao ? <UserPlus size={18} /> : <KeyRound size={18} />}
-                  {modoCriacao ? "Novo usuário" : "Redefinir senha"}
+                  {modoCriacao ? <UserPlus size={18} /> : modoModulos ? <LayoutGrid size={18} /> : <KeyRound size={18} />}
+                  {modoCriacao ? "Novo usuário" : modoModulos ? "Cargo e módulos" : "Redefinir senha"}
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Description className="text-sm leading-relaxed text-muted-foreground">
                   {modoCriacao
-                    ? "Crie o login e defina uma senha temporária para o primeiro acesso."
+                    ? "Crie o login, escolha o cargo e o que essa pessoa vai enxergar no menu."
+                    : modoModulos
+                    ? "Ajuste o cargo e quais módulos aparecem para esta pessoa."
                     : "Gere uma nova senha temporária e entregue ao usuário com segurança."}
                 </DialogPrimitive.Description>
               </div>
@@ -585,7 +633,7 @@ export function UsuariosSection({
 
             <form onSubmit={salvarFormulario} className="flex min-h-0 flex-1 flex-col">
               <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
-                {!modoCriacao && painel?.tipo === "senha" && (
+                {!modoCriacao && (painel?.tipo === "senha" || painel?.tipo === "modulos") && (
                   <div className="flex items-center gap-3 rounded-[0.9rem] border border-border bg-muted/35 p-3">
                     <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
                       {initials(painel.usuario.nome, painel.usuario.email)}
@@ -623,87 +671,159 @@ export function UsuariosSection({
                       />
                     </Field>
 
-                    <Field label="Perfil" icon={ShieldCheck} hint={perfilMap[form.perfil].description}>
-                      <select
-                        value={form.perfil}
-                        onChange={(event) => setForm((atual) => ({ ...atual, perfil: event.target.value as Perfil }))}
+                  </>
+                )}
+
+                {(modoCriacao || modoModulos) && (
+                  <>
+                    <Field label="Cargo" icon={ShieldCheck} hint="Rótulo livre — aparece no menu da pessoa e na lista de usuários.">
+                      <input
+                        value={form.cargo}
+                        onChange={(event) => setForm((atual) => ({ ...atual, cargo: event.target.value }))}
                         className={inputClass}
-                        disabled={salvando || concluido}
-                      >
-                        {PERFIS.map(([value, dados]) => (
-                          <option key={value} value={value}>{dados.label}</option>
+                        placeholder="Ex.: Diretor, Publicitário…"
+                        required
+                        minLength={2}
+                        maxLength={60}
+                        disabled={salvando}
+                      />
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {CARGOS_SUGERIDOS.map((sugestao) => (
+                          <button
+                            key={sugestao}
+                            type="button"
+                            onClick={() => setForm((atual) => ({ ...atual, cargo: sugestao }))}
+                            disabled={salvando}
+                            className={cn(
+                              "press-feedback rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50",
+                              form.cargo === sugestao
+                                ? "border-transparent text-white"
+                                : "border-border text-muted-foreground hover:bg-muted",
+                            )}
+                            style={form.cargo === sugestao ? { background: CARGO_COR } : undefined}
+                          >
+                            {sugestao}
+                          </button>
                         ))}
-                      </select>
+                      </div>
+                    </Field>
+
+                    <Field
+                      label="Módulos visíveis"
+                      icon={LayoutGrid}
+                      hint="O que fica marcado aparece no menu dessa pessoa — o resto some, sem afetar o que ela pode fazer nos módulos que enxerga."
+                    >
+                      <div className="grid grid-cols-2 gap-2">
+                        {MODULOS_CATALOGO.map((modulo) => {
+                          const Icone = getIcon(modulo.icon);
+                          const marcado = form.modulosVisiveis.includes(modulo.id);
+                          return (
+                            <motion.button
+                              key={modulo.id}
+                              type="button"
+                              whileTap={{ scale: 0.97 }}
+                              disabled={salvando}
+                              onClick={() =>
+                                setForm((atual) => ({ ...atual, modulosVisiveis: alternarModulo(atual.modulosVisiveis, modulo.id) }))
+                              }
+                              aria-pressed={marcado}
+                              className={cn(
+                                "flex items-center gap-2 rounded-[0.75rem] border px-2.5 py-2 text-left text-xs font-semibold transition-colors disabled:opacity-50",
+                                marcado ? "border-transparent bg-primary/8 text-foreground" : "border-border text-muted-foreground hover:bg-muted",
+                              )}
+                            >
+                              <span
+                                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                                style={{ background: tint(CARGO_COR, marcado ? 16 : 8), color: marcado ? CARGO_COR : "var(--muted-foreground)" }}
+                              >
+                                <Icone size={12} strokeWidth={2} />
+                              </span>
+                              <span className="min-w-0 flex-1 truncate">{modulo.label}</span>
+                              <motion.span
+                                initial={false}
+                                animate={{ scale: marcado ? 1 : 0, opacity: marcado ? 1 : 0 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white"
+                                style={{ background: CARGO_COR }}
+                              >
+                                <CheckCircle2 size={11} strokeWidth={3} />
+                              </motion.span>
+                            </motion.button>
+                          );
+                        })}
+                      </div>
                     </Field>
                   </>
                 )}
 
-                <div className="space-y-3">
-                  <Field
-                    label="Senha temporária"
-                    icon={LockKeyhole}
-                    hint="Peça para a pessoa trocar por uma senha própria depois do primeiro acesso."
-                  >
-                    <div className="flex gap-2">
-                      <input
-                        type={senhaVisivel ? "text" : "password"}
-                        value={form.senha}
-                        onChange={(event) => {
-                          setForm((atual) => ({ ...atual, senha: event.target.value }));
-                          setCopiado(false);
-                          setConcluido(false);
-                        }}
-                        className={cn(inputClass, "font-mono text-[13px]")}
-                        placeholder="Senha temporária"
-                        required
-                        minLength={8}
-                        disabled={salvando || concluido}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setSenhaVisivel((value) => !value)}
-                        className={iconButtonClass}
-                        aria-label={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
-                      >
-                        {senhaVisivel ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                  </Field>
+                {!modoModulos && (
+                  <div className="space-y-3">
+                    <Field
+                      label="Senha temporária"
+                      icon={LockKeyhole}
+                      hint="Peça para a pessoa trocar por uma senha própria depois do primeiro acesso."
+                    >
+                      <div className="flex gap-2">
+                        <input
+                          type={senhaVisivel ? "text" : "password"}
+                          value={form.senha}
+                          onChange={(event) => {
+                            setForm((atual) => ({ ...atual, senha: event.target.value }));
+                            setCopiado(false);
+                            setConcluido(false);
+                          }}
+                          className={cn(inputClass, "font-mono text-[13px]")}
+                          placeholder="Senha temporária"
+                          required
+                          minLength={8}
+                          disabled={salvando || concluido}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSenhaVisivel((value) => !value)}
+                          className={iconButtonClass}
+                          aria-label={senhaVisivel ? "Ocultar senha" : "Mostrar senha"}
+                        >
+                          {senhaVisivel ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </Field>
 
-                  <div className="rounded-[0.9rem] border border-border bg-background p-3">
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <span className="text-xs font-bold text-foreground">{senha.label}</span>
-                      <span className="text-[11px] text-muted-foreground">{form.senha.length} caracteres</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <span className={cn("block h-full rounded-full transition-all", senha.color)} style={{ width: senha.width }} />
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setForm((atual) => ({ ...atual, senha: gerarSenhaTemporaria() }));
-                          setCopiado(false);
-                          setConcluido(false);
-                        }}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-[0.65rem] border border-border px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                        disabled={salvando || concluido}
-                      >
-                        <RefreshCw size={13} />
-                        Gerar outra
-                      </button>
-                      <button
-                        type="button"
-                        onClick={copiarSenha}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-[0.65rem] border border-border px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                        disabled={!form.senha}
-                      >
-                        {copiado ? <CheckCircle2 size={13} /> : <Copy size={13} />}
-                        {copiado ? "Copiada" : "Copiar"}
-                      </button>
+                    <div className="rounded-[0.9rem] border border-border bg-background p-3">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold text-foreground">{senha.label}</span>
+                        <span className="text-[11px] text-muted-foreground">{form.senha.length} caracteres</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <span className={cn("block h-full rounded-full transition-all", senha.color)} style={{ width: senha.width }} />
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForm((atual) => ({ ...atual, senha: gerarSenhaTemporaria() }));
+                            setCopiado(false);
+                            setConcluido(false);
+                          }}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[0.65rem] border border-border px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          disabled={salvando || concluido}
+                        >
+                          <RefreshCw size={13} />
+                          Gerar outra
+                        </button>
+                        <button
+                          type="button"
+                          onClick={copiarSenha}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-[0.65rem] border border-border px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          disabled={!form.senha}
+                        >
+                          {copiado ? <CheckCircle2 size={13} /> : <Copy size={13} />}
+                          {copiado ? "Copiada" : "Copiar"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {concluido && (
                   <div className="rounded-[0.9rem] border border-success/25 bg-success/8 p-3">
@@ -726,7 +846,9 @@ export function UsuariosSection({
                 <div className="mb-3 flex items-start gap-2 rounded-[0.75rem] bg-muted/50 px-3 py-2.5">
                   <Sparkles className="mt-0.5 shrink-0 text-primary" size={15} />
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    Perfil define o que a pessoa enxerga; status pausado bloqueia a entrada sem apagar histórico.
+                    {modoModulos
+                      ? "Módulos definem o que a pessoa enxerga no menu; status pausado bloqueia a entrada sem apagar histórico."
+                      : "Cargo e módulos definem o que a pessoa enxerga; status pausado bloqueia a entrada sem apagar histórico."}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -742,8 +864,16 @@ export function UsuariosSection({
                     disabled={salvando || !podeSalvar || concluido}
                     className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[0.75rem] bg-primary text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {salvando ? <Loader2 className="animate-spin" size={16} /> : modoCriacao ? <UserPlus size={16} /> : <KeyRound size={16} />}
-                    {modoCriacao ? "Criar acesso" : "Salvar senha"}
+                    {salvando ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : modoCriacao ? (
+                      <UserPlus size={16} />
+                    ) : modoModulos ? (
+                      <LayoutGrid size={16} />
+                    ) : (
+                      <KeyRound size={16} />
+                    )}
+                    {modoCriacao ? "Criar acesso" : modoModulos ? "Salvar módulos" : "Salvar senha"}
                   </button>
                 </div>
               </div>

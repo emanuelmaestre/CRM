@@ -9,6 +9,8 @@ const appUser = {
   email: "user@example.com",
   nome: "Usuário Teste",
   perfil: "gestor" as const,
+  cargo: null,
+  modulosVisiveis: ["metricas"],
   ativo: true,
 };
 
@@ -30,6 +32,8 @@ describe("Contexto autenticado", () => {
       email: appUser.email,
       nome: appUser.nome,
       perfil: "gestor",
+      cargo: null,
+      modulosVisiveis: ["metricas"],
     });
   });
 

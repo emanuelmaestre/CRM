@@ -9,7 +9,7 @@ import { db } from "@/shared/lib/db";
 import { appUser } from "@/shared/lib/db/schema";
 import { createClient } from "@/shared/lib/supabase/server";
 import { AuthAccessError, buildAuthContext, type AuthContext } from "./context";
-import { perfilPermitido, perfilPodeAcessar, type Perfil } from "./authorization";
+import { perfilPermitido, perfilPodeAcessar, moduloPodeAcessar, type Perfil } from "./authorization";
 
 const OrgIdSchema = z.string().uuid();
 
@@ -32,6 +32,8 @@ export const getAuthContext = cache(async function getAuthContext(): Promise<Aut
           email: appUser.email,
           nome: appUser.nome,
           perfil: appUser.perfil,
+          cargo: appUser.cargo,
+          modulosVisiveis: appUser.modulosVisiveis,
           ativo: appUser.ativo,
         })
         .from(appUser)
@@ -78,6 +80,7 @@ export async function requirePageAuth(permitidos?: readonly Perfil[]): Promise<A
 export async function requirePageRoute(pathname: string): Promise<AuthContext> {
   const contexto = await requirePageAuth();
   if (!perfilPodeAcessar(contexto.perfil, pathname)) redirect("/sem-permissao");
+  if (!moduloPodeAcessar(contexto.modulosVisiveis, pathname)) redirect("/sem-permissao");
   return contexto;
 }
 

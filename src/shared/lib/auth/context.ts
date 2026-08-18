@@ -1,4 +1,5 @@
 import type { Perfil } from "./authorization";
+import { normalizarModulos, type ModuloId } from "@/config/modulos";
 
 export type AuthAccessCode = "UNAUTHENTICATED" | "NOT_PROVISIONED" | "INACTIVE";
 
@@ -24,6 +25,8 @@ export interface AppUserIdentity {
   email: string;
   nome: string;
   perfil: Perfil;
+  cargo: string | null;
+  modulosVisiveis: unknown;
   ativo: boolean;
 }
 
@@ -33,6 +36,8 @@ export interface AuthContext {
   email: string;
   nome: string;
   perfil: Perfil;
+  cargo: string | null;
+  modulosVisiveis: ModuloId[];
 }
 
 export function buildAuthContext(
@@ -52,5 +57,7 @@ export function buildAuthContext(
     email: appUser.email,
     nome: appUser.nome,
     perfil: appUser.perfil,
+    cargo: appUser.cargo,
+    modulosVisiveis: normalizarModulos(appUser.modulosVisiveis),
   };
 }

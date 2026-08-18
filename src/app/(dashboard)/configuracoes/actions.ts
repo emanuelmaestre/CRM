@@ -5,6 +5,7 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
 import { listarHistoricoAutomacoes } from "@/modules/reguas/application/reguas.service";
 import {
+  atualizarModulosUsuario,
   atualizarUsuario,
   criarUsuarioComSenha,
   excluirUsuario,
@@ -49,6 +50,12 @@ export async function actionListarUsuarios() {
 
 export async function actionAtualizarUsuario(input: unknown) {
   const resultado = await atualizarUsuario(await getCrudContext(), input);
+  revalidatePath("/configuracoes");
+  return resultado;
+}
+
+export async function actionAtualizarModulosUsuario(input: unknown) {
+  const resultado = await atualizarModulosUsuario(await getCrudContext(), input);
   revalidatePath("/configuracoes");
   return resultado;
 }

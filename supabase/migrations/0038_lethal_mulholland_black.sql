@@ -1,0 +1,2 @@
+ALTER TABLE "app_user" ADD COLUMN "cargo" text;--> statement-breakpoint
+ALTER TABLE "app_user" ADD COLUMN "modulos_visiveis" jsonb DEFAULT '["metricas","clientes","inbox","vendas","estoque","anuncios","configuracoes"]'::jsonb NOT NULL;

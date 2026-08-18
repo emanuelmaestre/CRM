@@ -8,7 +8,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { cn } from "@/shared/design-system/cn";
 import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
-import type { Perfil } from "@/shared/lib/auth/authorization";
+import { isModuloId, type ModuloId } from "@/config/modulos";
 
 const MORE = navigationConfig.utilities.more;
 const MoreIcon = getIcon(MORE.icon);
@@ -24,7 +24,7 @@ function temPrioridade(item: Item): item is Item & { mobilePriority: number } {
  * saem do `mobilePriority` de navigation.json entre os itens visíveis ao perfil,
  * e todo o restante — inclusive o que nunca é fixo — cai no painel "mais".
  */
-export function BottomNav({ perfil }: { perfil: Perfil }) {
+export function BottomNav({ modulosVisiveis }: { modulosVisiveis: readonly ModuloId[] }) {
   const pathname = usePathname();
   const [maisAberto, setMaisAberto] = useState(false);
   const [pathnameAnterior, setPathnameAnterior] = useState(pathname);
@@ -43,7 +43,7 @@ export function BottomNav({ perfil }: { perfil: Perfil }) {
     return () => window.removeEventListener("keydown", aoTeclar);
   }, [maisAberto]);
 
-  const visiveis = navigationConfig.items.filter((item) => item.profiles.includes(perfil));
+  const visiveis = navigationConfig.items.filter((item) => isModuloId(item.id) && modulosVisiveis.includes(item.id));
   const fixos = visiveis
     .filter(temPrioridade)
     .sort((a, b) => a.mobilePriority - b.mobilePriority)

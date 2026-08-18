@@ -12,6 +12,7 @@ import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
 import appConfig from "@/config/app.json";
 import { nomePerfil, type Perfil } from "@/shared/lib/auth/authorization";
+import { isModuloId, type ModuloId } from "@/config/modulos";
 import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
 import { tint } from "@/shared/design-system/color";
 import { springs, stagger, variantes, fadeUp } from "@/shared/design-system/motion-variants";
@@ -156,14 +157,15 @@ function NotificationBell() {
   );
 }
 
-export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; email: string }) {
+export function TopNav({ perfil, cargo, nome, email, modulosVisiveis }: { perfil: Perfil; cargo: string | null; nome: string; email: string; modulosVisiveis: readonly ModuloId[] }) {
+  const rotuloCargo = cargo || nomePerfil(perfil);
   const pathname = usePathname();
   const router   = useRouter();
   const reduzir  = useReducedMotion();
   const initials = nome.split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("")
     || email[0]?.toUpperCase()
     || "?";
-  const items = navigationConfig.items.filter((item) => item.profiles.includes(perfil));
+  const items = navigationConfig.items.filter((item) => isModuloId(item.id) && modulosVisiveis.includes(item.id));
 
   async function handleLogout() {
     const supabase = createClient();
@@ -241,7 +243,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
         <NotificationBell />
 
         {/* Settings */}
-        {navigationConfig.utilities.settings.profiles.includes(perfil) && (
+        {modulosVisiveis.includes("configuracoes") && (
           <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}>
             <Link
               href={navigationConfig.utilities.settings.href}
@@ -265,7 +267,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              title={`${nome} · ${nomePerfil(perfil)}`}
+              title={`${nome} · ${rotuloCargo}`}
               aria-label={`Abrir menu de ${nome}`}
               className="flex h-11 min-w-11 items-center gap-2 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
@@ -288,7 +290,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
             >
               <div className="px-3 py-2">
                 <p className="truncate text-sm font-semibold text-foreground">{nome}</p>
-                <p className="truncate text-xs text-muted-foreground">{nomePerfil(perfil)} · {email}</p>
+                <p className="truncate text-xs text-muted-foreground">{rotuloCargo} · {email}</p>
               </div>
               <DropdownMenu.Separator className="my-1 h-px bg-border" />
               <DropdownMenu.Item

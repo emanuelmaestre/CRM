@@ -4,6 +4,7 @@ import { z } from "zod";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { appUser, auditLog } from "@/shared/lib/db/schema";
 import { persistirEvento } from "@/shared/events";
+import { MODULOS_TODOS, type ModuloId } from "@/config/modulos";
 
 const PerfilSchema = z.enum(["admin", "gestor", "vendedor"]);
 const SenhaTemporariaSchema = z.string()
@@ -11,6 +12,9 @@ const SenhaTemporariaSchema = z.string()
   .max(128, "A senha deve ter no máximo 128 caracteres.")
   .regex(/[A-Za-zÀ-ÿ]/, "Inclua pelo menos uma letra.")
   .regex(/\d/, "Inclua pelo menos um número.");
+const CargoSchema = z.string().trim().min(2, "Informe o cargo.").max(60);
+const ModulosVisiveisSchema = z.array(z.enum(MODULOS_TODOS as [ModuloId, ...ModuloId[]]))
+  .min(1, "Escolha pelo menos um módulo.");
 
 export const AtualizarUsuarioSchema = z.object({
   userId: z.string().uuid(),
@@ -18,15 +22,26 @@ export const AtualizarUsuarioSchema = z.object({
   ativo: z.boolean(),
 });
 
+export const AtualizarModulosUsuarioSchema = z.object({
+  userId: z.string().uuid(),
+  cargo: CargoSchema,
+  modulosVisiveis: ModulosVisiveisSchema,
+});
+
 export const RenomearUsuarioSchema = z.object({
   userId: z.string().uuid(),
   nome: z.string().trim().min(2, "Informe o nome do usuário.").max(120),
 });
 
+/** Todo usuário criado por aqui nasce perfil "admin" — a organização decidiu
+ *  que o nível de permissão de ação é igual pra todo mundo; o que diferencia
+ *  duas pessoas é só o cargo (rótulo livre) e os módulos que aparecem pra
+ *  cada uma, não mais o perfil. */
 export const CriarUsuarioSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome do usuário.").max(120),
   email: z.string().trim().email("Informe um e-mail válido.").transform((email) => email.toLowerCase()),
-  perfil: PerfilSchema,
+  cargo: CargoSchema,
+  modulosVisiveis: ModulosVisiveisSchema,
   senha: SenhaTemporariaSchema,
 });
 
@@ -40,6 +55,7 @@ export const ExcluirUsuarioSchema = z.object({
 });
 
 export type AtualizarUsuarioInput = z.infer<typeof AtualizarUsuarioSchema>;
+export type AtualizarModulosUsuarioInput = z.infer<typeof AtualizarModulosUsuarioSchema>;
 export type RenomearUsuarioInput = z.infer<typeof RenomearUsuarioSchema>;
 export type CriarUsuarioInput = z.infer<typeof CriarUsuarioSchema>;
 export type RedefinirSenhaUsuarioInput = z.infer<typeof RedefinirSenhaUsuarioSchema>;
@@ -97,6 +113,8 @@ export async function listarUsuarios(ctx: CrudContext) {
       email: appUser.email,
       nome: appUser.nome,
       perfil: appUser.perfil,
+      cargo: appUser.cargo,
+      modulosVisiveis: appUser.modulosVisiveis,
       ativo: appUser.ativo,
     })
     .from(appUser)
@@ -131,7 +149,7 @@ export async function criarUsuarioComSenha(ctx: CrudContext, rawInput: unknown) 
           ...usuarioAuthExistente.user_metadata,
           full_name: input.nome,
           crm_org_id: ctx.orgId,
-          perfil: input.perfil,
+          perfil: "admin",
         },
       });
       if (error) throw error;
@@ -144,7 +162,7 @@ export async function criarUsuarioComSenha(ctx: CrudContext, rawInput: unknown) 
         user_metadata: {
           full_name: input.nome,
           crm_org_id: ctx.orgId,
-          perfil: input.perfil,
+          perfil: "admin",
         },
       });
       if (error) throw error;
@@ -177,7 +195,9 @@ export async function criarUsuarioComSenha(ctx: CrudContext, rawInput: unknown) 
         orgId: ctx.orgId,
         email: input.email,
         nome: input.nome,
-        perfil: input.perfil,
+        perfil: "admin",
+        cargo: input.cargo,
+        modulosVisiveis: input.modulosVisiveis,
         ativo: true,
       })
       .returning({
@@ -185,6 +205,8 @@ export async function criarUsuarioComSenha(ctx: CrudContext, rawInput: unknown) 
         email: appUser.email,
         nome: appUser.nome,
         perfil: appUser.perfil,
+        cargo: appUser.cargo,
+        modulosVisiveis: appUser.modulosVisiveis,
         ativo: appUser.ativo,
       });
 
@@ -199,6 +221,8 @@ export async function criarUsuarioComSenha(ctx: CrudContext, rawInput: unknown) 
         email: criado.email,
         nome: criado.nome,
         perfil: criado.perfil,
+        cargo: criado.cargo,
+        modulosVisiveis: criado.modulosVisiveis,
         ativo: criado.ativo,
         origemAuth: usuarioAuthExistente ? "auth_existente" : "auth_criado",
       },
@@ -213,6 +237,8 @@ export async function criarUsuarioComSenha(ctx: CrudContext, rawInput: unknown) 
         email: criado.email,
         nome: criado.nome,
         perfil: criado.perfil,
+        cargo: criado.cargo,
+        modulosVisiveis: criado.modulosVisiveis,
         ativo: criado.ativo,
         authExistente: Boolean(usuarioAuthExistente),
       },
@@ -263,6 +289,8 @@ export async function atualizarUsuario(ctx: CrudContext, rawInput: unknown) {
       email: appUser.email,
       nome: appUser.nome,
       perfil: appUser.perfil,
+      cargo: appUser.cargo,
+      modulosVisiveis: appUser.modulosVisiveis,
       ativo: appUser.ativo,
     });
 
@@ -293,6 +321,48 @@ export async function atualizarUsuario(ctx: CrudContext, rawInput: unknown) {
   return atualizado;
 }
 
+/** Cargo (rótulo do "diretor"/"publicitário"/etc.) e os módulos que aparecem
+ *  no menu dessa pessoa — independente de perfil, que continua "admin" pra
+ *  todo mundo criado hoje em diante. */
+export async function atualizarModulosUsuario(ctx: CrudContext, rawInput: unknown) {
+  assertPerfil(ctx, ["admin"]);
+  const input = AtualizarModulosUsuarioSchema.parse(rawInput);
+
+  const atual = await ctx.db
+    .select({ cargo: appUser.cargo, modulosVisiveis: appUser.modulosVisiveis })
+    .from(appUser)
+    .where(and(eq(appUser.id, input.userId), eq(appUser.orgId, ctx.orgId)))
+    .then((rows) => rows[0]);
+  if (!atual) throw new Error("Usuário não encontrado.");
+
+  const [atualizado] = await ctx.db
+    .update(appUser)
+    .set({ cargo: input.cargo, modulosVisiveis: input.modulosVisiveis, updatedAt: new Date() })
+    .where(and(eq(appUser.id, input.userId), eq(appUser.orgId, ctx.orgId)))
+    .returning({
+      id: appUser.id,
+      email: appUser.email,
+      nome: appUser.nome,
+      perfil: appUser.perfil,
+      cargo: appUser.cargo,
+      modulosVisiveis: appUser.modulosVisiveis,
+      ativo: appUser.ativo,
+    });
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    autorId: ctx.userId,
+    autorTipo: "usuario",
+    entidade: "app_user",
+    entidadeId: input.userId,
+    acao: "modulos_atualizados",
+    antes: atual,
+    depois: { cargo: atualizado.cargo, modulosVisiveis: atualizado.modulosVisiveis },
+  });
+
+  return atualizado;
+}
+
 export async function renomearUsuario(ctx: CrudContext, rawInput: unknown) {
   assertPerfil(ctx, ["admin"]);
   const input = RenomearUsuarioSchema.parse(rawInput);
@@ -313,6 +383,8 @@ export async function renomearUsuario(ctx: CrudContext, rawInput: unknown) {
       email: appUser.email,
       nome: appUser.nome,
       perfil: appUser.perfil,
+      cargo: appUser.cargo,
+      modulosVisiveis: appUser.modulosVisiveis,
       ativo: appUser.ativo,
     });
 
@@ -419,6 +491,8 @@ export async function redefinirSenhaUsuario(ctx: CrudContext, rawInput: unknown)
       email: appUser.email,
       nome: appUser.nome,
       perfil: appUser.perfil,
+      cargo: appUser.cargo,
+      modulosVisiveis: appUser.modulosVisiveis,
       ativo: appUser.ativo,
     })
     .from(appUser)
