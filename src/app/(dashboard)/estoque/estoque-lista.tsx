@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, Check, Eye, Hourglass, Link2, Loader2, PackageX, PlugZap2,
+  AlertTriangle, Check, Clock3, Eye, Hourglass, Link2, Loader2, PackageX, PlugZap2,
   RefreshCw, Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -1021,10 +1021,20 @@ export function EstoqueLista() {
           <div className="flex items-center gap-3">
             {ultimaAtualizacao && (
               <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <RefreshCw size={11} />
+                <Clock3 size={11} />
                 {dataHora.format(ultimaAtualizacao)}
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => carregar(brandIdsArray, busca, filtro, canaisArray)}
+              disabled={loading || !escopoDefinido}
+              aria-label="Atualizar lista de produtos"
+              title="Atualizar"
+              className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            </button>
             {/* Sem key: o total é dado crítico e não deve re-animar a cada
                 filtro (PRD §14.5 — "número não dança depois de carregado"). */}
             <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">

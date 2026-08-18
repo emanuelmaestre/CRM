@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, ReceiptText, Ban } from "lucide-react";
+import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, ReceiptText, Ban, RefreshCw, Clock3 } from "lucide-react";
 import {
   actionListarPedidosDetalhados, actionListarPedidosParaPdf, actionContarPedidosPorMarca, actionContarPedidosPorCanal,
 } from "../actions";
@@ -253,6 +253,7 @@ export function PedidosLista() {
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [canais, setCanais] = useState<Canal[]>([]);
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
   const requestId = useRef(0);
   const [, startTransition] = useTransition();
 
@@ -286,6 +287,7 @@ export function PedidosLista() {
         setPedidos(res.data);
         setTotal(res.total);
         setResumo(res.resumo);
+        setAtualizadoEm(new Date());
       } catch {
         if (currentRequest !== requestId.current) return;
         toast.error(copy.loadError);
@@ -325,6 +327,11 @@ export function PedidosLista() {
     } finally {
       setCarregandoMais(false);
     }
+  }
+
+  function atualizar() {
+    if (!escopoDefinido) return;
+    carregar(brandIds, canal, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
   }
 
   const filtrando = brandIds.length > 0 || canal !== "" || statusGrupo !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
@@ -438,11 +445,29 @@ export function PedidosLista() {
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
         data-testid="pedidos-lista"
       >
-        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+        <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-semibold text-foreground">{copy.title}</p>
-          <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
-            {total} {total === 1 ? "pedido" : "pedidos"}
-          </span>
+          <div className="flex items-center gap-3">
+            {atualizadoEm && (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <Clock3 size={12} className="shrink-0" />
+                Atualizado às {dataHora.format(atualizadoEm)}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={atualizar}
+              disabled={loading}
+              aria-label="Atualizar lista de pedidos"
+              title="Atualizar"
+              className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            </button>
+            <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
+              {total} {total === 1 ? "pedido" : "pedidos"}
+            </span>
+          </div>
         </div>
 
         <div
