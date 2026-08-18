@@ -20,7 +20,6 @@ import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
-import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
@@ -969,27 +968,27 @@ export function EstoqueLista() {
           animate={{ opacity: 1, y: 0 }}
           transition={springs.settleFast}
           data-testid="estoque-escolha-empresa"
-          className="rounded-[1.25rem] bg-card px-6 py-14 text-center shadow-[0_2px_16px_rgba(14,15,19,.07)]"
+          className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
-          <div className="mx-auto flex max-w-md flex-col items-center gap-4">
-            <BrandLogoGroup height={26} className="opacity-90" />
-            <p className="text-base font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-              {copy.escolha.title}
-            </p>
-            <p className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              {aquecimentoCompleto ? (
-                <>
-                  <Check size={12} strokeWidth={3} style={{ color: COR.ok }} />
-                  {copy.escolha.readyHint}
-                </>
-              ) : (
-                <>
-                  <Loader2 size={11} className="animate-spin" />
-                  {copy.escolha.loadingHint}
-                </>
-              )}
-            </p>
-          </div>
+          <EmptyState
+            illustration="restock"
+            title={copy.escolha.title}
+            description={
+              <span className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                {aquecimentoCompleto ? (
+                  <>
+                    <Check size={12} strokeWidth={3} style={{ color: COR.ok }} />
+                    {copy.escolha.readyHint}
+                  </>
+                ) : (
+                  <>
+                    <Loader2 size={11} className="animate-spin" />
+                    {copy.escolha.loadingHint}
+                  </>
+                )}
+              </span>
+            }
+          />
         </motion.div>
       ) : (
       <motion.div

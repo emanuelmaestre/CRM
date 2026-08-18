@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, useReducedMotion } from "framer-motion";
 import { Eye, PlugZap2, RefreshCw } from "lucide-react";
-import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { escalonamento, listItem, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
 import { actionListarClientes, actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
@@ -322,14 +321,9 @@ export function ClientesLista() {
           initial={reduzir ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={transicao(reduzir, springs.settleFast)}
-          className="rounded-[1.25rem] bg-card px-6 py-14 text-center shadow-[0_2px_16px_rgba(14,15,19,.07)]"
+          className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
-          <div className="mx-auto flex max-w-md flex-col items-center gap-4">
-            <BrandLogoGroup height={26} className="opacity-90" />
-            <p className="text-base font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-              {copy.escolha.title}
-            </p>
-          </div>
+          <EmptyState illustration="clients" title={copy.escolha.title} />
         </motion.div>
       ) : (
       <motion.div

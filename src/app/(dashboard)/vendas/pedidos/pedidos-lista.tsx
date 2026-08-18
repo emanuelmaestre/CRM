@@ -12,7 +12,6 @@ import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
-import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
@@ -393,7 +392,7 @@ export function PedidosLista() {
         ))}
       </div>
 
-      <div className="mb-4 grid gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid-cols-[minmax(200px,1fr)_auto_auto_auto_auto] md:items-center">
+      <div className="mb-4 grid gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid-cols-[minmax(200px,1fr)_auto_auto_auto_auto_auto] md:items-center">
         <label className="relative block">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido ou cliente…" className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-selecionado" />
@@ -423,14 +422,9 @@ export function PedidosLista() {
           initial={reduzir ? false : { opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={springs.settleFast}
-          className="rounded-[1.25rem] bg-card px-6 py-14 text-center shadow-[0_2px_16px_rgba(14,15,19,.07)]"
+          className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
-          <div className="mx-auto flex max-w-md flex-col items-center gap-4">
-            <BrandLogoGroup height={26} className="opacity-90" />
-            <p className="text-base font-bold text-foreground" style={{ fontFamily: "var(--font-sora)" }}>
-              Escolha uma empresa ou canal para começar
-            </p>
-          </div>
+          <EmptyState illustration="reports" title="Escolha uma empresa ou canal para começar" />
         </motion.div>
       ) : (
       <div className="flex flex-col gap-4">

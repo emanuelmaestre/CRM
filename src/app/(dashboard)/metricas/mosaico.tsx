@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  AlertTriangle, BarChart3, FileText, Gauge, Hourglass, MessageSquare, Megaphone,
+  AlertTriangle, BarChart3, Gauge, Hourglass, MessageSquare, Megaphone,
   Package, RefreshCw, ShoppingBag, Sparkles, Store, Timer, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
@@ -36,7 +36,6 @@ import { PosVendaCard } from "./pos-venda-card";
 import { PublicacoesCard, type DesempenhoPreCarregado } from "./publicacoes-card";
 import { ReputacaoCard } from "./reputacao-card";
 import { ScoreCard } from "./score-card";
-import { exportarMetricasPDF } from "./exportar-pdf";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -125,27 +124,26 @@ function useDadosDoCard(
   return { dados: resultado.dados, carregando: resultado.chave !== chave, semFiltro: false };
 }
 
-/* ── Barra de período/exportar ─────────────────────────────────────
+/* ── Barra de período ───────────────────────────────────────────────
    Mora aqui, e não só no topo do mosaico, porque desde que o painel de foco
    virou tela cheia ele cobre essa barra por completo — sem redesenhá-la
    também dentro do Foco, trocar o período com um card aberto exigiria
    fechar primeiro. As duas instâncias leem e escrevem o mesmo estado
-   (props vindas de `Mosaico`), então nunca desincronizam. */
+   (props vindas de `Mosaico`), então nunca desincronizam.
+
+   O topo do mosaico não mostra mais isto — só um "atualizado às" discreto
+   (ver `Mosaico`). Calendário e "Hoje" agora só existem aqui dentro do card
+   aberto: exportar em PDF saiu por completo (o botão exportava sempre o
+   mesmo resumo Score+Atendimento+Pós-venda, sem relação com o card em
+   foco — decisão tomada com o usuário). */
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
-function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodoLabel, exportar, exportando, temDados, ultimaAtualizacao }: {
+function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodoLabel }: {
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;
   carregandoSaude: boolean;
   completo: boolean;
   periodoLabel?: string;
-  exportar: () => void;
-  exportando: boolean;
-  temDados: boolean;
-  /** Quando os dados que o mosaico está mostrando agora foram buscados —
-   *  não é o "sincronizado com o canal" de Anúncios, é "quando esta tela
-   *  carregou o que você está vendo". Atualiza a cada troca de período. */
-  ultimaAtualizacao: Date | null;
 }) {
   return (
     <>
@@ -173,38 +171,15 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
       <span className="text-[11px] text-muted-foreground">
         {completo ? periodoLabel ?? "" : copy.periodoPadrao}
       </span>
-      <span className="hidden h-px flex-1 bg-border sm:block" />
-      {ultimaAtualizacao && (
-        <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground sm:inline-flex">
-          <RefreshCw size={11} />
-          {dataHora.format(ultimaAtualizacao)}
-        </span>
-      )}
-      <motion.button
-        type="button"
-        onClick={exportar}
-        disabled={exportando || !temDados}
-        whileHover={temDados ? { scale: 1.02 } : undefined}
-        whileTap={temDados ? { scale: 0.97 } : undefined}
-        className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[0.75rem] border border-border px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-40"
-      >
-        <FileText size={13} />
-        {exportando ? metricasConfig.exportacao.gerando : metricasConfig.exportacao.acao}
-      </motion.button>
     </>
   );
 }
 
 const TOUR: CoachMarkStep[] = [
   {
-    target: '[data-coachmark="mosaico-periodo"]',
-    title: "Um período para tudo",
-    description: "As datas aqui em cima valem para o mosaico inteiro.",
-  },
-  {
     target: '[data-coachmark="mosaico-grade"]',
     title: "Clique em qualquer bloco",
-    description: "Ele cresce e vira o card completo. Esc volta, ← → pulam de card.",
+    description: "Ele cresce e vira o card completo — é lá dentro que ficam De:/Até:/Hoje, e vale para o mosaico inteiro. Esc volta, ← → pulam de card.",
   },
 ];
 
@@ -409,24 +384,6 @@ export function Mosaico() {
       .catch(() => { if (ativo) setPublicacoes({ brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo, dados: null }); });
     return () => { ativo = false; };
   }, [primeiraMarcaPublicacoes, inicio, fim]);
-
-  /* ── Exportar ── */
-
-  const [exportando, setExportando] = useState(false);
-
-  async function exportar() {
-    if (!saude.dados) return;
-    setExportando(true);
-    try {
-      const posVenda = await actionObterPosVenda({ inicio, fim });
-      await exportarMetricasPDF(saude.dados, atendimento.dados, posVenda);
-      toast.success(metricasConfig.exportacao.sucesso);
-    } catch {
-      toast.error(metricasConfig.exportacao.erro);
-    } finally {
-      setExportando(false);
-    }
-  }
 
   /* ── Cores do pico do gráfico de Faturamento ──
      Segue o que está filtrado no card: marca escolhida manda; sem marca mas
@@ -820,25 +777,21 @@ export function Mosaico() {
 
   return (
     <>
-      <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-4">
+      <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-3">
         {marcas.length > 0 && <CoachMarks storageKey="crm-leo:coachmarks:mosaico:v1" steps={TOUR} />}
 
-        {/* Período e exportar ficam fixos no topo, e continuam alcançáveis com
-            um card aberto — trocar a janela não exige fechar nada. */}
-        <div className="sticky top-0 z-30 -mx-1 flex flex-wrap items-center gap-2 bg-background/85 px-1 py-2 backdrop-blur md:top-14 [@media_(min-width:768px)_and_(max-height:500px)]:top-0" data-coachmark="mosaico-periodo">
-          <span className="text-label-md uppercase text-muted-foreground">{copy.periodoLabel}</span>
-          <BarraPeriodo
-            periodo={periodo}
-            trocarDatas={trocarDatas}
-            carregandoSaude={carregandoSaude}
-            completo={completo}
-            periodoLabel={saude.dados?.periodoLabel}
-            exportar={exportar}
-            exportando={exportando}
-            temDados={Boolean(saude.dados)}
-            ultimaAtualizacao={carregadoEm}
-          />
-        </div>
+        {/* Período, "Hoje" e exportar saíram do topo do mosaico — só fazem
+            sentido dentro de um card aberto (ver `Foco` mais abaixo), onde
+            o dado que eles afetam está de fato na tela. Aqui em cima sobra
+            só a informação passiva: quando os números foram buscados. */}
+        {carregadoEm && (
+          <div className="sticky top-0 z-30 flex justify-end bg-background/85 px-1 py-1.5 backdrop-blur md:top-14 [@media_(min-width:768px)_and_(max-height:500px)]:top-0">
+            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <RefreshCw size={11} />
+              Atualizado às {dataHora.format(carregadoEm)}
+            </span>
+          </div>
+        )}
 
         {/* 5 seções em vez de uma grade só de 14 — cada uma com o próprio
             rótulo e a própria ordenação por urgência (ver agruparPorSecao em
@@ -846,9 +799,9 @@ export function Mosaico() {
             para cima do mosaico inteiro; o rótulo da seção ganha um ponto na
             cor do pior alerta, então dá pra saber onde olhar antes de abrir
             qualquer coisa. */}
-        <div data-coachmark="mosaico-grade" className="flex flex-col gap-6">
+        <div data-coachmark="mosaico-grade" className="flex flex-col gap-3.5">
           {grupos.map((grupo) => (
-            <section key={grupo.id} className="flex flex-col gap-3">
+            <section key={grupo.id} className="flex flex-col gap-2">
               <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
               <ul className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                 {grupo.blocos.map((bloco) => (
@@ -899,10 +852,6 @@ export function Mosaico() {
             carregandoSaude={carregandoSaude}
             completo={completo}
             periodoLabel={saude.dados?.periodoLabel}
-            exportar={exportar}
-            exportando={exportando}
-            temDados={Boolean(saude.dados)}
-            ultimaAtualizacao={carregadoEm}
           />
         }
       />

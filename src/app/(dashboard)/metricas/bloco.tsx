@@ -161,13 +161,13 @@ export function Bloco({ def, focado, onAbrir }: {
         <motion.div
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
-          className="card-surface relative flex min-h-14 w-full cursor-pointer items-center gap-2.5 overflow-hidden px-3.5 py-3 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
+          className="card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-2 overflow-hidden px-3 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
         >
           <span
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
             style={{ background: tint(accent, 9), color: accent }}
           >
-            <Icone size={14} strokeWidth={1.9} />
+            <Icone size={13} strokeWidth={1.9} />
           </span>
           <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere]">
             {def.titulo}
