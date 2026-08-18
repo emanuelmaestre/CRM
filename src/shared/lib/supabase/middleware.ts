@@ -1,7 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = new Set(["/", "/auth/login", "/auth/acesso-negado", "/termos"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/auth/login",
+  "/auth/acesso-negado",
+  "/termos",
+  "/privacidade",
+  "/terms",
+  "/privacy",
+]);
 const PUBLIC_API_PREFIXES = [
   "/api/inngest",
   "/api/provision",
