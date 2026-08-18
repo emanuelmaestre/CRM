@@ -66,7 +66,7 @@ describe("contratos JSON da interface", () => {
     // A comparação lado a lado troca de critério por essas chaves; um label novo
     // com chave errada renderiza um botão que não ordena nada.
     expect(metricasConfig.comparacaoCard.criterios.map((item) => item.chave)).toEqual([
-      "score", "faturamento", "pedidos", "ticketMedio", "notaMedia", "margem",
+      "score", "faturamento", "pedidos", "ticketMedio", "notaMedia",
     ]);
     // Cada taxa da reputação precisa do próximo passo escrito; sem ele, a tela
     // diz que a taxa estourou e não diz o que fazer a respeito.

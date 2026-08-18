@@ -107,4 +107,4 @@ export function podeTransicionarSugestao(
 
 export const AVISO_PROBABILISTICO =
   "⚠️ Este resultado é gerado por IA probabilística (Cláusula 11.3). " +
-  "Decisões de desconto e campanha devem ser validadas pela equipe Plast Leo.";
+  "Decisões de desconto e campanha devem ser validadas pela equipe Elisa Lima.";

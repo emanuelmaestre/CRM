@@ -48,6 +48,8 @@ export interface LegalDocument {
 
 const updatedPt = "Atualizado em 18 de agosto de 2026";
 const updatedEn = "Last updated on August 18, 2026";
+const operatorCompanyPt = "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA - CNPJ 24.264.245/0001-94";
+const operatorCompanyEn = "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA - Brazilian company registration 24.264.245/0001-94";
 
 export const legalDocuments = {
   pt: {
@@ -185,7 +187,7 @@ export const legalDocuments = {
         addressLabel: "Endereço",
         address: "São Paulo - SP, Brasil",
         companyLabel: "CNPJ",
-        company: "a preencher",
+        company: operatorCompanyPt,
       },
     },
     privacy: {
@@ -298,7 +300,7 @@ export const legalDocuments = {
         addressLabel: "Endereço",
         address: "São Paulo - SP, Brasil",
         companyLabel: "CNPJ",
-        company: "a preencher",
+        company: operatorCompanyPt,
       },
     },
   },
@@ -413,7 +415,7 @@ export const legalDocuments = {
         addressLabel: "Address",
         address: "São Paulo - SP, Brazil",
         companyLabel: "Company registration",
-        company: "to be filled",
+        company: operatorCompanyEn,
       },
     },
     privacy: {
@@ -526,7 +528,7 @@ export const legalDocuments = {
         addressLabel: "Address",
         address: "São Paulo - SP, Brazil",
         companyLabel: "Company registration",
-        company: "to be filled",
+        company: operatorCompanyEn,
       },
     },
   },

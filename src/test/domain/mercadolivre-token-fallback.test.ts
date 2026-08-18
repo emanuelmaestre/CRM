@@ -33,6 +33,7 @@ const { obterTokenMercadoLivre } = await import("@/modules/canais/infrastructure
 describe("obterTokenMercadoLivre — fallback estático de ambiente", () => {
   let originalEnv: Record<string, string | undefined>;
   let warnSpy: ReturnType<typeof vi.spyOn>;
+  let orgCounter = 0;
 
   beforeEach(() => {
     originalEnv = {
@@ -42,7 +43,8 @@ describe("obterTokenMercadoLivre — fallback estático de ambiente", () => {
       ML_ACCESS_TOKEN_KARZI: process.env.ML_ACCESS_TOKEN_KARZI,
       ML_REFRESH_TOKEN_KARZI: process.env.ML_REFRESH_TOKEN_KARZI,
     };
-    process.env.DEFAULT_ORG_ID = "22222222-2222-4222-8222-222222222222";
+    orgCounter += 1;
+    process.env.DEFAULT_ORG_ID = `22222222-2222-4222-8222-${String(orgCounter).padStart(12, "0")}`;
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://exemplo.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "chave-servico";
     warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);

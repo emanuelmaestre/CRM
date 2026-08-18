@@ -65,7 +65,12 @@ export async function POST(req: NextRequest) {
   // 1. Ensure org exists
   const existingOrg = await db.select().from(org).where(eq(org.id, orgId)).then(r => r[0]);
   if (!existingOrg) {
-    await db.insert(org).values({ id: orgId, name: "Plast Leo", cnpj: "00000000000000", active: true });
+    await db.insert(org).values({
+      id: orgId,
+      name: "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA",
+      cnpj: "24264245000194",
+      active: true,
+    });
   }
 
   // 2. Ensure brands exist
