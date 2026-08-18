@@ -1,15 +1,16 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 const VERDE = "var(--success)";
 
 /** Bolinha de status: ganha halo pulsante quando a marca está conectada. */
 export function StatusDot({ conectado, alerta = false }: { conectado: boolean; alerta?: boolean }) {
+  const reduzir = useReducedMotion();
   const cor = alerta ? "var(--warning)" : conectado ? VERDE : "var(--muted-foreground)";
   return (
     <span className="relative flex h-2 w-2 shrink-0 items-center justify-center">
-      {conectado && !alerta && (
+      {conectado && !alerta && !reduzir && (
         <motion.span
           className="absolute inset-0 rounded-full"
           style={{ background: cor }}

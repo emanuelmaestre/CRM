@@ -88,13 +88,6 @@ function HistoricalFlowIllustration() {
       className="relative min-h-52 overflow-hidden rounded-[1.5rem] border border-white/70 bg-[radial-gradient(circle_at_15%_20%,rgba(250,204,21,.34),transparent_35%),radial-gradient(circle_at_85%_70%,rgba(124,58,237,.22),transparent_42%),linear-gradient(145deg,rgba(255,255,255,.92),rgba(245,243,255,.72))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,.8)] dark:border-white/10 dark:bg-[radial-gradient(circle_at_15%_20%,rgba(250,204,21,.16),transparent_36%),radial-gradient(circle_at_85%_70%,rgba(124,58,237,.18),transparent_44%),linear-gradient(145deg,rgba(24,24,27,.92),rgba(30,27,48,.82))]"
     >
       <div className="absolute inset-x-10 top-1/2 h-px border-t border-dashed border-violet-400/50" />
-      {!reduceMotion && (
-        <motion.div
-          className="absolute left-[13%] top-[calc(50%-3px)] h-1.5 w-1.5 rounded-full bg-violet-500 shadow-[0_0_16px_4px_rgba(139,92,246,.45)]"
-          animate={{ left: ["13%", "82%"], opacity: [0, 1, 1, 0] }}
-          transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-        />
-      )}
 
       <div className="relative flex min-h-40 items-center justify-between gap-4">
         <div className="relative h-32 w-36 shrink-0">
@@ -116,16 +109,12 @@ function HistoricalFlowIllustration() {
           ))}
         </div>
 
-        <motion.div
-          animate={reduceMotion ? undefined : { y: [0, -3, 0] }}
-          transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
-          className="relative z-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.4rem] border border-violet-300/50 bg-white/90 shadow-xl shadow-violet-900/10 backdrop-blur dark:border-violet-400/20 dark:bg-zinc-900/90"
-        >
+        <div className="relative z-10 flex h-20 w-20 shrink-0 items-center justify-center rounded-[1.4rem] border border-violet-300/50 bg-white/90 shadow-xl shadow-violet-900/10 backdrop-blur dark:border-violet-400/20 dark:bg-zinc-900/90">
           <ShieldCheck size={34} className="text-violet-600 dark:text-violet-300" strokeWidth={1.7} />
           <span className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
             <Check size={13} strokeWidth={3} />
           </span>
-        </motion.div>
+        </div>
 
         <div className="flex h-28 w-28 shrink-0 flex-col items-center justify-center rounded-[1.4rem] border border-white/80 bg-white/75 shadow-xl shadow-violet-950/10 backdrop-blur dark:border-white/10 dark:bg-zinc-900/70">
           <Database size={28} className="text-violet-600 dark:text-violet-300" strokeWidth={1.6} />

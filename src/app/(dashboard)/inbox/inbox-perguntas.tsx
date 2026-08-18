@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
@@ -83,6 +83,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
   canaisAtivos: ReadonlySet<string>;
   onContagens: (valores: { marcas: Record<string, number>; canais: Record<string, number> }) => void;
 }) {
+  const reduzirMovimento = useReducedMotion();
   const [filtroStatus, setFiltroStatus] = useState<Status | "todos">("todos");
   const [selecionada, setSelecionada]   = useState<Pergunta | null>(null);
   const [atalhosAbertos, setAtalhosAbertos] = useState(false);
@@ -329,7 +330,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                               </span>
                               <span className="flex items-center gap-1 flex-shrink-0">
                                 <motion.span
-                                  animate={urg === "urgent" && !isAnswered ? {
+                                  animate={urg === "urgent" && !isAnswered && !reduzirMovimento ? {
                                     scale: [1, 1.3, 1],
                                     opacity: [1, 0.6, 1],
                                   } : {}}
@@ -502,7 +503,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                       <motion.button
                         type="button"
                         onClick={() => setAtalhosAbertos((v) => !v)}
-                        whileHover={{ scale: 1.06 }}
+                        whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.94 }}
                         title={copy.quickReply}
                         aria-label={copy.quickReply}
@@ -569,7 +570,7 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                       }}
                     />
                     <motion.button
-                      whileHover={{ scale: 1.06, y: -1 }}
+                      whileHover={{ scale: 1.02, y: -1 }}
                       whileTap={{ scale: 0.94 }}
                       onClick={enviarResposta}
                       disabled={!resposta.trim() || enviando}
