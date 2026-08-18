@@ -108,3 +108,20 @@ export const CATEGORIAS_AUTOMACOES_WHATSAPP = [
   "Relacionamento",
   "Operacional",
 ] as const;
+
+// Cor de identidade por categoria — compartilhada entre o card Automações e
+// o sino de notificações, pra não desenhar a mesma coisa duas vezes com
+// paletas diferentes.
+export const CATEGORIA_COR_AUTOMACAO: Record<AutomacaoWhatsApp["categoria"], string> = {
+  "Estoque": "var(--acento-2)",
+  "Atendimento": "var(--info)",
+  "Vendas & pós-venda": "var(--acento-3)",
+  "Relacionamento": "var(--acento-1)",
+  "Operacional": "var(--warning)",
+};
+
+/** Busca rápida por chave de evento — usado pelo sino, que recebe só o
+ *  `tipo` bruto do evento de domínio e precisa do emoji/título/categoria. */
+export function automacaoPorChave(chave: string): AutomacaoWhatsApp | undefined {
+  return CATALOGO_AUTOMACOES_WHATSAPP.find((item) => item.chave === chave);
+}

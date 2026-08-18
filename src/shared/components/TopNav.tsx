@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Popover from "@radix-ui/react-popover";
 import { cn } from "@/shared/design-system/cn";
@@ -13,16 +13,153 @@ import navigationConfig from "@/config/navigation.json";
 import appConfig from "@/config/app.json";
 import { nomePerfil, type Perfil } from "@/shared/lib/auth/authorization";
 import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
+import { tint } from "@/shared/design-system/color";
+import { springs, stagger, variantes, fadeUp } from "@/shared/design-system/motion-variants";
+import { automacaoPorChave, CATEGORIA_COR_AUTOMACAO } from "@/shared/lib/whatsapp/catalogo-automacoes";
+import { actionListarNotificacoes } from "./notificacoes-actions";
 
 const BellIcon = getIcon(navigationConfig.utilities.notifications.icon);
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
 const LogoutIcon = getIcon(navigationConfig.utilities.logout.icon);
 
+const CHAVE_VISTAS_EM = "elisa-lima:notificacoes-vistas-em";
+const INTERVALO_POLL_MS = 90_000;
+
+type Notificacao = Awaited<ReturnType<typeof actionListarNotificacoes>>[number];
+
+function tempoRelativo(iso: string): string {
+  const minutos = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (minutos < 1) return "agora mesmo";
+  if (minutos < 60) return `há ${minutos} min`;
+  const horas = Math.round(minutos / 60);
+  if (horas < 24) return `há ${horas}h`;
+  const dias = Math.round(horas / 24);
+  return dias === 1 ? "ontem" : `há ${dias} dias`;
+}
+
+function NotificationBell() {
+  const reduzir = useReducedMotion();
+  const [aberto, setAberto] = useState(false);
+  const [notificacoes, setNotificacoes] = useState<Notificacao[] | null>(null);
+  const [vistasEm, setVistasEm] = useState(() =>
+    typeof window === "undefined" ? 0 : Number(window.localStorage.getItem(CHAVE_VISTAS_EM) ?? 0),
+  );
+
+  useEffect(() => {
+    const carregar = () => actionListarNotificacoes().then(setNotificacoes).catch(() => setNotificacoes([]));
+    carregar();
+    const intervalo = window.setInterval(carregar, INTERVALO_POLL_MS);
+    return () => window.clearInterval(intervalo);
+  }, []);
+
+  const naoLidas = notificacoes?.filter((n) => new Date(n.criadoEm).getTime() > vistasEm).length ?? 0;
+
+  function abrir(valor: boolean) {
+    setAberto(valor);
+    if (valor) {
+      const agora = Date.now();
+      window.localStorage.setItem(CHAVE_VISTAS_EM, String(agora));
+      // Só zera o número depois de fechar — sumir o badge no instante do
+      // clique, com o painel ainda abrindo, faria parecer que a lista que
+      // a pessoa está prestes a ler já não tinha nada de novo.
+      window.setTimeout(() => setVistasEm(agora), 400);
+    }
+  }
+
+  return (
+    <Popover.Root open={aberto} onOpenChange={abrir}>
+      <Popover.Trigger asChild>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          aria-label={navigationConfig.utilities.notifications.label}
+          aria-expanded={aberto}
+          className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+        >
+          <BellIcon size={15} strokeWidth={1.75} />
+          <AnimatePresence>
+            {naoLidas > 0 && (
+              <motion.span
+                key="badge"
+                initial={reduzir ? false : { scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                transition={springs.settleFast}
+                className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-black text-white"
+                style={{ background: "var(--destructive)" }}
+              >
+                {naoLidas > 9 ? "9+" : naoLidas}
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          align="end"
+          sideOffset={8}
+          className="z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-border bg-card p-0 shadow-xl outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+        >
+          <p className="border-b border-border px-4 py-3 text-sm font-semibold text-foreground">Notificações</p>
+
+          {notificacoes === null ? (
+            <div className="space-y-3 p-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 shrink-0 rounded-full bg-muted" />
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="h-2.5 w-3/4 rounded-full bg-muted" />
+                    <div className="h-2 w-1/2 rounded-full bg-muted" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : notificacoes.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">Nenhuma notificação nova.</p>
+          ) : (
+            <motion.ul variants={stagger} initial="hidden" animate="show" className="max-h-[22rem] divide-y divide-border overflow-y-auto">
+              {notificacoes.map((n) => {
+                const info = automacaoPorChave(n.tipo);
+                if (!info) return null;
+                const cor = CATEGORIA_COR_AUTOMACAO[info.categoria];
+                return (
+                  <motion.li key={n.id} variants={variantes(reduzir, fadeUp)} className="flex items-start gap-2.5 px-4 py-2.5">
+                    <span
+                      className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[15px] leading-none"
+                      style={{ background: tint(cor, 12) }}
+                    >
+                      {info.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-bold text-foreground">
+                        {info.titulo}
+                        {n.empresa && <span className="font-medium text-muted-foreground"> · {n.empresa}</span>}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{tempoRelativo(n.criadoEm)}</p>
+                    </div>
+                  </motion.li>
+                );
+              })}
+            </motion.ul>
+          )}
+
+          <Link
+            href="/configuracoes"
+            className="flex items-center justify-center border-t border-border px-4 py-2.5 text-[11px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Ver todas as automações →
+          </Link>
+          <Popover.Arrow className="fill-card" />
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
 export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; email: string }) {
   const pathname = usePathname();
   const router   = useRouter();
   const reduzir  = useReducedMotion();
-  const [bell, setBell] = useState(false);
   const initials = nome.split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("")
     || email[0]?.toUpperCase()
     || "?";
@@ -101,30 +238,7 @@ export function TopNav({ perfil, nome, email }: { perfil: Perfil; nome: string; 
       <div className="ml-auto flex items-center gap-1.5">
 
         {/* Bell */}
-        <Popover.Root open={bell} onOpenChange={setBell}>
-          <Popover.Trigger asChild>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              aria-label={navigationConfig.utilities.notifications.label}
-              aria-expanded={bell}
-              className="relative hidden h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
-            >
-              <BellIcon size={15} strokeWidth={1.75} />
-            </motion.button>
-          </Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Content
-              align="end"
-              sideOffset={8}
-              className="z-50 w-72 rounded-xl border border-border bg-card p-4 shadow-xl outline-none"
-            >
-              <p className="text-sm font-semibold text-foreground">Notificações</p>
-              <p className="mt-1 text-sm text-muted-foreground">Nenhuma notificação nova.</p>
-              <Popover.Arrow className="fill-card" />
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
+        <NotificationBell />
 
         {/* Settings */}
         {navigationConfig.utilities.settings.profiles.includes(perfil) && (

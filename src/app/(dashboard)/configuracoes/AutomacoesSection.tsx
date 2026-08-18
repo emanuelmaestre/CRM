@@ -8,7 +8,7 @@ import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import settingsConfig from "@/config/settings.json";
 import { tint } from "@/shared/design-system/color";
 import { springs } from "@/shared/design-system/motion-variants";
-import { CATALOGO_AUTOMACOES_WHATSAPP, type AutomacaoWhatsApp } from "@/shared/lib/whatsapp/catalogo-automacoes";
+import { CATALOGO_AUTOMACOES_WHATSAPP, CATEGORIA_COR_AUTOMACAO } from "@/shared/lib/whatsapp/catalogo-automacoes";
 import { actionListarHistoricoAutomacoes, actionStatusAutomacoesWhatsApp } from "./actions";
 
 const copy = settingsConfig.automacoes;
@@ -87,17 +87,9 @@ function BolhaWhatsApp({ modelo }: { modelo: string }) {
   );
 }
 
-// Cada categoria com a própria cor de identidade — mesmo princípio usado em
-// Usuários (perfil) e no resto do sistema (marca, canal): cor tingida em vez
-// de tudo cinza. Não é severidade (nenhuma delas é "pior" que a outra), só
-// agrupamento visual.
-const CATEGORIA_COR: Record<AutomacaoWhatsApp["categoria"], string> = {
-  "Estoque": "var(--acento-2)",
-  "Atendimento": "var(--info)",
-  "Vendas & pós-venda": "var(--acento-3)",
-  "Relacionamento": "var(--acento-1)",
-  "Operacional": "var(--warning)",
-};
+// Cor por categoria vem de catalogo-automacoes.ts — compartilhada com o
+// sino de notificações, que lista os mesmos eventos.
+const CATEGORIA_COR = CATEGORIA_COR_AUTOMACAO;
 
 /** Os avisos de WhatsApp já existem e já disparam — só não tinham lugar
  *  nenhum na tela pra dizer "isso aqui está ligado". Mora acima do histórico
