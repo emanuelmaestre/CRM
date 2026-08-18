@@ -80,9 +80,17 @@ export async function actionExportarTabelaBackup(input: unknown) {
 }
 
 export async function actionFinalizarBackup(backupId: unknown) {
-  const resultado = await finalizarBackup(await getCrudContext(), backupId);
-  revalidatePath("/configuracoes");
-  return resultado;
+  try {
+    const resultado = await finalizarBackup(await getCrudContext(), backupId);
+    revalidatePath("/configuracoes");
+    return { ok: true as const, backup: resultado };
+  } catch (error) {
+    revalidatePath("/configuracoes");
+    return {
+      ok: false as const,
+      erro: error instanceof Error ? error.message : "Não foi possível gerar o backup.",
+    };
+  }
 }
 
 export async function actionListarBackups() {

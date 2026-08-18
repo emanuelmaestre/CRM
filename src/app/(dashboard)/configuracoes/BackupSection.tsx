@@ -88,7 +88,12 @@ export function BackupSection() {
       setFinalizando(true);
       const finalizado = await actionFinalizarBackup(backupId);
       setFinalizando(false);
-      setConcluido({ urlAssinada: finalizado.urlAssinada, tamanhoBytes: finalizado.tamanhoBytes ?? 0 });
+      if (!finalizado.ok) {
+        toast.error(finalizado.erro);
+        carregarHistorico();
+        return;
+      }
+      setConcluido({ urlAssinada: finalizado.backup.urlAssinada, tamanhoBytes: finalizado.backup.tamanhoBytes ?? 0 });
       toast.success("Backup gerado com sucesso.");
       carregarHistorico();
     } catch (error) {
