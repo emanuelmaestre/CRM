@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { stagger, listItem as cardVariant, springs } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
-import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { actionListarPerguntas, actionResponderPergunta } from "./actions";
 import pagesConfig from "@/config/pages.json";
@@ -235,34 +234,48 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 transition={springs.settleFast}
                 className="flex min-w-0 flex-1 flex-col"
               >
-            {/* Status filter row — seletor único em vez de 3 pílulas: numa
-                sidebar de 304px de largura, "Respondidas" e o botão de
-                sincronizar acabavam saindo da área visível sem rolar. */}
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/10">
-              <SelectPopover
-                className="relative min-w-0 flex-1"
-                buttonClassName="press-feedback flex h-9 w-full items-center justify-between gap-2 rounded-full border border-border bg-card py-1.5 pl-3 pr-3 text-[11px] font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado"
-                valor={filtroStatus}
-                onChange={setFiltroStatus}
-                itens={[
-                  { value: "todos", label: copy.statusFilters.todos, contagem: perguntas.length },
-                  { value: "pendente", label: copy.statusFilters.pendente, contagem: pendentes },
-                  { value: "respondida", label: copy.statusFilters.respondida, contagem: respondidas },
-                ]}
-              />
-              <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} disabled={carregando} title="Atualizar perguntas" aria-label="Atualizar perguntas" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
-                <RefreshCw size={14} className={carregando ? "animate-spin" : ""} />
-              </button>
-              <button type="button" onClick={() => setRecolhido(true)} title="Recolher painel de perguntas" aria-label="Recolher painel de perguntas" className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:flex">
-                <PanelLeftClose size={14} />
-              </button>
+            {/* Mesmo header de "N conversas" + timestamp + pílulas do painel
+                de Conversas, pra manter os dois consistentes. A diferença é
+                que aqui a sidebar é redimensionável até 200px (ver
+                handleResize acima) — a de Conversas é fixa em 416px e nunca
+                aperta — então a linha de pílulas rola por dentro em vez de
+                quebrar quando o usuário arrasta a divisória bem estreita. */}
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground whitespace-nowrap">
+                  {filtradas.length} {filtradas.length === 1 ? "pergunta" : "perguntas"}
+                </p>
+                {ultimaAtualizacao ? (
+                  <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <RefreshCw size={9} /> Sincronizado em {dataHora.format(ultimaAtualizacao)}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <RefreshCw size={9} /> Ainda não sincronizado nesta sessão
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => { setCarregando(true); carregarPerguntas(); }} disabled={carregando} title="Atualizar perguntas" aria-label="Atualizar perguntas" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+                  <RefreshCw size={14} className={carregando ? "animate-spin" : ""} />
+                </button>
+                <button type="button" onClick={() => setRecolhido(true)} title="Recolher painel de perguntas" aria-label="Recolher painel de perguntas" className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:flex">
+                  <PanelLeftClose size={14} />
+                </button>
+              </div>
             </div>
 
-            {ultimaAtualizacao && (
-              <p className="flex items-center gap-1.5 border-b border-border px-3 py-1.5 text-[10px] text-muted-foreground">
-                <RefreshCw size={9} /> {dataHora.format(ultimaAtualizacao)}
-              </p>
-            )}
+            <div className="flex gap-1 overflow-x-auto scrollbar-thin border-b border-border bg-muted/10 px-3 py-2">
+              {([
+                ["todos", copy.statusFilters.todos, perguntas.length],
+                ["pendente", copy.statusFilters.pendente, pendentes],
+                ["respondida", copy.statusFilters.respondida, respondidas],
+              ] as const).map(([valor, rotulo, total]) => (
+                <button key={valor} type="button" onClick={() => setFiltroStatus(valor)} className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${filtroStatus === valor ? "bg-selecionado text-white" : "text-muted-foreground hover:text-foreground"}`}>
+                  {rotulo} <span className="tabular-nums opacity-75">{total}</span>
+                </button>
+              ))}
+            </div>
 
             <div className="border-b border-border px-3 py-2.5">
               <label className="relative block">
