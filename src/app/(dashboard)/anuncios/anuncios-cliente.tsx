@@ -367,7 +367,13 @@ export function AnunciosCliente() {
           <BotaoHoje
             ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
             disabled={carregando}
-            onClick={() => setPeriodo({ inicio: hojeISO, fim: hojeISO })}
+            onClick={() =>
+              setPeriodo((atual) =>
+                atual.inicio === hojeISO && atual.fim === hojeISO
+                  ? { inicio: "", fim: "" }
+                  : { inicio: hojeISO, fim: hojeISO }
+              )
+            }
           />
         </div>
         <span className="h-px flex-1 bg-border" />

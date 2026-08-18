@@ -1,4 +1,4 @@
-# RUNBOOK — CRM Plast Leo · Operação
+# RUNBOOK — Elisa Lima CRM · Operação
 
 > Estado: **pré-go-live** · nenhum disparo externo habilitado até os gates de segurança, isolamento de marca e idempotência ficarem verdes.
 
@@ -109,7 +109,7 @@ Inngest Cloud → Functions → <nome> → Send Event → preencher payload
 
 ### Básico
 - [ ] `https://<domínio>/` → redireciona para login
-- [ ] Login com usuário Plast Leo → dashboard carrega
+- [ ] Login com usuário autorizado → dashboard carrega
 - [ ] Sidebar visível em mobile (375 px) e desktop (1280 px)
 - [ ] PWA: "Adicionar à tela inicial" disponível no Chrome mobile
 
@@ -240,7 +240,7 @@ Banco: nenhuma migração destrutiva foi aplicada; rollback de schema é seguro 
 
 ---
 
-## 11. Treinamento Plast Leo (roteiro 30 min)
+## 11. Treinamento da equipe (roteiro 30 min)
 
 1. **Login e navegação** (5 min) — sidebar, marcas KARZI / WUWU / Armarinhos Lima
 2. **Cadastro de clientes** (5 min) — criar cliente, validar CPF/CNPJ, adicionar canal WhatsApp
@@ -258,7 +258,7 @@ Banco: nenhuma migração destrutiva foi aplicada; rollback de schema é seguro 
 
 Itens fora do escopo contratual atual (Plano Acelera):
 - Integração Shopify / WooCommerce
-- Multi-tenant (múltiplos clientes além de Plast Leo)
+- Multi-tenant (múltiplos clientes além do grupo administrativo atual)
 - App mobile nativo (React Native)
 - BI avançado com drill-down por SKU
 

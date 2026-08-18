@@ -606,7 +606,11 @@ export function InboxAvaliacoes({ marcasAtivas, canaisAtivos, onContagens }: {
             <BotaoHoje
               ativo={dataInicio === hoje && dataFim === hoje}
               disabled={carregando}
-              onClick={() => { setDataInicio(hoje); setDataFim(hoje); }}
+              onClick={() => {
+                const jaEstaEmHoje = dataInicio === hoje && dataFim === hoje;
+                setDataInicio(jaEstaEmHoje ? "" : hoje);
+                setDataFim(jaEstaEmHoje ? "" : hoje);
+              }}
             />
             <button
               type="button"

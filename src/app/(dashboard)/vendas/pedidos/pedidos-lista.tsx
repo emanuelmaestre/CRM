@@ -410,7 +410,11 @@ export function PedidosLista() {
         <BotaoHoje
           ativo={dataInicial === hoje && dataFinal === hoje}
           disabled={loading}
-          onClick={() => { setDataInicial(hoje); setDataFinal(hoje); }}
+          onClick={() => {
+            const jaEstaEmHoje = dataInicial === hoje && dataFinal === hoje;
+            setDataInicial(jaEstaEmHoje ? "" : hoje);
+            setDataFinal(jaEstaEmHoje ? "" : hoje);
+          }}
         />
         <button type="button" onClick={exportarPdf} disabled={pedidos.length === 0 || exportando} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold hover:bg-muted disabled:opacity-40">
           {exportando ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />} PDF

@@ -78,7 +78,7 @@ Resposta:
 1. conter: pausar envios externos ou conta afetada;
 2. preservar evidencia: logs, `job_run`, `audit_log`, payload sem segredo;
 3. corrigir ou fazer rollback;
-4. comunicar a Plast Leo;
+4. comunicar a equipe responsável;
 5. registrar post-mortem em `docs/DECISOES/`.
 
 ## Pausar Envios

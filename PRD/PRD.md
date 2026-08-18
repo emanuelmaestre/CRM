@@ -1,4 +1,4 @@
-# PRD — CRM Inteligente Plast Leo
+# PRD — Elisa Lima CRM
 ### Central de clientes, estoque e vendas multicanal para KARZI, WUWU e Armarinhos Lima
 
 | | |
@@ -8,7 +8,7 @@
 | **Repositório** | https://github.com/emanuelmaestre/CRM.git |
 | **Versão do documento** | 2.2 (inclusão da operação Armarinhos Lima) |
 | **Data** | 31/07/2026 |
-| **Contratante** | Plast Leo Limitada (indústria) — ambiente administrativo de KARZI, WUWU e Armarinhos Lima |
+| **Contratante** | Grupo administrativo das marcas KARZI, WUWU e Armarinhos Lima |
 | **Contratada** | Emanuel Maestre dos Santos — Desenvolvedor de Software |
 | **Base contratual** | Contrato de 17/07/2026 + Anexo I (Plano Acelera) |
 | **Prazo estimado** | 8 semanas a partir do recebimento de acessos e dados |
@@ -100,7 +100,7 @@ com qual oferta — sempre dentro da LGPD, das políticas de cada plataforma e d
 - **Não produz conteúdo de marketing** — textos das réguas são fornecidos pelo cliente.
 - **Não cria contas em terceiros** — verificações e homologações são da contratante (apoio consultivo incluso).
 - **Não garante resultado comercial** — a IA é probabilística (Cláusula 11.3); decisões de
-  desconto e campanha são validadas pela Plast Leo.
+  desconto e campanha são validadas pela equipe responsável.
 
 ---
 
@@ -255,7 +255,7 @@ migrations e docs vivos desde o dia 1).
                                      └────────────────────────────────────────┘
 ════════════════ QUEM USA ═════════════════════════════════════════════════════
 
-  Equipe Plast Leo (admin · gestor · vendedor) — web responsivo + PWA
+  Equipe das marcas (admin · gestor · vendedor) — web responsivo + PWA
   em celular, tablet, notebook e desktop (grade da §2.2)
 ```
 
@@ -665,7 +665,7 @@ possam ser tomadas sem sufoco.
 | Dependências | atualizações de segurança na manutenção mensal; lockfile auditado |
 
 ### 12.2 LGPD (Cláusula 12)
-- Papéis formais: Plast Leo **controladora**, contratada **operadora**.
+- Papéis formais: marcas/operadora **controladoras**, contratada **operadora técnica**.
 - Consentimento por finalidade × canal × marca, com prova e revogação (gate de toda régua).
 - Direitos do titular operacionalizados: exportar dados de um cliente, anonimizar, excluir — botões
   no admin, com trilha.
@@ -1036,7 +1036,7 @@ layout se reorganiza. **PWA**: site instalável como app. **RPO/RTO**: perda má
 tempo máximo de recuperação. **Evolução**: mudança fora do escopo aprovado (Cláusula 4.3).
 
 ### Apêndice B — Referências
-Contrato PLAST LEO (17/07/2026) + Anexo I · Proposta FUGAZI (modelo comercial) · Logos KARZI/WUWU/Armarinhos Lima ·
+Contrato do projeto (17/07/2026) + Anexo I · Proposta FUGAZI (modelo comercial) · Logos KARZI/WUWU/Armarinhos Lima ·
 Padrões validados: Viratour (design system, réguas WhatsApp, Inngest, PWA), ChronosLab
 (anti-over-engineering, Clean Architecture), Bellasu (stack UI) · Metodologia: material de estudo
 (engenharia AI-native 09/05; pipelines 01/07; orquestração 02/07; agentes 04/07; memória 05/07;

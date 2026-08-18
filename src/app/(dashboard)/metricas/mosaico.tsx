@@ -166,7 +166,10 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
       <BotaoHoje
         ativo={periodo.inicio === hoje && periodo.fim === hoje}
         disabled={carregandoSaude}
-        onClick={() => trocarDatas(hoje, hoje)}
+        onClick={() => {
+          const jaEstaEmHoje = periodo.inicio === hoje && periodo.fim === hoje;
+          trocarDatas(jaEstaEmHoje ? "" : hoje, jaEstaEmHoje ? "" : hoje);
+        }}
       />
       <span className="text-[11px] text-muted-foreground">
         {completo ? periodoLabel ?? "" : copy.periodoPadrao}
@@ -182,6 +185,16 @@ const TOUR: CoachMarkStep[] = [
     description: "Ele cresce e vira o card completo — é lá dentro que ficam De:/Até:/Hoje, e vale para o mosaico inteiro. Esc volta, ← → pulam de card.",
   },
 ];
+
+/** Classes escritas por extenso (e não montadas em runtime) porque o
+ *  Tailwind lê o código-fonte para saber quais classes gerar — uma string
+ *  do tipo `lg:grid-cols-${n}` não existiria no CSS final. */
+const COLUNAS_LG: Record<number, string> = {
+  3: "lg:grid-cols-3",
+  4: "lg:grid-cols-4",
+  5: "lg:grid-cols-5",
+  6: "lg:grid-cols-6",
+};
 
 /* ── Mosaico ───────────────────────────────────────────────────── */
 
@@ -803,10 +816,14 @@ export function Mosaico() {
           {grupos.map((grupo) => (
             <section key={grupo.id} className="flex flex-col gap-2">
               <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
-              {/* lg:grid-cols-4 é o mínimo seguro: a maior seção (Estoque)
-                  tem 4 itens — menos colunas que isso faria ela quebrar em
-                  2 linhas e arriscar reintroduzir rolagem no desktop. */}
-              <ul className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 lg:gap-3 xl:grid-cols-5 2xl:grid-cols-6">
+              {/* Colunas por seção, não uma grade fixa para todas: a seção
+                  preenche a linha com os cards que tem, então uma de 3 itens
+                  dá cards de 1/3 e a de 4 itens dá cards de 1/4 — em vez de
+                  todo mundo herdar a largura da maior e sobrar buraco. O
+                  piso de 3 evita o extremo oposto: 2 itens esticados pela
+                  metade da tela cada. Só afeta lg+; abaixo disso a grade
+                  continua a mesma de sempre. */}
+              <ul className={`grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:gap-3 ${COLUNAS_LG[Math.max(3, grupo.blocos.length)] ?? "lg:grid-cols-6"}`}>
                 {grupo.blocos.map((bloco) => (
                   <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
                 ))}
