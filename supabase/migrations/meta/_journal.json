@@ -253,6 +253,13 @@
       "when": 1786998784689,
       "tag": "0035_remarkable_johnny_blaze",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1787014290451,
+      "tag": "0036_premium_pretty_boy",
+      "breakpoints": true
     }
   ]
 }

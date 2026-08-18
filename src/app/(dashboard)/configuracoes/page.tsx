@@ -13,6 +13,7 @@ import { MLOAuthFeedback } from "./MLOAuthFeedback";
 import { CanaisPorMarca } from "./CanaisPorMarca";
 import { useMercadoLivreStatus } from "./useMercadoLivreStatus";
 import { AutomacoesSection } from "./AutomacoesSection";
+import { BackupSection } from "./BackupSection";
 import { SincronizacaoSection } from "./SincronizacaoSection";
 import { UsuariosSection } from "./UsuariosSection";
 import settingsConfig from "@/config/settings.json";
@@ -155,6 +156,9 @@ export default function ConfiguracoesPage() {
             onUsuarioAtualizado={(usuario) =>
               setUsuarios((atuais) => ordenarUsuarios(atuais.map((item) => item.id === usuario.id ? usuario : item)))
             }
+            onUsuarioExcluido={(userId) =>
+              setUsuarios((atuais) => atuais.filter((item) => item.id !== userId))
+            }
           />
         </Card>
 
@@ -215,6 +219,14 @@ export default function ConfiguracoesPage() {
           icon={getIcon(settingsConfig.automacoes.icon)}
         >
           <AutomacoesSection />
+        </Card>
+
+        <Card
+          title="Backup"
+          description="Exportação sob demanda dos dados da organização, em JSON e CSV"
+          icon={getIcon("DatabaseBackup")}
+        >
+          <BackupSection />
         </Card>
 
       </motion.div>

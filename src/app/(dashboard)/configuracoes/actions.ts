@@ -7,6 +7,7 @@ import { listarHistoricoAutomacoes } from "@/modules/reguas/application/reguas.s
 import {
   atualizarUsuario,
   criarUsuarioComSenha,
+  excluirUsuario,
   listarUsuarios,
   redefinirSenhaUsuario,
 } from "@/modules/usuarios/application/usuarios.service";
@@ -29,8 +30,16 @@ import {
   obterLoteHistorico,
 } from "@/modules/importacao/application/importacao-historica.service";
 import { inngest } from "@/shared/lib/inngest/client";
+import { whatsappAlertaConfigurado } from "@/shared/lib/whatsapp/notificacoes-admin";
 import { dispararSincronizacaoConta, obterUltimaSincronizacaoConta } from "@/modules/canais/application/sincronizacao.service";
 import { REPUTACAO_CACHE_TAG } from "@/modules/metricas/application/reputacao.service";
+import {
+  baixarBackup,
+  exportarTabelaBackup,
+  finalizarBackup,
+  iniciarBackup,
+  listarBackups,
+} from "@/modules/backups/application/backups.service";
 
 export async function actionListarUsuarios() {
   return listarUsuarios(await getCrudContext());
@@ -46,6 +55,42 @@ export async function actionCriarUsuarioComSenha(input: unknown) {
   const resultado = await criarUsuarioComSenha(await getCrudContext(), input);
   revalidatePath("/configuracoes");
   return resultado;
+}
+
+export async function actionExcluirUsuario(input: unknown) {
+  const resultado = await excluirUsuario(await getCrudContext(), input);
+  revalidatePath("/configuracoes");
+  return resultado;
+}
+
+// Sem CrudContext: é só ler três variáveis de ambiente. Fica no servidor
+// porque a checagem lê process.env — nada disso pode ir pro bundle do
+// cliente, então o card de Automações consulta por aqui em vez de importar
+// o módulo de notificação direto.
+export async function actionStatusAutomacoesWhatsApp(): Promise<{ ativo: boolean }> {
+  return { ativo: whatsappAlertaConfigurado() };
+}
+
+export async function actionIniciarBackup() {
+  return iniciarBackup(await getCrudContext());
+}
+
+export async function actionExportarTabelaBackup(input: unknown) {
+  return exportarTabelaBackup(await getCrudContext(), input);
+}
+
+export async function actionFinalizarBackup(backupId: unknown) {
+  const resultado = await finalizarBackup(await getCrudContext(), backupId);
+  revalidatePath("/configuracoes");
+  return resultado;
+}
+
+export async function actionListarBackups() {
+  return listarBackups(await getCrudContext());
+}
+
+export async function actionBaixarBackup(backupId: unknown) {
+  return baixarBackup(await getCrudContext(), backupId);
 }
 
 export async function actionRedefinirSenhaUsuario(input: unknown) {

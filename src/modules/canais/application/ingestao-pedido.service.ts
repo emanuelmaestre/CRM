@@ -326,7 +326,14 @@ async function reconciliarStatusPedido(
   const novoStatus = mapearStatusPedido(statusExterno);
   const resultado = await db.transaction(async (tx) => {
     const atual = await tx
-      .select({ status: pedido.status, brandId: pedido.brandId, origemIngestao: pedido.origemIngestao })
+      .select({
+        status: pedido.status,
+        brandId: pedido.brandId,
+        origemIngestao: pedido.origemIngestao,
+        providerOrderId: pedido.providerOrderId,
+        total: pedido.total,
+        canceladoMotivo: pedido.canceladoMotivo,
+      })
       .from(pedido)
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)))
       .for("update")
@@ -380,7 +387,14 @@ async function reconciliarStatusPedido(
         brandId,
         entidade: "pedido",
         entidadeId: pedidoId,
-        payload: { status: novoStatus, statusAnterior: atual.status, origemStatus: statusExterno },
+        payload: {
+          status: novoStatus,
+          statusAnterior: atual.status,
+          origemStatus: statusExterno,
+          providerOrderId: atual.providerOrderId,
+          total: atual.total,
+          canceladoMotivo: novoStatus === "cancelado" ? atual.canceladoMotivo : undefined,
+        },
       }, tx));
     }
     return eventos;

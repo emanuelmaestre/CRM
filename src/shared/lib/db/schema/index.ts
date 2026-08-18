@@ -9,3 +9,4 @@ export * from "./inbox";
 export * from "./reguas";
 export * from "./scoring";
 export * from "./anuncios";
+export * from "./backups";
