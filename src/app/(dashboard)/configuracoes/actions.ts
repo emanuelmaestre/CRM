@@ -10,6 +10,7 @@ import {
   excluirUsuario,
   listarUsuarios,
   redefinirSenhaUsuario,
+  renomearUsuario,
 } from "@/modules/usuarios/application/usuarios.service";
 import {
   atualizarContaCanalConfiguracao,
@@ -47,6 +48,12 @@ export async function actionListarUsuarios() {
 
 export async function actionAtualizarUsuario(input: unknown) {
   const resultado = await atualizarUsuario(await getCrudContext(), input);
+  revalidatePath("/configuracoes");
+  return resultado;
+}
+
+export async function actionRenomearUsuario(input: unknown) {
+  const resultado = await renomearUsuario(await getCrudContext(), input);
   revalidatePath("/configuracoes");
   return resultado;
 }

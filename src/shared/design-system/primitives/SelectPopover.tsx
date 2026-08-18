@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, ChevronDown } from "lucide-react";
@@ -61,12 +61,15 @@ function calcularPosicao(gatilho: HTMLElement): Posicao {
   return { top, left, paraCima, alinhadoDireita };
 }
 
-export function SelectPopover<T extends string>({ itens, valor, onChange, className, buttonClassName }: {
+export function SelectPopover<T extends string>({ itens, valor, onChange, className, buttonClassName, buttonStyle, disabled }: {
   itens: SelectPopoverItem<T>[];
   valor: T;
   onChange: (valor: T) => void;
   className?: string;
   buttonClassName?: string;
+  /** Estilo do gatilho — usado quando a cor precisa vir de um valor dinâmico (ex.: cor do perfil), não dá pra fazer só com classe. */
+  buttonStyle?: CSSProperties;
+  disabled?: boolean;
 }) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<Posicao | null>(null);
@@ -179,9 +182,11 @@ export function SelectPopover<T extends string>({ itens, valor, onChange, classN
         ref={gatilhoRef}
         type="button"
         onClick={() => setAberto((atual) => !atual)}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={aberto}
-        className={buttonClassName ?? "press-feedback inline-flex h-9 min-w-[9rem] items-center justify-between gap-2 rounded-full border border-border bg-card py-1.5 pl-3.5 pr-3 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado"}
+        style={buttonStyle}
+        className={buttonClassName ?? "press-feedback inline-flex h-9 min-w-[9rem] items-center justify-between gap-2 rounded-full border border-border bg-card py-1.5 pl-3.5 pr-3 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado disabled:opacity-60"}
       >
         {atual?.label}{atual?.contagem !== undefined ? ` (${atual.contagem})` : ""}
         <ChevronDown size={13} className={`shrink-0 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`} />

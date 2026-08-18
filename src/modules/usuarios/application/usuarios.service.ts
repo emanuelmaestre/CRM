@@ -18,6 +18,11 @@ export const AtualizarUsuarioSchema = z.object({
   ativo: z.boolean(),
 });
 
+export const RenomearUsuarioSchema = z.object({
+  userId: z.string().uuid(),
+  nome: z.string().trim().min(2, "Informe o nome do usuário.").max(120),
+});
+
 export const CriarUsuarioSchema = z.object({
   nome: z.string().trim().min(2, "Informe o nome do usuário.").max(120),
   email: z.string().trim().email("Informe um e-mail válido.").transform((email) => email.toLowerCase()),
@@ -35,6 +40,7 @@ export const ExcluirUsuarioSchema = z.object({
 });
 
 export type AtualizarUsuarioInput = z.infer<typeof AtualizarUsuarioSchema>;
+export type RenomearUsuarioInput = z.infer<typeof RenomearUsuarioSchema>;
 export type CriarUsuarioInput = z.infer<typeof CriarUsuarioSchema>;
 export type RedefinirSenhaUsuarioInput = z.infer<typeof RedefinirSenhaUsuarioSchema>;
 export type ExcluirUsuarioInput = z.infer<typeof ExcluirUsuarioSchema>;
@@ -283,6 +289,43 @@ export async function atualizarUsuario(ctx: CrudContext, rawInput: unknown) {
       ativoAtual: atualizado.ativo,
     },
   }, ctx.db);
+
+  return atualizado;
+}
+
+export async function renomearUsuario(ctx: CrudContext, rawInput: unknown) {
+  assertPerfil(ctx, ["admin"]);
+  const input = RenomearUsuarioSchema.parse(rawInput);
+
+  const atual = await ctx.db
+    .select({ nome: appUser.nome })
+    .from(appUser)
+    .where(and(eq(appUser.id, input.userId), eq(appUser.orgId, ctx.orgId)))
+    .then((rows) => rows[0]);
+  if (!atual) throw new Error("Usuário não encontrado.");
+
+  const [atualizado] = await ctx.db
+    .update(appUser)
+    .set({ nome: input.nome, updatedAt: new Date() })
+    .where(and(eq(appUser.id, input.userId), eq(appUser.orgId, ctx.orgId)))
+    .returning({
+      id: appUser.id,
+      email: appUser.email,
+      nome: appUser.nome,
+      perfil: appUser.perfil,
+      ativo: appUser.ativo,
+    });
+
+  await ctx.db.insert(auditLog).values({
+    orgId: ctx.orgId,
+    autorId: ctx.userId,
+    autorTipo: "usuario",
+    entidade: "app_user",
+    entidadeId: input.userId,
+    acao: "nome_atualizado",
+    antes: { nome: atual.nome },
+    depois: { nome: atualizado.nome },
+  });
 
   return atualizado;
 }

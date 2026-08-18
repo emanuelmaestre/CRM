@@ -16,6 +16,7 @@ import {
   LockKeyhole,
   Mail,
   MoreHorizontal,
+  Pencil,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -33,11 +34,13 @@ import permissionsConfig from "@/config/permissions.json";
 import type { Perfil } from "@/shared/lib/auth/authorization";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
+import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import {
   actionAtualizarUsuario,
   actionCriarUsuarioComSenha,
   actionExcluirUsuario,
   actionRedefinirSenhaUsuario,
+  actionRenomearUsuario,
 } from "./actions";
 
 // Cada perfil ganha a própria cor de identidade — mesmo princípio de "cada
@@ -215,6 +218,9 @@ export function UsuariosSection({
   const [usuarioEmAlteracao, setUsuarioEmAlteracao] = useState<string | null>(null);
   const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<UsuarioResumo | null>(null);
   const [excluindo, setExcluindo] = useState(false);
+  const [usuarioParaRenomear, setUsuarioParaRenomear] = useState<UsuarioResumo | null>(null);
+  const [novoNome, setNovoNome] = useState("");
+  const [renomeando, setRenomeando] = useState(false);
 
   const totalAtivos = usuarios.filter((usuario) => usuario.ativo).length;
   const totalAdmins = usuarios.filter((usuario) => usuario.ativo && usuario.perfil === "admin").length;
@@ -281,6 +287,27 @@ export function UsuariosSection({
       toast.error(error instanceof Error ? error.message : "Não foi possível atualizar este acesso.");
     } finally {
       setUsuarioEmAlteracao(null);
+    }
+  }
+
+  function abrirRenomeacao(usuario: UsuarioResumo) {
+    setUsuarioParaRenomear(usuario);
+    setNovoNome(usuario.nome);
+  }
+
+  async function confirmarRenomeacao(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!usuarioParaRenomear || novoNome.trim().length < 2) return;
+    setRenomeando(true);
+    try {
+      const atualizado = await actionRenomearUsuario({ userId: usuarioParaRenomear.id, nome: novoNome.trim() });
+      onUsuarioAtualizado(atualizado);
+      toast.success("Nome atualizado.");
+      setUsuarioParaRenomear(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível renomear este usuário.");
+    } finally {
+      setRenomeando(false);
     }
   }
 
@@ -445,18 +472,15 @@ export function UsuariosSection({
                       </div>
                     </div>
 
-                    <select
-                      aria-label={`Perfil de ${usuario.nome}`}
-                      value={usuario.perfil}
+                    <SelectPopover
+                      className="relative inline-flex w-fit"
+                      buttonClassName="press-feedback inline-flex h-8 w-fit items-center gap-1.5 rounded-full border border-transparent px-2.5 text-xs font-bold outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-60"
+                      buttonStyle={{ color: corPerfil, background: tint(corPerfil, 9) }}
                       disabled={alterando}
-                      onChange={(event) => alterarUsuario(usuario, event.target.value as Perfil, usuario.ativo)}
-                      style={{ color: corPerfil, background: tint(corPerfil, 9) }}
-                      className="h-8 w-fit max-w-full rounded-full border border-transparent px-2.5 text-xs font-bold outline-none transition-[filter] hover:brightness-95 focus:ring-2 focus:ring-offset-1 disabled:opacity-60"
-                    >
-                      {PERFIS.map(([value, dados]) => (
-                        <option key={value} value={value}>{dados.label}</option>
-                      ))}
-                    </select>
+                      valor={usuario.perfil}
+                      onChange={(perfil) => alterarUsuario(usuario, perfil, usuario.ativo)}
+                      itens={PERFIS.map(([value, dados]) => ({ value, label: dados.label, cor: PERFIL_COR[value] }))}
+                    />
 
                     <div className="flex items-center justify-start gap-1 md:justify-end">
                       <button
@@ -498,6 +522,13 @@ export function UsuariosSection({
                             sideOffset={6}
                             className="z-[100] min-w-[10rem] rounded-[0.7rem] border border-border bg-card p-1 shadow-[0_16px_40px_rgba(14,15,19,.16)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
                           >
+                            <DropdownMenu.Item
+                              onSelect={() => abrirRenomeacao(usuario)}
+                              className="flex cursor-pointer items-center gap-2 rounded-[0.45rem] px-2.5 py-2 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:bg-muted"
+                            >
+                              <Pencil size={14} />
+                              Renomear
+                            </DropdownMenu.Item>
                             <DropdownMenu.Item
                               onSelect={() => abrirRedefinicao(usuario)}
                               className="flex cursor-pointer items-center gap-2 rounded-[0.45rem] px-2.5 py-2 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:bg-muted"
@@ -759,6 +790,57 @@ export function UsuariosSection({
                 Excluir
               </button>
             </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+
+      <DialogPrimitive.Root open={usuarioParaRenomear !== null} onOpenChange={(open) => { if (!open && !renomeando) setUsuarioParaRenomear(null); }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in" />
+          <DialogPrimitive.Content className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[1.1rem] border border-border bg-card text-left shadow-[0_18px_48px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=open]:animate-in sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(24rem,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2">
+            <form onSubmit={confirmarRenomeacao}>
+              <div className="flex items-start gap-3 px-5 py-5">
+                <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Pencil size={16} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <DialogPrimitive.Title className="text-sm font-bold text-foreground">
+                    Renomear usuário
+                  </DialogPrimitive.Title>
+                  <DialogPrimitive.Description className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                    {usuarioParaRenomear?.email}
+                  </DialogPrimitive.Description>
+                  <input
+                    autoFocus
+                    value={novoNome}
+                    onChange={(event) => setNovoNome(event.target.value)}
+                    minLength={2}
+                    maxLength={120}
+                    required
+                    className="mt-3 h-11 w-full rounded-[0.75rem] border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)]"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 border-t border-border px-5 py-4">
+                <button
+                  type="button"
+                  onClick={() => setUsuarioParaRenomear(null)}
+                  disabled={renomeando}
+                  className="h-11 flex-1 rounded-[0.75rem] border border-border text-sm font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={renomeando || novoNome.trim().length < 2}
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-[0.75rem] text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{ background: "var(--selecionado)" }}
+                >
+                  {renomeando ? <Loader2 className="animate-spin" size={14} /> : <Pencil size={14} />}
+                  Salvar
+                </button>
+              </div>
+            </form>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>
       </DialogPrimitive.Root>
