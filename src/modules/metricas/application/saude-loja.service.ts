@@ -261,6 +261,12 @@ export interface SaudeLojaFiltros {
   inicio?: string;
   fim?: string;
   brandIds?: string[];
+  /** Pula reputação/reclamações (API do ML, lentas), atendimento por marca e
+   *  margem — pilares e score saem null. Para quando só se precisa de
+   *  faturamento/pedidos/ticket/cancelamento, como a janela "anterior" do
+   *  card Evolução: rodar a consulta inteira de novo só pra descartar quase
+   *  tudo dobra o tempo de carregamento à toa. */
+  leve?: boolean;
 }
 
 // Offset fixo em vez de `new Date(ano, mes-1, dia, ...)`: aquela forma só
@@ -322,10 +328,13 @@ export async function obterSaudeLoja(
   }
 
   const idsVisiveis = marcas.map((item) => item.id);
+  const leve = filtros?.leve ?? false;
 
   // Tudo em paralelo: nenhuma dessas consultas depende do resultado da outra, e
   // as duas que saem para o Mercado Livre (reputação e reclamações) são as
-  // lentas — esperá-las em série dobraria o tempo da página à toa.
+  // lentas — esperá-las em série dobraria o tempo da página à toa. No modo
+  // `leve` elas nem entram: quem só quer faturamento/pedidos/cancelamento
+  // (a janela "anterior" do card Evolução) não precisa pagar por elas.
   const [
     vendasPorMarca,
     avaliacoesPorMarca,
@@ -351,7 +360,7 @@ export async function obterSaudeLoja(
         ne(pedido.status, "devolvido"),
       ))
       .groupBy(pedido.brandId),
-    ctx.db
+    leve ? Promise.resolve([]) : ctx.db
       .select({
         brandId: mlAvaliacaoAnuncio.brandId,
         // Média ponderada pelo número de opiniões, não média das médias: um
@@ -373,7 +382,7 @@ export async function obterSaudeLoja(
         gt(mlAvaliacaoAnuncio.reviewsTotal, 0),
       ))
       .groupBy(mlAvaliacaoAnuncio.brandId),
-    ctx.db
+    leve ? Promise.resolve([]) : ctx.db
       .select({
         brandId: produto.brandId,
         ativos: count(),
@@ -388,27 +397,29 @@ export async function obterSaudeLoja(
         isNull(produto.deletedAt),
       ))
       .groupBy(produto.brandId),
-    obterReputacao(ctx).catch((): ReputacaoResultado => ({
-      marcas: [],
-      marcasComFalha: [],
-      semContaConectada: true,
-    })),
-    obterReclamacoesAbertas(ctx).catch((): ReclamacoesResultado => ({
-      itens: [],
-      total: 0,
-      marcasComFalha: [],
-      semContaConectada: true,
-    })),
+    leve ? Promise.resolve<ReputacaoResultado>({ marcas: [], marcasComFalha: [], semContaConectada: true })
+      : obterReputacao(ctx).catch((): ReputacaoResultado => ({
+        marcas: [],
+        marcasComFalha: [],
+        semContaConectada: true,
+      })),
+    leve ? Promise.resolve<ReclamacoesResultado>({ itens: [], total: 0, marcasComFalha: [], semContaConectada: true })
+      : obterReclamacoesAbertas(ctx).catch((): ReclamacoesResultado => ({
+        itens: [],
+        total: 0,
+        marcasComFalha: [],
+        semContaConectada: true,
+      })),
     // incluirPorCanal: false — o pilar de score e a comparação lado a lado só
     // leem taxaResposta/medianaSegundos; a quebra por canal não é usada aqui
     // (ela existe para o card de Atendimento, que faz sua própria chamada
     // org-wide) e rodá-la por marca seria uma consulta extra jogada fora
     // a cada marca.
-    Promise.all(marcas.map(async (item) => [
+    leve ? Promise.resolve<Array<readonly [string, AtendimentoResumo]>>([]) : Promise.all(marcas.map(async (item) => [
       item.id,
       await obterAtendimento(ctx, { inicio, fim, brandIds: [item.id], incluirPorCanal: false }),
     ] as const)),
-    obterContasDesconectadas(ctx).catch((): ContaDesconectada[] => []),
+    leve ? Promise.resolve<ContaDesconectada[]>([]) : obterContasDesconectadas(ctx).catch((): ContaDesconectada[] => []),
   ]);
 
   const vendas = new Map(vendasPorMarca.map((linha) => [linha.brandId, linha]));
@@ -424,7 +435,7 @@ export async function obterSaudeLoja(
     idsVisiveis.map((id) => [id, paraNumero(vendas.get(id)?.receita)]),
   );
   const [margemPorMarca, crescimentoPorMarca] = await Promise.all([
-    obterMargemPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis, receitaTotalPorMarca }),
+    leve ? Promise.resolve(new Map()) : obterMargemPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis, receitaTotalPorMarca }),
     obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis }),
   ]);
 

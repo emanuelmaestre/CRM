@@ -333,7 +333,7 @@ export function Mosaico() {
     const duracao = Math.round((fimAtual.getTime() - inicioAtual.getTime()) / 86_400_000) + 1;
     const fimAnterior = new Date(inicioAtual); fimAnterior.setDate(fimAnterior.getDate() - 1);
     const inicioAnterior = new Date(fimAnterior); inicioAnterior.setDate(inicioAnterior.getDate() - duracao + 1);
-    actionObterSaudeLoja({ inicio: paraDataInput(inicioAnterior), fim: paraDataInput(fimAnterior) })
+    actionObterSaudeLoja({ inicio: paraDataInput(inicioAnterior), fim: paraDataInput(fimAnterior), leve: true })
       .then((dados) => { if (ativo) setAnterior({ chave, dados }); })
       .catch(() => {
         if (!ativo) return;

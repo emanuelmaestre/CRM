@@ -9,7 +9,7 @@ import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import type { DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
-import { isBrandSlug } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { NumeroAnimado } from "./metricas-primitives";
 import { inteiro, moeda } from "@/shared/design-system/format";
 
@@ -51,15 +51,18 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
 
   const abasMarca = (
     <div className="flex flex-wrap gap-2" role="tablist" aria-label="Marca das publicações">
-      {marcas.map((marca) => (
-        <button key={marca.brandId} type="button" role="tab" aria-selected={brandId === marca.brandId}
-          onClick={() => setBrandId(marca.brandId)}
-          className={`flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${brandId === marca.brandId ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}>
-          {isBrandSlug(marca.slug)
-            ? <BrandLogo brand={marca.slug} height={13} className={brandId === marca.brandId ? "brightness-0 invert" : undefined} />
-            : marca.marcaLabel}
-        </button>
-      ))}
+      {marcas.map((marca) => {
+        const ativo = brandId === marca.brandId;
+        const accent = isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined;
+        return (
+          <button key={marca.brandId} type="button" role="tab" aria-selected={ativo}
+            onClick={() => setBrandId(marca.brandId)}
+            style={ativo && accent ? { color: accent, background: `color-mix(in srgb, ${accent} 16%, transparent)` } : undefined}
+            className={`flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${ativo ? "" : "bg-muted text-muted-foreground hover:bg-muted/70"}`}>
+            {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={13} /> : marca.marcaLabel}
+          </button>
+        );
+      })}
     </div>
   );
 

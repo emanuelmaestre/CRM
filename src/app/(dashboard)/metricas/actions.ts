@@ -22,6 +22,7 @@ const FiltrosSchema = z.object({
   inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   fim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   brandIds: z.array(z.string().uuid()).max(20).optional(),
+  leve: z.boolean().optional(),
 });
 
 export type MetricasFiltros = z.infer<typeof FiltrosSchema>;
