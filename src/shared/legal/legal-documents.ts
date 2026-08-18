@@ -48,8 +48,10 @@ export interface LegalDocument {
 
 const updatedPt = "Atualizado em 18 de agosto de 2026";
 const updatedEn = "Last updated on August 18, 2026";
-const operatorCompanyPt = "KARZI - CNPJ 57.899.124/0001-78 | WUWU - CNPJ 57.899.124/0001-78 | ARMARINHOS LIMA - CNPJ 24.264.245/0001-94";
-const operatorCompanyEn = "KARZI - Brazilian company registration 57.899.124/0001-78 | WUWU - Brazilian company registration 57.899.124/0001-78 | ARMARINHOS LIMA - Brazilian company registration 24.264.245/0001-94";
+const operatorCompanyPt =
+  "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA - CNPJ 24.264.245/0001-94 | KARZI - CNPJ 57.899.124/0001-78 | WUWU - CNPJ 57.899.124/0001-78 | ARMARINHOS LIMA - CNPJ 24.264.245/0001-94";
+const operatorCompanyEn =
+  "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA - Brazilian company registration 24.264.245/0001-94 | KARZI - Brazilian company registration 57.899.124/0001-78 | WUWU - Brazilian company registration 57.899.124/0001-78 | ARMARINHOS LIMA - Brazilian company registration 24.264.245/0001-94";
 
 export const legalDocuments = {
   pt: {
@@ -59,14 +61,14 @@ export const legalDocuments = {
       title: "Termos de Serviço",
       metadataTitle: "Termos de Serviço - Elisa Lima CRM",
       description:
-        "Regras de uso do Elisa Lima CRM, incluindo integrações com TikTok Shop e Shopee para operação de catálogo, pedidos, atendimento e métricas.",
+        "Regras de uso do Elisa Lima CRM, incluindo integrações com Mercado Livre, TikTok Shop e Shopee para operação de catálogo, pedidos, atendimento e métricas.",
       lastUpdated: updatedPt,
       alternateHref: "/terms",
       alternateLabel: "English",
       commitments: [
         "Uso restrito a usuários autorizados das marcas KARZI, WUWU e ARMARINHOS LIMA.",
         "Nenhuma publicação, alteração de anúncio ou ação externa ocorre sem autorização do usuário ou regra operacional registrada.",
-        "Dados de TikTok Shop e Shopee são usados somente para desenvolver, operar e manter as integrações do CRM.",
+        "Dados de Mercado Livre, TikTok Shop e Shopee são usados somente para desenvolver, operar e manter as integrações do CRM.",
       ],
       sections: [
         {
@@ -100,6 +102,35 @@ export const legalDocuments = {
             "Conteúdos abusivos ou denúncias podem ser enviados para contato@elisalima.com.br.",
             "Denúncias serão revisadas com prioridade operacional, com remoção ou bloqueio quando a violação for confirmada.",
             "O CRM pode limitar recursos quando uma plataforma de terceiro alterar regras, permissões ou disponibilidade.",
+          ],
+        },
+        {
+          id: "mercado-livre",
+          title: "Integração Mercado Livre",
+          eyebrow: "API e escopos",
+          icon: "store",
+          summary: "A integração usa a API oficial do Mercado Livre, com autorização OAuth por conta e escopos limitados à operação contratada.",
+          body: [
+            "A conexão com o Mercado Livre depende de autorização OAuth concedida pelo próprio vendedor e dos escopos aprovados para o aplicativo. O CRM solicita apenas as permissões necessárias para operar catálogo, pedidos, mensagens, reputação e métricas.",
+            "Dados obtidos pela API do Mercado Livre são usados somente para desenvolver, operar e manter as funcionalidades do CRM autorizadas pela conta conectada. Eles não são vendidos, repassados a corretores de dados nem usados para treinar modelos de IA.",
+            "O uso da integração também está sujeito aos Termos e Condições de uso da API e às políticas de proteção de dados do Mercado Livre, incluindo os requisitos de segurança para aplicativos parceiros.",
+          ],
+          table: [
+            {
+              label: "Conta e loja",
+              value: "Identificação do vendedor conectado",
+              detail: "Exibir ao operador qual conta do Mercado Livre está autorizada antes de executar ações.",
+            },
+            {
+              label: "Pedidos e catálogo",
+              value: "Sincronização operacional",
+              detail: "Consultar pedidos, anúncios, estoque e status para atendimento, separação, conciliação e relatórios.",
+            },
+            {
+              label: "Reputação e métricas",
+              value: "Indicadores de desempenho",
+              detail: "Acompanhar reputação, avaliações e métricas para gestão interna, sem uso externo ou publicitário.",
+            },
           ],
         },
         {
@@ -174,6 +205,8 @@ export const legalDocuments = {
         },
       ],
       sources: [
+        { label: "Mercado Livre Developers - Termos e Condições de Uso", href: "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes" },
+        { label: "Mercado Livre - Central de Privacidade", href: "https://www.mercadolivre.com.br/privacidade" },
         { label: "TikTok Shop - Developer Terms of Service", href: "https://partner.tiktokshop.com/docv2/page/6506bc942f024f02be400315" },
         { label: "TikTok Shop - Data security and privacy review", href: "https://partner.tiktokshop.com/docv2/page/data-security-and-privacy-review" },
         { label: "Shopee Open Platform - Terms of Service", href: "https://open.shopee.com/developer-guide/36" },
@@ -196,13 +229,13 @@ export const legalDocuments = {
       title: "Política de Privacidade",
       metadataTitle: "Política de Privacidade - Elisa Lima CRM",
       description:
-        "Como o Elisa Lima CRM coleta, usa, protege, retém e exclui dados pessoais em integrações operacionais com TikTok Shop, Shopee e demais canais.",
+        "Como o Elisa Lima CRM coleta, usa, protege, retém e exclui dados pessoais em integrações operacionais com Mercado Livre, TikTok Shop, Shopee e demais canais.",
       lastUpdated: updatedPt,
       alternateHref: "/privacy",
       alternateLabel: "English",
       commitments: [
         "Não vendemos dados pessoais nem dados de plataforma.",
-        "Não usamos dados de TikTok Shop ou Shopee para publicidade externa, enriquecimento de bases ou treinamento de IA.",
+        "Não usamos dados de Mercado Livre, TikTok Shop ou Shopee para publicidade externa, enriquecimento de bases ou treinamento de IA.",
         "Tokens e dados protegidos ficam restritos a finalidades operacionais, auditoria, segurança e obrigações legais.",
       ],
       sections: [
@@ -237,6 +270,23 @@ export const legalDocuments = {
             { label: "Autenticação", value: "Usuário e sessão", detail: "Permitir login, perfis, permissões e segurança." },
             { label: "Operação comercial", value: "Clientes, pedidos e produtos", detail: "Executar atendimento, envio, estoque, conciliação e métricas." },
             { label: "Integrações", value: "Tokens e identificadores", detail: "Manter conexões autorizadas e rotinas de sincronização." },
+          ],
+        },
+        {
+          id: "mercado-livre",
+          title: "Dados Mercado Livre",
+          eyebrow: "API oficial",
+          icon: "store",
+          summary: "Dados do Mercado Livre são obtidos pela API oficial e usados apenas dentro dos escopos autorizados pelo vendedor.",
+          body: [
+            "Quando uma conta autoriza a integração via OAuth, o CRM pode acessar dados permitidos pelos escopos aprovados: identificação do vendedor, catálogo, pedidos, status de envio, mensagens, reputação e métricas necessárias para operar a conexão.",
+            "A API do Mercado Livre não disponibiliza telefone ou e-mail do comprador: por isso o CRM não realiza nem automatiza contato direto com clientes de pedidos do Mercado Livre fora das mensagens trocadas pelo próprio canal oficial da plataforma.",
+            "Esses dados não são vendidos, licenciados, transferidos a corretores de dados, usados para treinar modelos de IA ou combinados com bases externas para identificar pessoas. A revogação da autorização invalida tokens e interrompe novas coletas.",
+          ],
+          bullets: [
+            "Reputação e métricas são usadas somente para gestão interna, nunca para publicidade externa.",
+            "Dados de pedido ficam disponíveis somente a perfis autorizados e às rotinas de atendimento, envio e conciliação.",
+            "Segredos e tokens de acesso ficam em armazenamento seguro, nunca em código-fonte.",
           ],
         },
         {
@@ -287,6 +337,8 @@ export const legalDocuments = {
         },
       ],
       sources: [
+        { label: "Mercado Livre Developers - Termos e Condições de Uso", href: "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes" },
+        { label: "Mercado Livre - Central de Privacidade", href: "https://www.mercadolivre.com.br/privacidade" },
         { label: "TikTok Shop - Data security and privacy review", href: "https://partner.tiktokshop.com/docv2/page/data-security-and-privacy-review" },
         { label: "TikTok Shop - App development process", href: "https://partner.tiktokshop.com/docv2/page/65b351a8c8448002e03949a9" },
         { label: "Shopee Open Platform - Data Protection Policy", href: "https://open.shopee.com/developer-guide/32" },
@@ -311,14 +363,14 @@ export const legalDocuments = {
       title: "Terms of Service",
       metadataTitle: "Terms of Service - Elisa Lima CRM",
       description:
-        "Rules for using Elisa Lima CRM, including TikTok Shop and Shopee integrations for catalog, orders, support and metrics.",
+        "Rules for using Elisa Lima CRM, including Mercado Livre, TikTok Shop and Shopee integrations for catalog, orders, support and metrics.",
       lastUpdated: updatedEn,
       alternateHref: "/termos",
       alternateLabel: "Português",
       commitments: [
         "Restricted use by authorized users of KARZI, WUWU and ARMARINHOS LIMA.",
         "No external action is performed without user authorization or an auditable operational rule.",
-        "TikTok Shop and Shopee data is used only to develop, operate and maintain CRM integrations.",
+        "Mercado Livre, TikTok Shop and Shopee data is used only to develop, operate and maintain CRM integrations.",
       ],
       sections: [
         {
@@ -352,6 +404,23 @@ export const legalDocuments = {
             "Objectionable content or reports may be sent to contato@elisalima.com.br.",
             "Reports are reviewed with operational priority, with removal or blocking when a violation is confirmed.",
             "Features may be limited if a third-party platform changes rules, permissions or availability.",
+          ],
+        },
+        {
+          id: "mercado-livre",
+          title: "Mercado Livre integration",
+          eyebrow: "API and scopes",
+          icon: "store",
+          summary: "The integration uses Mercado Livre's official API, with per-account OAuth authorization and scopes limited to the contracted operation.",
+          body: [
+            "Connecting Mercado Livre depends on OAuth authorization granted by the seller and the scopes approved for the app. The CRM requests only the permissions needed to operate catalog, orders, messages, reputation and metrics.",
+            "Data obtained through the Mercado Livre API is used only to develop, operate and maintain the CRM features authorized by the connected account. It is not sold, transferred to data brokers or used to train AI models.",
+            "Use of the integration is also subject to Mercado Livre's API Terms and Conditions and data protection policies, including security requirements for partner applications.",
+          ],
+          table: [
+            { label: "Account and shop", value: "Connected seller identity", detail: "Shows operators which Mercado Livre account is authorized before actions." },
+            { label: "Orders and catalog", value: "Operational sync", detail: "Supports orders, listings, inventory, status, support, reconciliation and reports." },
+            { label: "Reputation and metrics", value: "Performance indicators", detail: "Tracks reputation, reviews and metrics for internal management, with no external or advertising use." },
           ],
         },
         {
@@ -402,6 +471,8 @@ export const legalDocuments = {
         },
       ],
       sources: [
+        { label: "Mercado Livre Developers - Terms and Conditions", href: "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes" },
+        { label: "Mercado Livre - Privacy Center", href: "https://www.mercadolivre.com.br/privacidade" },
         { label: "TikTok Shop - Developer Terms of Service", href: "https://partner.tiktokshop.com/docv2/page/6506bc942f024f02be400315" },
         { label: "TikTok Shop - Data security and privacy review", href: "https://partner.tiktokshop.com/docv2/page/data-security-and-privacy-review" },
         { label: "Shopee Open Platform - Terms of Service", href: "https://open.shopee.com/developer-guide/36" },
@@ -424,13 +495,13 @@ export const legalDocuments = {
       title: "Privacy Policy",
       metadataTitle: "Privacy Policy - Elisa Lima CRM",
       description:
-        "How Elisa Lima CRM collects, uses, protects, retains and deletes personal data in operational integrations with TikTok Shop, Shopee and other channels.",
+        "How Elisa Lima CRM collects, uses, protects, retains and deletes personal data in operational integrations with Mercado Livre, TikTok Shop, Shopee and other channels.",
       lastUpdated: updatedEn,
       alternateHref: "/privacidade",
       alternateLabel: "Português",
       commitments: [
         "We do not sell personal data or platform data.",
-        "We do not use TikTok Shop or Shopee data for external advertising, database enrichment or AI training.",
+        "We do not use Mercado Livre, TikTok Shop or Shopee data for external advertising, database enrichment or AI training.",
         "Tokens and protected data are restricted to operational, audit, security and legal purposes.",
       ],
       sections: [
@@ -465,6 +536,23 @@ export const legalDocuments = {
             { label: "Authentication", value: "User and session", detail: "Enable login, roles, permissions and security." },
             { label: "Commerce operations", value: "Customers, orders and products", detail: "Run support, shipping, stock, reconciliation and metrics." },
             { label: "Integrations", value: "Tokens and identifiers", detail: "Maintain authorized connections and sync routines." },
+          ],
+        },
+        {
+          id: "mercado-livre",
+          title: "Mercado Livre data",
+          eyebrow: "Official API",
+          icon: "store",
+          summary: "Mercado Livre data is obtained through the official API and used only within scopes authorized by the seller.",
+          body: [
+            "When an account authorizes the integration via OAuth, the CRM may access data allowed by approved scopes: seller identity, catalog, orders, shipping status, messages, reputation and metrics needed to operate the connection.",
+            "Mercado Livre's API does not expose the buyer's phone number or email, so the CRM does not perform or automate direct contact with Mercado Livre order customers outside the messages exchanged through the platform's own official channel.",
+            "This data is not sold, licensed, transferred to data brokers, used to train AI models or combined with external datasets to identify people. Revoking authorization invalidates tokens and stops new collection.",
+          ],
+          bullets: [
+            "Reputation and metrics are used only for internal management, never for external advertising.",
+            "Order data is available only to authorized roles and to support, shipping and reconciliation workflows.",
+            "Secrets and access tokens remain in secure storage, never in source code.",
           ],
         },
         {
@@ -515,6 +603,8 @@ export const legalDocuments = {
         },
       ],
       sources: [
+        { label: "Mercado Livre Developers - Terms and Conditions", href: "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes" },
+        { label: "Mercado Livre - Privacy Center", href: "https://www.mercadolivre.com.br/privacidade" },
         { label: "TikTok Shop - Data security and privacy review", href: "https://partner.tiktokshop.com/docv2/page/data-security-and-privacy-review" },
         { label: "TikTok Shop - App development process", href: "https://partner.tiktokshop.com/docv2/page/65b351a8c8448002e03949a9" },
         { label: "Shopee Open Platform - Data Protection Policy", href: "https://open.shopee.com/developer-guide/32" },
@@ -542,7 +632,7 @@ export const legalLoginItems = [
   {
     href: "/termos",
     title: "Termos",
-    description: "Regras de uso e integrações TikTok Shop/Shopee",
+    description: "Regras de uso e integrações Mercado Livre/TikTok Shop/Shopee",
     icon: Handshake,
   },
   {

@@ -1,367 +1,326 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import {
-  ArrowLeft,
-  ArrowRight,
-  BadgeCheck,
-  CheckCircle2,
-  Database,
-  ExternalLink,
-  FileCheck2,
-  FileText,
-  Languages,
-  LockKeyhole,
-  ShieldCheck,
-  UserCheck,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion, useScroll, useSpring } from "framer-motion";
+import { ArrowLeft, ArrowUpRight, CheckCircle2, ExternalLink, Languages } from "lucide-react";
 import appConfig from "@/config/app.json";
-import { tint } from "@/shared/design-system/color";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
-import { springs, transicao, variantes } from "@/shared/design-system/motion-variants";
+import { springs, transicao } from "@/shared/design-system/motion-variants";
 import type { BrandSlug } from "@/shared/config/brands";
 import type { LegalDocument } from "./legal-documents";
 
 const labels = {
   pt: {
     home: "Voltar ao login",
-    language: "Ver em",
-    steps: "Etapas do documento",
-    commitments: "Compromissos principais",
-    sources: "Fontes e políticas consideradas",
-    contact: "Contato",
-    previous: "Anterior",
-    next: "Próxima",
-    step: "Etapa",
-    of: "de",
-    operatedBy: "Operado por",
+    language: "Ler em",
+    index: "Neste documento",
+    commitments: "Em resumo",
+    sources: "Fontes consultadas",
+    contact: "Fale com a operadora",
     legalNote:
-      "Este documento é uma base operacional e de transparência para revisão de APIs. Ele não substitui revisão jurídica formal quando exigida.",
+      "Base operacional e de transparência para revisão de APIs — não substitui revisão jurídica formal quando exigida.",
+    scope: "Cobre integrações com",
   },
   en: {
     home: "Back to login",
     language: "Read in",
-    steps: "Document steps",
-    commitments: "Main commitments",
-    sources: "Sources and policies considered",
-    contact: "Contact",
-    previous: "Previous",
-    next: "Next",
-    step: "Step",
-    of: "of",
-    operatedBy: "Operated by",
+    index: "In this document",
+    commitments: "At a glance",
+    sources: "Sources consulted",
+    contact: "Talk to the operator",
     legalNote:
-      "This document is an operational transparency baseline for API review. It does not replace formal legal review where required.",
+      "Operational transparency baseline for API review — does not replace formal legal review where required.",
+    scope: "Covers integrations with",
   },
 } as const;
 
-const iconByKey = {
-  badge: BadgeCheck,
-  database: Database,
-  file: FileCheck2,
-  lock: LockKeyhole,
-  shield: ShieldCheck,
-  shop: null,
-  store: null,
-  user: UserCheck,
-} as const;
-
-/** As etapas de integração (TikTok Shop, Shopee) já têm identidade visual
- *  própria em /logos — usar o ícone real do canal em vez de um glifo
- *  genérico deixa claro, de cara, de qual API a etapa está falando. */
-const channelByIcon: Partial<Record<keyof typeof iconByKey, string>> = {
-  shop: "tiktokshop",
-  store: "shopee",
+/** Etapas de integração já têm identidade visual própria em /logos — usar o
+ *  ícone real do canal em vez de um glifo genérico entrega, sem texto,
+ *  qual API a seção descreve. */
+const channelBySectionId: Record<string, string> = {
+  "mercado-livre": "mercadolivre",
+  "tiktok-shop": "tiktokshop",
+  tiktok: "tiktokshop",
+  shopee: "shopee",
 };
 
-function StepIcon({
-  icon,
-  size,
-  className,
-}: {
-  icon: keyof typeof iconByKey;
-  size: number;
-  className?: string;
-}) {
-  const channel = channelByIcon[icon];
-  if (channel) {
-    return <ChannelLogo canal={channel} variant="logo" size={size >= 20 ? "md" : "sm"} className={className} />;
-  }
-  const Icon = iconByKey[icon];
-  if (!Icon) return null;
-  return <Icon size={size} className={className} />;
+function ordinal(index: number) {
+  return String(index + 1).padStart(2, "0");
 }
 
 export function LegalWizardDocument({ document }: { document: LegalDocument }) {
   const copy = labels[document.locale];
   const reduzir = useReducedMotion();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const active = document.sections[activeIndex];
-  const progress = useMemo(() => ((activeIndex + 1) / document.sections.length) * 100, [activeIndex, document.sections.length]);
-  const direction = useMemo(() => (activeIndex === 0 ? 0 : 1), [activeIndex]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Array<HTMLElement | null>>([]);
+  const [activeId, setActiveId] = useState(document.sections[0]?.id);
 
-  const slide = {
-    hidden: (dir: number) => ({ opacity: 0, x: dir >= 0 ? 14 : -14 }),
-    show: { opacity: 1, x: 0, transition: springs.settleFast },
-    exit: (dir: number) => ({ opacity: 0, x: dir >= 0 ? -10 : 10, transition: { duration: 0.12 } }),
-  };
+  const { scrollYProgress } = useScroll({ container: scrollRef });
+  const barScale = useSpring(scrollYProgress, { stiffness: 300, damping: 40, restDelta: 0.001 });
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveId(visible[0].target.id);
+      },
+      { root: container, rootMargin: "-15% 0px -70% 0px", threshold: 0 }
+    );
+    sectionRefs.current.forEach((el) => el && observer.observe(el));
+    return () => observer.disconnect();
+  }, [document]);
+
+  function jumpTo(id: string) {
+    const el = sectionRefs.current.find((node) => node?.id === id);
+    el?.scrollIntoView({ behavior: reduzir ? "auto" : "smooth", block: "start" });
+  }
 
   return (
-    <main className="min-h-dvh bg-background text-foreground">
-      {/* Faixa de assinatura visual — mesmo halo suave usado no login, sem imagem externa */}
-      <div className="relative overflow-hidden border-b border-border bg-card/80">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-24 right-[-6rem] h-72 w-72 rounded-full opacity-[0.12] blur-3xl sm:h-96 sm:w-96"
-          style={{ background: "var(--gradient-signature)" }}
-        />
-        <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link
-              href="/auth/login"
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft size={15} />
-              {copy.home}
-            </Link>
-            <Link
-              href={document.alternateHref}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Languages size={15} />
-              {copy.language} {document.alternateLabel}
-            </Link>
-          </div>
-
-          <motion.section
-            initial={variantes(reduzir, { opacity: 0, y: 8 })}
-            animate={variantes(reduzir, { opacity: 1, y: 0 })}
-            transition={transicao(reduzir, springs.settle)}
-            className="grid gap-5 py-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-end"
-          >
-            <div>
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground">
-                  <FileText size={13} />
-                  Elisa Lima CRM
-                </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background py-1.5 pl-1.5 pr-3 text-xs font-semibold text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    <ChannelLogo canal="tiktokshop" size="xs" variant="badge" />
-                    <ChannelLogo canal="shopee" size="xs" variant="badge" />
-                  </span>
-                  TikTok Shop &amp; Shopee
-                </span>
-              </div>
-              <h1 className="text-3xl font-bold tracking-normal text-foreground sm:text-4xl">{document.title}</h1>
-              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{document.description}</p>
-              <div className="mt-4 flex items-center gap-2.5 text-xs font-semibold text-muted-foreground">
-                <span className="uppercase tracking-[0.08em]">{copy.operatedBy}</span>
-                <BrandLogoGroup height={16} />
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{document.lastUpdated}</p>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-                <motion.div
-                  className="h-full rounded-full"
-                  style={{ background: "var(--gradient-signature)" }}
-                  animate={{ width: `${progress}%` }}
-                  transition={transicao(reduzir, springs.settleFast)}
-                  initial={false}
-                />
-              </div>
-              <p className="mt-2 text-xs font-semibold text-muted-foreground">
-                {copy.step} {activeIndex + 1} {copy.of} {document.sections.length}
-              </p>
-            </div>
-          </motion.section>
-        </div>
+    <main className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground">
+      <div className="h-[2.5px] shrink-0 bg-border">
+        <motion.div className="h-full origin-left" style={{ scaleX: barScale, background: "var(--gradient-signature)" }} />
       </div>
 
-      <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-5 sm:px-6 lg:grid-cols-[19rem_minmax(0,1fr)] lg:px-8">
-        <aside className="space-y-5 lg:sticky lg:top-5 lg:self-start">
-          <section>
-            <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{copy.steps}</h2>
-            <div className="space-y-2">
-              {document.sections.map((section, index) => {
-                const selected = index === activeIndex;
-                return (
-                  <button
-                    key={section.id}
-                    type="button"
-                    onClick={() => setActiveIndex(index)}
-                    className="relative flex w-full items-start gap-3 overflow-hidden rounded-lg border p-3 text-left transition-colors hover:bg-muted/50"
-                    style={{ borderColor: selected ? "var(--primary)" : "var(--border)" }}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="mx-auto w-full max-w-[46rem] px-5 pb-32 pt-10 sm:px-8 sm:pt-14 lg:px-4">
+            {/* Cabeçalho: sem cartão, sem halo — respiro editorial */}
+            <div className="flex items-center justify-between gap-3 text-xs font-semibold text-muted-foreground">
+              <Link href="/auth/login" className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground">
+                <ArrowLeft size={13} />
+                {copy.home}
+              </Link>
+              <Link href={document.alternateHref} className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground">
+                <Languages size={13} />
+                {copy.language} {document.alternateLabel}
+              </Link>
+            </div>
+
+            <motion.div
+              initial={reduzir ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={transicao(reduzir, springs.settle)}
+              className="mt-9"
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                Elisa Lima CRM · {document.lastUpdated}
+              </p>
+              <h1
+                className="mt-3 text-[2.5rem] font-bold leading-[1.05] tracking-[-0.03em] text-foreground sm:text-[3.25rem]"
+                style={{ fontFamily: "var(--font-sora)" }}
+              >
+                {document.title}
+              </h1>
+              <p className="mt-5 max-w-[38rem] text-base leading-relaxed text-muted-foreground">{document.description}</p>
+
+              <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 border-y border-border py-4">
+                <div className="flex items-center gap-2.5 text-xs font-semibold text-muted-foreground">
+                  <span>{copy.scope}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <ChannelLogo canal="mercadolivre" size="sm" variant="logo" />
+                    <ChannelLogo canal="tiktokshop" size="sm" variant="logo" />
+                    <ChannelLogo canal="shopee" size="sm" variant="logo" />
+                  </span>
+                </div>
+                <div className="hidden h-4 w-px bg-border sm:block" />
+                <BrandLogoGroup height={15} />
+              </div>
+            </motion.div>
+
+            {/* Em resumo — lista corrida, não grid de cards */}
+            <div className="mt-8">
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{copy.commitments}</p>
+              <ul className="mt-3 space-y-2.5">
+                {document.commitments.map((item, i) => (
+                  <motion.li
+                    key={item}
+                    initial={reduzir ? false : { opacity: 0, x: -6 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, margin: "-10% 0px" }}
+                    transition={transicao(reduzir, { ...springs.settleFast, delay: i * 0.04 })}
+                    className="flex gap-2.5 text-sm leading-relaxed text-foreground/80"
                   >
-                    {selected && (
-                      <motion.span
-                        layoutId="etapa-ativa"
-                        className="absolute inset-0 rounded-lg bg-primary/10 shadow-[inset_3px_0_0_var(--primary)]"
-                        transition={transicao(reduzir, springs.settle)}
-                      />
-                    )}
-                    <span
-                      className="relative mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                      style={!selected ? { background: tint("var(--muted-foreground)", 8), color: "var(--muted-foreground)" } : undefined}
-                    >
-                      <StepIcon icon={section.icon} size={16} className={selected ? "text-primary" : undefined} />
-                    </span>
-                    <span className="relative min-w-0">
-                      <span className="block text-sm font-bold text-foreground">{section.title}</span>
-                      <span className="mt-0.5 block text-xs leading-snug text-muted-foreground">{section.eyebrow}</span>
-                    </span>
-                  </button>
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                    {item}
+                  </motion.li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Corpo — cada seção é um bloco editorial numerado, sem card dentro de card */}
+            <div className="mt-14 space-y-16">
+              {document.sections.map((section, index) => {
+                const channel = channelBySectionId[section.id];
+                return (
+                  <motion.section
+                    key={section.id}
+                    id={section.id}
+                    ref={(el) => {
+                      sectionRefs.current[index] = el;
+                    }}
+                    initial={reduzir ? false : { opacity: 0, y: 18 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-10% 0px -10% 0px" }}
+                    transition={transicao(reduzir, springs.settle)}
+                    className="scroll-mt-10"
+                  >
+                    <div className="flex items-baseline gap-4">
+                      <span
+                        aria-hidden="true"
+                        className="select-none text-[2.75rem] font-bold leading-none tracking-[-0.03em] text-transparent [-webkit-text-stroke:1.5px_var(--border)] sm:text-[3.5rem]"
+                      >
+                        {ordinal(index)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                          {channel && <ChannelLogo canal={channel} size="xs" variant="logo" />}
+                          {section.eyebrow}
+                        </p>
+                        <h2
+                          className="mt-1 text-2xl font-bold leading-tight tracking-[-0.02em] text-foreground sm:text-[1.75rem]"
+                          style={{ fontFamily: "var(--font-sora)" }}
+                        >
+                          {section.title}
+                        </h2>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 space-y-4 pl-0 sm:pl-[4.75rem]">
+                      <p className="text-[15px] font-medium leading-relaxed text-foreground/70">{section.summary}</p>
+
+                      {section.body.map((paragraph) => (
+                        <p key={paragraph} className="text-[15px] leading-[1.75] text-foreground/85">
+                          {paragraph}
+                        </p>
+                      ))}
+
+                      {section.bullets && (
+                        <ul className="space-y-2.5 border-l-2 border-border pl-4">
+                          {section.bullets.map((bullet) => (
+                            <li key={bullet} className="text-sm leading-relaxed text-muted-foreground">
+                              {bullet}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+
+                      {section.table && (
+                        <dl className="divide-y divide-border border-t border-border">
+                          {section.table.map((row) => (
+                            <div key={row.label} className="grid gap-1 py-3.5 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-4">
+                              <dt className="text-xs font-bold uppercase tracking-[0.1em] text-foreground">{row.value}</dt>
+                              <dd className="text-sm leading-relaxed text-muted-foreground">{row.detail}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </div>
+                  </motion.section>
                 );
               })}
             </div>
-          </section>
 
-          <section className="rounded-lg border border-border bg-card p-4">
-            <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{copy.commitments}</h2>
-            <div className="mt-3 space-y-2.5">
-              {document.commitments.map((item) => (
-                <p key={item} className="flex gap-2 text-xs leading-relaxed text-muted-foreground">
-                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                  {item}
-                </p>
-              ))}
-            </div>
-          </section>
-        </aside>
-
-        <article className="min-w-0">
-          <section className="overflow-hidden rounded-lg border border-border bg-card">
-            <AnimatePresence mode="wait" custom={direction} initial={false}>
-              <motion.div
-                key={active.id}
-                custom={direction}
-                variants={reduzir ? undefined : slide}
-                initial={reduzir ? false : "hidden"}
-                animate={reduzir ? undefined : "show"}
-                exit={reduzir ? undefined : "exit"}
-              >
-                <div className="border-b border-border p-5 sm:p-6">
-                  <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <StepIcon icon={active.icon} size={21} />
-                  </div>
-                  <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{active.eyebrow}</p>
-                  <h2 className="mt-2 text-2xl font-bold tracking-normal text-foreground">{active.title}</h2>
-                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{active.summary}</p>
-                </div>
-
-                <div className="space-y-5 p-5 sm:p-6">
-                  {active.body.map((paragraph) => (
-                    <p key={paragraph} className="text-[15px] leading-relaxed text-foreground/85">{paragraph}</p>
+            {/* Fontes + contato — encerramento em duas colunas soltas, sem cartão de dashboard */}
+            <div className="mt-16 grid gap-10 border-t border-border pt-10 sm:grid-cols-2">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{copy.sources}</p>
+                <ul className="mt-3 space-y-2">
+                  {document.sources.map((source) => (
+                    <li key={source.href}>
+                      <a
+                        href={source.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        {source.label.toLowerCase().includes("mercado") && <ChannelLogo canal="mercadolivre" size="xs" variant="logo" />}
+                        {source.label.toLowerCase().includes("tiktok") && <ChannelLogo canal="tiktokshop" size="xs" variant="logo" />}
+                        {source.label.toLowerCase().includes("shopee") && <ChannelLogo canal="shopee" size="xs" variant="logo" />}
+                        <span className="border-b border-dotted border-muted-foreground/40 group-hover:border-foreground/60">
+                          {source.label}
+                        </span>
+                        <ExternalLink size={11} className="shrink-0 opacity-60" />
+                      </a>
+                    </li>
                   ))}
+                </ul>
+                <p className="mt-4 text-xs leading-relaxed text-muted-foreground/80">{copy.legalNote}</p>
+              </div>
 
-                  {active.bullets && (
-                    <div className="grid gap-2">
-                      {active.bullets.map((bullet) => (
-                        <div key={bullet} className="flex gap-2 rounded-lg bg-background p-3 text-sm leading-relaxed text-muted-foreground">
-                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                          <span>{bullet}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {active.table && (
-                    <div className="overflow-hidden rounded-lg border border-border">
-                      {active.table.map((row) => (
-                        <div key={row.label} className="grid gap-2 border-b border-border bg-background p-4 last:border-b-0 sm:grid-cols-[10rem_minmax(0,1fr)]">
-                          <div>
-                            <p className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{row.label}</p>
-                            <p className="mt-1 text-sm font-bold text-foreground">{row.value}</p>
-                          </div>
-                          <p className="text-sm leading-relaxed text-muted-foreground">{row.detail}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            </AnimatePresence>
-
-            <div className="flex flex-col-reverse gap-3 border-t border-border p-5 sm:flex-row sm:p-6">
-              <button
-                type="button"
-                disabled={activeIndex === 0}
-                onClick={() => setActiveIndex((index) => Math.max(0, index - 1))}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                <ArrowLeft size={15} />
-                {copy.previous}
-              </button>
-              <button
-                type="button"
-                disabled={activeIndex === document.sections.length - 1}
-                onClick={() => setActiveIndex((index) => Math.min(document.sections.length - 1, index + 1))}
-                className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-45"
-                style={{ background: "var(--gradient-signature)" }}
-              >
-                {copy.next}
-                <ArrowRight size={15} />
-              </button>
-            </div>
-          </section>
-
-          <section className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-            <div className="rounded-lg border border-border bg-card p-5">
-              <h2 className="text-sm font-bold text-foreground">{copy.sources}</h2>
-              <div className="mt-3 grid gap-2">
-                {document.sources.map((source) => (
-                  <a
-                    key={source.href}
-                    href={source.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {source.label.toLowerCase().includes("tiktok") && <ChannelLogo canal="tiktokshop" size="xs" variant="logo" />}
-                      {source.label.toLowerCase().includes("shopee") && <ChannelLogo canal="shopee" size="xs" variant="logo" />}
-                      {source.label}
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{document.contact.title}</p>
+                <dl className="mt-3 space-y-3 text-sm">
+                  <div>
+                    <dt className="text-xs text-muted-foreground">{document.contact.emailLabel}</dt>
+                    <dd className="font-semibold text-foreground">{document.contact.email}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">{document.contact.addressLabel}</dt>
+                    <dd className="text-foreground/80">{document.contact.address}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-muted-foreground">{document.contact.companyLabel}</dt>
+                    <dd className="text-foreground/80">{document.contact.company}</dd>
+                  </div>
+                </dl>
+                <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                  {appConfig.brandOrder.map((brand) => (
+                    <span key={brand} className="rounded-full border border-border px-2.5 py-1 text-[10px] font-bold text-muted-foreground">
+                      {(brand as BrandSlug).replace("_", " ").toUpperCase()}
                     </span>
-                    <ExternalLink size={14} />
-                  </a>
-                ))}
+                  ))}
+                </div>
               </div>
-              <p className="mt-4 text-xs leading-relaxed text-muted-foreground">{copy.legalNote}</p>
             </div>
+          </div>
+        </div>
 
-            <div className="rounded-lg border border-border bg-card p-5">
-              <h2 className="text-sm font-bold text-foreground">{document.contact.title}</h2>
-              <dl className="mt-3 space-y-3 text-sm">
-                <div>
-                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{document.contact.emailLabel}</dt>
-                  <dd className="mt-1 font-semibold text-foreground">{document.contact.email}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{document.contact.addressLabel}</dt>
-                  <dd className="mt-1 text-muted-foreground">{document.contact.address}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-bold uppercase tracking-[0.08em] text-muted-foreground">{document.contact.companyLabel}</dt>
-                  <dd className="mt-1 text-muted-foreground">{document.contact.company}</dd>
-                </div>
-              </dl>
-              <div className="mt-4 flex items-center gap-2 border-t border-border pt-4">
-                {appConfig.brandOrder.map((brand) => (
-                  <span
-                    key={brand}
-                    className="rounded-md border border-border px-2 py-1 text-[11px] font-bold text-muted-foreground"
-                  >
-                    {(brand as BrandSlug).replace("_", " ").toUpperCase()}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </section>
-        </article>
+        {/* Trilho lateral: marcador de leitura, não abas de wizard */}
+        <nav className="hidden w-16 shrink-0 flex-col items-center gap-1 border-l border-border py-14 lg:flex xl:w-56 xl:items-stretch xl:px-6">
+          <p className="mb-2 hidden text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground xl:block">{copy.index}</p>
+          {document.sections.map((section, index) => {
+            const selected = section.id === activeId;
+            return (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => jumpTo(section.id)}
+                className="group relative flex w-full items-center gap-3 py-2.5 text-left"
+              >
+                <span
+                  className="relative h-1.5 w-1.5 shrink-0 rounded-full transition-colors xl:hidden"
+                  style={{ background: selected ? "var(--foreground)" : "var(--border)" }}
+                />
+                <span
+                  className={`hidden truncate text-xs font-semibold transition-colors xl:block ${
+                    selected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground/70"
+                  }`}
+                >
+                  {ordinal(index)} · {section.title}
+                </span>
+                {selected && (
+                  <motion.span
+                    layoutId="trilho-ativo"
+                    className="absolute -left-px top-0 hidden h-full w-px xl:block"
+                    style={{ background: "var(--foreground)" }}
+                    transition={transicao(reduzir, springs.settle)}
+                  />
+                )}
+              </button>
+            );
+          })}
+          <Link
+            href="/auth/login"
+            className="mt-auto hidden items-center gap-1.5 pt-6 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground xl:inline-flex"
+          >
+            {copy.home}
+            <ArrowUpRight size={13} />
+          </Link>
+        </nav>
       </div>
     </main>
   );
