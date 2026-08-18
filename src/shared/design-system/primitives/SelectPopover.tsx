@@ -186,7 +186,7 @@ export function SelectPopover<T extends string>({ itens, valor, onChange, classN
         aria-haspopup="listbox"
         aria-expanded={aberto}
         style={buttonStyle}
-        className={buttonClassName ?? "press-feedback inline-flex h-9 min-w-[9rem] items-center justify-between gap-2 rounded-full border border-border bg-card py-1.5 pl-3.5 pr-3 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado disabled:opacity-60"}
+        className={buttonClassName ?? "press-feedback inline-flex h-11 min-w-[9rem] items-center justify-between gap-2 rounded-full border border-border bg-card py-1.5 pl-3.5 pr-3 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado disabled:opacity-60"}
       >
         {atual?.label}{atual?.contagem !== undefined ? ` (${atual.contagem})` : ""}
         <ChevronDown size={13} className={`shrink-0 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`} />

@@ -449,10 +449,14 @@ export function PedidosLista() {
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido ou cliente…" className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-selecionado" />
         </label>
         <div className="flex items-center gap-2">
+          {/* buttonClassName força 44px de altura — o padrão do componente é
+              36px, que ficava desalinhado ao lado dos calendários e do Hoje
+              (todos 44px) nesta linha. */}
           <div className="min-w-0 flex-1 md:flex-initial">
             <SelectPopover
               valor={statusGrupo}
               onChange={setStatusGrupo}
+              buttonClassName="press-feedback inline-flex h-11 w-full min-w-[7rem] items-center justify-between gap-2 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado disabled:opacity-60 md:w-auto"
               itens={GRUPOS_STATUS.map((grupo) => ({
                 value: grupo.chave,
                 label: grupo.chave === "" ? copy.statusFilter.all : grupo.label,
