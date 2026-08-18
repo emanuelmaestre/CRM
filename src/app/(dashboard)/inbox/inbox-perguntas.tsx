@@ -175,7 +175,11 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
     const texto = resposta.trim();
     setEnviando(true);
     try {
-      await actionResponderPergunta(selecionada.id, texto);
+      const resultado = await actionResponderPergunta(selecionada.id, texto);
+      if (!resultado.ok) {
+        toast.error(resultado.mensagem);
+        return;
+      }
       setPerguntas((prev) =>
         prev.map((p) => p.id === selecionada.id ? { ...p, status: "respondida", resposta: texto } : p)
       );

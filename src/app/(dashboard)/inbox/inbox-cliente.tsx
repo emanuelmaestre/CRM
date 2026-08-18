@@ -242,7 +242,12 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
     setTexto("");
     setEnviando(true);
     try {
-      await actionEnviarMensagem(selecionada.id, conteudo);
+      const resultado = await actionEnviarMensagem(selecionada.id, conteudo);
+      if (!resultado.ok) {
+        toast.error(resultado.mensagem);
+        setTexto(conteudo);
+        return;
+      }
       const msgs = await actionListarMensagens(selecionada.id);
       setMensagens(msgs);
       if (selecionada.status === "nova" || selecionada.status === "aguardando_cliente") {
@@ -261,7 +266,11 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   async function avancarStatus(novoStatus: ConversaStatus) {
     if (!selecionada) return;
     try {
-      await actionAvancarStatusConversa(selecionada.id, novoStatus);
+      const resultado = await actionAvancarStatusConversa(selecionada.id, novoStatus);
+      if (!resultado.ok) {
+        toast.error(resultado.mensagem);
+        return;
+      }
       setSelecionada((s) => s ? { ...s, status: novoStatus } : s);
       setConversas((cs) => cs.map((c) => c.id === selecionada.id ? { ...c, status: novoStatus } : c));
       const statusLabel = copy.status[novoStatus].label.toLocaleLowerCase("pt-BR");
