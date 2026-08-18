@@ -1,3 +1,7 @@
+import {
+  AlertCircle, AlertTriangle, Ban, DatabaseBackup, Hourglass, MessageSquare, OctagonAlert, Undo2, WifiOff,
+  type LucideIcon,
+} from "lucide-react";
 import type { DomainEventType } from "@/shared/events";
 
 /** Catálogo estático (sem env, sem segredo) das automações que viram aviso
@@ -7,6 +11,13 @@ import type { DomainEventType } from "@/shared/events";
 export interface AutomacaoWhatsApp {
   chave: DomainEventType;
   categoria: "Estoque" | "Atendimento" | "Vendas & pós-venda" | "Relacionamento" | "Operacional";
+  /** Ícone do círculo tingido nas telas do sistema (card de Automações, sino
+   *  de notificações) — reaproveita o mesmo ícone que a automação já usa em
+   *  outra tela quando existe (ex.: Hourglass do card "Parados" no Estoque),
+   *  pra reforçar que é a mesma linguagem visual, não uma nova. */
+  icone: LucideIcon;
+  /** Só pro texto da mensagem de WhatsApp (campo `modelo` abaixo) — não
+   *  aparece mais nas telas do sistema, que usam `icone`. */
   emoji: string;
   titulo: string;
   tom: string;
@@ -22,6 +33,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "estoque.minimo_atingido",
     categoria: "Estoque",
+    icone: AlertTriangle,
     emoji: "📦",
     titulo: "Estoque baixo",
     tom: "Assim que um produto bate no mínimo, a gente te chama no zap antes que falte de verdade.",
@@ -30,6 +42,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "estoque.parado_detectado",
     categoria: "Estoque",
+    icone: Hourglass,
     emoji: "🐌",
     titulo: "Produto parado",
     tom: "Item parado há tempo demais? Avisamos pra você decidir: promoção, ajuste ou deixa quieto.",
@@ -38,6 +51,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "conversa.sem_resposta_24h",
     categoria: "Atendimento",
+    icone: MessageSquare,
     emoji: "💬",
     titulo: "Cliente esperando",
     tom: "Ninguém fica 24h sem resposta sem você saber — a gente cutuca no WhatsApp.",
@@ -46,6 +60,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "pedido.cancelado",
     categoria: "Vendas & pós-venda",
+    icone: Ban,
     emoji: "❌",
     titulo: "Pedido cancelado",
     tom: "Cancelamento a gente avisa na hora, já com valor e motivo — pra você saber o tamanho do estrago sem abrir o sistema.",
@@ -54,6 +69,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "pedido.devolvido",
     categoria: "Vendas & pós-venda",
+    icone: Undo2,
     emoji: "↩️",
     titulo: "Pedido devolvido",
     tom: "Devolução também cai no zap, na mesma hora que acontece.",
@@ -62,6 +78,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "regua.falha_definitiva",
     categoria: "Relacionamento",
+    icone: OctagonAlert,
     emoji: "🛑",
     titulo: "Régua travou de vez",
     tom: "Quando uma régua desiste de tentar de novo (não é falha passageira), a gente conta pra você decidir o próximo passo com o cliente.",
@@ -70,6 +87,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "importacao.com_erros",
     categoria: "Operacional",
+    icone: AlertCircle,
     emoji: "📥",
     titulo: "Importação com erros",
     tom: "Terminou de importar, mas nem tudo entrou limpo — te mandamos o placar pra você conferir o que ficou de fora.",
@@ -78,6 +96,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "canal.degradado",
     categoria: "Operacional",
+    icone: AlertTriangle,
     emoji: "⚠️",
     titulo: "Canal com problema",
     tom: "Se uma conta começar a engasgar, você é o primeiro a saber — não o cliente.",
@@ -86,6 +105,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "canal.desconectado",
     categoria: "Operacional",
+    icone: WifiOff,
     emoji: "🔴",
     titulo: "Canal caiu",
     tom: "Token expirou, conta caiu: mandamos o alerta na hora, sem esperar você notar sozinho.",
@@ -94,6 +114,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
   {
     chave: "backup.falhou",
     categoria: "Operacional",
+    icone: DatabaseBackup,
     emoji: "🚨",
     titulo: "Backup falhou",
     tom: "Esse aqui é sério: se o backup falhar, o aviso chega na hora, não no fim do mês.",

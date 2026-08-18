@@ -379,12 +379,6 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
   const modulosOrdenados = comErro
     ? [...MODULOS].sort((a, b) => Number(execucao?.[b.chave] === "erro") - Number(execucao?.[a.chave] === "erro"))
     : MODULOS;
-  const modulosResolvidos = execucao
-    ? MODULOS.filter((modulo) => {
-        const status = execucao[modulo.chave] as ModuloStatus;
-        return status === "concluido" || status === "erro";
-      }).length
-    : 0;
   const statusResumo = !execucao
     ? "Aguardando primeira sincronização"
     : emAndamento
@@ -403,14 +397,12 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 xl:items-end">
-        <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-          <span className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-            <Clock3 size={12} className="shrink-0" />
-            {rotuloUltima(execucao)}
-          </span>
-          <SincronizacaoInfo conta={conta} execucao={execucao} />
-
+      {/* Colunas com largura fixa (não "auto"): cada linha é uma conta
+          separada, sem grid compartilhado entre elas — só travando a
+          largura de cada coluna é que "Sincronizar", o status e o relógio
+          caem exatamente no mesmo x em toda linha, com ou sem alerta. */}
+      <div className="flex flex-wrap items-center gap-2 xl:grid xl:grid-cols-[15rem_minmax(0,13rem)_2rem_auto] xl:items-center">
+        <div className="flex justify-start">
           <AnimatePresence mode="popLayout">
             {execucao && (
               <motion.div
@@ -423,13 +415,10 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
                   <PopoverPrimitive.Trigger asChild>
                     <button
                       type="button"
-                      className="group press-feedback flex items-center gap-2 rounded-full border border-border bg-background/70 py-1.5 pl-2.5 pr-2 transition-colors hover:bg-muted"
+                      className="group press-feedback flex items-center gap-2 rounded-full border border-border bg-card py-1.5 pl-2.5 pr-2 transition-colors hover:bg-muted"
                     >
                       <ProgressoCircular valor={percentual} emAndamento={emAndamento} comErro={comErro} />
-                      <div className="min-w-0 pr-1 text-left">
-                        <p className="text-[11px] font-bold text-foreground">{statusResumo}</p>
-                        <p className="text-[10px] font-medium text-muted-foreground">{modulosResolvidos} de {MODULOS.length} módulos resolvidos</p>
-                      </div>
+                      <p className="min-w-0 pr-1 text-left text-[11px] font-bold text-foreground">{statusResumo}</p>
                       <ChevronDown size={13} className="shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                     </button>
                   </PopoverPrimitive.Trigger>
@@ -461,18 +450,24 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
               </motion.div>
             )}
           </AnimatePresence>
-
-          <motion.button
-            type="button"
-            whileTap={{ scale: 0.97 }}
-            onClick={sincronizar}
-            disabled={disparando || emAndamento}
-            className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
-          >
-            <RefreshCw size={13} className={disparando || emAndamento ? "animate-spin" : ""} />
-            {emAndamento ? "Sincronizando…" : "Sincronizar"}
-          </motion.button>
         </div>
+
+        <span className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-medium text-muted-foreground xl:justify-end xl:text-right">
+          <Clock3 size={12} className="shrink-0" />
+          {rotuloUltima(execucao)}
+        </span>
+        <SincronizacaoInfo conta={conta} execucao={execucao} />
+
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.97 }}
+          onClick={sincronizar}
+          disabled={disparando || emAndamento}
+          className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+        >
+          <RefreshCw size={13} className={disparando || emAndamento ? "animate-spin" : ""} />
+          {emAndamento ? "Sincronizando…" : "Sincronizar"}
+        </motion.button>
       </div>
     </div>
   );

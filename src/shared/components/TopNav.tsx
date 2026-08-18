@@ -125,10 +125,10 @@ function NotificationBell() {
                 return (
                   <motion.li key={n.id} variants={variantes(reduzir, fadeUp)} className="flex items-start gap-2.5 px-4 py-2.5">
                     <span
-                      className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[15px] leading-none"
-                      style={{ background: tint(cor, 12) }}
+                      className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: tint(cor, 12), color: cor }}
                     >
-                      {info.emoji}
+                      <info.icone size={15} strokeWidth={1.75} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-bold text-foreground">
