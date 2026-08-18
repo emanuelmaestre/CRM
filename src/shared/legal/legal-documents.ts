@@ -42,16 +42,24 @@ export interface LegalDocument {
     addressLabel: string;
     address: string;
     companyLabel: string;
-    company: string;
+    company: Array<{ label: string; document: string }>;
   };
 }
 
 const updatedPt = "Atualizado em 18 de agosto de 2026";
 const updatedEn = "Last updated on August 18, 2026";
-const operatorCompanyPt =
-  "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA - CNPJ 24.264.245/0001-94 | KARZI - CNPJ 57.899.124/0001-78 | WUWU - CNPJ 57.899.124/0001-78 | ARMARINHOS LIMA - CNPJ 24.264.245/0001-94";
-const operatorCompanyEn =
-  "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA - Brazilian company registration 24.264.245/0001-94 | KARZI - Brazilian company registration 57.899.124/0001-78 | WUWU - Brazilian company registration 57.899.124/0001-78 | ARMARINHOS LIMA - Brazilian company registration 24.264.245/0001-94";
+const operatorCompanyPt = [
+  { label: "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA", document: "CNPJ 24.264.245/0001-94" },
+  { label: "KARZI", document: "CNPJ 57.899.124/0001-78" },
+  { label: "WUWU", document: "CNPJ 57.899.124/0001-78" },
+  { label: "ARMARINHOS LIMA", document: "CNPJ 24.264.245/0001-94" },
+];
+const operatorCompanyEn = [
+  { label: "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA", document: "Brazilian company registration 24.264.245/0001-94" },
+  { label: "KARZI", document: "Brazilian company registration 57.899.124/0001-78" },
+  { label: "WUWU", document: "Brazilian company registration 57.899.124/0001-78" },
+  { label: "ARMARINHOS LIMA", document: "Brazilian company registration 24.264.245/0001-94" },
+];
 
 export const legalDocuments = {
   pt: {

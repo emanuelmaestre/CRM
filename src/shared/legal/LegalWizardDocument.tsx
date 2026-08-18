@@ -6,7 +6,9 @@ import { motion, useReducedMotion, useScroll, useSpring } from "framer-motion";
 import { ArrowLeft, ArrowUpRight, CheckCircle2, ExternalLink, Languages } from "lucide-react";
 import appConfig from "@/config/app.json";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
+import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
 import type { BrandSlug } from "@/shared/config/brands";
 import type { LegalDocument } from "./legal-documents";
@@ -22,6 +24,7 @@ const labels = {
     legalNote:
       "Base operacional e de transparência para revisão de APIs — não substitui revisão jurídica formal quando exigida.",
     scope: "Cobre integrações com",
+    operatedBy: "Operado por",
     skip: "Ir para o conteúdo",
   },
   en: {
@@ -34,6 +37,7 @@ const labels = {
     legalNote:
       "Operational transparency baseline for API review — does not replace formal legal review where required.",
     scope: "Covers integrations with",
+    operatedBy: "Operated by",
     skip: "Skip to content",
   },
 } as const;
@@ -156,17 +160,29 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
               </h1>
               <p className="mt-5 max-w-[38rem] text-base leading-relaxed text-muted-foreground">{document.description}</p>
 
-              <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3 border-y border-border py-4">
-                <div className="flex items-center gap-2.5 text-xs font-semibold text-muted-foreground">
-                  <span>{copy.scope}</span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <ChannelLogo canal="mercadolivre" size="sm" variant="logo" />
-                    <ChannelLogo canal="tiktokshop" size="sm" variant="logo" />
-                    <ChannelLogo canal="shopee" size="sm" variant="logo" />
+              <div className="mt-7 grid gap-3 border-y border-border py-4 sm:grid-cols-2 sm:gap-6">
+                <div className="flex items-center gap-3">
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{copy.scope}</span>
+                  <span className="flex items-center gap-3">
+                    <span className="flex h-5 w-5 items-center justify-center">
+                      <ChannelLogo canal="mercadolivre" size="sm" variant="logo" />
+                    </span>
+                    <span className="flex h-5 w-5 items-center justify-center">
+                      <ChannelLogo canal="tiktokshop" size="sm" variant="logo" />
+                    </span>
+                    <span className="flex h-5 w-5 items-center justify-center">
+                      <ChannelLogo canal="shopee" size="sm" variant="logo" />
+                    </span>
                   </span>
                 </div>
-                <div className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
-                <BrandLogoGroup height={15} />
+                <div className="flex items-center gap-3 sm:border-l sm:border-border sm:pl-6">
+                  <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{copy.operatedBy}</span>
+                  <span className="flex items-center gap-3">
+                    <ElisaLimaLogo variant="header" className="!h-4 !w-auto shrink-0" />
+                    <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+                    <BrandLogoGroup height={15} />
+                  </span>
+                </div>
               </div>
             </motion.div>
 
@@ -309,14 +325,21 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">{document.contact.companyLabel}</dt>
-                    <dd className="text-foreground/80">{document.contact.company}</dd>
+                    <dd className="mt-1.5 space-y-1.5 divide-y divide-border">
+                      {document.contact.company.map((entity) => (
+                        <p key={entity.label} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 pt-1.5 first:pt-0">
+                          <span className="font-semibold text-foreground">{entity.label}</span>
+                          <span className="text-xs text-muted-foreground">{entity.document}</span>
+                        </p>
+                      ))}
+                    </dd>
                   </div>
                 </dl>
-                <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                <div className="mt-4 flex flex-wrap items-center gap-4">
+                  <ElisaLimaLogo variant="header" className="!h-4 !w-auto shrink-0" />
+                  <span className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
                   {appConfig.brandOrder.map((brand) => (
-                    <span key={brand} className="rounded-full border border-border px-2.5 py-1 text-[10px] font-bold text-muted-foreground">
-                      {(brand as BrandSlug).replace("_", " ").toUpperCase()}
-                    </span>
+                    <BrandLogo key={brand} brand={brand as BrandSlug} height={14} />
                   ))}
                 </div>
               </div>
@@ -341,7 +364,7 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                     onClick={() => jumpTo(section.id)}
                     aria-current={selected ? "location" : undefined}
                     title={section.title}
-                    className={`group relative flex w-full items-center gap-3 rounded-md py-2.5 text-left`}
+                    className="group relative flex w-full items-center gap-3 rounded-md py-2.5 text-left xl:pl-4"
                   >
                     <span
                       aria-hidden="true"
@@ -349,7 +372,7 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                       style={{ background: selected ? "var(--foreground)" : "var(--border)" }}
                     />
                     <span
-                      className={`hidden truncate text-xs font-semibold transition-colors xl:block ${
+                      className={`hidden text-xs font-semibold leading-snug transition-colors xl:block ${
                         selected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground/70"
                       }`}
                     >
@@ -359,7 +382,7 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                       <motion.span
                         aria-hidden="true"
                         layoutId="trilho-ativo"
-                        className="absolute -left-px top-0 hidden h-full w-px xl:block"
+                        className="absolute left-0 top-1/2 hidden h-4/5 w-[3px] -translate-y-1/2 rounded-full xl:block"
                         style={{ background: "var(--foreground)" }}
                         transition={transicao(reduzir, springs.settle)}
                       />
