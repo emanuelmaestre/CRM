@@ -133,10 +133,7 @@ export default function ConfiguracoesPage() {
 
   return (
     <div>
-      <PageHeader
-        title={settingsConfig.header.title}
-        description={settingsConfig.header.description}
-      />
+      <PageHeader title={settingsConfig.header.title} />
 
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
 

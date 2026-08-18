@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { tint } from "@/shared/design-system/color";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { AlertTriangle, CheckCircle2, Clock3, Info, Loader2, MinusCircle, RefreshCw, Sparkles, X, XCircle } from "lucide-react";
+import { springs } from "@/shared/design-system/motion-variants";
+import { AlertTriangle, CheckCircle2, ChevronDown, Clock3, Info, Loader2, MinusCircle, RefreshCw, Sparkles, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { getBrandConfig } from "@/shared/config/brands";
@@ -313,6 +314,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
   const reduzir = useReducedMotion();
   const [execucao, setExecucao] = useState<Execucao | null>(null);
   const [disparando, setDisparando] = useState(false);
+  const [verDetalhes, setVerDetalhes] = useState(false);
   const intervalo = useRef<ReturnType<typeof setInterval> | null>(null);
   const consultarRef = useRef<() => Promise<void>>(async () => {});
 
@@ -429,26 +431,54 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
               initial={reduzir ? false : { opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={reduzir ? undefined : { opacity: 0 }}
-              className="flex flex-wrap items-center gap-2 xl:justify-end"
+              className="flex flex-col items-start gap-2 xl:items-end"
             >
-              <div className="flex items-center gap-2 rounded-full border border-border bg-background/70 px-2.5 py-1.5">
-                <ProgressoCircular valor={percentual} emAndamento={emAndamento} comErro={comErro} />
-                <div className="min-w-0 pr-1">
-                  <p className="text-[11px] font-bold text-foreground">{statusResumo}</p>
-                  <p className="text-[10px] font-medium text-muted-foreground">{modulosResolvidos} de {MODULOS.length} módulos resolvidos</p>
+              {emAndamento ? (
+                <div className="flex items-center gap-2 rounded-full border border-border bg-background/70 px-2.5 py-1.5">
+                  <ProgressoCircular valor={percentual} emAndamento={emAndamento} comErro={comErro} />
+                  <div className="min-w-0 pr-1">
+                    <p className="text-[11px] font-bold text-foreground">{statusResumo}</p>
+                    <p className="text-[10px] font-medium text-muted-foreground">{modulosResolvidos} de {MODULOS.length} módulos resolvidos</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex max-w-[46rem] flex-wrap items-center gap-1.5">
-                {modulosOrdenados.map((modulo) => (
-                  <SeloModulo
-                    key={modulo.chave}
-                    label={modulo.label}
-                    status={execucao[modulo.chave] as ModuloStatus}
-                    resultado={execucao[modulo.resultado]}
-                    erro={execucao[modulo.erro] as string | null}
-                  />
-                ))}
-              </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setVerDetalhes((atual) => !atual)}
+                  aria-expanded={verDetalhes}
+                  className="press-feedback flex items-center gap-2 rounded-full border border-border bg-background/70 py-1.5 pl-2.5 pr-2 transition-colors hover:bg-muted"
+                >
+                  <ProgressoCircular valor={percentual} emAndamento={emAndamento} comErro={comErro} />
+                  <div className="min-w-0 pr-1 text-left">
+                    <p className="text-[11px] font-bold text-foreground">{statusResumo}</p>
+                    <p className="text-[10px] font-medium text-muted-foreground">{modulosResolvidos} de {MODULOS.length} módulos resolvidos</p>
+                  </div>
+                  <ChevronDown size={13} className={`shrink-0 text-muted-foreground transition-transform ${verDetalhes ? "rotate-180" : ""}`} />
+                </button>
+              )}
+
+              <AnimatePresence initial={false}>
+                {(emAndamento || verDetalhes) && (
+                  <motion.div
+                    key="pills"
+                    initial={reduzir ? false : { opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={reduzir ? undefined : { opacity: 0, height: 0 }}
+                    transition={springs.settleFast}
+                    className="flex max-w-[46rem] flex-wrap items-center gap-1.5 overflow-hidden xl:justify-end"
+                  >
+                    {modulosOrdenados.map((modulo) => (
+                      <SeloModulo
+                        key={modulo.chave}
+                        label={modulo.label}
+                        status={execucao[modulo.chave] as ModuloStatus}
+                        resultado={execucao[modulo.resultado]}
+                        erro={execucao[modulo.erro] as string | null}
+                      />
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>

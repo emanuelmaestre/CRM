@@ -5,14 +5,15 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 import { springs } from "../motion-variants";
 
-/* ── Card de métrica tingido com a própria cor ─────────────────────
+/* ── Card de métrica com cor consistente ────────────────────────────
    Antes existiam duas versões: uma sempre branca (resumo de Vendas) e outra
    que tingia o fundo só em 2 de 3 casos (saúde do Estoque, com "Parados"
-   caindo numa exceção que zerava a cor). Aqui a regra é uma só: todo card
-   tinge o fundo com a própria cor semântica — mesma lógica já usada em
-   Anúncios (marca) e Usuários (perfil). Não é o `StatCard` genérico (esse
-   já tem outro dono, o painel de consumo de IA) — este é específico pra
-   grades de indicador com cor semântica. */
+   caindo numa exceção que zerava a cor). Aqui a regra é uma só: fundo
+   sempre branco, ícone + label + valor sempre coloridos com a cor
+   semântica — mesmo peso visual em todo card, sem fundo colorido pesando
+   na leitura. Não é o `StatCard` genérico (esse já tem outro dono, o
+   painel de consumo de IA) — este é específico pra grades de indicador
+   com cor semântica. */
 
 export interface TintedStatCardProps {
   label: string;
@@ -41,7 +42,7 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
       className="rounded-[1.15rem] border-2 p-4 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_7px_22px_rgba(14,15,19,.09)]"
       style={{
         borderColor: ativo ? cor : "transparent",
-        background: `color-mix(in srgb, ${cor} 7%, var(--card))`,
+        background: "var(--card)",
       }}
     >
       <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: cor }}>
