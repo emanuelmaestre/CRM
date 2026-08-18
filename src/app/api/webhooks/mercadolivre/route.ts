@@ -5,6 +5,7 @@ import { resolverContaWebhookMarketplace } from "@/modules/canais/application/we
 import { obterTokenMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { receberMensagem, resolverClientePorIdentidade } from "@/modules/inbox/application/inbox.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
+import { iniciarSyncTrace } from "@/shared/lib/observability/sync-trace";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -116,12 +117,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ ok: true, ignorado: true, topic });
   }
 
+  // sync_id por notificação — resposta ao achado da auditoria de
+  // performance ("hoje é impossível saber onde uma sincronização gastou
+  // tempo"). As etapas seguem o mesmo agrupamento do exemplo original:
+  // conta/token, chamadas à API do ML, e a escrita final no banco.
+  const trace = iniciarSyncTrace("ml-webhook", { topic, resource, sellerId });
+
   try {
-    const conta = await resolverContaWebhookMarketplace("mercadolivre", sellerId);
-    const { accessToken } = await obterTokenMercadoLivre(conta.brandSlug);
+    const conta = await trace.etapa("resolver_conta_e_token", async () => {
+      const c = await resolverContaWebhookMarketplace("mercadolivre", sellerId);
+      const { accessToken } = await obterTokenMercadoLivre(c.brandSlug);
+      return { ...c, accessToken };
+    });
+    const { accessToken } = conta;
 
     if (topic === "messages") {
-      const message = await buscarRecursoML<{
+      const message = await trace.etapa("ml_api", () => buscarRecursoML<{
         message_id?: string;
         id?: string;
         date?: string;
@@ -133,7 +144,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         order_id?: string | number;
         to?: { user_id?: number };
         message_resources?: Array<{ id?: string | number; name?: string }>;
-      }>(resource, accessToken);
+      }>(resource, accessToken));
       const messageId = message.message_id ?? message.id ?? resultado.data.id ?? resource;
       const conteudo = message.text?.plain ?? message.subject;
       if (!conteudo) {
@@ -151,7 +162,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const clienteId = await resolverClientePorIdentidade(conta.orgId, "mercadolivre", message.from?.user_id);
       const remetenteNome = clienteId ? undefined : await buscarNomeCompradorML(message.from?.user_id, accessToken);
       const produtos = await buscarProdutosPedidoML(message.order_id, accessToken);
-      const inbox = await receberMensagem({
+      const inbox = await trace.etapa("database", () => receberMensagem({
         orgId: conta.orgId,
         brandId: conta.brandId,
         channelAccountId: conta.channelAccountId,
@@ -172,31 +183,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           orderId: message.order_id === undefined ? undefined : String(message.order_id),
           recebidaEm: message.date,
         },
-      });
+      }));
+      trace.finalizar("ok");
       return NextResponse.json({ ok: true, ...inbox });
     }
 
     if (topic === "questions") {
-      const question = await buscarRecursoML<{
+      const question = await trace.etapa("ml_api", () => buscarRecursoML<{
         id?: number;
         text?: string;
         date_created?: string;
         item_id?: string;
         from?: { id?: number };
-      }>(resource, accessToken);
-      if (!question.text) {
+      }>(resource, accessToken));
+      const textoPergunta = question.text;
+      if (!textoPergunta) {
         return NextResponse.json({ ok: true, ignorado: true, motivo: "pergunta-sem-texto" });
       }
       const clienteIdPergunta = await resolverClientePorIdentidade(conta.orgId, "mercadolivre", question.from?.id);
       const remetenteNomePergunta = clienteIdPergunta ? undefined : await buscarNomeCompradorML(question.from?.id, accessToken);
-      const inbox = await receberMensagem({
+      const inbox = await trace.etapa("database", () => receberMensagem({
         orgId: conta.orgId,
         brandId: conta.brandId,
         channelAccountId: conta.channelAccountId,
         clienteId: clienteIdPergunta,
         externalConversaId: `ml-question:${question.id ?? resource}`,
         providerMessageId: `ml-question:${question.id ?? resource}`,
-        conteudo: question.text,
+        conteudo: textoPergunta,
         tipo: "texto",
         meta: {
           canal: "mercadolivre",
@@ -207,40 +220,45 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           remetenteNome: remetenteNomePergunta,
           recebidaEm: question.date_created,
         },
-      });
+      }));
+      trace.finalizar("ok");
       return NextResponse.json({ ok: true, ...inbox });
     }
 
     const orderId = resource.split("/orders/")[1];
     if (!orderId) return NextResponse.json({ ok: true, ignorado: true, motivo: "sem-order-id" });
-    const pedidoML = await buscarRecursoML<{
-      id: number;
-      status: string;
-      total_amount: number;
-      shipping?: { id?: number; cost?: number };
-      buyer: { id: number; nickname: string; email?: string };
-      order_items: Array<{
-        item: { seller_sku?: string };
-        quantity: number;
-        unit_price: number;
-      }>;
-      date_created: string;
-    }>(resource, accessToken);
+    const { pedidoML, endereco } = await trace.etapa("ml_api", async () => {
+      const dadosPedido = await buscarRecursoML<{
+        id: number;
+        status: string;
+        total_amount: number;
+        shipping?: { id?: number; cost?: number };
+        buyer: { id: number; nickname: string; email?: string };
+        order_items: Array<{
+          item: { seller_sku?: string };
+          quantity: number;
+          unit_price: number;
+        }>;
+        date_created: string;
+      }>(resource, accessToken);
 
-    // Nome completo e endereço só vêm numa chamada separada a /shipments/{id}
-    // — mesma lógica de buscarEnderecoEntrega() em mercadolivre.provider.ts.
-    // Enriquecimento nunca pode derrubar o pedido: falha aqui é engolida.
-    const endereco = pedidoML.shipping?.id
-      ? await buscarRecursoML<{ receiver_address?: {
-          receiver_name?: string; street_name?: string; street_number?: string; comment?: string | null;
-          neighborhood?: { name?: string | null }; city?: { name?: string | null }; state?: { name?: string | null };
-          zip_code?: string; latitude?: number; longitude?: number;
-        } }>(`/shipments/${pedidoML.shipping.id}`, accessToken)
-          .then((envio) => envio.receiver_address ?? null)
-          .catch(() => null)
-      : null;
+      // Nome completo e endereço só vêm numa chamada separada a /shipments/{id}
+      // — mesma lógica de buscarEnderecoEntrega() em mercadolivre.provider.ts.
+      // Enriquecimento nunca pode derrubar o pedido: falha aqui é engolida.
+      const dadosEndereco = dadosPedido.shipping?.id
+        ? await buscarRecursoML<{ receiver_address?: {
+            receiver_name?: string; street_name?: string; street_number?: string; comment?: string | null;
+            neighborhood?: { name?: string | null }; city?: { name?: string | null }; state?: { name?: string | null };
+            zip_code?: string; latitude?: number; longitude?: number;
+          } }>(`/shipments/${dadosPedido.shipping.id}`, accessToken)
+            .then((envio) => envio.receiver_address ?? null)
+            .catch(() => null)
+        : null;
 
-    const pedido = await ingerirPedido(conta.orgId, conta.brandId, conta.channelAccountId, {
+      return { pedidoML: dadosPedido, endereco: dadosEndereco };
+    });
+
+    const pedido = await trace.etapa("database", () => ingerirPedido(conta.orgId, conta.brandId, conta.channelAccountId, {
       providerOrderId: String(pedidoML.id),
       canal: "mercadolivre",
       clienteExternalId: String(pedidoML.buyer.id),
@@ -267,9 +285,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         precoUnitario: String(item.unit_price),
       })),
       criadoEm: new Date(pedidoML.date_created),
-    });
+    }));
+    trace.finalizar("ok");
     return NextResponse.json({ ok: true, ...pedido });
   } catch (error) {
+    trace.finalizar("erro", error instanceof Error ? error.message : String(error));
     console.error("[webhook/mercadolivre]", error);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
