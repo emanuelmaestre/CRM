@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ArrowLeft, Filter, HelpCircle, Send, CheckCircle2, Loader2, GripVertical, Package, Zap, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import { stagger, listItem as cardVariant } from "@/shared/design-system/motion-variants";
+import { stagger, listItem as cardVariant, springs } from "@/shared/design-system/motion-variants";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -201,20 +201,36 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
     >
       {/* ── Sidebar ── */}
       <motion.div
-        style={efetivamenteRecolhido ? undefined : { width: `min(100%, ${sideWidth}px)`, flexShrink: 0 }}
-        className={`${selecionada ? "hidden lg:flex" : "flex"} ${efetivamenteRecolhido ? "w-full lg:w-14 lg:flex-shrink-0" : ""} relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
+        animate={{ width: efetivamenteRecolhido ? 56 : Math.min(sideWidth, 10000) }}
+        transition={reduzirMovimento ? { duration: 0 } : springs.settle}
+        style={{ maxWidth: "100%", flexShrink: 0 }}
+        className={`${selecionada ? "hidden lg:flex" : "flex"} w-full relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
       >
+        <AnimatePresence mode="wait" initial={false}>
             {efetivamenteRecolhido ? (
-              <button
+              <motion.button
+                key="recolhido"
                 type="button"
                 onClick={() => setRecolhido(false)}
                 title="Expandir painel de perguntas"
                 aria-label="Expandir painel de perguntas"
+                initial={reduzirMovimento ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reduzirMovimento ? undefined : { opacity: 0 }}
+                transition={springs.settleFast}
                 className="hidden h-14 w-14 flex-shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex"
               >
                 <PanelLeftOpen size={17} />
-              </button>
-            ) : (<>
+              </motion.button>
+            ) : (
+              <motion.div
+                key="expandido"
+                initial={reduzirMovimento ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reduzirMovimento ? undefined : { opacity: 0 }}
+                transition={springs.settleFast}
+                className="flex min-w-0 flex-1 flex-col"
+              >
             {/* Status filter row — seletor único em vez de 3 pílulas: numa
                 sidebar de 304px de largura, "Respondidas" e o botão de
                 sincronizar acabavam saindo da área visível sem rolar. */}
@@ -367,7 +383,9 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
                 className="absolute text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
               />
             </div>
-            </>)}
+              </motion.div>
+            )}
+        </AnimatePresence>
       </motion.div>
 
       {/* ── Right panel ── */}

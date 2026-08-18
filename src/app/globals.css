@@ -28,7 +28,13 @@
   --karzi-accent: #FFC400;
   --wuwu: #9B30D9;
   --armarinhos-lima: #6F6F6E;
-  --gradient-signature: linear-gradient(135deg, #E3131B 0%, #9B30D9 50%, #6F6F6E 100%);
+  /* Antes um gradiente vermelho→roxo→cinza das 3 marcas; trocado por um
+     sólido único porque lia como "gerado por IA" (o mesmo accent-gradient
+     genérico de qualquer template). Mantém o nome da variável — 26 arquivos
+     já consomem `--gradient-signature` como background, e cor sólida é um
+     valor válido de `background` no lugar de gradient() sem precisar tocar
+     em nenhum deles. */
+  --gradient-signature: var(--selecionado);
 
   /* ── Semânticas ──
      Cada valor é o tom mais próximo do original que atinge 4.5:1 (WCAG AA)

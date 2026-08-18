@@ -23,6 +23,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
+import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
 import { springs } from "@/shared/design-system/motion-variants";
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
@@ -85,7 +86,7 @@ const CORES_ESTADO: Record<EstadoLinha, string | null> = {
 /* ── Indicador em card ─────────────────────────────────────────
    Só existe quando o valor é maior que zero. Um card anunciando "0" ocupa o
    mesmo espaço do card que exige ação e ensina a pessoa a ignorar a faixa. */
-function AlertCard({ label, valor, sub, icon: Icon, tom, ativo, onClick }: {
+function AlertCard({ label, valor, sub, icon, tom, ativo, onClick }: {
   label: string;
   valor: number;
   sub?: string;
@@ -94,37 +95,18 @@ function AlertCard({ label, valor, sub, icon: Icon, tom, ativo, onClick }: {
   ativo: boolean;
   onClick: () => void;
 }) {
-  const reduzir = useReducedMotion();
-  const cor = tom === "danger" ? COR.critico : tom === "warning" ? COR.atencao : "var(--muted-foreground)";
-  const destaque = tom !== "neutro";
+  const cor = tom === "danger" ? COR.critico : tom === "warning" ? COR.atencao : COR.neutro;
 
   return (
-    <motion.button
-      type="button"
+    <TintedStatCard
+      label={label}
+      valor={<NumeroAnimado valor={valor} className="text-[26px] leading-none tracking-[-0.02em]" />}
+      icon={icon}
+      cor={cor}
+      sub={sub}
+      ativo={ativo}
       onClick={onClick}
-      whileHover={reduzir ? undefined : { y: -2 }}
-      whileTap={reduzir ? undefined : { scale: 0.98 }}
-      transition={springs.settleFast}
-      aria-pressed={ativo}
-      className="rounded-[1.25rem] bg-card p-4 text-left shadow-[0_2px_16px_rgba(14,15,19,.07)] transition-[box-shadow,border-color] border-2"
-      style={{
-        borderColor: ativo ? cor : "transparent",
-        background: destaque ? `color-mix(in srgb, ${cor} 7%, var(--card))` : undefined,
-      }}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <Icon size={15} strokeWidth={1.75} style={{ color: destaque ? cor : "var(--muted-foreground)" }} />
-        <span className="text-xs font-semibold" style={{ color: destaque ? cor : "var(--muted-foreground)" }}>
-          {label}
-        </span>
-      </div>
-      <NumeroAnimado
-        valor={valor}
-        className="block text-[26px] font-bold leading-none tabular-nums tracking-[-0.02em]"
-        style={{ color: destaque ? cor : "var(--foreground)" }}
-      />
-      {sub && <p className="mt-1.5 text-[11px] text-muted-foreground">{sub}</p>}
-    </motion.button>
+    />
   );
 }
 

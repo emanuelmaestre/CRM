@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useTransition, useCallback, useRef } from "react";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { MessageSquare, Loader2, Send, CheckCheck, Archive, Package, Search, RefreshCw, AlertCircle, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
   actionListarConversas,
@@ -14,7 +14,7 @@ import {
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Sheet } from "@/shared/design-system/primitives/Sheet";
-import { stagger, listItem } from "@/shared/design-system/motion-variants";
+import { stagger, listItem, springs } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import { useMobileViewport } from "./use-mobile-viewport";
 import type { ConversaStatus } from "@/modules/inbox/domain/state-machine";
@@ -126,6 +126,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   // que quer ler/responder — some a lista, some o botão junto (fica só uma
   // tira fina com a seta de abrir de volta).
   const [recolhido, setRecolhido] = useState(false);
+  const reduzirMovimento = useReducedMotion();
   const [, startTransition]           = useTransition();
   const textareaRef                   = useRef<HTMLTextAreaElement>(null);
   const msgEndRef                     = useRef<HTMLDivElement>(null);
@@ -532,18 +533,37 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
       // a lista sumiria da tela no mobile sem nenhum jeito de trazer de volta.
       const efetivamenteRecolhido = recolhido && !isMobile;
       return (
-      <div className={`w-full flex-shrink-0 flex-col overflow-hidden rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] flex ${efetivamenteRecolhido ? "lg:w-14" : "lg:w-[26rem]"}`}>
+      <motion.div
+        animate={{ width: efetivamenteRecolhido ? 56 : 416 }}
+        transition={reduzirMovimento ? { duration: 0 } : springs.settle}
+        style={{ maxWidth: "100%" }}
+        className="w-full flex-shrink-0 flex-col overflow-hidden rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] flex"
+      >
+        <AnimatePresence mode="wait" initial={false}>
         {efetivamenteRecolhido ? (
-          <button
+          <motion.button
+            key="recolhido"
             type="button"
             onClick={() => setRecolhido(false)}
             title="Expandir painel de conversas"
             aria-label="Expandir painel de conversas"
+            initial={reduzirMovimento ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reduzirMovimento ? undefined : { opacity: 0 }}
+            transition={springs.settleFast}
             className="hidden h-14 w-14 flex-shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:flex"
           >
             <PanelLeftOpen size={17} />
-          </button>
+          </motion.button>
         ) : (
+          <motion.div
+            key="expandido"
+            initial={reduzirMovimento ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={reduzirMovimento ? undefined : { opacity: 0 }}
+            transition={springs.settleFast}
+            className="flex min-w-0 flex-1 flex-col"
+          >
           <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground whitespace-nowrap">
@@ -568,9 +588,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
               </button>
             </div>
           </div>
-        )}
 
-        {!efetivamenteRecolhido && <>
         <div className="flex gap-1 border-b border-border bg-muted/10 px-3 py-2">
           {([
             ["pendentes", "Pendentes", totalPendentes],
@@ -668,8 +686,10 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
           </motion.div>
           )}
         </div>
-        </>}
-      </div>
+          </motion.div>
+        )}
+        </AnimatePresence>
+      </motion.div>
       );
       })()}
 

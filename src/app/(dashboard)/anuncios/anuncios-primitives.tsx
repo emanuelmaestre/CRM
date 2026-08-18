@@ -96,7 +96,7 @@ export function RotuloComInfo({ children, descricao, observacao }: {
             align="start"
             sideOffset={6}
             collisionPadding={12}
-            className="z-[100] w-[min(21rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-3 text-left normal-case shadow-[0_12px_32px_rgba(14,15,19,.18)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+            className="z-[100] w-[min(21rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-3 text-left normal-case shadow-[0_12px_32px_rgba(14,15,19,.18)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]"
           >
             <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como ler este número</p>
             <p className="mt-0.5 text-[13px] font-bold text-foreground">{children}</p>

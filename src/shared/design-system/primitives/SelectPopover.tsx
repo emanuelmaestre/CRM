@@ -54,7 +54,10 @@ function calcularPosicao(gatilho: HTMLElement): Posicao {
     Math.max(esquerdaDesejada, MARGEM_VIEWPORT),
     window.innerWidth - LARGURA_PAINEL - MARGEM_VIEWPORT,
   );
-  const top = paraCima ? rect.top - 8 : rect.bottom + 8;
+  // Chute inicial com a altura estimada — corrigido para a altura real do
+  // painel assim que ele monta (ver useLayoutEffect abaixo). Não dá pra
+  // confiar só nisso: a lista pode ter 3 itens ou 12.
+  const top = paraCima ? rect.top - 8 - ALTURA_PAINEL_ESTIMADA : rect.bottom + 8;
   return { top, left, paraCima, alinhadoDireita };
 }
 
@@ -93,6 +96,22 @@ export function SelectPopover<T extends string>({ itens, valor, onChange, classN
     };
   }, [aberto]);
 
+  // Corrige o "top" pra altura real do painel quando ele abre pra cima.
+  // Importante: não dá pra resolver isso com `transform: translateY(-100%)`
+  // no style — este é um motion.ul, e o Framer Motion escreve a própria
+  // propriedade `transform` a cada frame a partir de x/y/scale que ele
+  // controla, sobrescrevendo qualquer transform manual. Sem essa correção,
+  // o painel ficava plantado em `rect.top - 8` crescendo pra baixo — em
+  // cima do próprio gatilho — em vez de flutuar acima dele.
+  useLayoutEffect(() => {
+    if (!aberto || !posicao?.paraCima || !gatilhoRef.current || !painelRef.current) return;
+    const alturaReal = painelRef.current.offsetHeight;
+    const topCorrigido = gatilhoRef.current.getBoundingClientRect().top - 8 - alturaReal;
+    if (Math.abs(topCorrigido - posicao.top) > 0.5) {
+      setPosicao((atual) => (atual ? { ...atual, top: topCorrigido } : atual));
+    }
+  }, [aberto, posicao]);
+
   useLayoutEffect(() => {
     if (!aberto) return;
     function aoClicarFora(evento: MouseEvent) {
@@ -125,7 +144,6 @@ export function SelectPopover<T extends string>({ itens, valor, onChange, classN
         top: posicao.top,
         left: posicao.left,
         width: LARGURA_PAINEL,
-        transform: posicao.paraCima ? "translateY(-100%)" : undefined,
         transformOrigin: `${posicao.paraCima ? "bottom" : "top"} ${posicao.alinhadoDireita ? "right" : "left"}`,
       }}
       className="z-[100] overflow-hidden rounded-[1.1rem] border border-border bg-card p-1.5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"

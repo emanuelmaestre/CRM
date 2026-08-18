@@ -58,7 +58,7 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
           // sem travar nisso, um conteúdo longo (5 pilares + período + nota)
           // simplesmente estourava por cima do cabeçalho do card quando
           // virava pra "top" por falta de espaço embaixo do gatilho.
-          className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(23rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] flex-col overflow-y-auto overscroll-contain rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(23rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] flex-col overflow-y-auto overscroll-contain rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]"
         >
           <div className="flex items-start justify-between gap-2">
             <div>

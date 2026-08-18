@@ -154,7 +154,13 @@ export async function finalizarBackup(ctx: CrudContext, rawBackupId: unknown) {
     const bytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } });
 
     const supabase = criarSupabaseStorageAdmin();
-    const nomeArquivo = `backup-${new Date().toISOString().replace(/[:.]/g, "-")}.zip`;
+    // data-hora legível e ordenável (América/São Paulo), sem milissegundos
+    // nem "Z" de UTC — o nome do arquivo é a primeira coisa que a pessoa vê
+    // na lista de downloads, não precisa de ruído de timestamp técnico.
+    const agora = new Date();
+    const data = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora);
+    const hora = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", hour12: false }).format(agora).replace(":", "");
+    const nomeArquivo = `backup-${data}-${hora}.zip`;
     const storagePath = `${ctx.orgId}/backups/${nomeArquivo}`;
 
     const { error: uploadError } = await supabase.storage

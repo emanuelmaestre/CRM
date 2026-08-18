@@ -3,6 +3,7 @@
 import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   Loader2,
   LockKeyhole,
   Mail,
+  MoreHorizontal,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -400,10 +402,9 @@ export function UsuariosSection({
           </div>
         ) : (
           <div className="overflow-hidden border-y border-border">
-            <div className="hidden grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] items-center gap-3 border-b border-border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:grid">
+            <div className="hidden grid-cols-[minmax(12rem,1.6fr)_9rem_5rem] items-center gap-3 border-b border-border px-3 py-2 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:grid">
               <span>Usuário</span>
               <span>Perfil</span>
-              <span>Status</span>
               <span className="text-right">Ações</span>
             </div>
             <div className="divide-y divide-border">
@@ -418,16 +419,25 @@ export function UsuariosSection({
                     initial={reduzir ? false : { opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={cn(
-                      "grid gap-3 px-3 py-3.5 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(14rem,1.4fr)_minmax(12rem,1fr)_8rem_12rem] md:items-center",
+                      "grid gap-3 px-3 py-3 transition-colors hover:bg-muted/20 md:grid-cols-[minmax(12rem,1.6fr)_9rem_5rem] md:items-center",
                       !usuario.ativo && "opacity-60",
                     )}
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <span
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-                        style={{ background: tint(corPerfil, usuario.ativo ? 14 : 8), color: usuario.ativo ? corPerfil : "var(--muted-foreground)" }}
-                      >
-                        {initials(usuario.nome, usuario.email)}
+                      <span className="relative inline-flex h-9 w-9 shrink-0">
+                        <span
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold"
+                          style={{ background: tint(corPerfil, usuario.ativo ? 14 : 8), color: usuario.ativo ? corPerfil : "var(--muted-foreground)" }}
+                        >
+                          {initials(usuario.nome, usuario.email)}
+                        </span>
+                        <span
+                          title={statusLabel(usuario.ativo)}
+                          className={cn(
+                            "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
+                            usuario.ativo ? "bg-success" : "bg-muted-foreground",
+                          )}
+                        />
                       </span>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-bold text-foreground">{usuario.nome}</p>
@@ -435,48 +445,28 @@ export function UsuariosSection({
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <select
-                        aria-label={`Perfil de ${usuario.nome}`}
-                        value={usuario.perfil}
-                        disabled={alterando}
-                        onChange={(event) => alterarUsuario(usuario, event.target.value as Perfil, usuario.ativo)}
-                        style={{ color: corPerfil, background: tint(corPerfil, 9) }}
-                        className="h-9 w-full rounded-full border border-transparent px-3 text-sm font-bold outline-none transition-[filter] hover:brightness-95 focus:ring-2 focus:ring-offset-1 disabled:opacity-60"
-                      >
-                        {PERFIS.map(([value, dados]) => (
-                          <option key={value} value={value}>{dados.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <span
-                      className="inline-flex h-7 w-fit items-center gap-1.5 rounded-full px-2.5 text-xs font-bold"
-                      style={{
-                        background: tint(usuario.ativo ? "var(--success)" : "var(--muted-foreground)", 10),
-                        color: usuario.ativo ? "var(--success)" : "var(--muted-foreground)",
-                      }}
+                    <select
+                      aria-label={`Perfil de ${usuario.nome}`}
+                      value={usuario.perfil}
+                      disabled={alterando}
+                      onChange={(event) => alterarUsuario(usuario, event.target.value as Perfil, usuario.ativo)}
+                      style={{ color: corPerfil, background: tint(corPerfil, 9) }}
+                      className="h-8 w-fit max-w-full rounded-full border border-transparent px-2.5 text-xs font-bold outline-none transition-[filter] hover:brightness-95 focus:ring-2 focus:ring-offset-1 disabled:opacity-60"
                     >
-                      <span className={cn("h-1.5 w-1.5 rounded-full", usuario.ativo ? "bg-success" : "bg-muted-foreground")} />
-                      {statusLabel(usuario.ativo)}
-                    </span>
+                      {PERFIS.map(([value, dados]) => (
+                        <option key={value} value={value}>{dados.label}</option>
+                      ))}
+                    </select>
 
-                    <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
-                      <button
-                        type="button"
-                        disabled={alterando}
-                        onClick={() => abrirRedefinicao(usuario)}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-[0.6rem] border border-transparent px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground disabled:opacity-50"
-                      >
-                        <KeyRound size={14} />
-                        Senha
-                      </button>
+                    <div className="flex items-center justify-start gap-1 md:justify-end">
                       <button
                         type="button"
                         disabled={alterando}
                         onClick={() => alterarUsuario(usuario, usuario.perfil, !usuario.ativo)}
+                        aria-label={usuario.ativo ? `Pausar ${usuario.nome}` : `Ativar ${usuario.nome}`}
+                        title={usuario.ativo ? "Pausar" : "Ativar"}
                         className={cn(
-                          "inline-flex h-9 items-center gap-1.5 rounded-[0.6rem] border border-transparent px-2.5 text-xs font-semibold transition-colors disabled:opacity-50",
+                          "inline-flex h-8 w-8 items-center justify-center rounded-[0.6rem] border border-transparent transition-colors disabled:opacity-50",
                           usuario.ativo
                             ? "text-muted-foreground hover:border-destructive/20 hover:bg-destructive/5 hover:text-destructive"
                             : "text-success hover:border-success/20 hover:bg-success/10",
@@ -489,18 +479,42 @@ export function UsuariosSection({
                         ) : (
                           <UserCheck size={14} />
                         )}
-                        {usuario.ativo ? "Pausar" : "Ativar"}
                       </button>
-                      <button
-                        type="button"
-                        disabled={alterando}
-                        onClick={() => setUsuarioParaExcluir(usuario)}
-                        aria-label={`Excluir ${usuario.nome}`}
-                        title="Excluir"
-                        className="inline-flex h-9 items-center justify-center rounded-[0.6rem] border border-transparent px-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-destructive/20 hover:bg-destructive/5 hover:text-destructive disabled:opacity-50"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger asChild>
+                          <button
+                            type="button"
+                            disabled={alterando}
+                            aria-label={`Mais ações para ${usuario.nome}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-[0.6rem] border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground disabled:opacity-50"
+                          >
+                            <MoreHorizontal size={15} />
+                          </button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content
+                            align="end"
+                            sideOffset={6}
+                            className="z-[100] min-w-[10rem] rounded-[0.7rem] border border-border bg-card p-1 shadow-[0_16px_40px_rgba(14,15,19,.16)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                          >
+                            <DropdownMenu.Item
+                              onSelect={() => abrirRedefinicao(usuario)}
+                              className="flex cursor-pointer items-center gap-2 rounded-[0.45rem] px-2.5 py-2 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus:bg-muted"
+                            >
+                              <KeyRound size={14} />
+                              Redefinir senha
+                            </DropdownMenu.Item>
+                            <DropdownMenu.Item
+                              onSelect={() => setUsuarioParaExcluir(usuario)}
+                              className="flex cursor-pointer items-center gap-2 rounded-[0.45rem] px-2.5 py-2 text-xs font-semibold text-destructive outline-none transition-colors hover:bg-destructive/10 focus:bg-destructive/10"
+                            >
+                              <Trash2 size={14} />
+                              Excluir
+                            </DropdownMenu.Item>
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
                     </div>
                   </motion.div>
                 );

@@ -15,6 +15,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { BrandLogoGroup } from "@/shared/design-system/primitives/BrandLogoGroup";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
+import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
 import { escalonamento, fadeUp, springs, variantes } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
@@ -432,9 +433,8 @@ export function PedidosLista() {
           { label: "Ticket médio", valor: dinheiro.format(resumo.ticketMedio), icon: ReceiptText, cor: "var(--acento-2)" },
           { label: "Cancelados/devolvidos", valor: resumo.cancelados.toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
         ].map((card) => (
-          <motion.div key={card.label} variants={variantes(reduzir, fadeUp)} whileHover={reduzir ? undefined : { y: -2 }} className="rounded-[1.15rem] bg-card p-4 shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-shadow hover:shadow-[0_7px_22px_rgba(14,15,19,.09)]">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground"><card.icon size={15} style={{ color: card.cor }} />{card.label}</div>
-            <p className="mt-2 text-xl font-black tabular-nums text-foreground">{card.valor}</p>
+          <motion.div key={card.label} variants={variantes(reduzir, fadeUp)}>
+            <TintedStatCard label={card.label} valor={card.valor} icon={card.icon} cor={card.cor} />
           </motion.div>
         ))}
       </motion.section>

@@ -105,7 +105,7 @@ function AtencaoLinha({ alertas }: { alertas: Alerta[] }) {
           align="start"
           sideOffset={6}
           collisionPadding={12}
-          className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card text-left shadow-[0_16px_40px_rgba(14,15,19,.20)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card text-left shadow-[0_16px_40px_rgba(14,15,19,.20)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]"
         >
           <ul className="flex flex-col divide-y divide-border">
             {alertas.map((alerta) => (

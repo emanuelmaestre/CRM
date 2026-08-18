@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import {
-  CheckCircle2, CircleDashed, DatabaseBackup, Download, Loader2, Sparkles,
+  CheckCircle2, ChevronDown, CircleDashed, DatabaseBackup, Download, Info, Loader2,
 } from "lucide-react";
 import { springs, stagger, variantes, fadeUp } from "@/shared/design-system/motion-variants";
 import { tint } from "@/shared/design-system/color";
@@ -42,6 +43,40 @@ function StatusHistorico({ status }: { status: string }) {
   );
 }
 
+/** Uma linha do checklist. O ícone "carimba" ao virar concluído — scale
+ *  0.6→1 numa spring curta, só nesse instante — em vez de trocar
+ *  instantaneamente de traço pontilhado pra check, o que passava batido. */
+function LinhaTabela({ label, estado, linhas, reduzir }: {
+  label: string;
+  estado: EstadoTabela;
+  linhas?: number;
+  reduzir: boolean | null;
+}) {
+  return (
+    <motion.li variants={variantes(reduzir, fadeUp)} className="flex items-center gap-2.5 text-[12.5px]">
+      <AnimatePresence mode="wait" initial={false}>
+        {estado === "concluida" ? (
+          <motion.span
+            key="concluida"
+            initial={reduzir ? false : { scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={springs.settleFast}
+            className="shrink-0"
+          >
+            <CheckCircle2 size={15} className="text-success" />
+          </motion.span>
+        ) : estado === "processando" ? (
+          <Loader2 key="processando" size={15} className="shrink-0 animate-spin text-primary" />
+        ) : (
+          <CircleDashed key="pendente" size={15} className="shrink-0 text-muted-foreground/50" />
+        )}
+      </AnimatePresence>
+      <span className={estado === "pendente" ? "text-muted-foreground" : "text-foreground"}>{label}</span>
+      {linhas !== undefined && <span className="tabular-nums text-muted-foreground">· {linhas} registros</span>}
+    </motion.li>
+  );
+}
+
 /** Exportação sob demanda dos dados da organização. Progresso real, não
  *  simulado: cada tabela é uma chamada de servidor de verdade que só volta
  *  quando aquela tabela terminou de ser lida — a barra anda no ritmo do
@@ -56,6 +91,7 @@ export function BackupSection() {
   const [linhasPorTabela, setLinhasPorTabela] = useState<Partial<Record<ChaveTabelaBackup, number>>>({});
   const [finalizando, setFinalizando] = useState(false);
   const [concluido, setConcluido] = useState<{ urlAssinada: string; tamanhoBytes: number } | null>(null);
+  const [verDetalhes, setVerDetalhes] = useState(false);
 
   const carregarHistorico = useCallback(() => {
     actionListarBackups().then(setHistorico).catch(() => setHistorico([]));
@@ -72,6 +108,7 @@ export function BackupSection() {
     setRodando(true);
     setConcluido(null);
     setFinalizando(false);
+    setVerDetalhes(false);
     setProgresso(Object.fromEntries(TABELAS_BACKUP.map((t) => [t.chave, "pendente"])) as Record<ChaveTabelaBackup, EstadoTabela>);
     setLinhasPorTabela({});
 
@@ -118,10 +155,41 @@ export function BackupSection() {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.06em] text-muted-foreground">
-          <DatabaseBackup size={13} />
-          Exportar dados da organização
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.06em] text-muted-foreground">
+            <DatabaseBackup size={13} />
+            Exportar
+          </p>
+          <PopoverPrimitive.Root>
+            <PopoverPrimitive.Trigger asChild>
+              <button
+                type="button"
+                aria-label="Como funciona a exportação"
+                className="press-feedback inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Info aria-hidden="true" size={13} strokeWidth={2.25} />
+              </button>
+            </PopoverPrimitive.Trigger>
+            <PopoverPrimitive.Portal>
+              <PopoverPrimitive.Content
+                align="start"
+                sideOffset={8}
+                collisionPadding={12}
+                className="z-[100] w-[min(20rem,calc(100vw-1.5rem))] origin-[var(--radix-popover-content-transform-origin)] rounded-[0.9rem] border border-border bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]"
+              >
+                <p className="text-[13px] font-semibold text-foreground">Exportação sob demanda dos dados da organização, em JSON e CSV</p>
+                <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+                  Gera um ZIP com JSON e CSV de {TABELAS_BACKUP.length} tabelas — clientes, produtos, pedidos, canais,
+                  usuários, réguas e auditoria — desta organização.
+                </p>
+                <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+                  Fica disponível para download por 24h. Depois disso, basta gerar um novo a partir daqui.
+                </p>
+                <PopoverPrimitive.Arrow className="fill-card" />
+              </PopoverPrimitive.Content>
+            </PopoverPrimitive.Portal>
+          </PopoverPrimitive.Root>
+        </div>
         <motion.button
           type="button"
           onClick={exportarAgora}
@@ -145,82 +213,100 @@ export function BackupSection() {
               exit={{ opacity: 0 }}
               className="text-[12px] leading-relaxed text-muted-foreground"
             >
-              Gera um ZIP com JSON e CSV de {TABELAS_BACKUP.length} tabelas (clientes, produtos, pedidos, canais,
-              usuários, réguas e auditoria), tudo desta organização. Fica disponível pra download por 24h — depois
-              disso, gere um novo a partir daqui.
+              Exportação sob demanda dos dados da organização, em JSON e CSV.
             </motion.p>
           )}
 
           {(emAndamento || concluido) && (
             <motion.div key="progresso" initial={reduzir ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <motion.div
                   className="h-full rounded-full"
                   style={{ background: concluido ? "var(--success)" : "var(--primary)" }}
                   initial={{ width: 0 }}
                   animate={{ width: `${percentual}%` }}
-                  transition={springs.settleFast}
+                  transition={springs.settle}
                 />
               </div>
 
-              <motion.ul variants={stagger} initial="hidden" animate="show" className="space-y-1.5">
-                {TABELAS_BACKUP.map((tabela) => {
-                  const estado = progresso[tabela.chave];
-                  return (
-                    <motion.li key={tabela.chave} variants={variantes(reduzir, fadeUp)} className="flex items-center gap-2.5 text-[12.5px]">
-                      {estado === "concluida" ? (
-                        <CheckCircle2 size={15} className="shrink-0 text-success" />
-                      ) : estado === "processando" ? (
-                        <Loader2 size={15} className="shrink-0 animate-spin text-primary" />
-                      ) : (
-                        <CircleDashed size={15} className="shrink-0 text-muted-foreground/50" />
-                      )}
-                      <span className={estado === "pendente" ? "text-muted-foreground" : "text-foreground"}>{tabela.label}</span>
-                      {linhasPorTabela[tabela.chave] !== undefined && (
-                        <span className="tabular-nums text-muted-foreground">· {linhasPorTabela[tabela.chave]} registros</span>
-                      )}
-                    </motion.li>
-                  );
-                })}
-                <motion.li variants={variantes(reduzir, fadeUp)} className="flex items-center gap-2.5 text-[12.5px]">
-                  {concluido ? (
-                    <CheckCircle2 size={15} className="shrink-0 text-success" />
-                  ) : finalizando ? (
-                    <Loader2 size={15} className="shrink-0 animate-spin text-primary" />
-                  ) : (
-                    <CircleDashed size={15} className="shrink-0 text-muted-foreground/50" />
-                  )}
-                  <span className={finalizando || concluido ? "text-foreground" : "text-muted-foreground"}>Compactando e salvando o arquivo</span>
-                </motion.li>
-              </motion.ul>
-
-              {concluido && (
-                <motion.div
-                  initial={reduzir ? false : { opacity: 0, y: -6, scale: 0.96 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={springs.settle}
-                  className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[0.75rem] border p-3.5"
-                  style={{ borderColor: "color-mix(in srgb, var(--success) 30%, transparent)", background: tint("var(--success)", 6) }}
+              {/* Enquanto roda, a lista fica aberta — é o que mostra progresso
+                  real acontecendo. Uma vez concluído, 9 linhas idênticas com ✓
+                  só repetem o que a barra cheia já disse; vira um resumo de
+                  uma linha, com o detalhe disponível sob clique pra quem quiser
+                  conferir tabela por tabela. */}
+              {!concluido ? (
+                <motion.ul variants={stagger} initial="hidden" animate="show" className="mt-3 space-y-1.5">
+                  {TABELAS_BACKUP.map((tabela) => (
+                    <LinhaTabela key={tabela.chave} label={tabela.label} estado={progresso[tabela.chave]} linhas={linhasPorTabela[tabela.chave]} reduzir={reduzir} />
+                  ))}
+                  <LinhaTabela label="Compactando e salvando o arquivo" estado={finalizando ? "processando" : "pendente"} reduzir={reduzir} />
+                </motion.ul>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setVerDetalhes((v) => !v)}
+                  className="mt-3 flex w-full items-center justify-between gap-2 text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <p className="flex items-center gap-2 text-[12.5px] font-semibold text-foreground">
-                    <Sparkles size={15} className="text-success" />
-                    Pronto — {formatarTamanho(concluido.tamanhoBytes)}, válido por 24h.
-                  </p>
-                  <a
-                    href={concluido.urlAssinada}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex h-9 items-center gap-1.5 rounded-[0.65rem] bg-success px-3 text-xs font-bold text-white transition-opacity hover:opacity-90"
-                  >
-                    <Download size={13} />
-                    Baixar ZIP
-                  </a>
-                </motion.div>
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircle2 size={14} className="text-success" />
+                    {TABELAS_BACKUP.length} de {TABELAS_BACKUP.length} tabelas exportadas
+                  </span>
+                  <motion.span animate={{ rotate: verDetalhes ? 180 : 0 }} transition={springs.settleFast}>
+                    <ChevronDown size={14} />
+                  </motion.span>
+                </button>
               )}
+
+              <AnimatePresence initial={false}>
+                {concluido && verDetalhes && (
+                  <motion.div
+                    initial={reduzir ? false : { height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={springs.settleFast}
+                    className="overflow-hidden"
+                  >
+                    <ul className="mt-2 space-y-1.5 border-t border-border pt-2">
+                      {TABELAS_BACKUP.map((tabela) => (
+                        <LinhaTabela key={tabela.chave} label={tabela.label} estado="concluida" linhas={linhasPorTabela[tabela.chave]} reduzir={reduzir} />
+                      ))}
+                    </ul>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      {/* Fora do card do checklist, de propósito — é um resultado, não mais
+          um item da lista de progresso. */}
+      <AnimatePresence>
+        {concluido && (
+          <motion.div
+            initial={reduzir ? false : { opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={springs.settle}
+            className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-[0.9rem] border p-3.5"
+            style={{ borderColor: "color-mix(in srgb, var(--success) 30%, transparent)", background: tint("var(--success)", 6) }}
+          >
+            <p className="flex items-center gap-2 text-[12.5px] font-semibold text-foreground">
+              <CheckCircle2 size={15} className="text-success" />
+              Pronto — {formatarTamanho(concluido.tamanhoBytes)}, válido por 24h.
+            </p>
+            <a
+              href={concluido.urlAssinada}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-9 items-center gap-1.5 rounded-[0.65rem] border px-3 text-xs font-bold transition-colors hover:brightness-95"
+              style={{ borderColor: "color-mix(in srgb, var(--success) 40%, transparent)", color: "var(--success)" }}
+            >
+              <Download size={13} />
+              Baixar ZIP
+            </a>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {historico !== null && historico.length > 0 && (
         <div className="mt-4">
