@@ -3,14 +3,15 @@
 import { useState, useCallback, useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Eye, PlugZap2, RefreshCw } from "lucide-react";
-import { escalonamento, listItem, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
+import { springs, transicao, variantes, escalonamento, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
 import { actionListarClientes, actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -90,6 +91,28 @@ function CanaisCliente({ canais }: { canais?: string[] }) {
   );
 }
 
+/** Pulso de seleção: um anel na cor da pílula que nasce colado nela e se
+ *  expande sumindo — só toca quando `ativo` PASSA a ser true (AnimatePresence
+ *  monta o anel nesse instante, então é um pulso só, não uma animação em
+ *  loop). Reduced motion não monta nada. */
+function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; reduzir: boolean | null }) {
+  return (
+    <AnimatePresence>
+      {ativo && !reduzir && (
+        <motion.span
+          key="halo"
+          initial={{ opacity: 0.55, scale: 0.82 }}
+          animate={{ opacity: 0, scale: 1.4 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{ border: `2px solid ${cor}` }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
 /* ── Seletor de canal ─────────────────────────────────────────
    Mesmo componente/visual do seletor de canal do Estoque: canal sem conta
    conectada aparece travado, com o motivo à vista. */
@@ -106,14 +129,15 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
   return (
     <motion.button
       type="button"
+      variants={entradaExagerada}
       onClick={conectado ? onClick : undefined}
       disabled={!conectado}
-      whileHover={conectado && !reduzir ? { y: -1 } : undefined}
-      whileTap={conectado && !reduzir ? { scale: 0.97 } : undefined}
+      whileHover={conectado && !reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={conectado && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={label}
       title={conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
-      className={`inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
+      className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         !conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
@@ -121,6 +145,7 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
     >
+      <HaloSelecao ativo={ativo} cor={channelAccent(tipo)} reduzir={reduzir} />
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
       {conectado ? (
         <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
@@ -150,14 +175,15 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
   return (
     <motion.button
       type="button"
+      variants={entradaExagerada}
       onClick={bloqueada ? undefined : onClick}
       disabled={bloqueada}
-      whileHover={!bloqueada && !reduzir ? { y: -1 } : undefined}
-      whileTap={!bloqueada && !reduzir ? { scale: 0.97 } : undefined}
+      whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={nome}
       title={bloqueada ? copy.brandSelector.emptyHint.replace("{marca}", nome) : undefined}
-      className={`inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
+      className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
           : ativo
@@ -166,6 +192,7 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
       }`}
       style={ativo ? { borderColor: brandColor(slug) } : undefined}
     >
+      <HaloSelecao ativo={ativo} cor={brandColor(slug)} reduzir={reduzir} />
       {temIdentidade
         ? <BrandLogo brand={slug} height={17} />
         : <span className="text-sm font-semibold text-foreground">{nome}</span>}
@@ -174,12 +201,12 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
   );
 }
 
-/** `listItem` desliza no eixo x — bom numa lista estreita, mas numa linha de
- *  tabela larga o deslize lê estranho. Aqui a entrada é só um fade, mesma
- *  ideia de "chegou um de cada vez" sem o movimento lateral. */
+/** Linha de tabela densa: fade simples, sem o bounce exagerado do resto da
+ *  tela — numa grade de linhas coladas, escala/deslocamento por linha faz
+ *  elas se atropelarem visualmente. O leque fica reservado pros cards do
+ *  mobile e pras pílulas, que têm espaço próprio entre si. */
 function variantesLinha(reduzir: boolean | null) {
-  if (reduzir) return listItem;
-  return { hidden: { opacity: 0 }, show: { opacity: 1, transition: springs.settleFast } };
+  return variantes(reduzir, { hidden: { opacity: 0 }, show: { opacity: 1, transition: springs.settleFast } });
 }
 
 export function ClientesLista() {
@@ -272,12 +299,23 @@ export function ClientesLista() {
 
   return (
     <div>
-      {/* Barra de escopo + busca — tudo numa linha só (quebra em telas
-          estreitas): empresa, canal e busca são a mesma decisão de "o que
-          estou olhando", não etapas separadas, então dividem o mesmo nível
-          visual em vez de um bloco grande em cima e a busca solta embaixo. */}
-      <div className="mb-4 flex flex-wrap items-center justify-center gap-3">
-        <div data-tour="clientes-empresa" className="flex flex-wrap justify-center gap-2.5">
+      {/* Barra de escopo + busca — no desktop (lg+) tudo numa linha só, como
+          sempre foi: empresa, canal e busca são a mesma decisão de "o que
+          estou olhando". No mobile essa linha única não cabia — a busca
+          acabava espremida a ponto do placeholder cortar. Empilha em 3
+          linhas (empresa / canal / buscar), cada uma rolando por dentro se
+          precisar em vez de quebrar torto. */}
+      <motion.div
+        variants={staggerExagerado}
+        initial="hidden"
+        animate="show"
+        className="mb-4 flex flex-col items-center gap-3 lg:flex-row lg:flex-wrap lg:justify-center"
+      >
+        <motion.div
+          data-tour="clientes-empresa"
+          variants={staggerExagerado}
+          className="flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible"
+        >
           {marcas.map((marca) => (
             <MarcaPill
               key={marca.brandId}
@@ -288,11 +326,14 @@ export function ClientesLista() {
               onClick={() => alternarMarca(marca.brandId)}
             />
           ))}
-        </div>
+        </motion.div>
 
-        <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+        <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border lg:block" />
 
-        <div className="flex flex-wrap justify-center gap-2.5">
+        <motion.div
+          variants={staggerExagerado}
+          className="flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible"
+        >
           {canais.map((item) => (
             <CanalPill
               key={item.tipo}
@@ -303,17 +344,18 @@ export function ClientesLista() {
               onClick={() => alternarCanal(item.tipo)}
             />
           ))}
-        </div>
+        </motion.div>
 
-        <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+        <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border lg:block" />
 
-        <input
+        <motion.input
+          variants={entradaExagerada}
           value={busca}
           onChange={handleBusca}
           placeholder={copy.searchPlaceholder}
-          className="h-11 w-full max-w-xs flex-1 px-3.5 rounded-[0.75rem] border-2 border-border bg-card text-sm text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] placeholder:text-muted-foreground/80 focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow]"
+          className="h-11 w-full px-3.5 rounded-[0.75rem] border-2 border-border bg-card text-sm text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] placeholder:text-muted-foreground/80 focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] lg:max-w-xs lg:flex-1"
         />
-      </div>
+      </motion.div>
 
       {/* Tela limpa: sem escopo, nada de tabela — mesmo padrão do Estoque. */}
       {!escopoDefinido ? (
@@ -342,7 +384,7 @@ export function ClientesLista() {
               </span>
             )}
             <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold tabular-nums text-selecionado">
-              {total} {total === 1 ? "cliente" : "clientes"}
+              <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "cliente" : "clientes"}
             </span>
           </div>
         </div>
@@ -360,14 +402,14 @@ export function ClientesLista() {
         ) : (
           <>
           <motion.div
-            variants={escalonamento(reduzir)}
+            variants={staggerExagerado}
             initial="hidden"
             animate="show"
             className="md:hidden divide-y divide-border"
             data-testid="clientes-cards"
           >
             {clientes.map((c) => (
-              <motion.div variants={variantes(reduzir, listItem)} key={c.id} className="p-4 space-y-3">
+              <motion.div variants={variantes(reduzir, entradaExagerada)} key={c.id} className="p-4 space-y-3">
                 <button
                   type="button"
                   onClick={() => router.push(`/clientes/${c.id}`)}
