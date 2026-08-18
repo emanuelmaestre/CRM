@@ -114,6 +114,7 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   const [selecionada, setSelecionada] = useState<Conversa | null>(null);
   const [loading, setLoading]         = useState(true);
   const [sincronizando, setSincronizando] = useState(false);
+  const [ultimaSincronizacao, setUltimaSincronizacao] = useState<Date | null>(null);
   const [erroCarregamento, setErroCarregamento] = useState(false);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [enviando, setEnviando]       = useState(false);
@@ -128,8 +129,13 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
   const [, startTransition]           = useTransition();
   const textareaRef                   = useRef<HTMLTextAreaElement>(null);
   const msgEndRef                     = useRef<HTMLDivElement>(null);
+  const conversaAbertaRef             = useRef<string | null>(null);
 
-  const carregarConversas = useCallback(async (sincronizar = true) => {
+  useEffect(() => {
+    conversaAbertaRef.current = selecionada?.id ?? null;
+  }, [selecionada?.id]);
+
+  const carregarConversas = useCallback(async (sincronizar = true, avisar = false) => {
     setErroCarregamento(false);
     try {
       setConversas(await actionListarConversas());
@@ -144,10 +150,30 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
     if (!sincronizar) return;
     setSincronizando(true);
     try {
-      const { mensagensNovas } = await actionSincronizarConversas();
-      if (mensagensNovas > 0) setConversas(await actionListarConversas());
+      const resultado = await actionSincronizarConversas();
+      const listaAtualizada = await actionListarConversas();
+      setConversas(listaAtualizada);
+      setUltimaSincronizacao(new Date(resultado.sincronizadoEm));
+      setSelecionada((atual) => {
+        if (!atual) return atual;
+        return listaAtualizada.find((conversa) => conversa.id === atual.id) ?? atual;
+      });
+
+      const conversaAbertaId = conversaAbertaRef.current;
+      if (conversaAbertaId) {
+        setMensagens(await actionListarMensagens(conversaAbertaId));
+      }
+
+      if (avisar) {
+        toast.success(
+          resultado.mensagensNovas > 0
+            ? `${resultado.mensagensNovas} mensagem(ns) nova(s) sincronizada(s).`
+            : "Sincronização concluída. Nenhuma mensagem nova.",
+        );
+      }
     } catch (error) {
       console.error("[inbox] sincronização de conversas falhou", error);
+      if (avisar) toast.error("Não foi possível sincronizar as conversas agora.");
     } finally {
       setSincronizando(false);
     }
@@ -523,14 +549,18 @@ export function InboxCliente({ marcasAtivas, canaisAtivos, onContagens }: {
               <p className="text-sm font-semibold text-foreground whitespace-nowrap">
                 {conversasFiltradas.length} {conversasFiltradas.length === 1 ? conversationCopy.countSingular : conversationCopy.countPlural}
               </p>
-              {conversas[0]?.updatedAt && (
+              {ultimaSincronizacao ? (
                 <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <RefreshCw size={9} /> {dataHora.format(new Date(conversas[0].updatedAt))}
+                  <RefreshCw size={9} /> Sincronizado em {dataHora.format(ultimaSincronizacao)}
+                </p>
+              ) : (
+                <p className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <RefreshCw size={9} /> Ainda não sincronizado nesta sessão
                 </p>
               )}
             </div>
             <div className="flex items-center gap-1">
-              <button type="button" onClick={() => void carregarConversas()} disabled={sincronizando} title="Atualizar conversas" aria-label="Atualizar conversas" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
+              <button type="button" onClick={() => void carregarConversas(true, true)} disabled={sincronizando} title="Sincronizar conversas agora" aria-label="Sincronizar conversas agora" className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50">
                 <RefreshCw size={14} className={sincronizando ? "animate-spin" : ""} />
               </button>
               <button type="button" onClick={() => setRecolhido(true)} title="Recolher painel de conversas" aria-label="Recolher painel de conversas" className="hidden h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground lg:flex">

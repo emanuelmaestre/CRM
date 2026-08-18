@@ -158,7 +158,7 @@ async function listarContasMercadoLivreConversas(orgId: string, channelAccountId
  *  depender exclusivamente do webhook, que só reage a eventos a partir do
  *  momento em que passa a estar no ar. Idempotente: reaproveita a mesma
  *  dedupe por providerMessageId do webhook (receberMensagem). */
-export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroativos = 90): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
+export async function sincronizarConversasMercadoLivre(orgId: string, diasRetroativos = 90): Promise<{ contasVerificadas: number; mensagensNovas: number; sincronizadoEm: string }> {
   return sincronizarConversasMercadoLivrePorConta(orgId, diasRetroativos);
 }
 
@@ -166,7 +166,7 @@ export async function sincronizarConversasMercadoLivreConta(
   orgId: string,
   channelAccountId: string,
   diasRetroativos = 90,
-): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
+): Promise<{ contasVerificadas: number; mensagensNovas: number; sincronizadoEm: string }> {
   return sincronizarConversasMercadoLivrePorConta(orgId, diasRetroativos, channelAccountId);
 }
 
@@ -174,9 +174,10 @@ async function sincronizarConversasMercadoLivrePorConta(
   orgId: string,
   diasRetroativos: number,
   channelAccountId?: string,
-): Promise<{ contasVerificadas: number; mensagensNovas: number }> {
+): Promise<{ contasVerificadas: number; mensagensNovas: number; sincronizadoEm: string }> {
   const contas = await listarContasMercadoLivreConversas(orgId, channelAccountId);
   const desde = new Date(Date.now() - diasRetroativos * 24 * 60 * 60 * 1000);
+  const sincronizadoEm = new Date();
   let mensagensNovas = 0;
 
   for (const conta of contas) {
@@ -222,7 +223,7 @@ async function sincronizarConversasMercadoLivrePorConta(
     }
   }
 
-  return { contasVerificadas: contas.length, mensagensNovas };
+  return { contasVerificadas: contas.length, mensagensNovas, sincronizadoEm: sincronizadoEm.toISOString() };
 }
 
 export async function avancarStatusConversa(
