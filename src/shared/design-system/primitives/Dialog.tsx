@@ -17,7 +17,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=closed]:animate-out data-[state=open]:animate-in" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in" />
         <DialogPrimitive.Content
           className={cn(
             "fixed inset-x-3 bottom-3 z-50 max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-[1.25rem] border border-border bg-card p-4 shadow-xl outline-none sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[calc(100%-2rem)] sm:max-w-sm sm:-translate-x-1/2 sm:-translate-y-1/2 sm:p-6",
@@ -40,7 +40,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
               aria-label="Fechar"
               className="absolute right-2.5 top-2.5 inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           </DialogPrimitive.Close>
           {children}

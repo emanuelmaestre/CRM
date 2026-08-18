@@ -15,7 +15,7 @@ export function StatusPedidoBadge({ label, cor }: { label: string; cor: string }
   return (
     <motion.span
       data-testid="status-pedido"
-      initial={reduzir ? false : { opacity: 0, scale: 1.12 }}
+      initial={reduzir ? false : { opacity: 0, scale: 1.06 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={transicao(reduzir, springs.settle)}
       className="rounded-full px-3 py-1.5 text-sm font-semibold"

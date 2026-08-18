@@ -1,9 +1,9 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "../cn";
-import { springs } from "../motion-variants";
+import { springs, transicao } from "../motion-variants";
 
 interface SectionCardProps {
   title?: string;
@@ -15,12 +15,12 @@ interface SectionCardProps {
 }
 
 export function SectionCard({ title, description, icon: Icon, actions, children, className }: SectionCardProps) {
+  const reduzir = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 4, scale: 0.98 }}
+      initial={reduzir ? false : { opacity: 0, y: 4, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={springs.settleFast}
-      whileHover={{ y: -1, boxShadow: "0 6px 24px rgba(14,15,19,.09)" }}
+      transition={transicao(reduzir, springs.settleFast)}
       className={cn(
         "rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]",
         className

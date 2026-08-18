@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { eases } from "@/shared/design-system/motion-variants";
 import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
 
 export function LoginHero() {
@@ -12,14 +13,14 @@ export function LoginHero() {
         <motion.div
           initial={{ opacity: 0, scale: 0.6 }}
           animate={{ opacity: 0.18, scale: 1 }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
+          transition={{ duration: 0.4, ease: eases.standard }}
           className="absolute -top-16 -left-24 w-64 h-64 rounded-full"
           style={{ background: "var(--gradient-signature)", filter: "blur(56px)" }}
         />
         <motion.div
           initial={{ opacity: 0, scale: 0.6 }}
           animate={{ opacity: 0.13, scale: 1 }}
-          transition={{ duration: 1.4, ease: "easeOut", delay: 0.1 }}
+          transition={{ duration: 0.4, ease: eases.standard, delay: 0.05 }}
           className="absolute -bottom-20 -right-20 w-56 h-56 rounded-full"
           style={{ background: "var(--gradient-signature)", filter: "blur(64px)" }}
         />
@@ -29,7 +30,7 @@ export function LoginHero() {
       <motion.div
         initial={false}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.3, ease: eases.emphasized }}
       >
         <ElisaLimaLogo variant="login" />
       </motion.div>

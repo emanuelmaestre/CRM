@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AlertTriangle, Check, ChevronRight, Copy, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { eases } from "@/shared/design-system/motion-variants";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import settingsConfig from "@/config/settings.json";
@@ -16,7 +17,7 @@ import type { MercadoLivreStatus } from "./useMercadoLivreStatus";
 const cascataLinhas = { hidden: {}, show: { transition: { staggerChildren: 0.035 } } };
 const linhaVariant = {
   hidden: { opacity: 0, x: -6 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.2, ease: [0, 0, 0.2, 1] as const } },
+  show: { opacity: 1, x: 0, transition: { duration: 0.2, ease: eases.standard } },
 };
 
 const VERDE = "var(--success)";
@@ -82,7 +83,7 @@ function AnelProgresso({ prontos, total }: { prontos: number; total: number }) {
           strokeDasharray={volta}
           initial={{ strokeDashoffset: volta }}
           animate={{ strokeDashoffset: volta * (1 - fracao) }}
-          transition={{ duration: 0.7, ease: [0, 0, 0.2, 1] }}
+          transition={{ duration: 0.7, ease: eases.standard }}
         />
       </svg>
       <AnimatePresence>
@@ -117,7 +118,7 @@ function TudoProntoIllustration() {
           fill="none"
           initial={{ pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: 0.5, ease: [0, 0, 0.2, 1] }}
+          transition={{ duration: 0.5, ease: eases.standard }}
         />
         <motion.circle
           cx="36" cy="27" r="21"
@@ -184,7 +185,7 @@ function ContaCanalEditForm({ item, onCancel, onSaved }: {
       />
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} disabled={pending} className="inline-flex h-11 items-center gap-1 rounded-lg px-3 text-xs font-semibold text-muted-foreground disabled:opacity-50">
-          <X size={12} /> Cancelar
+          <X size={14} /> Cancelar
         </button>
         <button
           type="button"
@@ -280,7 +281,7 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
             onClick={() => setEditando(true)}
             className="flex h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <Pencil size={12} /> Editar
+            <Pencil size={14} /> Editar
           </button>
           <button
             type="button"
@@ -289,7 +290,7 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
             disabled={removendo}
             className="flex h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
           >
-            <Trash2 size={12} /> Remover
+            <Trash2 size={14} /> Remover
           </button>
         </div>
       )}
@@ -312,6 +313,7 @@ function LinhaCanal({ item, aberta, onToggle, onChanged, mlStatus }: {
   onChanged: () => void;
   mlStatus: MercadoLivreStatus;
 }) {
+  const reduzir = useReducedMotion();
   return (
     <div className="border-b border-border last:border-0">
       <button
@@ -320,7 +322,7 @@ function LinhaCanal({ item, aberta, onToggle, onChanged, mlStatus }: {
         aria-expanded={aberta}
         className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/50"
       >
-        <motion.span animate={{ rotate: aberta ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex text-muted-foreground">
+        <motion.span animate={{ rotate: aberta ? 90 : 0 }} transition={{ duration: reduzir ? 0 : 0.18 }} className="flex text-muted-foreground">
           <ChevronRight size={14} />
         </motion.span>
         <ChannelLogo canal={item.canalLabel} size="sm" variant="logo" />
@@ -332,10 +334,10 @@ function LinhaCanal({ item, aberta, onToggle, onChanged, mlStatus }: {
       <AnimatePresence initial={false}>
         {aberta && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
+            initial={reduzir ? false : { height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: [0, 0, 0.2, 1] }}
+            exit={reduzir ? undefined : { height: 0, opacity: 0 }}
+            transition={reduzir ? { duration: 0 } : { duration: 0.22, ease: [0, 0, 0.2, 1] }}
             className="overflow-hidden"
           >
             <DetalheCanal item={item} onChanged={onChanged} mlStatus={mlStatus} />
@@ -354,6 +356,7 @@ interface Props {
 }
 
 export function CanaisPorMarca({ items, loading, onChanged, mlStatus }: Props) {
+  const reduzir = useReducedMotion();
   const [soAtencao, setSoAtencao] = useState(false);
   const [marcasAbertas, setMarcasAbertas] = useState<Set<string>>(new Set());
   const [canaisAbertos, setCanaisAbertos] = useState<Set<string>>(new Set());
@@ -435,7 +438,7 @@ export function CanaisPorMarca({ items, loading, onChanged, mlStatus }: Props) {
                 aria-expanded={!fechada}
                 className="flex w-full items-center gap-2.5 bg-background/60 px-4 py-3 text-left transition-colors hover:bg-muted/50"
               >
-                <motion.span animate={{ rotate: fechada ? 0 : 90 }} transition={{ duration: 0.18 }} className="flex text-muted-foreground">
+                <motion.span animate={{ rotate: fechada ? 0 : 90 }} transition={{ duration: reduzir ? 0 : 0.18 }} className="flex text-muted-foreground">
                   <ChevronRight size={15} />
                 </motion.span>
                 <AnelProgresso prontos={prontos} total={marca.canais.length} />
@@ -448,14 +451,14 @@ export function CanaisPorMarca({ items, loading, onChanged, mlStatus }: Props) {
               <AnimatePresence initial={false}>
                 {!fechada && (
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
+                    initial={reduzir ? false : { height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
+                    exit={reduzir ? undefined : { height: 0, opacity: 0 }}
+                    transition={reduzir ? { duration: 0 } : { duration: 0.24, ease: [0, 0, 0.2, 1] }}
                     className="overflow-hidden"
                   >
                     {/* As linhas entram em cascata: o olho acompanha a abertura. */}
-                    <motion.div initial="hidden" animate="show" variants={cascataLinhas}>
+                    <motion.div initial={reduzir ? false : "hidden"} animate="show" variants={cascataLinhas}>
                       {marca.canais.map((item) => (
                         <motion.div key={item.id} variants={linhaVariant}>
                           <LinhaCanal

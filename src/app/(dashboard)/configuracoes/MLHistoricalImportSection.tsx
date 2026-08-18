@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { eases } from "@/shared/design-system/motion-variants";
 import {
   ArchiveRestore,
   Boxes,
@@ -177,10 +178,10 @@ function ProgressRail({ value, phase }: { value: number; phase: string }) {
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <motion.div
-          className="h-full rounded-full bg-[linear-gradient(90deg,#facc15,#8b5cf6,#22c55e)]"
+          className="h-full rounded-full bg-[linear-gradient(90deg,var(--karzi-accent),var(--acento-2),var(--success))]"
           initial={false}
           animate={{ width: `${value}%` }}
-          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.55, ease: eases.emphasized }}
         />
       </div>
     </div>
@@ -216,7 +217,7 @@ function Celebration() {
         <motion.span
           key={index}
           className="absolute left-1/2 top-8 h-1.5 w-1.5 rounded-full"
-          style={{ backgroundColor: ["#facc15", "#8b5cf6", "#22c55e"][index % 3] }}
+          style={{ backgroundColor: ["var(--karzi-accent)", "var(--acento-2)", "var(--success)"][index % 3] }}
           initial={{ x: 0, y: 0, opacity: 1 }}
           animate={{ x: (index - 5.5) * 23, y: 90 + (index % 4) * 15, opacity: 0, rotate: index * 55 }}
           transition={{ duration: 1.15, delay: index * 0.025, ease: "easeOut" }}
@@ -408,7 +409,7 @@ export function MLHistoricalImportSection() {
                       type="button"
                       disabled={pending || bloqueadoPorLote || !de || !ate}
                       onClick={preparar}
-                      className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[linear-gradient(100deg,#f59e0b,#7c3aed)] px-4 text-sm font-black text-white shadow-lg shadow-violet-900/15 transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                      className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[linear-gradient(100deg,var(--warning),var(--acento-2))] px-4 text-sm font-black text-white shadow-lg shadow-violet-900/15 transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                     >
                       {pending ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
                       {pending ? config.form.preparing : config.form.prepare}
@@ -428,7 +429,7 @@ export function MLHistoricalImportSection() {
                           </div>
                           {!(["importando", "concluido", "concluido_com_erros"].includes(active.status)) && (
                             <button type="button" disabled={pending} onClick={descartar} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-red-600 transition-colors hover:bg-red-500/10 disabled:opacity-50">
-                              <Trash2 size={13} /> {config.review.discard}
+                              <Trash2 size={14} /> {config.review.discard}
                             </button>
                           )}
                         </div>
