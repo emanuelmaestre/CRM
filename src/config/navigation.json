@@ -18,35 +18,11 @@
       ]
     },
     {
-      "id": "clientes",
-      "href": "/clientes",
-      "label": "Clientes",
-      "icon": "Users",
-      "mobilePriority": 2,
-      "profiles": [
-        "admin",
-        "gestor",
-        "vendedor"
-      ]
-    },
-    {
-      "id": "inbox",
-      "href": "/inbox",
-      "label": "Mensagens",
-      "icon": "MessageSquare",
-      "mobilePriority": 3,
-      "profiles": [
-        "admin",
-        "gestor",
-        "vendedor"
-      ]
-    },
-    {
       "id": "vendas",
       "href": "/vendas",
       "label": "Vendas",
       "icon": "ShoppingCart",
-      "mobilePriority": 5,
+      "mobilePriority": 2,
       "profiles": [
         "admin",
         "gestor",
@@ -58,7 +34,7 @@
       "href": "/estoque",
       "label": "Estoque",
       "icon": "Package",
-      "mobilePriority": 6,
+      "mobilePriority": 3,
       "profiles": [
         "admin",
         "gestor",
@@ -68,11 +44,36 @@
     {
       "id": "anuncios",
       "href": "/anuncios",
-      "label": "Anúncios",
+      "label": "Marketing",
       "icon": "Megaphone",
+      "mobilePriority": 4,
       "profiles": [
         "admin",
         "gestor"
+      ]
+    },
+    {
+      "id": "inbox",
+      "href": "/inbox",
+      "label": "Mensagens",
+      "icon": "MessageSquare",
+      "mobilePriority": 5,
+      "profiles": [
+        "admin",
+        "gestor",
+        "vendedor"
+      ]
+    },
+    {
+      "id": "clientes",
+      "href": "/clientes",
+      "label": "Clientes",
+      "icon": "Users",
+      "mobilePriority": 6,
+      "profiles": [
+        "admin",
+        "gestor",
+        "vendedor"
       ]
     }
   ],

@@ -526,8 +526,8 @@ export function Mosaico() {
       legenda: blocosCopy.comparacao.legenda,
     },
     subtitulo: metricasConfig.comparacaoCard.subtitulo,
-    render: (acaoSlot) => <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
-  }), [saude.dados, carregandoSaude]);
+    render: (acaoSlot) => <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} atualizadoEm={carregadoEm} />,
+  }), [saude.dados, carregandoSaude, carregadoEm]);
 
   // Só existe com dado: Evolução precisa de uma janela anterior para
   // comparar, e um bloco que abriria vazio não vira bloco.

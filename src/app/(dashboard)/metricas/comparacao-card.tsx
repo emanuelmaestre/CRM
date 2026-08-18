@@ -15,9 +15,11 @@ import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/applicat
 import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
 import { inteiro, moeda, moedaCompacta } from "@/shared/design-system/format";
+import { RefreshCw } from "lucide-react";
 
 const copy = metricasConfig.comparacaoCard;
 const ACENTO = "var(--acento-3)";
+const dataHoraCard = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 type Criterio = "score" | "faturamento" | "pedidos" | "ticketMedio" | "notaMedia";
 
@@ -181,10 +183,16 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
   );
 }
 
-export function ComparacaoCard({ dados, carregando, acaoSlot }: {
+export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm }: {
   dados: SaudeLojaResultado | null;
   carregando: boolean;
   acaoSlot?: HTMLElement | null;
+  /** Quando os números de cada marca foram calculados — vem de uma consulta
+   *  ao vivo (não é dado sincronizado com timestamp próprio por marca), então
+   *  é o mesmo instante em todos os cards, repetido em cada um a pedido:
+   *  quem olha um card sozinho vê de quando é aquele número sem precisar
+   *  achar o relógio lá em cima do painel. */
+  atualizadoEm?: Date | null;
 }) {
   const [criterio, setCriterio] = useState<Criterio>("score");
   const reduzir = useReducedMotion();
@@ -302,6 +310,12 @@ export function ComparacaoCard({ dados, carregando, acaoSlot }: {
                 </div>
 
                 <TiraNumeros marca={marca} periodoLabel={dados?.periodoLabel ?? ""} />
+
+                {atualizadoEm && (
+                  <p className="mt-2.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <RefreshCw size={9} /> Atualizado em {dataHoraCard.format(atualizadoEm)}
+                  </p>
+                )}
               </motion.li>
             );
           })}

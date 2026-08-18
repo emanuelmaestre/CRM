@@ -43,7 +43,7 @@
     "verTodas": "Ver todas as campanhas"
   },
   "campanhasDetalhe": {
-    "metadataTitle": "Campanhas - Anúncios",
+    "metadataTitle": "Campanhas - Marketing",
     "title": "Campanhas",
     "description": "Todas as campanhas da marca, com diagnóstico e os anúncios que compõem cada uma",
     "voltar": "Voltar para a Visão Geral",
@@ -69,7 +69,7 @@
     }
   },
   "alertasDetalhe": {
-    "metadataTitle": "Alertas - Anúncios",
+    "metadataTitle": "Alertas - Marketing",
     "title": "Central de Alertas",
     "description": "Todos os sinais críticos e oportunidades das campanhas da marca, sem limite de itens",
     "voltar": "Voltar para a Visão Geral",
@@ -83,7 +83,7 @@
     }
   },
   "produtosDetalhe": {
-    "metadataTitle": "Produtos - Anúncios",
+    "metadataTitle": "Produtos - Marketing",
     "title": "Produtos",
     "description": "Todos os anúncios da marca, independente da campanha - onde o investimento está indo item por item",
     "voltar": "Voltar para a Visão Geral",
@@ -111,7 +111,7 @@
     }
   },
   "historicoDetalhe": {
-    "metadataTitle": "Histórico - Anúncios",
+    "metadataTitle": "Histórico - Marketing",
     "title": "Histórico",
     "description": "Evolução diária de investimento, receita e ROAS da marca",
     "voltar": "Voltar para a Visão Geral",
@@ -137,7 +137,7 @@
     }
   },
   "comparacaoDetalhe": {
-    "metadataTitle": "Comparação - Anúncios",
+    "metadataTitle": "Comparação - Marketing",
     "title": "Comparação entre marcas",
     "description": "As mesmas métricas lado a lado, para comparar como cada marca está investindo em mídia",
     "voltar": "Voltar para a Visão Geral",
