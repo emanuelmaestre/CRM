@@ -202,9 +202,14 @@ export function InboxPerguntas({ marcasAtivas, canaisAtivos, onContagens }: {
       transition={{ duration: 0.24, ease: [0, 0, 0.2, 1] }}
       className="flex h-[max(28rem,calc(100dvh-15rem))] max-h-[calc(100dvh-7rem)] gap-3 lg:h-[max(32rem,calc(100dvh-13rem))]"
     >
-      {/* ── Sidebar ── */}
+      {/* ── Sidebar ──
+          No mobile a largura alvo precisa estourar o limite de 100% de
+          propósito (maxWidth abaixo), senão o card fica preso nos 304px
+          padrão da largura arrastável do desktop, sobrando vão do lado —
+          era o que fazia esse painel destoar do de Conversas, que usa um
+          alvo fixo (416) sempre maior que qualquer tela de celular. */}
       <motion.div
-        animate={{ width: efetivamenteRecolhido ? 56 : Math.min(sideWidth, 10000) }}
+        animate={{ width: efetivamenteRecolhido ? 56 : isMobile ? "100%" : Math.min(sideWidth, 10000) }}
         transition={reduzirMovimento ? { duration: 0 } : springs.settle}
         style={{ maxWidth: "100%", flexShrink: 0 }}
         className={`${selecionada ? "hidden lg:flex" : "flex"} w-full relative rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden flex-col`}
