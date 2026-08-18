@@ -107,7 +107,7 @@ export const legalDocuments = {
             "Também é proibido compartilhar credenciais, extrair dados em massa fora das funções previstas, tentar burlar limites técnicos, publicar conteúdo sem revisão adequada ou usar dados de clientes para finalidade incompatível com a operação das marcas.",
           ],
           bullets: [
-            "Conteúdos abusivos ou denúncias podem ser enviados para contato@elisalima.com.br.",
+            "Conteúdos abusivos ou denúncias podem ser enviados para producao@elisalima.com.br.",
             "Denúncias serão revisadas com prioridade operacional, com remoção ou bloqueio quando a violação for confirmada.",
             "O CRM pode limitar recursos quando uma plataforma de terceiro alterar regras, permissões ou disponibilidade.",
           ],
@@ -224,7 +224,7 @@ export const legalDocuments = {
       contact: {
         title: "Contato da operadora",
         emailLabel: "E-mail",
-        email: "contato@elisalima.com.br",
+        email: "producao@elisalima.com.br",
         addressLabel: "Endereço",
         address: "São Paulo - SP, Brasil",
         companyLabel: "CNPJ",
@@ -258,7 +258,7 @@ export const legalDocuments = {
             "A operadora define as finalidades internas do CRM para usuários, clientes e operação comercial. Para dados obtidos ou derivados de Shopee Content, o CRM trata esses dados como intermediário operacional, conforme regras da Shopee Open Platform.",
           ],
           bullets: [
-            "Contato de privacidade: privacidade@elisalima.com.br.",
+            "Contato de privacidade: producao@elisalima.com.br.",
             "A plataforma é restrita a maiores de 18 anos e usuários autorizados.",
             "Solicitações de titulares são respondidas pelos canais informados nesta política.",
           ],
@@ -340,7 +340,7 @@ export const legalDocuments = {
           body: [
             "A plataforma usa HTTPS, controle de acesso por perfil, logs de auditoria, backups, proteção de tokens e segregação de permissões para reduzir riscos.",
             "O titular pode solicitar confirmação de tratamento, acesso, correção, portabilidade, anonimização, bloqueio, eliminação, informação de compartilhamento, revogação de consentimento e oposição, conforme a LGPD.",
-            "Solicitações devem ser enviadas para privacidade@elisalima.com.br. A resposta seguirá os prazos legais e poderá exigir confirmação de identidade.",
+            "Solicitações devem ser enviadas para producao@elisalima.com.br. A resposta seguirá os prazos legais e poderá exigir confirmação de identidade.",
           ],
         },
       ],
@@ -356,7 +356,7 @@ export const legalDocuments = {
       contact: {
         title: "Privacidade e solicitações",
         emailLabel: "E-mail",
-        email: "privacidade@elisalima.com.br",
+        email: "producao@elisalima.com.br",
         addressLabel: "Endereço",
         address: "São Paulo - SP, Brasil",
         companyLabel: "CNPJ",
@@ -409,7 +409,7 @@ export const legalDocuments = {
             "Users must not share credentials, extract data in bulk outside intended features, bypass technical limits, publish content without proper review or use customer data for purposes incompatible with the brands' operations.",
           ],
           bullets: [
-            "Objectionable content or reports may be sent to contato@elisalima.com.br.",
+            "Objectionable content or reports may be sent to producao@elisalima.com.br.",
             "Reports are reviewed with operational priority, with removal or blocking when a violation is confirmed.",
             "Features may be limited if a third-party platform changes rules, permissions or availability.",
           ],
@@ -490,7 +490,7 @@ export const legalDocuments = {
       contact: {
         title: "Operator contact",
         emailLabel: "Email",
-        email: "contato@elisalima.com.br",
+        email: "producao@elisalima.com.br",
         addressLabel: "Address",
         address: "São Paulo - SP, Brazil",
         companyLabel: "Company registration",
@@ -524,7 +524,7 @@ export const legalDocuments = {
             "The operator determines the CRM's internal purposes for users, customers and commerce operations. For data obtained from or derived from Shopee Content, the CRM processes such data as an operational intermediary under Shopee Open Platform rules.",
           ],
           bullets: [
-            "Privacy contact: privacidade@elisalima.com.br.",
+            "Privacy contact: producao@elisalima.com.br.",
             "The platform is restricted to users aged 18 or older and authorized personnel.",
             "Data subject requests are handled through the channels listed in this policy.",
           ],
@@ -606,7 +606,7 @@ export const legalDocuments = {
           body: [
             "The platform uses HTTPS, role-based access control, audit logs, backups, token protection and permission segregation to reduce risk.",
             "Data subjects may request confirmation, access, correction, portability, anonymization, blocking, deletion, sharing information, consent withdrawal and objection, as provided by the LGPD.",
-            "Requests should be sent to privacidade@elisalima.com.br. Responses follow legal deadlines and may require identity verification.",
+            "Requests should be sent to producao@elisalima.com.br. Responses follow legal deadlines and may require identity verification.",
           ],
         },
       ],
@@ -622,7 +622,7 @@ export const legalDocuments = {
       contact: {
         title: "Privacy and requests",
         emailLabel: "Email",
-        email: "privacidade@elisalima.com.br",
+        email: "producao@elisalima.com.br",
         addressLabel: "Address",
         address: "São Paulo - SP, Brazil",
         companyLabel: "Company registration",
