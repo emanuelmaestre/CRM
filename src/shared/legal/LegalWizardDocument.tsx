@@ -22,6 +22,7 @@ const labels = {
     legalNote:
       "Base operacional e de transparência para revisão de APIs — não substitui revisão jurídica formal quando exigida.",
     scope: "Cobre integrações com",
+    skip: "Ir para o conteúdo",
   },
   en: {
     home: "Back to login",
@@ -33,6 +34,7 @@ const labels = {
     legalNote:
       "Operational transparency baseline for API review — does not replace formal legal review where required.",
     scope: "Covers integrations with",
+    skip: "Skip to content",
   },
 } as const;
 
@@ -53,22 +55,23 @@ function ordinal(index: number) {
 export function LegalWizardDocument({ document }: { document: LegalDocument }) {
   const copy = labels[document.locale];
   const reduzir = useReducedMotion();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Array<HTMLElement | null>>([]);
   const [activeId, setActiveId] = useState(document.sections[0]?.id);
 
-  const { scrollYProgress } = useScroll({ container: scrollRef });
+  /* Página real de leitura, não um modal: rola com o documento (sem
+     scroll-lock artificial), o que também preserva back/forward do
+     navegador e a busca nativa (Ctrl+F) — um container com overflow
+     próprio quebra as duas coisas sem necessidade aqui. */
+  const { scrollYProgress } = useScroll();
   const barScale = useSpring(scrollYProgress, { stiffness: 300, damping: 40, restDelta: 0.001 });
 
   useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
     const observer = new IntersectionObserver(
       (entries) => {
         const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (visible[0]) setActiveId(visible[0].target.id);
       },
-      { root: container, rootMargin: "-15% 0px -70% 0px", threshold: 0 }
+      { rootMargin: "-15% 0px -70% 0px", threshold: 0 }
     );
     sectionRefs.current.forEach((el) => el && observer.observe(el));
     return () => observer.disconnect();
@@ -77,24 +80,60 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
   function jumpTo(id: string) {
     const el = sectionRefs.current.find((node) => node?.id === id);
     el?.scrollIntoView({ behavior: reduzir ? "auto" : "smooth", block: "start" });
+    el?.focus({ preventScroll: true });
   }
 
   return (
-    <main className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground">
-      <div className="h-[2.5px] shrink-0 bg-border">
+    <main className="min-h-dvh bg-background text-foreground">
+      <a
+        href="#conteudo"
+        className="fixed left-3 top-3 z-50 -translate-y-16 rounded-lg bg-foreground px-4 py-2.5 text-sm font-semibold text-background transition-transform focus:translate-y-0"
+      >
+        {copy.skip}
+      </a>
+
+      {/* Barra de progresso de leitura — fica acima de tudo, ligada ao scroll real da página */}
+      <div className="sticky top-0 z-40 h-[2.5px] bg-border">
         <motion.div className="h-full origin-left" style={{ scaleX: barScale, background: "var(--gradient-signature)" }} />
       </div>
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-[46rem] px-5 pb-32 pt-10 sm:px-8 sm:pt-14 lg:px-4">
+      {/* Navegação de seções no mobile/tablet — trilho vertical só existe em lg+, então a leitura
+          em telas menores precisa de outra forma de "onde estou / para onde ir" */}
+      <nav
+        aria-label={copy.index}
+        className="sticky top-[2.5px] z-30 flex gap-1.5 overflow-x-auto border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur-sm lg:hidden"
+      >
+        {document.sections.map((section, index) => {
+          const selected = section.id === activeId;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => jumpTo(section.id)}
+              aria-current={selected ? "location" : undefined}
+              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                selected ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {ordinal(index)} · {section.title}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className="mx-auto flex w-full max-w-6xl">
+        <div id="conteudo" className="min-w-0 flex-1 px-5 pb-24 pt-10 sm:px-8 sm:pt-14 lg:px-4">
+          <div className="mx-auto max-w-[46rem]">
             {/* Cabeçalho: sem cartão, sem halo — respiro editorial */}
             <div className="flex items-center justify-between gap-3 text-xs font-semibold text-muted-foreground">
-              <Link href="/auth/login" className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground">
+              <Link href="/auth/login" className={`inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-foreground`}>
                 <ArrowLeft size={13} />
                 {copy.home}
               </Link>
-              <Link href={document.alternateHref} className="inline-flex items-center gap-1.5 transition-colors hover:text-foreground">
+              <Link
+                href={document.alternateHref}
+                className={`inline-flex items-center gap-1.5 rounded-md transition-colors hover:text-foreground`}
+              >
                 <Languages size={13} />
                 {copy.language} {document.alternateLabel}
               </Link>
@@ -126,7 +165,7 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                     <ChannelLogo canal="shopee" size="sm" variant="logo" />
                   </span>
                 </div>
-                <div className="hidden h-4 w-px bg-border sm:block" />
+                <div className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
                 <BrandLogoGroup height={15} />
               </div>
             </motion.div>
@@ -144,7 +183,7 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                     transition={transicao(reduzir, { ...springs.settleFast, delay: i * 0.04 })}
                     className="flex gap-2.5 text-sm leading-relaxed text-foreground/80"
                   >
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                    <CheckCircle2 aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                     {item}
                   </motion.li>
                 ))}
@@ -159,6 +198,7 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                   <motion.section
                     key={section.id}
                     id={section.id}
+                    tabIndex={-1}
                     ref={(el) => {
                       sectionRefs.current[index] = el;
                     }}
@@ -166,12 +206,12 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-10% 0px -10% 0px" }}
                     transition={transicao(reduzir, springs.settle)}
-                    className="scroll-mt-10"
+                    className="scroll-mt-24 outline-none"
                   >
                     <div className="flex items-baseline gap-4">
                       <span
                         aria-hidden="true"
-                        className="select-none text-[2.75rem] font-bold leading-none tracking-[-0.03em] text-transparent [-webkit-text-stroke:1.5px_var(--border)] sm:text-[3.5rem]"
+                        className="select-none text-[2.75rem] font-bold leading-none tracking-[-0.03em] text-foreground/[0.08] sm:text-[3.5rem]"
                       >
                         {ordinal(index)}
                       </span>
@@ -235,7 +275,7 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                         href={source.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                        className={`group inline-flex items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground`}
                       >
                         {source.label.toLowerCase().includes("mercado") && <ChannelLogo canal="mercadolivre" size="xs" variant="logo" />}
                         {source.label.toLowerCase().includes("tiktok") && <ChannelLogo canal="tiktokshop" size="xs" variant="logo" />}
@@ -243,7 +283,8 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                         <span className="border-b border-dotted border-muted-foreground/40 group-hover:border-foreground/60">
                           {source.label}
                         </span>
-                        <ExternalLink size={11} className="shrink-0 opacity-60" />
+                        <ExternalLink aria-hidden="true" size={11} className="shrink-0 opacity-60" />
+                        <span className="sr-only">({document.locale === "pt" ? "abre em nova aba" : "opens in new tab"})</span>
                       </a>
                     </li>
                   ))}
@@ -256,7 +297,11 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
                 <dl className="mt-3 space-y-3 text-sm">
                   <div>
                     <dt className="text-xs text-muted-foreground">{document.contact.emailLabel}</dt>
-                    <dd className="font-semibold text-foreground">{document.contact.email}</dd>
+                    <dd className="font-semibold text-foreground">
+                      <a href={`mailto:${document.contact.email}`} className={`rounded-md transition-colors hover:text-muted-foreground`}>
+                        {document.contact.email}
+                      </a>
+                    </dd>
                   </div>
                   <div>
                     <dt className="text-xs text-muted-foreground">{document.contact.addressLabel}</dt>
@@ -279,46 +324,57 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
           </div>
         </div>
 
-        {/* Trilho lateral: marcador de leitura, não abas de wizard */}
-        <nav className="hidden w-16 shrink-0 flex-col items-center gap-1 border-l border-border py-14 lg:flex xl:w-56 xl:items-stretch xl:px-6">
+        {/* Trilho lateral: marcador de leitura, não abas de wizard — só existe onde há espaço
+            para não competir com o texto (telas menores usam a navegação horizontal acima) */}
+        <nav
+          aria-label={copy.index}
+          className="sticky top-[2.5px] hidden h-fit w-16 shrink-0 flex-col items-center gap-1 self-start border-l border-border py-14 lg:flex xl:w-56 xl:items-stretch xl:px-6"
+        >
           <p className="mb-2 hidden text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground xl:block">{copy.index}</p>
-          {document.sections.map((section, index) => {
-            const selected = section.id === activeId;
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => jumpTo(section.id)}
-                className="group relative flex w-full items-center gap-3 py-2.5 text-left"
-              >
-                <span
-                  className="relative h-1.5 w-1.5 shrink-0 rounded-full transition-colors xl:hidden"
-                  style={{ background: selected ? "var(--foreground)" : "var(--border)" }}
-                />
-                <span
-                  className={`hidden truncate text-xs font-semibold transition-colors xl:block ${
-                    selected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground/70"
-                  }`}
-                >
-                  {ordinal(index)} · {section.title}
-                </span>
-                {selected && (
-                  <motion.span
-                    layoutId="trilho-ativo"
-                    className="absolute -left-px top-0 hidden h-full w-px xl:block"
-                    style={{ background: "var(--foreground)" }}
-                    transition={transicao(reduzir, springs.settle)}
-                  />
-                )}
-              </button>
-            );
-          })}
+          <ol className="contents">
+            {document.sections.map((section, index) => {
+              const selected = section.id === activeId;
+              return (
+                <li key={section.id} className="contents">
+                  <button
+                    type="button"
+                    onClick={() => jumpTo(section.id)}
+                    aria-current={selected ? "location" : undefined}
+                    title={section.title}
+                    className={`group relative flex w-full items-center gap-3 rounded-md py-2.5 text-left`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="relative h-1.5 w-1.5 shrink-0 rounded-full transition-colors xl:hidden"
+                      style={{ background: selected ? "var(--foreground)" : "var(--border)" }}
+                    />
+                    <span
+                      className={`hidden truncate text-xs font-semibold transition-colors xl:block ${
+                        selected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground/70"
+                      }`}
+                    >
+                      {ordinal(index)} · {section.title}
+                    </span>
+                    {selected && (
+                      <motion.span
+                        aria-hidden="true"
+                        layoutId="trilho-ativo"
+                        className="absolute -left-px top-0 hidden h-full w-px xl:block"
+                        style={{ background: "var(--foreground)" }}
+                        transition={transicao(reduzir, springs.settle)}
+                      />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
           <Link
             href="/auth/login"
-            className="mt-auto hidden items-center gap-1.5 pt-6 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground xl:inline-flex"
+            className={`mt-auto hidden items-center gap-1.5 rounded-md pt-6 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground xl:inline-flex`}
           >
             {copy.home}
-            <ArrowUpRight size={13} />
+            <ArrowUpRight size={13} aria-hidden="true" />
           </Link>
         </nav>
       </div>
