@@ -29,9 +29,8 @@ const HOJE = diasAtras(0);
    Cada busca usa o mesmo argumento que o efeito correspondente usa na
    primeira carga do navegador (ver mosaico.tsx), para o resultado pré-buscado
    bater com a chave que o mosaico monta e a busca não ser refeita à toa:
-   Saúde e Pós-venda sem `inicio`/`fim` (o serviço aplica os últimos 30 dias
-   por padrão); a janela "anterior" replica a mesma duração, imediatamente
-   anterior a essa, que o card Evolução usa.
+   Saúde e Pós-venda com `inicio`/`fim` = hoje, porque "Hoje" é o período
+   padrão da tela (mesmo default que `periodo` usa em mosaico.tsx).
 
    Publicações depende de saber a primeira marca, que só se sabe depois da
    Saúde responder — por isso sai de um segundo `await`, não do mesmo
@@ -44,21 +43,14 @@ export default async function MetricasPage() {
   const [marcas, canais, saude, posVenda, insights, sugestoes] = await Promise.all([
     actionContarPedidosPorMarca().catch(() => []),
     actionContarPedidosPorCanal().catch(() => []),
-    actionObterSaudeLoja({}).catch(() => null),
-    actionObterPosVenda({}).catch(() => null),
+    actionObterSaudeLoja({ inicio: HOJE, fim: HOJE }).catch(() => null),
+    actionObterPosVenda({ inicio: HOJE, fim: HOJE }).catch(() => null),
     actionListarInsights().catch(() => []),
     actionListarSugestoes().catch(() => []),
   ]);
 
-  // Mesma conta que o efeito de "anterior" faz em mosaico.tsx: sem inicio/fim
-  // escolhido, a janela atual é hoje-29..hoje, e a anterior é a mesma duração
-  // (30 dias) imediatamente antes dela.
-  const anterior = saude
-    ? await actionObterSaudeLoja({ inicio: diasAtras(59), fim: diasAtras(30), leve: true }).catch(() => null)
-    : null;
-
   const primeiraMarca = saude?.marcas[0]?.brandId ?? null;
-  const inicioPublicacoes = diasAtras(29);
+  const inicioPublicacoes = HOJE;
   const publicacoes = primeiraMarca
     ? await actionObterDesempenhoPublicacoes({ brandId: primeiraMarca, inicio: inicioPublicacoes, fim: HOJE }).catch(() => null)
     : null;
@@ -72,7 +64,6 @@ export default async function MetricasPage() {
           marcasIniciais={marcas}
           canaisIniciais={canais}
           saudeInicial={saude}
-          anteriorInicial={anterior}
           posVendaInicial={posVenda}
           acoesIniciais={{ insights, sugestoes }}
           publicacoesInicial={primeiraMarca ? { brandId: primeiraMarca, inicio: inicioPublicacoes, fim: HOJE, dados: publicacoes } : null}

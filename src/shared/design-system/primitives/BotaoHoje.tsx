@@ -37,10 +37,10 @@ export function BotaoHoje({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={ativo}
-      className={`inline-flex h-11 shrink-0 items-center justify-center rounded-[0.75rem] border px-3.5 text-xs font-bold transition-all duration-200 disabled:opacity-50 ${
+      className={`inline-flex h-11 shrink-0 items-center justify-center rounded-[0.75rem] border px-3.5 text-xs transition-all duration-200 disabled:opacity-50 ${
         ativo
-          ? "border-[color-mix(in_srgb,var(--selecionado)_45%,var(--border))] bg-[color-mix(in_srgb,#9B30D9_8%,var(--card))] text-selecionado"
-          : "border-border bg-muted text-muted-foreground hover:border-[rgba(155,48,217,.4)] hover:bg-card hover:text-selecionado"
+          ? "border-border bg-card font-extrabold text-foreground shadow-[0_2px_6px_rgba(14,15,19,.14)]"
+          : "border-border bg-muted font-bold text-muted-foreground hover:bg-card hover:text-foreground"
       }`}
     >
       Hoje

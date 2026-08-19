@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
 import { useFocusTrap } from "@/shared/design-system/primitives/useFocusTrap";
 import { tint } from "@/shared/design-system/color";
+import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 
 /* ── Mosaico → Foco ────────────────────────────────────────────────
    O mosaico existe porque 14 cards empilhados viravam oito telas de
@@ -50,6 +51,18 @@ export const SECOES = [
 
 export type SecaoId = (typeof SECOES)[number]["id"];
 
+/** Conteúdo do "o que é este card" — deliberadamente mais estruturado que um
+ *  parágrafo solto: `resumo` é a resposta em uma frase, `pontos` são os
+ *  detalhes que mudam a leitura do número (o que entra, o que fica de fora,
+ *  a regra que não é óbvia só olhando a tela), `dica` é o alerta ou atalho
+ *  que fecha a explicação. Cada card escreve o próprio conteúdo — não é um
+ *  texto genérico reaproveitado entre eles. */
+export interface ExplicacaoBloco {
+  resumo: string;
+  pontos: { titulo: string; texto: string }[];
+  dica?: string;
+}
+
 export interface BlocoDef {
   id: string;
   titulo: string;
@@ -67,9 +80,12 @@ export interface BlocoDef {
    *  dentro do card aberto (ver `scope` passado ao próprio `render`), não do
    *  mosaico — é o que mantém o mosaico limpo. */
   semFiltro?: boolean;
-  /** Linha curta sob o título, só quando o card está em foco — o mosaico não
-   *  usa isto, é o cabeçalho único do Foco que precisa dela. */
-  subtitulo?: string;
+  /** Explicação do card inteiro (não de um número específico — isso já é
+   *  papel do CalculoPopover dentro de cada card). Vira um ícone de info ao
+   *  lado do título, só quando o card está em foco. Substitui o antigo
+   *  `subtitulo` (texto fixo sempre visível) por algo sob demanda: a régua
+   *  não precisa ocupar espaço permanente na tela pra existir. */
+  explicacao?: ExplicacaoBloco;
   /** O card inteiro. Função porque só é montado quando o bloco abre.
    *  `acaoSlot` é o nó do DOM que o Foco reserva na própria barra de
    *  cabeçalho — um card com uma ação própria (aba, botão "como é
@@ -285,27 +301,44 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                 >
                   <def.icone size={16} strokeWidth={1.9} />
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-1 items-center gap-1.5">
                   <h2 id={tituloId} className="text-[15px] font-bold leading-tight tracking-[-0.01em] text-foreground [overflow-wrap:anywhere]">
                     {def.titulo}
                   </h2>
-                  {/* Crossfade por key: trocar de card com as setas troca o
-                      texto num movimento, não num corte — o mesmo tratamento
-                      que o conteúdo abaixo já tinha, agora também aqui. */}
-                  <AnimatePresence mode="wait" initial={false}>
-                    {def.subtitulo && (
-                      <motion.p
-                        key={def.id}
-                        initial={reduzir ? false : { opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0 }}
-                        transition={transicao(reduzir, springs.settleFast)}
-                        className="line-clamp-2 text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere]"
-                      >
-                        {def.subtitulo}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
+                  {/* Ícone de info só quando o card escreve uma explicação —
+                      substitui o subtítulo fixo de antes: a explicação existe
+                      sob demanda, sem ocupar espaço permanente no cabeçalho. */}
+                  {def.explicacao && (
+                    <AnimatedInfoPopover
+                      trigger={(
+                        <AnimatedInfoTrigger
+                          title={`O que é ${def.titulo}`}
+                          iconSize={14}
+                          className="press-feedback flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        />
+                      )}
+                      align="start"
+                      sideOffset={8}
+                      collisionPadding={12}
+                      className="z-[100] w-[min(24rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+                    >
+                      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">{def.titulo}</p>
+                      <p className="mt-2 text-[13px] leading-relaxed text-foreground/90">{def.explicacao.resumo}</p>
+                      <dl className="mt-3.5 flex flex-col gap-2.5 border-t border-border pt-3.5">
+                        {def.explicacao.pontos.map((ponto) => (
+                          <div key={ponto.titulo}>
+                            <dt className="text-[11.5px] font-bold text-foreground">{ponto.titulo}</dt>
+                            <dd className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{ponto.texto}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                      {def.explicacao.dica && (
+                        <p className="mt-3.5 rounded-[0.7rem] bg-muted px-3 py-2 text-[11.5px] leading-relaxed text-foreground/80">
+                          {def.explicacao.dica}
+                        </p>
+                      )}
+                    </AnimatedInfoPopover>
+                  )}
                 </div>
                 {/* Sem botões de seta: pular de card continua valendo pelo
                     teclado (← →, ver o efeito de atalhos acima), mas dois

@@ -248,9 +248,8 @@ export interface SaudeLojaFiltros {
   brandIds?: string[];
   /** Pula reputação/reclamações (API do ML, lentas), atendimento por marca e
    *  pilares de score. Para quando só se precisa de faturamento/pedidos/ticket/
-   *  cancelamento, como a janela "anterior" do card Evolução: rodar a consulta
-   *  inteira de novo só pra descartar quase tudo dobra o tempo de carregamento
-   *  à toa. */
+   *  cancelamento — rodar a consulta inteira só pra descartar quase tudo
+   *  dobra o tempo de carregamento à toa. */
   leve?: boolean;
 }
 
@@ -319,7 +318,7 @@ export async function obterSaudeLoja(
   // as duas que saem para o Mercado Livre (reputação e reclamações) são as
   // lentas — esperá-las em série dobraria o tempo da página à toa. No modo
   // `leve` elas nem entram: quem só quer faturamento/pedidos/cancelamento
-  // (a janela "anterior" do card Evolução) não precisa pagar por elas.
+  // não precisa pagar por elas.
   const [
     vendasPorMarca,
     avaliacoesPorMarca,

@@ -450,11 +450,11 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
           });
         }}
         className={cn(
-          "group press-feedback relative inline-flex h-11 items-center gap-2 rounded-[0.75rem] border px-3.5 text-xs font-semibold transition-all duration-200 disabled:opacity-50",
+          "group press-feedback relative inline-flex h-11 items-center gap-2 rounded-[0.75rem] border px-3.5 text-xs transition-all duration-200 disabled:opacity-50",
           inicioSelecionado && fimSelecionado
-            ? "border-[color-mix(in_srgb,var(--selecionado)_45%,var(--border))] bg-[color-mix(in_srgb,#9B30D9_8%,var(--card))] text-foreground"
-            : "border-border bg-muted text-muted-foreground hover:border-[rgba(155,48,217,.4)] hover:bg-card",
-          aberto && "border-selecionado bg-card shadow-[0_0_0_3px_rgba(155,48,217,.12)]",
+            ? "border-border bg-card font-extrabold text-foreground shadow-[0_2px_6px_rgba(14,15,19,.14)]"
+            : "border-border bg-muted font-semibold text-muted-foreground hover:bg-card hover:text-foreground",
+          aberto && "border-foreground/60 bg-card shadow-[0_0_0_3px_rgba(14,15,19,.08)]",
         )}
       >
         <CalendarRange
@@ -463,7 +463,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
           aria-hidden="true"
           className={cn(
             "shrink-0 transition-all duration-200 group-hover:scale-110",
-            inicioSelecionado && fimSelecionado ? "text-selecionado" : "text-muted-foreground group-hover:text-selecionado",
+            inicioSelecionado && fimSelecionado ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
           )}
         />
         <span className="whitespace-nowrap tabular-nums">{rotuloCompleto}</span>

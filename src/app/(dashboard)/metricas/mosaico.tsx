@@ -30,7 +30,6 @@ import {
 } from "./actions";
 import { AcoesCard, type Insight, type Sugestao } from "./acoes-card";
 import { ComparacaoCard } from "./comparacao-card";
-import { ComparacaoPeriodoCard } from "./comparacao-periodo-card";
 import { PublicacoesCard, type DesempenhoPreCarregado } from "./publicacoes-card";
 import { ScoreCard } from "./score-card";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
@@ -186,7 +185,7 @@ const COLUNAS_LG: Record<number, string> = {
 
 export function Mosaico({
   marcasIniciais = [], canaisIniciais = [], saudeInicial = null,
-  anteriorInicial = null, posVendaInicial = null, acoesIniciais = null, publicacoesInicial = null,
+  posVendaInicial = null, acoesIniciais = null, publicacoesInicial = null,
 }: {
   /* O mosaico é a soma de oito buscas independentes. Sete (todas menos
      Reclamações, que depende da API do Mercado Livre) são resolvidas no
@@ -195,7 +194,6 @@ export function Mosaico({
   marcasIniciais?: ScopeMarca[];
   canaisIniciais?: ScopeCanal[];
   saudeInicial?: SaudeLojaResultado | null;
-  anteriorInicial?: SaudeLojaResultado | null;
   posVendaInicial?: PosVendaResultado | null;
   acoesIniciais?: { insights: Insight[]; sugestoes: Sugestao[] } | null;
   publicacoesInicial?: DesempenhoPreCarregado | null;
@@ -295,23 +293,20 @@ export function Mosaico({
     return () => { ativo = false; };
   }, []);
 
-  /* ── Saúde da loja, atendimento e janela anterior ── */
+  /* ── Saúde da loja e atendimento ── */
 
   const completo = Boolean(periodo.inicio && periodo.fim);
   const inicio = completo ? periodo.inicio : undefined;
   const fim = completo ? periodo.fim : undefined;
   const chave = `${inicio ?? ""}..${fim ?? ""}`;
 
-  // A chave inicial é "..": o período começa vazio, então a primeira busca vai
-  // com inicio/fim indefinidos e o serviço aplica a própria janela padrão — que
-  // é exatamente o que o servidor pré-buscou.
+  // A chave inicial é hoje..hoje: o período começa em "Hoje" (mesmo default
+  // do estado `periodo` acima), e é exatamente essa janela que o servidor
+  // pré-buscou (ver page.tsx) — bater as duas evita um refetch à toa no
+  // primeiro carregamento.
   const [saude, setSaude] = useState<{ chave: string; dados: SaudeLojaResultado | null }>(
-    saudeInicial ? { chave: "..", dados: saudeInicial } : { chave: "", dados: null },
+    saudeInicial ? { chave: `${hoje}..${hoje}`, dados: saudeInicial } : { chave: "", dados: null },
   );
-  const [anterior, setAnterior] = useState<{ chave: string; dados: SaudeLojaResultado | null }>(
-    anteriorInicial ? { chave: "..", dados: anteriorInicial } : { chave: "", dados: null },
-  );
-  const primeiraAnterior = useRef(Boolean(anteriorInicial));
   // Sem timestamp único de servidor pra "isto tudo" — o mosaico é a soma de
   // ~7 buscas independentes (ver comentário acima sobre cada uma carregar no
   // próprio ritmo). Saúde da loja é o gatilho mais representativo porque
@@ -335,25 +330,6 @@ export function Mosaico({
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
 
-  useEffect(() => {
-    if (primeiraAnterior.current) { primeiraAnterior.current = false; return; }
-    let ativo = true;
-    const fimAtual = fim ? new Date(`${fim}T12:00:00`) : new Date();
-    const inicioAtual = inicio ? new Date(`${inicio}T12:00:00`) : new Date(fimAtual);
-    if (!inicio) inicioAtual.setDate(inicioAtual.getDate() - 29);
-    const duracao = Math.round((fimAtual.getTime() - inicioAtual.getTime()) / 86_400_000) + 1;
-    const fimAnterior = new Date(inicioAtual); fimAnterior.setDate(fimAnterior.getDate() - 1);
-    const inicioAnterior = new Date(fimAnterior); inicioAnterior.setDate(inicioAnterior.getDate() - duracao + 1);
-    actionObterSaudeLoja({ inicio: paraDataInput(inicioAnterior), fim: paraDataInput(fimAnterior), leve: true })
-      .then((dados) => { if (ativo) setAnterior({ chave, dados }); })
-      .catch(() => {
-        if (!ativo) return;
-        setAnterior({ chave, dados: null });
-        toast.error(metricasConfig.erros.carregar, { id: "metricas-anterior" });
-      });
-    return () => { ativo = false; };
-  }, [chave, inicio, fim]);
-
   const carregandoSaude = saude.chave !== chave;
 
   /* ── Pós-venda, Recomendações e Publicações (1ª marca) ──
@@ -363,7 +339,7 @@ export function Mosaico({
      mosaico, dispara junto com Saúde da loja e Atendimento assim que a
      página carrega, e os cards viram (quase) só apresentação. */
   const [posVenda, setPosVenda] = useState<{ chave: string; dados: PosVendaResultado | null }>(
-    posVendaInicial ? { chave: "..", dados: posVendaInicial } : { chave: "", dados: null },
+    posVendaInicial ? { chave: `${hoje}..${hoje}`, dados: posVendaInicial } : { chave: "", dados: null },
   );
   const primeiroPosVenda = useRef(Boolean(posVendaInicial));
   useEffect(() => {
@@ -469,7 +445,15 @@ export function Mosaico({
             .replace("{ticket}", dadosFaturamento.ticketMedio)
         : blocosCopy.faturamento.legenda,
     },
-    subtitulo: dadosFaturamento?.janelaLabel,
+    explicacao: {
+      resumo: "Quanto entrou de dinheiro em pedidos válidos no período, a soma que sobra depois de tirar cancelamentos e devoluções.",
+      pontos: [
+        { titulo: "O que entra na soma", texto: "Todo pedido aprovado dentro do período escolhido, somado pelo valor pago pelo cliente." },
+        { titulo: "O que fica de fora", texto: "Pedidos cancelados ou devolvidos não contam aqui, eles têm o próprio número, em Cancelamento." },
+        { titulo: "Ticket médio", texto: "É esse faturamento dividido pela quantidade de pedidos, sobe quando poucos pedidos caros puxam a média." },
+      ],
+      dica: "A variação já vem calculada contra a janela imediatamente anterior, do mesmo tamanho, não contra o mesmo período do ano passado.",
+    },
     render: () => (
       <FaturamentoCard
         dados={dadosFaturamento}
@@ -501,7 +485,15 @@ export function Mosaico({
         ? { nivel: saude.dados.scoreGeral < 30 ? "critico" : "atencao", texto: saude.dados.faixaGeralLabel ?? "Atenção" }
         : null,
     },
-    subtitulo: saude.dados ? `${metricasConfig.score.subtitulo} · ${saude.dados.periodoLabel}` : metricasConfig.score.subtitulo,
+    explicacao: {
+      resumo: "Uma nota de 0 a 100 que resume a saúde da operação: reputação, pós-venda, satisfação, atendimento e catálogo, numa média ponderada.",
+      pontos: [
+        { titulo: "Cinco pilares, pesos diferentes", texto: "Reputação e pós-venda pesam mais que catálogo, um problema de entrega derruba o score mais que um item sem foto." },
+        { titulo: "Pilar sem dado sai da conta", texto: "Se um pilar não tem informação suficiente no período, o peso dele é redistribuído entre os demais, não vira zero." },
+        { titulo: "Consolidado pesa por faturamento", texto: "Ao ver todas as marcas juntas, quem fatura mais influencia mais o número final, não é uma média simples entre marcas." },
+      ],
+      dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso, para o score que está na tela.",
+    },
     render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
   }), [saude.dados, carregandoSaude]);
 
@@ -517,6 +509,16 @@ export function Mosaico({
       valor: saude.dados ? String(saude.dados.marcas.length) : null,
       legenda: blocosCopy.comparacao.legenda,
     },
+    explicacao: {
+      resumo: "Coloca as marcas ativas lado a lado, medidas pelas mesmas réguas, quem lidera muda conforme o critério escolhido nas abas.",
+      pontos: [
+        { titulo: "Sete critérios, um de cada vez", texto: "Score, Faturamento, Pedidos, Ticket, Nota, Cancelamento e Recorrência: a ordenação e a barra seguem o critério ativo." },
+        { titulo: "Cor de cada linha é a da marca", texto: "O destaque visual (barra, borda, número) é sempre a identidade da marca, não muda com o critério." },
+        { titulo: "Ponto de alerta ao lado do número", texto: "Score, Nota e Cancelamento têm um \"bom\" e um \"ruim\" objetivos, um pontinho colorido avisa quando o valor pede atenção." },
+        { titulo: "Cumprimento de pedidos", texto: "A barra embaixo de cada marca mostra o que aconteceu com os pedidos do período: entregues, em andamento, cancelados, devolvidos." },
+      ],
+      dica: "Cancelamento é o único critério onde menor vence, 0% aparece no topo do ranking, não no fim.",
+    },
     render: (acaoSlot) => (
       <ComparacaoCard
         dados={saude.dados}
@@ -527,24 +529,6 @@ export function Mosaico({
       />
     ),
   }), [saude.dados, carregandoSaude, carregadoEm, posVenda.dados]);
-
-  // Só existe com dado: Evolução precisa de uma janela anterior para
-  // comparar, e um bloco que abriria vazio não vira bloco.
-  const blocoEvolucao = useMemo<BlocoDef | null>(() => {
-    if (!saude.dados) return null;
-    return {
-      id: "evolucao",
-    secao: "financeiro",
-      titulo: blocosCopy.evolucao.titulo,
-      icone: BarChart3,
-      accent: "var(--acento-2)",
-      resumo: { valor: null, legenda: blocosCopy.evolucao.legenda },
-      subtitulo: "Mesma duração, imediatamente anterior ao intervalo selecionado",
-      render: () => (
-        <ComparacaoPeriodoCard atual={saude.dados!} anterior={anterior.chave === chave ? anterior.dados : null} />
-      ),
-    };
-  }, [saude.dados, anterior, chave]);
 
   const blocoReclamacoes = useMemo<BlocoDef>(() => ({
     id: "reclamacoes",
@@ -561,7 +545,14 @@ export function Mosaico({
         ? { nivel: "critico", texto: "abertas" }
         : null,
     },
-    subtitulo: "Casos abertos no Mercado Livre",
+    explicacao: {
+      resumo: "Reclamações que o cliente abriu no Mercado Livre contra um pedido da marca, dentro do período selecionado.",
+      pontos: [
+        { titulo: "Só Mercado Livre", texto: "Outros canais não têm essa informação disponível pela API, por isso o card não separa por canal de venda." },
+        { titulo: "Mediação é o estágio mais sério", texto: "É quando o próprio Mercado Livre entra na conversa e passa a decidir o caso, em vez de só mediar entre marca e cliente." },
+      ],
+      dica: "Reclamação aberta não é o mesmo que devolução, uma reclamação pode ser resolvida sem que o pedido seja cancelado ou devolvido.",
+    },
     render: (acaoSlot) => (
       <ReclamacoesCard
         dados={reclamacoesVisiveis}
@@ -590,7 +581,15 @@ export function Mosaico({
         ? { nivel: "atencao", texto: "repor" }
         : null,
     },
-    subtitulo: "Ainda acima do mínimo — dá tempo de comprar",
+    explicacao: {
+      resumo: "Produtos que já entraram na zona de atenção (saldo ainda acima do estoque mínimo, mas caminhando pra lá), onde ainda dá tempo de comprar antes de faltar.",
+      pontos: [
+        { titulo: "Zona de atenção, não de ruptura", texto: "Entra na lista quem tem saldo maior que o mínimo cadastrado, mas já até o dobro dele, quem já cruzou o mínimo saiu dessa janela de aviso." },
+        { titulo: "Precisa de mínimo cadastrado", texto: "Produto sem estoque mínimo definido não tem régua pra comparar, então não aparece aqui, não é falta de dado, é falta de referência." },
+        { titulo: "Urgência considera o ritmo de venda", texto: "Quanto mais perto do mínimo e mais rápido o produto está vendendo no período, maior a urgência de repor." },
+      ],
+      dica: "Esse card avisa antes do problema, diferente de Giro baixo e Parados, que mostram o que já não está saindo.",
+    },
     render: () => (
       <ReposicaoCard
         itens={reposicao.dados?.reposicao ?? null}
@@ -616,7 +615,14 @@ export function Mosaico({
       legenda: maisVendidos.dados?.maisVendidos[0]?.nome ?? blocosCopy.maisVendidos.legenda,
       rodape: blocosCopy.maisVendidos.legenda,
     },
-    subtitulo: "Campeões de saída no período",
+    explicacao: {
+      resumo: "Os produtos que mais saíram em quantidade dentro do período selecionado, o ranking de venda, não de faturamento.",
+      pontos: [
+        { titulo: "Ordena por unidades, não por dinheiro", texto: "Um produto barato vendido em volume pode aparecer na frente de um produto caro vendido poucas vezes." },
+        { titulo: "Barra de participação", texto: "Cada linha mostra a proporção da quantidade dele contra o líder da lista, não contra o total vendido no período." },
+      ],
+      dica: "Combine com Top 5 produtos (no card Marca) para ver se a receita da marca depende demais de poucos itens campeões.",
+    },
     render: () => (
       <MaisVendidosCard
         itens={maisVendidos.dados?.maisVendidos ?? null}
@@ -639,7 +645,15 @@ export function Mosaico({
       valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixo.length) : null,
       legenda: blocosCopy.giroBaixo.legenda,
     },
-    subtitulo: "Vendem pouco ou nada no período",
+    explicacao: {
+      resumo: "Produtos com saldo em estoque que quase não venderam no período, vendem, mas devagar demais pra girar o capital parado neles.",
+      pontos: [
+        { titulo: "Só quem ainda tem saldo", texto: "Produto zerado não conta como giro baixo, esse é o caso de Parados, quando também não vende há muito tempo." },
+        { titulo: "Limite baixo de propósito", texto: "Entra quem vendeu poucas unidades no período inteiro, o corte é apertado para não misturar \"vende pouco\" com \"vende razoável\"." },
+        { titulo: "Ordenado pelo que dói mais", texto: "Empate em quantidade vendida desempata por valor parado em estoque, o produto que trava mais dinheiro aparece primeiro." },
+      ],
+      dica: "Vale cruzar com o preço de venda: giro baixo em item caro imobiliza mais capital que giro baixo em item barato, mesmo com a mesma quantidade parada.",
+    },
     render: () => (
       <GiroBaixoCard
         itens={giroBaixo.dados?.giroBaixo ?? null}
@@ -663,7 +677,15 @@ export function Mosaico({
       legenda: blocosCopy.parados.legenda,
       alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
     },
-    subtitulo: "Sem nenhuma saída há mais de 90 dias",
+    explicacao: {
+      resumo: "Produtos com saldo em estoque que não têm nenhuma venda registrada nos últimos 90 dias, capital parado há tempo suficiente pra ser considerado risco.",
+      pontos: [
+        { titulo: "90 dias é o corte", texto: "Menos que isso é giro baixo (vende pouco); 90 dias ou mais sem nenhuma saída é parado (não vende)." },
+        { titulo: "Inclui quem nunca vendeu", texto: "Produto que nunca teve saída também entra aqui, não só quem vendia antes e parou." },
+        { titulo: "Ordenado pelo capital imobilizado", texto: "Quem tem mais dinheiro parado em estoque aparece primeiro, é o que mais justifica uma liquidação." },
+      ],
+      dica: "Um item aqui não é necessariamente ruim, pode ser um lançamento recente sem tempo suficiente pra vender. Vale checar a data de cadastro antes de decidir liquidar.",
+    },
     render: () => (
       <ParadosCard
         itens={parados.dados?.parados ?? null}
@@ -681,7 +703,14 @@ export function Mosaico({
     icone: Sparkles,
     accent: "var(--acento-1)",
     resumo: { valor: null, legenda: blocosCopy.acoes.legenda },
-    subtitulo: metricasConfig.acoesCard.subtitulo,
+    explicacao: {
+      resumo: "Duas listas diferentes no mesmo card: observações automáticas sobre a operação, e ofertas sugeridas para reativar clientes específicos.",
+      pontos: [
+        { titulo: "Insights", texto: "Leituras automáticas dos números do período, algo que mudou, vale atenção ou foge do padrão, sem precisar caçar isso card por card." },
+        { titulo: "Sugestões de reativação", texto: "Ofertas geradas para segmentos de clientes (ex.: quem não compra há um tempo), esperando aprovação antes de sair." },
+        { titulo: "Nada sai sozinho", texto: "Toda sugestão fica com status \"sugerida\" até alguém aprovar ou recusar, o card nunca dispara oferta por conta própria." },
+      ],
+    },
     render: () => (
       <AcoesCard
         insightsIniciais={acoes.insights}
@@ -701,6 +730,15 @@ export function Mosaico({
       icone: Megaphone,
       accent: "var(--acento-3)",
       resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
+      explicacao: {
+        resumo: "Como cada anúncio está performando no Mercado Livre: visitas, conversão, vendas e, quando patrocinado, retorno do investimento em publicidade.",
+        pontos: [
+          { titulo: "Visitas e conversão", texto: "Conversão estimada é a proporção de visitas que viraram venda, um anúncio com muita visita e pouca venda pode ter problema de preço, foto ou descrição." },
+          { titulo: "Receita em anúncios e ROI", texto: "Só aparece pra quem tem Product Ads ativo, mostra quanto foi investido em publicidade e quanto voltou em vendas." },
+          { titulo: "Pontuação de qualidade", texto: "Nota do próprio Mercado Livre sobre o anúncio (ficha técnica, fotos, atributos preenchidos), afeta o quanto ele aparece nas buscas." },
+        ],
+        dica: "Um anúncio com boa pontuação de qualidade mas conversão baixa costuma ser problema de preço ou concorrência, não de cadastro.",
+      },
       render: (acaoSlot) => (
         <PublicacoesCard
           marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
@@ -718,12 +756,11 @@ export function Mosaico({
   // (recriar cada bloco) já aconteceu nos memos acima, isolado por grupo.
   const { grupos, lista: blocos } = useMemo(() => agruparPorSecao([
     blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
-    ...(blocoEvolucao ? [blocoEvolucao] : []),
     blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoAcoes,
     ...(blocoPublicacoes ? [blocoPublicacoes] : []),
   ]), [
     blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
-    blocoEvolucao, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoAcoes,
+    blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoAcoes,
     blocoPublicacoes,
   ]);
 

@@ -214,10 +214,6 @@
         "titulo": "Marca",
         "legenda": "As mesmas réguas, lado a lado"
       },
-      "evolucao": {
-        "titulo": "Evolução",
-        "legenda": "Contra a mesma duração anterior"
-      },
       "publicacoes": {
         "titulo": "Publicações",
         "legenda": "Anúncios ativos e pausados no período"

@@ -220,13 +220,13 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                             compacto
                             titulo="Pontuação de qualidade"
                             significado="Nota de 0 a 100 que o Mercado Livre dá à publicação, com base em quão completa e atrativa ela está (fotos, ficha técnica, título, garantia)."
-                            formula="calculada pelo Mercado Livre a partir dos atributos preenchidos no anúncio — não é um valor que o CRM calcula."
+                            formula="calculada pelo Mercado Livre a partir dos atributos preenchidos no anúncio, não é um valor que o CRM calcula."
                             resultado={item.qualidade === null ? "Sem dado" : `${Math.round(item.qualidade)}/100`}
                             itens={[
                               { label: "Nível", valor: item.nivelQualidade ?? "indisponível" },
                               { label: "Pendências abertas", valor: String(item.pendencias.length) },
                             ]}
-                            nota={item.qualidade === null ? "Este anúncio ainda não recebeu score do Mercado Livre — comum em publicações recém-criadas ou inativas." : undefined}
+                            nota={item.qualidade === null ? "Este anúncio ainda não recebeu score do Mercado Livre, comum em publicações recém-criadas ou inativas." : undefined}
                           />
                         </div>
                       </div>
@@ -237,7 +237,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                             <CalculoPopover
                               compacto
                               titulo="Visitas"
-                              significado="Quantas vezes esta publicação foi vista no Mercado Livre durante o período selecionado — a base de tráfego a partir da qual vêm as vendas."
+                              significado="Quantas vezes esta publicação foi vista no Mercado Livre durante o período selecionado, a base de tráfego a partir da qual vêm as vendas."
                               formula="soma das visualizações da publicação, registradas dia a dia pelo Mercado Livre, no período."
                               resultado={inteiro.format(item.visitas)}
                               itens={[{ label: "Visitas no período", valor: inteiro.format(item.visitas) }]}
@@ -302,7 +302,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                             <CalculoPopover
                               compacto
                               titulo="Retorno sobre o investimento"
-                              significado="Quantas vezes o valor investido em Product Ads voltou em receita — o indicador mais direto de se vale a pena manter o investimento neste anúncio."
+                              significado="Quantas vezes o valor investido em Product Ads voltou em receita, o indicador mais direto de se vale a pena manter o investimento neste anúncio."
                               formula="receita atribuída ao anúncio, dividida pelo valor investido nele no período"
                               resultado={roas === null ? "Sem dado" : `${roas.toFixed(1)}x`}
                               itens={[
@@ -310,7 +310,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                                 { label: "Investido em anúncio", valor: moeda.format(item.investimento) },
                               ]}
                               periodoLabel={periodo}
-                              nota={roas === null ? "Sem investimento registrado em Product Ads para este anúncio no período — por isso não há retorno a calcular." : "Acima de 1x o anúncio já se pagou; quanto maior, melhor o retorno do investimento."}
+                              nota={roas === null ? "Sem investimento registrado em Product Ads para este anúncio no período, por isso não há retorno a calcular." : "Acima de 1x o anúncio já se pagou; quanto maior, melhor o retorno do investimento."}
                             />
                           </dt>
                           <dd className="mt-1 font-semibold tabular-nums">{roas === null ? "Sem dado" : `${roas.toFixed(1)}x`}</dd>
@@ -322,14 +322,14 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                         <CalculoPopover
                           compacto
                           titulo="Nível de qualidade"
-                          significado="Faixa (cor/palavra) que o Mercado Livre atribui à publicação a partir da mesma pontuação de 0 a 100 mostrada no topo do card — é a leitura resumida daquele número."
-                          formula="definida pelo Mercado Livre a partir de faixas fixas de pontuação — não é um valor que o CRM calcula."
+                          significado="Faixa (cor/palavra) que o Mercado Livre atribui à publicação a partir da mesma pontuação de 0 a 100 mostrada no topo do card, é a leitura resumida daquele número."
+                          formula="definida pelo Mercado Livre a partir de faixas fixas de pontuação, não é um valor que o CRM calcula."
                           resultado={item.nivelQualidade ?? "indisponível"}
                           itens={[
                             { label: "Pontuação", valor: item.qualidade === null ? "Sem dado" : `${Math.round(item.qualidade)}/100` },
                             { label: "Pendências abertas", valor: String(item.pendencias.length) },
                           ]}
-                          nota={item.nivelQualidade === null ? "Este anúncio ainda não recebeu um nível do Mercado Livre — comum em publicações recém-criadas ou inativas." : undefined}
+                          nota={item.nivelQualidade === null ? "Este anúncio ainda não recebeu um nível do Mercado Livre, comum em publicações recém-criadas ou inativas." : undefined}
                         />
                       </div>
                       {item.pendencias.length > 0 && <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700"><TriangleAlert size={13} className="mt-0.5 shrink-0" /> {item.pendencias[0]}</p>}

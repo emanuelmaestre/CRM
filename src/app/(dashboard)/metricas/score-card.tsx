@@ -9,7 +9,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { Pilar, SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { AnelScore, AvisoParcial, BarraComLimite, Card, CardHead } from "./metricas-primitives";
@@ -39,9 +39,6 @@ function SeletorEscopo({ marcas, valor, onChange }: {
     <div className="flex flex-wrap gap-1 rounded-[0.9rem] bg-muted p-1" role="tablist">
       {opcoes.map((opcao) => {
         const ativo = opcao.chave === valor;
-        const cor = opcao.slug && isBrandSlug(opcao.slug)
-          ? getBrandConfig(opcao.slug)?.color
-          : undefined;
         return (
           <button
             key={opcao.chave}
@@ -49,15 +46,14 @@ function SeletorEscopo({ marcas, valor, onChange }: {
             role="tab"
             aria-selected={ativo}
             onClick={() => onChange(opcao.chave)}
-            className="press-feedback relative flex h-11 items-center gap-1.5 rounded-[0.6rem] px-3 text-xs font-semibold transition-colors"
+            className={`press-feedback relative flex h-11 items-center gap-1.5 rounded-[0.6rem] px-3 text-xs transition-colors ${ativo ? "font-extrabold" : "font-semibold"}`}
             style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             {ativo && (
               <motion.span
                 layoutId="metricas-escopo"
                 transition={springs.settleFast}
-                className="absolute inset-0 rounded-[0.6rem] bg-card shadow-[0_1px_4px_rgba(14,15,19,.10)]"
-                style={cor ? { boxShadow: `0 1px 4px ${cor}33` } : undefined}
+                className="absolute inset-0 rounded-[0.6rem] border border-border bg-card shadow-[0_2px_6px_rgba(14,15,19,.14)]"
               />
             )}
             <span className="relative z-10 flex items-center gap-1.5">
@@ -171,7 +167,7 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
         valor: `${Math.round(pilar.nota as number)} · peso ${Math.round((pilar.peso / pesoTotal) * 100)}%`,
       }))}
       nota={medidos.length < 5
-        ? `Só ${medidos.length} de 5 pilares tinham dado — o peso dos outros foi redistribuído entre esses.`
+        ? `Só ${medidos.length} de 5 pilares tinham dado, o peso dos outros foi redistribuído entre esses.`
         : "Os 5 pilares tinham dado neste período; nenhum peso precisou ser redistribuído."}
     />
   );

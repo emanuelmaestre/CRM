@@ -357,7 +357,7 @@ function CumprimentoPedidos({ pv }: { pv: PosVendaMarcaComTaxa }) {
               fracao: pv[s.chave] / total,
             })) : []}
             periodoLabel={undefined}
-            nota="Cancelados e devolvidos aqui são os mesmos que entram na taxa de Cancelamento, lá em cima — ali em porcentagem, aqui em número absoluto."
+            nota="Cancelados e devolvidos aqui são os mesmos que entram na taxa de Cancelamento, lá em cima, ali em porcentagem, aqui em número absoluto."
           />
         </p>
         {pv.impactoFinanceiro > 0 && (
@@ -475,14 +475,14 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
             role="tab"
             aria-selected={ativo}
             onClick={() => setCriterio(opcao.chave as Criterio)}
-            className="press-feedback relative flex h-11 items-center rounded-[0.5rem] px-3 text-[11px] font-semibold transition-colors"
+            className={`press-feedback relative flex h-11 items-center rounded-[0.5rem] px-3 text-[11px] transition-colors ${ativo ? "font-extrabold" : "font-semibold"}`}
             style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             {ativo && (
               <motion.span
                 layoutId="metricas-criterio"
                 transition={springs.settleFast}
-                className="absolute inset-0 rounded-[0.5rem] bg-card shadow-[0_1px_4px_rgba(14,15,19,.10)]"
+                className="absolute inset-0 rounded-[0.5rem] border border-border bg-card shadow-[0_2px_6px_rgba(14,15,19,.14)]"
               />
             )}
             <span className="relative z-10">{opcao.label}</span>
@@ -513,11 +513,13 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
           {ordenadas.map((marca, indice) => {
             const valor = valorDe(marca, criterio);
             const cor = corDaMarca(marca.marca);
-            // A barra e o número grande precisam significar "bom ou ruim" só
-            // quando o critério tem um "bom"/"ruim" objetivo (Score, Nota,
-            // Cancelamento) — nas outras abas a cor continua sendo a
-            // identidade da marca, não um sinal de alerta.
-            const corDestaque = corDoIndicador(criterio, valor) ?? cor;
+            // A barra e o número grande são sempre a cor da marca — é o fio
+            // condutor visual do card. O alerta semântico (Score, Nota,
+            // Cancelamento têm um "bom"/"ruim" objetivo) não desaparece: ele
+            // migra pra um pontinho ao lado do número, em vez de tomar conta
+            // da cor inteira do card.
+            const corDestaque = cor;
+            const corAlerta = corDoIndicador(criterio, valor);
             // Em Cancelamento, 0% é o melhor resultado possível — não faz
             // sentido negar a coroa só porque o valor "não é maior que zero".
             const lider = indice === 0 && valor !== null && (CRITERIO_MENOR_VENCE[criterio] === true || valor > 0);
@@ -564,8 +566,17 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
                       </motion.span>
                     )}
                   </span>
-                  <span className="shrink-0 text-[15px] font-bold tabular-nums" style={{ color: corDestaque }}>
-                    {rotuloDe(marca, criterio)}
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    {corAlerta && (
+                      <span
+                        aria-hidden="true"
+                        className="h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{ background: corAlerta }}
+                      />
+                    )}
+                    <span className="text-[15px] font-bold tabular-nums" style={{ color: corDestaque }}>
+                      {rotuloDe(marca, criterio)}
+                    </span>
                   </span>
                 </div>
 
