@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Crown } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -78,7 +78,21 @@ interface CampoNumero {
   formatarNumero?: (valorAnimado: number) => string;
 }
 
-function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel: string }) {
+/** Cada critério do seletor de cima (Score/Faturamento/Pedidos/Ticket
+ *  médio/Nota média) já vira o número grande + a barra no topo do card —
+ *  repeti-lo aqui embaixo, dentro da tira, seria a mesma informação duas
+ *  vezes na tela. `chaveCampo` é o nome do campo que corresponde a cada
+ *  critério, pra essa duplicata ser filtrada sem precisar duplicar a
+ *  lista de campos. */
+const CAMPO_DO_CRITERIO: Record<Criterio, string | null> = {
+  score: null,
+  faturamento: "Faturamento",
+  pedidos: "Pedidos",
+  ticketMedio: "Ticket",
+  notaMedia: "Nota",
+};
+
+function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; periodoLabel: string; criterio: Criterio }) {
   const campos: CampoNumero[] = [
     { label: "Faturamento", valor: marca.faturamentoLabel, valorNumerico: marca.faturamento, formatarNumero: (v) => moeda.format(v) },
     { label: "Pedidos", valor: String(marca.pedidos), valorNumerico: marca.pedidos, formatarNumero: (v) => inteiro.format(Math.round(v)) },
@@ -95,10 +109,9 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
         : String(marca.reclamacoesAbertas),
       alerta: marca.emMediacao > 0,
     },
-    {
-      label: "Resposta",
-      valor: marca.atendimento?.medianaLabel ?? "—",
-    },
+    // "Resposta" só entra quando existe mediana de verdade — um "—" solto
+    // não é informação, é um buraco no meio da grade.
+    ...(marca.atendimento?.medianaLabel ? [{ label: "Resposta", valor: marca.atendimento.medianaLabel }] : []),
     {
       label: "Cancelamento",
       valor: marca.taxaCancelamento === null ? "—" : `${marca.taxaCancelamento}%`,
@@ -152,34 +165,48 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
     },
   ];
 
+  // O critério ativo no seletor de cima já virou o número grande + a barra
+  // — mostrar de novo aqui embaixo seria a mesma informação duas vezes.
+  const camposFiltrados = campos.filter((campo) => campo.label !== CAMPO_DO_CRITERIO[criterio]);
+
   return (
-    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
-      {campos.map((campo) => (
-        <div key={campo.label} className="min-w-0">
-          <dt className="flex items-center gap-1 truncate text-[10px] uppercase tracking-wide text-muted-foreground/80">
-            <span className="truncate">{campo.label}</span>
-            {campo.calculo && (
-              <CalculoPopover
-                titulo={campo.calculo.titulo}
-                significado={campo.calculo.significado}
-                formula={campo.calculo.formula}
-                resultado={campo.calculo.resultado}
-                itens={campo.calculo.itens}
-                periodoLabel={periodoLabel}
-                nota={campo.calculo.nota}
-              />
-            )}
-          </dt>
-          <dd
-            title={campo.titulo}
-            className={`truncate text-[12px] font-semibold tabular-nums ${campo.alerta ? "text-destructive" : "text-foreground"}`}
+    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
+      <AnimatePresence initial={false}>
+        {camposFiltrados.map((campo, indice) => (
+          <motion.div
+            key={campo.label}
+            layout
+            initial={{ opacity: 0, scale: 0.82, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.82 }}
+            transition={{ ...springs.momentum, delay: indice * 0.035 }}
+            className="min-w-0"
           >
-            {campo.valorNumerico !== undefined && campo.formatarNumero
-              ? <NumeroAnimado valor={campo.valorNumerico} formatar={campo.formatarNumero} />
-              : campo.valor}
-          </dd>
-        </div>
-      ))}
+            <dt className="flex items-center gap-1 truncate text-[10px] uppercase tracking-wide text-muted-foreground/80">
+              <span className="truncate">{campo.label}</span>
+              {campo.calculo && (
+                <CalculoPopover
+                  titulo={campo.calculo.titulo}
+                  significado={campo.calculo.significado}
+                  formula={campo.calculo.formula}
+                  resultado={campo.calculo.resultado}
+                  itens={campo.calculo.itens}
+                  periodoLabel={periodoLabel}
+                  nota={campo.calculo.nota}
+                />
+              )}
+            </dt>
+            <dd
+              title={campo.titulo}
+              className={`truncate text-[12px] font-semibold tabular-nums ${campo.alerta ? "text-destructive" : "text-foreground"}`}
+            >
+              {campo.valorNumerico !== undefined && campo.formatarNumero
+                ? <NumeroAnimado valor={campo.valorNumerico} formatar={campo.formatarNumero} />
+                : campo.valor}
+            </dd>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </dl>
   );
 }
@@ -191,36 +218,77 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
    genuinamente novo entrou: os números crus por trás dessa taxa
    (Entregues/Em andamento/Cancelados/Devolvidos — antes só a % existia
    aqui), a receita afetada e os motivos mais comuns. */
+/** Segmento não-zero da barra — cor semântica fixa (nunca a cor da marca,
+ *  que já está em uso lá em cima; aqui o que importa é status, não marca). */
+const SEGMENTOS_PEDIDO = [
+  { chave: "entregues" as const, label: "Entregues", cor: "var(--success)" },
+  { chave: "emTransito" as const, label: "Em andamento", cor: "var(--info)" },
+  { chave: "cancelados" as const, label: "Cancelados", cor: "var(--destructive)" },
+  { chave: "devolvidos" as const, label: "Devolvidos", cor: "var(--warning)" },
+];
+
 function CumprimentoPedidos({ pv }: { pv: PosVendaMarcaComTaxa }) {
+  const reduzir = useReducedMotion();
+  const total = pv.entregues + pv.emTransito + pv.cancelados + pv.devolvidos;
+  const segmentos = SEGMENTOS_PEDIDO
+    .map((s) => ({ ...s, valor: pv[s.chave] }))
+    .filter((s) => s.valor > 0);
+
   return (
     <div className="mt-3 border-t border-border pt-3">
-      <p className="text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground">Cumprimento de pedidos</p>
-      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
-        <div>
-          <dt className="text-muted-foreground">Entregues</dt>
-          <dd className="text-sm font-bold tabular-nums text-foreground"><NumeroAnimado valor={pv.entregues} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Em andamento</dt>
-          <dd className="text-sm font-bold tabular-nums text-foreground"><NumeroAnimado valor={pv.emTransito} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Cancelados</dt>
-          <dd className="text-sm font-bold tabular-nums text-destructive"><NumeroAnimado valor={pv.cancelados} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Devolvidos</dt>
-          <dd className="text-sm font-bold tabular-nums text-destructive"><NumeroAnimado valor={pv.devolvidos} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
-        </div>
-      </dl>
-      {pv.impactoFinanceiro > 0 && (
-        <p className="mt-2.5 text-xs">
-          <span className="text-muted-foreground">Receita afetada: </span>
-          <span className="font-bold tabular-nums text-destructive"><NumeroAnimado valor={pv.impactoFinanceiro} formatar={(v) => moeda.format(v)} /></span>
-        </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground">Cumprimento de pedidos</p>
+        {pv.impactoFinanceiro > 0 && (
+          <span className="shrink-0 text-[11px] font-bold tabular-nums text-destructive">
+            <NumeroAnimado valor={pv.impactoFinanceiro} formatar={(v) => moeda.format(v)} /> afetado
+          </span>
+        )}
+      </div>
+
+      {total === 0 ? (
+        <p className="mt-1.5 text-xs text-muted-foreground">Sem pedidos no período.</p>
+      ) : (
+        <>
+          {/* Uma barra só substitui 4 caixas de número soltas — o olho
+              compara proporção muito mais rápido que quatro dígitos
+              desconectados. Cada trecho nasce da esquerda e se estica até
+              a própria largura, em cascata (delay por índice), em vez de
+              tudo aparecer de uma vez. */}
+          <div className="mt-2.5 flex h-2 w-full gap-[2px] overflow-hidden rounded-full">
+            {segmentos.map((s, indice) => (
+              <motion.div
+                key={s.chave}
+                initial={reduzir ? false : { scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ ...springs.momentum, delay: reduzir ? 0 : 0.1 + indice * 0.09 }}
+                style={{ background: s.cor, width: `${(s.valor / total) * 100}%`, transformOrigin: "left" }}
+                className="h-full first:rounded-l-full last:rounded-r-full"
+              />
+            ))}
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-x-3.5 gap-y-1">
+            {segmentos.map((s, indice) => (
+              <motion.span
+                key={s.chave}
+                initial={reduzir ? false : { opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: reduzir ? 0 : 0.25 + indice * 0.06, duration: 0.2 }}
+                className="inline-flex items-center gap-1.5 text-[11px]"
+              >
+                <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: s.cor }} />
+                <span className="text-muted-foreground">{s.label}</span>
+                <span className="font-bold tabular-nums" style={{ color: s.cor }}>
+                  <NumeroAnimado valor={s.valor} formatar={(v) => inteiro.format(Math.round(v))} />
+                </span>
+              </motion.span>
+            ))}
+          </div>
+        </>
       )}
+
       {pv.principaisMotivos.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
           {pv.principaisMotivos.map((m) => (
             <span
               key={m.motivo}
@@ -367,7 +435,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
                   />
                 </div>
 
-                <TiraNumeros marca={marca} periodoLabel={dados?.periodoLabel ?? ""} />
+                <TiraNumeros marca={marca} periodoLabel={dados?.periodoLabel ?? ""} criterio={criterio} />
 
                 {pv && <CumprimentoPedidos pv={pv} />}
 
