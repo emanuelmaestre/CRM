@@ -17,7 +17,7 @@ test.describe("Métricas", () => {
 
   test("o mosaico mostra os blocos de leitura", async ({ page }) => {
     await page.goto("/metricas");
-    for (const bloco of [/saúde da loja/i, /termômetro/i, /marca a marca/i, /atendimento/i, /recomendações/i]) {
+    for (const bloco of [/saúde da loja/i, /^marca$/i, /recomendações/i]) {
       await expect(page.getByRole("button", { name: new RegExp(`abrir .*${bloco.source}`, "i") }))
         .toBeVisible({ timeout: 15_000 });
     }

@@ -762,9 +762,17 @@ export function Mosaico() {
                   dá cards de 1/3 e a de 4 itens dá cards de 1/4 — em vez de
                   todo mundo herdar a largura da maior e sobrar buraco. O
                   piso de 3 evita o extremo oposto: 2 itens esticados pela
-                  metade da tela cada. Só afeta lg+; abaixo disso a grade
-                  continua a mesma de sempre. */}
-              <ul className={`grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:gap-3 ${COLUNAS_LG[Math.max(3, grupo.blocos.length)] ?? "lg:grid-cols-6"}`}>
+                  metade da tela cada. Uma seção de 1 item só (ex.: Saúde da
+                  loja sozinha, depois que Termômetro saiu) não entra nesse
+                  piso — um card só forçado a 1/3 da grade deixaria os
+                  outros 2/3 vazios, o mesmo buraco que o piso de 3 existe
+                  pra evitar. Vira flex, largura do próprio conteúdo. Só
+                  afeta lg+; abaixo disso a grade continua a mesma de sempre. */}
+              <ul className={
+                grupo.blocos.length === 1
+                  ? "grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:flex lg:gap-3"
+                  : `grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:gap-3 ${COLUNAS_LG[Math.max(3, grupo.blocos.length)] ?? "lg:grid-cols-6"}`
+              }>
                 {grupo.blocos.map((bloco) => (
                   <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
                 ))}

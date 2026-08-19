@@ -18,7 +18,7 @@ const paginas = [
   { rota: "/vendas/pedidos", titulo: "Pedidos (redirect)" },
   { rota: "/auditoria", titulo: "Auditoria" },
   { rota: "/importacao", titulo: "Importação" },
-  { rota: "/inbox", titulo: "Inbox" },
+  { rota: "/avaliacoes", titulo: "Avaliações" },
   { rota: "/metricas", titulo: "Métricas" },
   { rota: "/configuracoes", titulo: "Configurações" },
   { rota: "/sem-permissao", titulo: "Sem permissão" },
