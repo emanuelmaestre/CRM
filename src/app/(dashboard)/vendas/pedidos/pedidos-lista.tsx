@@ -34,6 +34,7 @@ const PAGINA = 50;
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+const horaCurta = new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const resumoInicial: Resumo = {
   totalPedidos: 0,
   faturamento: 0,
@@ -557,16 +558,22 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
         data-testid="pedidos-lista"
       >
-        <div className="px-5 py-4 border-b border-border flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <p className="text-sm font-semibold text-foreground">{copy.title}</p>
-          <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
-            <div className="flex items-center gap-2.5">
-              {atualizadoEm && (
-                <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-muted-foreground">
-                  <Clock3 size={12} className="shrink-0" />
-                  Atualizado às {dataHora.format(atualizadoEm)}
-                </span>
-              )}
+        <div className="px-5 py-4 border-b border-border flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex items-center justify-between gap-3 sm:justify-start sm:gap-4">
+            <p className="text-sm font-semibold text-foreground">{copy.title}</p>
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
+              <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "pedido" : "pedidos"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-3 sm:justify-end">
+            {atualizadoEm && (
+              <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-muted-foreground">
+                <Clock3 size={12} className="shrink-0" />
+                <span className="sm:hidden">Atualizado {horaCurta.format(atualizadoEm)}</span>
+                <span className="hidden sm:inline">Atualizado às {dataHora.format(atualizadoEm)}</span>
+              </span>
+            )}
+            <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
               <button
                 type="button"
                 onClick={atualizar}
@@ -577,11 +584,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               >
                 <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
               </button>
-            </div>
-            <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
-              <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
-                <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "pedido" : "pedidos"}
-              </span>
               {/* PDF exporta o resultado filtrado atual — mora aqui, ao lado
                   do que ele exporta, em vez de competir por espaço lá em cima
                   com os controles de filtro. */}

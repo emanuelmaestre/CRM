@@ -51,6 +51,7 @@ const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+const horaCurta = new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
@@ -179,7 +180,7 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
           variants={staggerExagerado}
           initial="hidden"
           animate="show"
-          className={`grid gap-3 ${cards.length === 1 ? "grid-cols-1 sm:max-w-xs" : cards.length === 2 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-3"}`}
+          className={`grid items-start gap-3 ${cards.length === 1 ? "grid-cols-1 sm:max-w-xs" : cards.length === 2 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-3"}`}
         >
           {cards.map((card, indice) => (
             <motion.div
@@ -928,7 +929,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
           </motion.div>
 
           {marcas.length > 0 && canais.length > 0 && (
-            <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+            <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border sm:block" />
           )}
 
           <motion.div variants={staggerExagerado} className="flex flex-wrap justify-center gap-2.5">
@@ -1066,11 +1067,12 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
       >
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {ultimaAtualizacao && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
                 <Clock3 size={11} />
-                {dataHora.format(ultimaAtualizacao)}
+                <span className="sm:hidden">{horaCurta.format(ultimaAtualizacao)}</span>
+                <span className="hidden sm:inline">{dataHora.format(ultimaAtualizacao)}</span>
               </span>
             )}
             <button
@@ -1085,7 +1087,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
             </button>
             {/* Sem key: o total é dado crítico e não deve re-animar a cada
                 filtro (PRD §14.5 — "número não dança depois de carregado"). */}
-            <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
               {total} {total === 1 ? "produto" : "produtos"}
             </span>
           </div>
@@ -1144,7 +1146,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                           ? { background: corEstado }
                           : { background: "repeating-linear-gradient(180deg, var(--border) 0 3px, transparent 3px 6px)" }}
                       />
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-semibold text-foreground">{p.nome}</p>
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -1171,7 +1173,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                             checked={selecionados.has(p.id)}
                             onChange={() => alternarSelecao(p.id)}
                             aria-label={`Selecionar ${p.nome}`}
-                            className="mt-1 h-4 w-4 shrink-0 accent-selecionado"
+                            className="h-4 w-4 shrink-0 accent-selecionado"
                           />
                         )}
                       </div>
@@ -1197,9 +1199,9 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                             href={`/estoque/produtos/${p.id}`}
                             title="Ver produto"
                             aria-label="Ver produto"
-                            className="h-11 w-11 inline-flex items-center justify-center rounded-lg border border-border bg-card text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-[rgba(155,48,217,.4)] hover:bg-muted active:scale-[.97]"
+                            className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] transition-colors hover:border-[rgba(155,48,217,.4)] hover:bg-muted active:scale-[.97]"
                           >
-                            <Eye size={14} strokeWidth={2} />
+                            <Eye size={14} strokeWidth={2} /> Ver
                           </Link>
                           <button
                             type="button"
