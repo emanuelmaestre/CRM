@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, Ban, RefreshCw, Clock3, Undo2 } from "lucide-react";
+import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, Ban, RefreshCw, Clock3 } from "lucide-react";
 import {
   actionListarPedidosDetalhados, actionListarPedidosParaPdf, actionContarPedidosPorMarca, actionContarPedidosPorCanal,
 } from "../actions";
@@ -523,16 +523,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         variants={staggerExagerado}
         initial="hidden"
         animate="show"
-        className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 2xl:grid-cols-6"
+        className="grid grid-cols-2 gap-2.5 lg:grid-cols-4"
         aria-label="Resumo das vendas filtradas"
       >
         {[
           { label: "Faturamento", numero: resumo.faturamento, formatar: (v: number) => dinheiro.format(v), icon: CircleDollarSign, cor: "var(--success)" },
           { label: "Pedidos", numero: resumo.totalPedidos, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
-          { label: "Cancelados", numero: resumo.canceladosQtd, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.canceladosQtd > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
-          { label: "Devolvidos", numero: resumo.devolvidosQtd, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Undo2, cor: resumo.devolvidosQtd > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
-          { label: "Valor cancelado", numero: resumo.canceladosValor, formatar: (v: number) => dinheiro.format(v), icon: Ban, cor: resumo.canceladosValor > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
-          { label: "Valor devolvido", numero: resumo.devolvidosValor, formatar: (v: number) => dinheiro.format(v), icon: Undo2, cor: resumo.devolvidosValor > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
+          { label: "Cancelados/Devolvidos", numero: resumo.cancelados, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
+          { label: "Valor cancelado/devolvido", numero: resumo.canceladosValor + resumo.devolvidosValor, formatar: (v: number) => dinheiro.format(v), icon: Ban, cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
         ].map((card) => (
           <motion.div key={card.label} variants={variantes(reduzir, entradaExagerada)}>
             <TintedStatCard
