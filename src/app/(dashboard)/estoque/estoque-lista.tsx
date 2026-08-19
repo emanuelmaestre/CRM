@@ -567,7 +567,16 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
   );
 }
 
-export function EstoqueLista() {
+type ContagemCanaisEstoque = Awaited<ReturnType<typeof actionContarProdutosPorCanal>>;
+type ContagemMarcasEstoque = Awaited<ReturnType<typeof actionContarProdutosPorMarca>>;
+
+export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
+  /** Contagens já resolvidas no servidor (ver page.tsx) — chegam junto com o
+   *  HTML, então as pílulas de filtro aparecem no primeiro quadro em vez de
+   *  esperarem duas idas ao servidor depois que o JavaScript liga. */
+  marcasIniciais?: ContagemMarcasEstoque;
+  canaisIniciais?: ContagemCanaisEstoque;
+}) {
   const reduzir = useReducedMotion();
   const [produtos, setProdutos]   = useState<Produto[]>([]);
   const [total, setTotal]         = useState(0);
@@ -578,13 +587,13 @@ export function EstoqueLista() {
   // string, com o mesmo toggle de sempre (clicar na ativa desmarca).
   const [brandIds, setBrandIds]   = useState<ReadonlySet<string>>(new Set());
   const [canaisSelecionados, setCanaisSelecionados] = useState<ReadonlySet<CanalVenda>>(new Set());
-  const [canais, setCanais]       = useState<Awaited<ReturnType<typeof actionContarProdutosPorCanal>>>([]);
+  const [canais, setCanais]       = useState<ContagemCanaisEstoque>(canaisIniciais);
   const [filtro, setFiltro]       = useState<Filtro>("todos");
   const [canManage, setCanManage] = useState(false);
   const requestId = useRef(0);
   const [, startTransition]       = useTransition();
   const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
-  const [marcas, setMarcas] = useState<Awaited<ReturnType<typeof actionContarProdutosPorMarca>>>([]);
+  const [marcas, setMarcas] = useState<ContagemMarcasEstoque>(marcasIniciais);
   const [sincronizando, setSincronizando] = useState(false);
   const [indicadores, setIndicadores] = useState<Indicadores | null>(null);
   const [erroIndicadores, setErroIndicadores] = useState(false);
@@ -604,12 +613,21 @@ export function EstoqueLista() {
   // As contagens das duas barras se cruzam: cada uma é recontada com o filtro
   // da outra aplicado, então a pílula nunca promete um número que a lista não
   // vai entregar.
+  // A primeira execução de cada efeito é pulada só quando o servidor de fato
+  // mandou a contagem pronta (ver page.tsx) — aí repeti-la no navegador seria
+  // refazer o que acabou de chegar no HTML. Se a pré-busca falhou ou veio
+  // vazia, a guarda nasce falsa e a tela busca normalmente, como antes.
+  const primeiraContagemMarcas = useRef(marcasIniciais.length > 0);
+  const primeiraContagemCanais = useRef(canaisIniciais.length > 0);
+
   useEffect(() => {
+    if (primeiraContagemMarcas.current) { primeiraContagemMarcas.current = false; return; }
     actionContarProdutosPorMarca(canaisArray.length ? canaisArray : undefined).then(setMarcas).catch(() => setMarcas([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canaisKey]);
 
   useEffect(() => {
+    if (primeiraContagemCanais.current) { primeiraContagemCanais.current = false; return; }
     actionContarProdutosPorCanal(brandIdsArray.length ? brandIdsArray : undefined).then(setCanais).catch(() => setCanais([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandIdsKey]);

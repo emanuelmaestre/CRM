@@ -1,8 +1,18 @@
 import { EstoqueLista } from "./estoque-lista";
+import { actionContarProdutosPorCanal, actionContarProdutosPorMarca } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
 export const metadata = { title: pagesConfig.estoque.metadataTitle };
 
-export default function EstoquePage() {
-  return <EstoqueLista />;
+/* Mesmo motivo do /clientes: as contagens que desenham as pílulas de filtro
+   vinham em duas idas ao servidor feitas pelo navegador, depois que o
+   JavaScript carregava. Resolvidas aqui, viajam dentro do HTML da primeira
+   resposta e a tela nasce com os filtros prontos. */
+export default async function EstoquePage() {
+  const [marcas, canais] = await Promise.all([
+    actionContarProdutosPorMarca().catch(() => []),
+    actionContarProdutosPorCanal().catch(() => []),
+  ]);
+
+  return <EstoqueLista marcasIniciais={marcas} canaisIniciais={canais} />;
 }

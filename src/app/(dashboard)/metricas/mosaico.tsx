@@ -185,14 +185,23 @@ const COLUNAS_LG: Record<number, string> = {
 
 /* ── Mosaico ───────────────────────────────────────────────────── */
 
-export function Mosaico() {
+export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial = null }: {
+  /* O mosaico é a soma de oito buscas independentes, todas disparadas pelo
+     navegador depois que o JavaScript liga. As três abaixo — as que desenham
+     a barra de filtro e o card de Saúde, que é o primeiro a ser olhado — são
+     resolvidas no servidor e chegam dentro do HTML (ver page.tsx). As outras
+     cinco continuam carregando no próprio ritmo, cada card no seu tempo. */
+  marcasIniciais?: ScopeMarca[];
+  canaisIniciais?: ScopeCanal[];
+  saudeInicial?: SaudeLojaResultado | null;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const cardAberto = params.get("card");
 
   const [periodo, setPeriodo] = useState<Periodo>({ inicio: "", fim: "" });
-  const [marcas, setMarcas] = useState<ScopeMarca[]>([]);
-  const [canais, setCanais] = useState<ScopeCanal[]>([]);
+  const [marcas, setMarcas] = useState<ScopeMarca[]>(marcasIniciais);
+  const [canais, setCanais] = useState<ScopeCanal[]>(canaisIniciais);
   const cache = useRef(new Map<string, Promise<DashboardData>>());
 
   /* Um filtro por card, como antes da fusão: comparar duas marcas lado a lado
@@ -253,7 +262,12 @@ export function Mosaico() {
   const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
   const semFiltroReclamacoes = filtroReclamacoes.brandId.length === 0;
 
+  // Estas duas já vieram prontas do servidor quando há dado inicial — refazê-las
+  // aqui só repetiria no navegador o que acabou de chegar no HTML.
+  const primeirasContagens = useRef(marcasIniciais.length > 0 || canaisIniciais.length > 0);
+
   useEffect(() => {
+    if (primeirasContagens.current) { primeirasContagens.current = false; return; }
     actionContarPedidosPorMarca().then(setMarcas).catch(() => setMarcas([]));
     actionContarPedidosPorCanal().then(setCanais).catch(() => setCanais([]));
   }, []);
@@ -283,7 +297,12 @@ export function Mosaico() {
   const fim = completo ? periodo.fim : undefined;
   const chave = `${inicio ?? ""}..${fim ?? ""}`;
 
-  const [saude, setSaude] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
+  // A chave inicial é "..": o período começa vazio, então a primeira busca vai
+  // com inicio/fim indefinidos e o serviço aplica a própria janela padrão — que
+  // é exatamente o que o servidor pré-buscou.
+  const [saude, setSaude] = useState<{ chave: string; dados: SaudeLojaResultado | null }>(
+    saudeInicial ? { chave: "..", dados: saudeInicial } : { chave: "", dados: null },
+  );
   const [anterior, setAnterior] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
   // Sem timestamp único de servidor pra "isto tudo" — o mosaico é a soma de
   // ~7 buscas independentes (ver comentário acima sobre cada uma carregar no
@@ -291,9 +310,12 @@ export function Mosaico() {
   // alimenta a maioria dos cards, então marca "última atualização" quando
   // ela responde — setado no próprio .then(), não num efeito à parte, pra
   // não disparar um segundo render encadeado à toa.
-  const [carregadoEm, setCarregadoEm] = useState<Date | null>(null);
+  const [carregadoEm, setCarregadoEm] = useState<Date | null>(saudeInicial ? new Date() : null);
+
+  const primeiraSaude = useRef(Boolean(saudeInicial));
 
   useEffect(() => {
+    if (primeiraSaude.current) { primeiraSaude.current = false; return; }
     let ativo = true;
     actionObterSaudeLoja({ inicio, fim })
       .then((resultado) => { if (ativo) { setSaude({ chave, dados: resultado }); setCarregadoEm(new Date()); } })

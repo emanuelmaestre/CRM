@@ -269,7 +269,13 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
   );
 }
 
-export function PedidosLista() {
+export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
+  /** Contagens já resolvidas no servidor (ver page.tsx) — chegam junto com o
+   *  HTML, então as pílulas de filtro aparecem no primeiro quadro em vez de
+   *  esperarem duas idas ao servidor depois que o JavaScript liga. */
+  marcasIniciais?: Marca[];
+  canaisIniciais?: Canal[];
+}) {
   const reduzir = useReducedMotion();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [total, setTotal] = useState(0);
@@ -285,18 +291,27 @@ export function PedidosLista() {
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
   const [exportando, setExportando] = useState(false);
-  const [marcas, setMarcas] = useState<Marca[]>([]);
-  const [canais, setCanais] = useState<Canal[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>(marcasIniciais);
+  const [canais, setCanais] = useState<Canal[]>(canaisIniciais);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
   const requestId = useRef(0);
   const [, startTransition] = useTransition();
 
+  // A primeira execução de cada efeito é pulada só quando o servidor de fato
+  // mandou a contagem pronta (ver page.tsx) — aí repeti-la no navegador seria
+  // refazer o que acabou de chegar no HTML. Se a pré-busca falhou ou veio
+  // vazia, a guarda nasce falsa e a tela busca normalmente, como antes.
+  const primeiraContagemMarcas = useRef(marcasIniciais.length > 0);
+  const primeiraContagemCanais = useRef(canaisIniciais.length > 0);
+
   useEffect(() => {
+    if (primeiraContagemMarcas.current) { primeiraContagemMarcas.current = false; return; }
     actionContarPedidosPorMarca(canal || undefined).then(setMarcas).catch(() => setMarcas([]));
   }, [canal]);
 
   useEffect(() => {
+    if (primeiraContagemCanais.current) { primeiraContagemCanais.current = false; return; }
     actionContarPedidosPorCanal(brandIds.length ? brandIds : undefined).then(setCanais).catch(() => setCanais([]));
   }, [brandIds]);
 

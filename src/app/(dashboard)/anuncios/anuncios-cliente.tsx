@@ -293,12 +293,28 @@ function Esqueleto() {
   );
 }
 
-export function AnunciosCliente() {
-  const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState(periodoInicial);
-  const [consulta, setConsulta] = useState<{ chave: string; dados: VisaoGeralResultado | null; anterior: VisaoGeralResultado | null }>({ chave: "", dados: null, anterior: null });
+export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais = [] }: {
+  /** Janela de 30 dias calculada no servidor. Vem como prop em vez de ser
+   *  recalculada aqui para que a chave do período bata exatamente com a dos
+   *  dados pré-buscados — recalcular no navegador poderia cair em outro dia
+   *  (fuso do servidor vs. do usuário) e jogar fora a busca já feita. */
+  periodoServidor?: { inicio: string; fim: string };
+  /** Visão geral do período atual e do anterior, já resolvidas no servidor. */
+  dadosIniciais?: { dados: VisaoGeralResultado | null; anterior: VisaoGeralResultado | null } | null;
+  contasIniciais?: CanalConfiguracao[];
+}) {
+  const [periodo, setPeriodo] = useState(() => periodoServidor ?? periodoInicial());
+  const chaveInicial = `${periodo.inicio}:${periodo.fim}`;
+  const [marcaAtiva, setMarcaAtiva] = useState<string | null>(
+    dadosIniciais?.dados?.marcas[0]?.brandId ?? null,
+  );
+  const [consulta, setConsulta] = useState<{ chave: string; dados: VisaoGeralResultado | null; anterior: VisaoGeralResultado | null }>(
+    dadosIniciais?.dados
+      ? { chave: chaveInicial, dados: dadosIniciais.dados, anterior: dadosIniciais.anterior }
+      : { chave: "", dados: null, anterior: null },
+  );
   const [exportando, setExportando] = useState(false);
-  const [contas, setContas] = useState<CanalConfiguracao[]>([]);
+  const [contas, setContas] = useState<CanalConfiguracao[]>(contasIniciais);
   const [sincronizando, setSincronizando] = useState(false);
   const [execucaoSync, setExecucaoSync] = useState<ExecucaoSync | null>(null);
   const intervaloSync = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -326,9 +342,20 @@ export function AnunciosCliente() {
     return () => { ativo = false; };
   }, [periodo.inicio, periodo.fim, chavePeriodo]);
 
-  useEffect(() => buscar(), [buscar]);
+  // Quando o servidor já mandou os dados do período inicial, a primeira
+  // execução destes efeitos é pulada — ela só refaria no navegador a busca
+  // que acabou de chegar dentro do HTML. Trocar o período depois continua
+  // caindo aqui normalmente.
+  const primeiraBusca = useRef(Boolean(dadosIniciais?.dados));
+  const primeirasContas = useRef(contasIniciais.length > 0);
 
   useEffect(() => {
+    if (primeiraBusca.current) { primeiraBusca.current = false; return; }
+    return buscar();
+  }, [buscar]);
+
+  useEffect(() => {
+    if (primeirasContas.current) { primeirasContas.current = false; return; }
     actionListarConfiguracaoCanais().then(setContas).catch(() => setContas([]));
   }, []);
 

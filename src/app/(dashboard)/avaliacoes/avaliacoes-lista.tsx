@@ -35,7 +35,7 @@ type CatalogResponse = {
   items: CatalogItem[];
 };
 
-type Avaliacao = CatalogItem & { brand: string; brandLabel: string };
+export type Avaliacao = CatalogItem & { brand: string; brandLabel: string };
 /** Quantos comentários deste anúncio existem mas caem fora do período
  *  escolhido — 0 quando não há filtro de data ativo. `opinioes` já vem
  *  recortada para o período; isto é só o que sobrou de fora. */
@@ -353,12 +353,26 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
   );
 }
 
-export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens }: {
+export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itensIniciais }: {
   marcasAtivas: ReadonlySet<string>;
   canaisAtivos: ReadonlySet<string>;
   onContagens: (valores: { marcas: Record<string, number>; canais: Record<string, number> }) => void;
+  /** Cache já lido no servidor (ver page.tsx). Vira o estado inicial e também
+   *  semeia o cache de módulo, para que a tela não peça de volta o que acabou
+   *  de receber dentro do HTML. */
+  itensIniciais?: Avaliacao[];
 }) {
-  const [itens, setItens] = useState<Avaliacao[]>(() => cacheAvaliacoes?.itens ?? []);
+  // O inicializador roda uma vez só, e antes dos dois `useState` abaixo — que
+  // leem `cacheAvaliacoes` já semeado. `buscadoEm` é agora mesmo porque foi
+  // agora que o servidor leu o cache, na mesma requisição desta página.
+  const [itens, setItens] = useState<Avaliacao[]>(() => {
+    if (cacheAvaliacoes) return cacheAvaliacoes.itens;
+    if (itensIniciais && itensIniciais.length > 0) {
+      cacheAvaliacoes = { itens: itensIniciais, buscadoEm: Date.now() };
+      return itensIniciais;
+    }
+    return [];
+  });
   const [carregando, setCarregando] = useState(() => !cacheValido());
   const [buscadoEm, setBuscadoEm] = useState<number | null>(() => cacheAvaliacoes?.buscadoEm ?? null);
   const [busca, setBusca] = useState("");
