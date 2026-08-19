@@ -17,6 +17,7 @@ import {
 } from "./actions";
 import { Card, CardHead } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
+import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 
 const copy = metricasConfig.acoesCard;
 
@@ -128,8 +129,17 @@ export function AcoesCard({ insightsIniciais, sugestoesIniciais, carregandoInici
                         <p className="text-[13px] font-semibold text-foreground">{item.titulo}</p>
                         <p className="mt-1 text-[12px] leading-relaxed text-foreground">{item.conteudo}</p>
                         {confianca !== null && (
-                          <div className="mt-2 flex items-center gap-2">
+                          <div className="mt-2 flex items-center gap-1.5">
                             <span className="text-[10px] text-muted-foreground">{copy.confianca}</span>
+                            <CalculoPopover
+                              compacto
+                              titulo="Confiança da análise"
+                              significado="Estimativa da própria IA sobre o quanto os dados sustentam essa leitura — não é uma métrica medida, é uma autoavaliação do modelo sobre a própria conclusão."
+                              formula="probabilidade que o modelo atribui à própria conclusão, convertida em porcentagem"
+                              resultado={`${confianca}%`}
+                              itens={[{ label: "Confiança informada pela IA", valor: `${confianca}%` }]}
+                              nota="Trate como um indício, não como certeza — vale conferir o dado bruto antes de agir só com base nisso."
+                            />
                             <span className="h-1 w-16 overflow-hidden rounded-full bg-muted">
                               <motion.span
                                 initial={{ scaleX: 0 }}

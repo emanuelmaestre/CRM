@@ -435,7 +435,7 @@ export function AnunciosCliente() {
         <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground" style={sincronizando ? { color: "var(--acento-2)" } : undefined}>
           {sincronizando
             ? `Sincronizando… ${percentualSync(execucaoSync)}%`
-            : `${copy.header.eyebrow}: ${marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}`}
+            : `${copy.header.eyebrow}: ${marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}`}
         </span>
         <button
           type="button"

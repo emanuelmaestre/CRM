@@ -45,7 +45,7 @@ type Cliente = {
  *  vez de aparecer como subtítulo, porque passaram a ser dado consultável,
  *  não só um complemento do apelido. */
 function formatarData(value?: string | Date) {
-  if (!value) return "—";
+  if (!value) return "Sem data";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(new Date(value));
 }
 
@@ -55,12 +55,12 @@ const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 // canal — até lá o cliente existe (veio de outro gatilho, ex. mensagem),
 // mas esses dois campos estão vazios porque não há pedido nenhum ainda.
 // Âmbar em vez de cinza porque isso não é "sem informação" (estado permanente,
-// como o "—" de endereço) — é um estado transitório que se resolve sozinho
+// como o "Sem endereço" de endereço) — é um estado transitório que se resolve sozinho
 // assim que o primeiro pedido do canal chegar.
 const AGUARDANDO_ENVIO = "Aguardando envio";
 function CampoOuAguardando({ valor }: { valor?: string | null }) {
   const v = valor?.trim();
-  if (v && v !== "—") return <>{v}</>;
+  if (v && v !== "Sem endereço") return <>{v}</>;
   return <span className="text-amber-600">{AGUARDANDO_ENVIO}</span>;
 }
 

@@ -81,7 +81,7 @@ export function AlertasClienteDetalhe() {
         <span className="h-px flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
-          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}
+          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}
         </span>
       </div>
 

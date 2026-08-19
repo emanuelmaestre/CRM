@@ -50,7 +50,7 @@ function LinhaCanal({ canal, indice }: { canal: AtendimentoPorCanal; indice: num
           )}
         </span>
         <span className="shrink-0 text-[12px] font-bold tabular-nums text-foreground">
-          {canal.taxaResposta === null ? "—" : `${canal.taxaResposta}%`}
+          {canal.taxaResposta === null ? "Sem dado" : `${canal.taxaResposta}%`}
         </span>
       </div>
       <BarraComLimite valor={canal.taxaResposta ?? 0} maximo={100} cor={cor} altura={6} atraso={0.12 + indice * 0.05} />

@@ -268,7 +268,7 @@ function NumeroGrande({ label, descricao, observacao, valor, formatar, cor, sufi
     <motion.div variants={fadeUp} className="min-w-0">
       <p className={`${destaque ? "text-stat-lg" : "text-[22px] font-bold leading-none"} flex items-center gap-1 tabular-nums`} style={cor ? { color: cor } : undefined}>
         {valor !== null && prefixo}
-        {valor === null ? "—" : formatar(animado)}
+        {valor === null ? "Sem dado" : formatar(animado)}
       </p>
       <p className="mt-1.5 text-xs font-medium text-muted-foreground">
         <RotuloComInfo descricao={descricao} observacao={observacao}>{label}</RotuloComInfo>
@@ -326,7 +326,7 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
 function Secundaria({ label, descricao, observacao, valor, formatar }: { label: string; descricao: string; observacao?: string; valor: number | null; formatar: (n: number) => string }) {
   return (
     <motion.div variants={fadeUp} className="min-w-0">
-      <p className="text-[15px] font-bold tabular-nums text-foreground">{valor === null ? "—" : formatar(valor)}</p>
+      <p className="text-[15px] font-bold tabular-nums text-foreground">{valor === null ? "Sem dado" : formatar(valor)}</p>
       <p className="mt-0.5 text-[11px] text-muted-foreground">
         <RotuloComInfo descricao={descricao} observacao={observacao}>{label}</RotuloComInfo>
       </p>

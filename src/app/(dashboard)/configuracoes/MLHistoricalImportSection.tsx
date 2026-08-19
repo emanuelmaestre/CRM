@@ -496,7 +496,7 @@ export function MLHistoricalImportSection() {
                           </div>
                           <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
                             <span>{new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(lote.createdAt))}</span>
-                            <span className="tabular-nums">{lote.aceitos}/{lote.total ?? "—"}</span>
+                            <span className="tabular-nums">{lote.aceitos}/{lote.total ?? "Sem total"}</span>
                           </div>
                         </button>
                       ))}

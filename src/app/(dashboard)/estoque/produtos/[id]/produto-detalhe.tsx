@@ -139,7 +139,7 @@ export function ProdutoDetalhe({ initialData }: { initialData: ProdutoData }) {
               </div>
               <div>
                 <dt className="text-muted-foreground">{editCopy.fields.minStock}</dt>
-                <dd className="font-semibold text-lg mt-1 tabular-nums">{p.estoqueMinimo || "—"}</dd>
+                <dd className="font-semibold text-lg mt-1 tabular-nums">{p.estoqueMinimo || "Sem mínimo"}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">{editCopy.fields.price}</dt>
@@ -164,7 +164,7 @@ export function ProdutoDetalhe({ initialData }: { initialData: ProdutoData }) {
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">{c.externalListingId}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-lg font-semibold tabular-nums text-foreground">{c.saldo ?? "—"}</p>
+                    <p className="text-lg font-semibold tabular-nums text-foreground">{c.saldo ?? "Sem saldo"}</p>
                     <p className="text-[11px] text-muted-foreground">
                       {c.verificadoEm ? formatDate(c.verificadoEm) : "nunca lido"}
                     </p>

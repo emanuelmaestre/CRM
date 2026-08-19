@@ -319,8 +319,8 @@ export function AutomacoesSection() {
                   <td className="px-3 py-2.5">{item.clienteNome}</td>
                   <td className="px-3 py-2.5">{item.brandNome}</td>
                   <td className="px-3 py-2.5 capitalize">{item.status.replaceAll("_", " ")}</td>
-                  <td className="px-3 py-2.5">{item.gate ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground">{item.motivo ?? "—"}</td>
+                  <td className="px-3 py-2.5">{item.gate ?? "Sem gate"}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground">{item.motivo ?? "Sem motivo"}</td>
                 </tr>
               ))}
             </tbody>

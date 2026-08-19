@@ -4,10 +4,11 @@ import { useCallback, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, ChevronDown, Loader2, Send } from "lucide-react";
+import { ArrowRight, ChevronDown, Info, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
+import { AnimatedInfoPopover } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -19,7 +20,7 @@ import { tint } from "@/shared/design-system/color";
 const copy = dashboardConfig.cards.reclamacoes;
 
 function tempoAberta(dias: number | null): string {
-  if (dias === null) return "—";
+  if (dias === null) return "Sem dado";
   if (dias === 0) return copy.todayLabel;
   return `${dias} ${dias === 1 ? copy.dayLabel : copy.daysLabel}`;
 }
@@ -190,13 +191,31 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-sm font-semibold text-foreground">{item.estagio}</span>
             {item.emMediacao && (
-              <span
-                title="Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida."
-                className="cursor-help rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-                style={{ background: tint(copy.accent, 10), color: copy.accent }}
+              // Trigger não pode ser <button>: esta linha inteira já é um
+              // <button> (abre/fecha a thread) — <button> dentro de <button>
+              // é HTML inválido. `stopPropagation` evita que o clique também
+              // dispare o onClick da linha por baixo.
+              <AnimatedInfoPopover
+                trigger={(
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => event.stopPropagation()}
+                    className="press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80"
+                    style={{ background: tint(copy.accent, 10), color: copy.accent }}
+                  >
+                    escalou
+                  </span>
+                )}
+                align="start"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
               >
-                escalou
-              </span>
+                <p className="text-[12px] leading-relaxed text-foreground/85">
+                  Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida.
+                </p>
+              </AnimatedInfoPopover>
             )}
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -207,8 +226,28 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
               {item.marcaLabel}
             </span>
             {item.motivo && (
-              <span title="Código do motivo da reclamação — o Mercado Livre não devolve um texto legível para ele.">
+              <span className="inline-flex items-center gap-0.5">
                 {" · "}<span className="text-muted-foreground/70">Motivo:</span> {item.motivo}
+                <AnimatedInfoPopover
+                  trigger={(
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => event.stopPropagation()}
+                      className="press-feedback ml-0.5 inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-primary"
+                    >
+                      <Info aria-hidden="true" size={10} />
+                    </span>
+                  )}
+                  align="start"
+                  sideOffset={6}
+                  collisionPadding={12}
+                  className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+                >
+                  <p className="text-[12px] leading-relaxed text-foreground/85">
+                    Código do motivo da reclamação — o Mercado Livre não devolve um texto legível para ele.
+                  </p>
+                </AnimatedInfoPopover>
               </span>
             )}
           </p>

@@ -3,11 +3,11 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Info } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
-import { AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
+import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
@@ -104,7 +104,7 @@ function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
           className="shrink-0 text-[17px] font-bold tabular-nums"
           style={{ color: cor }}
         >
-          {semDado ? "—" : Math.round(pilar.nota as number)}
+          {semDado ? "Sem dado" : Math.round(pilar.nota as number)}
         </span>
       </div>
       {/* 8px, não 10 como a barra de marca: são cinco linhas empilhadas aqui
@@ -201,7 +201,6 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
   acaoSlot?: HTMLElement | null;
 }) {
   const [escopo, setEscopo] = useState<string>(CONSOLIDADO);
-  const [explicando, setExplicando] = useState(false);
   const reduzir = useReducedMotion();
 
   const marcaSelecionada = useMemo(
@@ -217,17 +216,28 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
   const faixaLabel = consolidado ? dados?.faixaGeralLabel ?? null : marcaSelecionada?.faixaLabel ?? null;
   const cor = (consolidado ? dados?.faixaGeralCor : marcaSelecionada?.faixaCor) ?? "var(--muted-foreground)";
 
+  // Mesmo padrão de popover-com-motion do resto do módulo (CalculoPopover) —
+  // antes este botão abria um acordeão manual (texto fixo, sem motion do
+  // Radix), o único lugar do card que fugia do padrão central.
   const botaoComoCalculado = (
-    <AnimatedInfoTrigger
-      type="button"
-      onClick={() => setExplicando((atual) => !atual)}
-      aria-expanded={explicando}
-      title="Entenda quais dados formam o Score de Saúde da Loja"
-      iconSize={13}
-      className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+    <AnimatedInfoPopover
+      trigger={(
+        <AnimatedInfoTrigger
+          title="Entenda quais dados formam o Score de Saúde da Loja"
+          iconSize={13}
+          className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+        >
+          Entenda o score
+        </AnimatedInfoTrigger>
+      )}
+      align="start"
+      sideOffset={8}
+      collisionPadding={12}
+      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
     >
-      Entenda o score
-    </AnimatedInfoTrigger>
+      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como o score funciona</p>
+      <p className="mt-2 text-[13px] leading-relaxed text-foreground/85">{copy.explicacao}</p>
+    </AnimatedInfoPopover>
   );
 
   return (
@@ -239,22 +249,6 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
           aqui sem props: é só o respiro do topo do card agora. */}
       <CardHead />
       {acaoSlot && createPortal(botaoComoCalculado, acaoSlot)}
-
-      <AnimatePresence initial={false}>
-        {explicando && (
-          <motion.div
-            initial={reduzir ? false : { opacity: 0, height: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
-            animate={{ opacity: 1, height: "auto", scale: 1, y: 0, filter: "blur(0px)" }}
-            exit={reduzir ? undefined : { opacity: 0, height: 0, scale: 0.98, y: -2 }}
-            transition={springs.settleFast}
-            className="overflow-hidden px-5"
-          >
-            <p className="mx-auto mt-3 max-w-2xl rounded-[0.9rem] border border-border bg-muted/50 px-3.5 py-3 text-[12px] leading-relaxed text-muted-foreground">
-              {copy.explicacao}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {carregando && !dados ? (
         <Esqueleto />
@@ -327,7 +321,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
                               className="shrink-0 text-[20px] font-bold tabular-nums"
                               style={{ color: marca.faixaCor ?? "var(--muted-foreground)" }}
                             >
-                              {marca.score ?? "—"}
+                              {marca.score ?? "Sem dado"}
                             </span>
                           </span>
                           <BarraComLimite
@@ -360,7 +354,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
               {!consolidado && marcaSelecionada && marcaSelecionada.pilaresMedidos < 5 && (
                 <div className="mt-4">
                   <AvisoParcial>
-                    <Info aria-hidden="true" size={13} className="mt-[1px] shrink-0" />
+                    <AlertTriangle aria-hidden="true" size={13} className="mt-[1px] shrink-0" />
                     <span>
                       {copy.parcialPrefixo} <strong className="font-semibold text-foreground">{marcaSelecionada.pilaresMedidos}</strong> {copy.parcialSufixo}.
                     </span>

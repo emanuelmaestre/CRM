@@ -18,7 +18,7 @@ type ClientePDF = {
 };
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const data = (valor: Date | string | null) => valor ? new Date(valor).toLocaleDateString("pt-BR") : "—";
+const data = (valor: Date | string | null) => valor ? new Date(valor).toLocaleDateString("pt-BR") : "Sem data";
 
 // Roxo da marca (--selecionado / gradient-signature), consistente com o resto
 // do produto — o PDF não deveria parecer um documento gerado por outra
@@ -90,8 +90,8 @@ export async function exportarClientePDF(info: ClientePDF) {
     body: [
       ["Total comprado", moeda.format(info.resumoComercial.totalGasto), "Pedidos", String(info.resumoComercial.totalPedidos)],
       ["Ticket médio", moeda.format(info.resumoComercial.ticketMedio), "Primeira compra", data(info.resumoComercial.primeiroPedidoEm)],
-      ["Última compra", data(info.resumoComercial.ultimoPedidoEm), "Marca preferida", info.resumoComercial.marcaPreferida?.nome ?? "—"],
-      ["Canal preferido", info.resumoComercial.canalPreferido?.canal ?? "—", "Cancel. / devol.", `${info.resumoComercial.cancelados} / ${info.resumoComercial.devolvidos}`],
+      ["Última compra", data(info.resumoComercial.ultimoPedidoEm), "Marca preferida", info.resumoComercial.marcaPreferida?.nome ?? "Sem preferência"],
+      ["Canal preferido", info.resumoComercial.canalPreferido?.canal ?? "Sem preferência", "Cancel. / devol.", `${info.resumoComercial.cancelados} / ${info.resumoComercial.devolvidos}`],
     ],
     styles: { fontSize: 8.5, cellPadding: 3 },
     columnStyles: {
@@ -141,7 +141,7 @@ export async function exportarClientePDF(info: ClientePDF) {
     startY: y,
     head: [["Pedido", "Data", "Canal", "Status", "Total"]],
     body: info.pedidos.map((item) => [
-      item.providerOrderId ?? "—", data(item.createdAt), item.canal, statusLabel(item.status), moeda.format(Number(item.total)),
+      item.providerOrderId ?? "Sem número", data(item.createdAt), item.canal, statusLabel(item.status), moeda.format(Number(item.total)),
     ]),
     headStyles: { fillColor: CINZA_ESCURO, fontSize: 9 },
     styles: { fontSize: 8, cellPadding: 2.5 },

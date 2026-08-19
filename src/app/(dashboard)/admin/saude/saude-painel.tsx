@@ -15,7 +15,7 @@ import saudeConfig from "@/config/saude.json";
 import { actionVerificarSaudeConectores } from "./actions";
 
 function formatarData(value: string | null) {
-  return value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "—";
+  return value ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value)) : "Nunca sincronizado";
 }
 
 function formatarValorOperacional(value: string) {

@@ -68,6 +68,14 @@
       {
         "chave": "notaMedia",
         "label": "Nota média"
+      },
+      {
+        "chave": "cancelamento",
+        "label": "Cancelamento"
+      },
+      {
+        "chave": "recorrencia",
+        "label": "Recorrência"
       }
     ],
     "lider": "Líder"

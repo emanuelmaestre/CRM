@@ -269,7 +269,7 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
                     <td className="px-3 py-2.5"><BadgeStatus status={campanha.status} /></td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-xs tabular-nums text-muted-foreground">{formatarDataCriacao(campanha.criadaEm)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                      {campanha.orcamento !== null ? moeda.format(campanha.orcamento) : "—"}
+                      {campanha.orcamento !== null ? moeda.format(campanha.orcamento) : "Sem orçamento"}
                     </td>
                     <td className="px-3 py-2.5 text-right font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(campanha.receita)}</td>

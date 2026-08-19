@@ -76,7 +76,7 @@ export function Roas({ valor, className }: {
       title={valor === null ? DESCRICAO.sem_dado : `${valor.toFixed(2)}x — ${DESCRICAO[situacao]}`}
     >
       <SetaRoas situacao={situacao} size={12} />
-      {valor === null ? "—" : `${valor.toFixed(2)}x`}
+      {valor === null ? "Sem dado" : `${valor.toFixed(2)}x`}
       <span className="sr-only">{valor === null ? DESCRICAO.sem_dado : `, ${DESCRICAO[situacao]}`}</span>
     </span>
   );

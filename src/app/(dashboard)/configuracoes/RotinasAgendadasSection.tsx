@@ -39,7 +39,7 @@ const categoriaCor: Record<string, string> = {
 };
 
 function formatarData(value: string | null) {
-  if (!value) return "—";
+  if (!value) return "Nunca executado";
   return dataHora.format(new Date(value));
 }
 

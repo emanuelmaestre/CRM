@@ -22,7 +22,12 @@ const copy = metricasConfig.comparacaoCard;
 const ACENTO = "var(--acento-3)";
 const dataHoraCard = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
-type Criterio = "score" | "faturamento" | "pedidos" | "ticketMedio" | "notaMedia";
+type Criterio = "score" | "faturamento" | "pedidos" | "ticketMedio" | "notaMedia" | "cancelamento" | "recorrencia";
+
+/** Cancelamento é o único critério onde "menor" vence — os outros ranqueiam
+ *  do maior pro menor. Sem essa distinção, ordenar por Cancelamento colocaria
+ *  a marca com MAIS cancelamento no topo, coroada "Líder". */
+const CRITERIO_MENOR_VENCE: Partial<Record<Criterio, true>> = { cancelamento: true };
 
 /** Valor bruto do critério — é o que ordena e o que dimensiona a barra. */
 function valorDe(marca: SaudeMarca, criterio: Criterio): number | null {
@@ -32,17 +37,21 @@ function valorDe(marca: SaudeMarca, criterio: Criterio): number | null {
     case "pedidos": return marca.pedidos;
     case "ticketMedio": return marca.ticketMedio;
     case "notaMedia": return marca.notaMedia;
+    case "cancelamento": return marca.taxaCancelamento;
+    case "recorrencia": return marca.taxaRecorrencia;
   }
 }
 
 /** Mesmo valor, escrito como a pessoa espera ver aquele indicador. */
 function rotuloDe(marca: SaudeMarca, criterio: Criterio): string {
   switch (criterio) {
-    case "score": return marca.score === null ? "—" : String(marca.score);
+    case "score": return marca.score === null ? "Sem dado" : String(marca.score);
     case "faturamento": return marca.faturamentoLabel;
     case "pedidos": return String(marca.pedidos);
     case "ticketMedio": return marca.ticketMedioLabel;
-    case "notaMedia": return marca.notaMedia === null ? "—" : `${marca.notaMedia.toFixed(1)} ★`;
+    case "notaMedia": return marca.notaMedia === null ? "Sem avaliação" : `${marca.notaMedia.toFixed(1)} ★`;
+    case "cancelamento": return marca.taxaCancelamento === null ? "Sem dado" : `${marca.taxaCancelamento}%`;
+    case "recorrencia": return marca.taxaRecorrencia === null ? "Sem dado" : `${marca.taxaRecorrencia}%`;
   }
 }
 
@@ -50,15 +59,31 @@ function corDaMarca(slug: string): string {
   return (isBrandSlug(slug) ? getBrandConfig(slug)?.color : undefined) ?? ACENTO;
 }
 
-/** Cor da barra/número quando o critério é Score — aqui a cor precisa
- *  significar "bom ou ruim" (vermelho = alerta), diferente das outras abas
- *  (Faturamento, Pedidos...), onde a cor é só a identidade da marca e uma
- *  marca vermelha no topo do ranking não deveria parecer um problema. */
-function corDoScore(score: number | null): string {
-  if (score === null) return "var(--muted-foreground)";
-  if (score >= 80) return "var(--success)";
-  if (score >= 50) return "var(--warning)";
-  return "var(--destructive)";
+/** Cor da barra/número quando o critério tem um "bom" e um "ruim" objetivos
+ *  (Score, Nota média, Cancelamento) — aí a cor precisa significar isso
+ *  (vermelho = alerta), diferente de Faturamento/Pedidos/Ticket/Recorrência,
+ *  onde não existe um "ruim" absoluto e a cor é só a identidade da marca; uma
+ *  marca com cor vermelha no topo do ranking de faturamento não deveria
+ *  parecer um problema. Retorna `null` para esses casos — quem chama cai de
+ *  volta pra cor da marca. */
+function corDoIndicador(criterio: Criterio, valor: number | null): string | null {
+  if (valor === null) return "var(--muted-foreground)";
+  switch (criterio) {
+    case "score":
+      if (valor >= 80) return "var(--success)";
+      if (valor >= 50) return "var(--warning)";
+      return "var(--destructive)";
+    case "notaMedia":
+      if (valor >= 4.5) return "var(--success)";
+      if (valor >= 3.5) return "var(--warning)";
+      return "var(--destructive)";
+    case "cancelamento":
+      if (valor <= 2) return "var(--success)";
+      if (valor <= 5) return "var(--warning)";
+      return "var(--destructive)";
+    default:
+      return null;
+  }
 }
 
 /* ── Tira de números ───────────────────────────────────────────
@@ -101,6 +126,8 @@ const CAMPO_DO_CRITERIO: Record<Criterio, string | null> = {
   pedidos: "Pedidos",
   ticketMedio: "Ticket",
   notaMedia: "Nota",
+  cancelamento: "Cancelamento",
+  recorrencia: "Recorrência",
 };
 
 function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; periodoLabel: string; criterio: Criterio }) {
@@ -146,13 +173,13 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
     },
     {
       label: "Nota",
-      valor: marca.notaMedia === null ? "—" : `${marca.notaMedia.toFixed(1)} ★`,
+      valor: marca.notaMedia === null ? "Sem avaliação" : `${marca.notaMedia.toFixed(1)} ★`,
       ...(marca.notaMedia === null ? {} : { valorNumerico: marca.notaMedia, formatarNumero: (v: number) => `${v.toFixed(1)} ★` }),
       calculo: {
         titulo: "Nota média",
         significado: "Média das avaliações que os clientes deixaram para os pedidos da marca no período — quanto mais perto de 5, melhor a experiência percebida.",
         formula: "média simples das notas (1 a 5) dadas pelos clientes no período",
-        resultado: marca.notaMedia === null ? "—" : `${marca.notaMedia.toFixed(1)} ★`,
+        resultado: marca.notaMedia === null ? "Sem avaliação" : `${marca.notaMedia.toFixed(1)} ★`,
         itens: marca.notaMedia === null ? [] : [{ label: "Nota média no período", valor: `${marca.notaMedia.toFixed(1)} ★` }],
         nota: marca.notaMedia === null
           ? "Nenhuma avaliação registrada nesse período ainda — por isso não há nota pra mostrar."
@@ -192,7 +219,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
     }] : []),
     {
       label: "Cancelamento",
-      valor: marca.taxaCancelamento === null ? "—" : `${marca.taxaCancelamento}%`,
+      valor: marca.taxaCancelamento === null ? "Sem dado" : `${marca.taxaCancelamento}%`,
       // Sobre TODOS os pedidos do período, não só os que entram no faturamento
       // — é a única métrica da tela que conta o que o resto exclui de propósito.
       alerta: (marca.taxaCancelamento ?? 0) > 5,
@@ -211,7 +238,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
     },
     {
       label: "Top 5 produtos",
-      valor: marca.concentracaoTop5 === null ? "—" : `${marca.concentracaoTop5}%`,
+      valor: marca.concentracaoTop5 === null ? "Sem dado" : `${marca.concentracaoTop5}%`,
       ...(marca.concentracaoTop5 === null ? {} : { valorNumerico: marca.concentracaoTop5, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.concentracaoTop5 === null ? null : {
         titulo: "Concentração nos 5 mais vendidos",
@@ -227,7 +254,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
     },
     {
       label: "Recorrência",
-      valor: marca.taxaRecorrencia === null ? "—" : `${marca.taxaRecorrencia}%`,
+      valor: marca.taxaRecorrencia === null ? "Sem dado" : `${marca.taxaRecorrencia}%`,
       ...(marca.taxaRecorrencia === null ? {} : { valorNumerico: marca.taxaRecorrencia, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.taxaRecorrencia === null ? null : {
         titulo: "Recorrência",
@@ -323,7 +350,7 @@ function CumprimentoPedidos({ pv }: { pv: PosVendaMarcaComTaxa }) {
             titulo="Cumprimento de pedidos"
             significado="Mostra o que aconteceu com os pedidos da marca no período: quantos já foram entregues, quantos ainda estão a caminho, e quantos foram cancelados ou devolvidos."
             formula="contagem de pedidos por status (entregue, em andamento, cancelado, devolvido) no período"
-            resultado={total > 0 ? `${inteiro.format(total)} pedidos` : "—"}
+            resultado={total > 0 ? `${inteiro.format(total)} pedidos` : "Sem pedidos"}
             itens={total > 0 ? SEGMENTOS_PEDIDO.map((s) => ({
               label: s.label,
               valor: inteiro.format(pv[s.chave]),
@@ -419,6 +446,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
 
   const ordenadas = useMemo(() => {
     const marcas = [...(dados?.marcas ?? [])];
+    const menorVence = CRITERIO_MENOR_VENCE[criterio] === true;
     // Marca sem o indicador escolhido cai para o fim em vez de virar zero e
     // fingir que é a pior — "não medido" e "medido em zero" não são a mesma coisa.
     return marcas.sort((a, b) => {
@@ -427,7 +455,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
       if (va === null && vb === null) return a.marcaLabel.localeCompare(b.marcaLabel);
       if (va === null) return 1;
       if (vb === null) return -1;
-      return vb - va;
+      return menorVence ? va - vb : vb - va;
     });
   }, [dados, criterio]);
 
@@ -486,10 +514,13 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
             const valor = valorDe(marca, criterio);
             const cor = corDaMarca(marca.marca);
             // A barra e o número grande precisam significar "bom ou ruim" só
-            // quando o critério É a saúde (Score) — nas outras abas a cor
-            // continua sendo a identidade da marca, não um sinal de alerta.
-            const corDestaque = criterio === "score" ? corDoScore(valor) : cor;
-            const lider = indice === 0 && valor !== null && valor > 0;
+            // quando o critério tem um "bom"/"ruim" objetivo (Score, Nota,
+            // Cancelamento) — nas outras abas a cor continua sendo a
+            // identidade da marca, não um sinal de alerta.
+            const corDestaque = corDoIndicador(criterio, valor) ?? cor;
+            // Em Cancelamento, 0% é o melhor resultado possível — não faz
+            // sentido negar a coroa só porque o valor "não é maior que zero".
+            const lider = indice === 0 && valor !== null && (CRITERIO_MENOR_VENCE[criterio] === true || valor > 0);
             const pv = posVenda?.marcas.find((item) => item.brandId === marca.brandId);
             return (
               <motion.li
@@ -501,13 +532,27 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
                 transition={springs.settle}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-[1rem] border border-border p-4"
-                style={lider ? { borderColor: tint(cor, 40), background: `color-mix(in srgb, ${cor} 4%, transparent)` } : undefined}
+                // A cor da marca deixou de aparecer só no card líder — agora
+                // toda linha carrega uma faixa da própria cor da logo, numa
+                // intensidade proporcional (mais forte pra quem lidera, mais
+                // discreta pros demais). É a cor de identidade se espalhando
+                // pelo card com a mesma "força" que ela tem na logo, em vez
+                // de aparecer tudo-ou-nada.
+                className="rounded-[1rem] border border-l-[3px] p-4"
+                style={{
+                  borderLeftColor: cor,
+                  borderColor: lider ? tint(cor, 40) : "var(--border)",
+                  background: lider ? `color-mix(in srgb, ${cor} 4%, transparent)` : `color-mix(in srgb, ${cor} 1.5%, transparent)`,
+                }}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-2">
                     {isBrandSlug(marca.marca)
-                      ? <BrandLogo brand={marca.marca} height={17} />
+                      ? (
+                        <span className="inline-flex items-center rounded-[0.6rem] px-2 py-1" style={{ background: tint(cor, 8) }}>
+                          <BrandLogo brand={marca.marca} height={17} />
+                        </span>
+                      )
                       : <span className="truncate text-sm font-bold text-foreground">{marca.marcaLabel}</span>}
                     {lider && (
                       <motion.span

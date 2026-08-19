@@ -93,7 +93,7 @@ export function ProdutosClienteDetalhe() {
         <span className="h-px flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
-          {dados?.sincronizadoEm ? dataHora.format(new Date(dados.sincronizadoEm)) : "—"}
+          {dados?.sincronizadoEm ? dataHora.format(new Date(dados.sincronizadoEm)) : "Nunca sincronizado"}
         </span>
       </div>
 

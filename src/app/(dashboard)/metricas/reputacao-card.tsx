@@ -12,6 +12,7 @@ import type { ChaveTaxa, ContaDesconectada, ReputacaoMarca, TaxaReputacao } from
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primitives";
 import { tint } from "@/shared/design-system/color";
+import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 
 const copy = metricasConfig.reputacaoCard;
 
@@ -73,9 +74,23 @@ function IndicadorTaxa({ taxa, indice }: { taxa: TaxaReputacao; indice: number }
       className="flex flex-col gap-1.5"
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate text-[12px] font-semibold text-foreground">{taxa.label}</span>
+        <span className="flex min-w-0 items-center gap-1 truncate text-[12px] font-semibold text-foreground">
+          <span className="truncate">{taxa.label}</span>
+          <CalculoPopover
+            compacto
+            titulo={taxa.label}
+            significado={`Taxa de ${taxa.label.toLowerCase()} medida pelo Mercado Livre nesse período. Ultrapassar o limite de ${taxa.limite}% pode derrubar a faixa do termômetro.`}
+            formula="ocorrências da taxa, divididas pelo total de vendas concluídas no período, em porcentagem"
+            resultado={semDado ? "Sem dado" : `${(taxa.valor as number).toFixed(1)}%`}
+            itens={[
+              { label: "Ocorrências no período", valor: taxa.ocorrencias !== null ? String(taxa.ocorrencias) : "Sem dado" },
+              { label: "Limite do Mercado Livre", valor: `${taxa.limite}%` },
+            ]}
+            nota={taxa.estourado ? (acao ?? "Taxa acima do limite do Mercado Livre.") : "Dentro do limite do Mercado Livre nesse período."}
+          />
+        </span>
         <span className="shrink-0 text-[12px] font-bold tabular-nums" style={{ color: cor }}>
-          {semDado ? "—" : <NumeroAnimado valor={taxa.valor as number} formatar={(v) => `${v.toFixed(1)}%`} />}
+          {semDado ? "Sem dado" : <NumeroAnimado valor={taxa.valor as number} formatar={(v) => `${v.toFixed(1)}%`} />}
           <span className="ml-1 text-[10px] font-medium text-muted-foreground">
             / {taxa.limite}% {copy.limiteLabel}
           </span>

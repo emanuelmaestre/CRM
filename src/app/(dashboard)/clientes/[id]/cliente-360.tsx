@@ -122,7 +122,7 @@ function TimelineItem({ canal, title, orderNumber, subtitle, status, date }: {
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 function formatDate(value: Date | string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "Sem dado";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
@@ -254,7 +254,7 @@ export function Cliente360({
                 { label: "Total comprado", value: dinheiro.format(data.resumoComercial.totalGasto), icon: WalletCards },
                 { label: "Pedidos", value: String(data.resumoComercial.totalPedidos), icon: ShoppingBag },
                 { label: "Ticket médio", value: dinheiro.format(data.resumoComercial.ticketMedio), icon: Star },
-                { label: "Última compra", value: data.resumoComercial.ultimoPedidoEm ? new Date(data.resumoComercial.ultimoPedidoEm).toLocaleDateString("pt-BR") : "—", icon: CalendarDays },
+                { label: "Última compra", value: data.resumoComercial.ultimoPedidoEm ? new Date(data.resumoComercial.ultimoPedidoEm).toLocaleDateString("pt-BR") : "Sem dado", icon: CalendarDays },
               ].map((item) => {
                 const Icon = item.icon;
                 return <div key={item.label} className="rounded-xl border border-border bg-muted/20 p-3.5"><dt className="flex items-center gap-2 text-xs text-muted-foreground"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon size={14} /></span>{item.label}</dt><dd className="mt-2 text-lg font-bold tabular-nums">{item.value}</dd></div>;

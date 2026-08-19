@@ -57,9 +57,9 @@ function LinhaDiagnostico({ diagnostico }: { diagnostico: Diagnostico }) {
 }
 
 function PainelExposicao({ campanha }: { campanha: CampanhaVisaoGeral }) {
-  const percentual = (valor: number | null) => valor === null ? "—" : `${(Math.abs(valor) <= 1 ? valor * 100 : valor).toFixed(1)}%`;
+  const percentual = (valor: number | null) => valor === null ? "Sem dado" : `${(Math.abs(valor) <= 1 ? valor * 100 : valor).toFixed(1)}%`;
   const itens = [
-    ["ROAS objetivo", campanha.roasObjetivo === null ? "—" : `${campanha.roasObjetivo.toFixed(2)}x`],
+    ["ROAS objetivo", campanha.roasObjetivo === null ? "Sem dado" : `${campanha.roasObjetivo.toFixed(2)}x`],
     ["Participação de impressão", percentual(campanha.impressionShare ?? campanha.sov)],
     ["Participação no topo", percentual(campanha.topImpressionShare)],
     ["Perdida por orçamento", percentual(campanha.lostImpressionShareByBudget)],
@@ -260,7 +260,7 @@ export function CampanhasClienteDetalhe() {
         <span className="h-px flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
-          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}
+          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}
         </span>
       </div>
 

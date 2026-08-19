@@ -48,8 +48,8 @@ function montarItens(marca: SaudeMarca, base: SaudeMarca | undefined): ItemCompa
       valor: base?.taxaCancelamento == null || marca.taxaCancelamento == null
         ? null
         : Math.round((marca.taxaCancelamento - base.taxaCancelamento) * 10) / 10,
-      atualLabel: marca.taxaCancelamento === null ? "—" : `${marca.taxaCancelamento}%`,
-      anteriorLabel: base?.taxaCancelamento == null ? "—" : `${base.taxaCancelamento}%`,
+      atualLabel: marca.taxaCancelamento === null ? "Sem dado" : `${marca.taxaCancelamento}%`,
+      anteriorLabel: base?.taxaCancelamento == null ? "Sem dado" : `${base.taxaCancelamento}%`,
       formula: "diferença entre a taxa de cancelamento atual e a anterior, em pontos percentuais",
     },
   ];

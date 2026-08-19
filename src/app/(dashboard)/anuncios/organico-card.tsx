@@ -139,7 +139,7 @@ export function OrganicoCard({ resumo, resumoAnterior, marca }: {
       {!semDado && (
         <p className="flex items-center justify-end gap-1.5 border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground sm:px-5">
           <RefreshCw size={11} />
-          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "—"}
+          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}
         </p>
       )}
     </Card>

@@ -114,11 +114,11 @@ export function ComparacaoClienteDetalhe() {
                       <Roas valor={marca.resumo.roasMedio} />
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                      {marca.resumo.tacos === null ? "—" : `${marca.resumo.tacos.toFixed(1)}%`}
+                      {marca.resumo.tacos === null ? "Sem dado" : `${marca.resumo.tacos.toFixed(1)}%`}
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       {dependencia === null ? (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">Sem dado</span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tint(COR_DEPENDENCIA[dependencia], 9), color: COR_DEPENDENCIA[dependencia] }}>
                           {copy.dependencia[dependencia]} · {marca.resumo.dependenciaMidia.percentual?.toFixed(0)}%

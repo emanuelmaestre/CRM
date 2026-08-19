@@ -282,7 +282,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
             </p>
           </div>
           <span className={`text-right text-xl font-black tabular-nums sm:w-10 ${baixa ? "text-destructive" : "text-foreground"}`}>
-            {item.ratingAverage?.toFixed(1) ?? "—"}
+            {item.ratingAverage?.toFixed(1) ?? "Sem avaliação"}
           </span>
           {temDetalhe ? (
             <motion.span
@@ -536,14 +536,14 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens }: {
           <div className="flex flex-col items-center justify-center gap-1 md:items-start">
             <span className="flex items-center gap-1.5">
               <p className="text-[3.25rem] font-black leading-none tracking-[-0.03em] tabular-nums text-foreground">
-                {carregando ? "…" : media === null ? "—" : media.toFixed(1).replace(".", ",")}
+                {carregando ? "…" : media === null ? "Sem avaliação" : media.toFixed(1).replace(".", ",")}
               </p>
               {!carregando && (
                 <CalculoPopover
                   titulo="Nota média"
                   significado="Resume a experiência de quem comprou em uma nota de 1 a 5, direto do Mercado Livre."
                   formula="soma de (quantidade de opiniões × nota), dividida pelo total de opiniões"
-                  resultado={media === null ? "—" : media.toFixed(1).replace(".", ",")}
+                  resultado={media === null ? "Sem avaliação" : media.toFixed(1).replace(".", ",")}
                   itens={ESTRELAS.map(({ chave, rotulo }) => ({
                     label: `${rotulo} estrela${rotulo === "1" ? "" : "s"}`,
                     valor: String(distribuicao?.[chave] ?? 0),

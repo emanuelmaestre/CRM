@@ -1166,7 +1166,7 @@ export function EstoqueLista() {
                           <p className="text-xs text-muted-foreground mb-1">{copy.minimum.columnLabel}</p>
                           {canManage
                             ? <MinimoInput produto={p} onSalvo={(valor) => aoSalvarMinimo(p.id, valor)} />
-                            : <p className="font-semibold tabular-nums">{p.estoqueMinimo || "—"}</p>}
+                            : <p className="font-semibold tabular-nums">{p.estoqueMinimo || "Sem mínimo"}</p>}
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">{copy.mobile.price}</p>
@@ -1302,7 +1302,7 @@ export function EstoqueLista() {
                             <div className="flex justify-end">
                               {canManage
                                 ? <MinimoInput produto={p} onSalvo={(valor) => aoSalvarMinimo(p.id, valor)} />
-                                : <span className="tabular-nums text-muted-foreground">{p.estoqueMinimo || "—"}</span>}
+                                : <span className="tabular-nums text-muted-foreground">{p.estoqueMinimo || "Sem mínimo"}</span>}
                             </div>
                           </td>
                           <td className="px-5 py-3.5 text-right font-semibold text-foreground tabular-nums hidden lg:table-cell">

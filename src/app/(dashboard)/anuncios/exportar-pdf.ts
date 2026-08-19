@@ -1,7 +1,7 @@
 import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const percentual = (valor: number | null) => valor === null ? "—" : `${valor.toFixed(1)}%`;
+const percentual = (valor: number | null) => valor === null ? "Sem dado" : `${valor.toFixed(1)}%`;
 
 /** Relatório executivo somente em PDF. O import dinâmico mantém jsPDF fora do
  * bundle inicial da página e o documento usa exatamente o recorte visível. */
@@ -23,7 +23,7 @@ export async function exportarAnunciosPDF(marca: VisaoGeralMarca, periodo: strin
     head: [["Investimento", "Receita Ads", "Receita orgânica", "ROAS", "ACOS", "TACOS", "Impressões", "Cliques", "Vendas"]],
     body: [[
       moeda.format(marca.resumo.investimentoTotal), moeda.format(marca.resumo.receitaTotal),
-      moeda.format(marca.resumo.receitaOrganica), marca.resumo.roasMedio?.toFixed(2) ?? "—",
+      moeda.format(marca.resumo.receitaOrganica), marca.resumo.roasMedio?.toFixed(2) ?? "Sem dado",
       percentual(marca.resumo.acosMedio), percentual(marca.resumo.tacos),
       marca.resumo.impressoes.toLocaleString("pt-BR"), marca.resumo.cliques.toLocaleString("pt-BR"),
       marca.resumo.vendas.toLocaleString("pt-BR"),
@@ -41,7 +41,7 @@ export async function exportarAnunciosPDF(marca: VisaoGeralMarca, periodo: strin
     head: [["Campanha", "Status", "Criada em", "Investido", "Receita", "ROAS", "ACOS", "CTR", "CVR", "Imp. share", "Perda orçamento", "Perda ranking"]],
     body: marca.campanhas.map((campanha) => [
       campanha.nome, campanha.status, campanha.criadaEm ? new Date(campanha.criadaEm).toLocaleDateString("pt-BR") : "Não informada", moeda.format(campanha.investimento), moeda.format(campanha.receita),
-      campanha.roas?.toFixed(2) ?? "—", percentual(campanha.acos), percentual(campanha.ctr),
+      campanha.roas?.toFixed(2) ?? "Sem dado", percentual(campanha.acos), percentual(campanha.ctr),
       percentual(campanha.cvr), percentual(campanha.impressionShare),
       percentual(campanha.lostImpressionShareByBudget), percentual(campanha.lostImpressionShareByAdRank),
     ]),

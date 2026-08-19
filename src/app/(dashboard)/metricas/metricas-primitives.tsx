@@ -191,7 +191,7 @@ export function AnelScore({ valor, cor, tamanho = 168, faixaLabel }: {
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         {valor === null ? (
-          <span className="text-3xl font-bold text-muted-foreground">—</span>
+          <span className="text-xl font-bold text-muted-foreground">Sem dado</span>
         ) : (
           <>
             {/* Número e faixa acompanham o diâmetro em vez de tamanho fixo:

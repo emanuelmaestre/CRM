@@ -21,7 +21,7 @@ type EstadoTabela = "pendente" | "processando" | "concluida";
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 function formatarTamanho(bytes: number | null): string {
-  if (!bytes) return "—";
+  if (!bytes) return "Sem dado";
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
@@ -309,7 +309,7 @@ export function BackupSection() {
                       <StatusHistorico status={item.status} />
                     </p>
                     <p className="mt-0.5 text-muted-foreground">
-                      {item.solicitadoPorNome ?? "—"}
+                      {item.solicitadoPorNome ?? "Não identificado"}
                       {totalLinhas !== null && ` · ${totalLinhas} registros`}
                       {item.tamanhoBytes && ` · ${formatarTamanho(item.tamanhoBytes)}`}
                       {item.status === "falhou" && item.erro && ` · ${item.erro}`}

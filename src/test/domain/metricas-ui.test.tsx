@@ -142,10 +142,10 @@ describe("cards de Métricas", () => {
     expect(screen.queryByText(/nenhuma conta do mercado livre conectada/i)).not.toBeInTheDocument();
   });
 
-  it("escreve nota ausente como traço, nunca como zero", () => {
+  it("escreve nota ausente como texto explicativo, nunca como zero", () => {
     render(<ComparacaoCard dados={resultado()} carregando={false} />);
     const nota = screen.getByText("Nota").closest("div");
-    expect(within(nota as HTMLElement).getByText("—")).toBeInTheDocument();
+    expect(within(nota as HTMLElement).getByText("Sem avaliação")).toBeInTheDocument();
     // Reclamação em mediação continua visível ao lado do total.
     expect(screen.getByText("2 (1 em mediação)")).toBeInTheDocument();
   });

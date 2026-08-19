@@ -28,7 +28,7 @@ describe("ROAS não depende só de cor", () => {
 
   it("sem investimento não vira 'ROAS zero': explica que não há dado", () => {
     render(<Roas valor={null} />);
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("Sem dado")).toBeInTheDocument();
     expect(screen.getByText(/ROAS não existe sem gasto/i)).toBeInTheDocument();
   });
 });
