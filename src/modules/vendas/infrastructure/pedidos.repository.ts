@@ -68,6 +68,10 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       faturamento: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
       ticketMedio: sql<string>`coalesce(avg(${pedido.total}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
       cancelados: sql<number>`count(*) filter (where ${pedido.status} in ('cancelado', 'devolvido'))`,
+      canceladosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'cancelado')`,
+      canceladosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'cancelado'), 0)`,
+      devolvidosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'devolvido')`,
+      devolvidosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'devolvido'), 0)`,
       freteTotal: sql<string>`coalesce(sum(${pedido.frete}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
       descontosTotal: sql<string>`coalesce(sum(${pedido.desconto}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
     })
@@ -80,6 +84,10 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
     faturamento: Number(resumo?.faturamento ?? 0),
     ticketMedio: Number(resumo?.ticketMedio ?? 0),
     cancelados: Number(resumo?.cancelados ?? 0),
+    canceladosQtd: Number(resumo?.canceladosQtd ?? 0),
+    canceladosValor: Number(resumo?.canceladosValor ?? 0),
+    devolvidosQtd: Number(resumo?.devolvidosQtd ?? 0),
+    devolvidosValor: Number(resumo?.devolvidosValor ?? 0),
     freteTotal: Number(resumo?.freteTotal ?? 0),
     descontosTotal: Number(resumo?.descontosTotal ?? 0),
   };

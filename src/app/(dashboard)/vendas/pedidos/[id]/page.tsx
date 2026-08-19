@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, MapPin, Database, Clock3 } from "lucide-react";
+import { ArrowLeft, MapPin, Database, Clock3, Package, Truck, Tag, Percent, TrendingUp, Wallet } from "lucide-react";
 import { and, eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import pagesConfig from "@/config/pages.json";
@@ -218,7 +218,10 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
                   </div>
                   <div className="text-right">
                     <span className="block font-semibold tabular-nums text-foreground">{moeda(String(Number(item.precoUnitario) * item.quantidade))}</span>
-                    <span className="text-xs tabular-nums text-muted-foreground">{moeda(item.precoUnitario)} cada{item.taxaMarketplace != null ? ` · taxa ${moeda(item.taxaMarketplace)}` : ""}</span>
+                    <span className="block text-xs tabular-nums text-muted-foreground">{moeda(item.precoUnitario)} cada</span>
+                    {item.taxaMarketplace != null && (
+                      <span className="block text-xs tabular-nums text-muted-foreground">taxa {moeda(item.taxaMarketplace)}</span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -226,38 +229,68 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
           )}
         </SectionCard>
 
-        <div className="mt-3 grid gap-2 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-5 text-sm sm:ml-auto sm:w-72">
-          <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal dos itens</span><span>{moeda(String(subtotalItens))}</span>
-          </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>{copy.shipping}</span><span>{moeda(detalhe.frete)}</span>
-          </div>
-          {Number(detalhe.desconto ?? 0) > 0 && (
-            <div className="flex justify-between text-muted-foreground">
-              <span>Descontos</span><span>- {moeda(detalhe.desconto)}</span>
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_18rem] sm:items-stretch sm:justify-end">
+          <section className="flex h-full flex-col rounded-[1.25rem] bg-card p-5 shadow-[0_2px_16px_rgba(14,15,19,.07)]">
+            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+              <Wallet size={14} /> O que compõe esses valores
             </div>
-          )}
-          {taxasConhecidas > 0 && (
+            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+              {[
+                { icon: Package, label: "Subtotal dos itens", desc: "Soma do preço unitário de cada item vezes a quantidade vendida, antes de qualquer ajuste." },
+                { icon: Truck, label: copy.shipping, desc: "Valor do frete informado pelo canal. Fica em R$ 0,00 quando o canal não repassa esse dado." },
+                { icon: Tag, label: "Descontos", desc: "Reduções aplicadas ao pedido (cupom, promoção). Fica em R$ 0,00 quando o canal não informa." },
+                { icon: Percent, label: "Taxa do canal de venda", desc: "Comissão cobrada pelo canal (Mercado Livre, Shopee, TikTok Shop etc.) sobre essa venda. Fica em R$ 0,00 quando o canal não informa." },
+                { icon: TrendingUp, label: "Acréscimos", desc: "Valores somados ao pedido (juros, taxa extra). Fica em R$ 0,00 quando o canal não informa." },
+                { icon: Wallet, label: "Valor líquido", desc: "Total já descontando frete e taxas. Não desconta desconto/acréscimo." },
+              ].map(({ icon: Icon, label, desc }) => (
+                <div key={label} className="flex items-start gap-2">
+                  <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-selecionado/10 text-selecionado">
+                    <Icon size={13} />
+                  </span>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">{label}</p>
+                    <p className="text-xs leading-relaxed text-muted-foreground">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <div className="grid h-full content-center gap-2 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-5 text-sm sm:w-72">
             <div className="flex justify-between text-muted-foreground">
-              <span>Taxas do marketplace</span><span>{moeda(String(taxasConhecidas))}</span>
+              <span>Subtotal dos itens</span><span>{moeda(String(subtotalItens))}</span>
             </div>
-          )}
-          {Number(detalhe.acrescimo ?? 0) > 0 && (
             <div className="flex justify-between text-muted-foreground">
-              <span>Acréscimos</span><span>+ {moeda(detalhe.acrescimo)}</span>
+              <span>{copy.shipping}</span><span>{moeda(detalhe.frete)}</span>
             </div>
-          )}
-          <div className="my-1 h-px bg-border" />
-          <div className="flex justify-between text-base font-bold text-foreground">
-            <span>{copy.total}</span><span>{moeda(detalhe.total)}</span>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Descontos</span>
+              <span>{Number(detalhe.desconto ?? 0) > 0 ? `- ${moeda(detalhe.desconto)}` : moeda(detalhe.desconto)}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Taxa do canal de venda</span><span>{moeda(String(taxasConhecidas))}</span>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <span>Acréscimos</span>
+              <span>{Number(detalhe.acrescimo ?? 0) > 0 ? `+ ${moeda(detalhe.acrescimo)}` : moeda(detalhe.acrescimo)}</span>
+            </div>
+            <div className="my-1 h-px bg-border" />
+            <div className="flex justify-between text-base font-bold text-foreground">
+              <span>{copy.total}</span><span>{moeda(detalhe.total)}</span>
+            </div>
+            <div className="flex justify-between text-base font-bold" style={{ color: "var(--success)" }}>
+              <span>Valor líquido</span><span>{moeda(String(valorLiquido))}</span>
+            </div>
           </div>
-          <div className="flex justify-between text-base font-bold" style={{ color: "var(--success)" }}>
-            <span>Valor líquido</span><span>{moeda(String(valorLiquido))}</span>
-          </div>
-          <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-muted-foreground">
-            <Clock3 size={11} className="mt-0.5 shrink-0" />
-            Frete, taxas e acréscimos aparecem somente quando o canal fornece esse valor. Valor líquido já desconta frete e taxas do total — não desconta desconto/acréscimo.
+        </div>
+
+        <div
+          className="mt-3 flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-center"
+          style={{ borderColor: "color-mix(in srgb, var(--selecionado) 25%, transparent)", background: "color-mix(in srgb, var(--selecionado) 6%, var(--card))" }}
+        >
+          <Clock3 size={13} className="shrink-0 text-selecionado" />
+          <p className="text-xs font-medium leading-relaxed text-foreground lg:whitespace-nowrap">
+            Quando o canal não informa frete, taxas, desconto ou acréscimo, o valor aparece como R$ 0,00. O valor líquido desconta frete e taxas do total, mas não desconta desconto/acréscimo.
           </p>
         </div>
       </div>

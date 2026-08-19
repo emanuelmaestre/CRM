@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
-import { obterTokenMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { criarMLProvider, obterTokenMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { receberMensagem, resolverClientePorIdentidade } from "@/modules/inbox/application/inbox.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { iniciarSyncTrace } from "@/shared/lib/observability/sync-trace";
@@ -126,8 +126,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const conta = await trace.etapa("resolver_conta_e_token", async () => {
       const c = await resolverContaWebhookMarketplace("mercadolivre", sellerId);
-      const { accessToken } = await obterTokenMercadoLivre(c.brandSlug);
-      return { ...c, accessToken };
+      const token = await obterTokenMercadoLivre(c.brandSlug);
+      return { ...c, accessToken: token.accessToken, refreshToken: token.refreshToken };
     });
     const { accessToken } = conta;
 
@@ -227,65 +227,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const orderId = resource.split("/orders/")[1];
     if (!orderId) return NextResponse.json({ ok: true, ignorado: true, motivo: "sem-order-id" });
-    const { pedidoML, endereco } = await trace.etapa("ml_api", async () => {
-      const dadosPedido = await buscarRecursoML<{
-        id: number;
-        status: string;
-        total_amount: number;
-        shipping?: { id?: number; cost?: number };
-        buyer: { id: number; nickname: string; email?: string };
-        order_items: Array<{
-          item: { seller_sku?: string };
-          quantity: number;
-          unit_price: number;
-        }>;
-        date_created: string;
-      }>(resource, accessToken);
 
-      // Nome completo e endereço só vêm numa chamada separada a /shipments/{id}
-      // — mesma lógica de buscarEnderecoEntrega() em mercadolivre.provider.ts.
-      // Enriquecimento nunca pode derrubar o pedido: falha aqui é engolida.
-      const dadosEndereco = dadosPedido.shipping?.id
-        ? await buscarRecursoML<{ receiver_address?: {
-            receiver_name?: string; street_name?: string; street_number?: string; comment?: string | null;
-            neighborhood?: { name?: string | null }; city?: { name?: string | null }; state?: { name?: string | null };
-            zip_code?: string; latitude?: number; longitude?: number;
-          } }>(`/shipments/${dadosPedido.shipping.id}`, accessToken)
-            .then((envio) => envio.receiver_address ?? null)
-            .catch(() => null)
-        : null;
+    // Reusa a mesma normalização da sync periódica (buscarPedidos) e do
+    // backfill — antes este bloco montava o pedido à mão e nunca capturava
+    // desconto/acréscimo/taxa do marketplace, além de usar o frete visto
+    // pelo comprador em vez do custo real pago pelo vendedor.
+    const provider = await criarMLProvider(conta.brandSlug, { accessToken: conta.accessToken, refreshToken: conta.refreshToken });
+    const pedidoNormalizado = await trace.etapa("ml_api", () => provider.buscarPedidoPorId(orderId));
 
-      return { pedidoML: dadosPedido, endereco: dadosEndereco };
-    });
-
-    const pedido = await trace.etapa("database", () => ingerirPedido(conta.orgId, conta.brandId, conta.channelAccountId, {
-      providerOrderId: String(pedidoML.id),
-      canal: "mercadolivre",
-      clienteExternalId: String(pedidoML.buyer.id),
-      clienteNome: pedidoML.buyer.nickname,
-      clienteEmail: pedidoML.buyer.email,
-      clienteEndereco: endereco ? {
-        nomeDestinatario: endereco.receiver_name || undefined,
-        rua: endereco.street_name || undefined,
-        numero: endereco.street_number || undefined,
-        complemento: endereco.comment || undefined,
-        bairro: endereco.neighborhood?.name || undefined,
-        cidade: endereco.city?.name || undefined,
-        estado: endereco.state?.name || undefined,
-        cep: endereco.zip_code || undefined,
-        latitude: endereco.latitude,
-        longitude: endereco.longitude,
-      } : undefined,
-      status: pedidoML.status,
-      total: String(pedidoML.total_amount),
-      frete: pedidoML.shipping?.cost === undefined ? undefined : String(pedidoML.shipping.cost),
-      itens: pedidoML.order_items.map((item) => ({
-        skuExterno: item.item.seller_sku ?? "",
-        quantidade: item.quantity,
-        precoUnitario: String(item.unit_price),
-      })),
-      criadoEm: new Date(pedidoML.date_created),
-    }));
+    const pedido = await trace.etapa("database", () => ingerirPedido(
+      conta.orgId, conta.brandId, conta.channelAccountId, pedidoNormalizado,
+    ));
     trace.finalizar("ok");
     return NextResponse.json({ ok: true, ...pedido });
   } catch (error) {

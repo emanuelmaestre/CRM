@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, ne, sum } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, max, ne, sql, sum } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsAnuncioSnapshot, brand, pedido, pedidoItem } from "@/shared/lib/db/schema";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
@@ -42,18 +42,21 @@ export async function obterDesempenhoPublicacoes(
     .orderBy(desc(adsAnuncioSnapshot.data)).limit(1).then((rows) => rows[0]?.data ?? null);
   if (!ultimaData) return { itens: [], parcial: false, periodo: filtros };
 
+  // Um item pode estar em mais de uma campanha no mesmo dia (chave única é
+  // orgId+conta+campanha+item+data, não item+data) — agrega por itemId para
+  // não duplicar a publicação na tela somando o desempenho das campanhas.
   const anuncios = await ctx.db.select({
     itemId: adsAnuncioSnapshot.itemId,
-    titulo: adsAnuncioSnapshot.titulo,
-    vendas: adsAnuncioSnapshot.unitsQuantity,
-    investimento: adsAnuncioSnapshot.cost,
-    receita: adsAnuncioSnapshot.totalAmount,
-    produtoId: adsAnuncioSnapshot.produtoId,
+    titulo: max(adsAnuncioSnapshot.titulo),
+    vendas: sum(adsAnuncioSnapshot.unitsQuantity),
+    investimento: sum(adsAnuncioSnapshot.cost),
+    receita: sum(adsAnuncioSnapshot.totalAmount),
+    produtoId: sql<string | null>`max(${adsAnuncioSnapshot.produtoId}::text)`,
   }).from(adsAnuncioSnapshot).where(and(
     eq(adsAnuncioSnapshot.orgId, ctx.orgId),
     eq(adsAnuncioSnapshot.brandId, filtros.brandId),
     eq(adsAnuncioSnapshot.data, ultimaData),
-  )).orderBy(desc(adsAnuncioSnapshot.totalAmount)).limit(20);
+  )).groupBy(adsAnuncioSnapshot.itemId).orderBy(desc(sql`sum(${adsAnuncioSnapshot.totalAmount})`)).limit(20);
 
   const provider = await criarMLProvider(marca.slug);
   const ids = anuncios.map((item) => item.itemId);

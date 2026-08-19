@@ -22,10 +22,10 @@ type Solicitacao = Awaited<ReturnType<typeof actionListarSolicitacoesLgpd>>["sol
 type ClienteResumo = Awaited<ReturnType<typeof actionListarClientesLgpd>>[number];
 
 const tipoLabel: Record<Solicitacao["tipo"], string> = {
-  exportacao: "Exportacao",
-  revogacao: "Revogacao",
-  anonimizacao: "Anonimizacao",
-  exclusao: "Exclusao",
+  exportacao: "Exportação",
+  revogacao: "Revogação",
+  anonimizacao: "Anonimização",
+  exclusao: "Exclusão",
 };
 
 const statusTone: Record<Solicitacao["status"], string> = {
@@ -79,7 +79,7 @@ export default function AdminLgpdPage() {
       setClientes(clientesDisponiveis);
       setClienteId((atual) => atual || clientesDisponiveis[0]?.id || "");
     } catch {
-      toast.error("Nao foi possivel carregar LGPD.");
+      toast.error("Não foi possível carregar LGPD.");
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ export default function AdminLgpdPage() {
         setClientes(clientesDisponiveis);
         setClienteId((atual) => atual || clientesDisponiveis[0]?.id || "");
       })
-      .catch(() => toast.error("Nao foi possivel carregar LGPD."))
+      .catch(() => toast.error("Não foi possível carregar LGPD."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -105,10 +105,10 @@ export default function AdminLgpdPage() {
       try {
         await actionCriarSolicitacaoLgpd({ clienteId, tipo, motivo: motivo || undefined });
         setMotivo("");
-        toast.success("Solicitacao LGPD aberta.");
+        toast.success("Solicitação LGPD aberta.");
         await carregar();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel abrir solicitacao.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível abrir solicitação.");
       }
     });
   }
@@ -118,10 +118,10 @@ export default function AdminLgpdPage() {
       try {
         const result = await actionConcluirExportacaoLgpd(item.id);
         baixarJson(`lgpd-${item.clienteId}.json`, result.pacote);
-        toast.success("Exportacao concluida e baixada.");
+        toast.success("Exportação concluída e baixada.");
         await carregar();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel exportar.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível exportar.");
       }
     });
   }
@@ -137,7 +137,7 @@ export default function AdminLgpdPage() {
         toast.success("Cliente anonimizado.");
         await carregar();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel anonimizar.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível anonimizar.");
       }
     });
   }
@@ -150,10 +150,10 @@ export default function AdminLgpdPage() {
           motivo: motivoRejeicaoPorId[item.id],
         });
         setMotivoRejeicaoPorId((current) => ({ ...current, [item.id]: "" }));
-        toast.success("Solicitacao rejeitada.");
+        toast.success("Solicitação rejeitada.");
         await carregar();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel rejeitar.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível rejeitar.");
       }
     });
   }
@@ -161,12 +161,12 @@ export default function AdminLgpdPage() {
   return (
     <div>
       <PageHeader
-        title="Solicitacoes LGPD"
-        description="Controle exportacao, revogacao, anonimizacao e exclusao com auditoria."
+        title="Solicitações LGPD"
+        description="Controle exportação, revogação, anonimização e exclusão com auditoria."
       />
 
       <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <SectionCard title="Abrir solicitacao" icon={Plus}>
+        <SectionCard title="Abrir solicitação" icon={Plus}>
           <div className="grid gap-3">
             <select
               value={clienteId}
@@ -191,7 +191,7 @@ export default function AdminLgpdPage() {
             <textarea
               value={motivo}
               onChange={(event) => setMotivo(event.target.value)}
-              placeholder="Origem, prova ou observacao da solicitacao"
+              placeholder="Origem, prova ou observação da solicitação"
               className="min-h-28 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm"
             />
             <button
@@ -209,13 +209,13 @@ export default function AdminLgpdPage() {
         <SectionCard title="Fila LGPD" icon={ShieldCheck}>
             {!lgpdDisponivel && (
               <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-                Migration LGPD 0014 ainda nao foi aplicada no banco conectado. A tela esta pronta, mas a fila fica bloqueada ate a aplicacao controlada da migration.
+                Migration LGPD 0014 ainda não foi aplicada no banco conectado. A tela está pronta, mas a fila fica bloqueada até a aplicação controlada da migration.
               </div>
             )}
             {loading ? (
               <div className="-mx-6 -my-6 divide-y divide-border"><SkeletonRow /><SkeletonRow /><SkeletonRow /></div>
             ) : solicitacoes.length === 0 ? (
-              <EmptyState illustration="generic" title="Nenhuma solicitacao" description="Solicitacoes LGPD abertas aparecerao aqui." />
+              <EmptyState illustration="generic" title="Nenhuma solicitação" description="Solicitações LGPD abertas aparecerão aqui." />
             ) : (
               <motion.div variants={escalonamento(reduzir)} initial="hidden" animate="show" className="grid gap-3">
                 {solicitacoes.map((item) => {
@@ -292,7 +292,7 @@ export default function AdminLgpdPage() {
                               <input
                                 value={motivoRejeicaoPorId[item.id] ?? ""}
                                 onChange={(event) => setMotivoRejeicaoPorId((current) => ({ ...current, [item.id]: event.target.value }))}
-                                placeholder="Motivo da rejeicao"
+                                placeholder="Motivo da rejeição"
                                 className="min-h-11 rounded-xl border border-border bg-card px-3 text-sm"
                               />
                               <button

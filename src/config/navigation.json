@@ -83,10 +83,6 @@
       "shortcut": "⌘K",
       "icon": "Search"
     },
-    "notifications": {
-      "label": "Notificações",
-      "icon": "Bell"
-    },
     "settings": {
       "href": "/configuracoes",
       "label": "Configurações",

@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   },
   other: {
     "tiktok-developers-site-verification": appConfig.metadata.tiktokDevelopersSiteVerification,
+    // Sem isso, iOS/Android detectam sequências como "R$ 0,00" como se fossem
+    // telefone e as transformam em link azul sublinhado — visível em qualquer
+    // valor monetário da tela, não só neste card.
+    "format-detection": "telephone=no, date=no, email=no, address=no",
   },
 };
 

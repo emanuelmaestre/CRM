@@ -324,7 +324,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
 
   const iniciarPolling = useCallback(() => {
     if (intervalo.current) return;
-    intervalo.current = setInterval(() => void consultarRef.current(), 1500);
+    intervalo.current = setInterval(() => void consultarRef.current(), 5_000);
   }, []);
 
   const consultar = useCallback(async () => {

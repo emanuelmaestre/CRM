@@ -414,7 +414,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
       await actionDispararSincronizacaoConta(channelAccountId);
       toast.success("Sincronização iniciada — acompanhando o progresso.");
       pararPollingSync();
-      intervaloSync.current = setInterval(() => void verificarSync(channelAccountId), 1500);
+      intervaloSync.current = setInterval(() => void verificarSync(channelAccountId), 5_000);
     } catch {
       toast.error("Não foi possível iniciar a sincronização.");
       setSincronizando(false);

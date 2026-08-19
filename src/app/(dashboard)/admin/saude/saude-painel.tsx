@@ -186,7 +186,7 @@ function VerificarAgoraButton() {
         toast.success("Conectores verificados agora.");
         router.refresh();
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Nao foi possivel verificar os conectores.");
+        toast.error(error instanceof Error ? error.message : "Não foi possível verificar os conectores.");
       }
     });
   }

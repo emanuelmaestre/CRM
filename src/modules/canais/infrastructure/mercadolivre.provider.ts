@@ -577,6 +577,22 @@ export class MercadoLivreProvider implements ChannelProvider {
     }
   }
 
+  /** Um pedido específico, já com endereço/frete real/desconto/acréscimo
+   *  resolvidos — usado pelo backfill (scripts/backfill-frete-desconto-acrescimo.mjs)
+   *  para enriquecer pedidos que já existiam no banco antes desses campos
+   *  existirem, e também pelo webhook orders_v2 para ingerir o pedido assim
+   *  que ele é criado. Mesmo enriquecimento de `buscarPedidos`, só que para
+   *  um `id` já conhecido em vez de uma busca por data. */
+  async buscarPedidoPorId(providerOrderId: string): Promise<PedidoNormalizado> {
+    const order = await this.get<MLOrderDetail>(`/orders/${providerOrderId}`);
+    const shippingId = order.shipping?.id;
+    const [endereco, custoEnvio] = await Promise.all([
+      shippingId ? this.buscarEnderecoEntrega(shippingId) : Promise.resolve(null),
+      shippingId ? this.buscarCustoEnvioVendedor(shippingId) : Promise.resolve(null),
+    ]);
+    return normalizarPedidoMercadoLivre(order, endereco, custoEnvio);
+  }
+
   async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
     const me = await this.get<{ id: string }>("/users/me");
     const data = await this.get<{
@@ -1039,7 +1055,10 @@ export async function obterTokenMercadoLivre(brandSlug: BrandSlug): Promise<{
   return { accessToken, refreshToken };
 }
 
-export async function criarMLProvider(brandSlug: BrandSlug): Promise<MercadoLivreProvider> {
+export async function criarMLProvider(
+  brandSlug: BrandSlug,
+  tokenJaObtido?: { accessToken: string; refreshToken: string },
+): Promise<MercadoLivreProvider> {
   const upper = brandEnvSuffix(brandSlug);
   const clientId = process.env.ML_CLIENT_ID;
   const clientSecret = process.env.ML_CLIENT_SECRET;
@@ -1047,6 +1066,6 @@ export async function criarMLProvider(brandSlug: BrandSlug): Promise<MercadoLivr
     throw new Error(`Client ID/secret Mercado Livre não configurados para ${upper}.`);
   }
 
-  const { accessToken, refreshToken } = await obterTokenMercadoLivre(brandSlug);
+  const { accessToken, refreshToken } = tokenJaObtido ?? (await obterTokenMercadoLivre(brandSlug));
   return new MercadoLivreProvider({ clientId, clientSecret, accessToken, refreshToken });
 }
