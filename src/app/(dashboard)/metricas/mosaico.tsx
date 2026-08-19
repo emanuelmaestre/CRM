@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  AlertTriangle, BarChart3, Gauge, Hourglass, MessageSquare, Megaphone,
+  AlertTriangle, BarChart3, Gauge, Hourglass, Megaphone,
   Package, RefreshCw, ShoppingBag, Sparkles, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
@@ -31,7 +31,6 @@ import {
 import { AcoesCard, type Insight, type Sugestao } from "./acoes-card";
 import { ComparacaoCard } from "./comparacao-card";
 import { ComparacaoPeriodoCard } from "./comparacao-periodo-card";
-import { PosVendaCard } from "./pos-venda-card";
 import { PublicacoesCard, type DesempenhoPreCarregado } from "./publicacoes-card";
 import { ScoreCard } from "./score-card";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
@@ -353,7 +352,6 @@ export function Mosaico() {
       });
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
-  const carregandoPosVenda = posVenda.chave !== chave;
 
   const [acoes, setAcoes] = useState<{ carregado: boolean; insights: Insight[]; sugestoes: Sugestao[] }>({
     carregado: false, insights: [], sugestoes: [],
@@ -488,8 +486,16 @@ export function Mosaico() {
       legenda: blocosCopy.comparacao.legenda,
     },
     subtitulo: metricasConfig.comparacaoCard.subtitulo,
-    render: (acaoSlot) => <ComparacaoCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} atualizadoEm={carregadoEm} />,
-  }), [saude.dados, carregandoSaude, carregadoEm]);
+    render: (acaoSlot) => (
+      <ComparacaoCard
+        dados={saude.dados}
+        carregando={carregandoSaude}
+        acaoSlot={acaoSlot}
+        atualizadoEm={carregadoEm}
+        posVenda={posVenda.dados}
+      />
+    ),
+  }), [saude.dados, carregandoSaude, carregadoEm, posVenda.dados]);
 
   // Só existe com dado: Evolução precisa de uma janela anterior para
   // comparar, e um bloco que abriria vazio não vira bloco.
@@ -637,17 +643,6 @@ export function Mosaico() {
     ),
   }), [parados, filtroParados, escopo]);
 
-  const blocoPosVenda = useMemo<BlocoDef>(() => ({
-    id: "posVenda",
-    secao: "atendimento",
-    titulo: blocosCopy.posVenda.titulo,
-    icone: MessageSquare,
-    accent: "var(--warning)",
-    resumo: { valor: null, legenda: blocosCopy.posVenda.legenda },
-    subtitulo: "Cancelamentos, devoluções e impacto financeiro do período",
-    render: () => <PosVendaCard dados={posVenda.dados} carregando={carregandoPosVenda} />,
-  }), [posVenda.dados, carregandoPosVenda]);
-
   const blocoAcoes = useMemo<BlocoDef>(() => ({
     id: "acoes",
     secao: "marketing",
@@ -693,11 +688,11 @@ export function Mosaico() {
   const { grupos, lista: blocos } = useMemo(() => agruparPorSecao([
     blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
     ...(blocoEvolucao ? [blocoEvolucao] : []),
-    blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
+    blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoAcoes,
     ...(blocoPublicacoes ? [blocoPublicacoes] : []),
   ]), [
     blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
-    blocoEvolucao, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoPosVenda, blocoAcoes,
+    blocoEvolucao, blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoAcoes,
     blocoPublicacoes,
   ]);
 

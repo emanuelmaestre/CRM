@@ -202,10 +202,6 @@
         "titulo": "Saúde da loja",
         "legenda": "Cinco pilares, um número"
       },
-      "reputacao": {
-        "titulo": "Termômetro",
-        "legenda": "Direto do Mercado Livre"
-      },
       "comparacao": {
         "titulo": "Marca",
         "legenda": "As mesmas réguas, lado a lado"
@@ -217,14 +213,6 @@
       "publicacoes": {
         "titulo": "Publicações",
         "legenda": "Anúncios ativos e pausados no período"
-      },
-      "posVenda": {
-        "titulo": "Pós-venda",
-        "legenda": "Cancelamento, atraso e devolução dos pedidos"
-      },
-      "atendimento": {
-        "titulo": "Atendimento",
-        "legenda": "Quanto o cliente espera por uma resposta"
       },
       "acoes": {
         "titulo": "Recomendações",

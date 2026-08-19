@@ -16,6 +16,7 @@ import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primit
 import { tint } from "@/shared/design-system/color";
 import { inteiro, moeda, moedaCompacta } from "@/shared/design-system/format";
 import { RefreshCw } from "lucide-react";
+import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 
 const copy = metricasConfig.comparacaoCard;
 const ACENTO = "var(--acento-3)";
@@ -183,7 +184,61 @@ function TiraNumeros({ marca, periodoLabel }: { marca: SaudeMarca; periodoLabel:
   );
 }
 
-export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm }: {
+/* ── Cumprimento de pedidos ───────────────────────────────────────
+   Vem do que era o card "Pós-venda" (removido — quase tudo que ele
+   media já apareceu aqui: "Taxa de problemas" era a mesma conta que
+   "Cancelamento" já faz, (cancelados+devolvidos)/total). Só o que era
+   genuinamente novo entrou: os números crus por trás dessa taxa
+   (Entregues/Em andamento/Cancelados/Devolvidos — antes só a % existia
+   aqui), a receita afetada e os motivos mais comuns. */
+function CumprimentoPedidos({ pv }: { pv: PosVendaMarcaComTaxa }) {
+  return (
+    <div className="mt-3 border-t border-border pt-3">
+      <p className="text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground">Cumprimento de pedidos</p>
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+        <div>
+          <dt className="text-muted-foreground">Entregues</dt>
+          <dd className="text-sm font-bold tabular-nums text-foreground"><NumeroAnimado valor={pv.entregues} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Em andamento</dt>
+          <dd className="text-sm font-bold tabular-nums text-foreground"><NumeroAnimado valor={pv.emTransito} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Cancelados</dt>
+          <dd className="text-sm font-bold tabular-nums text-destructive"><NumeroAnimado valor={pv.cancelados} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
+        </div>
+        <div>
+          <dt className="text-muted-foreground">Devolvidos</dt>
+          <dd className="text-sm font-bold tabular-nums text-destructive"><NumeroAnimado valor={pv.devolvidos} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
+        </div>
+      </dl>
+      {pv.impactoFinanceiro > 0 && (
+        <p className="mt-2.5 text-xs">
+          <span className="text-muted-foreground">Receita afetada: </span>
+          <span className="font-bold tabular-nums text-destructive"><NumeroAnimado valor={pv.impactoFinanceiro} formatar={(v) => moeda.format(v)} /></span>
+        </p>
+      )}
+      {pv.principaisMotivos.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {pv.principaisMotivos.map((m) => (
+            <span
+              key={m.motivo}
+              title={m.motivo}
+              className="max-w-full truncate rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+            >
+              {m.quantidade}× {m.motivo}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type PosVendaMarcaComTaxa = PosVendaResultado["marcas"][number];
+
+export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posVenda }: {
   dados: SaudeLojaResultado | null;
   carregando: boolean;
   acaoSlot?: HTMLElement | null;
@@ -193,6 +248,8 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm }: {
    *  quem olha um card sozinho vê de quando é aquele número sem precisar
    *  achar o relógio lá em cima do painel. */
   atualizadoEm?: Date | null;
+  /** Ex-card "Pós-venda" — ver CumprimentoPedidos acima. */
+  posVenda?: PosVendaResultado | null;
 }) {
   const [criterio, setCriterio] = useState<Criterio>("score");
   const reduzir = useReducedMotion();
@@ -266,6 +323,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm }: {
             const valor = valorDe(marca, criterio);
             const cor = corDaMarca(marca.marca);
             const lider = indice === 0 && valor !== null && valor > 0;
+            const pv = posVenda?.marcas.find((item) => item.brandId === marca.brandId);
             return (
               <motion.li
                 // `layout` no <li> faz a lista reordenar deslizando quando o
@@ -310,6 +368,8 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm }: {
                 </div>
 
                 <TiraNumeros marca={marca} periodoLabel={dados?.periodoLabel ?? ""} />
+
+                {pv && <CumprimentoPedidos pv={pv} />}
 
                 {atualizadoEm && (
                   <p className="mt-2.5 flex items-center gap-1 text-[10px] text-muted-foreground">
