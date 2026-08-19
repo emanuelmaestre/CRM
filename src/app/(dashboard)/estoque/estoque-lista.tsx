@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef, useTransition } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -84,23 +84,29 @@ const CORES_ESTADO: Record<EstadoLinha, string | null> = {
 };
 
 /* ── Indicador em card ─────────────────────────────────────────
-   Só existe quando o valor é maior que zero. Um card anunciando "0" ocupa o
-   mesmo espaço do card que exige ação e ensina a pessoa a ignorar a faixa. */
-function AlertCard({ label, valor, sub, icon, tom, ativo, onClick }: {
+   Sempre existem os 3 — sumir com a categoria zerada foi o que gerou a
+   dúvida "cadê o card de abaixo do mínimo?" quando só sobrava um dos três
+   com valor. Em vez de esconder, o card com valor 0 se apaga pra cor neutra:
+   continua nomeando a categoria, sem competir visualmente com quem realmente
+   precisa de atenção. */
+function AlertCard({ label, labelCurto, valor, sub, icon, tom, ativo, onClick }: {
   label: string;
+  labelCurto?: string;
   valor: number;
-  sub?: string;
+  sub?: ReactNode;
   icon: LucideIcon;
   tom: "danger" | "warning" | "neutro";
   ativo: boolean;
   onClick: () => void;
 }) {
-  const cor = tom === "danger" ? COR.critico : tom === "warning" ? COR.atencao : COR.neutro;
+  const cor = valor === 0
+    ? "var(--muted-foreground)"
+    : tom === "danger" ? COR.critico : tom === "warning" ? COR.atencao : COR.neutro;
 
   return (
     <TintedStatCard
-      label={label}
-      valor={<NumeroAnimado valor={valor} className="text-[26px] leading-none tracking-[-0.02em]" />}
+      label={labelCurto ? <><span className="sm:hidden">{labelCurto}</span><span className="hidden sm:inline">{label}</span></> : label}
+      valor={<NumeroAnimado valor={valor} className="text-[22px] leading-none tracking-[-0.02em] sm:text-[26px]" />}
       icon={icon}
       cor={cor}
       sub={sub}
@@ -141,10 +147,11 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
     );
   }
 
-  const cards = [
+  const cardsTodos = [
     {
       id: "abaixo_minimo" as Filtro,
       label: copy.indicators.belowMin,
+      labelCurto: "Abaixo mín.",
       valor: indicadores.abaixoMinimo,
       icon: AlertTriangle,
       tom: "danger" as const,
@@ -153,6 +160,7 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
     {
       id: "sem_estoque" as Filtro,
       label: copy.indicators.outOfStock,
+      labelCurto: "Sem estoque",
       valor: indicadores.semEstoque,
       icon: PackageX,
       tom: "warning" as const,
@@ -161,17 +169,22 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
     {
       id: "parados" as Filtro,
       label: copy.indicators.stalled,
+      labelCurto: "Parados",
       valor: indicadores.parados,
       icon: Hourglass,
       tom: "neutro" as const,
       sub: indicadores.capitalParado > 0
-        ? `${dinheiro.format(indicadores.capitalParado)} ${copy.indicators.capitalPrefix}`
+        ? <span className="hidden sm:inline">{dinheiro.format(indicadores.capitalParado)} {copy.indicators.capitalPrefix}</span>
         : undefined,
     },
-  ].filter((card) => card.valor > 0);
+  ];
 
   const semRegua = indicadores.semMinimo;
   const monitorados = Math.max(indicadores.total - semRegua, 0);
+  // Catálogo redondo de verdade — nada em nenhuma das 3 categorias e nada
+  // sem régua: aí sim vale trocar os cards por uma linha só de "tudo certo".
+  const tudoZerado = cardsTodos.every((card) => card.valor === 0) && semRegua === 0;
+  const cards = tudoZerado ? [] : cardsTodos;
 
   return (
     <div data-tour="estoque-saude" className="mb-4 flex flex-col gap-3">
@@ -180,20 +193,13 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
           variants={staggerExagerado}
           initial="hidden"
           animate="show"
-          className={`grid items-start gap-3 ${cards.length === 1 ? "grid-cols-1 sm:max-w-xs" : cards.length === 2 ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-3"}`}
+          className="grid grid-cols-3 items-start gap-2.5 sm:gap-3"
         >
-          {cards.map((card, indice) => (
-            <motion.div
-              key={card.id}
-              variants={entradaExagerada}
-              // Com 3 cards, a grade é 2 colunas até o lg — o terceiro sobra
-              // sozinho na linha, com metade da largura vazia do lado. Ele
-              // estica pras duas colunas só nesse intervalo (2-col); no lg,
-              // que já tem 3 colunas de verdade, volta ao tamanho normal.
-              className={indice === cards.length - 1 && cards.length % 2 === 1 && cards.length > 1 ? "col-span-2 lg:col-span-1" : undefined}
-            >
+          {cards.map((card) => (
+            <motion.div key={card.id} variants={entradaExagerada}>
               <AlertCard
                 label={card.label}
+                labelCurto={card.labelCurto}
                 valor={card.valor}
                 sub={card.sub}
                 icon={card.icon}
@@ -206,8 +212,8 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
         </motion.div>
       )}
 
-      {/* Nada a resolver: uma linha em vez de quatro cards em zero. */}
-      {cards.length === 0 && semRegua === 0 && (
+      {/* Nada a resolver: uma linha em vez dos três cards em zero. */}
+      {tudoZerado && (
         <div
           className="flex flex-col gap-3 rounded-[1.25rem] border px-5 py-4 sm:flex-row sm:items-center"
           style={{
