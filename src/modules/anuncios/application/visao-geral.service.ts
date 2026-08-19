@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
-import { adsAnuncioSnapshot, adsCampanhaSnapshot, brand } from "@/shared/lib/db/schema";
+import { adsCampanhaSnapshot, brand } from "@/shared/lib/db/schema";
 import { getBrandConfig } from "@/shared/config/brands";
 import { calcularDependenciaMidia } from "./metricas-calculadas";
 import { diagnosticarCampanha, type Diagnostico } from "./motor-diagnostico";
@@ -170,36 +170,75 @@ export async function obterVisaoGeral(
     .orderBy(brand.name);
 
   const resultado: VisaoGeralMarca[] = [];
+  const idsDasMarcas = marcas.map((marca) => marca.id);
+
+  /* Antes este trecho vivia dentro do laço abaixo: para cada marca saíam duas
+     consultas, e como o pool do projeto é de uma conexão só (ver db/index.ts),
+     elas não corriam em paralelo — oito marcas viravam dezesseis idas ao banco
+     em fila. Agora são duas idas no total, e o laço só distribui em memória o
+     que já veio. */
+
+  // Snapshot mais recente por marca — não necessariamente "hoje": se a
+  // sincronização de hoje ainda não rodou, mostra o último dado que existe em
+  // vez de aparentar que não há dado nenhum. `criadoEm` junto pra saber a que
+  // horas essa sincronização rodou — `data` sozinha só diz o dia, não a hora.
+  const ultimosSnapshots = idsDasMarcas.length === 0 ? [] : await ctx.db
+    .select({
+      brandId: adsCampanhaSnapshot.brandId,
+      data: adsCampanhaSnapshot.data,
+      criadoEm: adsCampanhaSnapshot.criadoEm,
+    })
+    .from(adsCampanhaSnapshot)
+    .where(and(eq(adsCampanhaSnapshot.orgId, ctx.orgId), inArray(adsCampanhaSnapshot.brandId, idsDasMarcas)))
+    .orderBy(desc(adsCampanhaSnapshot.data), desc(adsCampanhaSnapshot.criadoEm));
+
+  // A ordenação acima garante que a primeira linha vista de cada marca é a mais
+  // recente — é o mesmo que o `limit(1)` por marca fazia, agora sem repetir a
+  // consulta.
+  const ultimoPorMarca = new Map<string, { data: string; criadoEm: Date }>();
+  for (const linha of ultimosSnapshots) {
+    if (!ultimoPorMarca.has(linha.brandId)) {
+      ultimoPorMarca.set(linha.brandId, { data: linha.data, criadoEm: linha.criadoEm });
+    }
+  }
+
+  const periodoDefinido = Boolean(opcoes.inicio && opcoes.fim);
+
+  // Sem período escolhido, cada marca olha o próprio dia mais recente — que
+  // pode ser diferente entre marcas. Buscar "todos os dias mais recentes de
+  // uma vez" e filtrar por marca em memória preserva exatamente esse recorte.
+  const datasMaisRecentes = [...new Set([...ultimoPorMarca.values()].map((item) => item.data))];
+
+  const todasAsLinhas = idsDasMarcas.length === 0 || (!periodoDefinido && datasMaisRecentes.length === 0) ? [] : await ctx.db
+    .select()
+    .from(adsCampanhaSnapshot)
+    .where(and(
+      eq(adsCampanhaSnapshot.orgId, ctx.orgId),
+      inArray(adsCampanhaSnapshot.brandId, idsDasMarcas),
+      ...(periodoDefinido
+        ? [gte(adsCampanhaSnapshot.data, opcoes.inicio!), lte(adsCampanhaSnapshot.data, opcoes.fim!)]
+        : [inArray(adsCampanhaSnapshot.data, datasMaisRecentes)]),
+    ))
+    .orderBy(asc(adsCampanhaSnapshot.data));
+
+  const linhasPorMarca = new Map<string, typeof todasAsLinhas>();
+  for (const linha of todasAsLinhas) {
+    const grupo = linhasPorMarca.get(linha.brandId) ?? [];
+    grupo.push(linha);
+    linhasPorMarca.set(linha.brandId, grupo);
+  }
 
   for (const marca of marcas) {
-    // Snapshot mais recente disponível por campanha — não necessariamente
-    // "hoje": se a sincronização de hoje ainda não rodou, mostra o último
-    // dado que existe em vez de aparentar que não há dado nenhum.
-    // `criadoEm` junto pra saber a que horas essa sincronização rodou —
-    // `data` sozinha só diz o dia, não a hora.
-    const ultimoSnapshot = await ctx.db
-      .select({ data: adsCampanhaSnapshot.data, criadoEm: adsCampanhaSnapshot.criadoEm })
-      .from(adsCampanhaSnapshot)
-      .where(and(eq(adsCampanhaSnapshot.orgId, ctx.orgId), eq(adsCampanhaSnapshot.brandId, marca.id)))
-      .orderBy(desc(adsCampanhaSnapshot.data), desc(adsCampanhaSnapshot.criadoEm))
-      .limit(1)
-      .then((rows) => rows[0] ?? null);
+    const ultimoSnapshot = ultimoPorMarca.get(marca.id) ?? null;
     const ultimaData = ultimoSnapshot?.data ?? null;
 
     if (!ultimaData) continue; // marca sem nenhum snapshot ainda — nem aparece na lista
 
-    const periodoDefinido = Boolean(opcoes.inicio && opcoes.fim);
-    const linhasCampanhaBrutas = await ctx.db
-      .select()
-      .from(adsCampanhaSnapshot)
-      .where(and(
-        eq(adsCampanhaSnapshot.orgId, ctx.orgId),
-        eq(adsCampanhaSnapshot.brandId, marca.id),
-        ...(periodoDefinido
-          ? [gte(adsCampanhaSnapshot.data, opcoes.inicio!), lte(adsCampanhaSnapshot.data, opcoes.fim!)]
-          : [eq(adsCampanhaSnapshot.data, ultimaData)]),
-      ))
-      .orderBy(asc(adsCampanhaSnapshot.data));
+    // Sem período, cada marca fica só com as linhas do próprio dia mais
+    // recente: a consulta trouxe os dias mais recentes de todas as marcas
+    // juntos, e uma marca não pode herdar o dia da outra.
+    const linhasCampanhaBrutas = (linhasPorMarca.get(marca.id) ?? [])
+      .filter((linha) => periodoDefinido || linha.data === ultimaData);
 
     const porCampanha = new Map<string, typeof linhasCampanhaBrutas>();
     for (const linha of linhasCampanhaBrutas) {
@@ -231,20 +270,6 @@ export async function obterVisaoGeral(
         cvr: clicks > 0 ? String((unitsQuantity / clicks) * 100) : null,
       };
     });
-
-    const linhasAnuncio = await ctx.db
-      .select({
-        campaignId: adsAnuncioSnapshot.campaignId,
-        cliques: adsAnuncioSnapshot.clicks,
-        estoqueProdutoId: adsAnuncioSnapshot.produtoId,
-      })
-      .from(adsAnuncioSnapshot)
-      .where(and(
-        eq(adsAnuncioSnapshot.orgId, ctx.orgId),
-        eq(adsAnuncioSnapshot.brandId, marca.id),
-        eq(adsAnuncioSnapshot.data, ultimaData),
-      ));
-    void linhasAnuncio; // reservado para o cruzamento de estoque por campanha (próximo incremento)
 
     const campanhas: CampanhaVisaoGeral[] = linhasCampanha.map((linha) => {
       const investimento = paraNumero(linha.cost);
