@@ -67,8 +67,15 @@ export const AnimatedInfoTrigger = React.forwardRef<HTMLButtonElement, AnimatedI
             />
           )}
         </AnimatePresence>
+        {/* Sem `key` aqui de propósito — isto envolve o ícone que o cursor
+            realmente toca. Uma key que muda a cada pulso derrubava e recriava
+            este nó no meio do próprio gesto de clique: pointerdown chegava a
+            tempo, mas o nó de pointerup já era outro, e o navegador nunca
+            sintetizava o `click` que o Radix precisa pra abrir o popover —
+            causa real do ícone de info "não abrir" às vezes em todo o
+            sistema. Uma nova referência de objeto em `animate` a cada mudança
+            de pulso já é suficiente para reiniciar o wiggle, sem remontar. */}
         <motion.span
-          key={`icone-${pulso}`}
           aria-hidden="true"
           initial={false}
           animate={pulso > 0 && !reduzir ? { scale: [1, 0.9, 1.1, 1], rotate: [0, -11, 7, 0] } : undefined}
@@ -106,14 +113,24 @@ export function AnimatedInfoPopover({
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content asChild {...contentProps}>
           <motion.div
-            initial={reduzir ? false : { opacity: 0, scale: 0.84, y: 7, filter: "blur(6px)" }}
-            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+            // Sem `filter: blur(...)` de propósito: diferente de opacity/scale/y,
+            // filter não roda no compositor — o navegador reprocessa o pixel a
+            // cada frame. Esse popover abre em toda tela do sistema (é o ícone
+            // de info), e esse repaint caro era o motivo de o clique "não abrir"
+            // — a abertura era instantânea, só o quadro ficava caro demais para
+            // pintar a tempo.
+            initial={reduzir ? false : { opacity: 0, scale: 0.84, y: 7 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={reduzir ? undefined : { opacity: 0, scale: 0.96, y: 2 }}
             transition={reduzir ? { duration: 0 } : springs.settle}
-            className={cn(
-              "origin-[var(--radix-popover-content-transform-origin)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)]",
-              className,
-            )}
+            // Só a animação do Framer Motion acima (initial/animate/exit) —
+            // as classes data-[state=open]:animate-in do Tailwind ficavam aqui
+            // por cima, uma segunda `@keyframes` CSS animando opacity/scale no
+            // mesmo elemento ao mesmo tempo que o JS do Framer Motion também
+            // escrevia opacity/transform a cada frame. Duas engines de animação
+            // disputando as mesmas propriedades é o que fazia a abertura parecer
+            // travada ou não acontecer, dependendo de qual delas "ganhava" o frame.
+            className={cn("origin-[var(--radix-popover-content-transform-origin)] outline-none", className)}
           >
             {children}
             {showArrow && <PopoverPrimitive.Arrow className={cn("fill-card", arrowClassName)} />}
