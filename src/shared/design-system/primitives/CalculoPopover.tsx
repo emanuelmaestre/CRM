@@ -29,9 +29,15 @@ interface CalculoPopoverProps {
   resultado: string;
   /** Ressalva opcional, ex.: por que o valor é "—" ou o que fica de fora da conta. */
   nota?: string;
+  /** Alvo de toque de 44px é o padrão certo ao lado de texto normal — mas
+   *  dentro de uma grade densa de rótulos de 10px (ex.: tira de números do
+   *  card Marca), ele infla a altura da célula inteira e abre um vão vazio
+   *  embaixo dos vizinhos na mesma linha. `compacto` encolhe só o alvo
+   *  visual/de clique, mantendo o popover que abre idêntico. */
+  compacto?: boolean;
 }
 
-export function CalculoPopover({ titulo, significado, periodoLabel, formula, itens, resultado, nota }: CalculoPopoverProps) {
+export function CalculoPopover({ titulo, significado, periodoLabel, formula, itens, resultado, nota, compacto }: CalculoPopoverProps) {
   const reduzir = useReducedMotion();
   const barra = itens.find((item) => item.fracao !== undefined);
 
@@ -41,8 +47,12 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
         <AnimatedInfoTrigger
           aria-label={`Entenda o indicador ${titulo}`}
           title={`Entenda o indicador: ${titulo}`}
-          iconSize={15}
-          className="press-feedback inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          iconSize={compacto ? 11 : 15}
+          className={
+            compacto
+              ? "press-feedback inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              : "press-feedback inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          }
         />
       )}
       align="start"

@@ -50,6 +50,17 @@ function corDaMarca(slug: string): string {
   return (isBrandSlug(slug) ? getBrandConfig(slug)?.color : undefined) ?? ACENTO;
 }
 
+/** Cor da barra/número quando o critério é Score — aqui a cor precisa
+ *  significar "bom ou ruim" (vermelho = alerta), diferente das outras abas
+ *  (Faturamento, Pedidos...), onde a cor é só a identidade da marca e uma
+ *  marca vermelha no topo do ranking não deveria parecer um problema. */
+function corDoScore(score: number | null): string {
+  if (score === null) return "var(--muted-foreground)";
+  if (score >= 80) return "var(--success)";
+  if (score >= 50) return "var(--warning)";
+  return "var(--destructive)";
+}
+
 /* ── Tira de números ───────────────────────────────────────────
    Os outros indicadores continuam visíveis mesmo quando não são o
    critério de ordenação. É o que separa "comparar" de "olhar um
@@ -94,13 +105,59 @@ const CAMPO_DO_CRITERIO: Record<Criterio, string | null> = {
 
 function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; periodoLabel: string; criterio: Criterio }) {
   const campos: CampoNumero[] = [
-    { label: "Faturamento", valor: marca.faturamentoLabel, valorNumerico: marca.faturamento, formatarNumero: (v) => moeda.format(v) },
-    { label: "Pedidos", valor: String(marca.pedidos), valorNumerico: marca.pedidos, formatarNumero: (v) => inteiro.format(Math.round(v)) },
-    { label: "Ticket", valor: marca.ticketMedioLabel, valorNumerico: marca.ticketMedio, formatarNumero: (v) => moeda.format(v) },
+    {
+      label: "Faturamento", valor: marca.faturamentoLabel, valorNumerico: marca.faturamento, formatarNumero: (v) => moeda.format(v),
+      calculo: {
+        titulo: "Faturamento",
+        significado: "Soma do valor de todos os pedidos aprovados da marca no período — sem contar os cancelados ou devolvidos.",
+        formula: "soma do valor de cada pedido válido no período",
+        resultado: marca.faturamentoLabel,
+        itens: [
+          { label: "Pedidos considerados", valor: inteiro.format(marca.pedidos) },
+          { label: "Ticket médio por pedido", valor: marca.ticketMedioLabel },
+        ],
+        nota: "Pedidos cancelados ou devolvidos não entram nessa soma — eles são medidos à parte, em Cancelamento.",
+      },
+    },
+    {
+      label: "Pedidos", valor: String(marca.pedidos), valorNumerico: marca.pedidos, formatarNumero: (v) => inteiro.format(Math.round(v)),
+      calculo: {
+        titulo: "Pedidos",
+        significado: "Quantidade de pedidos aprovados da marca no período — a mesma base usada para calcular Faturamento e Ticket médio.",
+        formula: "contagem de pedidos válidos (sem cancelados ou devolvidos) no período",
+        resultado: String(marca.pedidos),
+        itens: [{ label: "Total no período", valor: inteiro.format(marca.pedidos) }],
+        nota: "Pedidos cancelados ou devolvidos ficam de fora daqui e entram na conta de Cancelamento.",
+      },
+    },
+    {
+      label: "Ticket", valor: marca.ticketMedioLabel, valorNumerico: marca.ticketMedio, formatarNumero: (v) => moeda.format(v),
+      calculo: {
+        titulo: "Ticket médio",
+        significado: "Quanto cada pedido rendeu, em média, para a marca no período.",
+        formula: "faturamento total dividido pelo número de pedidos",
+        resultado: marca.ticketMedioLabel,
+        itens: [
+          { label: "Faturamento", valor: marca.faturamentoLabel },
+          { label: "Pedidos", valor: inteiro.format(marca.pedidos) },
+        ],
+        nota: "Sobe quando poucos pedidos caros puxam a média — vale olhar junto com o volume de Pedidos, não sozinho.",
+      },
+    },
     {
       label: "Nota",
       valor: marca.notaMedia === null ? "—" : `${marca.notaMedia.toFixed(1)} ★`,
       ...(marca.notaMedia === null ? {} : { valorNumerico: marca.notaMedia, formatarNumero: (v: number) => `${v.toFixed(1)} ★` }),
+      calculo: {
+        titulo: "Nota média",
+        significado: "Média das avaliações que os clientes deixaram para os pedidos da marca no período — quanto mais perto de 5, melhor a experiência percebida.",
+        formula: "média simples das notas (1 a 5) dadas pelos clientes no período",
+        resultado: marca.notaMedia === null ? "—" : `${marca.notaMedia.toFixed(1)} ★`,
+        itens: marca.notaMedia === null ? [] : [{ label: "Nota média no período", valor: `${marca.notaMedia.toFixed(1)} ★` }],
+        nota: marca.notaMedia === null
+          ? "Nenhuma avaliação registrada nesse período ainda — por isso não há nota pra mostrar."
+          : "Considera todas as avaliações recebidas no período, não só as 5 estrelas.",
+      },
     },
     {
       label: "Reclamações",
@@ -108,10 +165,31 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
         ? `${marca.reclamacoesAbertas} (${marca.emMediacao} em mediação)`
         : String(marca.reclamacoesAbertas),
       alerta: marca.emMediacao > 0,
+      calculo: {
+        titulo: "Reclamações",
+        significado: "Reclamações abertas pelo cliente no Mercado Livre contra pedidos da marca no período. \"Em mediação\" é quando o próprio Mercado Livre já entrou na conversa.",
+        formula: "contagem de reclamações abertas no período, com destaque para as que evoluíram para mediação",
+        resultado: marca.emMediacao > 0 ? `${marca.reclamacoesAbertas} (${marca.emMediacao} em mediação)` : String(marca.reclamacoesAbertas),
+        itens: [
+          { label: "Reclamações abertas", valor: String(marca.reclamacoesAbertas) },
+          { label: "Em mediação", valor: String(marca.emMediacao) },
+        ],
+        nota: "Mediação é o estágio mais sério: o Mercado Livre passa a decidir o caso em vez de só mediar a conversa entre marca e cliente.",
+      },
     },
     // "Resposta" só entra quando existe mediana de verdade — um "—" solto
     // não é informação, é um buraco no meio da grade.
-    ...(marca.atendimento?.medianaLabel ? [{ label: "Resposta", valor: marca.atendimento.medianaLabel }] : []),
+    ...(marca.atendimento?.medianaLabel ? [{
+      label: "Resposta", valor: marca.atendimento.medianaLabel,
+      calculo: {
+        titulo: "Tempo de resposta",
+        significado: "Mediana do tempo que a marca levou para responder as perguntas dos clientes no período.",
+        formula: "mediana do tempo entre a pergunta do cliente e a primeira resposta, no período",
+        resultado: marca.atendimento.medianaLabel,
+        itens: [{ label: "Mediana de resposta", valor: marca.atendimento.medianaLabel }],
+        nota: "Mediana, não média: uma conversa esquecida por semanas não distorce o número de todo mundo.",
+      },
+    }] : []),
     {
       label: "Cancelamento",
       valor: marca.taxaCancelamento === null ? "—" : `${marca.taxaCancelamento}%`,
@@ -186,6 +264,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
               <span className="truncate">{campo.label}</span>
               {campo.calculo && (
                 <CalculoPopover
+                  compacto
                   titulo={campo.calculo.titulo}
                   significado={campo.calculo.significado}
                   formula={campo.calculo.formula}
@@ -237,7 +316,23 @@ function CumprimentoPedidos({ pv }: { pv: PosVendaMarcaComTaxa }) {
   return (
     <div className="mt-3 border-t border-border pt-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground">Cumprimento de pedidos</p>
+        <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[.07em] text-muted-foreground">
+          <span>Cumprimento de pedidos</span>
+          <CalculoPopover
+            compacto
+            titulo="Cumprimento de pedidos"
+            significado="Mostra o que aconteceu com os pedidos da marca no período: quantos já foram entregues, quantos ainda estão a caminho, e quantos foram cancelados ou devolvidos."
+            formula="contagem de pedidos por status (entregue, em andamento, cancelado, devolvido) no período"
+            resultado={total > 0 ? `${inteiro.format(total)} pedidos` : "—"}
+            itens={total > 0 ? SEGMENTOS_PEDIDO.map((s) => ({
+              label: s.label,
+              valor: inteiro.format(pv[s.chave]),
+              fracao: pv[s.chave] / total,
+            })) : []}
+            periodoLabel={undefined}
+            nota="Cancelados e devolvidos aqui são os mesmos que entram na taxa de Cancelamento, lá em cima — ali em porcentagem, aqui em número absoluto."
+          />
+        </p>
         {pv.impactoFinanceiro > 0 && (
           <span className="shrink-0 text-[11px] font-bold tabular-nums text-destructive">
             <NumeroAnimado valor={pv.impactoFinanceiro} formatar={(v) => moeda.format(v)} /> afetado
@@ -390,6 +485,10 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
           {ordenadas.map((marca, indice) => {
             const valor = valorDe(marca, criterio);
             const cor = corDaMarca(marca.marca);
+            // A barra e o número grande precisam significar "bom ou ruim" só
+            // quando o critério É a saúde (Score) — nas outras abas a cor
+            // continua sendo a identidade da marca, não um sinal de alerta.
+            const corDestaque = criterio === "score" ? corDoScore(valor) : cor;
             const lider = indice === 0 && valor !== null && valor > 0;
             const pv = posVenda?.marcas.find((item) => item.brandId === marca.brandId);
             return (
@@ -420,7 +519,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
                       </motion.span>
                     )}
                   </span>
-                  <span className="shrink-0 text-[15px] font-bold tabular-nums text-foreground">
+                  <span className="shrink-0 text-[15px] font-bold tabular-nums" style={{ color: corDestaque }}>
                     {rotuloDe(marca, criterio)}
                   </span>
                 </div>
@@ -429,7 +528,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
                   <BarraComLimite
                     valor={valor ?? 0}
                     maximo={maximo}
-                    cor={cor}
+                    cor={corDestaque}
                     altura={8}
                     atraso={indice * 0.06}
                   />
