@@ -1,5 +1,6 @@
 "use server";
 
+import { medirTempo } from "@/shared/lib/observability/medir-tempo";
 import { z } from "zod";
 import { obterDesempenhoPublicacoes, type DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
@@ -44,7 +45,7 @@ export async function actionObterDesempenhoPublicacoes(
 export async function actionObterSaudeLoja(filtros: MetricasFiltros = {}): Promise<SaudeLojaResultado> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
-  return obterSaudeLoja(ctx, FiltrosSchema.parse(filtros));
+  return medirTempo("metricas/saude-loja", () => obterSaudeLoja(ctx, FiltrosSchema.parse(filtros)));
 }
 
 /** Consulta separada do score porque o funil não depende de nenhum canal

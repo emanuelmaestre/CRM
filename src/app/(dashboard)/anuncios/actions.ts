@@ -1,5 +1,6 @@
 "use server";
 
+import { medirTempo } from "@/shared/lib/observability/medir-tempo";
 import { z } from "zod";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
@@ -21,7 +22,7 @@ export async function actionObterVisaoGeralAnuncios(
 ): Promise<VisaoGeralResultado> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
-  return obterVisaoGeral(ctx, FiltrosSchema.parse(filtros));
+  return medirTempo("anuncios/visao-geral", () => obterVisaoGeral(ctx, FiltrosSchema.parse(filtros)));
 }
 
 const AnunciosDaCampanhaSchema = z.object({

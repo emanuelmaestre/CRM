@@ -1,3 +1,4 @@
+import { medirTempo } from "@/shared/lib/observability/medir-tempo";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { authorizeRoute } from "@/shared/lib/auth/session";
@@ -25,6 +26,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Payload inválido." }, { status: 422 });
   }
 
-  const mapa = await identificarCompradoresDeOpinioes(auth.contexto.orgId, input.data.itens);
+  const mapa = await medirTempo(
+    `avaliacoes/identificar (${input.data.itens.length} anuncios)`,
+    () => identificarCompradoresDeOpinioes(auth.contexto.orgId, input.data.itens),
+  );
   return NextResponse.json({ identificacoes: Object.fromEntries(mapa) });
 }

@@ -1,3 +1,4 @@
+import { medirTempo } from "@/shared/lib/observability/medir-tempo";
 import { AvaliacoesCliente } from "./avaliacoes-cliente";
 import { requirePageAuth } from "@/shared/lib/auth/session";
 import { listarAvaliacoesDoCache } from "@/modules/canais/application/avaliacoes-cache";
@@ -16,7 +17,10 @@ export default async function AvaliacoesPage() {
   // redirecionamento. Sem sessão, `getAuthContext` lançaria erro (tela de 500)
   // em vez de mandar para o login.
   const { orgId } = await requirePageAuth();
-  const { items } = await listarAvaliacoesDoCache(orgId).catch(() => ({ items: [] }));
+  const { items } = await medirTempo(
+    "avaliacoes/cache",
+    () => listarAvaliacoesDoCache(orgId),
+  ).catch(() => ({ items: [] }));
 
   return <AvaliacoesCliente itensIniciais={items} />;
 }
