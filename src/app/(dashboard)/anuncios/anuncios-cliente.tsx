@@ -8,7 +8,7 @@ import { FileText, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
-import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { isBrandSlug } from "@/shared/config/brands";
 import { springs, stagger } from "@/shared/design-system/motion-variants";
@@ -413,8 +413,13 @@ export function AnunciosCliente() {
       <div className="flex flex-wrap items-center gap-3">
         <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
         <div className="flex flex-wrap items-end gap-2" aria-label="Período dos anúncios">
-          <CalendarioPopover rotulo="De:" valor={periodo.inicio} max={periodo.fim || hojeISO} onChange={(inicio) => setPeriodo((atual) => ({ ...atual, inicio }))} disabled={carregando} />
-          <CalendarioPopover rotulo="Até:" valor={periodo.fim} min={periodo.inicio} max={hojeISO} onChange={(fim) => setPeriodo((atual) => ({ ...atual, fim }))} disabled={carregando} atraso={0.04} />
+          <CalendarioPopoverRange
+            rotulo="Período"
+            valor={periodo}
+            max={hojeISO}
+            onChange={setPeriodo}
+            disabled={carregando}
+          />
           <BotaoHoje
             ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
             disabled={carregando}

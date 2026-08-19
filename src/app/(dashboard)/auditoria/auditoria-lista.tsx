@@ -8,6 +8,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { escalonamento, listItem, springs, transicao } from "@/shared/design-system/motion-variants";
 import { actionListarAuditoria } from "./actions";
+import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 
 const copy = pagesConfig.auditoria;
 type AuditItem = Awaited<ReturnType<typeof actionListarAuditoria>>["data"][number];
@@ -81,13 +82,16 @@ export function AuditoriaLista() {
         initial={reduzir ? false : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={transicao(reduzir, springs.settleFast)}
-        className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_160px_150px_150px]"
+        className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_160px_auto]"
       >
         <input value={busca} onChange={(event) => { setBusca(event.target.value); setPagina(1); }} placeholder={copy.searchPlaceholder} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
         <select value={entidade} onChange={(event) => { setEntidade(event.target.value); setPagina(1); }} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm"><option value="">{copy.allEntities}</option>{copy.entities.map((value) => <option key={value} value={value}>{value}</option>)}</select>
         <select value={autorTipo} onChange={(event) => { setAutorTipo(event.target.value); setPagina(1); }} className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm"><option value="">{copy.allOrigins}</option>{Object.entries(copy.origins).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-        <input aria-label={copy.labels.startDateAria} value={inicio} onChange={(event) => { setInicio(event.target.value); setPagina(1); }} type="date" className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
-        <input aria-label={copy.labels.endDateAria} value={fim} onChange={(event) => { setFim(event.target.value); setPagina(1); }} type="date" className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm" />
+        <CalendarioPopoverRange
+          rotulo="Período"
+          valor={{ inicio, fim }}
+          onChange={(valor) => { setInicio(valor.inicio); setFim(valor.fim); setPagina(1); }}
+        />
       </motion.div>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card">

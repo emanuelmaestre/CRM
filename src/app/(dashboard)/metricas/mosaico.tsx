@@ -8,7 +8,7 @@ import {
   AlertTriangle, BarChart3, Gauge, Hourglass, Megaphone,
   Package, RefreshCw, ShoppingBag, Sparkles, TrendingDown, TrendingUp,
 } from "lucide-react";
-import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { stagger } from "@/shared/design-system/motion-variants";
@@ -143,21 +143,12 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
 }) {
   return (
     <>
-      <CalendarioPopover
-        rotulo="De:"
-        valor={periodo.inicio}
-        max={periodo.fim || hoje}
-        onChange={(valor) => trocarDatas(valor, periodo.fim)}
-        disabled={carregandoSaude}
-      />
-      <CalendarioPopover
-        rotulo="Até:"
-        valor={periodo.fim}
-        min={periodo.inicio}
+      <CalendarioPopoverRange
+        rotulo="Período"
+        valor={{ inicio: periodo.inicio, fim: periodo.fim }}
         max={hoje}
-        onChange={(valor) => trocarDatas(periodo.inicio, valor)}
+        onChange={({ inicio, fim }) => trocarDatas(inicio, fim)}
         disabled={carregandoSaude}
-        atraso={0.04}
       />
       <BotaoHoje
         ativo={periodo.inicio === hoje && periodo.fim === hoje}

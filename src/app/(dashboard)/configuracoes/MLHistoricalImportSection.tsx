@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { eases } from "@/shared/design-system/motion-variants";
+import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import {
   ArchiveRestore,
   Boxes,
@@ -378,21 +379,25 @@ export function MLHistoricalImportSection() {
                         <FileJson2 size={17} />
                       </span>
                     </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
                       <label className="space-y-1.5">
                         <span className="text-[11px] font-bold text-muted-foreground">{config.form.brand}</span>
                         <select value={brand} onChange={(event) => setBrand(event.target.value)} disabled={bloqueadoPorLote} className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm disabled:opacity-50">
                           {settingsConfig.mercadoLivre.brands.map((item) => <option key={item.slug} value={item.slug}>{item.label}</option>)}
                         </select>
                       </label>
-                      <label className="space-y-1.5">
-                        <span className="text-[11px] font-bold text-muted-foreground">{config.form.from}</span>
-                        <input type="date" value={de} max={ate} onChange={(event) => setDe(event.target.value)} disabled={bloqueadoPorLote} className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm disabled:opacity-50" />
-                      </label>
-                      <label className="space-y-1.5">
-                        <span className="text-[11px] font-bold text-muted-foreground">{config.form.until}</span>
-                        <input type="date" value={ate} min={de} max={dateInput(new Date())} onChange={(event) => setAte(event.target.value)} disabled={bloqueadoPorLote} className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm disabled:opacity-50" />
-                      </label>
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-bold text-muted-foreground">{config.form.from} / {config.form.until}</span>
+                        <div>
+                          <CalendarioPopoverRange
+                            rotulo="Período"
+                            valor={{ inicio: de, fim: ate }}
+                            max={dateInput(new Date())}
+                            onChange={(valor) => { setDe(valor.inicio); setAte(valor.fim); }}
+                            disabled={bloqueadoPorLote}
+                          />
+                        </div>
+                      </div>
                     </div>
                     <button
                       type="button"

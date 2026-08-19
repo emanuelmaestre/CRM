@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
@@ -606,8 +606,12 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens }: {
             {/* Filtra só os comentários com texto (ver aviso no ícone de
                 info acima) — a nota média e a distribuição não têm como ser
                 recortadas por data, o Mercado Livre não expõe isso. */}
-            <CalendarioPopover rotulo="De:" valor={dataInicio} max={dataFim || hoje} onChange={setDataInicio} />
-            <CalendarioPopover rotulo="Até:" valor={dataFim} min={dataInicio} max={hoje} onChange={setDataFim} atraso={0.04} />
+            <CalendarioPopoverRange
+              rotulo="Período"
+              valor={{ inicio: dataInicio, fim: dataFim }}
+              max={hoje}
+              onChange={({ inicio, fim }) => { setDataInicio(inicio); setDataFim(fim); }}
+            />
             <BotaoHoje
               ativo={dataInicio === hoje && dataFim === hoje}
               disabled={carregando}

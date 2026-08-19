@@ -12,7 +12,7 @@ import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
-import { CalendarioPopover } from "@/shared/design-system/primitives/CalendarioPopover";
+import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
@@ -463,8 +463,12 @@ export function PedidosLista() {
               }))}
             />
           </div>
-          <CalendarioPopover rotulo="De:" valor={dataInicial} max={dataFinal || undefined} onChange={setDataInicial} disabled={loading} />
-          <CalendarioPopover rotulo="Até:" valor={dataFinal} min={dataInicial || undefined} onChange={setDataFinal} disabled={loading} atraso={0.04} />
+          <CalendarioPopoverRange
+            rotulo="Período"
+            valor={{ inicio: dataInicial, fim: dataFinal }}
+            onChange={({ inicio, fim }) => { setDataInicial(inicio); setDataFinal(fim); }}
+            disabled={loading}
+          />
           <BotaoHoje
             ativo={dataInicial === hoje && dataFinal === hoje}
             disabled={loading}
