@@ -913,38 +913,38 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
           blocos empilhados (botões, depois um bloco centralizado enorme só
           para os filtros), consumindo altura sem motivo: filtro e ação
           convivem bem lado a lado, como em Clientes. */}
-      <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="mb-5 flex flex-wrap items-center justify-center gap-3">
-        <div className="flex flex-wrap items-center justify-center gap-2.5">
-          <motion.div variants={staggerExagerado} data-tour="estoque-empresa" className="flex flex-wrap justify-center gap-2.5">
-            {marcas.map((marca) => (
-              <MarcaPill
-                key={marca.brandId}
-                nome={marca.name}
-                slug={marca.slug}
-                total={marca.total}
-                ativo={brandIds.has(marca.brandId)}
-                onClick={() => alternarMarca(marca.brandId)}
-              />
-            ))}
-          </motion.div>
+      {/* Cada grupo rola na horizontal no mobile em vez de quebrar linha
+          (mesmo padrão de Vendas) — evita que o divisor entre marca/canal
+          fique órfão numa quebra e mantém a fileira previsível independente
+          de quantas marcas/canais existirem. */}
+      <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="mb-5 flex flex-col items-center gap-2.5 lg:w-fit lg:mx-auto lg:flex-row lg:flex-wrap lg:gap-3">
+        <motion.div variants={staggerExagerado} data-tour="estoque-empresa" className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible">
+          {marcas.map((marca) => (
+            <MarcaPill
+              key={marca.brandId}
+              nome={marca.name}
+              slug={marca.slug}
+              total={marca.total}
+              ativo={brandIds.has(marca.brandId)}
+              onClick={() => alternarMarca(marca.brandId)}
+            />
+          ))}
+        </motion.div>
 
-          {marcas.length > 0 && canais.length > 0 && (
-            <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border sm:block" />
-          )}
+        <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
 
-          <motion.div variants={staggerExagerado} className="flex flex-wrap justify-center gap-2.5">
-            {canais.map((item) => (
-              <CanalPill
-                key={item.tipo}
-                tipo={item.tipo}
-                total={item.total}
-                conectado={item.conectado}
-                ativo={canaisSelecionados.has(item.tipo)}
-                onClick={() => alternarCanal(item.tipo)}
-              />
-            ))}
-          </motion.div>
-        </div>
+        <motion.div variants={staggerExagerado} className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible">
+          {canais.map((item) => (
+            <CanalPill
+              key={item.tipo}
+              tipo={item.tipo}
+              total={item.total}
+              conectado={item.conectado}
+              ativo={canaisSelecionados.has(item.tipo)}
+              onClick={() => alternarCanal(item.tipo)}
+            />
+          ))}
+        </motion.div>
         {/* "Sincronizar" e "Configurar alertas" saíram daqui: viraram
             entradas fixas em Configurações (Central de sincronização e
             Áreas administrativas) — não precisam de destaque permanente
@@ -960,8 +960,8 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
         />
       )}
 
-      <div className="mb-4 flex flex-col gap-2 rounded-[1.25rem] bg-card p-2 shadow-[0_2px_16px_rgba(14,15,19,.07)] lg:flex-row lg:items-center">
-        <div className="relative lg:min-w-[16rem] lg:flex-1">
+      <div className="mb-4 flex items-center gap-2 rounded-[1.25rem] bg-card p-2 shadow-[0_2px_16px_rgba(14,15,19,.07)]">
+        <div className="relative min-w-0 flex-1 lg:min-w-[16rem]">
           <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={busca}

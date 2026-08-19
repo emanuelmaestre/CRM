@@ -361,7 +361,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
       <span id={tituloId} className="sr-only">{rotulo}</span>
 
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
-        <p className="text-[11px] font-semibold text-muted-foreground">
+        <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-muted-foreground">
           {!inicioRascunho && !inicioSelecionado && "Escolha a data inicial"}
           {inicioRascunho && "Agora escolha a data final"}
           {!inicioRascunho && inicioSelecionado && fimSelecionado && (
@@ -372,10 +372,10 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             </>
           )}
         </p>
-        <div className="flex gap-1">
-          <button type="button" onClick={() => atalho(1)} className="press-feedback rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Hoje</button>
-          <button type="button" onClick={() => atalho(7)} className="press-feedback rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">7 dias</button>
-          <button type="button" onClick={esteMes} className="press-feedback rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Este mês</button>
+        <div className="flex shrink-0 gap-1">
+          <button type="button" onClick={() => atalho(1)} className="press-feedback whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Hoje</button>
+          <button type="button" onClick={() => atalho(7)} className="press-feedback whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">7 dias</button>
+          <button type="button" onClick={esteMes} className="press-feedback whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Este mês</button>
         </div>
       </div>
 
