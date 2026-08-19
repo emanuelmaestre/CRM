@@ -16,7 +16,7 @@ import { springs } from "../motion-variants";
    com cor semântica. */
 
 export interface TintedStatCardProps {
-  label: string;
+  label: ReactNode;
   valor: ReactNode;
   icon: LucideIcon;
   /** Cor semântica do card (CSS var ou cor crua) — tinge fundo, ícone, label e valor. */

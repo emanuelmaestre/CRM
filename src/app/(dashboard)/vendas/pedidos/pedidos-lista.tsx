@@ -527,12 +527,20 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         aria-label="Resumo das vendas filtradas"
       >
         {[
-          { label: "Faturamento", numero: resumo.faturamento, formatar: (v: number) => dinheiro.format(v), icon: CircleDollarSign, cor: "var(--success)" },
-          { label: "Pedidos", numero: resumo.totalPedidos, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
-          { label: "Cancelados/Devolvidos", numero: resumo.cancelados, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
-          { label: "Valor cancelado/devolvido", numero: resumo.canceladosValor + resumo.devolvidosValor, formatar: (v: number) => dinheiro.format(v), icon: Ban, cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
+          { chave: "faturamento", label: "Faturamento", numero: resumo.faturamento, formatar: (v: number) => dinheiro.format(v), icon: CircleDollarSign, cor: "var(--success)" },
+          { chave: "pedidos", label: "Pedidos", numero: resumo.totalPedidos, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
+          {
+            chave: "cancelados",
+            label: <><span className="lg:hidden">Cancel./Devol.</span><span className="hidden lg:inline">Cancelados/Devolvidos</span></>,
+            numero: resumo.cancelados, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)",
+          },
+          {
+            chave: "valor-cancelado",
+            label: <><span className="lg:hidden">Valor cancel./devol.</span><span className="hidden lg:inline">Valor cancelado/devolvido</span></>,
+            numero: resumo.canceladosValor + resumo.devolvidosValor, formatar: (v: number) => dinheiro.format(v), icon: Ban, cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)",
+          },
         ].map((card) => (
-          <motion.div key={card.label} variants={variantes(reduzir, entradaExagerada)}>
+          <motion.div key={card.chave} variants={variantes(reduzir, entradaExagerada)}>
             <TintedStatCard
               label={card.label}
               valor={<NumeroAnimado valor={card.numero} formatar={card.formatar} apenasPrimeiraVez={false} duracao={0.5} />}
@@ -551,9 +559,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
       >
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-semibold text-foreground">{copy.title}</p>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {atualizadoEm && (
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+              <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-muted-foreground">
                 <Clock3 size={12} className="shrink-0" />
                 Atualizado às {dataHora.format(atualizadoEm)}
               </span>
@@ -568,7 +576,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             >
               <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
             </button>
-            <span className="rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
               <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "pedido" : "pedidos"}
             </span>
             {/* PDF exporta o resultado filtrado atual — mora aqui, ao lado
@@ -578,7 +586,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               type="button"
               onClick={exportarPdf}
               disabled={pedidos.length === 0 || exportando}
-              className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+              className="press-feedback inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
             >
               {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />} PDF
             </button>
@@ -604,36 +612,37 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                   <motion.div key={item.id} variants={variantes(reduzir, entradaExagerada)}>
                   <Link
                     href={`/vendas/pedidos/${item.id}`}
-                    className="block px-4 py-4 transition-colors hover:bg-muted/30 focus-visible:bg-muted/30"
+                    className="flex items-center gap-3 px-4 py-4 transition-colors hover:bg-muted/30 focus-visible:bg-muted/30"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-bold text-foreground">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                        <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-sm font-bold text-foreground">
+                          <ChannelLogo canal={item.canal} size="xs" variant="logo" />
                           #{item.providerOrderId ?? item.id.slice(0, 8)}
                         </span>
-                        <span className="mt-1 block truncate text-sm text-muted-foreground">{item.clienteNome}</span>
-                        <span className="mt-0.5 flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                        <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
+                          {dinheiro.format(Number(item.total))}
+                        </span>
+                      </div>
+                      <span className="mt-1 block truncate text-sm text-muted-foreground">{item.clienteNome}</span>
+                      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+                        <span className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
                           {dataHora.format(new Date(item.createdAt))}
                           <span aria-hidden="true">·</span>
                           <span>{Number(item.quantidadeItens)} un.</span>
                         </span>
-                      </span>
-                      <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
-                        {dinheiro.format(Number(item.total))}
-                      </span>
+                        <span
+                          className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+                          style={{
+                            background: `color-mix(in srgb, ${CORES_STATUS[item.status] ?? "var(--muted-foreground)"} 10%, transparent)`,
+                            color: CORES_STATUS[item.status] ?? "var(--muted-foreground)",
+                          }}
+                        >
+                          {statusLabel(item.status)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      <span
-                        className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                        style={{
-                          background: `color-mix(in srgb, ${CORES_STATUS[item.status] ?? "var(--muted-foreground)"} 10%, transparent)`,
-                          color: CORES_STATUS[item.status] ?? "var(--muted-foreground)",
-                        }}
-                      >
-                        {statusLabel(item.status)}
-                      </span>
-                      <span className="text-xs font-semibold text-selecionado">Ver detalhes</span>
-                    </div>
+                    <ChevronDown size={15} className="-rotate-90 shrink-0 text-muted-foreground" aria-hidden="true" />
                   </Link>
                   </motion.div>
                 ))}
