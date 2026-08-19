@@ -134,11 +134,10 @@ function useDadosDoCard(
    foco — decisão tomada com o usuário). */
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
-function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodoLabel }: {
+function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, periodoLabel }: {
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;
   carregandoSaude: boolean;
-  completo: boolean;
   periodoLabel?: string;
 }) {
   return (
@@ -159,7 +158,7 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, completo, periodo
         }}
       />
       <span className="text-[11px] text-muted-foreground">
-        {completo ? periodoLabel ?? "" : copy.periodoPadrao}
+        {periodoLabel ?? ""}
       </span>
     </>
   );
@@ -185,21 +184,27 @@ const COLUNAS_LG: Record<number, string> = {
 
 /* ── Mosaico ───────────────────────────────────────────────────── */
 
-export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial = null }: {
-  /* O mosaico é a soma de oito buscas independentes, todas disparadas pelo
-     navegador depois que o JavaScript liga. As três abaixo — as que desenham
-     a barra de filtro e o card de Saúde, que é o primeiro a ser olhado — são
-     resolvidas no servidor e chegam dentro do HTML (ver page.tsx). As outras
-     cinco continuam carregando no próprio ritmo, cada card no seu tempo. */
+export function Mosaico({
+  marcasIniciais = [], canaisIniciais = [], saudeInicial = null,
+  anteriorInicial = null, posVendaInicial = null, acoesIniciais = null, publicacoesInicial = null,
+}: {
+  /* O mosaico é a soma de oito buscas independentes. Sete (todas menos
+     Reclamações, que depende da API do Mercado Livre) são resolvidas no
+     servidor e chegam dentro do HTML (ver page.tsx) — só Reclamações continua
+     carregando no próprio ritmo pelo navegador. */
   marcasIniciais?: ScopeMarca[];
   canaisIniciais?: ScopeCanal[];
   saudeInicial?: SaudeLojaResultado | null;
+  anteriorInicial?: SaudeLojaResultado | null;
+  posVendaInicial?: PosVendaResultado | null;
+  acoesIniciais?: { insights: Insight[]; sugestoes: Sugestao[] } | null;
+  publicacoesInicial?: DesempenhoPreCarregado | null;
 }) {
   const router = useRouter();
   const params = useSearchParams();
   const cardAberto = params.get("card");
 
-  const [periodo, setPeriodo] = useState<Periodo>({ inicio: "", fim: "" });
+  const [periodo, setPeriodo] = useState<Periodo>({ inicio: hoje, fim: hoje });
   const [marcas, setMarcas] = useState<ScopeMarca[]>(marcasIniciais);
   const [canais, setCanais] = useState<ScopeCanal[]>(canaisIniciais);
   const cache = useRef(new Map<string, Promise<DashboardData>>());
@@ -303,7 +308,10 @@ export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial
   const [saude, setSaude] = useState<{ chave: string; dados: SaudeLojaResultado | null }>(
     saudeInicial ? { chave: "..", dados: saudeInicial } : { chave: "", dados: null },
   );
-  const [anterior, setAnterior] = useState<{ chave: string; dados: SaudeLojaResultado | null }>({ chave: "", dados: null });
+  const [anterior, setAnterior] = useState<{ chave: string; dados: SaudeLojaResultado | null }>(
+    anteriorInicial ? { chave: "..", dados: anteriorInicial } : { chave: "", dados: null },
+  );
+  const primeiraAnterior = useRef(Boolean(anteriorInicial));
   // Sem timestamp único de servidor pra "isto tudo" — o mosaico é a soma de
   // ~7 buscas independentes (ver comentário acima sobre cada uma carregar no
   // próprio ritmo). Saúde da loja é o gatilho mais representativo porque
@@ -328,6 +336,7 @@ export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial
   }, [chave, inicio, fim]);
 
   useEffect(() => {
+    if (primeiraAnterior.current) { primeiraAnterior.current = false; return; }
     let ativo = true;
     const fimAtual = fim ? new Date(`${fim}T12:00:00`) : new Date();
     const inicioAtual = inicio ? new Date(`${inicio}T12:00:00`) : new Date(fimAtual);
@@ -353,8 +362,12 @@ export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial
      fechar e reabrir refazia a busca do zero. Aqui a busca sobe para o
      mosaico, dispara junto com Saúde da loja e Atendimento assim que a
      página carrega, e os cards viram (quase) só apresentação. */
-  const [posVenda, setPosVenda] = useState<{ chave: string; dados: PosVendaResultado | null }>({ chave: "", dados: null });
+  const [posVenda, setPosVenda] = useState<{ chave: string; dados: PosVendaResultado | null }>(
+    posVendaInicial ? { chave: "..", dados: posVendaInicial } : { chave: "", dados: null },
+  );
+  const primeiroPosVenda = useRef(Boolean(posVendaInicial));
   useEffect(() => {
+    if (primeiroPosVenda.current) { primeiroPosVenda.current = false; return; }
     let ativo = true;
     actionObterPosVenda({ inicio, fim })
       .then((dados) => { if (ativo) setPosVenda({ chave, dados }); })
@@ -366,10 +379,14 @@ export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
 
-  const [acoes, setAcoes] = useState<{ carregado: boolean; insights: Insight[]; sugestoes: Sugestao[] }>({
-    carregado: false, insights: [], sugestoes: [],
-  });
+  const [acoes, setAcoes] = useState<{ carregado: boolean; insights: Insight[]; sugestoes: Sugestao[] }>(
+    acoesIniciais
+      ? { carregado: true, insights: acoesIniciais.insights, sugestoes: acoesIniciais.sugestoes }
+      : { carregado: false, insights: [], sugestoes: [] },
+  );
+  const primeirasAcoes = useRef(Boolean(acoesIniciais));
   useEffect(() => {
+    if (primeirasAcoes.current) { primeirasAcoes.current = false; return; }
     let ativo = true;
     Promise.all([actionListarInsights(), actionListarSugestoes()])
       .then(([insights, sugestoes]) => { if (ativo) setAcoes({ carregado: true, insights, sugestoes }); })
@@ -379,9 +396,11 @@ export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial
 
   // Só a primeira marca (a aba padrão do card) — trocar de aba com o card já
   // aberto continua buscando na hora, é uma escolha de quem já está olhando.
-  const [publicacoes, setPublicacoes] = useState<DesempenhoPreCarregado | null>(null);
+  const [publicacoes, setPublicacoes] = useState<DesempenhoPreCarregado | null>(publicacoesInicial);
   const primeiraMarcaPublicacoes = saude.dados?.marcas[0]?.brandId ?? null;
+  const primeirasPublicacoes = useRef(Boolean(publicacoesInicial));
   useEffect(() => {
+    if (primeirasPublicacoes.current) { primeirasPublicacoes.current = false; return; }
     if (!primeiraMarcaPublicacoes) return;
     const inicioEfetivo = inicio ?? diasAtras(29);
     const fimEfetivo = fim ?? hoje;
@@ -498,7 +517,6 @@ export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial
       valor: saude.dados ? String(saude.dados.marcas.length) : null,
       legenda: blocosCopy.comparacao.legenda,
     },
-    subtitulo: metricasConfig.comparacaoCard.subtitulo,
     render: (acaoSlot) => (
       <ComparacaoCard
         dados={saude.dados}
@@ -827,7 +845,6 @@ export function Mosaico({ marcasIniciais = [], canaisIniciais = [], saudeInicial
             periodo={periodo}
             trocarDatas={trocarDatas}
             carregandoSaude={carregandoSaude}
-            completo={completo}
             periodoLabel={saude.dados?.periodoLabel}
           />
         }
