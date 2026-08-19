@@ -28,6 +28,12 @@ import { A29_recoletaPorVenda } from "@/modules/jobs/A29-recoleta-por-venda";
 import { A31_sincronizarConta } from "@/modules/jobs/A31-sincronizar-conta";
 import { A32_syncAnunciosAds } from "@/modules/jobs/A32-sync-anuncios-ads";
 
+/* Sem isto vale o padrão da Vercel (10s no Hobby, 15s no Pro) — curto demais
+   para uma etapa que fala com marketplace e grava no banco, e a causa de
+   etapas estourarem e o Inngest reinvocar em laço. 60s é o teto do Hobby e
+   é aceito em todos os planos; no Pro dá para subir até 300. */
+export const maxDuration = 60;
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [

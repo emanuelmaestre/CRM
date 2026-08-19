@@ -33,6 +33,9 @@ const COLUNAS: Record<ModuloSincronizacao, { status: keyof ExecucaoPatch; result
   mensagens: { status: "mensagensStatus", resultado: "mensagensResultado", erro: "mensagensErro" },
 };
 
+/** Janela do backfill de pedidos na sincronização manual. */
+const JANELA_BACKFILL_DIAS = 90;
+
 function erroLegivel(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -53,6 +56,13 @@ export const A31_sincronizarConta = inngest.createFunction(
     id: "A31-sincronizar-conta",
     name: "A31 — Sincronização manual de conta (fila completa)",
     idempotency: "event.data.execucaoId",
+    // Era o único job sem teto de concorrência. `idempotency` só impede a
+    // mesma execução de rodar duas vezes; nada impedia as contas de todas as
+    // marcas e canais de sincronizarem ao mesmo tempo, cada uma abrindo suas
+    // próprias transações de ingestão sobre a conexão única do banco (ver
+    // getDatabaseClientOptions em db/index.ts). Enfileirar é mais lento por
+    // conta e muito mais rápido no total.
+    concurrency: { limit: 1 },
     triggers: [{ event: "canal/sincronizacao.solicitada" }],
   },
   async ({ event, step }) => {
@@ -90,10 +100,15 @@ export const A31_sincronizarConta = inngest.createFunction(
       return patchStatus(modulo, "erro", { [COLUNAS[modulo].erro]: erroLegivel(error) } as ExecucaoPatch);
     }
 
-    async function executarModulo(modulo: ModuloSincronizacao, trabalho: () => Promise<unknown>): Promise<{ ok: true; resultado: unknown } | { ok: false; erro: string }> {
+    /** Bookkeeping de status do módulo em volta de um trabalho que cria os
+     *  próprios steps. Use quando o módulo não cabe numa etapa só. */
+    async function executarModuloEmEtapas(
+      modulo: ModuloSincronizacao,
+      trabalho: () => Promise<unknown>,
+    ): Promise<{ ok: true; resultado: unknown } | { ok: false; erro: string }> {
       await step.run(`${modulo}-em-andamento`, () => atualizarExecucao(patchStatus(modulo, "em_andamento")));
       try {
-        const resultado = await step.run(modulo, trabalho);
+        const resultado = await trabalho();
         await step.run(`${modulo}-concluido`, () => atualizarExecucao(patchResultado(modulo, resultado)));
         return { ok: true, resultado };
       } catch (error) {
@@ -102,21 +117,41 @@ export const A31_sincronizarConta = inngest.createFunction(
       }
     }
 
+    /** Módulo que cabe numa etapa só — o caso comum. */
+    function executarModulo(modulo: ModuloSincronizacao, trabalho: () => Promise<unknown>) {
+      return executarModuloEmEtapas(modulo, () => step.run(modulo, trabalho));
+    }
+
     await executarModulo("catalogo", async () => (
       conta.tipo === "mercadolivre"
         ? importarCatalogoContaMercadoLivre(ctx, channelAccountId)
         : { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) }
     ));
 
-    const resultadoPedidos = await executarModulo("pedidos", async () => {
+    /* Uma etapa por pedido, não o backfill inteiro numa etapa só.
+
+       A busca cobre 90 dias e cada `ingerirPedido` abre a própria transação —
+       segurando, enquanto dura, a conexão única do banco. Tudo isso dentro de
+       um `step.run` só significava uma invocação de função com centenas de
+       transações em série, muito além do teto de duração da Vercel: a etapa
+       estourava, o Inngest reinvocava, e o backfill recomeçava do zero, sem
+       nunca terminar e prendendo o banco em cada tentativa.
+
+       Quebrado assim, cada pedido tem seu próprio orçamento de tempo e o
+       Inngest memoiza o que já passou — uma reinvocação retoma de onde parou
+       em vez de refazer tudo. É o mesmo formato que o A24 já usa. */
+    const resultadoPedidos = await executarModuloEmEtapas("pedidos", async () => {
       const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug ?? "");
       if (!provider) return { encontrados: 0, novos: 0, ...semSuporte("Pedidos", conta.tipo) };
-      const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
-      const pedidos = await provider.buscarPedidos(desde);
+      const desde = new Date(Date.now() - JANELA_BACKFILL_DIAS * 24 * 60 * 60 * 1_000);
+      const pedidos = await step.run("pedidos-buscar", () => provider.buscarPedidos(desde));
       let novos = 0;
       for (const pedidoBruto of pedidos) {
+        // `criadoEm` volta como string: atravessou a serialização do step.
         const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
-        const resultado = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
+        const resultado = await step.run(`pedidos-ingerir-${pedidoBruto.providerOrderId}`, () =>
+          ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado),
+        );
         if (resultado.novo) novos += 1;
       }
       return { encontrados: pedidos.length, novos };
