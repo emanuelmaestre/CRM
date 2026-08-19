@@ -1,0 +1,2 @@
+ALTER TABLE "app_user" ALTER COLUMN "modulos_visiveis" SET DEFAULT '["metricas","clientes","avaliacoes","vendas","estoque","anuncios","configuracoes"]'::jsonb;--> statement-breakpoint
+ALTER TABLE "pedido" ADD COLUMN "acrescimo" numeric(12, 2) DEFAULT '0';

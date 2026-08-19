@@ -62,6 +62,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
       total: pedido.total,
       frete: pedido.frete,
       desconto: pedido.desconto,
+      acrescimo: pedido.acrescimo,
       criadoEm: pedido.createdAt,
       recebidoEm: pedido.receivedAt,
       atualizadoEm: pedido.updatedAt,
@@ -101,6 +102,11 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
   const podeCancelarEsse = podeCancelar(detalhe.status as PedidoStatus);
   const subtotalItens = itens.reduce((soma, item) => soma + Number(item.precoUnitario) * item.quantidade, 0);
   const taxasConhecidas = itens.reduce((soma, item) => soma + Number(item.taxaMarketplace ?? 0), 0);
+  // Só desconta o que temos certeza que reduz a receita do vendedor (taxa e
+  // frete real). Desconto/acréscimo ficam de fora de propósito — não dá pra
+  // confirmar com segurança se entram ou saem da receita líquida sem um
+  // pedido real com esses valores diferentes de zero para conferir.
+  const valorLiquido = Number(detalhe.total) - taxasConhecidas - Number(detalhe.frete ?? 0);
   const endereco = [
     [detalhe.enderecoRua, detalhe.enderecoNumero].filter(Boolean).join(", "),
     detalhe.enderecoComplemento,
@@ -237,11 +243,22 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
               <span>Taxas do marketplace</span><span>{moeda(String(taxasConhecidas))}</span>
             </div>
           )}
+          {Number(detalhe.acrescimo ?? 0) > 0 && (
+            <div className="flex justify-between text-muted-foreground">
+              <span>Acréscimos</span><span>+ {moeda(detalhe.acrescimo)}</span>
+            </div>
+          )}
           <div className="my-1 h-px bg-border" />
           <div className="flex justify-between text-base font-bold text-foreground">
             <span>{copy.total}</span><span>{moeda(detalhe.total)}</span>
           </div>
-          <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-muted-foreground"><Clock3 size={11} className="mt-0.5 shrink-0" /> Taxas aparecem somente quando o canal fornece esse valor.</p>
+          <div className="flex justify-between text-base font-bold" style={{ color: "var(--success)" }}>
+            <span>Valor líquido</span><span>{moeda(String(valorLiquido))}</span>
+          </div>
+          <p className="flex items-start gap-1.5 text-[10px] leading-relaxed text-muted-foreground">
+            <Clock3 size={11} className="mt-0.5 shrink-0" />
+            Frete, taxas e acréscimos aparecem somente quando o canal fornece esse valor. Valor líquido já desconta frete e taxas do total — não desconta desconto/acréscimo.
+          </p>
         </div>
       </div>
     </div>

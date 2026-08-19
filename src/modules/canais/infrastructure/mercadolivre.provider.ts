@@ -54,6 +54,13 @@ interface MLOrderDetail {
     // resposta, não é uma chamada extra. Ausente em pedidos muito antigos.
     sale_fee?: number;
   }>;
+  // Cupom/desconto aplicado ao pedido — vem de graça na mesma resposta,
+  // verificado ao vivo com scripts/inspecionar-pedido-ml.mjs.
+  coupon?: { amount?: number };
+  // Também embutido na mesma resposta. `total_paid_amount - transaction_amount`
+  // é o que o comprador pagou a mais que o nominal do pedido (ex.: juro de
+  // parcelamento) — usado para compor `acrescimo`.
+  payments?: Array<{ total_paid_amount?: number; transaction_amount?: number }>;
   date_created: string;
   pack_id?: number | null;
 }
@@ -391,6 +398,10 @@ export function normalizarCatalogoMercadoLivre(items: MLItemDetail[], ratings: M
 export function normalizarPedidoMercadoLivre(
   order: MLOrderDetail,
   endereco?: MLReceiverAddress | null,
+  /** Custo real de envio pago pelo vendedor (GET /shipments/{id}/costs,
+   *  senders[].cost) — assim como o endereço, é enriquecimento opcional
+   *  resolvido pelo chamador; sua ausência não pode impedir a normalização. */
+  custoEnvioVendedor?: number | null,
 ): PedidoNormalizado {
   const clienteEndereco: EnderecoEntregaNormalizado | undefined = endereco ? {
     nomeDestinatario: endereco.receiver_name || undefined,
@@ -418,7 +429,11 @@ export function normalizarPedidoMercadoLivre(
     clienteEndereco,
     status: order.status,
     total: String(order.total_amount),
-    frete: order.shipping?.cost === undefined ? undefined : String(order.shipping.cost),
+    frete: custoEnvioVendedor == null ? undefined : String(custoEnvioVendedor),
+    desconto: typeof order.coupon?.amount === "number" ? String(order.coupon.amount) : undefined,
+    acrescimo: order.payments?.length
+      ? String(order.payments.reduce((soma, p) => soma + Math.max(0, (p.total_paid_amount ?? 0) - (p.transaction_amount ?? 0)), 0))
+      : undefined,
     itens: order.order_items.map((item) => ({
       skuExterno: item.item.seller_sku ?? "",
       quantidade: item.quantity,
@@ -549,6 +564,19 @@ export class MercadoLivreProvider implements ChannelProvider {
     }
   }
 
+  /** Custo real de envio do vendedor — distinto do que o comprador vê na
+   *  vitrine. Mesma lógica de "enriquecimento opcional" de
+   *  buscarEnderecoEntrega: falha aqui não pode derrubar o pedido. */
+  private async buscarCustoEnvioVendedor(shippingId: number): Promise<number | null> {
+    try {
+      const custos = await this.get<{ senders?: Array<{ cost?: number }> }>(`/shipments/${shippingId}/costs`);
+      if (!custos.senders?.length) return null;
+      return custos.senders.reduce((soma, s) => soma + (s.cost ?? 0), 0);
+    } catch {
+      return null;
+    }
+  }
+
   async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
     const me = await this.get<{ id: string }>("/users/me");
     const data = await this.get<{
@@ -556,8 +584,12 @@ export class MercadoLivreProvider implements ChannelProvider {
     }>(`/orders/search?seller=${me.id}&order.date_created.from=${encodeURIComponent(desde.toISOString())}&limit=50`);
 
     return Promise.all((data.results ?? []).map(async (order) => {
-      const endereco = order.shipping?.id ? await this.buscarEnderecoEntrega(order.shipping.id) : null;
-      return normalizarPedidoMercadoLivre(order, endereco);
+      const shippingId = order.shipping?.id;
+      const [endereco, custoEnvio] = await Promise.all([
+        shippingId ? this.buscarEnderecoEntrega(shippingId) : Promise.resolve(null),
+        shippingId ? this.buscarCustoEnvioVendedor(shippingId) : Promise.resolve(null),
+      ]);
+      return normalizarPedidoMercadoLivre(order, endereco, custoEnvio);
     }));
   }
 

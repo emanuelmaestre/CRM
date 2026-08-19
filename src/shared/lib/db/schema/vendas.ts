@@ -24,8 +24,16 @@ export const pedido = pgTable("pedido", {
   canal: text("canal").notNull(),
   status: pedidoStatusEnum("status").notNull().default("criado"),
   total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+  // Custo real de envio pago pelo vendedor, vindo de GET /shipments/{id}/costs
+  // no Mercado Livre (senders[].cost) — não confundir com o valor que o
+  // comprador vê na vitrine. O campo `order.shipping.cost` que essa coluna lia
+  // antes não existe de fato na resposta da API; ficava sempre em "0".
   frete: numeric("frete", { precision: 12, scale: 2 }).default("0"),
   desconto: numeric("desconto", { precision: 12, scale: 2 }).default("0"),
+  // Valor a mais que o comprador pagou além do total nominal do pedido (ex.:
+  // juro de parcelamento) — no Mercado Livre, soma de
+  // payments[].total_paid_amount - payments[].transaction_amount.
+  acrescimo: numeric("acrescimo", { precision: 12, scale: 2 }).default("0"),
   canceladoMotivo: text("cancelado_motivo"),
   origemIngestao: text("origem_ingestao").notNull().default("tempo_real"),
   importLoteId: uuid("import_lote_id").references(() => importLote.id),

@@ -281,6 +281,13 @@
       "when": 1787200000002,
       "tag": "0039_rename_modulo_inbox_avaliacoes",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1787200000003,
+      "tag": "0040_gorgeous_lionheart",
+      "breakpoints": true
     }
   ]
 }

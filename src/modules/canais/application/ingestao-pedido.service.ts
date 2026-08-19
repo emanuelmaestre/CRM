@@ -235,6 +235,8 @@ export async function ingerirPedido(
         status,
         total: p.total,
         frete: p.frete ?? "0",
+        desconto: p.desconto ?? "0",
+        acrescimo: p.acrescimo ?? "0",
         createdAt: p.criadoEm,
       })
       .returning({ id: pedido.id });

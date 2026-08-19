@@ -25,6 +25,13 @@ export interface PedidoNormalizado {
   status: string;
   total: string;
   frete?: string;
+  /** Desconto/cupom aplicado ao pedido, quando o canal informa (hoje só o
+   *  Mercado Livre, via `coupon.amount`). Ausente para os demais canais. */
+  desconto?: string;
+  /** Valor a mais que o comprador pagou além do total nominal (ex.: juro de
+   *  parcelamento), quando o canal informa (hoje só o Mercado Livre, via
+   *  `payments[]`). Ausente para os demais canais. */
+  acrescimo?: string;
   itens: {
     skuExterno: string;
     quantidade: number;
