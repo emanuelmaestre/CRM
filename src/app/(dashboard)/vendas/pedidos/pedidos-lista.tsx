@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, ReceiptText, Ban, RefreshCw, Clock3, Undo2 } from "lucide-react";
+import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, Ban, RefreshCw, Clock3, Undo2 } from "lucide-react";
 import {
   actionListarPedidosDetalhados, actionListarPedidosParaPdf, actionContarPedidosPorMarca, actionContarPedidosPorCanal,
 } from "../actions";
@@ -522,13 +522,12 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         variants={staggerExagerado}
         initial="hidden"
         animate="show"
-        className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-7"
+        className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6"
         aria-label="Resumo das vendas filtradas"
       >
         {[
           { label: "Faturamento", numero: resumo.faturamento, formatar: (v: number) => dinheiro.format(v), icon: CircleDollarSign, cor: "var(--success)" },
           { label: "Pedidos", numero: resumo.totalPedidos, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
-          { label: "Ticket médio", numero: resumo.ticketMedio, formatar: (v: number) => dinheiro.format(v), icon: ReceiptText, cor: "var(--acento-2)" },
           { label: "Cancelados", numero: resumo.canceladosQtd, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.canceladosQtd > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
           { label: "Devolvidos", numero: resumo.devolvidosQtd, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Undo2, cor: resumo.devolvidosQtd > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
           { label: "Valor cancelado", numero: resumo.canceladosValor, formatar: (v: number) => dinheiro.format(v), icon: Ban, cor: resumo.canceladosValor > 0 ? "var(--destructive)" : "var(--muted-foreground)" },
