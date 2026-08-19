@@ -1,18 +1,4 @@
 {
-  "karzi": {
-    "label": "KARZI",
-    "cnpj": "57.899.124/0001-78",
-    "color": "var(--karzi)",
-    "logo": "/logos/karzi.svg",
-    "logoSize": { "width": 213, "height": 72 },
-    "shortLabel": "K",
-    "chip": {
-      "background": "bg-[#E3131B]/10",
-      "text": "text-[#E3131B]",
-      "border": "border-[#E3131B]/20"
-    },
-    "environmentKey": "NEXT_PUBLIC_BRAND_ID_KARZI"
-  },
   "wuwu": {
     "label": "WUWU",
     "cnpj": "57.899.124/0001-78",
@@ -40,5 +26,19 @@
       "border": "border-[#6F6F6E]/20"
     },
     "environmentKey": "NEXT_PUBLIC_BRAND_ID_ARMARINHOS_LIMA"
+  },
+  "karzi": {
+    "label": "KARZI",
+    "cnpj": "57.899.124/0001-78",
+    "color": "var(--karzi)",
+    "logo": "/logos/karzi.svg",
+    "logoSize": { "width": 213, "height": 72 },
+    "shortLabel": "K",
+    "chip": {
+      "background": "bg-[#E3131B]/10",
+      "text": "text-[#E3131B]",
+      "border": "border-[#E3131B]/20"
+    },
+    "environmentKey": "NEXT_PUBLIC_BRAND_ID_KARZI"
   }
 }

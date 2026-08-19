@@ -8,7 +8,7 @@ import { eases } from "@/shared/design-system/motion-variants";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import settingsConfig from "@/config/settings.json";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug, compararPorOrdemDeMarca } from "@/shared/config/brands";
 import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
 import { actionAtualizarContaCanal, actionRemoverContaCanal } from "./actions";
 import { MLChannelActions } from "./MLChannelActions";
@@ -370,7 +370,7 @@ export function CanaisPorMarca({ items, loading, onChanged, mlStatus }: Props) {
       grupo.canais.push(item);
       grupos.set(item.brandId, grupo);
     }
-    return [...grupos.values()];
+    return [...grupos.values()].sort((a, b) => compararPorOrdemDeMarca({ slug: a.brand }, { slug: b.brand }));
   }, [items, soAtencao]);
 
   const totalAtencao = items.filter(precisaAtencao).length;

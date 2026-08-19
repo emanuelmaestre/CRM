@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug, compararPorOrdemDeMarca } from "@/shared/config/brands";
 
 /** A chamada ao ML por marca é o gargalo real do card Saúde da loja/Termômetro
  *  — todo carregamento do mosaico batia de novo, para cada marca, na API. O
@@ -188,7 +188,7 @@ async function marcasConectadas(ctx: CrudContext, channelAccountId?: string) {
   for (const conta of contas) {
     if (isBrandSlug(conta.slug) && !porSlug.has(conta.slug)) porSlug.set(conta.slug, conta.brandId);
   }
-  return [...porSlug.entries()].map(([slug, brandId]) => ({ slug, brandId }));
+  return [...porSlug.entries()].map(([slug, brandId]) => ({ slug, brandId })).sort(compararPorOrdemDeMarca);
 }
 
 export async function obterReputacao(

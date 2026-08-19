@@ -143,7 +143,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <dl className="mt-6 grid gap-x-5 gap-y-3 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-5 sm:grid-cols-2 lg:flex lg:items-start lg:justify-between lg:gap-x-8">
+      <dl className="mt-6 grid gap-x-5 gap-y-3 rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] p-5 text-center sm:grid-cols-2 sm:text-left lg:flex lg:items-start lg:justify-between lg:gap-x-8">
         <div className="min-w-0 lg:flex-1">
           <dt className="text-xs text-muted-foreground">{copy.customer}</dt>
           <dd className="mt-1 truncate font-semibold text-foreground">
@@ -158,7 +158,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
         </div>
         <div className="lg:shrink-0">
           <dt className="text-xs text-muted-foreground">{copy.brand}</dt>
-          <dd className="mt-1.5">
+          <dd className="mt-1.5 flex justify-center sm:justify-start">
             {isBrandSlug(detalhe.brandSlug) ? (
               <BrandLogo brand={detalhe.brandSlug} height={16} />
             ) : (
@@ -168,7 +168,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
         </div>
         <div className="lg:shrink-0">
           <dt className="text-xs text-muted-foreground">{copy.channel}</dt>
-          <dd className="mt-1.5">
+          <dd className="mt-1.5 flex justify-center sm:justify-start">
             <ChannelLogo canal={detalhe.canal} size="sm" variant="logo" />
           </dd>
         </div>
@@ -209,19 +209,19 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
           ) : (
             <div className="-mx-6 -my-6 divide-y divide-border">
               {itens.map((item) => (
-                <div key={item.id} data-testid="pedido-item" data-sku={item.sku} className="flex items-center justify-between gap-4 px-6 py-4">
-                  <div>
+                <div key={item.id} data-testid="pedido-item" data-sku={item.sku} className="flex flex-col gap-3 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
                     <p className="font-semibold text-foreground">{item.nome}</p>
                     <p className="text-xs text-muted-foreground">
                       <span className="text-muted-foreground/70">SKU:</span> {item.sku} · {copy.quantity}: {item.quantidade}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className="block font-semibold tabular-nums text-foreground">{moeda(String(Number(item.precoUnitario) * item.quantidade))}</span>
-                    <span className="block text-xs tabular-nums text-muted-foreground">{moeda(item.precoUnitario)} cada</span>
-                    {item.taxaMarketplace != null && (
-                      <span className="block text-xs tabular-nums text-muted-foreground">taxa {moeda(item.taxaMarketplace)}</span>
-                    )}
+                  <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end sm:justify-start sm:text-right">
+                    <span className="font-semibold tabular-nums text-foreground">{moeda(String(Number(item.precoUnitario) * item.quantidade))}</span>
+                    <span className="flex flex-col items-end gap-0.5 text-xs tabular-nums text-muted-foreground">
+                      <span>{moeda(item.precoUnitario)} cada</span>
+                      {item.taxaMarketplace != null && <span>taxa {moeda(item.taxaMarketplace)}</span>}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -288,7 +288,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
           className="mt-3 flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-center"
           style={{ borderColor: "color-mix(in srgb, var(--selecionado) 25%, transparent)", background: "color-mix(in srgb, var(--selecionado) 6%, var(--card))" }}
         >
-          <Clock3 size={13} className="shrink-0 text-selecionado" />
+          <Clock3 size={13} className="hidden shrink-0 text-selecionado lg:block" />
           <p className="text-xs font-medium leading-relaxed text-foreground lg:whitespace-nowrap">
             Quando o canal não informa frete, taxas, desconto ou acréscimo, o valor aparece como R$ 0,00. O valor líquido desconta frete e taxas do total, mas não desconta desconto/acréscimo.
           </p>

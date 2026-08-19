@@ -231,6 +231,7 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
         </td>
         <td className="px-4 py-3">{item.clienteNome}</td>
         <td className="px-4 py-3 tabular-nums text-muted-foreground">{dataHora.format(new Date(item.createdAt))}</td>
+        <td className="px-4 py-3 tabular-nums text-muted-foreground">{Number(item.quantidadeItens)} un.</td>
         <td className="px-4 py-3">
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
@@ -252,7 +253,7 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
           >
-            <td colSpan={5} className="bg-muted/20 px-4 pb-4 pt-0">
+            <td colSpan={6} className="bg-muted/20 px-4 pb-4 pt-0">
               <motion.div
                 initial={reduzir ? false : { height: 0 }}
                 animate={{ height: "auto" }}
@@ -522,7 +523,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         variants={staggerExagerado}
         initial="hidden"
         animate="show"
-        className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6"
+        className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 2xl:grid-cols-6"
         aria-label="Resumo das vendas filtradas"
       >
         {[
@@ -613,7 +614,11 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                           #{item.providerOrderId ?? item.id.slice(0, 8)}
                         </span>
                         <span className="mt-1 block truncate text-sm text-muted-foreground">{item.clienteNome}</span>
-                        <span className="mt-0.5 block text-xs tabular-nums text-muted-foreground">{dataHora.format(new Date(item.createdAt))}</span>
+                        <span className="mt-0.5 flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground">
+                          {dataHora.format(new Date(item.createdAt))}
+                          <span aria-hidden="true">·</span>
+                          <span>{Number(item.quantidadeItens)} un.</span>
+                        </span>
                       </span>
                       <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
                         {dinheiro.format(Number(item.total))}
@@ -642,6 +647,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                     <th className="px-4 py-3 font-semibold">Pedido</th>
                     <th className="px-4 py-3 font-semibold">Cliente</th>
                     <th className="px-4 py-3 font-semibold">Data da venda</th>
+                    <th className="px-4 py-3 font-semibold">Unidades</th>
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold">Total</th>
                   </tr>

@@ -7,7 +7,7 @@ import {
   pedido,
   produto,
 } from "@/shared/lib/db/schema";
-import { getBrandConfig } from "@/shared/config/brands";
+import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
 import { obterAtendimento, type AtendimentoResumo } from "./atendimento.service";
 import {
   LIMITE_TAXA,
@@ -292,11 +292,11 @@ export async function obterSaudeLoja(
 
   const condicaoMarca = brandIds.length > 0 ? [inArray(brand.id, brandIds)] : [];
 
-  const marcas = await ctx.db
+  const marcas = (await ctx.db
     .select({ id: brand.id, slug: brand.slug, nome: brand.name })
     .from(brand)
-    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true), ...condicaoMarca))
-    .orderBy(brand.name);
+    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true), ...condicaoMarca)))
+    .sort(compararPorOrdemDeMarca);
 
   if (marcas.length === 0) {
     return {

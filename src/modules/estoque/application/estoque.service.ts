@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, getTableColumns, gte, ilike, inArray, isNull, notInArray, SQL, sql } from "drizzle-orm";
+import { and, count, eq, getTableColumns, gte, ilike, inArray, isNull, notInArray, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import {
   auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo, pedido, pedidoItem,
@@ -6,6 +6,7 @@ import {
 import { despacharEvento, persistirEvento } from "@/shared/events";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
+import { compararPorOrdemDeMarca } from "@/shared/config/brands";
 import { CreateProdutoSchema, UpdateProdutoSchema } from "../domain/entities";
 import {
   classificarEstoqueComRegua,
@@ -394,8 +395,9 @@ export async function contarProdutosPorMarca(
     .leftJoin(produto, and(eq(produto.brandId, brand.id), ...filters))
     .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
     .groupBy(brand.id, brand.name, brand.slug)
-    .orderBy(desc(sql`count(${produto.id})`), asc(brand.name))
-    .then((linhas) => linhas.map((linha) => ({ ...linha, total: Number(linha.total) })));
+    .then((linhas) => linhas
+      .map((linha) => ({ ...linha, total: Number(linha.total) }))
+      .sort(compararPorOrdemDeMarca));
 }
 
 /** Define o mesmo estoque mínimo para vários SKUs de uma vez. Sem isso, um

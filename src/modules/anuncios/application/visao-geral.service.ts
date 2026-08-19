@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsCampanhaSnapshot, brand } from "@/shared/lib/db/schema";
-import { getBrandConfig } from "@/shared/config/brands";
+import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
 import { calcularDependenciaMidia } from "./metricas-calculadas";
 import { diagnosticarCampanha, type Diagnostico } from "./motor-diagnostico";
 import { identificarOportunidades, type Oportunidade } from "./oportunidades";
@@ -163,11 +163,11 @@ export async function obterVisaoGeral(
 ): Promise<VisaoGeralResultado> {
   const condicaoMarca = opcoes.brandIds && opcoes.brandIds.length > 0 ? [inArray(brand.id, opcoes.brandIds)] : [];
 
-  const marcas = await ctx.db
+  const marcas = (await ctx.db
     .select({ id: brand.id, slug: brand.slug, nome: brand.name })
     .from(brand)
-    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true), ...condicaoMarca))
-    .orderBy(brand.name);
+    .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true), ...condicaoMarca)))
+    .sort(compararPorOrdemDeMarca);
 
   const resultado: VisaoGeralMarca[] = [];
   const idsDasMarcas = marcas.map((marca) => marca.id);

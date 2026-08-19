@@ -1,6 +1,7 @@
-import { and, asc, count, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { brand, channelAccount, cliente, pedido } from "@/shared/lib/db/schema";
+import { brand, channelAccount, cliente, pedido, pedidoItem } from "@/shared/lib/db/schema";
+import { compararPorOrdemDeMarca } from "@/shared/config/brands";
 import { CANAIS_VENDA, type ConsultaPedidos } from "../domain/consulta-pedidos";
 
 function filtrosConsulta(orgId: string, opts: ConsultaPedidos): SQL[] {
@@ -43,6 +44,7 @@ export async function consultarPedidosDetalhados(
         origemIngestao: pedido.origemIngestao,
         receivedAt: pedido.receivedAt,
         createdAt: pedido.createdAt,
+        quantidadeItens: sql<number>`coalesce((select sum(${pedidoItem.quantidade}) from ${pedidoItem} where ${pedidoItem.pedidoId} = ${pedido.id}), 0)`,
       })
       .from(pedido)
       .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
@@ -102,8 +104,9 @@ export function consultarPedidosPorMarca(orgId: string, canal?: string) {
     .leftJoin(pedido, and(eq(pedido.brandId, brand.id), ...filtros))
     .where(and(eq(brand.orgId, orgId), eq(brand.active, true)))
     .groupBy(brand.id, brand.name, brand.slug)
-    .orderBy(desc(sql`count(${pedido.id})`), asc(brand.name))
-    .then((linhas) => linhas.map((linha) => ({ ...linha, total: Number(linha.total) })));
+    .then((linhas) => linhas
+      .map((linha) => ({ ...linha, total: Number(linha.total) }))
+      .sort(compararPorOrdemDeMarca));
 }
 
 export async function consultarPedidosPorCanal(orgId: string, brandIds?: string[]) {

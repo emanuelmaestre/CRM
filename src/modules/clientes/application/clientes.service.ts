@@ -9,6 +9,7 @@ import {
 } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
+import { compararPorOrdemDeMarca } from "@/shared/config/brands";
 import {
   CreateClienteSchema, UpdateClienteSchema, CriarAnotacaoSchema, TIPO_INTERACAO_ANOTACAO,
   type CreateClienteDTO, type UpdateClienteDTO, type CriarAnotacaoDTO,
@@ -125,7 +126,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
       .innerJoin(brand, eq(brand.id, pedido.brandId))
       .where(and(eq(pedido.orgId, ctx.orgId), eq(pedido.clienteId, id)))
       .groupBy(brand.id, brand.name, brand.slug)
-      .orderBy(desc(sql`count(*)`)),
+      .then((linhas) => linhas.sort(compararPorOrdemDeMarca)),
     ctx.db
       .select({ canal: pedido.canal, total: sql<number>`count(*)` })
       .from(pedido)
@@ -482,8 +483,9 @@ export async function contarClientesPorMarca(ctx: CrudContext, opts: { canalTipo
     .leftJoin(pedido, and(eq(pedido.brandId, brand.id), eq(pedido.orgId, ctx.orgId), ...filtroCanal))
     .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true)))
     .groupBy(brand.id, brand.name, brand.slug)
-    .orderBy(desc(sql`count(distinct ${pedido.clienteId})`), asc(brand.name))
-    .then((linhas) => linhas.map((linha) => ({ ...linha, total: Number(linha.total) })));
+    .then((linhas) => linhas
+      .map((linha) => ({ ...linha, total: Number(linha.total) }))
+      .sort(compararPorOrdemDeMarca));
 }
 
 export async function atualizarCliente(ctx: CrudContext, id: string, input: UpdateClienteDTO) {

@@ -1,7 +1,7 @@
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { brand, pedido } from "@/shared/lib/db/schema";
-import { getBrandConfig } from "@/shared/config/brands";
+import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
 
 export interface PosVendaMarca {
   brandId: string;
@@ -27,10 +27,11 @@ const numero = (valor: unknown) => Number.isFinite(Number(valor)) ? Number(valor
 export async function obterPosVenda(ctx: CrudContext, filtros: {
   inicio: Date; fim: Date; brandIds?: string[];
 }): Promise<PosVendaResultado> {
-  const marcas = await ctx.db.select({ id: brand.id, slug: brand.slug, nome: brand.name })
+  const marcas = (await ctx.db.select({ id: brand.id, slug: brand.slug, nome: brand.name })
     .from(brand)
     .where(and(eq(brand.orgId, ctx.orgId), eq(brand.active, true),
-      ...(filtros.brandIds?.length ? [inArray(brand.id, filtros.brandIds)] : [])));
+      ...(filtros.brandIds?.length ? [inArray(brand.id, filtros.brandIds)] : []))))
+    .sort(compararPorOrdemDeMarca);
   if (marcas.length === 0) return { marcas: [], parcial: true };
 
   const ids = marcas.map((item) => item.id);

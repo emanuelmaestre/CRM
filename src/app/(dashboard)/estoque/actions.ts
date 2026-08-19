@@ -9,10 +9,11 @@ import {
 } from "@/modules/estoque/application/estoque.service";
 import { importarCatalogoMercadoLivre } from "@/modules/estoque/application/importar-catalogo.service";
 import { z } from "zod";
-import { and, asc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, produto, produtoCanal, channelAccount } from "@/shared/lib/db/schema";
 import { assertPerfil } from "@/shared/lib/crud-factory";
+import { compararPorOrdemDeMarca } from "@/shared/config/brands";
 
 const BrandIdSchema = z.string().uuid();
 const EstadoSchema = z.enum(["abaixo_minimo", "sem_estoque", "sem_minimo", "parados"]);
@@ -142,10 +143,11 @@ export async function actionListarProdutosParados() {
 
 export async function actionListarMarcasEstoque() {
   const ctx = await getCrudContext();
-  return db.select({ id: brand.id, name: brand.name, slug: brand.slug }).from(brand).where(and(
+  const marcas = await db.select({ id: brand.id, name: brand.name, slug: brand.slug }).from(brand).where(and(
     eq(brand.orgId, ctx.orgId),
     eq(brand.active, true),
-  )).orderBy(asc(brand.name));
+  ));
+  return marcas.sort(compararPorOrdemDeMarca);
 }
 
 const MapeamentoCanalSchema = z.object({
