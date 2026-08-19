@@ -12,6 +12,15 @@ export const A24_pollPedidos = inngest.createFunction(
     id: "A24-poll-pedidos",
     name: "A24 — Contingência de ingestão de pedidos (SLA 5 min)",
     concurrency: { limit: 1 },
+    // Sem retentativa de propósito. O throw no fim existe para o Inngest
+    // marcar a execução como falha e o problema aparecer no painel — mas
+    // repetir não conserta nada aqui: a próxima execução do cron vem em 4
+    // minutos e refaz exatamente o mesmo trabalho. Com as 4 tentativas
+    // padrão, uma conta quebrada transformava um job de 4 em 4 minutos num
+    // laço quase contínuo, e cada tentativa refazia o polling de todas as
+    // contas e o despacho da outbox — tudo pela conexão única do banco
+    // (ver getDatabaseClientOptions em db/index.ts).
+    retries: 0,
     triggers: [{ cron: "*/4 * * * *" }],
   },
   async ({ step, attempt }) => {
@@ -47,7 +56,10 @@ export const A24_pollPedidos = inngest.createFunction(
           .where(and(
             eq(channelAccount.orgId, orgId),
             eq(channelAccount.status, "conectado"),
-          )),
+          ))
+          // Ordem fixa: os steps abaixo são criados dentro deste laço, e uma
+          // ordem que muda entre reinvocações embaralha a memoização deles.
+          .orderBy(channelAccount.id),
       );
 
       const desde = new Date(Date.now() - 10 * 60 * 1_000);
@@ -69,13 +81,40 @@ export const A24_pollPedidos = inngest.createFunction(
           resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos });
         } catch (error) {
           resultados.push({ contaId: conta.id, encontrados: 0, novos: 0, erro: String(error) });
-          await emitirEvento({
-            tipo: "canal.degradado",
-            orgId: conta.orgId,
-            brandId: conta.brandId,
-            entidade: "channel_account",
-            entidadeId: conta.id,
-            payload: { motivo: "falha-poll-pedidos", erro: String(error) },
+          /* Degrada a conta — a mesma transição que o A18 faz no health-check.
+             Duas consequências, as duas desejadas: a conta sai do filtro
+             `status = conectado` da consulta acima, então uma conta quebrada
+             deixa de ser repolida de 4 em 4 minutos até o A18 (a cada 15 min)
+             confirmar que ela voltou; e o evento passa a sair só na transição.
+
+             Emitir sem essa guarda gerava uma linha em evento_dominio e uma
+             mensagem de WhatsApp para o admin (ver FORMATADORES em
+             notificacoes-admin.ts) a cada 4 minutos, indefinidamente, para a
+             mesma falha. O `step.run` completa o conserto: fora de um step,
+             este bloco reexecuta a cada reinvocação da função — o Inngest só
+             memoiza o que está dentro de um step. */
+          await step.run(`degradar-${conta.id}`, async () => {
+            const transicionadas = await db
+              .update(channelAccount)
+              .set({ status: "degradado", ultimoErro: String(error), updatedAt: new Date() })
+              .where(and(
+                eq(channelAccount.id, conta.id),
+                eq(channelAccount.orgId, conta.orgId),
+                eq(channelAccount.status, "conectado"),
+              ))
+              .returning({ id: channelAccount.id });
+
+            if (transicionadas.length === 0) return { emitido: false };
+
+            await emitirEvento({
+              tipo: "canal.degradado",
+              orgId: conta.orgId,
+              brandId: conta.brandId,
+              entidade: "channel_account",
+              entidadeId: conta.id,
+              payload: { motivo: "falha-poll-pedidos", erro: String(error) },
+            });
+            return { emitido: true };
           });
         }
       }
