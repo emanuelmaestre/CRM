@@ -255,7 +255,7 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
   onChange: (brandId: string) => void;
 }) {
   return (
-    <div className="flex w-full flex-wrap justify-center gap-1.5 sm:w-auto sm:justify-start" role="tablist">
+    <div className="flex flex-wrap gap-1.5" role="tablist">
       {marcas.map((marca) => {
         const selecionada = marca.brandId === ativa;
         return (
@@ -291,7 +291,7 @@ const CANAIS_ANUNCIOS = ["mercadolivre", "shopee", "tiktokshop"] as const;
  *  disponível" em vez de fingir que dá pra filtrar por eles. */
 function SeletorCanalAnuncios() {
   return (
-    <div className="flex w-full flex-wrap justify-center gap-1.5 sm:w-auto sm:justify-start">
+    <div className="flex flex-wrap gap-1.5">
       {CANAIS_ANUNCIOS.map((canal) => {
         const disponivel = canal === "mercadolivre";
         const label = (channelsConfig.items as Record<string, { label?: string }>)[canal]?.label ?? canal;
@@ -483,7 +483,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
           <SeletorCanalAnuncios />
-          <div className="flex w-full flex-wrap items-end justify-center gap-2 sm:w-auto sm:justify-start" aria-label="Período dos anúncios">
+          <div className="flex flex-wrap items-end gap-2" aria-label="Período dos anúncios">
             <CalendarioPopoverRange
               rotulo="Período"
               valor={periodo}
