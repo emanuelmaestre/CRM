@@ -10,7 +10,7 @@ import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterHistoricoDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
 import { SeletorMarca } from "../anuncios-cliente";
-import { Card, CardHead } from "../anuncios-primitives";
+import { Card, CardHead, rotuloComExplicacaoEmNegrito } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { PontoHistorico } from "@/modules/anuncios/application/historico.service";
 import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
@@ -218,7 +218,7 @@ export function HistoricoClienteDetalhe() {
                 <thead>
                   <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
                     {copy.colunas.map((coluna: string, indice: number) => (
-                      <th key={coluna} className={`px-3 py-2 ${indice > 0 ? "text-right" : ""}`}>{coluna}</th>
+                      <th key={coluna} className={`px-3 py-2 ${indice > 0 ? "text-right" : ""}`}>{rotuloComExplicacaoEmNegrito(coluna)}</th>
                     ))}
                   </tr>
                 </thead>

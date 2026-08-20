@@ -10,7 +10,7 @@ import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterProdutosDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
 import { SeletorMarca } from "../anuncios-cliente";
-import { Card, CardHead } from "../anuncios-primitives";
+import { Card, CardHead, rotuloComExplicacaoEmNegrito } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { AnuncioProduto, ProdutosResultado } from "@/modules/anuncios/application/produtos.service";
 import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
@@ -88,9 +88,39 @@ export function ProdutosClienteDetalhe() {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
+      {/* Marca + filtros de recomendação numa fileira só — eram 2 linhas
+          separadas antes, sem motivo pra isso já que os dois são filtro da
+          mesma lista. flex-wrap garante que ainda quebra direito em telas
+          estreitas, só não força a quebra quando cabe tudo junto. */}
       <div className="flex flex-wrap items-center gap-3">
         <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
-        <span className="h-px flex-1 bg-border" />
+        {/* Separador entre os dois grupos — sem ele, marca e filtro de
+            recomendação (que não têm nada a ver um com o outro) ficavam
+            grudados na mesma fileira, parecendo um grupo só. */}
+        <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
+        <div className="flex flex-wrap gap-1.5">
+          {FILTROS.map((item) => {
+            const ativo = item === filtro;
+            return (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setFiltro(item)}
+                className="press-feedback rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={{
+                  // var(--selecionado) é o acento de "isto está escolhido" usado
+                  // no resto do app (Estoque, Vendas, halo de seleção) — preto
+                  // puro (--foreground) não seguia esse padrão do design system.
+                  background: ativo ? "var(--selecionado)" : "var(--muted)",
+                  color: ativo ? "#fff" : "var(--muted-foreground)",
+                }}
+              >
+                {copy.filtros[item]}
+              </button>
+            );
+          })}
+        </div>
+        <span className="h-px min-w-4 flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
           {dados?.sincronizadoEm ? dataHora.format(new Date(dados.sincronizadoEm)) : "Nunca sincronizado"}
@@ -107,26 +137,6 @@ export function ProdutosClienteDetalhe() {
           />
         </Card>
       )}
-
-      <div className="flex flex-wrap gap-1.5">
-        {FILTROS.map((item) => {
-          const ativo = item === filtro;
-          return (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setFiltro(item)}
-              className="press-feedback rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={{
-                background: ativo ? "var(--foreground)" : "var(--muted)",
-                color: ativo ? "var(--background)" : "var(--muted-foreground)",
-              }}
-            >
-              {copy.filtros[item]}
-            </button>
-          );
-        })}
-      </div>
 
       <Card>
         {carregandoProdutos ? (
@@ -179,7 +189,7 @@ export function ProdutosClienteDetalhe() {
               <thead>
                 <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
                   {copy.colunas.map((coluna: string, indice: number) => (
-                    <th key={coluna} className={`px-3 py-2 ${indice > 1 ? "text-right" : ""}`}>{coluna}</th>
+                    <th key={coluna} className={`px-3 py-2 ${indice > 1 ? "text-right" : ""}`}>{rotuloComExplicacaoEmNegrito(coluna)}</th>
                   ))}
                 </tr>
               </thead>

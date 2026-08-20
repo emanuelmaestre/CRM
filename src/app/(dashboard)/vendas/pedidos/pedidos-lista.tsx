@@ -13,7 +13,6 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
-import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
 import { springs, variantes, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
@@ -60,12 +59,6 @@ function fimDoDia(data: string): string | undefined {
 
 // toISOString() converte pro fuso UTC — perto da meia-noite local isso troca
 // o dia. Montar a string a partir de getFullYear/Month/Date mantém o dia local.
-function paraDataInput(data: Date): string {
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
-}
-
-const hoje = paraDataInput(new Date());
-
 const CORES_STATUS: Record<string, string> = {
   criado: "var(--muted-foreground)",
   pago: "var(--info)",
@@ -466,13 +459,13 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
       </motion.div>
 
       {/* Filtros — no desktop, uma linha só como sempre foi (busca cresce,
-          o resto tem largura própria). No mobile isso empilhava em 6 blocos
+          o resto tem largura própria). No mobile isso empilhava em blocos
           de largura cheia, um por baixo do outro, e os dois botões de
           calendário (De:/Até:) ficavam idênticos e sem rótulo visível, um
           embaixo do outro — impossível saber qual era qual. Agora: busca
-          sozinha (é o controle principal), status+Hoje juntos (são atalhos
-          de refinar), De:/Até: lado a lado (são um par). O PDF saiu daqui —
-          foi morar perto do contador de pedidos, que é o que ele exporta. */}
+          sozinha (é o controle principal), status+Período juntos (são
+          atalhos de refinar). O PDF saiu daqui — foi morar perto do
+          contador de pedidos, que é o que ele exporta. */}
       <div className="mb-4 flex flex-col gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid md:grid-cols-[minmax(200px,1fr)_auto] md:items-center">
         <label className="relative block">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -493,20 +486,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               }))}
             />
           </div>
+          {/* "Hoje" saiu como botão avulso — o popover de Período já tem o
+              mesmo atalho lá dentro (ver CalendarioPopoverRange), o botão
+              daqui fora só duplicava a ação e tomava espaço na linha. */}
           <CalendarioPopoverRange
             rotulo="Período"
             valor={{ inicio: dataInicial, fim: dataFinal }}
             onChange={({ inicio, fim }) => { setDataInicial(inicio); setDataFinal(fim); }}
             disabled={loading}
-          />
-          <BotaoHoje
-            ativo={dataInicial === hoje && dataFinal === hoje}
-            disabled={loading}
-            onClick={() => {
-              const jaEstaEmHoje = dataInicial === hoje && dataFinal === hoje;
-              setDataInicial(jaEstaEmHoje ? "" : hoje);
-              setDataFinal(jaEstaEmHoje ? "" : hoje);
-            }}
           />
         </div>
       </div>

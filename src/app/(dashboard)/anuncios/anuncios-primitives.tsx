@@ -69,6 +69,22 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** "ACOS (custo do anúncio na venda)" → o pedaço entre parênteses (a
+ *  explicação em português simples) vira negrito, pra pular aos olhos mais
+ *  que a sigla crua — é a parte que quem não é da área realmente precisa
+ *  ler. `aria-label`/`title` continuam com o texto plano de `children`,
+ *  isso só muda o que aparece na tela. */
+export function rotuloComExplicacaoEmNegrito(texto: string): React.ReactNode {
+  const match = texto.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (!match) return texto;
+  const [, principal, explicacao] = match;
+  return (
+    <>
+      {principal} (<strong className="font-bold text-foreground/85">{explicacao}</strong>)
+    </>
+  );
+}
+
 export function RotuloComInfo({ children, descricao, observacao }: {
   children: string;
   descricao: string;
@@ -83,7 +99,7 @@ export function RotuloComInfo({ children, descricao, observacao }: {
     // centralizado na vertical, ele ficava flutuando no meio das duas linhas;
     // alinhado ao topo, fica ao lado da primeira linha, leitura mais natural.
     <span className="inline-flex max-w-full items-start gap-1">
-      <span className="min-w-0">{children}</span>
+      <span className="min-w-0">{rotuloComExplicacaoEmNegrito(children)}</span>
       <AnimatedInfoPopover
         trigger={(
           <AnimatedInfoTrigger

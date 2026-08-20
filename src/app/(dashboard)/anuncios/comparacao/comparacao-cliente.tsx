@@ -10,7 +10,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "../actions";
-import { Card } from "../anuncios-primitives";
+import { Card, rotuloComExplicacaoEmNegrito } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { ClassificacaoDependencia } from "@/modules/anuncios/application/metricas-calculadas";
 import type { VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
@@ -95,7 +95,7 @@ export function ComparacaoClienteDetalhe() {
             <thead>
               <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
                 {copy.colunas.map((coluna: string, indice: number) => (
-                  <th key={coluna} className={`px-3 py-2 ${indice > 0 ? "text-right" : ""}`}>{coluna}</th>
+                  <th key={coluna} className={`px-3 py-2 ${indice > 0 ? "text-right" : ""}`}>{rotuloComExplicacaoEmNegrito(coluna)}</th>
                 ))}
               </tr>
             </thead>
