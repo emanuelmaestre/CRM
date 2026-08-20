@@ -22,6 +22,16 @@ const formatarDataCurta = (iso: string) => {
 };
 const periodoLabel = (inicio: string, fim: string) => `${formatarDataCurta(inicio)} a ${formatarDataCurta(fim)}`;
 
+// A nota de qualidade era sempre cinza neutro, tivesse 5/100 ou 95/100 — sem
+// nenhuma pista de cor pra escanear rápido quais publicações precisam de
+// atenção antes de ler o número.
+function corQualidade(qualidade: number | null): string {
+  if (qualidade === null) return "var(--muted-foreground)";
+  if (qualidade < 40) return "var(--destructive)";
+  if (qualidade < 70) return "var(--warning)";
+  return "var(--success)";
+}
+
 /** O que o mosaico já buscou ao carregar a página, para a primeira marca (a
  *  aba que abre por padrão). Trocar de aba dentro do card continua buscando
  *  na hora — é uma escolha ativa de quem já está com o card aberto, bem
@@ -77,7 +87,15 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
     return dados.itens.map((item) => ({ item, marca }));
   });
   const algumParcial = selecionadas.some((id) => resultados[chaveMarca(id)]?.parcial);
+  // null só acontece pelo .catch da busca (a service nunca retorna null em
+  // sucesso) — sem essa checagem, "deu erro" e "não tem publicação" caíam
+  // na mesma tela de vazio, e quem via não sabia se devia tentar de novo.
+  const algumErro = selecionadas.some((id) => chaveMarca(id) in resultados && resultados[chaveMarca(id)] === null);
   const multiplasMarcas = selecionadas.length > 1;
+  const comPendencia = itensCombinados.filter(({ item }) => item.pendencias.length > 0).length;
+  const investimentoTotal = itensCombinados.reduce((soma, { item }) => soma + item.investimento, 0);
+  const receitaTotal = itensCombinados.reduce((soma, { item }) => soma + item.receita, 0);
+  const retornoMedio = investimentoTotal > 0 ? receitaTotal / investimentoTotal : null;
 
   function alternarMarca(id: string) {
     setBrandIds((atual) => {
@@ -165,23 +183,38 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
             <motion.div key="carregando" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Skeleton className="h-52 w-full" />
             </motion.div>
+          ) : algumErro && itensCombinados.length === 0 ? (
+            // "deu erro buscando" e "não tem publicação" eram a mesma tela —
+            // quem via não sabia se devia tentar de novo ou se é assim mesmo.
+            <EstadoVazio key="erro" icone={TriangleAlert} texto="Não foi possível buscar as publicações agora. Tente atualizar a página em instantes." />
           ) : itensCombinados.length === 0 ? (
             <EstadoVazio key="sem-dados" icone={LayoutGrid} texto="Nenhuma publicação com dados disponíveis para o filtro atual." />
           ) : (
             <motion.div key="lista">
-              {/* Resumo dinâmico do que está sendo exibido — traduz a combinação de
-                  abas ativas (marcas × canal) numa frase, em vez de deixar quem olha
-                  reconstruir isso de cabeça a partir das abas marcadas lá em cima. */}
-              <motion.p
+              {/* Resumo agregado antes da lista crua — antes pulava direto pra
+                  20 cards individuais sem nenhuma visão de conjunto. */}
+              <motion.div
                 initial={reduzir ? false : { opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={springs.settleFast}
-                className="mb-3 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
+                className="mb-4 grid grid-cols-3 gap-2 rounded-xl bg-muted/40 p-3 text-center"
               >
-                <span className="font-semibold text-foreground">{itensCombinados.length}</span>
-                {itensCombinados.length === 1 ? "publicação" : "publicações"} de Product Ads
-                {multiplasMarcas ? ` em ${selecionadas.length} marcas` : ""} · {periodo}
-              </motion.p>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{itensCombinados.length}</p>
+                  <p className="text-[11px] text-muted-foreground">{itensCombinados.length === 1 ? "publicação" : "publicações"}</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums" style={comPendencia > 0 ? { color: "var(--warning)" } : undefined}>{comPendencia}</p>
+                  <p className="text-[11px] text-muted-foreground">com pendência</p>
+                </div>
+                <div>
+                  <p className="text-lg font-bold tabular-nums">{retornoMedio === null ? "—" : `${retornoMedio.toFixed(1)}x`}</p>
+                  <p className="text-[11px] text-muted-foreground">retorno médio</p>
+                </div>
+              </motion.div>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Product Ads{multiplasMarcas ? ` · ${selecionadas.length} marcas` : ""} · {periodo}
+              </p>
 
               <motion.div
                 variants={variantes(reduzir, staggerExagerado)}
@@ -209,11 +242,19 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                               )}
                             </div>
                           )}
-                          <h4 className="truncate text-sm font-semibold">{item.titulo}</h4>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="truncate text-sm font-semibold">{item.titulo}</h4>
+                            {/* Pendência agora sinaliza aqui em cima, perto do título — antes
+                                só aparecia como texto no fim do card, fácil de passar batido
+                                escaneando uma grade de 20 publicações. */}
+                            {item.pendencias.length > 0 && (
+                              <TriangleAlert size={13} className="shrink-0" style={{ color: "var(--warning)" }} aria-label="Publicação com pendência" />
+                            )}
+                          </div>
                           <p className="mt-0.5 text-xs text-muted-foreground">{item.itemId}</p>
                         </div>
                         <div className="flex shrink-0 items-center gap-0.5">
-                          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-bold tabular-nums">
+                          <span className="rounded-full px-2.5 py-1 text-xs font-bold tabular-nums" style={{ color: corQualidade(item.qualidade), background: `color-mix(in srgb, ${corQualidade(item.qualidade)} 12%, transparent)` }}>
                             {item.qualidade === null ? "Sem dado" : <><NumeroAnimado valor={item.qualidade} formatar={(v) => inteiro.format(Math.round(v))} />/100</>}
                           </span>
                           <CalculoPopover
@@ -332,7 +373,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                           nota={item.nivelQualidade === null ? "Este anúncio ainda não recebeu um nível do Mercado Livre, comum em publicações recém-criadas ou inativas." : undefined}
                         />
                       </div>
-                      {item.pendencias.length > 0 && <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700"><TriangleAlert size={13} className="mt-0.5 shrink-0" /> {item.pendencias[0]}</p>}
+                      {item.pendencias.length > 0 && <p className="mt-2 flex items-start gap-1.5 text-xs" style={{ color: "var(--warning)" }}><TriangleAlert size={13} className="mt-0.5 shrink-0" /> {item.pendencias[0]}</p>}
                     </motion.article>
                   );
                 })}
@@ -343,7 +384,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
         {algumParcial && (
           <div className="mt-4">
             <AvisoParcial>
-              <TriangleAlert size={14} className="mt-0.5 shrink-0 text-amber-600" />
+              <TriangleAlert size={14} className="mt-0.5 shrink-0" style={{ color: "var(--warning)" }} />
               Algumas publicações inativas não possuem pontuação de qualidade no Mercado Livre.
             </AvisoParcial>
           </div>
