@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { getBrandConfig, isBrandSlug, BRAND_SLUGS } from "@/shared/config/brands";
@@ -7,48 +8,77 @@ import channelsConfig from "@/config/channels.json";
 
 export const CANAIS_VENDA = ["mercadolivre", "shopee", "tiktokshop"] as const;
 
+/** Anel na cor da pílula que nasce colado nela e se expande sumindo — só
+ *  toca quando `ativo` PASSA a ser true. Mesmo componente usado em Estoque/
+ *  Publicidade, pro selecionar de marca/canal ter a mesma linguagem visual
+ *  em todo o app. */
+function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; reduzir: boolean | null }) {
+  return (
+    <AnimatePresence>
+      {ativo && !reduzir && (
+        <motion.span
+          key="halo"
+          initial={{ opacity: 0.55, scale: 0.82 }}
+          animate={{ opacity: 0, scale: 1.4 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{ border: `2px solid ${cor}` }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
 function EmpresaPill({ nome, slug, total, ativo, onClick }: {
   nome: string; slug: string; total: number; ativo: boolean; onClick: () => void;
 }) {
+  const reduzir = useReducedMotion();
   const temIdentidade = isBrandSlug(slug);
+  const cor = getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
       aria-pressed={ativo}
-      className={`inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 transition-colors ${
-        ativo ? "border-2" : "border border-border bg-card hover:bg-muted"
+      whileHover={!reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={!reduzir ? { scale: 0.92 } : undefined}
+      className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
+        ativo ? "border-2 bg-card/70" : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
-      style={ativo ? (() => {
-        const cor = getBrandConfig(slug)?.color ?? "var(--primary)";
-        return { borderColor: cor, background: `color-mix(in srgb, ${cor} 8%, transparent)` };
-      })() : undefined}
+      style={ativo ? { borderColor: cor } : undefined}
     >
+      <HaloSelecao ativo={ativo} cor={cor} reduzir={reduzir} />
       {temIdentidade ? <BrandLogo brand={slug} height={17} /> : <span className="text-sm font-semibold text-foreground">{nome}</span>}
       <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
-    </button>
+    </motion.button>
   );
 }
 
 function CanalFiltroPill({ tipo, total, ativo, onClick }: {
   tipo: string; total: number; ativo: boolean; onClick: () => void;
 }) {
+  const reduzir = useReducedMotion();
   const label = (channelsConfig.items as Record<string, { label?: string }>)[tipo]?.label ?? tipo;
+  const cor = channelAccent(tipo);
   return (
-    <button
+    <motion.button
       type="button"
       onClick={onClick}
       aria-pressed={ativo}
       aria-label={label}
       title={label}
-      style={ativo ? { borderColor: channelAccent(tipo), background: `color-mix(in srgb, ${channelAccent(tipo)} 8%, transparent)` } : undefined}
-      className={`inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
-        ativo ? "border-2" : "border border-border bg-card hover:bg-muted"
+      whileHover={!reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={!reduzir ? { scale: 0.92 } : undefined}
+      className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
+        ativo ? "border-2 bg-card/70" : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
+      style={ativo ? { borderColor: cor } : undefined}
     >
+      <HaloSelecao ativo={ativo} cor={cor} reduzir={reduzir} />
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
       <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
-    </button>
+    </motion.button>
   );
 }
 
@@ -94,18 +124,12 @@ export function CanaisRow({ canaisAtivos, onToggleCanal, contagemCanal }: Pick<F
   );
 }
 
-/** Barra única de escopo Empresa/Canal, compartilhada pelas três abas do
- *  Inbox (Conversas, Perguntas, Avaliações) — antes cada aba tinha a sua
- *  própria, com contagens e seleção independentes; agora escolher uma
- *  empresa ou canal aqui filtra as três ao mesmo tempo. As contagens somam
- *  o que está carregado nas três abas (conversa + pergunta + anúncio), não
- *  o total de cada uma isolada — é um indicador de atividade, não uma
- *  contagem exata de "itens" (que teria naturezas diferentes por aba).
- *  Usada como uma linha só a partir do breakpoint lg; abaixo disso o
- *  Inbox monta EmpresasRow/CanaisRow separadas, empilhadas, porque numa
- *  tela estreita as duas listas de pílulas não cabem lado a lado sem
- *  empurrar uma pra fora da viewport (era o que causava "Karzi" sumir
- *  no mobile: a barra rolava e escondia o resto). */
+/** Barra de escopo Empresa/Canal do módulo Avaliações. Já foi compartilhada
+ *  com as abas Conversas/Perguntas do Inbox — essas duas telas não existem
+ *  mais no app, então hoje isso é usado só aqui. Usada como uma linha só a
+ *  partir do breakpoint lg; abaixo disso a tela monta EmpresasRow/CanaisRow
+ *  separadas, empilhadas, porque numa tela estreita as duas listas de
+ *  pílulas não cabem lado a lado sem empurrar uma pra fora da viewport. */
 export function FiltroEscopoBar(props: FiltroEscopoProps) {
   return (
     <div className="flex flex-nowrap items-center gap-2 w-fit">
