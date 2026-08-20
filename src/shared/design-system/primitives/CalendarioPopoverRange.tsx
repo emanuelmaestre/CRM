@@ -311,8 +311,15 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   }
 
   const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
+  // Versão numérica ("21/07") só pro botão no mobile — o "de jul." por
+  // extenso é o texto mais longo do cabeçalho e empurrava o "Hoje" quase
+  // pra borda da tela. Continua o mesmo dado, só mais compacto.
+  const diaMesNumerico = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
   const rotuloCompleto = inicioSelecionado && fimSelecionado
     ? `${diaMesAno.format(inicioSelecionado)} – ${diaMesAno.format(fimSelecionado)}`
+    : rotulo;
+  const rotuloCurto = inicioSelecionado && fimSelecionado
+    ? `${diaMesNumerico.format(inicioSelecionado)} – ${diaMesNumerico.format(fimSelecionado)}`
     : rotulo;
 
   const mesEsquerda = mesVisivel;
@@ -466,7 +473,8 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             inicioSelecionado && fimSelecionado ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
           )}
         />
-        <span className="whitespace-nowrap tabular-nums">{rotuloCompleto}</span>
+        <span className="whitespace-nowrap tabular-nums sm:hidden">{rotuloCurto}</span>
+        <span className="hidden whitespace-nowrap tabular-nums sm:inline">{rotuloCompleto}</span>
       </motion.button>
 
       {montado && createPortal(<AnimatePresence>{painel}</AnimatePresence>, document.body)}

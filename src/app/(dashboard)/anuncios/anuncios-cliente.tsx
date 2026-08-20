@@ -253,7 +253,7 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
   onChange: (brandId: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5" role="tablist">
+    <div className="flex w-full flex-wrap justify-center gap-1.5 sm:w-auto sm:justify-start" role="tablist">
       {marcas.map((marca) => {
         const selecionada = marca.brandId === ativa;
         return (
@@ -474,7 +474,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <button type="button" onClick={exportar} disabled={exportando}
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
-            <FileText size={14} /> {exportando ? "Gerando…" : "Exportar PDF"}
+            <FileText size={14} /> {exportando ? "Gerando…" : "PDF"}
           </button>
           <button
             type="button"
