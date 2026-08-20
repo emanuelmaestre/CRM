@@ -483,34 +483,31 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
           <SeletorCanalAnuncios />
-          <div className="flex flex-wrap items-end gap-2" aria-label="Período dos anúncios">
-            <CalendarioPopoverRange
-              rotulo="Período"
-              valor={periodo}
-              max={hojeISO}
-              onChange={setPeriodo}
-              disabled={carregando}
-            />
-            <BotaoHoje
-              ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
-              disabled={carregando}
-              onClick={() =>
-                setPeriodo((atual) =>
-                  atual.inicio === hojeISO && atual.fim === hojeISO
-                    ? { inicio: "", fim: "" }
-                    : { inicio: hojeISO, fim: hojeISO }
-                )
-              }
-            />
-          </div>
         </div>
         <span className="hidden h-px flex-1 bg-border sm:block" />
-        {/* Sincronização e atualizar viram um botão só (ícone + status),
-            em vez de um texto solto seguido de um círculo de ícone
-            separado — no mobile isso era 2 elementos disputando espaço
-            além do PDF; agora é 1, e continua óbvio que tocar nele
-            sincroniza de novo. */}
+        {/* Período, Hoje, PDF e sincronizar viram um grupo só — antes o
+            período ficava colado nas pílulas de marca/canal, empurrando
+            PDF/sincronizar pra outra linha por conta própria. Juntos aqui,
+            tentam caber numa linha só e só quebram quando não cabe mesmo. */}
         <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start sm:gap-3">
+          <CalendarioPopoverRange
+            rotulo="Período"
+            valor={periodo}
+            max={hojeISO}
+            onChange={setPeriodo}
+            disabled={carregando}
+          />
+          <BotaoHoje
+            ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
+            disabled={carregando}
+            onClick={() =>
+              setPeriodo((atual) =>
+                atual.inicio === hojeISO && atual.fim === hojeISO
+                  ? { inicio: "", fim: "" }
+                  : { inicio: hojeISO, fim: hojeISO }
+              )
+            }
+          />
           <button type="button" onClick={exportar} disabled={exportando}
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
             <FileText size={14} /> {exportando ? "Gerando…" : "PDF"}

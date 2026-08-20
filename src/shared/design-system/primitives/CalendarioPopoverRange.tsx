@@ -316,10 +316,10 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   // pra borda da tela. Continua o mesmo dado, só mais compacto.
   const diaMesNumerico = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
   const rotuloCompleto = inicioSelecionado && fimSelecionado
-    ? `${diaMesAno.format(inicioSelecionado)} – ${diaMesAno.format(fimSelecionado)}`
+    ? `${rotulo}: ${diaMesAno.format(inicioSelecionado)} – ${diaMesAno.format(fimSelecionado)}`
     : rotulo;
   const rotuloCurto = inicioSelecionado && fimSelecionado
-    ? `${diaMesNumerico.format(inicioSelecionado)} – ${diaMesNumerico.format(fimSelecionado)}`
+    ? `${rotulo}: ${diaMesNumerico.format(inicioSelecionado)} – ${diaMesNumerico.format(fimSelecionado)}`
     : rotulo;
 
   const mesEsquerda = mesVisivel;
