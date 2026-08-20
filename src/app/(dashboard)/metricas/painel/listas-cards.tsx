@@ -301,27 +301,27 @@ function statusAnuncioInfo(item: ProdutoParado): { label: string; className: str
     ativo: {
       label: "Ativo no ML",
       className: "bg-muted text-muted-foreground",
-      hint: `Publicado e visível no Mercado Livre, mas sem nenhuma venda ${tempo} — o anúncio está no ar, só não vende.`,
+      hint: `Publicado e visível no Mercado Livre, mas sem nenhuma venda ${tempo}: o anúncio está no ar, só não vende.`,
     },
     pausado: {
       label: "Pausado",
       className: "bg-warning/10 text-warning",
-      hint: `Este anúncio está pausado no Mercado Livre${motivo} — por isso não aparece pra compra, o que já explica por que não vende ${tempo}.`,
+      hint: `Este anúncio está pausado no Mercado Livre${motivo}, por isso não aparece pra compra, o que já explica por que não vende ${tempo}.`,
     },
     encerrado: {
       label: "Encerrado no ML",
       className: "bg-destructive/10 text-destructive",
-      hint: `Este anúncio não existe mais no Mercado Livre${motivo}, mas o produto continua no catálogo com ${item.saldo} unidade${item.saldo === 1 ? "" : "s"} em estoque — ninguém consegue comprar por lá.`,
+      hint: `Este anúncio não existe mais no Mercado Livre${motivo}, mas o produto continua no catálogo com ${item.saldo} unidade${item.saldo === 1 ? "" : "s"} em estoque: ninguém consegue comprar por lá.`,
     },
     sem_vinculo: {
       label: "Sem vínculo com o ML",
       className: "bg-muted text-muted-foreground",
-      hint: "Não encontramos nenhum anúncio deste produto vinculado a uma conta do Mercado Livre — o vínculo pode ter se perdido.",
+      hint: "Não encontramos nenhum anúncio deste produto vinculado a uma conta do Mercado Livre, o vínculo pode ter se perdido.",
     },
     nao_consultado: {
       label: "Status indisponível",
       className: "bg-muted text-muted-foreground/70",
-      hint: "Não foi possível confirmar agora o status deste anúncio no Mercado Livre (falha temporária na consulta) — o restante do dado continua confiável.",
+      hint: "Não foi possível confirmar agora o status deste anúncio no Mercado Livre (falha temporária na consulta), o restante do dado continua confiável.",
     },
   };
   return MAPA[item.statusAnuncio];
@@ -341,12 +341,12 @@ function corGravidade(diasParado: number | null): string {
 /** Catálogo fixo dos 5 status possíveis — não muda por item, é a legenda
  *  completa, pra quem nunca viu um "Encerrado" na tela ainda saber o que
  *  significa antes de precisar achar um pra tocar e descobrir. */
-const LEGENDA_STATUS: Array<{ titulo: string; texto: string }> = [
-  { titulo: "Ativo no ML", texto: "O anúncio está publicado e visível no Mercado Livre — só não vende, não é um problema técnico." },
-  { titulo: "Pausado", texto: "Você mesmo pausou o anúncio — ele não vender é esperado, ninguém consegue comprar algo pausado." },
-  { titulo: "Encerrado no ML", texto: "O anúncio não existe mais lá, mas o produto continua no catálogo do CRM com saldo — ninguém consegue comprar por nenhum canal." },
-  { titulo: "Sem vínculo com o ML", texto: "Não achamos nenhum anúncio deste produto ligado a uma conta do Mercado Livre — o vínculo pode ter se perdido." },
-  { titulo: "Status indisponível", texto: "Falha temporária ao consultar o Mercado Livre agora — o resto do dado (saldo, dias parado) continua confiável." },
+const LEGENDA_STATUS: Array<{ titulo: string; texto: string; cor: string }> = [
+  { titulo: "Ativo no ML", cor: "var(--muted-foreground)", texto: "O anúncio está publicado e visível no Mercado Livre, só não vende: não é um problema técnico." },
+  { titulo: "Pausado", cor: "var(--warning)", texto: "Você mesmo pausou o anúncio, ele não vender é esperado: ninguém consegue comprar algo pausado." },
+  { titulo: "Encerrado no ML", cor: "var(--destructive)", texto: "O anúncio não existe mais lá, mas o produto continua no catálogo do CRM com saldo: ninguém consegue comprar por nenhum canal." },
+  { titulo: "Sem vínculo com o ML", cor: "var(--muted-foreground)", texto: "Não achamos nenhum anúncio deste produto ligado a uma conta do Mercado Livre, o vínculo pode ter se perdido." },
+  { titulo: "Status indisponível", cor: "var(--muted-foreground)", texto: "Falha temporária ao consultar o Mercado Livre agora, o resto do dado (saldo, dias parado) continua confiável." },
 ];
 
 function EntendaStatusBotao() {
@@ -372,7 +372,7 @@ function EntendaStatusBotao() {
       <dl className="mt-3 flex flex-col gap-3 sm:grid sm:grid-cols-2 sm:gap-x-5 sm:gap-y-4">
         {LEGENDA_STATUS.map((item) => (
           <div key={item.titulo}>
-            <dt className="text-[12.5px] font-bold text-foreground">{item.titulo}</dt>
+            <dt className="text-[12.5px] font-bold" style={{ color: item.cor }}>{item.titulo}</dt>
             <dd className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{item.texto}</dd>
           </div>
         ))}
