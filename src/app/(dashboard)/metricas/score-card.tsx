@@ -9,7 +9,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
-import { isBrandSlug } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { Pilar, SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { AnelScore, AvisoParcial, BarraComLimite, Card, CardHead } from "./metricas-primitives";
@@ -68,17 +68,61 @@ function SeletorEscopo({ marcas, valor, onChange }: {
   );
 }
 
+/* ── Explicação de cada pilar ─────────────────────────────────
+   Dinâmica: usa o peso, a nota e o "detalhe" (frase que já vem calculada
+   pro pilar daquela marca naquele período) pra montar um popover que fala
+   do pilar em geral e do número específico ao mesmo tempo — não é um texto
+   fixo repetido pras 3 marcas, muda com o dado de cada uma. */
+function explicacaoPilar(pilar: Pilar) {
+  const semDado = pilar.nota === null;
+  const resultado = semDado ? "Sem dado" : String(Math.round(pilar.nota as number));
+
+  const SIGNIFICADO: Record<Pilar["chave"], string> = {
+    reputacao: "Reputação da marca como vendedora, direto do termômetro público do Mercado Livre (a cor que qualquer comprador vê na página do anúncio), somada ao selo de Mercado Líder quando a marca tem.",
+    posVenda: "Quantas taxas de problema no pós-venda — reclamações, cancelamentos, atraso de envio — estouraram o limite considerado saudável no período.",
+    satisfacao: "Nota média (1 a 5 estrelas) que os clientes deixaram nos pedidos da marca no período.",
+    atendimento: "Velocidade com que a marca respondeu às mensagens de clientes no período — quanto mais rápido, melhor o pilar.",
+    estoque: "Quantos produtos ativos do catálogo têm saldo disponível pra vender, e quantos já estão abaixo do mínimo configurado.",
+  };
+
+  const FORMULA: Record<Pilar["chave"], string> = {
+    reputacao: "convertido direto do termômetro de reputação do Mercado Livre pra uma escala de 0 a 100",
+    posVenda: "parte de 100 e desconta conforme as taxas de reclamação, cancelamento e atraso passam do limite saudável",
+    satisfacao: "nota média das avaliações recebidas no período, na mesma escala de 0 a 100",
+    atendimento: "mediana do tempo de resposta às mensagens, convertida pra escala de 0 a 100 (resposta rápida pontua mais)",
+    estoque: "proporção de produtos ativos com saldo disponível, descontando quem está abaixo do mínimo configurado",
+  };
+
+  return {
+    titulo: `${pilar.label} · peso ${pilar.peso}`,
+    significado: SIGNIFICADO[pilar.chave],
+    formula: FORMULA[pilar.chave],
+    resultado,
+    itens: [{ label: "Nesta marca e período", valor: pilar.detalhe }],
+    nota: semDado
+      ? "Sem dado neste período — este pilar sai da conta do score, e o peso dele é redistribuído entre os outros que têm dado."
+      : `Peso ${pilar.peso} de 100 na composição do score — quanto maior o peso, mais este pilar move o número final.`,
+  };
+}
+
 /* ── Linha de pilar ────────────────────────────────────────────
    O peso fica visível ao lado do nome. Sem isso o leitor não tem
    como saber por que o score não subiu quando "Estoque" foi de 40
-   para 90 — Estoque vale 10, Reputação vale 30. */
-function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
+   para 90 — Estoque vale 10, Reputação vale 30.
+
+   Com uma marca selecionada, a barra e o número usam a cor da marca (mesmo
+   fio condutor visual do card Marca) — o sinal de saúde (bom/ruim) não
+   desaparece, só migra pra um pontinho ao lado do número, mesma solução já
+   usada lá. Sem marca (não deveria acontecer, pilares só existem com marca
+   selecionada) cai pro semântico puro. */
+function LinhaPilar({ pilar, indice, corIdentidade }: { pilar: Pilar; indice: number; corIdentidade?: string }) {
   const semDado = pilar.nota === null;
-  const cor = semDado
+  const corSemantica = semDado
     ? "var(--muted-foreground)"
     : (pilar.nota as number) >= 70 ? "var(--success)"
     : (pilar.nota as number) >= 50 ? "var(--warning)"
     : "var(--destructive)";
+  const cor = corIdentidade ?? corSemantica;
 
   return (
     <motion.li
@@ -95,12 +139,18 @@ function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
           <span className="shrink-0 text-[10px] font-bold tabular-nums text-muted-foreground/70">
             peso {pilar.peso}
           </span>
+          <CalculoPopover compacto {...explicacaoPilar(pilar)} />
         </span>
-        <span
-          className="shrink-0 text-[17px] font-bold tabular-nums"
-          style={{ color: cor }}
-        >
-          {semDado ? "Sem dado" : Math.round(pilar.nota as number)}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {corIdentidade && !semDado && (
+            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: corSemantica }} />
+          )}
+          <span
+            className="text-[17px] font-bold tabular-nums"
+            style={{ color: cor }}
+          >
+            {semDado ? "Sem dado" : Math.round(pilar.nota as number)}
+          </span>
         </span>
       </div>
       {/* 8px, não 10 como a barra de marca: são cinco linhas empilhadas aqui
@@ -212,7 +262,13 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
   const consolidado = escopo === CONSOLIDADO;
   const score = consolidado ? dados?.scoreGeral ?? null : marcaSelecionada?.score ?? null;
   const faixaLabel = consolidado ? dados?.faixaGeralLabel ?? null : marcaSelecionada?.faixaLabel ?? null;
-  const cor = (consolidado ? dados?.faixaGeralCor : marcaSelecionada?.faixaCor) ?? "var(--muted-foreground)";
+  // Com marca selecionada, a cor vira a identidade da marca (mesmo fio
+  // condutor do card Marca) em vez da cor semântica da faixa — pedido
+  // explícito: só o Consolidado continua com a cor semântica de sempre.
+  const corMarca = marcaSelecionada && isBrandSlug(marcaSelecionada.marca) ? getBrandConfig(marcaSelecionada.marca)?.color : undefined;
+  const cor = consolidado
+    ? (dados?.faixaGeralCor ?? "var(--muted-foreground)")
+    : (corMarca ?? marcaSelecionada?.faixaCor ?? "var(--muted-foreground)");
 
   // Mesmo padrão de popover-com-motion do resto do módulo (CalculoPopover) —
   // antes este botão abria um acordeão manual (texto fixo, sem motion do
@@ -338,7 +394,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
                     className="flex flex-col gap-3.5"
                   >
                     {marcaSelecionada?.pilares.map((pilar, indice) => (
-                      <LinhaPilar key={pilar.chave} pilar={pilar} indice={indice} />
+                      <LinhaPilar key={pilar.chave} pilar={pilar} indice={indice} corIdentidade={corMarca} />
                     ))}
                   </motion.ul>
                 )}
