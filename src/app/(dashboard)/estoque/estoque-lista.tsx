@@ -1094,7 +1094,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                 de que levam a uma ação em lote — só no desktop dá pra notar,
                 porque a coluna já nasce com o cabeçalho da tabela ao lado. */}
             {canManage && selecionados.size === 0 && (
-              <p className="mt-0.5 text-[11px] text-muted-foreground md:hidden">Toque nos produtos para selecionar vários e ajustar o mínimo de uma vez.</p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground md:hidden">Toque para selecionar vários e ajustar o mínimo.</p>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
