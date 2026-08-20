@@ -53,8 +53,11 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
     <motion.li variants={listItem} className="border-b border-border px-5 py-3 last:border-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">{nome}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+          <p className="truncate text-sm font-semibold leading-tight text-foreground">{nome}</p>
+          {/* SKU/Empresa/Status formam um bloco só de metadado sobre o mesmo
+              produto — ficam coladas entre si (leading-tight, mt mínimo) e com
+              mais respiro só em relação ao nome acima, que é a info principal. */}
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs leading-tight text-muted-foreground">
             <span className="truncate"><span className="text-muted-foreground/70">SKU:</span> {sku}</span>
             <span className="inline-flex items-center gap-1">
               <span className="text-muted-foreground/70">Empresa:</span>
@@ -63,11 +66,8 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
                 : <span className="font-semibold" style={corMarca ? { color: corMarca } : undefined}>{marca}</span>}
             </span>
           </p>
-          {/* Numa linha própria, não espremido junto do SKU — "situação do
-              produto" é uma informação diferente de "identificação dele",
-              merece o próprio espaço em vez de competir na mesma fileira. */}
           {statusBadge && (
-            <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <p className="mt-0.5 flex items-center gap-1 text-xs leading-tight text-muted-foreground">
               <span className="text-muted-foreground/70">Status:</span>
               {statusBadge}
             </p>
@@ -300,7 +300,7 @@ function statusAnuncioInfo(item: ProdutoParado): { label: string; className: str
   const MAPA: Record<StatusAnuncioParado, { label: string; className: string; hint: string }> = {
     ativo: {
       label: "Ativo no ML",
-      className: "bg-muted text-muted-foreground",
+      className: "bg-success/10 text-success",
       hint: `Publicado e visível no Mercado Livre, mas sem nenhuma venda ${tempo}: o anúncio está no ar, só não vende.`,
     },
     pausado: {
@@ -315,12 +315,12 @@ function statusAnuncioInfo(item: ProdutoParado): { label: string; className: str
     },
     sem_vinculo: {
       label: "Sem vínculo com o ML",
-      className: "bg-muted text-muted-foreground",
+      className: "bg-info/10 text-info",
       hint: "Não encontramos nenhum anúncio deste produto vinculado a uma conta do Mercado Livre, o vínculo pode ter se perdido.",
     },
     nao_consultado: {
       label: "Status indisponível",
-      className: "bg-muted text-muted-foreground/70",
+      className: "bg-muted text-muted-foreground",
       hint: "Não foi possível confirmar agora o status deste anúncio no Mercado Livre (falha temporária na consulta), o restante do dado continua confiável.",
     },
   };
@@ -342,10 +342,10 @@ function corGravidade(diasParado: number | null): string {
  *  completa, pra quem nunca viu um "Encerrado" na tela ainda saber o que
  *  significa antes de precisar achar um pra tocar e descobrir. */
 const LEGENDA_STATUS: Array<{ titulo: string; texto: string; cor: string }> = [
-  { titulo: "Ativo no ML", cor: "var(--muted-foreground)", texto: "O anúncio está publicado e visível no Mercado Livre, só não vende: não é um problema técnico." },
+  { titulo: "Ativo no ML", cor: "var(--success)", texto: "O anúncio está publicado e visível no Mercado Livre, só não vende: não é um problema técnico." },
   { titulo: "Pausado", cor: "var(--warning)", texto: "Você mesmo pausou o anúncio, ele não vender é esperado: ninguém consegue comprar algo pausado." },
   { titulo: "Encerrado no ML", cor: "var(--destructive)", texto: "O anúncio não existe mais lá, mas o produto continua no catálogo do CRM com saldo: ninguém consegue comprar por nenhum canal." },
-  { titulo: "Sem vínculo com o ML", cor: "var(--muted-foreground)", texto: "Não achamos nenhum anúncio deste produto ligado a uma conta do Mercado Livre, o vínculo pode ter se perdido." },
+  { titulo: "Sem vínculo com o ML", cor: "var(--info)", texto: "Não achamos nenhum anúncio deste produto ligado a uma conta do Mercado Livre, o vínculo pode ter se perdido." },
   { titulo: "Status indisponível", cor: "var(--muted-foreground)", texto: "Falha temporária ao consultar o Mercado Livre agora, o resto do dado (saldo, dias parado) continua confiável." },
 ];
 
