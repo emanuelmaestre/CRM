@@ -43,7 +43,7 @@ export interface ResumoBloco {
  *  rótulo pequeno acima do grupo de blocos. */
 export const SECOES = [
   { id: "financeiro", label: "Financeiro" },
-  { id: "saude", label: "Saúde da operação" },
+  { id: "saude", label: "Placar geral" },
   { id: "atendimento", label: "Atendimento ao cliente" },
   { id: "estoque", label: "Estoque & catálogo" },
   { id: "marketing", label: "Marketing" },

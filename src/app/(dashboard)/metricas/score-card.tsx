@@ -136,6 +136,7 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
     const porFaturamento = pesoTotal > 0;
     return (
       <CalculoPopover
+        compacto
         titulo="Score consolidado"
         significado="Resume a saúde de todas as marcas em uma nota única de 0 a 100. Marcas com maior faturamento influenciam mais o resultado consolidado."
         formula={porFaturamento
@@ -158,6 +159,7 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
   const pesoTotal = medidos.reduce((soma, pilar) => soma + pilar.peso, 0);
   return (
     <CalculoPopover
+      compacto
       titulo={`Score · ${marcaSelecionada.marcaLabel}`}
       significado="Resume a saúde desta marca em uma nota de 0 a 100, combinando reputação, pós-venda, satisfação, atendimento e catálogo."
       formula="média ponderada das notas dos pilares medidos (0–100 cada)"
@@ -272,11 +274,6 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
                     score={score}
                   />
                 </span>
-              )}
-              {consolidado && (
-                <p className="max-w-[168px] text-center text-[10px] leading-snug text-muted-foreground">
-                  {copy.consolidadoNota}
-                </p>
               )}
             </div>
 

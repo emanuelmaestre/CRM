@@ -4,7 +4,7 @@
     "inspiracao": "As Métricas do Mercado Livre mostram termômetro, taxas e tempo de resposta em painéis separados, cada um exigindo uma leitura própria. Aqui a leitura começa por um número só (Score de Saúde), que se abre nos pilares que o formaram, e as marcas aparecem lado a lado em vez de uma conta por vez."
   },
   "secoes": {
-    "saude": "Saúde da operação",
+    "saude": "Placar geral",
     "reputacao": "Reputação nos canais",
     "comparacao": "Marca a marca",
     "atendimento": "Atendimento",
@@ -207,7 +207,7 @@
         "legenda": "{pedidos} pedidos · ticket {ticket}"
       },
       "score": {
-        "titulo": "Saúde da loja",
+        "titulo": "Score da loja",
         "legenda": "Cinco pilares, um número"
       },
       "comparacao": {
