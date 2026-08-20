@@ -43,7 +43,12 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
       whileHover={reduzir || !onClick ? undefined : { y: -4, scale: 1.02 }}
       whileTap={reduzir || !onClick ? undefined : { scale: 0.94 }}
       transition={springs.momentum}
-      className="relative overflow-hidden rounded-[1.15rem] border-2 p-4 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_10px_28px_rgba(14,15,19,.12)]"
+      // w-full é o que garante o card esticar até preencher a coluna do
+      // grid/flex em que ele mora — um <button> (usado quando é clicável)
+      // não estica sozinho como um <div> estica, ele encolhe pro tamanho do
+      // próprio conteúdo por padrão, deixando vãos enormes entre colunas
+      // largas (mais visível em telas grandes, mas afeta qualquer largura).
+      className="relative w-full overflow-hidden rounded-[1.15rem] border-2 p-4 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_10px_28px_rgba(14,15,19,.12)]"
       style={{
         borderColor: ativo ? cor : "transparent",
         background: "var(--card)",

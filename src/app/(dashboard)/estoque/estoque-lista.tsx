@@ -1088,15 +1088,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-          <div>
-            <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
-            {/* Sem isso, os checkboxes soltos na lista não davam nenhuma pista
-                de que levam a uma ação em lote — só no desktop dá pra notar,
-                porque a coluna já nasce com o cabeçalho da tabela ao lado. */}
-            {canManage && selecionados.size === 0 && (
-              <p className="mt-0.5 text-[11px] text-muted-foreground md:hidden">Toque para selecionar vários e ajustar o mínimo.</p>
-            )}
-          </div>
+          <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {ultimaAtualizacao && (
               <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
