@@ -72,6 +72,8 @@
       "resolvedHint": "Sem ação pendente do seu lado - só falta o Mercado Livre encerrar o registro.",
       "resolvedUpdatedToday": "atualizada hoje",
       "resolvedUpdatedSince": "atualizada há",
+      "awaitingMediatorLabel": "Aguardando o ML",
+      "awaitingMediatorHint": "Você já enviou o que tinha a enviar - agora é o mediador do Mercado Livre quem está analisando e vai decidir. Ainda não é um caso encerrado.",
       "orderLabel": "Ver pedido",
       "partialLabel": "Lista parcial - falha ao consultar",
       "emptyTitle": "Nenhuma reclamação aberta",

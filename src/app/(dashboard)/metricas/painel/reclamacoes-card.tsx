@@ -191,7 +191,14 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
     }
   }, [texto, enviando, item.marca, item.id, item.emMediacao, carregarThread]);
 
-  const resolvida = !item.precisaAcao;
+  // Sem ação pendente e FORA de mediação: o assunto realmente terminou entre
+  // vendedor e comprador. Sem ação pendente MAS em mediação: só significa que
+  // não é sua vez de agir agora — o mediador do ML está decidindo, o caso
+  // continua aberto e pode virar reembolso. Rotular os dois como "Resolvida"
+  // seria dar informação errada, não só confusa (o `resolution` do claim real
+  // confirma: fica `null` até o ML fechar de fato, mesmo com ação vazia).
+  const resolvida = !item.precisaAcao && !item.emMediacao;
+  const aguardandoMediador = !item.precisaAcao && item.emMediacao;
 
   return (
     <div className={`border-b border-border last:border-0 ${resolvida ? "opacity-70" : ""}`}>
@@ -226,9 +233,29 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
                 <p className="text-[12px] leading-relaxed text-foreground/85">{copy.resolvedHint}</p>
               </AnimatedInfoPopover>
             )}
-            {/* "Resolvida" já cobre o essencial ("nada pendente do seu lado") — empilhar
-                "escalou" junto só confunde qual selo olhar primeiro. */}
-            {!resolvida && item.emMediacao && (
+            {aguardandoMediador && (
+              <AnimatedInfoPopover
+                trigger={(
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => event.stopPropagation()}
+                    className="press-feedback cursor-pointer rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground transition-opacity hover:opacity-80"
+                  >
+                    {copy.awaitingMediatorLabel}
+                  </span>
+                )}
+                align="start"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+              >
+                <p className="text-[12px] leading-relaxed text-foreground/85">{copy.awaitingMediatorHint}</p>
+              </AnimatedInfoPopover>
+            )}
+            {/* "Resolvida"/"Aguardando o ML" já cobrem o estado — empilhar "escalou"
+                junto só confunde qual selo olhar primeiro. */}
+            {!resolvida && !aguardandoMediador && item.emMediacao && (
               // Trigger não pode ser <button>: esta linha inteira já é um
               // <button> (abre/fecha a thread) — <button> dentro de <button>
               // é HTML inválido. `stopPropagation` evita que o clique também
@@ -316,11 +343,11 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
         </div>
         <div className="flex shrink-0 items-start gap-2">
           <div className="text-right">
-            <p className={resolvida || item.reaberta
+            <p className={resolvida || aguardandoMediador || item.reaberta
               ? "max-w-[7rem] text-[11px] font-semibold leading-snug text-muted-foreground"
               : "text-sm font-bold tabular-nums text-foreground"}
             >
-              {resolvida || item.reaberta ? tempoAtualizacao(diasDesde(item.atualizadaEm)) : tempoAberta(item.diasAberta)}
+              {resolvida || aguardandoMediador || item.reaberta ? tempoAtualizacao(diasDesde(item.atualizadaEm)) : tempoAberta(item.diasAberta)}
             </p>
             {item.pedidoHref && (
               <Link
