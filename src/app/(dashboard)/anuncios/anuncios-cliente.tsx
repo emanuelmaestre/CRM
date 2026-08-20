@@ -379,7 +379,14 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
   contasIniciais?: CanalConfiguracao[];
 }) {
   const [periodo, setPeriodo] = useState(() => periodoServidor ?? periodoInicial());
-  const chaveInicial = `${periodo.inicio}:${periodo.fim}`;
+  // "Limpar" no calendário volta o período pra "" — sem isso, o resto do
+  // componente (busca de dados, exportar PDF, cálculo de dias pro período
+  // anterior) fazia `new Date("T12:00:00")` (Invalid Date) e mandava
+  // "NaN-NaN-NaN" pro servidor, quebrando a tela. periodoEfetivo cai pro
+  // período padrão de 30 dias sempre que inicio/fim estiverem vazios —
+  // mesmo padrão já usado em Métricas.
+  const periodoEfetivo = periodo.inicio && periodo.fim ? periodo : periodoInicial();
+  const chaveInicial = `${periodoEfetivo.inicio}:${periodoEfetivo.fim}`;
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(
     dadosIniciais?.dados?.marcas[0]?.brandId ?? null,
   );
@@ -394,18 +401,18 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
   const [execucaoSync, setExecucaoSync] = useState<ExecucaoSync | null>(null);
   const intervaloSync = useRef<ReturnType<typeof setInterval> | null>(null);
   const dados = consulta.dados;
-  const chavePeriodo = `${periodo.inicio}:${periodo.fim}`;
+  const chavePeriodo = `${periodoEfetivo.inicio}:${periodoEfetivo.fim}`;
   const carregando = consulta.chave !== chavePeriodo;
 
   const buscar = useCallback(() => {
     let ativo = true;
-    const inicio = new Date(`${periodo.inicio}T12:00:00`);
-    const fim = new Date(`${periodo.fim}T12:00:00`);
+    const inicio = new Date(`${periodoEfetivo.inicio}T12:00:00`);
+    const fim = new Date(`${periodoEfetivo.fim}T12:00:00`);
     const dias = Math.max(1, Math.round((fim.getTime() - inicio.getTime()) / 86_400_000) + 1);
     const fimAnterior = new Date(inicio); fimAnterior.setDate(fimAnterior.getDate() - 1);
     const inicioAnterior = new Date(fimAnterior); inicioAnterior.setDate(inicioAnterior.getDate() - (dias - 1));
     Promise.all([
-      actionObterVisaoGeralAnuncios({ inicio: periodo.inicio, fim: periodo.fim }),
+      actionObterVisaoGeralAnuncios({ inicio: periodoEfetivo.inicio, fim: periodoEfetivo.fim }),
       actionObterVisaoGeralAnuncios({ inicio: paraISO(inicioAnterior), fim: paraISO(fimAnterior) }),
     ])
       .then(([resultado, anterior]) => {
@@ -415,7 +422,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
       })
       .catch(() => { if (ativo) { setConsulta({ chave: chavePeriodo, dados: null, anterior: null }); toast.error(copy.erros.carregar); } });
     return () => { ativo = false; };
-  }, [periodo.inicio, periodo.fim, chavePeriodo]);
+  }, [periodoEfetivo.inicio, periodoEfetivo.fim, chavePeriodo]);
 
   // Quando o servidor já mandou os dados do período inicial, a primeira
   // execução destes efeitos é pulada — ela só refaria no navegador a busca
@@ -499,7 +506,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
   async function exportar() {
     setExportando(true);
     try {
-      await exportarAnunciosPDF(marca, `${diaMesAno.format(new Date(`${periodo.inicio}T12:00:00`))} a ${diaMesAno.format(new Date(`${periodo.fim}T12:00:00`))}`);
+      await exportarAnunciosPDF(marca, `${diaMesAno.format(new Date(`${periodoEfetivo.inicio}T12:00:00`))} a ${diaMesAno.format(new Date(`${periodoEfetivo.fim}T12:00:00`))}`);
       toast.success("PDF de Anúncios gerado.");
     } catch {
       toast.error("Não foi possível gerar o PDF de Anúncios.");
@@ -596,7 +603,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
       {/* Ato 1 — os quatro números que respondem "o que está acontecendo" */}
       <KpisPrincipais resumo={marca.resumo} />
 
-      <ComparativoPeriodo atual={marca} anterior={marcaAnterior} dias={Math.max(1, Math.round((new Date(`${periodo.fim}T12:00:00`).getTime() - new Date(`${periodo.inicio}T12:00:00`).getTime()) / 86_400_000) + 1)} />
+      <ComparativoPeriodo atual={marca} anterior={marcaAnterior} dias={Math.max(1, Math.round((new Date(`${periodoEfetivo.fim}T12:00:00`).getTime() - new Date(`${periodoEfetivo.inicio}T12:00:00`).getTime()) / 86_400_000) + 1)} />
 
       {/* Ato 2 — performance por campanha, a tabela de trabalho */}
       <section className="flex flex-col gap-3">
