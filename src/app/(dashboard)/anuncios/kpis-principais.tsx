@@ -266,7 +266,7 @@ function NumeroGrande({ label, descricao, observacao, valor, formatar, cor, sufi
   const animado = useContagem(valor ?? 0);
   return (
     <motion.div variants={fadeUp} className="min-w-0">
-      <p className={`${destaque ? "[font-family:var(--font-sora)] text-[26px] leading-[32px] font-bold tracking-[-0.02em] sm:text-stat-lg" : "text-[22px] font-bold leading-none"} flex items-center gap-1 tabular-nums`} style={cor ? { color: cor } : undefined}>
+      <p className={`${destaque ? "[font-family:var(--font-sora)] text-[21px] leading-[26px] font-bold tracking-[-0.02em] sm:text-stat-lg" : "text-[22px] font-bold leading-none"} flex items-center gap-1 tabular-nums`} style={cor ? { color: cor } : undefined}>
         {valor !== null && prefixo}
         {valor === null ? "Sem dado" : formatar(animado)}
       </p>
@@ -287,20 +287,26 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
           "Lucro após publicidade", removido junto com o motor de custo: ele
           era receita menos investimento com um selo de "estimativa parcial"
           que nunca sairia, porque o custo do produto nunca existiu. */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-6">
+      {/* Investimento/Receita lado a lado no mobile (cabiam, mas ficavam
+          empilhados ocupando só a metade esquerda do card, com a direita
+          vazia) — ROAS ganha a linha de baixo pra si, já que tem tratamento
+          visual próprio (seta + cor) e merece não competir por coluna. */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 sm:gap-6">
         <NumeroGrande label={copy.investimento} descricao={infoKpi.investimento} valor={resumo.investimentoTotal} formatar={(n) => moeda.format(n)} destaque />
         <NumeroGrande label={copy.receita} descricao={infoKpi.receita} observacao={infoKpi.receitaObservacao} valor={resumo.receitaTotal} formatar={(n) => moeda.format(n)} destaque />
         {/* Único KPI com seta: os outros três são dinheiro, e o sinal de menos
             já diferencia sem depender de cor. ROAS não tem sinal. */}
-        <NumeroGrande
-          label={copy.roas}
-          descricao={infoKpi.roas}
-          valor={resumo.roasMedio}
-          formatar={(n) => `${n.toFixed(2)}x`}
-          destaque
-          cor={COR_ROAS[situacaoRoas(resumo.roasMedio)]}
-          prefixo={<SetaRoas situacao={situacaoRoas(resumo.roasMedio)} />}
-        />
+        <div className="col-span-2 sm:col-span-1">
+          <NumeroGrande
+            label={copy.roas}
+            descricao={infoKpi.roas}
+            valor={resumo.roasMedio}
+            formatar={(n) => `${n.toFixed(2)}x`}
+            destaque
+            cor={COR_ROAS[situacaoRoas(resumo.roasMedio)]}
+            prefixo={<SetaRoas situacao={situacaoRoas(resumo.roasMedio)} />}
+          />
+        </div>
       </div>
 
       {/* Linha 2 — secundárias, visualmente menores */}
