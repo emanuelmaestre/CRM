@@ -24,7 +24,11 @@ export function TopNav({ perfil, cargo, nome, email, modulosVisiveis }: { perfil
   const initials = nome.split(/\s+/).slice(0, 2).map((word) => word[0]?.toUpperCase() ?? "").join("")
     || email[0]?.toUpperCase()
     || "?";
-  const items = navigationConfig.items.filter((item) => isModuloId(item.id) && modulosVisiveis.includes(item.id));
+  // "clientes" fica escondido do menu pra todo mundo, mas a rota continua
+  // funcionando normalmente pra quem já tem o link (não é o mesmo mecanismo
+  // de modulosVisiveis, que também bloqueia o acesso à rota — aqui é só
+  // uma escolha de não mostrar no menu).
+  const items = navigationConfig.items.filter((item) => isModuloId(item.id) && item.id !== "clientes" && modulosVisiveis.includes(item.id));
 
   async function handleLogout() {
     const supabase = createClient();

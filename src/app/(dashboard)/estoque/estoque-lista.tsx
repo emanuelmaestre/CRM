@@ -55,7 +55,10 @@ const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-const horaCurta = new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
+// Dia/mês sem ano, mais hora — mobile precisa da data (não só da hora,
+// que sozinha parece "hoje" mesmo quando não é), mas a data completa com
+// ano não cabe do lado do resto do cabeçalho sem quebrar.
+const dataHoraCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
 function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
@@ -1099,7 +1102,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
             {ultimaAtualizacao && (
               <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
                 <Clock3 size={11} />
-                <span className="sm:hidden">{horaCurta.format(ultimaAtualizacao)}</span>
+                <span className="sm:hidden">{dataHoraCurta.format(ultimaAtualizacao)}</span>
                 <span className="hidden sm:inline">{dataHora.format(ultimaAtualizacao)}</span>
               </span>
             )}

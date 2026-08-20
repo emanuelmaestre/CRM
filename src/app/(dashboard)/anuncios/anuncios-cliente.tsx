@@ -34,6 +34,9 @@ const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-d
 // do período), essa precisa da hora: dataSnapshot é só o dia, sincronizadoEm
 // é o instante real em que o job rodou.
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+// Dia/mês sem ano, mais hora — cabe ao lado do botão de PDF no mobile sem
+// quebrar; a data completa com ano só aparece a partir do sm.
+const dataHoraCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 type ExecucaoSync = NonNullable<Awaited<ReturnType<typeof actionObterUltimaSincronizacaoConta>>>;
 type ModuloStatusSync = "pendente" | "em_andamento" | "concluido" | "erro";
 // Mesmos 7 módulos que a Central de Sincronização (Configurações) acompanha —
@@ -463,25 +466,34 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
           </div>
         </div>
         <span className="hidden h-px flex-1 bg-border sm:block" />
+        {/* Sincronização e atualizar viram um botão só (ícone + status),
+            em vez de um texto solto seguido de um círculo de ícone
+            separado — no mobile isso era 2 elementos disputando espaço
+            além do PDF; agora é 1, e continua óbvio que tocar nele
+            sincroniza de novo. */}
         <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <button type="button" onClick={exportar} disabled={exportando}
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
             <FileText size={14} /> {exportando ? "Gerando…" : "Exportar PDF"}
           </button>
-          <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold text-muted-foreground" style={sincronizando ? { color: "var(--acento-2)" } : undefined}>
-            {sincronizando
-              ? `Sincronizando… ${percentualSync(execucaoSync)}%`
-              : `${copy.header.eyebrow}: ${marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}`}
-          </span>
           <button
             type="button"
             onClick={sincronizarAgora}
             disabled={sincronizando || !contaMercadoLivre?.channelAccountId}
             aria-label="Sincronizar agora com o Mercado Livre"
             title={contaMercadoLivre?.channelAccountId ? "Sincronizar agora" : "Nenhuma conta do Mercado Livre conectada para esta marca"}
-            className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado disabled:opacity-50"
+            className="press-feedback inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            style={sincronizando ? { color: "var(--acento-2)", borderColor: "var(--acento-2)" } : undefined}
           >
             <RefreshCw size={13} className={sincronizando ? "animate-spin" : ""} />
+            {sincronizando ? (
+              `Sincronizando… ${percentualSync(execucaoSync)}%`
+            ) : marca.sincronizadoEm ? (
+              <>
+                <span className="sm:hidden">{dataHoraCurta.format(new Date(marca.sincronizadoEm))}</span>
+                <span className="hidden sm:inline">{dataHora.format(new Date(marca.sincronizadoEm))}</span>
+              </>
+            ) : "Nunca sincronizado"}
           </button>
         </div>
       </div>

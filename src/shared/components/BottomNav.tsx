@@ -43,7 +43,9 @@ export function BottomNav({ modulosVisiveis }: { modulosVisiveis: readonly Modul
     return () => window.removeEventListener("keydown", aoTeclar);
   }, [maisAberto]);
 
-  const visiveis = navigationConfig.items.filter((item) => isModuloId(item.id) && modulosVisiveis.includes(item.id));
+  // "clientes" fica escondido do menu pra todo mundo, mas a rota continua
+  // funcionando (mesma decisão do TopNav — ver comentário lá).
+  const visiveis = navigationConfig.items.filter((item) => isModuloId(item.id) && item.id !== "clientes" && modulosVisiveis.includes(item.id));
   const fixos = visiveis
     .filter(temPrioridade)
     .sort((a, b) => a.mobilePriority - b.mobilePriority)

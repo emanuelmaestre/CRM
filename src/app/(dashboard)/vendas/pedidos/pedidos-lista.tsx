@@ -34,7 +34,9 @@ const PAGINA = 50;
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-const horaCurta = new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
+// Dia/mês sem ano, mais hora — no mobile a hora sozinha parecia "hoje"
+// mesmo quando não era; precisa da data, só não cabe com o ano junto.
+const dataHoraCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const resumoInicial: Resumo = {
   totalPedidos: 0,
   faturamento: 0,
@@ -569,7 +571,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             {atualizadoEm && (
               <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-muted-foreground">
                 <Clock3 size={12} className="shrink-0" />
-                <span className="sm:hidden">Atualizado {horaCurta.format(atualizadoEm)}</span>
+                <span className="sm:hidden">Atualizado {dataHoraCurta.format(atualizadoEm)}</span>
                 <span className="hidden sm:inline">Atualizado às {dataHora.format(atualizadoEm)}</span>
               </span>
             )}
