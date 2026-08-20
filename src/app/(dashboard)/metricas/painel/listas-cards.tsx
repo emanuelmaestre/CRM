@@ -8,6 +8,7 @@ import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { AnimatedInfoPopover } from "@/shared/design-system/primitives/AnimatedInfoPopover";
+import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import type {
   ProdutoGiroBaixo,
   ProdutoMaisVendido,
@@ -53,8 +54,19 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{nome}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
-            <span className="truncate"><span className="text-muted-foreground/70">SKU:</span> {sku} · <span className="font-semibold" style={corMarca ? { color: corMarca } : undefined}>{marca}</span></span>
-            {statusBadge}
+            <span className="truncate"><span className="text-muted-foreground/70">SKU:</span> {sku}</span>
+            <span className="inline-flex items-center gap-1">
+              <span className="text-muted-foreground/70">Empresa:</span>
+              {isBrandSlug(marcaSlug)
+                ? <BrandLogo brand={marcaSlug} height={15} />
+                : <span className="font-semibold" style={corMarca ? { color: corMarca } : undefined}>{marca}</span>}
+            </span>
+            {statusBadge && (
+              <span className="inline-flex items-center gap-1">
+                <span className="text-muted-foreground/70">Status:</span>
+                {statusBadge}
+              </span>
+            )}
           </p>
         </div>
         <div className="shrink-0 text-right">
