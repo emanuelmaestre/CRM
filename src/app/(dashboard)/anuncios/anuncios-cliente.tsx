@@ -275,6 +275,7 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
             <span className="flex items-center gap-1.5">
               {isBrandSlug(marca.brandSlug) ? <BrandLogo brand={marca.brandSlug} height={14} /> : marca.brandLabel}
             </span>
+            <span className="text-[11px] tabular-nums text-muted-foreground">{marca.campanhas.length}</span>
           </button>
         );
       })}
@@ -289,7 +290,7 @@ const CANAIS_ANUNCIOS = ["mercadolivre", "shopee", "tiktokshop"] as const;
  *  deixar claro que a tela é sobre canais de venda (mesma leitura de
  *  Vendas/Estoque), mas Shopee/TikTok ficam travados como "ainda não
  *  disponível" em vez de fingir que dá pra filtrar por eles. */
-function SeletorCanalAnuncios() {
+function SeletorCanalAnuncios({ totalCampanhas }: { totalCampanhas: number }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {CANAIS_ANUNCIOS.map((canal) => {
@@ -310,7 +311,9 @@ function SeletorCanalAnuncios() {
             }`}
           >
             <ChannelLogo canal={canal} size="sm" variant="logo" />
-            {!disponivel && <PlugZap2 size={14} className="text-muted-foreground" />}
+            {disponivel
+              ? <span className="text-[11px] tabular-nums text-muted-foreground">{totalCampanhas}</span>
+              : <PlugZap2 size={14} className="text-muted-foreground" />}
           </button>
         );
       })}
@@ -482,7 +485,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
-          <SeletorCanalAnuncios />
+          <SeletorCanalAnuncios totalCampanhas={dados.marcas.reduce((soma, m) => soma + m.campanhas.length, 0)} />
         </div>
         <span className="hidden h-px flex-1 bg-border sm:block" />
         {/* Período, Hoje, PDF e sincronizar viram um grupo só — antes o

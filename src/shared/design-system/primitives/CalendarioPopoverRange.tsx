@@ -311,15 +311,12 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   }
 
   const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
-  // Versão numérica ("21/07") só pro botão no mobile — o "de jul." por
-  // extenso é o texto mais longo do cabeçalho e empurrava o "Hoje" quase
-  // pra borda da tela. Continua o mesmo dado, só mais compacto.
-  const diaMesNumerico = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
-  const rotuloCompleto = inicioSelecionado && fimSelecionado
+  // O botão mostra só "Período" — a data selecionada some depois de
+  // escolhida no calendário (que já mostra a data lá dentro, no
+  // cabeçalho do painel); title/aria-label continuam com a data por
+  // extenso pra quem usa leitor de tela saber o valor atual sem abrir.
+  const rotuloAcessivel = inicioSelecionado && fimSelecionado
     ? `${rotulo}: ${diaMesAno.format(inicioSelecionado)} – ${diaMesAno.format(fimSelecionado)}`
-    : rotulo;
-  const rotuloCurto = inicioSelecionado && fimSelecionado
-    ? `${rotulo}: ${diaMesNumerico.format(inicioSelecionado)} – ${diaMesNumerico.format(fimSelecionado)}`
     : rotulo;
 
   const mesEsquerda = mesVisivel;
@@ -440,8 +437,8 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
         transition={{ opacity: { ...springs.settleFast, delay: atraso }, y: { ...springs.settleFast, delay: atraso }, scale: pulsando ? { duration: PULSO_MS / 1000, ease: "easeInOut" } : { ...springs.settleFast, delay: atraso } }}
         whileHover={disabled ? undefined : { scale: 1.02 }}
         whileTap={disabled ? undefined : { scale: 0.97 }}
-        title={rotuloCompleto}
-        aria-label={rotuloCompleto}
+        title={rotuloAcessivel}
+        aria-label={rotuloAcessivel}
         aria-haspopup="dialog"
         aria-expanded={aberto}
         disabled={disabled}
@@ -473,8 +470,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             inicioSelecionado && fimSelecionado ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
           )}
         />
-        <span className="whitespace-nowrap tabular-nums sm:hidden">{rotuloCurto}</span>
-        <span className="hidden whitespace-nowrap tabular-nums sm:inline">{rotuloCompleto}</span>
+        <span className="whitespace-nowrap tabular-nums">{rotulo}</span>
       </motion.button>
 
       {montado && createPortal(<AnimatePresence>{painel}</AnimatePresence>, document.body)}
