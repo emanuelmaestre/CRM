@@ -801,13 +801,14 @@ export function Mosaico({
             sentido dentro de um card aberto (ver `Foco` mais abaixo), onde
             o dado que eles afetam está de fato na tela. Aqui em cima sobra
             só a informação passiva: quando os números foram buscados. */}
+        {/* Canto inferior direito em qualquer largura — antes ficava fixo
+            no topo (colado sob o cabeçalho) só no mobile, competindo com o
+            resto da tela; agora é sempre o mesmo cantinho discreto. */}
         {carregadoEm && (
-          <div className="sticky top-0 z-30 flex justify-end bg-background/85 px-1 py-1.5 backdrop-blur md:top-14 [@media_(min-width:768px)_and_(max-height:500px)]:top-0 lg:static lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
-            <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground lg:fixed lg:bottom-4 lg:right-4 lg:z-20 lg:rounded-full lg:bg-card/90 lg:px-3 lg:py-1.5 lg:shadow-[0_2px_10px_rgba(14,15,19,.08)] lg:backdrop-blur">
-              <RefreshCw size={11} />
-              Atualizado às {dataHora.format(carregadoEm)}
-            </span>
-          </div>
+          <span className="fixed bottom-[calc(4.5rem_+_env(safe-area-inset-bottom))] right-4 z-20 inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-[0_2px_10px_rgba(14,15,19,.08)] backdrop-blur md:bottom-4">
+            <RefreshCw size={11} />
+            Atualizado às {dataHora.format(carregadoEm)}
+          </span>
         )}
 
         {/* 5 seções em vez de uma grade só de 14 — cada uma com o próprio
