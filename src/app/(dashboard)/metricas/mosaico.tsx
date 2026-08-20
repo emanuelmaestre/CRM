@@ -685,24 +685,17 @@ export function Mosaico({
         { titulo: "90 dias é o corte", texto: "Menos que isso é giro baixo (vende pouco); 90 dias ou mais sem nenhuma saída é parado (não vende)." },
         { titulo: "Inclui quem nunca vendeu", texto: "Produto que nunca teve saída também entra aqui, não só quem vendia antes e parou." },
         { titulo: "Ordenado pelo capital imobilizado", texto: "Quem tem mais dinheiro parado em estoque aparece primeiro, é o que mais justifica uma liquidação." },
-        // Cada linha explica um status possível do selo "Status:" — não são
-        // exemplos do que apareceu na lista agora, é o catálogo completo dos
-        // 5 estados, pra quem nunca viu um "Encerrado" ou "Sem vínculo" saber
-        // o que significa antes de precisar tocar em um pra descobrir.
-        { titulo: "Status: Ativo no ML", texto: "O anúncio está publicado e visível no Mercado Livre — só não vende, não é um problema técnico." },
-        { titulo: "Status: Pausado", texto: "Você mesmo pausou o anúncio — ele não vender é esperado, ninguém consegue comprar algo pausado." },
-        { titulo: "Status: Encerrado no ML", texto: "O anúncio não existe mais lá, mas o produto continua no catálogo do CRM com saldo — ninguém consegue comprar por nenhum canal." },
-        { titulo: "Status: Sem vínculo com o ML", texto: "Não achamos nenhum anúncio deste produto ligado a uma conta do Mercado Livre — o vínculo pode ter se perdido." },
-        { titulo: "Status: Indisponível", texto: "Falha temporária ao consultar o Mercado Livre agora — o resto do dado (saldo, dias parado) continua confiável." },
+        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card pra ver o que cada um (Ativo, Pausado, Encerrado...) significa." },
       ],
       dica: "Um item aqui não é necessariamente ruim, pode ser um lançamento recente sem tempo suficiente pra vender. Vale checar a data de cadastro antes de decidir liquidar.",
     },
-    render: () => (
+    render: (acaoSlot) => (
       <ParadosCard
         itens={parados.dados?.parados ?? null}
         carregando={parados.carregando}
         semFiltro={parados.semFiltro}
         scope={escopo(filtroParados, setFiltroParados)}
+        acaoSlot={acaoSlot}
       />
     ),
   }), [parados, filtroParados, escopo]);

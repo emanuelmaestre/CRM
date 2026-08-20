@@ -1,13 +1,14 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { createPortal } from "react-dom";
 import { EmptyState, type IllustrationType } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
-import { AnimatedInfoPopover } from "@/shared/design-system/primitives/AnimatedInfoPopover";
+import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import type {
   ProdutoGiroBaixo,
@@ -61,13 +62,16 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
                 ? <BrandLogo brand={marcaSlug} height={15} />
                 : <span className="font-semibold" style={corMarca ? { color: corMarca } : undefined}>{marca}</span>}
             </span>
-            {statusBadge && (
-              <span className="inline-flex items-center gap-1">
-                <span className="text-muted-foreground/70">Status:</span>
-                {statusBadge}
-              </span>
-            )}
           </p>
+          {/* Numa linha própria, não espremido junto do SKU — "situação do
+              produto" é uma informação diferente de "identificação dele",
+              merece o próprio espaço em vez de competir na mesma fileira. */}
+          {statusBadge && (
+            <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="text-muted-foreground/70">Status:</span>
+              {statusBadge}
+            </p>
+          )}
         </div>
         <div className="shrink-0 text-right">
           <p
@@ -323,9 +327,10 @@ function statusAnuncioInfo(item: ProdutoParado): { label: string; className: str
   return MAPA[item.statusAnuncio];
 }
 
-/** Cor de gravidade: quanto mais tempo parado, mais o número (e a barra
- *  embaixo dele) puxa pro vermelho — sem isso, 92 dias e 149 dias tinham
- *  exatamente o mesmo peso visual, e é bem diferente na prática. */
+/** Cor de gravidade: quanto mais tempo parado, mais o número puxa pro
+ *  vermelho — sem isso, 92 dias e 149 dias tinham exatamente o mesmo peso
+ *  visual, e é bem diferente na prática. Só o número carrega o sinal: uma
+ *  barra embaixo repetindo a mesma cor era redundante e pesava a lista. */
 function corGravidade(diasParado: number | null): string {
   if (diasParado === null) return "var(--muted-foreground)";
   if (diasParado >= 150) return "var(--destructive)";
@@ -333,11 +338,57 @@ function corGravidade(diasParado: number | null): string {
   return "var(--foreground)";
 }
 
-export function ParadosCard({ itens, carregando, semFiltro, scope }: {
+/** Catálogo fixo dos 5 status possíveis — não muda por item, é a legenda
+ *  completa, pra quem nunca viu um "Encerrado" na tela ainda saber o que
+ *  significa antes de precisar achar um pra tocar e descobrir. */
+const LEGENDA_STATUS: Array<{ titulo: string; texto: string }> = [
+  { titulo: "Ativo no ML", texto: "O anúncio está publicado e visível no Mercado Livre — só não vende, não é um problema técnico." },
+  { titulo: "Pausado", texto: "Você mesmo pausou o anúncio — ele não vender é esperado, ninguém consegue comprar algo pausado." },
+  { titulo: "Encerrado no ML", texto: "O anúncio não existe mais lá, mas o produto continua no catálogo do CRM com saldo — ninguém consegue comprar por nenhum canal." },
+  { titulo: "Sem vínculo com o ML", texto: "Não achamos nenhum anúncio deste produto ligado a uma conta do Mercado Livre — o vínculo pode ter se perdido." },
+  { titulo: "Status indisponível", texto: "Falha temporária ao consultar o Mercado Livre agora — o resto do dado (saldo, dias parado) continua confiável." },
+];
+
+function EntendaStatusBotao() {
+  return (
+    <AnimatedInfoPopover
+      trigger={(
+        <AnimatedInfoTrigger
+          title="Entenda os status do anúncio no Mercado Livre"
+          iconSize={13}
+          className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+        >
+          Entenda os status
+        </AnimatedInfoTrigger>
+      )}
+      align="end"
+      sideOffset={8}
+      collisionPadding={12}
+      // No desktop o popover fica mais largo e os 5 status se dividem em 2
+      // colunas — no mobile continua empilhado (não tem largura de sobra).
+      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] sm:w-[min(30rem,calc(100vw-1.5rem))]"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Status do anúncio no ML</p>
+      <dl className="mt-3 flex flex-col gap-3 sm:grid sm:grid-cols-2 sm:gap-x-5 sm:gap-y-4">
+        {LEGENDA_STATUS.map((item) => (
+          <div key={item.titulo}>
+            <dt className="text-[12.5px] font-bold text-foreground">{item.titulo}</dt>
+            <dd className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{item.texto}</dd>
+          </div>
+        ))}
+      </dl>
+    </AnimatedInfoPopover>
+  );
+}
+
+export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
   itens: ProdutoParado[] | null;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
+  /** Nó do cabeçalho do Foco onde o botão "Entenda os status" é portado —
+   *  mesmo mecanismo que o "Entenda o score" do Score da loja, ver bloco.tsx. */
+  acaoSlot?: HTMLElement | null;
 }) {
   const lista = itens ?? [];
   return (
@@ -350,9 +401,9 @@ export function ParadosCard({ itens, carregando, semFiltro, scope }: {
       vazioDescricao={copyParados.emptyDescription}
       scope={scope}
     >
+      {acaoSlot && createPortal(<EntendaStatusBotao />, acaoSlot)}
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);
-        const cor = corGravidade(item.diasParado);
         return (
           <LinhaProduto
             key={item.produtoId}
@@ -367,11 +418,9 @@ export function ParadosCard({ itens, carregando, semFiltro, scope }: {
               destaqueNumerico: item.diasParado,
               formatarDestaque: (v: number) => `${Math.round(v)} d`,
             } : {})}
-            destaqueCor={cor}
+            destaqueCor={corGravidade(item.diasParado)}
             contexto={item.valorParado}
             acento={copyParados.accent}
-            medidor={item.diasParado !== null ? Math.min(100, Math.round((item.diasParado / 200) * 100)) : 100}
-            medidorCor={cor}
             statusBadge={(
               <AnimatedInfoPopover
                 trigger={(
