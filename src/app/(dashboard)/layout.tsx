@@ -1,6 +1,7 @@
 import { requirePageAuth } from "@/shared/lib/auth/session";
 import { TopNav } from "@/shared/components/TopNav";
 import { BottomNav } from "@/shared/components/BottomNav";
+import { MobileHeader } from "@/shared/components/MobileHeader";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const contexto = await requirePageAuth();
@@ -12,8 +13,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <TopNav perfil={contexto.perfil} cargo={contexto.cargo} nome={contexto.nome} email={contexto.email} modulosVisiveis={contexto.modulosVisiveis} />
       </div>
 
+      {/* Cabeçalho mínimo (logo + sair) — só mobile, onde o TopNav não existe */}
+      <MobileHeader />
+
       {/* Conteúdo principal */}
-      <main className="pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pt-14 md:pb-0 [@media_(min-width:768px)_and_(max-height:500px)]:pb-[calc(5rem_+_env(safe-area-inset-bottom))] [@media_(min-width:768px)_and_(max-height:500px)]:pt-0">
+      <main className="pt-14 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-0 [@media_(min-width:768px)_and_(max-height:500px)]:pb-[calc(5rem_+_env(safe-area-inset-bottom))] [@media_(min-width:768px)_and_(max-height:500px)]:pt-0">
         <div className="mx-auto w-full max-w-[1440px] px-[clamp(1rem,2.2vw,2rem)] py-[clamp(1rem,2vw,1.5rem)]">
           {children}
         </div>
