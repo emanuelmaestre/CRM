@@ -224,7 +224,18 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       // — é a única métrica da tela que conta o que o resto exclui de propósito.
       alerta: (marca.taxaCancelamento ?? 0) > 5,
       ...(marca.taxaCancelamento === null ? {} : { valorNumerico: marca.taxaCancelamento, formatarNumero: (v: number) => `${v.toFixed(1)}%` }),
-      calculo: marca.taxaCancelamento === null ? null : {
+      // O ícone continua sempre visível (não depende de ter dado) — sem
+      // isso, ele sumia e voltava conforme o período tinha ou não pedido
+      // pra calcular, parecendo um bug de renderização em vez de "não há
+      // dado nesta janela".
+      calculo: marca.taxaCancelamento === null ? {
+        titulo: "Cancelamento",
+        significado: "Mostra a parcela de todos os pedidos que foi cancelada ou devolvida. Quanto menor, mais saudável está a operação da marca.",
+        formula: "pedidos cancelados ou devolvidos, divididos pelo total de pedidos do período",
+        resultado: "Sem dado",
+        itens: [],
+        nota: "Sem dado nesse período — não houve pedidos da marca na janela selecionada.",
+      } : {
         titulo: "Cancelamento",
         significado: "Mostra a parcela de todos os pedidos que foi cancelada ou devolvida. Quanto menor, mais saudável está a operação da marca.",
         formula: "pedidos cancelados ou devolvidos, divididos pelo total de pedidos do período",
@@ -240,7 +251,14 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       label: "Top 5 produtos",
       valor: marca.concentracaoTop5 === null ? "Sem dado" : `${marca.concentracaoTop5}%`,
       ...(marca.concentracaoTop5 === null ? {} : { valorNumerico: marca.concentracaoTop5, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
-      calculo: marca.concentracaoTop5 === null ? null : {
+      calculo: marca.concentracaoTop5 === null ? {
+        titulo: "Concentração nos 5 mais vendidos",
+        significado: "Mostra quanto da receita depende dos cinco produtos líderes. Uma concentração alta aumenta o impacto caso um desses itens pare de vender ou fique indisponível.",
+        formula: "receita dos 5 produtos mais vendidos, dividida pela receita total (sem contar cancelados)",
+        resultado: "Sem dado",
+        itens: [],
+        nota: "Sem dado nesse período — não houve receita da marca na janela selecionada.",
+      } : {
         titulo: "Concentração nos 5 mais vendidos",
         significado: "Mostra quanto da receita depende dos cinco produtos líderes. Uma concentração alta aumenta o impacto caso um desses itens pare de vender ou fique indisponível.",
         formula: "receita dos 5 produtos mais vendidos, dividida pela receita total (sem contar cancelados)",
@@ -256,7 +274,14 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       label: "Recorrência",
       valor: marca.taxaRecorrencia === null ? "Sem dado" : `${marca.taxaRecorrencia}%`,
       ...(marca.taxaRecorrencia === null ? {} : { valorNumerico: marca.taxaRecorrencia, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
-      calculo: marca.taxaRecorrencia === null ? null : {
+      calculo: marca.taxaRecorrencia === null ? {
+        titulo: "Recorrência",
+        significado: "Mostra quanto da receita veio de clientes que já haviam comprado anteriormente da mesma marca. Quanto maior, maior a retenção de clientes.",
+        formula: "receita de clientes que já tinham comprado antes, dividida pela receita total (sem contar cancelados)",
+        resultado: "Sem dado",
+        itens: [],
+        nota: "Sem dado nesse período — não houve receita da marca na janela selecionada.",
+      } : {
         titulo: "Recorrência",
         significado: "Mostra quanto da receita veio de clientes que já haviam comprado anteriormente da mesma marca. Quanto maior, maior a retenção de clientes.",
         formula: "receita de clientes que já tinham comprado antes, dividida pela receita total (sem contar cancelados)",
