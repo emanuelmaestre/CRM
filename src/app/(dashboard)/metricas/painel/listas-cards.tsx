@@ -399,9 +399,18 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
       ilustracao="deadStock"
       vazioTitulo={copyParados.emptyTitle}
       vazioDescricao={copyParados.emptyDescription}
-      scope={scope}
+      // No desktop as pílulas de marca/canal sobem pro cabeçalho do painel
+      // (junto do período e do "Entenda os status") — sem sobrar espaço no
+      // mobile pra isso, então lá elas continuam aqui embaixo, como sempre.
+      scope={<div className="sm:hidden">{scope}</div>}
     >
-      {acaoSlot && createPortal(<EntendaStatusBotao />, acaoSlot)}
+      {acaoSlot && createPortal(
+        <>
+          <div className="hidden sm:flex sm:min-w-0 sm:flex-wrap sm:items-center sm:gap-2">{scope}</div>
+          <EntendaStatusBotao />
+        </>,
+        acaoSlot,
+      )}
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);
         return (
