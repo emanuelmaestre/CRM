@@ -8,7 +8,6 @@ import Link from "next/link";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
-import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { springs, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
@@ -610,59 +609,46 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
               className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[rgba(155,48,217,.5)]"
             />
           </label>
-          {/* Notas/Período/Hoje/Atualizar não cabem numa linha só no mobile
-              (~470px de conteúdo pra ~330px de tela) — em vez de deixar o
-              4º sobrar sozinho, dividido em 2 duplas equilibradas: Notas+
-              Atualizar (os 2 controles "de sistema") e Período+Hoje (o par
-              de filtro de data, que já são visualmente parecidos). Cada
-              dupla centralizada; no desktop (sm:) volta a ser 1 linha só. */}
-          <div className="flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap sm:justify-start">
-            <div className="flex items-center justify-center gap-2">
-              <SelectPopover
-                valor={nota}
-                onChange={setNota}
-                itens={[
-                  { value: "todas", label: "Notas" },
-                  { value: "com_avaliacao", label: "Com avaliações" },
-                  { value: "sem_avaliacao", label: "Sem avaliações" },
-                ]}
-              />
-              <button
-                type="button"
-                onClick={() => void carregar(true)}
-                disabled={carregando}
-                className="press-feedback inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                title="Atualizar avaliações"
-              >
-                <RefreshCw size={15} className={carregando ? "animate-spin" : ""} />
-                {buscadoEm && !carregando && (
-                  <>
-                    <span className="sm:hidden">{horaCurta.format(new Date(buscadoEm))}</span>
-                    <span className="hidden sm:inline">{dataHora.format(new Date(buscadoEm))}</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="flex items-center justify-center gap-2">
-              {/* Filtra só os comentários com texto (ver aviso no ícone de
-                  info acima) — a nota média e a distribuição não têm como ser
-                  recortadas por data, o Mercado Livre não expõe isso. */}
-              <CalendarioPopoverRange
-                rotulo="Período"
-                valor={{ inicio: dataInicio, fim: dataFim }}
-                max={hoje}
-                onChange={({ inicio, fim }) => { setDataInicio(inicio); setDataFim(fim); }}
-              />
-              <BotaoHoje
-                ativo={dataInicio === hoje && dataFim === hoje}
-                disabled={carregando}
-                onClick={() => {
-                  const jaEstaEmHoje = dataInicio === hoje && dataFim === hoje;
-                  setDataInicio(jaEstaEmHoje ? "" : hoje);
-                  setDataFim(jaEstaEmHoje ? "" : hoje);
-                }}
-              />
-            </div>
+          {/* "Hoje" saiu como botão avulso — o próprio popover de Período já
+              tem um atalho "Hoje" lá dentro (ver CalendarioPopoverRange), o
+              botão daqui fora só duplicava a mesma ação e tomava espaço.
+              Sem ele, Notas/Atualizar/Período cabem numa linha só, inclusive
+              no mobile (o par que sobrava forçava a quebra em 2 duplas
+              antes); flex-wrap continua de garantia pra telas bem estreitas. */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            <SelectPopover
+              valor={nota}
+              onChange={setNota}
+              itens={[
+                { value: "todas", label: "Notas" },
+                { value: "com_avaliacao", label: "Com avaliações" },
+                { value: "sem_avaliacao", label: "Sem avaliações" },
+              ]}
+            />
+            <button
+              type="button"
+              onClick={() => void carregar(true)}
+              disabled={carregando}
+              className="press-feedback inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              title="Atualizar avaliações"
+            >
+              <RefreshCw size={15} className={carregando ? "animate-spin" : ""} />
+              {buscadoEm && !carregando && (
+                <>
+                  <span className="sm:hidden">{horaCurta.format(new Date(buscadoEm))}</span>
+                  <span className="hidden sm:inline">{dataHora.format(new Date(buscadoEm))}</span>
+                </>
+              )}
+            </button>
+            {/* Filtra só os comentários com texto (ver aviso no ícone de
+                info acima) — a nota média e a distribuição não têm como ser
+                recortadas por data, o Mercado Livre não expõe isso. */}
+            <CalendarioPopoverRange
+              rotulo="Período"
+              valor={{ inicio: dataInicio, fim: dataFim }}
+              max={hoje}
+              onChange={({ inicio, fim }) => { setDataInicio(inicio); setDataFim(fim); }}
+            />
           </div>
         </div>
 
