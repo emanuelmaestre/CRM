@@ -62,6 +62,9 @@ function paraDataInput(data: Date): string {
 }
 const hoje = paraDataInput(new Date());
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+// Só a hora — o botão de atualizar mostra o horário junto com o ícone no
+// mobile, sem precisar do texto completo "Atualizado em DD/MM/AAAA, HH:MM".
+const horaCurta = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
 /* Trocar de aba desmonta este componente. Sem guardar o resultado, cada volta
    refaz a consulta inteira ao Mercado Livre — que é 1 requisição por anúncio,
@@ -607,7 +610,13 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
               className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[rgba(155,48,217,.5)]"
             />
           </label>
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Notas/Período/Hoje/Atualizar competiam por espaço numa linha só
+              sem nenhum agrupamento — o botão de atualizar acabava sozinho
+              numa linha extra quando não cabia. Atualizar e o horário da
+              última busca (antes uma legenda solta embaixo) viram um botão
+              só, um elemento a menos disputando espaço; e o grupo inteiro
+              centraliza no mobile em vez de ficar colado à esquerda. */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <SelectPopover
               valor={nota}
               onChange={setNota}
@@ -639,19 +648,19 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
               type="button"
               onClick={() => void carregar(true)}
               disabled={carregando}
-              className="press-feedback flex h-11 w-11 items-center justify-center rounded-xl border border-border hover:bg-muted disabled:opacity-50"
+              className="press-feedback inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
               title="Atualizar avaliações"
             >
               <RefreshCw size={15} className={carregando ? "animate-spin" : ""} />
+              {buscadoEm && !carregando && (
+                <>
+                  <span className="sm:hidden">{horaCurta.format(new Date(buscadoEm))}</span>
+                  <span className="hidden sm:inline">{dataHora.format(new Date(buscadoEm))}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
-
-        {buscadoEm && !carregando && (
-          <p className="flex items-center gap-1.5 border-b border-border px-4 py-2 text-[11px] text-muted-foreground">
-            <RefreshCw size={11} /> Atualizado em {dataHora.format(new Date(buscadoEm))}
-          </p>
-        )}
 
         {carregando ? (
           <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
