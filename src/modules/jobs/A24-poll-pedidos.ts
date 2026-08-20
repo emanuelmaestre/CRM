@@ -3,7 +3,7 @@ import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
-import { despacharEventosPendentes, emitirEvento } from "@/shared/events";
+import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
 import { inngest } from "@/shared/lib/inngest/client";
 import { finalizarJob, iniciarJob } from "./job-monitor";
 
@@ -56,7 +56,9 @@ export const A24_pollPedidos = inngest.createFunction(
       for (const conta of contas) {
         try {
           const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug);
-          if (!provider) continue;
+          if (!provider) {
+            throw new Error(`Provider ${conta.tipo}/${conta.brandSlug} não suportado.`);
+          }
           const pedidos = await step.run(`buscar-${conta.id}`, () => provider.buscarPedidos(desde));
           let novos = 0;
           for (const pedido of pedidos) {
@@ -69,13 +71,19 @@ export const A24_pollPedidos = inngest.createFunction(
           resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos });
         } catch (error) {
           resultados.push({ contaId: conta.id, encontrados: 0, novos: 0, erro: String(error) });
-          await emitirEvento({
+          // Uma vez por hora por conta, não uma vez por execução do cron.
+          await emitirEventoUnico({
             tipo: "canal.degradado",
             orgId: conta.orgId,
             brandId: conta.brandId,
             entidade: "channel_account",
             entidadeId: conta.id,
-            payload: { motivo: "falha-poll-pedidos", erro: String(error) },
+            payload: {
+              motivo: "falha-poll-pedidos",
+              tipo: conta.tipo,
+              erro: String(error),
+              ultimoErro: String(error),
+            },
           });
         }
       }
@@ -91,8 +99,28 @@ export const A24_pollPedidos = inngest.createFunction(
       if (contas.length === 0) {
         throw new Error("A24 sem contas de marketplace conectadas para o polling de contingência.");
       }
+      // Mesma regra do A5: falha isolada não derruba a volta inteira. Uma conta
+      // instável fazia o job todo ser repetido pelo Inngest — e como cada
+      // tentativa refaz o polling das contas saudáveis, a carga se multiplicava
+      // justamente quando o canal já estava lento. Em 20/08 eram 1.765 falhas
+      // em 6.527 execuções, com média de 359s por falha e picos de ~17 min.
+      // A conta problemática já ficou registrada em `resultados` e no evento
+      // canal.degradado; a ingestão é idempotente, então o que ela deixou de
+      // trazer entra na próxima volta, quatro minutos depois.
+      if (resumo.falhas > 0 && resumo.falhas === resumo.contas) {
+        throw new Error(
+          `A24 falhou em todas as ${resumo.contas} conta(s) conectada(s) — verifique credenciais e disponibilidade do canal.`,
+        );
+      }
       if (resumo.falhas > 0) {
-        throw new Error(`A24 falhou em ${resumo.falhas} de ${resumo.contas} conta(s) conectada(s).`);
+        // O Inngest recebe sucesso (não repete as contas saudáveis), mas o
+        // monitor operacional preserva que a rodada terminou com falha
+        // parcial. finalizarJob não lança; apenas registra status/erro.
+        await step.run("registrar-falha-parcial", () => finalizarJob(
+          jobId,
+          new Error(`A24 concluiu parcialmente: ${resumo.falhas} de ${resumo.contas} conta(s) falharam.`),
+        ));
+        return resumo;
       }
       await step.run("registrar-sucesso", () => finalizarJob(jobId));
       return resumo;

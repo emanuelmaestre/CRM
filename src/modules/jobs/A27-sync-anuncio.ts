@@ -4,7 +4,7 @@ import { brand, produto, produtoCanal } from "@/shared/lib/db/schema";
 import { channelAccount } from "@/shared/lib/db/schema/canais";
 import { and, eq } from "drizzle-orm";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
-import { emitirEvento } from "@/shared/events";
+import { emitirEvento, emitirEventoUnico } from "@/shared/events";
 import { executarComRetry } from "@/modules/canais/application/retry";
 
 export const A27_syncAnuncio = inngest.createFunction(
@@ -113,13 +113,20 @@ export const A27_syncAnuncio = inngest.createFunction(
           resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: true });
         } catch (err) {
           resultados.push({ conta: m.channelAccountId, listingId: m.externalListingId, ok: false, erro: String(err) });
-          await emitirEvento({
+          // Uma conta fora do ar derruba todos os anúncios dela de uma vez;
+          // um alarme por anúncio só repete a mesma informação.
+          await emitirEventoUnico({
             tipo: "canal.degradado",
             orgId,
             brandId: m.contaBrandId,
             entidade: "channel_account",
             entidadeId: m.channelAccountId,
-            payload: { motivo: "falha-sync-anuncio", erro: String(err) },
+            payload: {
+              motivo: "falha-sync-anuncio",
+              tipo: m.contaTipo,
+              erro: String(err),
+              ultimoErro: String(err),
+            },
           });
         }
       });

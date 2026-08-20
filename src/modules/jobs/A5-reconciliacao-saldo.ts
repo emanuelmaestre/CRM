@@ -2,7 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, estoqueCanalSaldo, produto, produtoCanal } from "@/shared/lib/db/schema";
-import { emitirEvento } from "@/shared/events";
+import { emitirEvento, emitirEventoUnico } from "@/shared/events";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { isBrandSlug } from "@/shared/config/brands";
@@ -20,6 +20,14 @@ const HORAS_PARA_DESATIVAR = 24;
  *  dezenas de horas. Em lotes, o número de passos cai de ~550 para ~11, e cada
  *  lote ainda cabe folgado no tempo limite de execução. */
 const TAMANHO_DO_LOTE = 50;
+
+type FalhaColeta = {
+  listingId: string;
+  channelAccountId: string;
+  brandId: string;
+  tipo: string;
+  erro: string;
+};
 
 export const A5_coletaSaldoCanais = inngest.createFunction(
   {
@@ -73,7 +81,7 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
     }
 
     let coletados = 0;
-    const falhas: Array<{ listingId: string; erro: string }> = [];
+    const falhas: FalhaColeta[] = [];
 
     for (const [indice, lote] of lotes.entries()) {
       const resultado = await step.run(`coletar-lote-${indice}`, async () => {
@@ -125,7 +133,13 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
           gravados: linhas.length,
           falhas: saldos
             .filter((linha) => linha.erro)
-            .map((linha) => ({ listingId: linha.item.externalListingId, erro: linha.erro as string })),
+            .map((linha) => ({
+              listingId: linha.item.externalListingId,
+              channelAccountId: linha.item.channelAccountId,
+              brandId: linha.item.brandId,
+              tipo: linha.item.tipo,
+              erro: linha.erro as string,
+            })),
         };
       });
 
@@ -222,17 +236,33 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
     // erro quando nada foi coletado, o que aponta para causa sistêmica —
     // credencial vencida, canal fora do ar.
     if (falhas.length > 0) {
-      await emitirEvento({
-        tipo: "canal.degradado",
-        orgId,
-        entidade: "channel_account",
-        entidadeId: conectados[0]?.channelAccountId ?? orgId,
-        payload: {
-          motivo: "falha-coleta-estoque",
-          totalFalhas: falhas.length,
-          exemplos: falhas.slice(0, 10),
-        },
-      });
+      // Cada conta recebe seu próprio evento. Antes, todas as falhas eram
+      // atribuídas à primeira conta conectada, mesmo quando ela estava
+      // saudável; isso também tornava a chave de deduplicação incorreta.
+      const falhasPorConta = new Map<string, FalhaColeta[]>();
+      for (const falha of falhas) {
+        const grupo = falhasPorConta.get(falha.channelAccountId) ?? [];
+        grupo.push(falha);
+        falhasPorConta.set(falha.channelAccountId, grupo);
+      }
+
+      for (const [channelAccountId, itens] of falhasPorConta) {
+        const primeira = itens[0];
+        await emitirEventoUnico({
+          tipo: "canal.degradado",
+          orgId,
+          brandId: primeira.brandId,
+          entidade: "channel_account",
+          entidadeId: channelAccountId,
+          payload: {
+            motivo: "falha-coleta-estoque",
+            tipo: primeira.tipo,
+            totalFalhas: itens.length,
+            ultimoErro: primeira.erro,
+            exemplos: itens.slice(0, 10),
+          },
+        });
+      }
     }
 
     if (coletados === 0 && conectados.length > 0) {
