@@ -990,6 +990,14 @@ export class MercadoLivreProvider implements ChannelProvider {
     return resultado;
   }
 
+  /** Implementa o método opcional da `ChannelProvider` — usado pelo A5 pra
+   *  decidir se um anúncio some sozinho (não faz sentido chamar o multiget
+   *  pra um item só, o overhead de rede é o mesmo). */
+  async consultarStatusAnuncio(referencia: EstoqueCanalRef): Promise<{ status: string; subStatus: string[] } | null> {
+    const resultado = await this.consultarStatusAnuncios([referencia.listingId]);
+    return resultado[referencia.listingId] ?? null;
+  }
+
   async obterPerformanceItem(itemId: string): Promise<MLPerformanceItem> {
     const resposta = await this.get<{
       entity_id?: string;

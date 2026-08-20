@@ -1,9 +1,17 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
-import { brand, channelAccount, estoqueCanalSaldo, produtoCanal } from "@/shared/lib/db/schema";
+import { brand, channelAccount, estoqueCanalSaldo, produto, produtoCanal } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
+import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { isBrandSlug } from "@/shared/config/brands";
+
+/** Quanto tempo o anúncio precisa ficar "closed"/não encontrado, sem
+ *  interrupção, antes do produto ser desativado de verdade. Uma execução
+ *  isolada não conta — API do ML pode ter um soluço, ou o vendedor reabre
+ *  o anúncio horas depois. 24h cobre várias rodadas horárias do A5. */
+const HORAS_PARA_DESATIVAR = 24;
 
 /** Quantos mapeamentos cada passo do Inngest processa de uma vez.
  *
@@ -39,6 +47,7 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
           status: channelAccount.status,
           brandId: channelAccount.brandId,
           brandSlug: brand.slug,
+          mlEncerradoDesde: produtoCanal.mlEncerradoDesde,
         })
         .from(produtoCanal)
         .innerJoin(channelAccount, and(
@@ -124,6 +133,89 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
       falhas.push(...resultado.falhas);
     }
 
+    // ── Status do anúncio no ML (ativo/pausado/encerrado) ──────────────
+    // O saldo sozinho não "avisa" quando um anúncio deixa de existir — ele
+    // só fica congelado no último valor coletado, pra sempre. Isso é
+    // separado da coleta de saldo acima porque só o Mercado Livre expõe
+    // status hoje (Shopee/TikTok nem chegam a este trecho).
+    const mapeamentosML = conectados.filter((item) => item.tipo === "mercadolivre" && isBrandSlug(item.brandSlug));
+    let produtosDesativados = 0;
+    if (mapeamentosML.length > 0) {
+      await step.run("verificar-status-anuncios-ml", async () => {
+        const porMarca = new Map<string, typeof mapeamentosML>();
+        for (const item of mapeamentosML) {
+          porMarca.set(item.brandSlug, [...(porMarca.get(item.brandSlug) ?? []), item]);
+        }
+
+        const agora = Date.now();
+        const idsParaEncerrarAgora: string[] = [];
+        const idsParaRecuperar: string[] = [];
+        const produtoCanalIdsParaDesativar: string[] = [];
+        const produtoIdsParaDesativar: string[] = [];
+
+        await Promise.all([...porMarca].map(async ([marcaSlug, itens]) => {
+          try {
+            const provider = await criarMLProvider(marcaSlug as Parameters<typeof criarMLProvider>[0]);
+            const status = await provider.consultarStatusAnuncios(itens.map((item) => item.externalListingId));
+            for (const item of itens) {
+              const info = status[item.externalListingId];
+              // Sem resposta (falha pontual da consulta) não conta nem pra um
+              // lado nem pro outro — não é sinal de nada, só ruído da rede.
+              if (!info) continue;
+              const encerrado = info.status === "closed" || info.status === "nao_encontrado";
+              if (encerrado) {
+                if (item.mlEncerradoDesde === null) {
+                  idsParaEncerrarAgora.push(item.produtoCanalId);
+                  // `step.run` serializa o resultado da busca em JSON (é assim que o
+                  // Inngest torna o passo durável/repetível) — datas voltam como
+                  // string ISO, não como `Date`, daí o `new Date(...)` aqui.
+                } else if (agora - new Date(item.mlEncerradoDesde).getTime() >= HORAS_PARA_DESATIVAR * 3_600_000) {
+                  produtoCanalIdsParaDesativar.push(item.produtoCanalId);
+                  produtoIdsParaDesativar.push(item.produtoId);
+                }
+              } else if (item.mlEncerradoDesde !== null) {
+                idsParaRecuperar.push(item.produtoCanalId);
+              }
+            }
+          } catch {
+            // Marca inteira falhou (token vencido, etc.) — não afeta as outras
+            // marcas, e nenhum item dela muda de estado nesta rodada.
+          }
+        }));
+
+        if (idsParaEncerrarAgora.length > 0) {
+          await db.update(produtoCanal)
+            .set({ mlEncerradoDesde: new Date(), updatedAt: new Date() })
+            .where(inArray(produtoCanal.id, idsParaEncerrarAgora));
+        }
+        if (idsParaRecuperar.length > 0) {
+          await db.update(produtoCanal)
+            .set({ mlEncerradoDesde: null, updatedAt: new Date() })
+            .where(inArray(produtoCanal.id, idsParaRecuperar));
+        }
+        if (produtoCanalIdsParaDesativar.length > 0) {
+          await db.update(produtoCanal)
+            .set({ ativo: false, updatedAt: new Date() })
+            .where(inArray(produtoCanal.id, produtoCanalIdsParaDesativar));
+          await db.update(produto)
+            .set({ ativo: false, updatedAt: new Date() })
+            .where(inArray(produto.id, produtoIdsParaDesativar));
+          produtosDesativados = produtoIdsParaDesativar.length;
+
+          await emitirEvento({
+            tipo: "produto.desativado_automaticamente",
+            orgId,
+            entidade: "produto",
+            entidadeId: produtoIdsParaDesativar[0],
+            payload: {
+              motivo: `Anúncio encerrado/não encontrado no Mercado Livre por ${HORAS_PARA_DESATIVAR}h seguidas`,
+              produtoIds: produtoIdsParaDesativar,
+            },
+          });
+        }
+      });
+    }
+
     // Falha isolada não derruba a coleta. Um anúncio com dado inconsistente do
     // lado do canal é permanente: se ele fizesse o job falhar, a execução seria
     // repetida sem parar e a coleta nunca fecharia uma volta. Só é tratado como
@@ -152,6 +244,7 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
       falhas: falhas.length,
       desconectados,
       lotes: lotes.length,
+      produtosDesativados,
     };
   },
 );

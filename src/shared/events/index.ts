@@ -16,6 +16,7 @@ export type DomainEventType =
   | "cliente.segmento_excluido"
   | "produto.criado"
   | "produto.atualizado"
+  | "produto.desativado_automaticamente"
   | "usuario.criado"
   | "usuario.perfil_atualizado"
   | "usuario.senha_redefinida"

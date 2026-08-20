@@ -1,0 +1,1 @@
+ALTER TABLE "produto_canal" ADD COLUMN "ml_encerrado_desde" timestamp with time zone;

@@ -35,6 +35,12 @@ export const produtoCanal = pgTable("produto_canal", {
   externalSkuId: text("external_sku_id"),
   externalWarehouseId: text("external_warehouse_id"),
   ativo: boolean("ativo").notNull().default(true),
+  // Quando o A5 vê o anúncio como "closed"/não encontrado pela primeira vez,
+  // marca aqui — não desativa na hora, porque "encerrado" às vezes é um
+  // soluço passageiro da API ou algo que o vendedor reabre. Só quando esse
+  // estado persiste por 24h seguidas (várias execuções do job) o produto é
+  // desativado de verdade. Volta a null assim que o anúncio reaparece ativo/pausado.
+  mlEncerradoDesde: timestamp("ml_encerrado_desde", { withTimezone: true }),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
