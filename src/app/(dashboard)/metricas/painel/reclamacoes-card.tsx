@@ -37,6 +37,63 @@ function tempoAtualizacao(dias: number | null): string {
   return `${copy.resolvedUpdatedSince} ${dias} ${dias === 1 ? copy.dayLabel : copy.daysLabel}`;
 }
 
+type StatusChave = "acao" | "mediacao" | "reaberta" | "aguardando" | "resolvida";
+
+interface StatusReclamacao {
+  chave: StatusChave;
+  label: string;
+  hint: string;
+  className: string;
+  style?: React.CSSProperties;
+}
+
+/* ── Status único e sempre presente ────────────────────────────
+   Cada reclamação cai em exatamente uma dessas 5 situações — sem selo
+   nenhum era ambíguo (a maioria ficava sem indicação de status, só o
+   estágio cru do ML). Ordem de prioridade visual: mediação (mais grave)
+   > precisa de resposta > reaberta > aguardando o ML > resolvida. */
+function statusReclamacao(item: ReclamacoesResultado["itens"][number]): StatusReclamacao {
+  if (!item.precisaAcao && item.emMediacao) {
+    return {
+      chave: "aguardando",
+      label: copy.awaitingMediatorLabel,
+      hint: copy.awaitingMediatorHint,
+      className: "bg-muted text-muted-foreground",
+    };
+  }
+  if (!item.precisaAcao) {
+    return {
+      chave: "resolvida",
+      label: copy.resolvedLabel,
+      hint: copy.resolvedHint,
+      className: "bg-success/10 text-success",
+    };
+  }
+  if (item.emMediacao) {
+    return {
+      chave: "mediacao",
+      label: "Mediação",
+      hint: "Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida.",
+      className: "",
+      style: { background: tint(copy.accent, 10), color: copy.accent },
+    };
+  }
+  if (item.reaberta) {
+    return {
+      chave: "reaberta",
+      label: "Reaberta",
+      hint: "Este caso já tinha sido encerrado antes — alguém voltou a mandar mensagem depois disso. O prazo abaixo é de quando isso aconteceu, não de quando a reclamação foi aberta originalmente.",
+      className: "bg-warning/10 text-warning",
+    };
+  }
+  return {
+    chave: "acao",
+    label: "Precisa de resposta",
+    hint: "Ainda não foi respondida — o Mercado Livre espera uma ação sua (mensagem, reembolso ou abrir disputa).",
+    className: "bg-warning/10 text-warning",
+  };
+}
+
 function Esqueleto() {
   return (
     <ul className="mt-4">
@@ -197,8 +254,8 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
   // continua aberto e pode virar reembolso. Rotular os dois como "Resolvida"
   // seria dar informação errada, não só confusa (o `resolution` do claim real
   // confirma: fica `null` até o ML fechar de fato, mesmo com ação vazia).
-  const resolvida = !item.precisaAcao && !item.emMediacao;
-  const aguardandoMediador = !item.precisaAcao && item.emMediacao;
+  const status = statusReclamacao(item);
+  const resolvida = status.chave === "resolvida";
 
   return (
     <div className={`border-b border-border last:border-0 ${resolvida ? "opacity-70" : ""}`}>
@@ -213,99 +270,32 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
             <span className={`text-sm font-semibold ${resolvida ? "text-muted-foreground line-through decoration-1" : "text-foreground"}`}>
               {item.estagio}
             </span>
-            {resolvida && (
-              <AnimatedInfoPopover
-                trigger={(
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => event.stopPropagation()}
-                    className="press-feedback cursor-pointer rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-success transition-opacity hover:opacity-80"
-                  >
-                    {copy.resolvedLabel}
-                  </span>
-                )}
-                align="start"
-                sideOffset={6}
-                collisionPadding={12}
-                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
-              >
-                <p className="text-[12px] leading-relaxed text-foreground/85">{copy.resolvedHint}</p>
-              </AnimatedInfoPopover>
-            )}
-            {aguardandoMediador && (
-              <AnimatedInfoPopover
-                trigger={(
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => event.stopPropagation()}
-                    className="press-feedback cursor-pointer rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground transition-opacity hover:opacity-80"
-                  >
-                    {copy.awaitingMediatorLabel}
-                  </span>
-                )}
-                align="start"
-                sideOffset={6}
-                collisionPadding={12}
-                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
-              >
-                <p className="text-[12px] leading-relaxed text-foreground/85">{copy.awaitingMediatorHint}</p>
-              </AnimatedInfoPopover>
-            )}
-            {/* "Resolvida"/"Aguardando o ML" já cobrem o estado — empilhar "escalou"
-                junto só confunde qual selo olhar primeiro. */}
-            {!resolvida && !aguardandoMediador && item.emMediacao && (
-              // Trigger não pode ser <button>: esta linha inteira já é um
-              // <button> (abre/fecha a thread) — <button> dentro de <button>
-              // é HTML inválido. `stopPropagation` evita que o clique também
-              // dispare o onClick da linha por baixo.
-              <AnimatedInfoPopover
-                trigger={(
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => event.stopPropagation()}
-                    className="press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80"
-                    style={{ background: tint(copy.accent, 10), color: copy.accent }}
-                  >
-                    escalou
-                  </span>
-                )}
-                align="start"
-                sideOffset={6}
-                collisionPadding={12}
-                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
-              >
-                <p className="text-[12px] leading-relaxed text-foreground/85">
-                  Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida.
-                </p>
-              </AnimatedInfoPopover>
-            )}
-            {!resolvida && item.reaberta && (
-              // "Recontato" só existe depois que o caso já foi encerrado uma vez —
-              // sem isso, parece uma reclamação nova em vez de um retorno.
-              <AnimatedInfoPopover
-                trigger={(
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => event.stopPropagation()}
-                    className="press-feedback cursor-pointer rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning transition-opacity hover:opacity-80"
-                  >
-                    reaberta
-                  </span>
-                )}
-                align="start"
-                sideOffset={6}
-                collisionPadding={12}
-                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
-              >
-                <p className="text-[12px] leading-relaxed text-foreground/85">
-                  Este caso já tinha sido encerrado antes — alguém voltou a mandar mensagem depois disso. O prazo abaixo é de quando isso aconteceu, não de quando a reclamação foi aberta originalmente.
-                </p>
-              </AnimatedInfoPopover>
-            )}
+            {/* Sempre exatamente um selo — sem isso a maioria das reclamações
+                (as que só precisam de resposta, sem nada "especial") ficava
+                sem nenhuma indicação de status, só o texto cru do estágio. */}
+            <AnimatedInfoPopover
+              trigger={(
+                // Trigger não pode ser <button>: esta linha inteira já é um
+                // <button> (abre/fecha a thread) — <button> dentro de <button>
+                // é HTML inválido. `stopPropagation` evita que o clique também
+                // dispare o onClick da linha por baixo.
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(event) => event.stopPropagation()}
+                  className={`press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${status.className}`}
+                  style={status.style}
+                >
+                  {status.label}
+                </span>
+              )}
+              align="start"
+              sideOffset={6}
+              collisionPadding={12}
+              className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+            >
+              <p className="text-[12px] leading-relaxed text-foreground/85">{status.hint}</p>
+            </AnimatedInfoPopover>
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             <span
@@ -343,11 +333,13 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
         </div>
         <div className="flex shrink-0 items-start gap-2">
           <div className="text-right">
-            <p className={resolvida || aguardandoMediador || item.reaberta
+            <p className={status.chave !== "acao" && status.chave !== "mediacao"
               ? "max-w-[7rem] text-[11px] font-semibold leading-snug text-muted-foreground"
               : "text-sm font-bold tabular-nums text-foreground"}
             >
-              {resolvida || aguardandoMediador || item.reaberta ? tempoAtualizacao(diasDesde(item.atualizadaEm)) : tempoAberta(item.diasAberta)}
+              {status.chave !== "acao" && status.chave !== "mediacao"
+                ? tempoAtualizacao(diasDesde(item.atualizadaEm))
+                : tempoAberta(item.diasAberta)}
             </p>
             {item.pedidoHref && (
               <Link
