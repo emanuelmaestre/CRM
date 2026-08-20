@@ -577,19 +577,19 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
           Campanhas completo), não sub-itens — por isso ganham linha própria
           aqui em cima, com peso de botão em vez de texto solto. */}
       <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-        <Link href="/anuncios/produtos" className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado">
-          <Package size={13} /> Ver produtos
+        <Link href="/anuncios/produtos" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+          <Package size={13} /> <span className="sm:hidden">Produtos</span><span className="hidden sm:inline">Ver produtos</span>
         </Link>
-        <Link href="/anuncios/historico" className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado">
-          <History size={13} /> Ver histórico
+        <Link href="/anuncios/historico" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+          <History size={13} /> <span className="sm:hidden">Histórico</span><span className="hidden sm:inline">Ver histórico</span>
         </Link>
         {dados.marcas.length >= 2 && (
-          <Link href="/anuncios/comparacao" className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado">
+          <Link href="/anuncios/comparacao" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
             <GitCompare size={13} /> Comparar marcas
           </Link>
         )}
-        <Link href="/anuncios/campanhas" className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado">
-          <BarChart3 size={13} /> {copy.campanhas.verTodas}
+        <Link href="/anuncios/campanhas" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+          <BarChart3 size={13} /> <span className="sm:hidden">Campanhas</span><span className="hidden sm:inline">{copy.campanhas.verTodas}</span>
         </Link>
       </div>
 
