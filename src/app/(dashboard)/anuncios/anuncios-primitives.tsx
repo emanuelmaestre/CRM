@@ -23,7 +23,7 @@ import { isBrandSlug } from "@/shared/config/brands";
  *  de volta. */
 export function MarcaBadge({ brandSlug, brandLabel }: { brandSlug: string; brandLabel: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
       {isBrandSlug(brandSlug) ? <BrandLogo brand={brandSlug} height={12} /> : brandLabel}
     </span>
   );

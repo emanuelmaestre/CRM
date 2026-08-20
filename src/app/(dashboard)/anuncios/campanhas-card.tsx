@@ -206,7 +206,6 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
     <Card>
       <CardHead
         title={copy.titulo}
-        subtitle={copy.subtitulo}
         icon={BarChart3}
         accent="var(--acento-2)"
         trailing={<MarcaBadge brandSlug={marca.brandSlug} brandLabel={marca.brandLabel} />}

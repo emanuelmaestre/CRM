@@ -61,7 +61,6 @@ export function OrganicoCard({ resumo, resumoAnterior, marca }: {
     <Card>
       <CardHead
         title={copy.titulo}
-        subtitle={copy.descricao}
         icon={Split}
         accent={ACENTO}
         trailing={<MarcaBadge brandSlug={marca.brandSlug} brandLabel={marca.brandLabel} />}
