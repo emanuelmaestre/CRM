@@ -7,11 +7,13 @@ import { listItem, springs, stagger } from "@/shared/design-system/motion-varian
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { AnimatedInfoPopover } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import type {
   ProdutoGiroBaixo,
   ProdutoMaisVendido,
   ProdutoParado,
   ProdutoReposicao,
+  StatusAnuncioParado,
 } from "@/modules/metricas/application/dashboard.service";
 
 /* ── Linha de produto ──────────────────────────────────────────
@@ -19,7 +21,7 @@ import type {
    opcional dá a proporção sem gastar uma coluna de texto. A marca vem
    na cor de identidade dela (mesma usada nos filtros) — assim dá pra
    escanear de qual empresa é cada item sem ler o texto todo. */
-function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico, formatarDestaque, destaqueLabel, destaqueCor, contexto, medidor, acento }: {
+function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico, formatarDestaque, destaqueLabel, destaqueCor, contexto, medidor, medidorCor, acento, statusBadge }: {
   nome: string;
   sku: string;
   marca: string;
@@ -35,7 +37,13 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
   destaqueCor?: string;
   contexto: string;
   medidor?: number;
+  /** Cor do medidor quando precisa acompanhar a gravidade da linha (ex.: quanto
+   *  mais dias parado, mais vermelho) em vez do acento fixo do card inteiro. */
+  medidorCor?: string;
   acento: string;
+  /** Selo opcional de status (ex.: situação do anúncio no Mercado Livre) — só
+   *  o card de Estoque Parado usa isto hoje; os demais ficam sem, por padrão. */
+  statusBadge?: React.ReactNode;
 }) {
   const corMarca = isBrandSlug(marcaSlug) ? getBrandConfig(marcaSlug)?.color : undefined;
   const destaqueAnimado = useContagem(destaqueNumerico ?? 0);
@@ -44,8 +52,9 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{nome}</p>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            <span className="text-muted-foreground/70">SKU:</span> {sku} · <span className="font-semibold" style={corMarca ? { color: corMarca } : undefined}>{marca}</span>
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+            <span className="truncate"><span className="text-muted-foreground/70">SKU:</span> {sku} · <span className="font-semibold" style={corMarca ? { color: corMarca } : undefined}>{marca}</span></span>
+            {statusBadge}
           </p>
         </div>
         <div className="shrink-0 text-right">
@@ -66,7 +75,7 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
             animate={{ scaleX: Math.max(medidor, 2) / 100 }}
             transition={springs.settle}
             className="h-full rounded-full"
-            style={{ transformOrigin: "left", background: acento }}
+            style={{ transformOrigin: "left", background: medidorCor ?? acento }}
           />
         </div>
       )}
@@ -262,6 +271,56 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope }: {
 /* ── 4. Estoque parado ────────────────────────────────────────── */
 const copyParados = dashboardConfig.cards.parados;
 
+/* ── Status do anúncio ────────────────────────────────────────
+   "Parado" sozinho não diz se é o mercado que não compra ou se o próprio
+   anúncio está fora do ar — achado real ao auditar os dados de produção
+   (produtos pausados pelo vendedor apareciam misturados com os realmente
+   ativos e sem venda). O texto do popover é montado com os dados reais do
+   item (dias, saldo, motivo do ML), nunca uma frase fixa igual pra todos. */
+function statusAnuncioInfo(item: ProdutoParado): { label: string; className: string; hint: string } {
+  const tempo = item.diasParado !== null ? `há ${item.diasParado} dias` : "desde que entrou no catálogo";
+  const motivo = item.motivoStatus ? ` (${item.motivoStatus})` : "";
+
+  const MAPA: Record<StatusAnuncioParado, { label: string; className: string; hint: string }> = {
+    ativo: {
+      label: "Ativo no ML",
+      className: "bg-muted text-muted-foreground",
+      hint: `Publicado e visível no Mercado Livre, mas sem nenhuma venda ${tempo} — o anúncio está no ar, só não vende.`,
+    },
+    pausado: {
+      label: "Pausado",
+      className: "bg-warning/10 text-warning",
+      hint: `Este anúncio está pausado no Mercado Livre${motivo} — por isso não aparece pra compra, o que já explica por que não vende ${tempo}.`,
+    },
+    encerrado: {
+      label: "Encerrado no ML",
+      className: "bg-destructive/10 text-destructive",
+      hint: `Este anúncio não existe mais no Mercado Livre${motivo}, mas o produto continua no catálogo com ${item.saldo} unidade${item.saldo === 1 ? "" : "s"} em estoque — ninguém consegue comprar por lá.`,
+    },
+    sem_vinculo: {
+      label: "Sem vínculo com o ML",
+      className: "bg-muted text-muted-foreground",
+      hint: "Não encontramos nenhum anúncio deste produto vinculado a uma conta do Mercado Livre — o vínculo pode ter se perdido.",
+    },
+    nao_consultado: {
+      label: "Status indisponível",
+      className: "bg-muted text-muted-foreground/70",
+      hint: "Não foi possível confirmar agora o status deste anúncio no Mercado Livre (falha temporária na consulta) — o restante do dado continua confiável.",
+    },
+  };
+  return MAPA[item.statusAnuncio];
+}
+
+/** Cor de gravidade: quanto mais tempo parado, mais o número (e a barra
+ *  embaixo dele) puxa pro vermelho — sem isso, 92 dias e 149 dias tinham
+ *  exatamente o mesmo peso visual, e é bem diferente na prática. */
+function corGravidade(diasParado: number | null): string {
+  if (diasParado === null) return "var(--muted-foreground)";
+  if (diasParado >= 150) return "var(--destructive)";
+  if (diasParado >= 120) return "var(--warning)";
+  return "var(--foreground)";
+}
+
 export function ParadosCard({ itens, carregando, semFiltro, scope }: {
   itens: ProdutoParado[] | null;
   carregando: boolean;
@@ -279,25 +338,51 @@ export function ParadosCard({ itens, carregando, semFiltro, scope }: {
       vazioDescricao={copyParados.emptyDescription}
       scope={scope}
     >
-      {lista.map((item) => (
-        <LinhaProduto
-          key={item.produtoId}
-          nome={item.nome}
-          sku={item.sku}
-          marca={item.marcaLabel}
-          marcaSlug={item.marca}
-          destaque={item.diasParado !== null
-            ? `${item.diasParado} d`
-            : copyParados.neverLabel}
-          {...(item.diasParado !== null ? {
-            destaqueNumerico: item.diasParado,
-            formatarDestaque: (v: number) => `${Math.round(v)} d`,
-          } : {})}
-          destaqueCor={item.diasParado === null ? "var(--muted-foreground)" : undefined}
-          contexto={`${item.valorParado} ${copyParados.stuckLabel}`}
-          acento={copyParados.accent}
-        />
-      ))}
+      {lista.map((item) => {
+        const status = statusAnuncioInfo(item);
+        const cor = corGravidade(item.diasParado);
+        return (
+          <LinhaProduto
+            key={item.produtoId}
+            nome={item.nome}
+            sku={item.sku}
+            marca={item.marcaLabel}
+            marcaSlug={item.marca}
+            destaque={item.diasParado !== null
+              ? `${item.diasParado} d`
+              : copyParados.neverLabel}
+            {...(item.diasParado !== null ? {
+              destaqueNumerico: item.diasParado,
+              formatarDestaque: (v: number) => `${Math.round(v)} d`,
+            } : {})}
+            destaqueCor={cor}
+            contexto={item.valorParado}
+            acento={copyParados.accent}
+            medidor={item.diasParado !== null ? Math.min(100, Math.round((item.diasParado / 200) * 100)) : 100}
+            medidorCor={cor}
+            statusBadge={(
+              <AnimatedInfoPopover
+                trigger={(
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => event.stopPropagation()}
+                    className={`press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${status.className}`}
+                  >
+                    {status.label}
+                  </span>
+                )}
+                align="start"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+              >
+                <p className="text-[12px] leading-relaxed text-foreground/85">{status.hint}</p>
+              </AnimatedInfoPopover>
+            )}
+          />
+        );
+      })}
     </ListaCard>
   );
 }

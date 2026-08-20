@@ -55,7 +55,6 @@
       "accent": "var(--muted-foreground)",
       "daysLabel": "sem sair",
       "neverLabel": "Sem histórico",
-      "stuckLabel": "parado",
       "emptyTitle": "Nenhum item parado",
       "emptyDescription": "Todo o estoque teve movimento nos últimos 90 dias."
     },

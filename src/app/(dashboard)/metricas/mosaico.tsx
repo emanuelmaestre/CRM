@@ -685,6 +685,7 @@ export function Mosaico({
         { titulo: "90 dias é o corte", texto: "Menos que isso é giro baixo (vende pouco); 90 dias ou mais sem nenhuma saída é parado (não vende)." },
         { titulo: "Inclui quem nunca vendeu", texto: "Produto que nunca teve saída também entra aqui, não só quem vendia antes e parou." },
         { titulo: "Ordenado pelo capital imobilizado", texto: "Quem tem mais dinheiro parado em estoque aparece primeiro, é o que mais justifica uma liquidação." },
+        { titulo: "O selo ao lado do SKU conta o resto da história", texto: "Toque nele: mostra se o anúncio está ativo no Mercado Livre (e mesmo assim não vende), pausado por você, ou já nem existe mais lá." },
       ],
       dica: "Um item aqui não é necessariamente ruim, pode ser um lançamento recente sem tempo suficiente pra vender. Vale checar a data de cadastro antes de decidir liquidar.",
     },

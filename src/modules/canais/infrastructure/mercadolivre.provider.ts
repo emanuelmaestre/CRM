@@ -251,6 +251,13 @@ export interface MLReclamacaoMensagem {
  *  reclamação — ver tabela "available_actions" na documentação oficial. */
 export type MLReclamacaoDestinatario = "complainant" | "mediator";
 
+export interface MLStatusAnuncio {
+  /** "active" | "paused" | "closed" | "under_review" | "nao_encontrado" | "desconhecido". */
+  status: string;
+  /** Ex.: ["paused_by_seller"], ["out_of_stock"] — a razão específica dentro do status. */
+  subStatus: string[];
+}
+
 export interface MLReclamacao {
   id: string;
   status: string;
@@ -958,6 +965,29 @@ export class MercadoLivreProvider implements ChannelProvider {
     return respostas.flat()
       .filter((item): item is { item_id: string; total_visits?: number } => Boolean(item.item_id))
       .map((item) => ({ itemId: item.item_id, total: item.total_visits ?? 0 }));
+  }
+
+  /** Status real do anúncio (active/paused/closed) — o multiget aceita até 20
+   *  ids por chamada, então isto nunca é mais que 1-2 requisições mesmo para
+   *  listas maiores. Usado para dizer se um produto "parado" está parado
+   *  porque ninguém compra, ou porque o próprio anúncio está pausado/encerrado. */
+  async consultarStatusAnuncios(ids: string[]): Promise<Record<string, MLStatusAnuncio>> {
+    const resultado: Record<string, MLStatusAnuncio> = {};
+    for (let i = 0; i < ids.length; i += 20) {
+      const lote = ids.slice(i, i + 20);
+      const resp = await this.get<Array<{ code: number; body?: { id: string; status?: string; sub_status?: string[] } }>>(
+        `/items?ids=${lote.join(",")}&attributes=id,status,sub_status`,
+      );
+      for (const entrada of resp) {
+        const id = entrada.body?.id;
+        if (!id) continue;
+        resultado[id] = {
+          status: entrada.code === 200 ? (entrada.body?.status ?? "desconhecido") : "nao_encontrado",
+          subStatus: entrada.body?.sub_status ?? [],
+        };
+      }
+    }
+    return resultado;
   }
 
   async obterPerformanceItem(itemId: string): Promise<MLPerformanceItem> {

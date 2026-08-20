@@ -10,7 +10,9 @@ import {
   produto,
   produtoCanal,
 } from "@/shared/lib/db/schema";
-import { getBrandConfig } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import type { MLStatusAnuncio } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
 /* ── Parâmetros de negócio ───────────────────────────────────────
    Valores que definem o que conta como "atenção", "giro baixo" e
@@ -101,11 +103,18 @@ export interface ProdutoGiroBaixo extends ProdutoBase {
   valorParado: string;
 }
 
+/** Status real do anúncio no Mercado Livre — sem isso, "parado" parecia
+ *  sempre "ninguém compra" quando às vezes é "o próprio vendedor pausou". */
+export type StatusAnuncioParado = "ativo" | "pausado" | "encerrado" | "sem_vinculo" | "nao_consultado";
+
 export interface ProdutoParado extends ProdutoBase {
   saldo: number;
   /** Dias desde a última saída. Null quando nunca teve saída registrada. */
   diasParado: number | null;
   valorParado: string;
+  statusAnuncio: StatusAnuncioParado;
+  /** Razão específica dentro do status, já traduzida (ex.: "pausado por você"). */
+  motivoStatus: string | null;
 }
 
 export interface ProdutoReposicao extends ProdutoBase {
@@ -223,6 +232,24 @@ function condicaoCanalProduto(orgId: string, canais: string[]) {
  *  do fuso do processo) não pode ser usado para os limites do período. */
 function parseDataLocal(iso: string, fimDoDia = false): Date {
   return new Date(`${iso}T${fimDoDia ? "23:59:59.999" : "00:00:00.000"}-03:00`);
+}
+
+const SUB_STATUS_LABEL: Record<string, string> = {
+  paused_by_seller: "pausado por você",
+  out_of_stock: "sem estoque no anúncio",
+  item_idle: "ocioso há muito tempo, pausado automaticamente",
+  deleted: "excluído",
+  by_admin: "removido pelo Mercado Livre",
+};
+
+function traduzirStatusAnuncio(status: MLStatusAnuncio): { statusAnuncio: StatusAnuncioParado; motivoStatus: string | null } {
+  const motivo = status.subStatus[0] ? (SUB_STATUS_LABEL[status.subStatus[0]] ?? status.subStatus[0]) : null;
+  if (status.status === "active") return { statusAnuncio: "ativo", motivoStatus: motivo };
+  if (status.status === "paused") return { statusAnuncio: "pausado", motivoStatus: motivo };
+  if (status.status === "closed" || status.status === "under_review" || status.status === "nao_encontrado") {
+    return { statusAnuncio: "encerrado", motivoStatus: motivo };
+  }
+  return { statusAnuncio: "nao_consultado", motivoStatus: motivo };
 }
 
 export async function obterDashboardData(
@@ -445,7 +472,59 @@ export async function obterDashboardData(
     .map(({ valorParadoNumerico, ...resto }) => ({
       ...resto,
       valorParado: formatCurrency(valorParadoNumerico),
+      statusAnuncio: "nao_consultado" as StatusAnuncioParado,
+      motivoStatus: null as string | null,
     }));
+
+  // Status real do anúncio no ML — só para os poucos itens que a lista de
+  // fato mostra (TAMANHO_LISTA), nunca para os 300+ que existem no banco.
+  // Sem isso, "parado" parece sempre "ninguém compra" mesmo quando o próprio
+  // vendedor pausou o anúncio (achado real ao auditar os dados de produção).
+  if (parados.length > 0) {
+    const vinculos = await ctx.db
+      .select({
+        produtoId: produtoCanal.produtoId,
+        externalListingId: produtoCanal.externalListingId,
+        marca: brand.slug,
+      })
+      .from(produtoCanal)
+      .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
+      .innerJoin(brand, eq(brand.id, channelAccount.brandId))
+      .where(and(
+        eq(produtoCanal.orgId, ctx.orgId),
+        eq(channelAccount.tipo, "mercadolivre"),
+        inArray(produtoCanal.produtoId, parados.map((item) => item.produtoId)),
+      ));
+
+    const listingPorProduto = new Map(vinculos.map((v) => [v.produtoId, v]));
+    const idsPorMarca = new Map<string, string[]>();
+    for (const v of vinculos) {
+      if (!isBrandSlug(v.marca)) continue;
+      idsPorMarca.set(v.marca, [...(idsPorMarca.get(v.marca) ?? []), v.externalListingId]);
+    }
+
+    const statusPorListing = new Map<string, MLStatusAnuncio>();
+    await Promise.all([...idsPorMarca].map(async ([marca, ids]) => {
+      try {
+        const provider = await criarMLProvider(marca as Parameters<typeof criarMLProvider>[0]);
+        const resultado = await provider.consultarStatusAnuncios([...new Set(ids)]);
+        for (const [id, info] of Object.entries(resultado)) statusPorListing.set(id, info);
+      } catch {
+        // Falha de rede/token não pode derrubar o card inteiro — os itens
+        // dessa marca simplesmente ficam "não consultado" (fallback já setado acima).
+      }
+    }));
+
+    for (const item of parados) {
+      const vinculo = listingPorProduto.get(item.produtoId);
+      if (!vinculo) { item.statusAnuncio = "sem_vinculo"; continue; }
+      const status = statusPorListing.get(vinculo.externalListingId);
+      if (!status) continue; // consulta falhou: mantém "nao_consultado"
+      const { statusAnuncio, motivoStatus } = traduzirStatusAnuncio(status);
+      item.statusAnuncio = statusAnuncio;
+      item.motivoStatus = motivoStatus;
+    }
+  }
 
   /* ── 4. Reposição (baixo estoque, ainda em tempo) ── */
   const reposicao: ProdutoReposicao[] = produtosAtivos
