@@ -356,7 +356,7 @@ function EntendaStatusBotao() {
         <AnimatedInfoTrigger
           title="Entenda os status do anúncio no Mercado Livre"
           iconSize={13}
-          className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
         >
           Entenda os status
         </AnimatedInfoTrigger>
@@ -405,10 +405,15 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
       scope={<div className="sm:hidden">{scope}</div>}
     >
       {acaoSlot && createPortal(
-        <>
-          <div className="hidden sm:flex sm:min-w-0 sm:flex-wrap sm:items-center sm:gap-2">{scope}</div>
+        // w-full + mx-auto no meio: as pílulas de marca/canal ficam centralizadas
+        // no espaço livre ao lado do período, em vez de coladas no botão lá no
+        // canto — o separador deixa claro que filtro (pílulas) e explicação
+        // (botão) são coisas diferentes, mesmo lado a lado na mesma fileira.
+        <div className="hidden w-full items-center gap-3 sm:flex">
+          <div className="mx-auto flex min-w-0 flex-wrap items-center justify-center gap-2">{scope}</div>
+          <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
           <EntendaStatusBotao />
-        </>,
+        </div>,
         acaoSlot,
       )}
       {lista.map((item) => {

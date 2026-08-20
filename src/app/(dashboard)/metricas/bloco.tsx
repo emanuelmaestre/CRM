@@ -358,7 +358,13 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                 {/* Alvo do portal: sempre presente no DOM, mesmo vazio — um
                     card com ação própria (aba, "como é calculado") a desenha
                     aqui via createPortal quando monta. */}
-                <div ref={setAcaoSlot} className="flex min-w-0 flex-wrap items-center justify-start gap-2 empty:hidden sm:ml-auto sm:justify-end" />
+                {/* sm:flex-1: cresce pra preencher o espaço que sobra ao lado do
+                    período — sem isso um card que centraliza algo dentro do
+                    próprio slot (ver ParadosCard) não tinha largura nenhuma pra
+                    centralizar em relação a. Cards de um botão só (Score,
+                    Reclamações) não mudam de lugar: `justify-end` continua
+                    empurrando o conteúdo pro fim, seja a caixa larga ou não. */}
+                <div ref={setAcaoSlot} className="flex min-w-0 flex-wrap items-center justify-start gap-2 empty:hidden sm:ml-auto sm:flex-1 sm:justify-end" />
               </div>
             </motion.div>
 
