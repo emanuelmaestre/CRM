@@ -372,11 +372,16 @@ function MinimoInput({ produto, onSalvo, tamanho = "h-9 w-[68px]" }: { produto: 
    entre duas colunas distantes ficava por conta de quem lê. Quem não tem régua
    ganha trilho tracejado: é visivelmente configurável, não visivelmente
    quebrado. */
-function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
+function SaldoCelula({ saldo, minimo, testId, saldosCanais, alinhamento = "direita" }: {
   saldo: number;
   minimo: number;
   testId: string;
   saldosCanais?: SaldoCanal[];
+  /** "direita" faz sentido na tabela desktop (encosta nas colunas numéricas
+   *  vizinhas). No card mobile, onde o rótulo "Estoque nos canais" acima é
+   *  alinhado à esquerda, "direita" brigava com o próprio rótulo — por isso
+   *  o card passa "esquerda". */
+  alinhamento?: "esquerda" | "direita";
 }) {
   const reduzir = useReducedMotion();
   const estado = estadoLinha(saldo, minimo);
@@ -405,19 +410,20 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
       ? copy.saldoCell.noRule
       : `${copy.saldoCell.minPrefix} ${minimo}`;
 
+  const direita = alinhamento === "direita";
   return (
-    <div className="w-full max-w-[104px] ml-auto">
+    <div className={`w-full max-w-[104px] ${direita ? "ml-auto" : ""}`}>
       <motion.p
         data-testid={testId}
         animate={alerta ? { x: [0, -4, 4, -4, 4, -2, 2, 0], scale: [1, 1.12, 1] } : { x: 0, scale: 1 }}
         transition={springs.momentum}
-        className="text-[15px] font-bold tabular-nums leading-none text-right"
+        className={`text-[15px] font-bold tabular-nums leading-none ${direita ? "text-right" : "text-left"}`}
         style={{ color: estado === "ok" ? "var(--foreground)" : (cor ?? "var(--foreground)") }}
       >
         {saldo}
       </motion.p>
       <p
-        className="mt-1 text-right text-[10px] leading-none tabular-nums"
+        className={`mt-1 text-[10px] leading-none tabular-nums ${direita ? "text-right" : "text-left"}`}
         style={{ color: estado === "abaixo" || estado === "sem_estoque" ? (cor ?? undefined) : "var(--muted-foreground)" }}
       >
         {rotulo}
@@ -446,7 +452,7 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
       {saldosCanais && saldosCanais.length > 0 && (
         <div className="mt-1.5 flex flex-col gap-0.5">
           {saldosCanais.map((item) => (
-            <div key={item.canal} className="flex items-center justify-end gap-1">
+            <div key={item.canal} className={`flex items-center gap-1 ${direita ? "justify-end" : "justify-start"}`}>
               <ChannelLogo canal={item.canal} size="xs" variant="logo" />
               <span className="text-[10px] leading-none tabular-nums text-muted-foreground">
                 {item.saldo}
@@ -1165,7 +1171,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                     <motion.article key={p.id} variants={variantes(reduzir, entradaExagerada)} className="relative p-4 pl-5 space-y-3">
                       <span
                         aria-hidden="true"
-                        className="absolute left-0 top-4 bottom-4 w-[3px] rounded-r-sm"
+                        className="absolute left-0 top-4 bottom-4 w-1 rounded-r-sm"
                         style={corEstado
                           ? { background: corEstado }
                           : { background: "repeating-linear-gradient(180deg, var(--border) 0 3px, transparent 3px 6px)" }}
@@ -1173,16 +1179,21 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="font-semibold text-foreground">{p.nome}</p>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                            <span className="font-mono text-[11px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">SKU: {p.sku}</span>
-                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                              Empresa: <span className="font-semibold" style={{ color: brandColor(p.brandSlug) }}>{p.brandName}</span>
-                            </span>
+                          {/* SKU/Empresa/Canal são 3 atributos do mesmo tipo — antes
+                              cada um tinha um tratamento visual diferente (pílula,
+                              texto com rótulo, ícone solto). Agora é uma linha só,
+                              separada por · , mesmo padrão usado em Vendas. */}
+                          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+                            <span className="font-mono">{p.sku}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-semibold" style={{ color: brandColor(p.brandSlug) }}>{p.brandName}</span>
                             {p.canais && p.canais.length > 0 && (
-                              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                                Canal:
-                                {p.canais.map((c) => <ChannelLogo key={c} canal={c} size="xs" variant="logo" />)}
-                              </span>
+                              <>
+                                <span aria-hidden="true">·</span>
+                                <span className="inline-flex items-center gap-1">
+                                  {p.canais.map((c) => <ChannelLogo key={c} canal={c} size="xs" variant="logo" />)}
+                                </span>
+                              </>
                             )}
                           </div>
                           {parado && (
@@ -1209,7 +1220,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                       <div className="grid grid-cols-3 gap-3 text-sm items-end">
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">{copy.mobile.balance}</p>
-                          <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} saldosCanais={p.saldosCanais} />
+                          <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} saldosCanais={p.saldosCanais} alinhamento="esquerda" />
                         </div>
                         <div data-tour={p === produtos[0] ? "estoque-minimo" : undefined}>
                           <p className="text-xs text-muted-foreground mb-1">{copy.minimum.columnLabel}</p>
