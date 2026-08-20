@@ -387,10 +387,11 @@ export async function obterSaudeLoja(
         marcasComFalha: [],
         semContaConectada: true,
       })),
-    leve ? Promise.resolve<ReclamacoesResultado>({ itens: [], total: 0, marcasComFalha: [], semContaConectada: true })
+    leve ? Promise.resolve<ReclamacoesResultado>({ itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: true })
       : obterReclamacoesAbertas(ctx).catch((): ReclamacoesResultado => ({
         itens: [],
         total: 0,
+        pendentes: 0,
         marcasComFalha: [],
         semContaConectada: true,
       })),

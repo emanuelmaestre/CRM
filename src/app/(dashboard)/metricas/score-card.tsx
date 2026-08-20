@@ -9,7 +9,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { Pilar, SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { AnelScore, AvisoParcial, BarraComLimite, Card, CardHead } from "./metricas-primitives";
@@ -108,21 +108,14 @@ function explicacaoPilar(pilar: Pilar) {
 /* ── Linha de pilar ────────────────────────────────────────────
    O peso fica visível ao lado do nome. Sem isso o leitor não tem
    como saber por que o score não subiu quando "Estoque" foi de 40
-   para 90 — Estoque vale 10, Reputação vale 30.
-
-   Com uma marca selecionada, a barra e o número usam a cor da marca (mesmo
-   fio condutor visual do card Marca) — o sinal de saúde (bom/ruim) não
-   desaparece, só migra pra um pontinho ao lado do número, mesma solução já
-   usada lá. Sem marca (não deveria acontecer, pilares só existem com marca
-   selecionada) cai pro semântico puro. */
-function LinhaPilar({ pilar, indice, corIdentidade }: { pilar: Pilar; indice: number; corIdentidade?: string }) {
+   para 90 — Estoque vale 10, Reputação vale 30. */
+function LinhaPilar({ pilar, indice }: { pilar: Pilar; indice: number }) {
   const semDado = pilar.nota === null;
-  const corSemantica = semDado
+  const cor = semDado
     ? "var(--muted-foreground)"
     : (pilar.nota as number) >= 70 ? "var(--success)"
     : (pilar.nota as number) >= 50 ? "var(--warning)"
     : "var(--destructive)";
-  const cor = corIdentidade ?? corSemantica;
 
   return (
     <motion.li
@@ -142,9 +135,6 @@ function LinhaPilar({ pilar, indice, corIdentidade }: { pilar: Pilar; indice: nu
           <CalculoPopover compacto {...explicacaoPilar(pilar)} />
         </span>
         <span className="flex shrink-0 items-center gap-1.5">
-          {corIdentidade && !semDado && (
-            <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: corSemantica }} />
-          )}
           <span
             className="text-[17px] font-bold tabular-nums"
             style={{ color: cor }}
@@ -262,13 +252,9 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
   const consolidado = escopo === CONSOLIDADO;
   const score = consolidado ? dados?.scoreGeral ?? null : marcaSelecionada?.score ?? null;
   const faixaLabel = consolidado ? dados?.faixaGeralLabel ?? null : marcaSelecionada?.faixaLabel ?? null;
-  // Com marca selecionada, a cor vira a identidade da marca (mesmo fio
-  // condutor do card Marca) em vez da cor semântica da faixa — pedido
-  // explícito: só o Consolidado continua com a cor semântica de sempre.
-  const corMarca = marcaSelecionada && isBrandSlug(marcaSelecionada.marca) ? getBrandConfig(marcaSelecionada.marca)?.color : undefined;
   const cor = consolidado
     ? (dados?.faixaGeralCor ?? "var(--muted-foreground)")
-    : (corMarca ?? marcaSelecionada?.faixaCor ?? "var(--muted-foreground)");
+    : (marcaSelecionada?.faixaCor ?? "var(--muted-foreground)");
 
   // Mesmo padrão de popover-com-motion do resto do módulo (CalculoPopover) —
   // antes este botão abria um acordeão manual (texto fixo, sem motion do
@@ -394,7 +380,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
                     className="flex flex-col gap-3.5"
                   >
                     {marcaSelecionada?.pilares.map((pilar, indice) => (
-                      <LinhaPilar key={pilar.chave} pilar={pilar} indice={indice} corIdentidade={corMarca} />
+                      <LinhaPilar key={pilar.chave} pilar={pilar} indice={indice} />
                     ))}
                   </motion.ul>
                 )}

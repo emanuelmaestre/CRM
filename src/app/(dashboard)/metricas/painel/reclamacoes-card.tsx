@@ -25,6 +25,18 @@ function tempoAberta(dias: number | null): string {
   return `${dias} ${dias === 1 ? copy.dayLabel : copy.daysLabel}`;
 }
 
+function diasDesde(dataIso: string | null): number | null {
+  if (!dataIso) return null;
+  const data = new Date(dataIso);
+  if (Number.isNaN(data.getTime())) return null;
+  return Math.floor((Date.now() - data.getTime()) / 86_400_000);
+}
+
+function tempoAtualizacao(dias: number | null): string {
+  if (dias === null || dias === 0) return copy.resolvedUpdatedToday;
+  return `${copy.resolvedUpdatedSince} ${dias} ${dias === 1 ? copy.dayLabel : copy.daysLabel}`;
+}
+
 function Esqueleto() {
   return (
     <ul className="mt-4">
@@ -179,8 +191,10 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
     }
   }, [texto, enviando, item.marca, item.id, item.emMediacao, carregarThread]);
 
+  const resolvida = !item.precisaAcao;
+
   return (
-    <div className="border-b border-border last:border-0">
+    <div className={`border-b border-border last:border-0 ${resolvida ? "opacity-70" : ""}`}>
       <button
         type="button"
         onClick={abrir}
@@ -189,7 +203,29 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-sm font-semibold text-foreground">{item.estagio}</span>
+            <span className={`text-sm font-semibold ${resolvida ? "text-muted-foreground line-through decoration-1" : "text-foreground"}`}>
+              {item.estagio}
+            </span>
+            {resolvida && (
+              <AnimatedInfoPopover
+                trigger={(
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => event.stopPropagation()}
+                    className="press-feedback cursor-pointer rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-success transition-opacity hover:opacity-80"
+                  >
+                    {copy.resolvedLabel}
+                  </span>
+                )}
+                align="start"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+              >
+                <p className="text-[12px] leading-relaxed text-foreground/85">{copy.resolvedHint}</p>
+              </AnimatedInfoPopover>
+            )}
             {item.emMediacao && (
               // Trigger não pode ser <button>: esta linha inteira já é um
               // <button> (abre/fecha a thread) — <button> dentro de <button>
@@ -254,8 +290,11 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
         </div>
         <div className="flex shrink-0 items-start gap-2">
           <div className="text-right">
-            <p className="text-sm font-bold tabular-nums text-foreground">
-              {tempoAberta(item.diasAberta)}
+            <p className={resolvida
+              ? "max-w-[7rem] text-[11px] font-semibold leading-snug text-muted-foreground"
+              : "text-sm font-bold tabular-nums text-foreground"}
+            >
+              {resolvida ? tempoAtualizacao(diasDesde(item.atualizadaEm)) : tempoAberta(item.diasAberta)}
             </p>
             {item.pedidoHref && (
               <Link
@@ -349,11 +388,14 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
   scope?: React.ReactNode;
   acaoSlot?: HTMLElement | null;
 }) {
-  const total = !semFiltro ? (dados?.total ?? 0) : 0;
-  const totalAnimado = useContagem(total);
+  // O selo mostra quantas realmente precisam de resposta nossa, não o total
+  // de casos em aberto no ML — o título é "Reclamações a resolver", contar
+  // as já resolvidas (só aguardando o ML encerrar) infla o número à toa.
+  const pendentes = !semFiltro ? (dados?.pendentes ?? 0) : 0;
+  const totalAnimado = useContagem(pendentes);
   const [aberta, setAberta] = useState<string | null>(null);
 
-  const contagem = total > 0 ? (
+  const contagem = pendentes > 0 ? (
     <span
       className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
       style={{ background: tint(copy.accent, 10), color: copy.accent }}

@@ -286,7 +286,7 @@ export function Mosaico({
         // `semContaConectada: false` aqui seria mentir — o card leria isso como
         // "conta conectada, zero reclamações" quando na verdade a busca falhou.
         // O toast é o que diferencia as duas leituras para quem está olhando.
-        setReclamacoes({ itens: [], total: 0, marcasComFalha: [], semContaConectada: false });
+        setReclamacoes({ itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: false });
         toast.error(metricasConfig.erros.carregar, { id: "metricas-reclamacoes" });
       })
       .finally(() => { if (ativo) setCarregandoReclamacoes(false); });
@@ -402,7 +402,7 @@ export function Mosaico({
     const slugs = marcas.filter((item) => filtroReclamacoes.brandId.includes(item.brandId)).map((item) => item.slug);
     if (!reclamacoes || slugs.length === 0) return null;
     const itens = reclamacoes.itens.filter((item) => slugs.includes(item.marca));
-    return { ...reclamacoes, itens, total: itens.length };
+    return { ...reclamacoes, itens, total: itens.length, pendentes: itens.filter((item) => item.precisaAcao).length };
   }, [reclamacoes, marcas, filtroReclamacoes.brandId]);
 
   const trocarDatas = useCallback((novoInicio: string, novoFim: string) => {
@@ -539,10 +539,12 @@ export function Mosaico({
     carregando: carregandoReclamacoes,
     semFiltro: semFiltroReclamacoes,
     resumo: {
-      valor: reclamacoesVisiveis ? String(reclamacoesVisiveis.total) : null,
+      // "pendentes" (não "total"): reclamações já resolvidas no Mercado Livre
+      // (sem ação nossa restante) não deveriam acender alerta crítico no mosaico.
+      valor: reclamacoesVisiveis ? String(reclamacoesVisiveis.pendentes) : null,
       legenda: blocosCopy.reclamacoes.legenda,
-      alerta: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
-        ? { nivel: "critico", texto: "abertas" }
+      alerta: reclamacoesVisiveis && reclamacoesVisiveis.pendentes > 0
+        ? { nivel: "critico", texto: "a resolver" }
         : null,
     },
     explicacao: {

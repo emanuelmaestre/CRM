@@ -26,11 +26,19 @@ export interface ReclamacaoResumo {
   pedidoHref: string | null;
   /** Escalou para mediação — precisa de atenção antes das demais. */
   emMediacao: boolean;
+  /** false quando o vendedor já não tem nenhuma ação pendente no Mercado
+   *  Livre — na prática resolvida, só falta o ML encerrar o registro. */
+  precisaAcao: boolean;
+  atualizadaEm: string | null;
 }
 
 export interface ReclamacoesResultado {
   itens: ReclamacaoResumo[];
   total: number;
+  /** Quantas do total realmente esperam alguma ação nossa — calculado antes
+   *  de cortar `itens` para os 8 primeiros, pra não subcontar quando há mais
+   *  de 8 casos pendentes. */
+  pendentes: number;
   /** Marcas cuja consulta falhou — a lista fica parcial, e a UI precisa dizer isso. */
   marcasComFalha: string[];
   /** Nenhuma conta do Mercado Livre conectada: não é "zero reclamações", é "não dá para saber". */
@@ -57,7 +65,7 @@ export async function obterReclamacoesAbertas(
 
   const marcas = [...new Set(contas.map((item) => item.marca))].filter(isBrandSlug);
   if (marcas.length === 0) {
-    return { itens: [], total: 0, marcasComFalha: [], semContaConectada: true };
+    return { itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: true };
   }
 
   const resultados = await Promise.allSettled(
@@ -117,10 +125,16 @@ export async function obterReclamacoesAbertas(
         diasAberta: valida ? Math.floor((agora - valida.getTime()) / 86_400_000) : null,
         pedidoHref: pedidoLocalId ? `/vendas/pedidos/${pedidoLocalId}` : null,
         emMediacao: reclamacao.estagio === "dispute",
+        precisaAcao: reclamacao.precisaAcao,
+        atualizadaEm: reclamacao.atualizadaEm,
       };
     })
-    // Mediação primeiro (já escalou), depois as mais antigas — quem espera há mais tempo.
+    // Quem precisa de ação nossa vem primeiro; dentro desse grupo, mediação
+    // primeiro (já escalou) e depois as mais antigas. As já resolvidas (sem
+    // ação pendente) ficam por último — não competem por atenção com as que
+    // realmente precisam de resposta.
     .sort((a, b) => {
+      if (a.precisaAcao !== b.precisaAcao) return a.precisaAcao ? -1 : 1;
       if (a.emMediacao !== b.emMediacao) return a.emMediacao ? -1 : 1;
       return (b.diasAberta ?? 0) - (a.diasAberta ?? 0);
     });
@@ -128,6 +142,7 @@ export async function obterReclamacoesAbertas(
   return {
     itens: itens.slice(0, 8),
     total: itens.length,
+    pendentes: itens.filter((item) => item.precisaAcao).length,
     marcasComFalha,
     semContaConectada: false,
   };

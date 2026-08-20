@@ -224,6 +224,9 @@ interface MLClaimDetail {
   resource_id?: number | string;
   date_created?: string;
   last_updated?: string;
+  /** /claims/search já devolve isso por item — não precisa de chamada extra
+   *  por reclamação pra saber se o vendedor ainda tem algo pendente. */
+  players?: Array<{ role?: string; available_actions?: unknown[] }>;
 }
 
 /** Mensagem bruta de GET /post-purchase/v1/claims/{id}/messages. */
@@ -256,6 +259,9 @@ export interface MLReclamacao {
   pedidoExternoId: string | null;
   abertaEm: string | null;
   atualizadaEm: string | null;
+  /** false quando o `available_actions` do vendedor (respondent) já veio
+   *  vazio — nada pendente do nosso lado, só falta o ML encerrar o registro. */
+  precisaAcao: boolean;
 }
 
 type MLRating = {
@@ -769,17 +775,23 @@ export class MercadoLivreProvider implements ChannelProvider {
     const data = await this.get<{ data?: MLClaimDetail[] }>(
       "/post-purchase/v1/claims/search?status=opened&limit=50&sort=date_created,desc",
     );
-    return (data.data ?? []).map((claim) => ({
-      id: String(claim.id),
-      status: claim.status ?? "opened",
-      estagio: claim.stage ?? null,
-      motivo: claim.reason_id ?? null,
-      pedidoExternoId: claim.resource === "order" && claim.resource_id !== undefined
-        ? String(claim.resource_id)
-        : null,
-      abertaEm: claim.date_created ?? null,
-      atualizadaEm: claim.last_updated ?? null,
-    }));
+    return (data.data ?? []).map((claim) => {
+      const respondente = claim.players?.find((player) => player.role === "respondent");
+      return {
+        id: String(claim.id),
+        status: claim.status ?? "opened",
+        estagio: claim.stage ?? null,
+        motivo: claim.reason_id ?? null,
+        pedidoExternoId: claim.resource === "order" && claim.resource_id !== undefined
+          ? String(claim.resource_id)
+          : null,
+        abertaEm: claim.date_created ?? null,
+        atualizadaEm: claim.last_updated ?? null,
+        // Sem o campo "players" (registro antigo/incompleto), assume que
+        // precisa de ação — não esconder algo que talvez ainda esteja pendente.
+        precisaAcao: respondente ? (respondente.available_actions?.length ?? 0) > 0 : true,
+      };
+    });
   }
 
   async listarMensagensReclamacao(claimId: string): Promise<MLReclamacaoMensagem[]> {
