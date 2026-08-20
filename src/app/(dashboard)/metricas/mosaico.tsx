@@ -821,32 +821,44 @@ export function Mosaico({
             para cima do mosaico inteiro; o rótulo da seção ganha um ponto na
             cor do pior alerta, então dá pra saber onde olhar antes de abrir
             qualquer coisa. */}
-        <div data-coachmark="mosaico-grade" className="flex flex-col gap-3.5 lg:gap-6">
-          {grupos.map((grupo) => (
-            <section key={grupo.id} className="flex flex-col gap-2">
-              <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
-              {/* Colunas por seção, não uma grade fixa para todas: a seção
-                  preenche a linha com os cards que tem, então uma de 3 itens
-                  dá cards de 1/3 e a de 4 itens dá cards de 1/4 — em vez de
-                  todo mundo herdar a largura da maior e sobrar buraco. O
-                  piso de 3 evita o extremo oposto: 2 itens esticados pela
-                  metade da tela cada. Uma seção de 1 item só (ex.: Saúde da
-                  loja sozinha, depois que Termômetro saiu) não entra nesse
-                  piso — um card só forçado a 1/3 da grade deixaria os
-                  outros 2/3 vazios, o mesmo buraco que o piso de 3 existe
-                  pra evitar. Vira flex, largura do próprio conteúdo. Só
-                  afeta lg+; abaixo disso a grade continua a mesma de sempre. */}
-              <ul className={
-                grupo.blocos.length === 1
-                  ? "grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:flex lg:gap-3"
-                  : `grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:gap-3 ${COLUNAS_LG[Math.max(3, grupo.blocos.length)] ?? "lg:grid-cols-6"}`
-              }>
-                {grupo.blocos.map((bloco) => (
-                  <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
-                ))}
-              </ul>
-            </section>
-          ))}
+        {/* Telas muito largas (MacBook com janela maximizada, TV) deixavam a
+            caixa de 1440px do layout compartilhado sobrando como um vão vazio
+            do lado direito, bem visível contra o fundo cinza — as outras
+            telas do app (Vendas, Estoque) não sentem isso porque tabelas já
+            preenchem bem os 1440px; a grade de cards aqui, não. "Escapa" do
+            container pai só a partir de 2xl (~1536px) e recentra numa caixa
+            mais larga — mudança isolada do Métricas, o resto do app continua
+            travado em 1440px como sempre. */}
+        <div className="2xl:relative 2xl:left-1/2 2xl:w-screen 2xl:-translate-x-1/2">
+          <div className="2xl:mx-auto 2xl:max-w-[1800px] 2xl:px-[clamp(1rem,2.2vw,2rem)]">
+            <div data-coachmark="mosaico-grade" className="flex flex-col gap-3.5 lg:gap-6">
+              {grupos.map((grupo) => (
+                <section key={grupo.id} className="flex flex-col gap-2">
+                  <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
+                  {/* Colunas por seção, não uma grade fixa para todas: a seção
+                      preenche a linha com os cards que tem, então uma de 3 itens
+                      dá cards de 1/3 e a de 4 itens dá cards de 1/4 — em vez de
+                      todo mundo herdar a largura da maior e sobrar buraco. O
+                      piso de 3 evita o extremo oposto: 2 itens esticados pela
+                      metade da tela cada. Uma seção de 1 item só (ex.: Saúde da
+                      loja sozinha, depois que Termômetro saiu) não entra nesse
+                      piso — um card só forçado a 1/3 da grade deixaria os
+                      outros 2/3 vazios, o mesmo buraco que o piso de 3 existe
+                      pra evitar. Vira flex, largura do próprio conteúdo. Só
+                      afeta lg+; abaixo disso a grade continua a mesma de sempre. */}
+                  <ul className={
+                    grupo.blocos.length === 1
+                      ? "grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:flex lg:gap-3"
+                      : `grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:gap-3 ${COLUNAS_LG[Math.max(3, grupo.blocos.length)] ?? "lg:grid-cols-6"}`
+                  }>
+                    {grupo.blocos.map((bloco) => (
+                      <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </div>
         </div>
       </motion.div>
 
