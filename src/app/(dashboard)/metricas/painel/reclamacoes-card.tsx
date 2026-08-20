@@ -226,7 +226,9 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
                 <p className="text-[12px] leading-relaxed text-foreground/85">{copy.resolvedHint}</p>
               </AnimatedInfoPopover>
             )}
-            {item.emMediacao && (
+            {/* "Resolvida" já cobre o essencial ("nada pendente do seu lado") — empilhar
+                "escalou" junto só confunde qual selo olhar primeiro. */}
+            {!resolvida && item.emMediacao && (
               // Trigger não pode ser <button>: esta linha inteira já é um
               // <button> (abre/fecha a thread) — <button> dentro de <button>
               // é HTML inválido. `stopPropagation` evita que o clique também
@@ -250,6 +252,30 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
               >
                 <p className="text-[12px] leading-relaxed text-foreground/85">
                   Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida.
+                </p>
+              </AnimatedInfoPopover>
+            )}
+            {!resolvida && item.reaberta && (
+              // "Recontato" só existe depois que o caso já foi encerrado uma vez —
+              // sem isso, parece uma reclamação nova em vez de um retorno.
+              <AnimatedInfoPopover
+                trigger={(
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(event) => event.stopPropagation()}
+                    className="press-feedback cursor-pointer rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning transition-opacity hover:opacity-80"
+                  >
+                    reaberta
+                  </span>
+                )}
+                align="start"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+              >
+                <p className="text-[12px] leading-relaxed text-foreground/85">
+                  Este caso já tinha sido encerrado antes — alguém voltou a mandar mensagem depois disso. O prazo abaixo é de quando isso aconteceu, não de quando a reclamação foi aberta originalmente.
                 </p>
               </AnimatedInfoPopover>
             )}
@@ -290,11 +316,11 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
         </div>
         <div className="flex shrink-0 items-start gap-2">
           <div className="text-right">
-            <p className={resolvida
+            <p className={resolvida || item.reaberta
               ? "max-w-[7rem] text-[11px] font-semibold leading-snug text-muted-foreground"
               : "text-sm font-bold tabular-nums text-foreground"}
             >
-              {resolvida ? tempoAtualizacao(diasDesde(item.atualizadaEm)) : tempoAberta(item.diasAberta)}
+              {resolvida || item.reaberta ? tempoAtualizacao(diasDesde(item.atualizadaEm)) : tempoAberta(item.diasAberta)}
             </p>
             {item.pedidoHref && (
               <Link
@@ -453,6 +479,14 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
               </motion.div>
             ))}
           </motion.div>
+          {/* A lista mostra só as 8 primeiras (vêm ordenadas por urgência) — sem
+              isso o selo de contagem prometeria um número maior do que o que
+              aparece embaixo dele, sem explicar o resto. */}
+          {dados.pendentes > dados.itens.filter((item) => item.precisaAcao).length && (
+            <p className="mx-5 mb-1 mt-2 text-[11px] font-medium text-muted-foreground">
+              +{dados.pendentes - dados.itens.filter((item) => item.precisaAcao).length} outras reclamações a resolver não mostradas aqui — veja todas no Mercado Livre.
+            </p>
+          )}
         </>
       )}
     </Card>

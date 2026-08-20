@@ -26,6 +26,11 @@ export interface ReclamacaoResumo {
   pedidoHref: string | null;
   /** Escalou para mediação — precisa de atenção antes das demais. */
   emMediacao: boolean;
+  /** Estágio "recontact": alguém voltou a mandar mensagem depois que este
+   *  caso já tinha sido encerrado uma vez — não é uma reclamação nova. Nesse
+   *  caso `diasAberta` (contado desde a criação original) não representa
+   *  a idade do problema atual; use `atualizadaEm`. */
+  reaberta: boolean;
   /** false quando o vendedor já não tem nenhuma ação pendente no Mercado
    *  Livre — na prática resolvida, só falta o ML encerrar o registro. */
   precisaAcao: boolean;
@@ -125,6 +130,7 @@ export async function obterReclamacoesAbertas(
         diasAberta: valida ? Math.floor((agora - valida.getTime()) / 86_400_000) : null,
         pedidoHref: pedidoLocalId ? `/vendas/pedidos/${pedidoLocalId}` : null,
         emMediacao: reclamacao.estagio === "dispute",
+        reaberta: reclamacao.estagio === "recontact",
         precisaAcao: reclamacao.precisaAcao,
         atualizadaEm: reclamacao.atualizadaEm,
       };
