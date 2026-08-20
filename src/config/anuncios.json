@@ -6,8 +6,8 @@
     "eyebrow": "Última sincronização"
   },
   "kpis": {
-    "investimento": "Investimento",
-    "receita": "Receita atribuída",
+    "investimento": "Investimento (dinheiro gasto em anúncios)",
+    "receita": "Receita atribuída (venda que veio do anúncio)",
     "roas": "ROAS (retorno por real investido)",
     "acos": "ACOS (custo do anúncio na venda)",
     "tacos": "TACOS (peso do anúncio nas vendas)",

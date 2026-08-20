@@ -36,11 +36,11 @@ describe("rótulos de Anúncios com informação", () => {
     render(<KpisPrincipais resumo={resumo()} />);
 
     expect(screen.getAllByRole("button", { name: /Explicar indicador/i })).toHaveLength(11);
-    expect(screen.getByRole("button", { name: "Explicar indicador Investimento" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Explicar indicador Receita atribuída" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Explicar indicador Investimento (dinheiro gasto em anúncios)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Explicar indicador Receita atribuída (venda que veio do anúncio)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador ROAS (retorno por real investido)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador Vendas atribuídas" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Explicar indicador Investimento" }).getAttribute("title")).toMatch(/R\$\s*1\.200,00/);
+    expect(screen.getByRole("button", { name: "Explicar indicador Investimento (dinheiro gasto em anúncios)" }).getAttribute("title")).toMatch(/R\$\s*1\.200,00/);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ACOS (custo do anúncio na venda)" }));
 
@@ -67,7 +67,7 @@ describe("rótulos de Anúncios com informação", () => {
   it("explica receita atribuída com observação sobre o que é receita", async () => {
     render(<KpisPrincipais resumo={resumo()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador Receita atribuída" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador Receita atribuída (venda que veio do anúncio)" }));
 
     expect(await screen.findByText(/Receita atribuída atual: R\$\s*4\.800,00/i)).toBeInTheDocument();
     expect(screen.getByText(/32 vendas atribuídas aos anúncios/i)).toBeInTheDocument();

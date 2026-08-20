@@ -653,13 +653,13 @@ function ComparativoPeriodo({ atual, anterior, dias }: { atual: VisaoGeralMarca;
   });
   const itens = [
     {
-      label: "Investimento",
+      label: "Investimento (dinheiro gasto em anúncios)",
       descricao: comparacaoInvestimento.descricao,
       observacao: comparacaoInvestimento.observacao,
       valor: variacao(atual.resumo.investimentoTotal, investimentoAnterior ?? 0),
     },
     {
-      label: "Receita Ads",
+      label: "Receita Ads (venda que veio do anúncio)",
       descricao: comparacaoReceitaAds.descricao,
       observacao: comparacaoReceitaAds.observacao,
       valor: variacao(atual.resumo.receitaTotal, receitaAnterior ?? 0),
@@ -671,7 +671,7 @@ function ComparativoPeriodo({ atual, anterior, dias }: { atual: VisaoGeralMarca;
       valor: variacaoRoas(atual.resumo.roasMedio, roasAnterior),
     },
     {
-      label: "Conversões",
+      label: "Conversões (vendas feitas pelo anúncio)",
       descricao: comparacaoConversoes.descricao,
       observacao: comparacaoConversoes.observacao,
       valor: variacao(atual.resumo.vendas, conversoesAnteriores ?? 0),
