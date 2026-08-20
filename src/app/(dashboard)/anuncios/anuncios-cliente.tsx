@@ -4,15 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { FileText, RefreshCw } from "lucide-react";
+import { FileText, PlugZap2, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { isBrandSlug } from "@/shared/config/brands";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
+import channelsConfig from "@/config/channels.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
 import { actionDispararSincronizacaoConta, actionListarConfiguracaoCanais, actionObterUltimaSincronizacaoConta } from "../configuracoes/actions";
 import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
@@ -280,6 +282,42 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
   );
 }
 
+const CANAIS_ANUNCIOS = ["mercadolivre", "shopee", "tiktokshop"] as const;
+
+/** Mercado Livre é a única fonte de dado de Publicidade hoje — não existe
+ *  integração de Product Ads pra Shopee/TikTok Shop ainda. Mostra os 3 pra
+ *  deixar claro que a tela é sobre canais de venda (mesma leitura de
+ *  Vendas/Estoque), mas Shopee/TikTok ficam travados como "ainda não
+ *  disponível" em vez de fingir que dá pra filtrar por eles. */
+function SeletorCanalAnuncios() {
+  return (
+    <div className="flex w-full flex-wrap justify-center gap-1.5 sm:w-auto sm:justify-start">
+      {CANAIS_ANUNCIOS.map((canal) => {
+        const disponivel = canal === "mercadolivre";
+        const label = (channelsConfig.items as Record<string, { label?: string }>)[canal]?.label ?? canal;
+        return (
+          <button
+            key={canal}
+            type="button"
+            aria-pressed={disponivel}
+            title={disponivel ? label : `Publicidade de ${label} ainda não está disponível`}
+            aria-label={disponivel ? label : `${label} — ainda não disponível`}
+            onClick={disponivel ? undefined : () => toast.info(`Publicidade de ${label} ainda não está disponível.`)}
+            className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[0.7rem] px-3.5 transition-colors ${
+              disponivel
+                ? "border-2 border-selecionado bg-selecionado/12"
+                : "border border-border bg-card opacity-50"
+            }`}
+          >
+            <ChannelLogo canal={canal} size="sm" variant="logo" />
+            {!disponivel && <PlugZap2 size={14} className="text-muted-foreground" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function Esqueleto() {
   return (
     <div className="flex flex-col gap-6">
@@ -442,9 +480,10 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
           atualizar sobrava sozinho longe do texto que ele atualiza. Agora
           formam um grupo só, que quebra (ou não) como unidade. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
-          <div className="flex flex-wrap items-end gap-2" aria-label="Período dos anúncios">
+          <SeletorCanalAnuncios />
+          <div className="flex w-full flex-wrap items-end justify-center gap-2 sm:w-auto sm:justify-start" aria-label="Período dos anúncios">
             <CalendarioPopoverRange
               rotulo="Período"
               valor={periodo}
@@ -471,7 +510,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
             separado — no mobile isso era 2 elementos disputando espaço
             além do PDF; agora é 1, e continua óbvio que tocar nele
             sincroniza de novo. */}
-        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start sm:gap-3">
           <button type="button" onClick={exportar} disabled={exportando}
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
             <FileText size={14} /> {exportando ? "Gerando…" : "PDF"}
