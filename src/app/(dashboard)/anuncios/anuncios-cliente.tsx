@@ -38,7 +38,9 @@ const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-d
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 // Dia/mês sem ano, mais hora — cabe ao lado do botão de PDF no mobile sem
 // quebrar; a data completa com ano só aparece a partir do sm.
-const dataHoraCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+// Só a hora — no botão de sincronizar, junto com Período/Hoje/PDF na mesma
+// linha, nem "21/07 23:55" cabia sem esse grupo quebrar pra uma 4ª linha.
+const horaCurta = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 type ExecucaoSync = NonNullable<Awaited<ReturnType<typeof actionObterUltimaSincronizacaoConta>>>;
 type ModuloStatusSync = "pendente" | "em_andamento" | "concluido" | "erro";
 // Mesmos 7 módulos que a Central de Sincronização (Configurações) acompanha —
@@ -529,7 +531,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
               `Sincronizando… ${percentualSync(execucaoSync)}%`
             ) : marca.sincronizadoEm ? (
               <>
-                <span className="sm:hidden">{dataHoraCurta.format(new Date(marca.sincronizadoEm))}</span>
+                <span className="sm:hidden">{horaCurta.format(new Date(marca.sincronizadoEm))}</span>
                 <span className="hidden sm:inline">{dataHora.format(new Date(marca.sincronizadoEm))}</span>
               </>
             ) : "Nunca sincronizado"}
