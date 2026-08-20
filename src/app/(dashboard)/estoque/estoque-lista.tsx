@@ -110,11 +110,9 @@ function AlertCard({ label, labelCurto, valor, sub, icon, tom, ativo, onClick }:
   return (
     <TintedStatCard
       label={labelCurto ? <><span className="sm:hidden">{labelCurto}</span><span className="hidden sm:inline">{label}</span></> : label}
-      // Altura reservada pra 2 linhas só no mobile (onde os 3 cards dividem
-      // 1/3 da largura cada e o rótulo pode ou não quebrar) — sem isso, o
-      // card cujo rótulo quebra fica mais alto e o número nasce mais embaixo
-      // que os vizinhos.
-      labelClassName="min-h-[2.25rem] sm:min-h-0"
+      // Rótulos curtos o bastante pra caber numa linha só nos 3 — não
+      // precisa mais reservar altura pra uma possível 2ª linha (isso só
+      // deixava os cards com sobra de espaço vazio acima do número).
       valor={<NumeroAnimado valor={valor} className="text-[22px] leading-none tracking-[-0.02em] sm:text-[26px]" />}
       icon={icon}
       cor={cor}
