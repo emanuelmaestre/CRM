@@ -47,7 +47,11 @@ type ProdutoParado = Awaited<ReturnType<typeof actionListarProdutosParados>>[num
 const copy = pagesConfig.estoque;
 const PAGINA = 50;
 
-const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var(--success)", info: "var(--info)", neutro: "var(--armarinhos-lima)" };
+// "neutro" era var(--armarinhos-lima) — cor de marca reaproveitada por
+// coincidência para o alerta "Parados", sem relação nenhuma com o motivo.
+// var(--info) é neutra de verdade e já significa "informativo, não urgente"
+// em outros pontos do app.
+const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var(--success)", info: "var(--info)", neutro: "var(--info)" };
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
@@ -106,6 +110,11 @@ function AlertCard({ label, labelCurto, valor, sub, icon, tom, ativo, onClick }:
   return (
     <TintedStatCard
       label={labelCurto ? <><span className="sm:hidden">{labelCurto}</span><span className="hidden sm:inline">{label}</span></> : label}
+      // Altura reservada pra 2 linhas só no mobile (onde os 3 cards dividem
+      // 1/3 da largura cada e o rótulo pode ou não quebrar) — sem isso, o
+      // card cujo rótulo quebra fica mais alto e o número nasce mais embaixo
+      // que os vizinhos.
+      labelClassName="min-h-[2.25rem] sm:min-h-0"
       valor={<NumeroAnimado valor={valor} className="text-[22px] leading-none tracking-[-0.02em] sm:text-[26px]" />}
       icon={icon}
       cor={cor}
@@ -160,7 +169,7 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
     {
       id: "sem_estoque" as Filtro,
       label: copy.indicators.outOfStock,
-      labelCurto: "Sem estoque",
+      labelCurto: "Zerados",
       valor: indicadores.semEstoque,
       icon: PackageX,
       tom: "warning" as const,
@@ -277,7 +286,7 @@ function TrilhoEstado({ indicadores, filtro, onFiltro, className }: {
    é uma sequência longa de Tab-digita-Tab, e um toast global por edição
    empilharia centenas de avisos. Toast fica só para erro, que precisa
    sobreviver ao foco mudar de lugar. */
-function MinimoInput({ produto, onSalvo }: { produto: Produto; onSalvo: (valor: number) => void }) {
+function MinimoInput({ produto, onSalvo, tamanho = "h-9 w-[68px]" }: { produto: Produto; onSalvo: (valor: number) => void; tamanho?: string }) {
   const [valor, setValor] = useState(String(produto.estoqueMinimo || ""));
   const [salvando, setSalvando] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
@@ -332,7 +341,7 @@ function MinimoInput({ produto, onSalvo }: { produto: Produto; onSalvo: (valor: 
         onChange={(event) => setValor(event.target.value)}
         onBlur={salvar}
         onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
-        className={`h-9 w-[68px] rounded-lg bg-background px-2 pr-6 text-sm tabular-nums text-foreground text-right no-spinner focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] disabled:opacity-50 ${
+        className={`${tamanho} rounded-lg bg-background px-2 pr-6 text-sm tabular-nums text-foreground text-right no-spinner focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] disabled:opacity-50 ${
           confirmado
             ? "border border-success"
             : semRegua
@@ -399,7 +408,7 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais }: {
       : `${copy.saldoCell.minPrefix} ${minimo}`;
 
   return (
-    <div className="w-[104px] ml-auto">
+    <div className="w-full max-w-[104px] ml-auto">
       <motion.p
         data-testid={testId}
         animate={alerta ? { x: [0, -4, 4, -4, 4, -2, 2, 0], scale: [1, 1.12, 1] } : { x: 0, scale: 1 }}
@@ -492,16 +501,19 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
     <motion.button
       type="button"
       variants={entradaExagerada}
-      onClick={conectado ? onClick : undefined}
-      disabled={!conectado}
+      // Continua tocável mesmo desconectado — o toque mostra o motivo (toast),
+      // porque `title` (tooltip) não aparece no toque em celular; um botão
+      // com `disabled` de verdade nem chegaria a disparar esse toque.
+      onClick={conectado ? onClick : () => toast.info(copy.channelSelector.disconnectedHint.replace("{canal}", label))}
+      aria-disabled={!conectado}
       whileHover={conectado && !reduzir ? { y: -2, scale: 1.04 } : undefined}
-      whileTap={conectado && !reduzir ? { scale: 0.92 } : undefined}
+      whileTap={!reduzir ? { scale: conectado ? 0.92 : 0.97 } : undefined}
       aria-pressed={ativo}
-      aria-label={label}
+      aria-label={conectado ? label : `${label} — ${copy.channelSelector.disconnectedHint.replace("{canal}", label)}`}
       title={conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
       className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         !conectado
-          ? "border border-border opacity-50 cursor-not-allowed"
+          ? "border border-border opacity-50"
           : ativo
             ? "border-2 border-selecionado bg-selecionado/12"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
@@ -923,7 +935,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
           (mesmo padrão de Vendas) — evita que o divisor entre marca/canal
           fique órfão numa quebra e mantém a fileira previsível independente
           de quantas marcas/canais existirem. */}
-      <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="mb-5 flex flex-col items-center gap-2.5 lg:w-fit lg:mx-auto lg:flex-row lg:flex-wrap lg:gap-3">
+      <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="mb-4 flex flex-col items-center gap-2.5 lg:w-fit lg:mx-auto lg:flex-row lg:flex-wrap lg:gap-3">
         <motion.div variants={staggerExagerado} data-tour="estoque-empresa" className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible">
           {marcas.map((marca) => (
             <MarcaPill
@@ -1072,7 +1084,15 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
         className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-          <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
+          <div>
+            <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
+            {/* Sem isso, os checkboxes soltos na lista não davam nenhuma pista
+                de que levam a uma ação em lote — só no desktop dá pra notar,
+                porque a coluna já nasce com o cabeçalho da tabela ao lado. */}
+            {canManage && selecionados.size === 0 && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground md:hidden">Toque nos produtos para selecionar vários e ajustar o mínimo de uma vez.</p>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {ultimaAtualizacao && (
               <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
@@ -1174,13 +1194,18 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                           )}
                         </div>
                         {canManage && (
-                          <input
-                            type="checkbox"
-                            checked={selecionados.has(p.id)}
-                            onChange={() => alternarSelecao(p.id)}
-                            aria-label={`Selecionar ${p.nome}`}
-                            className="h-4 w-4 shrink-0 accent-selecionado"
-                          />
+                          // Alvo de toque de 44px em volta do quadradinho de 16px —
+                          // sem o padding, o checkbox sozinho é pequeno demais pra
+                          // acertar o toque com confiança numa lista de 142 itens.
+                          <label className="-m-2.5 flex h-11 w-11 shrink-0 items-center justify-center p-2.5">
+                            <input
+                              type="checkbox"
+                              checked={selecionados.has(p.id)}
+                              onChange={() => alternarSelecao(p.id)}
+                              aria-label={`Selecionar ${p.nome}`}
+                              className="h-4 w-4 shrink-0 accent-selecionado"
+                            />
+                          </label>
                         )}
                       </div>
                       <div className="grid grid-cols-3 gap-3 text-sm items-end">
@@ -1191,7 +1216,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                         <div data-tour={p === produtos[0] ? "estoque-minimo" : undefined}>
                           <p className="text-xs text-muted-foreground mb-1">{copy.minimum.columnLabel}</p>
                           {canManage
-                            ? <MinimoInput produto={p} onSalvo={(valor) => aoSalvarMinimo(p.id, valor)} />
+                            ? <MinimoInput produto={p} onSalvo={(valor) => aoSalvarMinimo(p.id, valor)} tamanho="h-11 w-[72px]" />
                             : <p className="font-semibold tabular-nums">{p.estoqueMinimo || "Sem mínimo"}</p>}
                         </div>
                         <div>

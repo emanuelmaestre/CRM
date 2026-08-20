@@ -25,9 +25,13 @@ export interface TintedStatCardProps {
   /** Quando presente, o card vira um botão (usado como filtro clicável). */
   onClick?: () => void;
   ativo?: boolean;
+  /** Classe extra na linha do rótulo — usada para reservar uma altura fixa
+   *  quando o card convive em grade com outros cujo rótulo pode ou não
+   *  quebrar linha, para o valor não nascer em alturas diferentes entre eles. */
+  labelClassName?: string;
 }
 
-export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, ativo }: TintedStatCardProps) {
+export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, ativo, labelClassName }: TintedStatCardProps) {
   const reduzir = useReducedMotion();
   const Tag = onClick ? motion.button : motion.div;
 
@@ -63,7 +67,7 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
           )}
         </AnimatePresence>
       )}
-      <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: cor }}>
+      <div className={`flex items-center gap-2 text-xs font-semibold ${labelClassName ?? ""}`} style={{ color: cor }}>
         <Icon size={15} strokeWidth={1.75} />
         {label}
       </div>
