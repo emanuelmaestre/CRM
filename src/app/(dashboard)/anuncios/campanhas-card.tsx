@@ -188,7 +188,7 @@ function descricaoCabecalhos(campanhas: CampanhaVisaoGeral[]): Record<string, In
       descricao: `Receita é o faturamento atribuído aos anúncios no período. Nesta lista, as campanhas somam ${moeda.format(receitaTotal)} em receita atribuída.`,
       observacao: "Receita aqui não é lucro. Ela ainda não desconta investimento, custo do produto, frete, taxas ou impostos.",
     },
-    ROAS: {
+    "ROAS (retorno por real investido)": {
       descricao: roasPonderado === null
         ? "ROAS fica sem dado quando não há investimento para comparar com a receita atribuída."
         : `ROAS é receita atribuída dividida pelo investimento. No total da lista, cada ${moeda.format(1)} investido voltou como ${moeda.format(roasPonderado)} em receita atribuída (${decimal2.format(roasPonderado)}x).`,
@@ -225,11 +225,24 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
                   </h4>
                   <BadgeStatus status={campanha.status} />
                 </div>
-                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                  <div className="col-span-2"><dt className="text-xs text-muted-foreground">Criada em</dt><dd className="mt-0.5 font-medium tabular-nums">{formatarDataCriacao(campanha.criadaEm)}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.investimento)}</dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.receita)}</dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={campanha.roas} /></dd></div>
+                {/* ROAS saiu da grade de 2 colunas — era o 3º item de uma
+                    grade de 4, sobrava sozinho na última linha e o
+                    text-right o alinhava à direita só da metade esquerda da
+                    grade, flutuando no meio do card sem parecer ligado a
+                    nada. Agora é uma faixa própria, de largura inteira,
+                    com o mesmo destaque visual (fundo sutil, seta colorida)
+                    que o ROAS já recebe no card principal da Visão Geral —
+                    é o número-resumo da campanha, merece ler assim. */}
+                <dl className="mt-3 text-sm">
+                  <div><dt className="text-xs text-muted-foreground">Criada em</dt><dd className="mt-0.5 font-medium tabular-nums">{formatarDataCriacao(campanha.criadaEm)}</dd></div>
+                  <div className="mt-3 grid grid-cols-2 gap-x-4">
+                    <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.investimento)}</dd></div>
+                    <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(campanha.receita)}</dd></div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-muted/50 px-3 py-2">
+                    <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">ROAS</dt>
+                    <dd className="font-semibold"><Roas valor={campanha.roas} /></dd>
+                  </div>
                 </dl>
               </article>
             );

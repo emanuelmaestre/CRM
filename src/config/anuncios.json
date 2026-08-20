@@ -14,9 +14,9 @@
     "cvr": "CVR (taxa de conversão)",
     "ctr": "CTR (taxa de cliques)",
     "cpc": "CPC médio (custo por clique)",
-    "impressoes": "Impressões",
-    "cliques": "Cliques",
-    "vendas": "Vendas atribuídas"
+    "impressoes": "Impressões (vezes que o anúncio apareceu)",
+    "cliques": "Cliques (vezes que clicaram no anúncio)",
+    "vendas": "Vendas atribuídas (vendas que vieram do anúncio)"
   },
   "resumo": {
     "titulo": "Resumo de hoje"
@@ -37,7 +37,7 @@
       "Orçamento",
       "Investido",
       "Receita",
-      "ROAS"
+      "ROAS (retorno por real investido)"
     ],
     "semDado": "Nenhuma campanha sincronizada ainda",
     "verTodas": "Ver todas as campanhas"
@@ -58,7 +58,7 @@
         "Anúncio",
         "Investido",
         "Receita",
-        "ROAS",
+        "ROAS (retorno por real investido)",
         "Cliques",
         "Vendas"
       ],
@@ -93,7 +93,7 @@
       "Campanha",
       "Investido",
       "Receita",
-      "ROAS",
+      "ROAS (retorno por real investido)",
       "Cliques",
       "Vendas"
     ],
@@ -122,7 +122,7 @@
       "Data",
       "Investido",
       "Receita",
-      "ROAS",
+      "ROAS (retorno por real investido)",
       "Cliques",
       "Vendas"
     ],
@@ -146,8 +146,8 @@
       "Marca",
       "Investido",
       "Receita",
-      "ROAS",
-      "TACOS",
+      "ROAS (retorno por real investido)",
+      "TACOS (peso do anúncio nas vendas)",
       "Dependência de mídia"
     ],
     "dependencia": {

@@ -39,7 +39,7 @@ describe("rótulos de Anúncios com informação", () => {
     expect(screen.getByRole("button", { name: "Explicar indicador Investimento (dinheiro gasto em anúncios)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador Receita atribuída (venda que veio do anúncio)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador ROAS (retorno por real investido)" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Explicar indicador Vendas atribuídas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Explicar indicador Vendas atribuídas (vendas que vieram do anúncio)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador Investimento (dinheiro gasto em anúncios)" }).getAttribute("title")).toMatch(/R\$\s*1\.200,00/);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ACOS (custo do anúncio na venda)" }));
@@ -80,7 +80,7 @@ describe("rótulos de Anúncios com informação", () => {
   it("explica vendas atribuídas com leitura de conversão e observação", async () => {
     render(<KpisPrincipais resumo={resumo()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador Vendas atribuídas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador Vendas atribuídas (vendas que vieram do anúncio)" }));
 
     expect(await screen.findByText(/Vendas atribuídas atual: 32/i)).toBeInTheDocument();
     expect(screen.getByText(/a plataforma conectou aos anúncios/i)).toBeInTheDocument();
