@@ -392,18 +392,12 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
 }) {
   const lista = itens ?? [];
   return (
-    <ListaCard
-      vazio={lista.length === 0}
-      carregando={carregando}
-      semFiltro={semFiltro}
-      ilustracao="deadStock"
-      vazioTitulo={copyParados.emptyTitle}
-      vazioDescricao={copyParados.emptyDescription}
-      // No desktop as pílulas de marca/canal sobem pro cabeçalho do painel
-      // (junto do período e do "Entenda os status") — sem sobrar espaço no
-      // mobile pra isso, então lá elas continuam aqui embaixo, como sempre.
-      scope={<div className="sm:hidden">{scope}</div>}
-    >
+    <>
+      {/* Fora do ListaCard de propósito: `children` do ListaCard só renderiza
+          quando já existe filtro selecionado (ver AnimatePresence ali dentro)
+          — botão e pílulas dentro dele ficavam invisíveis (e, pior, sem filtro
+          nenhum visível em lugar nenhum no desktop) até o usuário escolher uma
+          marca, só que não tinha como escolher porque o filtro tinha sumido. */}
       {acaoSlot && createPortal(
         // w-full + mx-auto no meio: as pílulas de marca/canal ficam centralizadas
         // no espaço livre ao lado do período, em vez de coladas no botão lá no
@@ -416,6 +410,18 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
         </div>,
         acaoSlot,
       )}
+      <ListaCard
+        vazio={lista.length === 0}
+        carregando={carregando}
+        semFiltro={semFiltro}
+        ilustracao="deadStock"
+        vazioTitulo={copyParados.emptyTitle}
+        vazioDescricao={copyParados.emptyDescription}
+        // No desktop as pílulas de marca/canal sobem pro cabeçalho do painel
+        // (junto do período e do "Entenda os status") — sem sobrar espaço no
+        // mobile pra isso, então lá elas continuam aqui embaixo, como sempre.
+        scope={<div className="sm:hidden">{scope}</div>}
+      >
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);
         return (
@@ -458,6 +464,7 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
           />
         );
       })}
-    </ListaCard>
+      </ListaCard>
+    </>
   );
 }
