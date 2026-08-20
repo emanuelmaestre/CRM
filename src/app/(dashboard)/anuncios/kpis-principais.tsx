@@ -314,7 +314,10 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
         initial="hidden"
         animate="show"
         variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04, delayChildren: 0.1 } } }}
-        className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4 lg:grid-cols-8"
+        // 8 numa linha só cabia com rótulo de sigla crua (ROAS, ACOS...); com
+        // a explicação entre parênteses, precisa do dobro da largura por
+        // célula — 4 colunas (2 linhas) em vez de 8 (1 linha espremida).
+        className="mt-6 grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-4"
       >
         <Secundaria label={copy.acos} descricao={infoKpi.acos} observacao={infoKpi.acosObservacao} valor={resumo.acosMedio} formatar={(n) => `${n.toFixed(1)}%`} />
         <Secundaria label={copy.tacos} descricao={infoKpi.tacos} observacao={infoKpi.tacosObservacao} valor={resumo.tacos} formatar={(n) => `${n.toFixed(1)}%`} />

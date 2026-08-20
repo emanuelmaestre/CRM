@@ -38,11 +38,11 @@ describe("rótulos de Anúncios com informação", () => {
     expect(screen.getAllByRole("button", { name: /Explicar indicador/i })).toHaveLength(11);
     expect(screen.getByRole("button", { name: "Explicar indicador Investimento" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador Receita atribuída" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Explicar indicador ROAS" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Explicar indicador ROAS (retorno por real investido)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador Vendas atribuídas" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador Investimento" }).getAttribute("title")).toMatch(/R\$\s*1\.200,00/);
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ACOS" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ACOS (custo do anúncio na venda)" }));
 
     expect(await screen.findByText(/ACOS atual: 25,0%/i)).toBeInTheDocument();
     expect(screen.getByText(/ACOS é investimento em anúncios dividido pela receita atribuída/i)).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe("rótulos de Anúncios com informação", () => {
   it("explica o ROAS de forma didática e dinâmica", async () => {
     render(<KpisPrincipais resumo={resumo()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ROAS" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ROAS (retorno por real investido)" }));
 
     expect(await screen.findByText(/ROAS atual: 4,00x/i)).toBeInTheDocument();
     expect(screen.getByText(/ROAS é a receita atribuída dividida pelo investimento em anúncios/i)).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe("rótulos de Anúncios com informação", () => {
   it("explica CTR com fórmula, leitura prática e observação", async () => {
     render(<KpisPrincipais resumo={resumo()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CTR" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CTR (taxa de cliques)" }));
 
     expect(await screen.findByText(/CTR atual: 1,6%/i)).toBeInTheDocument();
     expect(screen.getByText(/CTR é cliques divididos por impressões/i)).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe("rótulos de Anúncios com informação", () => {
   it("explica CPC médio com fórmula, leitura prática e observação", async () => {
     render(<KpisPrincipais resumo={resumo()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CPC médio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CPC médio (custo por clique)" }));
 
     expect(await screen.findByText(/CPC médio atual: R\$\s*1,85/i)).toBeInTheDocument();
     expect(screen.getByText(/CPC é o investimento em anúncios dividido pelos cliques/i)).toBeInTheDocument();
@@ -121,7 +121,7 @@ describe("rótulos de Anúncios com informação", () => {
   it("explica CVR com fórmula, leitura de conversão e observação", async () => {
     render(<KpisPrincipais resumo={resumo()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CVR" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CVR (taxa de conversão)" }));
 
     expect(await screen.findByText(/CVR atual: 4,9%/i)).toBeInTheDocument();
     expect(screen.getByText(/CVR é vendas atribuídas divididas pelos cliques/i)).toBeInTheDocument();
@@ -135,7 +135,7 @@ describe("rótulos de Anúncios com informação", () => {
   it("explica TACOS com receita total e observação sobre ACOS", async () => {
     render(<KpisPrincipais resumo={resumo()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador TACOS" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador TACOS (peso do anúncio nas vendas)" }));
 
     expect(await screen.findByText(/TACOS atual: 12,5%/i)).toBeInTheDocument();
     expect(screen.getByText(/TACOS é investimento em anúncios dividido pela receita total/i)).toBeInTheDocument();

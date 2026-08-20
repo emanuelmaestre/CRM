@@ -8,12 +8,12 @@
   "kpis": {
     "investimento": "Investimento",
     "receita": "Receita atribuída",
-    "roas": "ROAS",
-    "acos": "ACOS",
-    "tacos": "TACOS",
-    "cvr": "CVR",
-    "ctr": "CTR",
-    "cpc": "CPC médio",
+    "roas": "ROAS (retorno por real investido)",
+    "acos": "ACOS (custo do anúncio na venda)",
+    "tacos": "TACOS (peso do anúncio nas vendas)",
+    "cvr": "CVR (taxa de conversão)",
+    "ctr": "CTR (taxa de cliques)",
+    "cpc": "CPC médio (custo por clique)",
     "impressoes": "Impressões",
     "cliques": "Cliques",
     "vendas": "Vendas atribuídas"

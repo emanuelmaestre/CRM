@@ -77,8 +77,13 @@ export function RotuloComInfo({ children, descricao, observacao }: {
   const titulo = observacao ? `${children}: ${descricao} Observação: ${observacao}` : `${children}: ${descricao}`;
 
   return (
-    <span className="inline-flex max-w-full items-center gap-1 align-middle">
-      <span className="min-w-0 truncate">{children}</span>
+    // items-start, não items-center: rótulos como "ACOS (custo do anúncio na
+    // venda)" agora podem quebrar em 2 linhas (era truncate antes — cortava o
+    // texto explicativo que a gente acabou de adicionar). Com o ícone
+    // centralizado na vertical, ele ficava flutuando no meio das duas linhas;
+    // alinhado ao topo, fica ao lado da primeira linha, leitura mais natural.
+    <span className="inline-flex max-w-full items-start gap-1">
+      <span className="min-w-0">{children}</span>
       <AnimatedInfoPopover
         trigger={(
           <AnimatedInfoTrigger

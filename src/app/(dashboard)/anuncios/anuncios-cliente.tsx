@@ -665,7 +665,7 @@ function ComparativoPeriodo({ atual, anterior, dias }: { atual: VisaoGeralMarca;
       valor: variacao(atual.resumo.receitaTotal, receitaAnterior ?? 0),
     },
     {
-      label: "ROAS",
+      label: "ROAS (retorno por real investido)",
       descricao: comparacaoRoas.descricao,
       observacao: comparacaoRoas.observacao,
       valor: variacaoRoas(atual.resumo.roasMedio, roasAnterior),
