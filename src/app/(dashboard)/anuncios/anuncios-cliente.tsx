@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { FileText, PlugZap2, RefreshCw } from "lucide-react";
+import { BarChart3, FileText, GitCompare, History, Package, PlugZap2, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -571,6 +571,28 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         </div>
       </div>
 
+      {/* Navegação pro resto do módulo — antes vivia pendurada como texto
+          minúsculo do lado do rótulo "Campanhas", parecendo detalhe daquela
+          seção. São páginas irmãs (Produtos, Histórico, Comparação,
+          Campanhas completo), não sub-itens — por isso ganham linha própria
+          aqui em cima, com peso de botão em vez de texto solto. */}
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+        <Link href="/anuncios/produtos" className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado">
+          <Package size={13} /> Ver produtos
+        </Link>
+        <Link href="/anuncios/historico" className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado">
+          <History size={13} /> Ver histórico
+        </Link>
+        {dados.marcas.length >= 2 && (
+          <Link href="/anuncios/comparacao" className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado">
+            <GitCompare size={13} /> Comparar marcas
+          </Link>
+        )}
+        <Link href="/anuncios/campanhas" className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado">
+          <BarChart3 size={13} /> {copy.campanhas.verTodas}
+        </Link>
+      </div>
+
       {/* Ato 1 — os quatro números que respondem "o que está acontecendo" */}
       <KpisPrincipais resumo={marca.resumo} />
 
@@ -578,32 +600,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
 
       {/* Ato 2 — performance por campanha, a tabela de trabalho */}
       <section className="flex flex-col gap-3">
-        {/* No mobile os 4 links não cabem numa linha só com o rótulo — sem
-            wrap eles saíam cortados ou empurravam a página pra rolar na
-            horizontal. Aqui o rótulo fica em cima e os links quebram entre
-            si; no desktop (sm:) volta a ser uma linha só, como sempre foi. */}
-        <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2 sm:shrink-0">
-            <h2 className="text-label-md uppercase text-muted-foreground">Campanhas</h2>
-            <span className="hidden h-px w-6 bg-border sm:block sm:w-auto sm:flex-1" />
-          </div>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 sm:ml-auto sm:flex-nowrap sm:gap-2">
-            <Link href="/anuncios/produtos" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-              Ver produtos →
-            </Link>
-            <Link href="/anuncios/historico" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-              Ver histórico →
-            </Link>
-            {dados.marcas.length >= 2 && (
-              <Link href="/anuncios/comparacao" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-                Comparar marcas →
-              </Link>
-            )}
-            <Link href="/anuncios/campanhas" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-              {copy.campanhas.verTodas} →
-            </Link>
-          </div>
-        </div>
+        <SectionLabel>Campanhas</SectionLabel>
         <CampanhasCard campanhas={marca.campanhas} marca={marca} />
       </section>
 
