@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { FileText, PlugZap2, RefreshCw } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -11,7 +11,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
-import { isBrandSlug } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import channelsConfig from "@/config/channels.json";
@@ -251,34 +251,62 @@ function descricaoComparacaoConversoes({
    deveriam se misturar na mesma leitura — é assim que Métricas e Painel já
    funcionam neste produto (linguagem consistente, brief seção "Não crie
    uma aplicação separada"). */
+function brandColor(slug: string) {
+  return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
+}
+
+/** Anel na cor da pílula que nasce colado nela e se expande sumindo — só
+ *  toca quando `ativo` PASSA a ser true. Cópia exata do mesmo componente em
+ *  Estoque, pro selecionar de marca/canal ter a mesma linguagem visual em
+ *  todo o app (páginas irmãs, não uma dependendo da outra). */
+function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; reduzir: boolean | null }) {
+  return (
+    <AnimatePresence>
+      {ativo && !reduzir && (
+        <motion.span
+          key="halo"
+          initial={{ opacity: 0.55, scale: 0.82 }}
+          animate={{ opacity: 0, scale: 1.4 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{ border: `2px solid ${cor}` }}
+        />
+      )}
+    </AnimatePresence>
+  );
+}
+
 export function SeletorMarca({ marcas, ativa, onChange }: {
   marcas: VisaoGeralMarca[];
   ativa: string | null;
   onChange: (brandId: string) => void;
 }) {
+  const reduzir = useReducedMotion();
   return (
     <div className="flex flex-wrap gap-1.5" role="tablist">
       {marcas.map((marca) => {
         const selecionada = marca.brandId === ativa;
         return (
-          <button
+          <motion.button
             key={marca.brandId}
             type="button"
             role="tab"
             aria-selected={selecionada}
             onClick={() => onChange(marca.brandId)}
-            // Fundo branco sempre (não só quando ativa) — sentada em cima de
-            // bg-muted cinza, a marca ficava sem contraste e "desbotada".
-            className={`press-feedback flex h-11 items-center gap-1.5 rounded-[0.7rem] border bg-card px-3.5 text-xs font-semibold transition-colors ${
-              selecionada ? "border-selecionado shadow-[0_1px_4px_rgba(14,15,19,.10)]" : "border-border/80 hover:bg-muted/40"
+            whileHover={!reduzir ? { y: -2, scale: 1.04 } : undefined}
+            whileTap={!reduzir ? { scale: 0.92 } : undefined}
+            className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
+              selecionada ? "border-2 bg-card/70" : "border border-border/80 bg-card/40 hover:bg-card/70"
             }`}
-            style={{ color: selecionada ? "var(--foreground)" : "var(--muted-foreground)" }}
+            style={selecionada ? { borderColor: brandColor(marca.brandSlug) } : undefined}
           >
-            <span className="flex items-center gap-1.5">
-              {isBrandSlug(marca.brandSlug) ? <BrandLogo brand={marca.brandSlug} height={14} /> : marca.brandLabel}
-            </span>
-            <span className="text-[11px] tabular-nums text-muted-foreground">{marca.campanhas.length}</span>
-          </button>
+            <HaloSelecao ativo={selecionada} cor={brandColor(marca.brandSlug)} reduzir={reduzir} />
+            {isBrandSlug(marca.brandSlug)
+              ? <BrandLogo brand={marca.brandSlug} height={17} />
+              : <span className="text-sm font-semibold text-foreground">{marca.brandLabel}</span>}
+            <span className="text-xs tabular-nums text-muted-foreground">{marca.campanhas.length}</span>
+          </motion.button>
         );
       })}
     </div>
@@ -293,30 +321,34 @@ const CANAIS_ANUNCIOS = ["mercadolivre", "shopee", "tiktokshop"] as const;
  *  Vendas/Estoque), mas Shopee/TikTok ficam travados como "ainda não
  *  disponível" em vez de fingir que dá pra filtrar por eles. */
 function SeletorCanalAnuncios({ totalCampanhas }: { totalCampanhas: number }) {
+  const reduzir = useReducedMotion();
   return (
     <div className="flex flex-wrap gap-1.5">
       {CANAIS_ANUNCIOS.map((canal) => {
         const disponivel = canal === "mercadolivre";
         const label = (channelsConfig.items as Record<string, { label?: string }>)[canal]?.label ?? canal;
         return (
-          <button
+          <motion.button
             key={canal}
             type="button"
+            whileHover={disponivel && !reduzir ? { y: -2, scale: 1.04 } : undefined}
+            whileTap={!reduzir ? { scale: disponivel ? 0.92 : 0.97 } : undefined}
             aria-pressed={disponivel}
             title={disponivel ? label : `Publicidade de ${label} ainda não está disponível`}
             aria-label={disponivel ? label : `${label} — ainda não disponível`}
             onClick={disponivel ? undefined : () => toast.info(`Publicidade de ${label} ainda não está disponível.`)}
-            className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[0.7rem] px-3.5 transition-colors ${
+            className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
               disponivel
                 ? "border-2 border-selecionado bg-selecionado/12"
-                : "border border-border bg-card opacity-50"
+                : "border border-border opacity-50"
             }`}
           >
+            <HaloSelecao ativo={disponivel} cor="var(--selecionado)" reduzir={reduzir} />
             <ChannelLogo canal={canal} size="sm" variant="logo" />
             {disponivel
-              ? <span className="text-[11px] tabular-nums text-muted-foreground">{totalCampanhas}</span>
+              ? <span className="text-xs tabular-nums text-muted-foreground">{totalCampanhas}</span>
               : <PlugZap2 size={14} className="text-muted-foreground" />}
-          </button>
+          </motion.button>
         );
       })}
     </div>
