@@ -3,7 +3,7 @@
     "mobilePriority": "Ordem de importancia na barra inferior do celular. O PRD secao 2.2 exige 4 itens + botao \"mais\", entao a BottomNav pega os itens visiveis ao perfil com a menor prioridade e joga o resto no painel \"mais\". Item sem mobilePriority nunca aparece fixo na barra: vai direto para o \"mais\"."
   },
   "homeHref": "/metricas",
-  "mobilePrimaryCount": 4,
+  "mobilePrimaryCount": 5,
   "items": [
     {
       "id": "metricas",
