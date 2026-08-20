@@ -143,17 +143,33 @@ export function ProdutosClienteDetalhe() {
                     <h4 className="text-sm font-semibold leading-snug text-foreground">{anuncio.titulo ?? anuncio.itemId}</h4>
                     <p className="mt-1 text-xs text-muted-foreground">{anuncio.campanhaNome}</p>
                   </div>
+                  {/* `title` sozinho não explica nada no toque (só no hover
+                      de mouse) — no mobile cada selo também dispara um toast
+                      com o mesmo texto ao ser tocado. */}
                   <div className="flex shrink-0 gap-1.5">
-                    {anuncio.recomendado && <span title={copy.recomendado}><Sparkles size={15} className="text-success" /></span>}
-                    {anuncio.buyBoxWinner && <span title={copy.buyBox}><Trophy size={15} className="text-warning" /></span>}
-                    {idsDesperdicio.has(anuncio.itemId) && <span title={copy.desperdicio.titulo}><AlertTriangle size={15} className="text-destructive" /></span>}
+                    {anuncio.recomendado && (
+                      <button type="button" title={copy.recomendado} onClick={() => toast.info(copy.recomendado)} className="press-feedback -m-1.5 p-1.5">
+                        <Sparkles size={15} className="text-success" />
+                      </button>
+                    )}
+                    {anuncio.buyBoxWinner && (
+                      <button type="button" title={copy.buyBox} onClick={() => toast.info(copy.buyBox)} className="press-feedback -m-1.5 p-1.5">
+                        <Trophy size={15} className="text-warning" />
+                      </button>
+                    )}
+                    {idsDesperdicio.has(anuncio.itemId) && (
+                      <button type="button" title={copy.desperdicio.titulo} onClick={() => toast.info(copy.desperdicio.titulo)} className="press-feedback -m-1.5 p-1.5">
+                        <AlertTriangle size={15} className="text-destructive" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</dd></div>
                   <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.receita)}</dd></div>
                   <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={anuncio.roas} /></dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Cliques</dt><dd className="mt-0.5 tabular-nums">{anuncio.cliques.toLocaleString("pt-BR")}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
                 </dl>
               </article>
             ))}

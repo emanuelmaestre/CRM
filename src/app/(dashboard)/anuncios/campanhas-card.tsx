@@ -96,7 +96,7 @@ function AtencaoLinha({ alertas }: { alertas: Alerta[] }) {
           iconSize={11}
           iconStrokeWidth={2.5}
           className="press-feedback inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-transform hover:scale-110"
-          style={{ background: tint(cor, 14), color: cor }}
+          style={{ color: cor }}
         />
       )}
       align="start"

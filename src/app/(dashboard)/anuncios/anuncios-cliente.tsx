@@ -11,7 +11,7 @@ import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { isBrandSlug } from "@/shared/config/brands";
-import { springs, stagger } from "@/shared/design-system/motion-variants";
+import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
 import { actionDispararSincronizacaoConta, actionListarConfiguracaoCanais, actionObterUltimaSincronizacaoConta } from "../configuracoes/actions";
@@ -250,7 +250,7 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
   onChange: (brandId: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-1 rounded-[0.9rem] bg-muted p-1" role="tablist">
+    <div className="flex flex-wrap gap-1.5" role="tablist">
       {marcas.map((marca) => {
         const selecionada = marca.brandId === ativa;
         return (
@@ -260,17 +260,14 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
             role="tab"
             aria-selected={selecionada}
             onClick={() => onChange(marca.brandId)}
-            className="press-feedback relative flex h-11 items-center gap-1.5 rounded-[0.7rem] px-3.5 text-xs font-semibold transition-colors"
+            // Fundo branco sempre (não só quando ativa) — sentada em cima de
+            // bg-muted cinza, a marca ficava sem contraste e "desbotada".
+            className={`press-feedback flex h-11 items-center gap-1.5 rounded-[0.7rem] border bg-card px-3.5 text-xs font-semibold transition-colors ${
+              selecionada ? "border-selecionado shadow-[0_1px_4px_rgba(14,15,19,.10)]" : "border-border/80 hover:bg-muted/40"
+            }`}
             style={{ color: selecionada ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
-            {selecionada && (
-              <motion.span
-                layoutId="anuncios-marca"
-                transition={springs.settleFast}
-                className="absolute inset-0 rounded-[0.7rem] bg-card shadow-[0_1px_4px_rgba(14,15,19,.10)]"
-              />
-            )}
-            <span className="relative z-10 flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5">
               {isBrandSlug(marca.brandSlug) ? <BrandLogo brand={marca.brandSlug} height={14} /> : marca.brandLabel}
             </span>
           </button>
@@ -437,48 +434,56 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       {/* Header — marca + última sincronização, sempre visível: nunca deixar
           o usuário pensar que o número é em tempo real quando não é. */}
-      <div className="flex flex-wrap items-center gap-3">
-        <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
-        <div className="flex flex-wrap items-end gap-2" aria-label="Período dos anúncios">
-          <CalendarioPopoverRange
-            rotulo="Período"
-            valor={periodo}
-            max={hojeISO}
-            onChange={setPeriodo}
-            disabled={carregando}
-          />
-          <BotaoHoje
-            ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
-            disabled={carregando}
-            onClick={() =>
-              setPeriodo((atual) =>
-                atual.inicio === hojeISO && atual.fim === hojeISO
-                  ? { inicio: "", fim: "" }
-                  : { inicio: hojeISO, fim: hojeISO }
-              )
-            }
-          />
+      {/* Antes, PDF/sincronização/atualizar viviam soltos na mesma linha
+          flex do resto — no mobile, quando a linha estourava, o botão de
+          atualizar sobrava sozinho longe do texto que ele atualiza. Agora
+          formam um grupo só, que quebra (ou não) como unidade. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-wrap items-center gap-3">
+          <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
+          <div className="flex flex-wrap items-end gap-2" aria-label="Período dos anúncios">
+            <CalendarioPopoverRange
+              rotulo="Período"
+              valor={periodo}
+              max={hojeISO}
+              onChange={setPeriodo}
+              disabled={carregando}
+            />
+            <BotaoHoje
+              ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
+              disabled={carregando}
+              onClick={() =>
+                setPeriodo((atual) =>
+                  atual.inicio === hojeISO && atual.fim === hojeISO
+                    ? { inicio: "", fim: "" }
+                    : { inicio: hojeISO, fim: hojeISO }
+                )
+              }
+            />
+          </div>
         </div>
-        <span className="h-px flex-1 bg-border" />
-        <button type="button" onClick={exportar} disabled={exportando}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
-          <FileText size={14} /> {exportando ? "Gerando…" : "Exportar PDF"}
-        </button>
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground" style={sincronizando ? { color: "var(--acento-2)" } : undefined}>
-          {sincronizando
-            ? `Sincronizando… ${percentualSync(execucaoSync)}%`
-            : `${copy.header.eyebrow}: ${marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}`}
-        </span>
-        <button
-          type="button"
-          onClick={sincronizarAgora}
-          disabled={sincronizando || !contaMercadoLivre?.channelAccountId}
-          aria-label="Sincronizar agora com o Mercado Livre"
-          title={contaMercadoLivre?.channelAccountId ? "Sincronizar agora" : "Nenhuma conta do Mercado Livre conectada para esta marca"}
-          className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado disabled:opacity-50"
-        >
-          <RefreshCw size={13} className={sincronizando ? "animate-spin" : ""} />
-        </button>
+        <span className="hidden h-px flex-1 bg-border sm:block" />
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          <button type="button" onClick={exportar} disabled={exportando}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
+            <FileText size={14} /> {exportando ? "Gerando…" : "Exportar PDF"}
+          </button>
+          <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold text-muted-foreground" style={sincronizando ? { color: "var(--acento-2)" } : undefined}>
+            {sincronizando
+              ? `Sincronizando… ${percentualSync(execucaoSync)}%`
+              : `${copy.header.eyebrow}: ${marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}`}
+          </span>
+          <button
+            type="button"
+            onClick={sincronizarAgora}
+            disabled={sincronizando || !contaMercadoLivre?.channelAccountId}
+            aria-label="Sincronizar agora com o Mercado Livre"
+            title={contaMercadoLivre?.channelAccountId ? "Sincronizar agora" : "Nenhuma conta do Mercado Livre conectada para esta marca"}
+            className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={sincronizando ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
 
       {/* Ato 1 — os quatro números que respondem "o que está acontecendo" */}
@@ -488,23 +493,31 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
 
       {/* Ato 2 — performance por campanha, a tabela de trabalho */}
       <section className="flex flex-col gap-3">
-        <div className="flex items-center gap-2 px-1">
-          <h2 className="text-label-md uppercase text-muted-foreground">Campanhas</h2>
-          <span className="h-px flex-1 bg-border" />
-          <Link href="/anuncios/produtos" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-            Ver produtos →
-          </Link>
-          <Link href="/anuncios/historico" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-            Ver histórico →
-          </Link>
-          {dados.marcas.length >= 2 && (
-            <Link href="/anuncios/comparacao" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-              Comparar marcas →
+        {/* No mobile os 4 links não cabem numa linha só com o rótulo — sem
+            wrap eles saíam cortados ou empurravam a página pra rolar na
+            horizontal. Aqui o rótulo fica em cima e os links quebram entre
+            si; no desktop (sm:) volta a ser uma linha só, como sempre foi. */}
+        <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2 sm:shrink-0">
+            <h2 className="text-label-md uppercase text-muted-foreground">Campanhas</h2>
+            <span className="hidden h-px w-6 bg-border sm:block sm:w-auto sm:flex-1" />
+          </div>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 sm:ml-auto sm:flex-nowrap sm:gap-2">
+            <Link href="/anuncios/produtos" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Ver produtos →
             </Link>
-          )}
-          <Link href="/anuncios/campanhas" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
-            {copy.campanhas.verTodas} →
-          </Link>
+            <Link href="/anuncios/historico" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Ver histórico →
+            </Link>
+            {dados.marcas.length >= 2 && (
+              <Link href="/anuncios/comparacao" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+                Comparar marcas →
+              </Link>
+            )}
+            <Link href="/anuncios/campanhas" className="shrink-0 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+              {copy.campanhas.verTodas} →
+            </Link>
+          </div>
         </div>
         <CampanhasCard campanhas={marca.campanhas} marca={marca} />
       </section>

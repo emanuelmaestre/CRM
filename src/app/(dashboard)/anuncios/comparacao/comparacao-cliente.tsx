@@ -83,7 +83,8 @@ export function ComparacaoClienteDetalhe() {
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                   <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(marca.resumo.investimentoTotal)}</dd></div>
                   <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(marca.resumo.receitaTotal)}</dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={marca.resumo.roasMedio} /></dd></div>
+                  <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={marca.resumo.roasMedio} /></dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">TACOS</dt><dd className="mt-0.5 font-semibold tabular-nums">{marca.resumo.tacos === null ? "Sem dado" : `${marca.resumo.tacos.toFixed(1)}%`}</dd></div>
                 </dl>
               </article>
             );

@@ -266,7 +266,7 @@ function NumeroGrande({ label, descricao, observacao, valor, formatar, cor, sufi
   const animado = useContagem(valor ?? 0);
   return (
     <motion.div variants={fadeUp} className="min-w-0">
-      <p className={`${destaque ? "text-stat-lg" : "text-[22px] font-bold leading-none"} flex items-center gap-1 tabular-nums`} style={cor ? { color: cor } : undefined}>
+      <p className={`${destaque ? "[font-family:var(--font-sora)] text-[26px] leading-[32px] font-bold tracking-[-0.02em] sm:text-stat-lg" : "text-[22px] font-bold leading-none"} flex items-center gap-1 tabular-nums`} style={cor ? { color: cor } : undefined}>
         {valor !== null && prefixo}
         {valor === null ? "Sem dado" : formatar(animado)}
       </p>
@@ -287,7 +287,7 @@ export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
           "Lucro após publicidade", removido junto com o motor de custo: ele
           era receita menos investimento com um selo de "estimativa parcial"
           que nunca sairia, porque o custo do produto nunca existiu. */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-6">
         <NumeroGrande label={copy.investimento} descricao={infoKpi.investimento} valor={resumo.investimentoTotal} formatar={(n) => moeda.format(n)} destaque />
         <NumeroGrande label={copy.receita} descricao={infoKpi.receita} observacao={infoKpi.receitaObservacao} valor={resumo.receitaTotal} formatar={(n) => moeda.format(n)} destaque />
         {/* Único KPI com seta: os outros três são dinheiro, e o sinal de menos
