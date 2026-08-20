@@ -113,7 +113,7 @@ function AlertCard({ label, labelCurto, valor, sub, icon, tom, ativo, onClick }:
       // Rótulos curtos o bastante pra caber numa linha só nos 3 — não
       // precisa mais reservar altura pra uma possível 2ª linha (isso só
       // deixava os cards com sobra de espaço vazio acima do número).
-      valor={<NumeroAnimado valor={valor} className="text-[22px] leading-none tracking-[-0.02em] sm:text-[26px]" />}
+      valor={<NumeroAnimado valor={valor} className="text-[26px] leading-none tracking-[-0.02em] sm:text-[30px]" />}
       icon={icon}
       cor={cor}
       sub={sub}
@@ -200,7 +200,13 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
           variants={staggerExagerado}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-3 items-start gap-2.5 sm:gap-3"
+          // items-start (cada card com a própria altura) fazia sentido
+          // quando a diferença de altura vinha de um rótulo quebrando linha
+          // sem querer — hoje a diferença é só o "Parados" ter uma legenda
+          // a mais (R$ parado) que os outros dois não têm. Esticar os 3 pra
+          // mesma altura (padrão do grid) fica mais coeso que 3 caixas de
+          // tamanhos diferentes lado a lado.
+          className="grid grid-cols-3 gap-2.5 sm:gap-3"
         >
           {cards.map((card) => (
             <motion.div key={card.id} variants={entradaExagerada}>

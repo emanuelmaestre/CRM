@@ -21,9 +21,9 @@
     "homeAriaLabel": "Início"
   },
   "brandOrder": [
-    "karzi",
     "wuwu",
-    "armarinhos_lima"
+    "armarinhos_lima",
+    "karzi"
   ],
   "wizard": {
     "back": "Voltar",

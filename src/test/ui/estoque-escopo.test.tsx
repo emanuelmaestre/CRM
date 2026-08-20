@@ -238,8 +238,13 @@ describe("Estoque — escopo por empresa", () => {
 
     // Shopee está desconectado neste fixture — permanece bloqueado mesmo com
     // multi-seleção habilitada; a trava é sobre a conta, não sobre o modo.
+    // Continua tocável de propósito (não é um <button disabled>): no toque,
+    // mostra o motivo via toast em vez de simplesmente não reagir — por
+    // isso a checagem é aria-disabled, não o atributo disabled nativo.
     const shopee = screen.getByRole("button", { name: /Shopee/ });
-    expect(shopee).toBeDisabled();
+    expect(shopee).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(shopee);
+    expect(contarPorMarca).not.toHaveBeenCalledWith(["shopee"]);
   });
 
   it("busca abre a lista sem escolher empresa — um SKU já é escopo exato", async () => {
