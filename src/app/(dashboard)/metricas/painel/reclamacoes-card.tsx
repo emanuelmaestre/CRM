@@ -440,12 +440,15 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
   const totalAnimado = useContagem(pendentes);
   const [aberta, setAberta] = useState<string | null>(null);
 
+  // Só o número, sem rótulo, ficava ambíguo lá no canto do cabeçalho do
+  // painel — quem via o "5" sozinho não tinha como saber se era total de
+  // reclamações, dias, ou o quê. "a resolver" fecha a leitura sozinho.
   const contagem = pendentes > 0 ? (
     <span
-      className="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
       style={{ background: tint(copy.accent, 10), color: copy.accent }}
     >
-      {Math.round(totalAnimado)}
+      {Math.round(totalAnimado)} a resolver
     </span>
   ) : null;
 
