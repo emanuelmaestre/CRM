@@ -7,6 +7,7 @@ import { BadgeDollarSign, Eye, Gauge, LayoutGrid, Megaphone, MousePointerClick, 
 import { actionContarPublicacoesPorMarca, actionObterDesempenhoPublicacoes } from "./actions";
 import { Card, CardHead, AvisoParcial } from "./metricas-primitives";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
+import { PublicidadeIllustration } from "@/shared/design-system/primitives/illustrations";
 import type { DesempenhoPublicacoesResultado, SituacaoQualidade } from "@/modules/metricas/application/publicacoes.service";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
@@ -330,7 +331,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
       <div className="px-4 pb-5 pt-4 sm:px-5">
         <AnimatePresence mode="wait">
           {brandIds.length === 0 ? (
-            <EstadoVazio key="sem-marca" icone={Megaphone} texto="Selecione uma marca acima para ver as publicações patrocinadas." />
+            <EstadoVazio key="sem-marca" icone={Megaphone} texto="Selecione uma marca acima para ver as publicações patrocinadas." ilustrado />
           ) : !canalAtivo ? (
             <EstadoVazio key="sem-canal" icone={Megaphone} texto="Nenhum canal selecionado. Ative o Mercado Livre acima para ver as publicações." />
           ) : carregando ? (
@@ -342,7 +343,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
             // quem via não sabia se devia tentar de novo ou se é assim mesmo.
             <EstadoVazio key="erro" icone={TriangleAlert} texto="Não foi possível buscar as publicações agora. Tente atualizar a página em instantes." />
           ) : totalPublicacoes === 0 ? (
-            <EstadoVazio key="sem-dados" icone={LayoutGrid} texto="Nenhuma publicação com dados disponíveis para o filtro atual." />
+            <EstadoVazio key="sem-dados" icone={LayoutGrid} texto="Nenhuma publicação com dados disponíveis para o filtro atual." ilustrado />
           ) : (
             <motion.div key="lista">
               {/* Resumo agregado antes da lista crua — antes pulava direto pra
@@ -716,7 +717,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
   );
 }
 
-function EstadoVazio({ icone: Icone, texto }: { icone: typeof Megaphone; texto: string }) {
+function EstadoVazio({ icone: Icone, texto, ilustrado }: { icone: typeof Megaphone; texto: string; ilustrado?: boolean }) {
   const reduzir = useReducedMotion();
   return (
     <motion.div
@@ -726,7 +727,11 @@ function EstadoVazio({ icone: Icone, texto }: { icone: typeof Megaphone; texto: 
       transition={springs.settle}
       className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted-foreground"
     >
-      <Icone size={28} className="text-muted-foreground/50" />
+      {/* As duas telas "não há nada mesmo aqui" (sem marca escolhida, sem
+          dado retornado) ganham a ilustração dedicada de Publicações — as
+          outras (canal desligado, erro de rede) continuam com ícone simples,
+          por serem estados passageiros, não uma galeria vazia de verdade. */}
+      {ilustrado ? <PublicidadeIllustration /> : <Icone size={28} className="text-muted-foreground/50" />}
       <p className="max-w-xs">{texto}</p>
     </motion.div>
   );

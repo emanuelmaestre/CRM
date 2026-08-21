@@ -658,7 +658,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
           </div>
         ) : filtrados.length === 0 ? (
           <EmptyState
-            illustration="generic"
+            illustration="reviews"
             title="Nenhum anúncio com estes filtros"
             description="Ajuste a busca, a marca ou a faixa de nota para ver as opiniões."
           />

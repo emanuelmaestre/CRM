@@ -12,7 +12,8 @@ import {
   ClientsIllustration, ConversationIllustration, ReportsIllustration, GenericIllustration,
   RevenueIllustration, BestSellersIllustration, RestockIllustration,
   SlowMovingIllustration, DeadStockIllustration, ComplaintsIllustration,
-  NoThresholdIllustration, HealthyStockIllustration,
+  NoThresholdIllustration, HealthyStockIllustration, ReviewsIllustration,
+  PublicidadeIllustration,
 } from "./illustrations";
 
 const icons: Record<string, LucideIcon> = {
@@ -34,6 +35,8 @@ const icons: Record<string, LucideIcon> = {
   complaints:   AlertTriangle,
   noThreshold:  Ruler,
   healthyStock: CheckCircle2,
+  reviews:      MessageSquare,
+  publicidade:  BarChart2,
 };
 
 // Ilustrações SVG customizadas para os tipos mais visíveis (dashboard, inbox,
@@ -53,6 +56,8 @@ const illustrations: Partial<Record<string, () => React.ReactElement>> = {
   complaints: ComplaintsIllustration,
   noThreshold: NoThresholdIllustration,
   healthyStock: HealthyStockIllustration,
+  reviews: ReviewsIllustration,
+  publicidade: PublicidadeIllustration,
 };
 
 export type IllustrationType = keyof typeof icons;

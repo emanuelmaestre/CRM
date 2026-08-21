@@ -234,3 +234,47 @@ export function GenericIllustration() {
     </svg>
   );
 }
+
+/* Publicações (Métricas): um megafone de anúncio patrocinado atrás, e um
+   cartão de resultado (barra de retorno) flutuando na frente — mesma
+   composição de "base neutra + cartão em destaque com o gradiente" das
+   outras ilustrações desta família. */
+export function PublicidadeIllustration() {
+  return (
+    <svg width="88" height="64" viewBox="0 0 88 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M8 24v14a4 4 0 0 0 4 4h4l4 12 6-2-3-10h5l20-8V22l-20-8-6 2 3 10h-9a4 4 0 0 0-4 4z" fill="var(--muted)" />
+      <rect x="42" y="20" width="40" height="32" rx="9" fill="var(--card)" stroke="url(#publicidade-grad)" strokeWidth="2" />
+      <rect x="50" y="40" width="6" height="6" rx="1.5" fill="url(#publicidade-grad)" />
+      <rect x="59" y="34" width="6" height="12" rx="1.5" fill="url(#publicidade-grad)" opacity="0.7" />
+      <rect x="68" y="28" width="6" height="18" rx="1.5" fill="url(#publicidade-grad)" />
+      <defs>
+        <linearGradient id="publicidade-grad" x1="42" y1="20" x2="82" y2="52" gradientUnits="userSpaceOnUse">
+          <stop stopColor="var(--karzi)" />
+          <stop offset="1" stopColor="var(--selecionado)" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+/* Avaliações: um cartão de opinião (duas linhas de texto) atrás, e um
+   cartão de nota flutuando na frente com uma estrela — mesma composição
+   de "base neutra + cartão em destaque com o gradiente" já usada em
+   Restock/Complaints, só trocando o ícone central pela estrela de nota. */
+export function ReviewsIllustration() {
+  return (
+    <svg width="88" height="64" viewBox="0 0 88 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="6" y="14" width="50" height="36" rx="8" fill="var(--muted)" />
+      <rect x="14" y="24" width="30" height="4" rx="2" fill="var(--border)" />
+      <rect x="14" y="34" width="20" height="4" rx="2" fill="var(--border)" />
+      <rect x="40" y="18" width="42" height="34" rx="9" fill="var(--card)" stroke="url(#reviews-grad)" strokeWidth="2" />
+      <path d="M61 27l2.47 5.01 5.53.8-4 3.9.94 5.51L61 39.5l-4.94 2.72.94-5.51-4-3.9 5.53-.8L61 27z" fill="url(#reviews-grad)" />
+      <defs>
+        <linearGradient id="reviews-grad" x1="40" y1="18" x2="82" y2="52" gradientUnits="userSpaceOnUse">
+          <stop stopColor="var(--karzi)" />
+          <stop offset="1" stopColor="var(--selecionado)" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
