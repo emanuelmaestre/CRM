@@ -36,7 +36,7 @@ function SeletorEscopo({ marcas, valor, onChange }: {
   ];
 
   return (
-    <div className="flex flex-wrap gap-1 rounded-[0.9rem] bg-muted p-1" role="tablist">
+    <div className="flex gap-1 overflow-x-auto rounded-[0.9rem] bg-muted p-1 scrollbar-none sm:flex-wrap sm:overflow-visible" role="tablist">
       {opcoes.map((opcao) => {
         const ativo = opcao.chave === valor;
         return (
@@ -46,7 +46,7 @@ function SeletorEscopo({ marcas, valor, onChange }: {
             role="tab"
             aria-selected={ativo}
             onClick={() => onChange(opcao.chave)}
-            className={`press-feedback relative flex h-11 items-center gap-1.5 rounded-[0.6rem] px-3 text-xs transition-colors ${ativo ? "font-extrabold" : "font-semibold"}`}
+            className={`press-feedback relative flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[0.6rem] px-3 text-xs transition-colors ${ativo ? "font-extrabold" : "font-semibold"}`}
             style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             {ativo && (

@@ -526,7 +526,7 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
   return (
     <Card>
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusReclamacaoBotao />} />
-      <CardHead scope={<div className="sm:hidden">{scope}</div>} />
+      <CardHead scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>} />
 
       {semFiltro && (
         <EmptyState

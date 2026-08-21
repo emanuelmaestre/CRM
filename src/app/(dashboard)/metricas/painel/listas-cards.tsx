@@ -221,7 +221,7 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot
         ilustracao="bestSellers"
         vazioTitulo={copyVendidos.emptyTitle}
         vazioDescricao={copyVendidos.emptyDescription}
-        scope={<div className="sm:hidden">{scope}</div>}
+        scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -312,7 +312,7 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
         ilustracao="restock"
         vazioTitulo={copyReposicao.emptyTitle}
         vazioDescricao={copyReposicao.emptyDescription}
-        scope={<div className="sm:hidden">{scope}</div>}
+        scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -400,7 +400,7 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
       ilustracao="slowMoving"
       vazioTitulo={copyGiro.emptyTitle}
       vazioDescricao={copyGiro.emptyDescription}
-      scope={<div className="sm:hidden">{scope}</div>}
+      scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
     >
       {lista.map((item) => (
         <LinhaProduto
@@ -619,7 +619,7 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
         // No desktop as pílulas de marca/canal sobem pro cabeçalho do painel
         // (junto do período e do "Entenda os status") — sem sobrar espaço no
         // mobile pra isso, então lá elas continuam aqui embaixo, como sempre.
-        scope={<div className="sm:hidden">{scope}</div>}
+        scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
       >
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);

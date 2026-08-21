@@ -490,7 +490,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
   );
 
   const abasCriterio = (
-    <div className="flex flex-wrap gap-0.5 rounded-[0.75rem] bg-muted p-1" role="tablist" aria-label={copy.ordenarPor}>
+    <div className="flex gap-0.5 overflow-x-auto rounded-[0.75rem] bg-muted p-1 scrollbar-none sm:flex-wrap sm:overflow-visible" role="tablist" aria-label={copy.ordenarPor}>
       {copy.criterios.map((opcao) => {
         const ativo = opcao.chave === criterio;
         return (
@@ -500,7 +500,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
             role="tab"
             aria-selected={ativo}
             onClick={() => setCriterio(opcao.chave as Criterio)}
-            className={`press-feedback relative flex h-11 items-center rounded-[0.5rem] px-3 text-[11px] transition-colors ${ativo ? "font-extrabold" : "font-semibold"}`}
+            className={`press-feedback relative flex h-11 shrink-0 items-center whitespace-nowrap rounded-[0.5rem] px-3 text-[11px] transition-colors ${ativo ? "font-extrabold" : "font-semibold"}`}
             style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             {ativo && (

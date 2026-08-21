@@ -119,7 +119,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   return (
     <Card>
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
-      <CardHead scope={<div className="sm:hidden">{scope}</div>} />
+      <CardHead scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>} />
 
       {/* Troca por crossfade, nunca desmontando o Card — evita o "piscar"
           ao mudar de filtro. Com conteúdo anterior na tela, uma busca em
@@ -144,7 +144,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
             </motion.div>
           ) : (
             <motion.div key="conteudo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast} className="px-5 pb-5">
-              <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+              <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-2">
                 <p className="text-stat-lg text-foreground">{moeda.format(valorAnimado)}</p>
                 {variacao !== null && (
                   <span
