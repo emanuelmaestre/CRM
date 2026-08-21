@@ -588,15 +588,17 @@ export function Mosaico({
         { titulo: "Zona de atenção, não de ruptura", texto: "Entra na lista quem tem saldo maior que o mínimo cadastrado, mas já até o dobro dele, quem já cruzou o mínimo saiu dessa janela de aviso." },
         { titulo: "Precisa de mínimo cadastrado", texto: "Produto sem estoque mínimo definido não tem régua pra comparar, então não aparece aqui, não é falta de dado, é falta de referência." },
         { titulo: "Urgência considera o ritmo de venda", texto: "Quanto mais perto do mínimo e mais rápido o produto está vendendo no período, maior a urgência de repor." },
+        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card pra ver o que cada um (Ativo, Pausado, Encerrado...) significa — repor não adianta se o anúncio estiver fora do ar." },
       ],
       dica: "Esse card avisa antes do problema, diferente de Giro baixo e Parados, que mostram o que já não está saindo.",
     },
-    render: () => (
+    render: (acaoSlot) => (
       <ReposicaoCard
         itens={reposicao.dados?.reposicao ?? null}
         carregando={reposicao.carregando}
         semFiltro={reposicao.semFiltro}
         scope={escopo(filtroReposicao, setFiltroReposicao)}
+        acaoSlot={acaoSlot}
       />
     ),
   }), [reposicao, filtroReposicao, escopo]);

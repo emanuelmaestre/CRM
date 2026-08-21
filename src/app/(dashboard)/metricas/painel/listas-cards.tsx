@@ -201,43 +201,86 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope }: {
 /* ── 2. Repor em breve ────────────────────────────────────────── */
 const copyReposicao = dashboardConfig.cards.reposicao;
 
-export function ReposicaoCard({ itens, carregando, semFiltro, scope }: {
+/** Mesma ideia do Estoque Parado: saber se o anúncio por trás do número
+ *  ainda está no ar muda a leitura — um item "perto do mínimo" com o
+ *  anúncio pausado não vai vender mesmo, repor não resolve nada até
+ *  reativar o anúncio primeiro. */
+function statusAnuncioInfoReposicao(item: ProdutoReposicao): { label: string; className: string; hint: string } {
+  const motivo = item.motivoStatus ? ` (${item.motivoStatus})` : "";
+
+  const MAPA: Record<StatusAnuncioParado, { label: string; className: string; hint: string }> = {
+    ativo: {
+      label: "Ativo no ML",
+      className: "bg-success/10 text-success",
+      hint: "Publicado e visível no Mercado Livre — o alerta de repor vale, o anúncio está pronto pra continuar vendendo assim que chegar mercadoria.",
+    },
+    pausado: {
+      label: "Pausado",
+      className: "bg-warning/10 text-warning",
+      hint: `Este anúncio está pausado no Mercado Livre${motivo} — repor o estoque não adianta sozinho, ninguém consegue comprar até reativar o anúncio.`,
+    },
+    encerrado: {
+      label: "Encerrado no ML",
+      className: "bg-destructive/10 text-destructive",
+      hint: `Este anúncio não existe mais no Mercado Livre${motivo} — repor esse item não tem efeito nenhum até recriar o anúncio.`,
+    },
+    sem_vinculo: {
+      label: "Sem vínculo com o ML",
+      className: "bg-info/10 text-info",
+      hint: "Não encontramos nenhum anúncio deste produto vinculado a uma conta do Mercado Livre — o vínculo pode ter se perdido.",
+    },
+    nao_consultado: {
+      label: "Status indisponível",
+      className: "bg-muted text-muted-foreground",
+      hint: "Não foi possível confirmar agora o status deste anúncio no Mercado Livre (falha temporária na consulta) — o restante do dado continua confiável.",
+    },
+  };
+  return MAPA[item.statusAnuncio];
+}
+
+export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
   itens: ProdutoReposicao[] | null;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
+  /** Nó do cabeçalho do Foco onde o botão "Entenda os status" é portado. */
+  acaoSlot?: HTMLElement | null;
 }) {
   const lista = itens ?? [];
   return (
-    <ListaCard
-      vazio={lista.length === 0}
-      carregando={carregando}
-      semFiltro={semFiltro}
-      ilustracao="restock"
-      vazioTitulo={copyReposicao.emptyTitle}
-      vazioDescricao={copyReposicao.emptyDescription}
-      scope={scope}
-    >
-      {lista.map((item) => (
-        <LinhaProduto
-          key={item.produtoId}
-          nome={item.nome}
-          sku={item.sku}
-          marca={item.marcaLabel}
-          marcaSlug={item.marca}
-          destaque={`${item.saldo}`}
-          destaqueNumerico={item.saldo}
-          formatarDestaque={(v) => String(Math.round(v))}
-          destaqueLabel={copyReposicao.saldoLabel}
-          destaqueCor={copyReposicao.accent}
-          contexto={item.coberturaDias !== null
-            ? `${item.coberturaDias} d ${copyReposicao.coverageLabel}`
-            : `${copyReposicao.minLabel} ${item.minimo}`}
-          medidor={item.urgencia}
-          acento={copyReposicao.accent}
-        />
-      ))}
-    </ListaCard>
+    <>
+      {/* Fora do ListaCard de propósito — ver comentário maior em ParadosCard. */}
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
+      <ListaCard
+        vazio={lista.length === 0}
+        carregando={carregando}
+        semFiltro={semFiltro}
+        ilustracao="restock"
+        vazioTitulo={copyReposicao.emptyTitle}
+        vazioDescricao={copyReposicao.emptyDescription}
+        scope={<div className="sm:hidden">{scope}</div>}
+      >
+        {lista.map((item) => (
+          <LinhaProduto
+            key={item.produtoId}
+            nome={item.nome}
+            sku={item.sku}
+            marca={item.marcaLabel}
+            marcaSlug={item.marca}
+            destaque={`${item.saldo}`}
+            destaqueNumerico={item.saldo}
+            formatarDestaque={(v) => String(Math.round(v))}
+            destaqueLabel={copyReposicao.saldoLabel}
+            destaqueCor={copyReposicao.accent}
+            contexto={item.coberturaDias !== null
+              ? `${item.coberturaDias} d ${copyReposicao.coverageLabel}`
+              : `${copyReposicao.minLabel} ${item.minimo}`}
+            acento={copyReposicao.accent}
+            statusBadge={<SeloStatus status={statusAnuncioInfoReposicao(item)} />}
+          />
+        ))}
+      </ListaCard>
+    </>
   );
 }
 
@@ -349,6 +392,46 @@ const LEGENDA_STATUS: Array<{ titulo: string; texto: string; cor: string }> = [
   { titulo: "Status indisponível", cor: "var(--muted-foreground)", texto: "Falha temporária ao consultar o Mercado Livre agora, o resto do dado (saldo, dias parado) continua confiável." },
 ];
 
+/** Selo de status por item — mesmo visual em qualquer card que mostre a
+ *  situação do anúncio no ML (Estoque Parado, Repor em breve, ...). */
+function SeloStatus({ status }: { status: { label: string; className: string; hint: string } }) {
+  return (
+    <AnimatedInfoPopover
+      trigger={(
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(event) => event.stopPropagation()}
+          className={`press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${status.className}`}
+        >
+          {status.label}
+        </span>
+      )}
+      align="start"
+      sideOffset={6}
+      collisionPadding={12}
+      className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+    >
+      <p className="text-[12px] leading-relaxed text-foreground/85">{status.hint}</p>
+    </AnimatedInfoPopover>
+  );
+}
+
+/** Bloco portado pro cabeçalho do painel: pílulas de marca/canal centralizadas
+ *  + botão "Entenda os status" fixo à direita — mesmo esqueleto pra qualquer
+ *  card que tenha selo de status do ML (ver comentário maior em ParadosCard). */
+function AcaoSlotFiltro({ scope, acaoSlot }: { scope?: React.ReactNode; acaoSlot?: HTMLElement | null }) {
+  if (!acaoSlot) return null;
+  return createPortal(
+    <div className="hidden w-full items-center gap-3 sm:flex">
+      <div className="mx-auto flex min-w-0 flex-wrap items-center justify-center gap-2">{scope}</div>
+      <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+      <EntendaStatusBotao />
+    </div>,
+    acaoSlot,
+  );
+}
+
 function EntendaStatusBotao() {
   return (
     <AnimatedInfoPopover
@@ -398,18 +481,7 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
           — botão e pílulas dentro dele ficavam invisíveis (e, pior, sem filtro
           nenhum visível em lugar nenhum no desktop) até o usuário escolher uma
           marca, só que não tinha como escolher porque o filtro tinha sumido. */}
-      {acaoSlot && createPortal(
-        // w-full + mx-auto no meio: as pílulas de marca/canal ficam centralizadas
-        // no espaço livre ao lado do período, em vez de coladas no botão lá no
-        // canto — o separador deixa claro que filtro (pílulas) e explicação
-        // (botão) são coisas diferentes, mesmo lado a lado na mesma fileira.
-        <div className="hidden w-full items-center gap-3 sm:flex">
-          <div className="mx-auto flex min-w-0 flex-wrap items-center justify-center gap-2">{scope}</div>
-          <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
-          <EntendaStatusBotao />
-        </div>,
-        acaoSlot,
-      )}
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}
@@ -441,26 +513,7 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
             destaqueCor={corGravidade(item.diasParado)}
             contexto={item.valorParado}
             acento={copyParados.accent}
-            statusBadge={(
-              <AnimatedInfoPopover
-                trigger={(
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(event) => event.stopPropagation()}
-                    className={`press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${status.className}`}
-                  >
-                    {status.label}
-                  </span>
-                )}
-                align="start"
-                sideOffset={6}
-                collisionPadding={12}
-                className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
-              >
-                <p className="text-[12px] leading-relaxed text-foreground/85">{status.hint}</p>
-              </AnimatedInfoPopover>
-            )}
+            statusBadge={<SeloStatus status={status} />}
           />
         );
       })}

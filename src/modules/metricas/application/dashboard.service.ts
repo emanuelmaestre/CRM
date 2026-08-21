@@ -124,6 +124,8 @@ export interface ProdutoReposicao extends ProdutoBase {
   coberturaDias: number | null;
   /** Quão perto do mínimo está (0–100): 100 = encostando no mínimo. */
   urgencia: number;
+  statusAnuncio: StatusAnuncioParado;
+  motivoStatus: string | null;
 }
 
 export interface DashboardData {
@@ -250,6 +252,64 @@ function traduzirStatusAnuncio(status: MLStatusAnuncio): { statusAnuncio: Status
     return { statusAnuncio: "encerrado", motivoStatus: motivo };
   }
   return { statusAnuncio: "nao_consultado", motivoStatus: motivo };
+}
+
+/** Preenche `statusAnuncio`/`motivoStatus` ao vivo, consultando o Mercado
+ *  Livre — reaproveitado por qualquer lista de produtos que precise mostrar
+ *  se o anúncio por trás do número ainda está ativo (Estoque Parado, Repor
+ *  em breve, ...). Só chama a API para os itens que a lista de fato mostra
+ *  (já vem cortada por TAMANHO_LISTA antes de chegar aqui), nunca para o
+ *  catálogo inteiro. Muta os itens em vez de retornar uma cópia — o
+ *  chamador já criou o array só pra isso. */
+async function enriquecerComStatusAnuncio(
+  ctx: CrudContext,
+  itens: Array<{ produtoId: string; statusAnuncio: StatusAnuncioParado; motivoStatus: string | null }>,
+): Promise<void> {
+  if (itens.length === 0) return;
+
+  const vinculos = await ctx.db
+    .select({
+      produtoId: produtoCanal.produtoId,
+      externalListingId: produtoCanal.externalListingId,
+      marca: brand.slug,
+    })
+    .from(produtoCanal)
+    .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
+    .innerJoin(brand, eq(brand.id, channelAccount.brandId))
+    .where(and(
+      eq(produtoCanal.orgId, ctx.orgId),
+      eq(channelAccount.tipo, "mercadolivre"),
+      inArray(produtoCanal.produtoId, itens.map((item) => item.produtoId)),
+    ));
+
+  const listingPorProduto = new Map(vinculos.map((v) => [v.produtoId, v]));
+  const idsPorMarca = new Map<string, string[]>();
+  for (const v of vinculos) {
+    if (!isBrandSlug(v.marca)) continue;
+    idsPorMarca.set(v.marca, [...(idsPorMarca.get(v.marca) ?? []), v.externalListingId]);
+  }
+
+  const statusPorListing = new Map<string, MLStatusAnuncio>();
+  await Promise.all([...idsPorMarca].map(async ([marca, ids]) => {
+    try {
+      const provider = await criarMLProvider(marca as Parameters<typeof criarMLProvider>[0]);
+      const resultado = await provider.consultarStatusAnuncios([...new Set(ids)]);
+      for (const [id, info] of Object.entries(resultado)) statusPorListing.set(id, info);
+    } catch {
+      // Falha de rede/token não pode derrubar o card inteiro — os itens
+      // dessa marca simplesmente ficam "não consultado" (fallback já setado pelo chamador).
+    }
+  }));
+
+  for (const item of itens) {
+    const vinculo = listingPorProduto.get(item.produtoId);
+    if (!vinculo) { item.statusAnuncio = "sem_vinculo"; continue; }
+    const status = statusPorListing.get(vinculo.externalListingId);
+    if (!status) continue; // consulta falhou: mantém "nao_consultado"
+    const { statusAnuncio, motivoStatus } = traduzirStatusAnuncio(status);
+    item.statusAnuncio = statusAnuncio;
+    item.motivoStatus = motivoStatus;
+  }
 }
 
 export async function obterDashboardData(
@@ -480,51 +540,7 @@ export async function obterDashboardData(
   // fato mostra (TAMANHO_LISTA), nunca para os 300+ que existem no banco.
   // Sem isso, "parado" parece sempre "ninguém compra" mesmo quando o próprio
   // vendedor pausou o anúncio (achado real ao auditar os dados de produção).
-  if (parados.length > 0) {
-    const vinculos = await ctx.db
-      .select({
-        produtoId: produtoCanal.produtoId,
-        externalListingId: produtoCanal.externalListingId,
-        marca: brand.slug,
-      })
-      .from(produtoCanal)
-      .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
-      .innerJoin(brand, eq(brand.id, channelAccount.brandId))
-      .where(and(
-        eq(produtoCanal.orgId, ctx.orgId),
-        eq(channelAccount.tipo, "mercadolivre"),
-        inArray(produtoCanal.produtoId, parados.map((item) => item.produtoId)),
-      ));
-
-    const listingPorProduto = new Map(vinculos.map((v) => [v.produtoId, v]));
-    const idsPorMarca = new Map<string, string[]>();
-    for (const v of vinculos) {
-      if (!isBrandSlug(v.marca)) continue;
-      idsPorMarca.set(v.marca, [...(idsPorMarca.get(v.marca) ?? []), v.externalListingId]);
-    }
-
-    const statusPorListing = new Map<string, MLStatusAnuncio>();
-    await Promise.all([...idsPorMarca].map(async ([marca, ids]) => {
-      try {
-        const provider = await criarMLProvider(marca as Parameters<typeof criarMLProvider>[0]);
-        const resultado = await provider.consultarStatusAnuncios([...new Set(ids)]);
-        for (const [id, info] of Object.entries(resultado)) statusPorListing.set(id, info);
-      } catch {
-        // Falha de rede/token não pode derrubar o card inteiro — os itens
-        // dessa marca simplesmente ficam "não consultado" (fallback já setado acima).
-      }
-    }));
-
-    for (const item of parados) {
-      const vinculo = listingPorProduto.get(item.produtoId);
-      if (!vinculo) { item.statusAnuncio = "sem_vinculo"; continue; }
-      const status = statusPorListing.get(vinculo.externalListingId);
-      if (!status) continue; // consulta falhou: mantém "nao_consultado"
-      const { statusAnuncio, motivoStatus } = traduzirStatusAnuncio(status);
-      item.statusAnuncio = statusAnuncio;
-      item.motivoStatus = motivoStatus;
-    }
-  }
+  await enriquecerComStatusAnuncio(ctx, parados);
 
   /* ── 4. Reposição (baixo estoque, ainda em tempo) ── */
   const reposicao: ProdutoReposicao[] = produtosAtivos
@@ -549,6 +565,8 @@ export async function obterDashboardData(
         coberturaDias: consumoDiario > 0 ? Math.floor(saldo / consumoDiario) : null,
         // 100 = encostando no mínimo; 0 = no topo da zona de atenção.
         urgencia: folga > 0 ? Math.round(((minimo * FATOR_ZONA_ATENCAO - saldo) / folga) * 100) : 100,
+        statusAnuncio: "nao_consultado" as StatusAnuncioParado,
+        motivoStatus: null as string | null,
       };
     })
     // Quem tem menos dias de estoque primeiro; sem histórico, quem está mais perto do mínimo.
@@ -559,6 +577,8 @@ export async function obterDashboardData(
       return b.urgencia - a.urgencia;
     })
     .slice(0, TAMANHO_LISTA);
+
+  await enriquecerComStatusAnuncio(ctx, reposicao);
 
   return {
     faturamento,
