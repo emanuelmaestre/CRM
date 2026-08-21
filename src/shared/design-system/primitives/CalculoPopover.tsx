@@ -112,9 +112,13 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
               <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Dados usados</p>
               <dl className="mt-2 space-y-2">
                 {itens.map((item) => (
+                  // min-w-0+truncate no rótulo e shrink-0+nowrap no valor: sem
+                  // isso, um rótulo comprido ("Armarinhos Lima") espremia o
+                  // valor ao lado e quebrava ele no meio ("do" numa linha,
+                  // "peso" na outra) — o valor nunca pode quebrar de jeito nenhum.
                   <div key={item.label} className="flex items-center justify-between gap-3 text-[14px]">
-                    <dt className="text-muted-foreground">{item.label}</dt>
-                    <dd className="font-semibold tabular-nums text-foreground">{item.valor}</dd>
+                    <dt className="min-w-0 truncate text-muted-foreground">{item.label}</dt>
+                    <dd className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-foreground">{item.valor}</dd>
                   </div>
                 ))}
               </dl>
