@@ -219,7 +219,7 @@ function Balao({ mensagem }: { mensagem: ReclamacaoMensagem }) {
         style={{ background: deVendedor ? tint(copy.accent, 8) : "var(--muted)" }}
       >
         {!deVendedor && (
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Comprador</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-foreground">Comprador</p>
         )}
         <p className="whitespace-pre-line">{formatarMensagem(mensagem.texto)}</p>
         {hora && <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">{hora}</p>}
