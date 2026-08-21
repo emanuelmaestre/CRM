@@ -225,7 +225,10 @@ function statusAnuncioInfoReposicao(item: ProdutoReposicao): { label: string; cl
     },
     em_revisao: {
       label: "Em revisão no ML",
-      className: "bg-warning/10 text-warning",
+      // Cor própria (não âmbar) — "Pausado" e "Em revisão" são coisas
+      // diferentes (uma é decisão sua, a outra é o ML barrando por um
+      // problema), com a mesma cor ficavam parecendo a mesma categoria.
+      className: "bg-acento-2/10 text-acento-2",
       hint: `O Mercado Livre pausou este anúncio pra moderação${motivo} e pediu correção — ele pode voltar a vender assim que o problema for resolvido, repor agora é adiantar o serviço.`,
     },
     encerrado: {
@@ -366,7 +369,10 @@ function statusAnuncioInfo(item: ProdutoParado): { label: string; className: str
     },
     em_revisao: {
       label: "Em revisão no ML",
-      className: "bg-warning/10 text-warning",
+      // Cor própria (não âmbar) — "Pausado" e "Em revisão" são coisas
+      // diferentes (uma é decisão sua, a outra é o ML barrando por um
+      // problema), com a mesma cor ficavam parecendo a mesma categoria.
+      className: "bg-acento-2/10 text-acento-2",
       hint: `O Mercado Livre pausou este anúncio pra moderação${motivo} e pediu correção — não é o mesmo que encerrado, ele pode voltar a vender assim que o problema for resolvido.`,
     },
     encerrado: {
@@ -412,7 +418,7 @@ const LEGENDA_STATUS: Array<{ titulo: string; texto: string; cor: string }> = [
   // Confirmado na documentação oficial do Mercado Livre: "under_review" é
   // moderação (o anúncio tem um problema a corrigir), não é a mesma coisa
   // que "closed" — pode voltar a ficar ativo, "closed" nunca volta.
-  { titulo: "Em revisão no ML", cor: "var(--warning)", texto: "O Mercado Livre pausou o anúncio pra moderação — tem algo a corrigir, mas ele pode voltar a ficar ativo, diferente de um anúncio encerrado." },
+  { titulo: "Em revisão no ML", cor: "var(--acento-2)", texto: "O Mercado Livre pausou o anúncio pra moderação — tem algo a corrigir, mas ele pode voltar a ficar ativo, diferente de um anúncio encerrado." },
   { titulo: "Encerrado no ML", cor: "var(--destructive)", texto: "O anúncio não existe mais lá, mas o produto continua no catálogo do CRM: ninguém consegue comprar por nenhum canal." },
   { titulo: "Sem vínculo com o ML", cor: "var(--info)", texto: "Não achamos nenhum anúncio deste produto ligado a uma conta do Mercado Livre, o vínculo pode ter se perdido." },
   { titulo: "Status indisponível", cor: "var(--muted-foreground)", texto: "Falha temporária ao consultar o Mercado Livre agora — o restante do dado continua confiável." },
