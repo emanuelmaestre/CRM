@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronDown, Loader2, Scale, Send } from "lucide-react";
@@ -526,7 +527,12 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
   return (
     <Card>
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusReclamacaoBotao />} />
-      <CardHead scope={<div className="flex w-full flex-col items-center gap-2 sm:hidden"><div className="flex flex-wrap justify-center gap-2">{scope}</div><EntendaStatusReclamacaoBotao /></div>} />
+      {/* No mobile, "Entenda os status" sobe pra mesma linha do Período
+          (mesmo acaoSlot que o AcaoSlotFiltro usa no desktop, só que aqui
+          sem o "hidden sm:flex" que esconde o dele) — antes ficava lá
+          embaixo, depois do filtro de marca/canal, longe do Período. */}
+      {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusReclamacaoBotao /></div>, acaoSlot)}
+      <CardHead scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>} />
 
       {semFiltro && (
         <EmptyState

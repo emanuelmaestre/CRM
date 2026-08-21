@@ -311,12 +311,9 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
     </div>
   );
   const controlesMobile = (
-    <div className="flex w-full flex-col items-center gap-2 sm:hidden">
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        {abasMarca}
-        {abasCanal}
-      </div>
-      <EntendaStatusPublicacaoBotao />
+    <div className="flex w-full flex-wrap items-center justify-center gap-2 sm:hidden">
+      {abasMarca}
+      {abasCanal}
     </div>
   );
 
@@ -327,6 +324,9 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
     <Card>
       <CardHead scope={controlesMobile} />
       {acaoSlot && createPortal(controles, acaoSlot)}
+      {/* No mobile, "Entenda os status" sobe pra mesma linha do Período em
+          vez de ficar lá embaixo, depois do filtro de marca/canal. */}
+      {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusPublicacaoBotao /></div>, acaoSlot)}
       <div className="px-4 pb-5 pt-4 sm:px-5">
         <AnimatePresence mode="wait">
           {brandIds.length === 0 ? (
@@ -355,8 +355,8 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
               >
                 <div>
                   <p className="text-lg font-bold tabular-nums">{totalPublicacoes}</p>
-                  <p className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
-                    {totalPublicacoes === 1 ? "publicação patrocinada" : "publicações patrocinadas"}
+                  <p className="text-center text-[11px] text-muted-foreground">
+                    {totalPublicacoes === 1 ? "publicação patrocinada" : "publicações patrocinadas"}{" "}
                     <CalculoPopover
                       compacto
                       titulo="Publicações patrocinadas"
@@ -375,7 +375,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                 </div>
                 <div>
                   <p className="text-lg font-bold tabular-nums" style={totalComVeiculacao > 0 ? { color: "var(--success)" } : undefined}>{totalComVeiculacao}</p>
-                  <p className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">com veiculação
+                  <p className="text-center text-[11px] text-muted-foreground">com veiculação{" "}
                     <CalculoPopover
                       compacto
                       titulo="Publicações com veiculação"
@@ -393,7 +393,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                 </div>
                 <div>
                   <p className="text-lg font-bold tabular-nums">{retornoMedio === null ? "—" : `${retornoMedio.toFixed(1)}x`}</p>
-                  <p className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground">retorno do período
+                  <p className="text-center text-[11px] text-muted-foreground">retorno do período{" "}
                     <CalculoPopover
                       compacto
                       titulo="Retorno consolidado do período"

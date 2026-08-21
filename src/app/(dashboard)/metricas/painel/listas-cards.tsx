@@ -214,6 +214,7 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot
   return (
     <>
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
+      {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusBotao /></div>, acaoSlot)}
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}
@@ -221,7 +222,7 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot
         ilustracao="bestSellers"
         vazioTitulo={copyVendidos.emptyTitle}
         vazioDescricao={copyVendidos.emptyDescription}
-        scope={<div className="flex w-full flex-col items-center gap-2 sm:hidden"><div className="flex flex-wrap justify-center gap-2">{scope}</div><EntendaStatusBotao /></div>}
+        scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -305,6 +306,7 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
     <>
       {/* Fora do ListaCard de propósito — ver comentário maior em ParadosCard. */}
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
+      {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusBotao /></div>, acaoSlot)}
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}
@@ -312,7 +314,7 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
         ilustracao="restock"
         vazioTitulo={copyReposicao.emptyTitle}
         vazioDescricao={copyReposicao.emptyDescription}
-        scope={<div className="flex w-full flex-col items-center gap-2 sm:hidden"><div className="flex flex-wrap justify-center gap-2">{scope}</div><EntendaStatusBotao /></div>}
+        scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -393,6 +395,7 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
   return (
     <>
     <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
+      {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusBotao /></div>, acaoSlot)}
     <ListaCard
       vazio={lista.length === 0}
       carregando={carregando}
@@ -400,7 +403,7 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
       ilustracao="slowMoving"
       vazioTitulo={copyGiro.emptyTitle}
       vazioDescricao={copyGiro.emptyDescription}
-      scope={<div className="flex w-full flex-col items-center gap-2 sm:hidden"><div className="flex flex-wrap justify-center gap-2">{scope}</div><EntendaStatusBotao /></div>}
+      scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
     >
       {lista.map((item) => (
         <LinhaProduto
@@ -609,6 +612,7 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
           nenhum visível em lugar nenhum no desktop) até o usuário escolher uma
           marca, só que não tinha como escolher porque o filtro tinha sumido. */}
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
+      {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusBotao /></div>, acaoSlot)}
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}
@@ -619,7 +623,7 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
         // No desktop as pílulas de marca/canal sobem pro cabeçalho do painel
         // (junto do período e do "Entenda os status") — sem sobrar espaço no
         // mobile pra isso, então lá elas continuam aqui embaixo, como sempre.
-        scope={<div className="flex w-full flex-col items-center gap-2 sm:hidden"><div className="flex flex-wrap justify-center gap-2">{scope}</div><EntendaStatusBotao /></div>}
+        scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
       >
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);
