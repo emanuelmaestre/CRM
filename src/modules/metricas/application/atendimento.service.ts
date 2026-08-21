@@ -81,6 +81,16 @@ interface LinhaAgregada {
   acima24h: number;
 }
 
+const LINHA_VAZIA: LinhaAgregada = {
+  perguntas: 0,
+  respondidas: 0,
+  mediana: null,
+  ate1h: 0,
+  ate4h: 0,
+  ate24h: 0,
+  acima24h: 0,
+};
+
 function numero(valor: unknown): number {
   const parsed = Number(valor ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -174,6 +184,76 @@ async function agregarJanela(
     ate24h: numero(linha.ate24h),
     acima24h: numero(linha.acima24h),
   };
+}
+
+/** A mesma agregação, agrupada por empresa. Saúde precisa de um resumo por
+ * marca, mas não precisa executar a CTE inteira novamente para cada uma. */
+async function agregarJanelaPorMarca(
+  ctx: CrudContext,
+  inicio: Date,
+  fim: Date,
+  brandIds: string[],
+): Promise<Map<string, LinhaAgregada>> {
+  if (brandIds.length === 0) return new Map();
+
+  const resultado = await ctx.db.execute(sql`
+    with ordenadas as (
+      select
+        c.brand_id,
+        m.conversa_id,
+        m.direcao,
+        m.criado_em,
+        lag(m.direcao) over (partition by m.conversa_id order by m.criado_em, m.id) as direcao_anterior
+      from mensagem m
+      inner join conversa c on c.id = m.conversa_id
+      where m.org_id = ${ctx.orgId}
+        and m.criado_em >= ${inicio.toISOString()}::timestamptz
+        and m.criado_em <= ${fim.toISOString()}::timestamptz
+        and c.brand_id in (${sql.join(brandIds.map((id) => sql`${id}::uuid`), sql`, `)})
+    ),
+    perguntas as (
+      select brand_id, conversa_id, criado_em
+      from ordenadas
+      where direcao = 'entrada'
+        and (direcao_anterior is null or direcao_anterior = 'saida')
+    ),
+    pares as (
+      select
+        p.brand_id,
+        extract(epoch from (
+          (select min(o.criado_em) from ordenadas o
+            where o.conversa_id = p.conversa_id
+              and o.direcao = 'saida'
+              and o.criado_em > p.criado_em) - p.criado_em
+        )) as espera
+      from perguntas p
+    )
+    select
+      brand_id,
+      count(*)::int as perguntas,
+      count(espera)::int as respondidas,
+      percentile_cont(0.5) within group (order by espera) as mediana,
+      count(*) filter (where espera <= 3600)::int as ate1h,
+      count(*) filter (where espera > 3600 and espera <= 14400)::int as ate4h,
+      count(*) filter (where espera > 14400 and espera <= 86400)::int as ate24h,
+      count(*) filter (where espera > 86400)::int as acima24h
+    from pares
+    group by brand_id
+  `);
+
+  const linhas = (Array.isArray(resultado) ? resultado : (resultado as { rows?: unknown[] }).rows) ?? [];
+  return new Map((linhas as Array<Record<string, unknown>>).map((linha) => [
+    String(linha.brand_id),
+    {
+      perguntas: numero(linha.perguntas),
+      respondidas: numero(linha.respondidas),
+      mediana: linha.mediana === null || linha.mediana === undefined ? null : numero(linha.mediana),
+      ate1h: numero(linha.ate1h),
+      ate4h: numero(linha.ate4h),
+      ate24h: numero(linha.ate24h),
+      acima24h: numero(linha.acima24h),
+    },
+  ]));
 }
 
 /** Mesmo funil da janela atual, mas quebrado por `channel_account.tipo`. Uma
@@ -313,4 +393,55 @@ export async function obterAtendimento(
     taxaRespostaAnterior: taxaAnterior,
     porCanal,
   };
+}
+
+/** Dois agrupamentos no total (janela atual e anterior), independentemente
+ * da quantidade de marcas. Substitui as duas consultas por marca de Saúde. */
+export async function obterAtendimentoPorMarca(
+  ctx: CrudContext,
+  opcoes: { inicio: Date; fim: Date; brandIds: string[] },
+): Promise<Map<string, AtendimentoResumo>> {
+  const brandIds = [...new Set(opcoes.brandIds.filter(Boolean))];
+  const duracaoMs = Math.max(opcoes.fim.getTime() - opcoes.inicio.getTime(), 86_400_000);
+  const inicioAnterior = new Date(opcoes.inicio.getTime() - duracaoMs);
+  const [atuais, anteriores] = await Promise.all([
+    agregarJanelaPorMarca(ctx, opcoes.inicio, opcoes.fim, brandIds),
+    agregarJanelaPorMarca(ctx, inicioAnterior, opcoes.inicio, brandIds),
+  ]);
+
+  return new Map(brandIds.map((brandId) => {
+    const atual = atuais.get(brandId) ?? LINHA_VAZIA;
+    const anterior = anteriores.get(brandId) ?? LINHA_VAZIA;
+    const semResposta = Math.max(atual.perguntas - atual.respondidas, 0);
+    const contagens: Record<ChaveFaixaSla, number> = {
+      ate1h: atual.ate1h,
+      ate4h: atual.ate4h,
+      ate24h: atual.ate24h,
+      acima24h: atual.acima24h,
+      semResposta,
+    };
+    const taxaResposta = atual.perguntas > 0 ? Math.round((atual.respondidas / atual.perguntas) * 1000) / 10 : null;
+    const taxaAnterior = anterior.perguntas > 0 ? Math.round((anterior.respondidas / anterior.perguntas) * 1000) / 10 : null;
+    const faixas: FaixaAtendimento[] = FAIXAS_SLA.map((faixa) => ({
+      chave: faixa.chave,
+      label: faixa.label,
+      cor: faixa.cor,
+      quantidade: contagens[faixa.chave],
+      participacao: atual.perguntas > 0 ? Math.round((contagens[faixa.chave] / atual.perguntas) * 1000) / 10 : 0,
+    }));
+
+    return [brandId, {
+      perguntas: atual.perguntas,
+      respondidas: atual.respondidas,
+      taxaResposta,
+      medianaSegundos: atual.mediana,
+      medianaLabel: atual.mediana === null ? null : formatarDuracao(atual.mediana),
+      faixas,
+      variacaoTaxaResposta: taxaResposta !== null && taxaAnterior !== null
+        ? Math.round((taxaResposta - taxaAnterior) * 10) / 10
+        : null,
+      taxaRespostaAnterior: taxaAnterior,
+      porCanal: [],
+    } satisfies AtendimentoResumo] as const;
+  }));
 }

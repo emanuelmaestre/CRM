@@ -25,6 +25,7 @@ export async function actionListarProdutos(opts: {
   estado?: string;
   canalTipos?: string[];
   offset?: number;
+  incluirContexto?: boolean;
 } = {}) {
   const ctx = await getCrudContext();
   const brandIdsValidados = opts.brandIds?.length ? z.array(BrandIdSchema).parse(opts.brandIds) : undefined;
@@ -39,7 +40,7 @@ export async function actionListarProdutos(opts: {
     ? await listarProdutosParados(ctx).then((itens) => itens.map((item) => item.id))
     : undefined;
 
-  const result = await listarProdutos(ctx, {
+  const consulta = listarProdutos(ctx, {
     brandIds: brandIdsValidados,
     busca: opts.busca?.trim(),
     estado: estado === "parados" ? undefined : (estado as EstadoEstoque | undefined),
@@ -49,23 +50,46 @@ export async function actionListarProdutos(opts: {
     offset,
   });
   const permissions = { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" };
-  return { ...result, permissions };
+  if (!opts.incluirContexto) {
+    return {
+      ...(await consulta),
+      permissions,
+      marcas: undefined,
+      canais: undefined,
+      indicadores: undefined,
+    };
+  }
+
+  const [result, marcas, canais, indicadores] = await Promise.all([
+    consulta,
+    contarProdutosPorMarca(ctx, { canalTipos: canalTiposValidados }),
+    contarProdutosPorCanal(ctx, { brandIds: brandIdsValidados }),
+    obterIndicadoresEstoque(ctx, brandIdsValidados, canalTiposValidados),
+  ]);
+  return { ...result, permissions, marcas, canais, indicadores };
+}
+
+async function obterIndicadoresEstoque(
+  ctx: Awaited<ReturnType<typeof getCrudContext>>,
+  brandIds?: string[],
+  canalTipos?: string[],
+) {
+  const [contagens, parados] = await Promise.all([
+    contarIndicadoresEstoque(ctx, { brandIds, canalTipos }),
+    listarProdutosParados(ctx),
+  ]);
+  return {
+    ...contagens,
+    parados: parados.length,
+    capitalParado: parados.reduce((soma, item) => soma + item.capitalParado, 0),
+  };
 }
 
 export async function actionIndicadoresEstoque(brandIds?: string[], canalTipos?: string[]) {
   const ctx = await getCrudContext();
   const brandIdsValidados = brandIds?.length ? z.array(BrandIdSchema).parse(brandIds) : undefined;
   const canalTiposValidados = canalTipos?.length ? z.array(CanalVendaSchema).parse(canalTipos) : undefined;
-  const [contagens, parados] = await Promise.all([
-    contarIndicadoresEstoque(ctx, { brandIds: brandIdsValidados, canalTipos: canalTiposValidados }),
-    listarProdutosParados(ctx),
-  ]);
-
-  return {
-    ...contagens,
-    parados: parados.length,
-    capitalParado: parados.reduce((soma, item) => soma + item.capitalParado, 0),
-  };
+  return obterIndicadoresEstoque(ctx, brandIdsValidados, canalTiposValidados);
 }
 
 export async function actionContarProdutosPorCanal(brandIds?: string[]) {
@@ -78,6 +102,20 @@ export async function actionContarProdutosPorMarca(canalTipos?: string[]) {
   const ctx = await getCrudContext();
   const canalTiposValidados = canalTipos?.length ? z.array(CanalVendaSchema).parse(canalTipos) : undefined;
   return contarProdutosPorMarca(ctx, { canalTipos: canalTiposValidados });
+}
+
+export async function actionObterFiltrosEstoque(opts: {
+  brandIds?: string[];
+  canalTipos?: string[];
+} = {}) {
+  const ctx = await getCrudContext();
+  const brandIdsValidados = opts.brandIds?.length ? z.array(BrandIdSchema).parse(opts.brandIds) : undefined;
+  const canalTiposValidados = opts.canalTipos?.length ? z.array(CanalVendaSchema).parse(opts.canalTipos) : undefined;
+  const [marcas, canais] = await Promise.all([
+    contarProdutosPorMarca(ctx, { canalTipos: canalTiposValidados }),
+    contarProdutosPorCanal(ctx, { brandIds: brandIdsValidados }),
+  ]);
+  return { marcas, canais };
 }
 
 export async function actionDefinirEstoqueMinimoEmLote(produtoIds: string[], estoqueMinimo: number) {

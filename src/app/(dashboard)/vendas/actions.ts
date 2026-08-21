@@ -21,15 +21,23 @@ export async function actionListarPedidosDetalhados(opts: {
 } = {}) {
   const ctx = await getCrudContext();
   const { offset, ...filtros } = normalizarConsultaPedidos(opts);
-  const [result, resumo] = await Promise.all([
+  const [result, resumo, marcas, canais] = await Promise.all([
     listarPedidosDetalhados(ctx, {
       ...filtros,
       limit: 50,
       offset,
     }),
     resumirPedidos(ctx, filtros),
+    contarPedidosPorMarca(ctx, { canais: filtros.canais }),
+    contarPedidosPorCanal(ctx, { brandIds: filtros.brandIds }),
   ]);
-  return { ...result, resumo, permissions: { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" } };
+  return {
+    ...result,
+    resumo,
+    marcas,
+    canais,
+    permissions: { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" },
+  };
 }
 
 export async function actionListarPedidosParaPdf(opts: {
@@ -59,6 +67,15 @@ export async function actionContarPedidosPorCanal(brandIds?: string[]) {
   const ctx = await getCrudContext();
   const { brandIds: marcasValidadas } = normalizarConsultaPedidos({ brandIds });
   return contarPedidosPorCanal(ctx, { brandIds: marcasValidadas });
+}
+
+export async function actionObterFiltrosPedidos() {
+  const ctx = await getCrudContext();
+  const [marcas, canais] = await Promise.all([
+    contarPedidosPorMarca(ctx),
+    contarPedidosPorCanal(ctx),
+  ]);
+  return { marcas, canais };
 }
 
 export async function actionCancelarPedido(pedidoId: string, motivo: string) {

@@ -374,13 +374,13 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
               </div>
             </motion.div>
 
-            {/* O conteúdo entra depois que o painel termina de crescer. É esse
-                atraso que separa "cresceu" de "abriu" — sem ele, o card já
-                aparece pronto no meio do movimento e o crescimento some. */}
+            {/* Sem atraso fixo: especialmente no mobile, o conteúdo precisa
+                responder no mesmo quadro do toque. O crescimento do painel
+                continua sendo conduzido pelo layoutId acima. */}
             <motion.div
               initial={reduzir ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={transicao(reduzir, { ...springs.settleFast, delay: 0.15 })}
+              transition={transicao(reduzir, springs.settleFast)}
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-4"
             >
               {/* O fundo do painel ocupa a tela inteira (é a tela cheia

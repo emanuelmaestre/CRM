@@ -542,12 +542,10 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
             valor={periodo}
             max={hojeISO}
             onChange={setPeriodo}
-            disabled={carregando}
             accent={acentoMarca}
           />
           <BotaoHoje
             ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
-            disabled={carregando}
             onClick={() =>
               setPeriodo((atual) =>
                 atual.inicio === hojeISO && atual.fim === hojeISO

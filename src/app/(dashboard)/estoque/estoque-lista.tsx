@@ -13,8 +13,8 @@ import { CanalModal } from "./canal-modal";
 import {
   actionListarProdutos, actionListarProdutosParados,
   actionImportarCatalogoEstoque,
-  actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote, actionContarProdutosPorCanal,
-  actionContarProdutosPorMarca,
+  actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote,
+  actionObterFiltrosEstoque,
 } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -602,8 +602,9 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
   );
 }
 
-type ContagemCanaisEstoque = Awaited<ReturnType<typeof actionContarProdutosPorCanal>>;
-type ContagemMarcasEstoque = Awaited<ReturnType<typeof actionContarProdutosPorMarca>>;
+type ConsultaEstoque = Awaited<ReturnType<typeof actionListarProdutos>>;
+type ContagemCanaisEstoque = NonNullable<ConsultaEstoque["canais"]>;
+type ContagemMarcasEstoque = NonNullable<ConsultaEstoque["marcas"]>;
 
 export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   /** Contagens já resolvidas no servidor (ver page.tsx) — chegam junto com o
@@ -615,7 +616,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const reduzir = useReducedMotion();
   const [produtos, setProdutos]   = useState<Produto[]>([]);
   const [total, setTotal]         = useState(0);
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading]     = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [busca, setBusca]         = useState("");
   // Empresa e canal aceitam mais de uma marcada ao mesmo tempo — Set em vez de
@@ -626,6 +627,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [filtro, setFiltro]       = useState<Filtro>("todos");
   const [canManage, setCanManage] = useState(false);
   const requestId = useRef(0);
+  const filterRequestId = useRef(0);
   const [, startTransition]       = useTransition();
   const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
   const [marcas, setMarcas] = useState<ContagemMarcasEstoque>(marcasIniciais);
@@ -644,68 +646,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const canaisArray = [...canaisSelecionados];
   const brandIdsKey = brandIdsArray.slice().sort().join(",");
   const canaisKey = canaisArray.slice().sort().join(",");
-
-  // As contagens das duas barras se cruzam: cada uma é recontada com o filtro
-  // da outra aplicado, então a pílula nunca promete um número que a lista não
-  // vai entregar.
-  // A primeira execução de cada efeito é pulada só quando o servidor de fato
-  // mandou a contagem pronta (ver page.tsx) — aí repeti-la no navegador seria
-  // refazer o que acabou de chegar no HTML. Se a pré-busca falhou ou veio
-  // vazia, a guarda nasce falsa e a tela busca normalmente, como antes.
-  const primeiraContagemMarcas = useRef(marcasIniciais.length > 0);
-  const primeiraContagemCanais = useRef(canaisIniciais.length > 0);
-
-  useEffect(() => {
-    if (primeiraContagemMarcas.current) { primeiraContagemMarcas.current = false; return; }
-    actionContarProdutosPorMarca(canaisArray.length ? canaisArray : undefined).then(setMarcas).catch(() => setMarcas([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canaisKey]);
-
-  useEffect(() => {
-    if (primeiraContagemCanais.current) { primeiraContagemCanais.current = false; return; }
-    actionContarProdutosPorCanal(brandIdsArray.length ? brandIdsArray : undefined).then(setCanais).catch(() => setCanais([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandIdsKey]);
-
-  /* Aquecimento em segundo plano — a tela abre sem escopo, então o tempo em que
-     a pessoa lê o convite e decide a empresa é tempo livre para já buscar os
-     produtos. Quando ela clica, a lista pinta do cache e a busca real roda
-     atrás para confirmar. Uma requisição por empresa, sem canal: é o clique
-     que a tela espera. */
-  const cacheEscopo = useRef(new Map<string, { data: Produto[]; total: number; canManage: boolean }>());
-  const [aquecidas, setAquecidas] = useState(0);
-
-  useEffect(() => {
-    if (marcas.length === 0) return;
-    let cancelado = false;
-    // Inclui marca vazia de propósito: a consulta sai vazia e barata, e é por
-    // ela que a tela limpa descobre a permissão — sem isso, um catálogo ainda
-    // sem produto nenhum esconderia o botão de sincronizar.
-    const pendentes = marcas.filter((marca) => !cacheEscopo.current.has(marca.brandId));
-    if (pendentes.length === 0) return;
-
-    (async () => {
-      for (const marca of pendentes) {
-        if (cancelado) return;
-        try {
-          const res = await actionListarProdutos({ brandIds: [marca.brandId] });
-          if (cancelado) return;
-          cacheEscopo.current.set(marca.brandId, {
-            data: res.data as Produto[],
-            total: res.total,
-            canManage: res.permissions.canManage,
-          });
-          setCanManage(res.permissions.canManage);
-          setAquecidas((n) => n + 1);
-        } catch {
-          // Aquecimento é oportunista: falhar aqui não é erro visível, o clique
-          // busca de novo pelo caminho normal.
-        }
-      }
-    })();
-
-    return () => { cancelado = true; };
-  }, [marcas]);
 
   const carregarIndicadores = useCallback((marcas?: string[], canaisAtuais?: string[]) => {
     // O app inteiro divide uma única conexão com o banco (RLS exige pooler em
@@ -736,32 +676,26 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
   const carregar = useCallback((marcas?: string[], termo?: string, estado?: Filtro, canaisAtuais?: string[]) => {
     const currentRequest = ++requestId.current;
-    // Pinta na hora com o que o aquecimento já trouxe, quando o escopo é
-    // exatamente "só esta empresa" — a busca abaixo continua e substitui. Com
-    // duas ou mais empresas marcadas o cache não cobre a combinação, então
-    // segue direto para a busca real.
-    const aquecido = marcas?.length === 1 && !termo && !canaisAtuais?.length && (!estado || estado === "todos")
-      ? cacheEscopo.current.get(marcas[0])
-      : undefined;
-    if (aquecido) {
-      setProdutos(aquecido.data);
-      setTotal(aquecido.total);
-      setCanManage(aquecido.canManage);
-      setSelecionados(new Set());
-    }
     startTransition(async () => {
-      setLoading(!aquecido);
+      setLoading(true);
       try {
         const res = await actionListarProdutos({
           brandIds: marcas?.length ? marcas : undefined,
           busca: termo || undefined,
           estado: estado && estado !== "todos" ? estado : undefined,
           canalTipos: canaisAtuais?.length ? canaisAtuais : undefined,
+          incluirContexto: true,
         });
         if (currentRequest !== requestId.current) return;
         setProdutos(res.data as Produto[]);
         setTotal(res.total);
         setCanManage(res.permissions.canManage);
+        if (res.marcas) setMarcas(res.marcas);
+        if (res.canais) setCanais(res.canais);
+        if (res.indicadores) {
+          setIndicadores(res.indicadores);
+          setErroIndicadores(false);
+        }
         setSelecionados(new Set());
       } catch {
         if (currentRequest !== requestId.current) return;
@@ -778,11 +712,33 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
      estreitador: recontagem as pílulas de empresa e, depois de escolhida uma,
      recorta a lista dela. Busca abre porque um SKU já é um escopo exato.
 
-     Sem escopo não há o que carregar: a tela mostra o convite e o aquecimento
-     cuida do resto. O que sobrou de uma seleção anterior fica em memória sem
-     ser renderizado, então voltar para a empresa é instantâneo. */
+     Sem escopo não há o que carregar: a tela mostra o convite. O que sobrou de
+     uma seleção anterior fica em memória sem ser renderizado, então voltar
+     para a empresa não provoca aquecimento em segundo plano. */
   const escopoDefinido = brandIds.size > 0 || busca.trim() !== "";
-  const aquecimentoCompleto = marcas.length > 0 && aquecidas >= marcas.length;
+
+  // Recuperação leve para navegação cliente ou falha do carregamento inicial.
+  // Também mantém as contagens cruzadas quando só o canal está marcado, sem
+  // buscar produtos, indicadores ou bloquear os controles.
+  useEffect(() => {
+    const precisaRecuperarIniciais = marcas.length === 0 && canais.length === 0;
+    const somenteCanalMudou = !escopoDefinido && canaisSelecionados.size > 0;
+    if (!precisaRecuperarIniciais && !somenteCanalMudou) return;
+
+    const currentRequest = ++filterRequestId.current;
+    actionObterFiltrosEstoque({
+      canalTipos: canaisArray.length ? canaisArray : undefined,
+    })
+      .then((resultado) => {
+        if (currentRequest !== filterRequestId.current) return;
+        setMarcas(resultado.marcas);
+        setCanais(resultado.canais);
+      })
+      .catch(() => {
+        // A área de resultados comunica falhas; os filtros permanecem tocáveis.
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canaisKey, escopoDefinido]);
 
   useEffect(() => {
     if (!escopoDefinido) return;
@@ -790,19 +746,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandIdsKey, busca, filtro, canaisKey, carregar, escopoDefinido]);
-
-  useEffect(() => {
-    // Mesma regra da lista de produtos: sem empresa (ou busca) escolhida,
-    // não há "resultado" nenhum a mostrar — os cards de saúde estavam
-    // buscando o indicador de qualquer jeito, sem esperar o escopo, e
-    // mostravam números reais (agregados do catálogo inteiro) por cima da
-    // tela que dizia "Escolha uma empresa para começar". Contraditório.
-    // (O indicador antigo em memória não vaza pra tela: FaixaSaude só é
-    // renderizada com escopo definido, ver JSX mais abaixo.)
-    if (!escopoDefinido) return;
-    carregarIndicadores(brandIdsArray, canaisArray);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandIdsKey, canaisKey, carregarIndicadores, escopoDefinido]);
 
   // Detalhe de encalhe (dias parado, capital preso) só interessa quando a
   // pessoa está olhando justamente esses produtos.
@@ -842,7 +785,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
         toast.success(copy.syncSuccess.replace("{criados}", String(resultado.produtosCriados)));
         carregar(brandIdsArray, busca, filtro, canaisArray);
         carregarIndicadores(brandIdsArray, canaisArray);
-        actionContarProdutosPorCanal(brandIdsArray.length ? brandIdsArray : undefined).then(setCanais).catch(() => {});
       } else {
         toast.info(copy.syncNothingNew);
       }
@@ -1077,17 +1019,8 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
             title={copy.escolha.title}
             description={
               <span className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                {aquecimentoCompleto ? (
-                  <>
-                    <Check size={12} strokeWidth={3} style={{ color: COR.ok }} />
-                    {copy.escolha.readyHint}
-                  </>
-                ) : (
-                  <>
-                    <Loader2 size={11} className="animate-spin" />
-                    {copy.escolha.loadingHint}
-                  </>
-                )}
+                <Check size={12} strokeWidth={3} style={{ color: COR.ok }} />
+                {copy.escolha.readyHint}
               </span>
             }
           />

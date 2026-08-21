@@ -8,7 +8,7 @@ import {
   produto,
 } from "@/shared/lib/db/schema";
 import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
-import { obterAtendimento, type AtendimentoResumo } from "./atendimento.service";
+import { obterAtendimentoPorMarca, type AtendimentoResumo } from "./atendimento.service";
 import {
   LIMITE_TAXA,
   obterContasDesconectadas,
@@ -286,6 +286,7 @@ function resolverJanela(filtros?: SaudeLojaFiltros) {
 export async function obterSaudeLoja(
   ctx: CrudContext,
   filtros?: SaudeLojaFiltros,
+  dependencias?: { reclamacoes?: Promise<ReclamacoesResultado> },
 ): Promise<SaudeLojaResultado> {
   const { inicio, fim } = resolverJanela(filtros);
   const brandIds = (filtros?.brandIds ?? []).filter(Boolean);
@@ -327,6 +328,7 @@ export async function obterSaudeLoja(
     reclamacoes,
     atendimentoPorMarca,
     contasDesconectadas,
+    crescimentoPorMarca,
   ] = await Promise.all([
     ctx.db
       .select({
@@ -388,32 +390,26 @@ export async function obterSaudeLoja(
         semContaConectada: true,
       })),
     leve ? Promise.resolve<ReclamacoesResultado>({ itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: true })
-      : obterReclamacoesAbertas(ctx).catch((): ReclamacoesResultado => ({
+      : (dependencias?.reclamacoes ?? obterReclamacoesAbertas(ctx)).catch((): ReclamacoesResultado => ({
         itens: [],
         total: 0,
         pendentes: 0,
         marcasComFalha: [],
         semContaConectada: true,
       })),
-    // incluirPorCanal: false — o pilar de score e a comparação lado a lado só
-    // leem taxaResposta/medianaSegundos; a quebra por canal não é usada aqui
-    // (ela existe para o card de Atendimento, que faz sua própria chamada
-    // org-wide) e rodá-la por marca seria uma consulta extra jogada fora
-    // a cada marca.
-    leve ? Promise.resolve<Array<readonly [string, AtendimentoResumo]>>([]) : Promise.all(marcas.map(async (item) => [
-      item.id,
-      await obterAtendimento(ctx, { inicio, fim, brandIds: [item.id], incluirPorCanal: false }),
-    ] as const)),
+    // Duas consultas agrupadas (janela atual/anterior), não duas por marca.
+    leve
+      ? Promise.resolve(new Map<string, AtendimentoResumo>())
+      : obterAtendimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis }),
     leve ? Promise.resolve<ContaDesconectada[]>([]) : obterContasDesconectadas(ctx).catch((): ContaDesconectada[] => []),
+    obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis }),
   ]);
 
   const vendas = new Map(vendasPorMarca.map((linha) => [linha.brandId, linha]));
   const avaliacoes = new Map(avaliacoesPorMarca.map((linha) => [linha.brandId, linha]));
   const catalogo = new Map(catalogoPorMarca.map((linha) => [linha.brandId, linha]));
   const reputacaoPorMarca = new Map(reputacao.marcas.map((linha) => [linha.brandId, linha]));
-  const atendimento = new Map(atendimentoPorMarca);
-
-  const crescimentoPorMarca = await obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis });
+  const atendimento = atendimentoPorMarca;
 
   const resultado: SaudeMarca[] = marcas.map((item) => {
     const venda = vendas.get(item.id);

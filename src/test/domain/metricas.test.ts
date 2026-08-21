@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MercadoLivreProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { formatarDuracao, FAIXAS_SLA } from "@/modules/metricas/application/atendimento.service";
+import { formatarDuracao, FAIXAS_SLA, obterAtendimentoPorMarca } from "@/modules/metricas/application/atendimento.service";
 import { FAIXAS_SCORE, PILARES, faixaDoScore } from "@/modules/metricas/application/saude-loja.service";
 import { LIMITE_TAXA } from "@/modules/metricas/application/reputacao.service";
 
@@ -138,5 +138,27 @@ describe("funil de atendimento", () => {
     expect([...comHoras].sort((a, b) => a - b)).toEqual([...comHoras]);
     // "Sem resposta" fecha a lista: é o pior desfecho possível de uma pergunta.
     expect(FAIXAS_SLA[FAIXAS_SLA.length - 1].chave).toBe("semResposta");
+  });
+
+  it("agrupa todas as marcas em duas consultas, não duas por marca", async () => {
+    const execute = vi.fn()
+      .mockResolvedValueOnce([
+        { brand_id: "marca-a", perguntas: 10, respondidas: 8, mediana: 1800, ate1h: 5, ate4h: 2, ate24h: 1, acima24h: 0 },
+        { brand_id: "marca-b", perguntas: 4, respondidas: 4, mediana: 600, ate1h: 4, ate4h: 0, ate24h: 0, acima24h: 0 },
+      ])
+      .mockResolvedValueOnce([
+        { brand_id: "marca-a", perguntas: 10, respondidas: 5, mediana: 3600, ate1h: 5, ate4h: 0, ate24h: 0, acima24h: 0 },
+      ]);
+    const ctx = { orgId: "org", perfil: "gestor", db: { execute } } as never;
+
+    const porMarca = await obterAtendimentoPorMarca(ctx, {
+      inicio: new Date("2026-08-01T00:00:00.000Z"),
+      fim: new Date("2026-08-31T23:59:59.000Z"),
+      brandIds: ["marca-a", "marca-b"],
+    });
+
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(porMarca.get("marca-a")).toMatchObject({ taxaResposta: 80, taxaRespostaAnterior: 50, variacaoTaxaResposta: 30 });
+    expect(porMarca.get("marca-b")).toMatchObject({ taxaResposta: 100, taxaRespostaAnterior: null, variacaoTaxaResposta: null });
   });
 });

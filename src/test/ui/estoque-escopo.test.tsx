@@ -27,14 +27,12 @@ function produtoDe(brandId: string, sku: string, nome: string, slug: string, mar
 }
 
 const listarProdutos = vi.fn();
-const contarPorMarca = vi.fn();
-const contarPorCanal = vi.fn();
+const obterFiltros = vi.fn();
 const indicadores = vi.fn();
 
 vi.mock("@/app/(dashboard)/estoque/actions", () => ({
   actionListarProdutos: (...args: unknown[]) => listarProdutos(...args),
-  actionContarProdutosPorMarca: (...args: unknown[]) => contarPorMarca(...args),
-  actionContarProdutosPorCanal: (...args: unknown[]) => contarPorCanal(...args),
+  actionObterFiltrosEstoque: (...args: unknown[]) => obterFiltros(...args),
   actionIndicadoresEstoque: (...args: unknown[]) => indicadores(...args),
   actionListarProdutosParados: vi.fn(() => Promise.resolve([])),
   actionListarDivergenciasEstoque: vi.fn(() => Promise.resolve([])),
@@ -57,32 +55,36 @@ beforeEach(() => {
   // Sem isso o tour cobre a tela e atrapalha as consultas.
   window.localStorage.setItem(pagesConfig.estoque.coach.storageKey, "seen");
 
-  contarPorMarca.mockResolvedValue(MARCAS);
-  contarPorCanal.mockResolvedValue(CANAIS);
+  obterFiltros.mockResolvedValue({ marcas: MARCAS, canais: CANAIS });
   indicadores.mockResolvedValue({
     total: 460, abaixoMinimo: 0, semEstoque: 0, semMinimo: 458, parados: 0,
     capitalParado: 0, divergencias: 0,
   });
   listarProdutos.mockImplementation((opts: { brandIds?: string[]; busca?: string } = {}) => {
+    const marcasContexto = (opts as { canalTipos?: string[] }).canalTipos?.includes("mercadolivre")
+      ? MARCAS.map((m) => m.slug === "wuwu" ? { ...m, total: 0 } : m)
+      : MARCAS;
     if (opts.busca) {
       const marca = MARCAS.find((m) => `SKU-${m.slug}`.toLowerCase().includes(opts.busca!.toLowerCase()));
-      if (!marca) return Promise.resolve({ data: [], total: 0, permissions: { canManage: true } });
+      if (!marca) return Promise.resolve({ data: [], total: 0, permissions: { canManage: true }, marcas: MARCAS, canais: CANAIS, indicadores: null });
       return Promise.resolve({
         data: [produtoDe(marca.brandId, `SKU-${marca.slug}`, `Produto ${marca.name}`, marca.slug, marca.name)],
         total: 1,
         permissions: { canManage: true },
+        marcas: marcasContexto, canais: CANAIS, indicadores: null,
       });
     }
     // Com mais de uma empresa marcada, a lista soma o catálogo de cada uma —
     // é o comportamento que distingue multi-seleção de um simples radio.
     const selecionadas = MARCAS.filter((m) => opts.brandIds?.includes(m.brandId) && m.total > 0);
     if (selecionadas.length === 0) {
-      return Promise.resolve({ data: [], total: 0, permissions: { canManage: true } });
+      return Promise.resolve({ data: [], total: 0, permissions: { canManage: true }, marcas: MARCAS, canais: CANAIS, indicadores: null });
     }
     return Promise.resolve({
       data: selecionadas.map((m) => produtoDe(m.brandId, `SKU-${m.slug}`, `Produto ${m.name}`, m.slug, m.name)),
       total: selecionadas.reduce((soma, m) => soma + m.total, 0),
       permissions: { canManage: true },
+      marcas: marcasContexto, canais: CANAIS, indicadores: null,
     });
   });
 });
@@ -98,16 +100,11 @@ describe("Estoque — escopo por empresa", () => {
     expect(screen.queryByTestId("estoque-cards")).not.toBeInTheDocument();
   });
 
-  it("aquece uma consulta por empresa em segundo plano, sem escopo escolhido", async () => {
+  it("não aquece produtos em segundo plano sem escopo escolhido", async () => {
     render(<EstoqueLista />);
 
-    await waitFor(() => {
-      expect(listarProdutos).toHaveBeenCalledTimes(MARCAS.length);
-    });
-    // Aquecimento é por empresa e sem canal: é o clique que a tela espera.
-    for (const marca of MARCAS) {
-      expect(listarProdutos).toHaveBeenCalledWith({ brandIds: [marca.brandId] });
-    }
+    await screen.findByRole("button", { name: "KARZI" });
+    expect(listarProdutos).not.toHaveBeenCalled();
   });
 
   it("mostra as três empresas com a contagem cruzada pelo canal", async () => {
@@ -146,12 +143,12 @@ describe("Estoque — escopo por empresa", () => {
 
   it("recontagem das empresas acompanha o(s) canal(is) selecionado(s)", async () => {
     render(<EstoqueLista />);
-    await waitFor(() => expect(contarPorMarca).toHaveBeenCalledWith(undefined));
+    await screen.findByRole("button", { name: "KARZI" });
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
 
-    await waitFor(() => expect(contarPorMarca).toHaveBeenCalledWith(["mercadolivre"]));
+    await waitFor(() => expect(obterFiltros).toHaveBeenCalledWith({ canalTipos: ["mercadolivre"] }));
   });
 
   it("canal sozinho não abre a lista — um canal tem as três empresas dentro", async () => {
@@ -160,7 +157,7 @@ describe("Estoque — escopo por empresa", () => {
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
 
-    await waitFor(() => expect(contarPorMarca).toHaveBeenCalledWith(["mercadolivre"]));
+    await waitFor(() => expect(obterFiltros).toHaveBeenCalledWith({ canalTipos: ["mercadolivre"] }));
     expect(screen.getByTestId("estoque-escolha-empresa")).toBeInTheDocument();
     expect(screen.queryByTestId("estoque-table")).not.toBeInTheDocument();
   });
@@ -204,11 +201,14 @@ describe("Estoque — escopo por empresa", () => {
     // anunciado no Mercado Livre. Selecionar o canal depois de já ter marcado
     // a empresa não pode travar o botão — senão a pessoa fica presa com um
     // filtro que não consegue mais tirar.
-    contarPorMarca.mockImplementation((canais?: string[]) => {
-      if (canais?.includes("mercadolivre")) {
-        return Promise.resolve(MARCAS.map((m) => m.slug === "wuwu" ? { ...m, total: 0 } : m));
+    obterFiltros.mockImplementation((opts?: { canalTipos?: string[] }) => {
+      if (opts?.canalTipos?.includes("mercadolivre")) {
+        return Promise.resolve({
+          marcas: MARCAS.map((m) => m.slug === "wuwu" ? { ...m, total: 0 } : m),
+          canais: CANAIS,
+        });
       }
-      return Promise.resolve(MARCAS);
+      return Promise.resolve({ marcas: MARCAS, canais: CANAIS });
     });
 
     render(<EstoqueLista />);
@@ -233,7 +233,7 @@ describe("Estoque — escopo por empresa", () => {
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
-    await waitFor(() => expect(contarPorMarca).toHaveBeenCalledWith(["mercadolivre"]));
+    await waitFor(() => expect(obterFiltros).toHaveBeenCalledWith({ canalTipos: ["mercadolivre"] }));
     expect(ml).toHaveAttribute("aria-pressed", "true");
 
     // Shopee está desconectado neste fixture — permanece bloqueado mesmo com
@@ -244,7 +244,7 @@ describe("Estoque — escopo por empresa", () => {
     const shopee = screen.getByRole("button", { name: /Shopee/ });
     expect(shopee).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(shopee);
-    expect(contarPorMarca).not.toHaveBeenCalledWith(["shopee"]);
+    expect(obterFiltros).not.toHaveBeenCalledWith({ canalTipos: ["shopee"] });
   });
 
   it("busca abre a lista sem escolher empresa — um SKU já é escopo exato", async () => {

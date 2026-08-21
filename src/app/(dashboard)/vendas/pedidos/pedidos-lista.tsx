@@ -5,9 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, Ban, RefreshCw, Clock3 } from "lucide-react";
-import {
-  actionListarPedidosDetalhados, actionListarPedidosParaPdf, actionContarPedidosPorMarca, actionContarPedidosPorCanal,
-} from "../actions";
+import { actionListarPedidosDetalhados, actionListarPedidosParaPdf } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -24,8 +22,9 @@ import { exportarPedidosPdf } from "./exportar-pdf";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
-type Marca = Awaited<ReturnType<typeof actionContarPedidosPorMarca>>[number];
-type Canal = Awaited<ReturnType<typeof actionContarPedidosPorCanal>>[number];
+type ConsultaPedidos = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>;
+type Marca = ConsultaPedidos["marcas"][number];
+type Canal = ConsultaPedidos["canais"][number];
 type Resumo = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["resumo"];
 
 const copy = pagesConfig.pedidos;
@@ -289,7 +288,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [brandIds, setBrandIds] = useState<string[]>([]);
   const [canaisSel, setCanaisSel] = useState<CanalVenda[]>([]);
@@ -306,24 +305,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
   const requestId = useRef(0);
   const [, startTransition] = useTransition();
-
-  // A primeira execução de cada efeito é pulada só quando o servidor de fato
-  // mandou a contagem pronta (ver page.tsx) — aí repeti-la no navegador seria
-  // refazer o que acabou de chegar no HTML. Se a pré-busca falhou ou veio
-  // vazia, a guarda nasce falsa e a tela busca normalmente, como antes.
-  const primeiraContagemMarcas = useRef(marcasIniciais.length > 0);
-  const primeiraContagemCanais = useRef(canaisIniciais.length > 0);
-
-  useEffect(() => {
-    if (primeiraContagemMarcas.current) { primeiraContagemMarcas.current = false; return; }
-    actionContarPedidosPorMarca(canaisSel.length ? canaisSel : undefined).then(setMarcas).catch(() => setMarcas([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canaisSel.join(",")]);
-
-  useEffect(() => {
-    if (primeiraContagemCanais.current) { primeiraContagemCanais.current = false; return; }
-    actionContarPedidosPorCanal(brandIds.length ? brandIds : undefined).then(setCanais).catch(() => setCanais([]));
-  }, [brandIds]);
 
   useEffect(() => {
     const task = window.setTimeout(() => setBuscaAplicada(busca.trim()), 350);
@@ -347,6 +328,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         setPedidos(res.data);
         setTotal(res.total);
         setResumo(res.resumo);
+        setMarcas(res.marcas);
+        setCanais(res.canais);
         setAtualizadoEm(new Date());
       } catch {
         if (currentRequest !== requestId.current) return;
@@ -497,7 +480,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             rotulo="Período"
             valor={{ inicio: dataInicial, fim: dataFinal }}
             onChange={({ inicio, fim }) => { setDataInicial(inicio); setDataFinal(fim); }}
-            disabled={loading}
           />
         </div>
       </div>

@@ -1,7 +1,7 @@
 import pagesConfig from "@/config/pages.json";
 import { requirePageAuth } from "@/shared/lib/auth/session";
 import { PedidosLista } from "./pedidos/pedidos-lista";
-import { actionContarPedidosPorCanal, actionContarPedidosPorMarca } from "./actions";
+import { actionObterFiltrosPedidos } from "./actions";
 
 export const metadata = { title: pagesConfig.pedidos.metadataTitle };
 
@@ -12,10 +12,8 @@ export const metadata = { title: pagesConfig.pedidos.metadataTitle };
 export default async function VendasPage() {
   await requirePageAuth();
 
-  const [marcas, canais] = await Promise.all([
-    actionContarPedidosPorMarca().catch(() => []),
-    actionContarPedidosPorCanal().catch(() => []),
-  ]);
+  const { marcas, canais } = await actionObterFiltrosPedidos()
+    .catch(() => ({ marcas: [], canais: [] }));
 
   return <PedidosLista marcasIniciais={marcas} canaisIniciais={canais} />;
 }

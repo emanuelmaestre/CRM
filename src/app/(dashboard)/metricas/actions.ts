@@ -5,7 +5,8 @@ import { medirTempo } from "@/shared/lib/observability/medir-tempo";
 import { z } from "zod";
 import {
   contarPublicacoesPorMarca,
-  obterDesempenhoPublicacoes,
+  enriquecerDesempenhoPublicacoes,
+  obterDesempenhoPublicacoesBase,
   PUBLICACOES_CACHE_TAG,
   type DesempenhoPublicacoesResultado,
 } from "@/modules/metricas/application/publicacoes.service";
@@ -14,6 +15,7 @@ import { assertPerfil } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { obterSaudeLoja, type SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import { obterAtendimento, type AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
+import { obterReclamacoesMetricasComCache } from "./reclamacoes-cache";
 import { obterPosVenda, type PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 import {
   aprovarSugestao,
@@ -39,15 +41,27 @@ const PublicacoesSchema = z.object({
   brandId: z.string().uuid(),
   inicio: z.string().date(),
   fim: z.string().date(),
+  detalhes: z.boolean().optional(),
 });
+
+type ConsultaPublicacoes = Omit<z.infer<typeof PublicacoesSchema>, "detalhes">;
+
+const obterDesempenhoPublicacoesBaseComCache = unstable_cache(
+  async (orgId: string, filtros: ConsultaPublicacoes) =>
+    obterDesempenhoPublicacoesBase({ db, orgId, perfil: "gestor" }, filtros),
+  ["metricas-publicacoes-base"],
+  { revalidate: 120, tags: [PUBLICACOES_CACHE_TAG] },
+);
 
 /* Publicações pagina as métricas patrocinadas do período e consulta a
    qualidade de no máximo 20 anúncios exibidos. Os argumentos entram na chave do cache,
    então organizações, marcas e períodos nunca compartilham resultado. A
    autorização continua fora do cache e roda em toda chamada. */
 const obterDesempenhoPublicacoesComCache = unstable_cache(
-  async (orgId: string, filtros: z.infer<typeof PublicacoesSchema>) =>
-    obterDesempenhoPublicacoes({ db, orgId, perfil: "gestor" }, filtros),
+  async (orgId: string, filtros: ConsultaPublicacoes) => {
+    const base = await obterDesempenhoPublicacoesBaseComCache(orgId, filtros);
+    return enriquecerDesempenhoPublicacoes({ db, orgId, perfil: "gestor" }, filtros, base);
+  },
   ["metricas-publicacoes"],
   { revalidate: 120, tags: [PUBLICACOES_CACHE_TAG] },
 );
@@ -58,9 +72,12 @@ export async function actionObterDesempenhoPublicacoes(
   const ctx = await getCrudContext();
   assertPerfil(ctx, ["admin", "gestor"]);
   const filtrosValidos = PublicacoesSchema.parse(filtros);
+  const { detalhes, ...consulta } = filtrosValidos;
   return medirTempo(
     "metricas/publicacoes",
-    () => obterDesempenhoPublicacoesComCache(ctx.orgId, filtrosValidos),
+    () => detalhes === false
+      ? obterDesempenhoPublicacoesBaseComCache(ctx.orgId, consulta)
+      : obterDesempenhoPublicacoesComCache(ctx.orgId, consulta),
   );
 }
 
@@ -96,7 +113,9 @@ export async function actionContarPublicacoesPorMarca(
 export async function actionObterSaudeLoja(filtros: MetricasFiltros = {}): Promise<SaudeLojaResultado> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
-  return medirTempo("metricas/saude-loja", () => obterSaudeLoja(ctx, FiltrosSchema.parse(filtros)));
+  const filtrosValidos = FiltrosSchema.parse(filtros);
+  const reclamacoes = filtrosValidos.leve ? undefined : obterReclamacoesMetricasComCache(ctx.orgId);
+  return medirTempo("metricas/saude-loja", () => obterSaudeLoja(ctx, filtrosValidos, { reclamacoes }));
 }
 
 /** Consulta separada do score porque o funil não depende de nenhum canal

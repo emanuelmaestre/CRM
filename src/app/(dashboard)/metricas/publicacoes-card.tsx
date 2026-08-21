@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
-import { BadgeDollarSign, Eye, Gauge, LayoutGrid, Megaphone, MousePointerClick, Package, ShieldCheck, TriangleAlert, Wallet } from "lucide-react";
-import { actionContarPublicacoesPorMarca, actionObterDesempenhoPublicacoes } from "./actions";
+import { BadgeDollarSign, Eye, Gauge, LayoutGrid, Loader2, Megaphone, MousePointerClick, Package, ShieldCheck, TriangleAlert, Wallet } from "lucide-react";
+import { actionObterDesempenhoPublicacoes } from "./actions";
 import { Card, CardHead, AvisoParcial } from "./metricas-primitives";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { PublicidadeIllustration } from "@/shared/design-system/primitives/illustrations";
@@ -164,65 +164,62 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
   });
   const emVoo = useRef(new Set<string>());
 
-  // Número ao lado de cada pílula de marca/canal — mesmo espírito do
-  // Avaliações, só que aqui não vem de graça do banco: exige uma chamada à
-  // API de Product Ads por marca. Busca todas de uma vez ao abrir o card
-  // (não só a selecionada), porque a pílula precisa mostrar o total mesmo
-  // antes de a marca ser escolhida.
-  const [contagemPorMarca, setContagemPorMarca] = useState<Record<string, number>>({});
-  useEffect(() => {
-    const brandIds = marcas.map((m) => m.brandId);
-    if (brandIds.length === 0) return;
-    let ativo = true;
-    actionContarPublicacoesPorMarca({ brandIds, inicio, fim })
-      .then((resultado) => {
-        if (!ativo) return;
-        setContagemPorMarca(Object.fromEntries(resultado.map((r) => [r.brandId, r.total])));
-      })
-      .catch(() => { if (ativo) setContagemPorMarca({}); });
-    return () => { ativo = false; };
+  // O pré-carregamento chega progressivamente (primeiro Product Ads, depois
+  // qualidade). Mesclar durante a renderização permite que um card já aberto
+  // aproveite as duas etapas sem efeito intermediário nem render encadeado.
+  const resultadosVisiveis = useMemo(() => {
+    if (!preCarregado || preCarregado.inicio !== inicio || preCarregado.fim !== fim) return resultados;
+    return { ...resultados, [chaveMarca(preCarregado.brandId)]: preCarregado.dados };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marcas.map((m) => m.brandId).join(","), inicio, fim]);
-  const totalPublicacoesGeral = Object.values(contagemPorMarca).reduce((soma, valor) => soma + valor, 0);
+  }, [resultados, preCarregado, inicio, fim]);
 
   useEffect(() => {
     if (!canalAtivo) return;
     brandIds.forEach((id) => {
       const key = chaveMarca(id);
-      if (key in resultados || emVoo.current.has(key)) return;
+      if (key in resultadosVisiveis || emVoo.current.has(key)) return;
       emVoo.current.add(key);
-      actionObterDesempenhoPublicacoes({ brandId: id, inicio, fim })
-        .then((resultado) => setResultados((atual) => ({ ...atual, [key]: resultado })))
-        .catch(() => setResultados((atual) => ({ ...atual, [key]: null })))
-        .finally(() => emVoo.current.delete(key));
+      const filtros = { brandId: id, inicio, fim };
+      actionObterDesempenhoPublicacoes({ ...filtros, detalhes: false })
+        .then((resultado) => {
+          setResultados((atual) => ({ ...atual, [key]: resultado }));
+          actionObterDesempenhoPublicacoes({ ...filtros, detalhes: true })
+            .then((completo) => setResultados((atual) => ({ ...atual, [key]: completo })))
+            .catch(() => { /* Mantém as métricas principais já carregadas. */ })
+            .finally(() => emVoo.current.delete(key));
+        })
+        .catch(() => {
+          setResultados((atual) => ({ ...atual, [key]: null }));
+          emVoo.current.delete(key);
+        });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandIds, inicio, fim, canalAtivo]);
 
   const marcaPorId = new Map(marcas.map((m) => [m.brandId, m]));
   const selecionadas = canalAtivo ? brandIds : [];
-  const carregando = selecionadas.length > 0 && selecionadas.some((id) => !(chaveMarca(id) in resultados));
+  const carregando = selecionadas.length > 0 && selecionadas.some((id) => !(chaveMarca(id) in resultadosVisiveis));
   const itensCombinados = selecionadas.flatMap((id) => {
-    const dados = resultados[chaveMarca(id)];
+    const dados = resultadosVisiveis[chaveMarca(id)];
     if (!dados) return [];
     const marca = marcaPorId.get(id);
     return dados.itens.map((item) => ({ item, marca }));
   });
   const itensSemVeiculacao = selecionadas.flatMap((id) => {
-    const dados = resultados[chaveMarca(id)];
+    const dados = resultadosVisiveis[chaveMarca(id)];
     if (!dados) return [];
     const marca = marcaPorId.get(id);
     return dados.semVeiculacao.map((item) => ({ item, marca }));
   });
   const resumos = selecionadas.flatMap((id) => {
-    const dados = resultados[chaveMarca(id)];
+    const dados = resultadosVisiveis[chaveMarca(id)];
     return dados ? [dados.resumo] : [];
   });
-  const algumParcial = selecionadas.some((id) => resultados[chaveMarca(id)]?.parcial);
+  const algumParcial = selecionadas.some((id) => resultadosVisiveis[chaveMarca(id)]?.parcial);
   // null só acontece pelo .catch da busca (a service nunca retorna null em
   // sucesso) — sem essa checagem, "deu erro" e "não tem publicação" caíam
   // na mesma tela de vazio, e quem via não sabia se devia tentar de novo.
-  const algumErro = selecionadas.some((id) => chaveMarca(id) in resultados && resultados[chaveMarca(id)] === null);
+  const algumErro = selecionadas.some((id) => chaveMarca(id) in resultadosVisiveis && resultadosVisiveis[chaveMarca(id)] === null);
   const multiplasMarcas = selecionadas.length > 1;
   const totalPublicacoes = resumos.reduce((soma, item) => soma + item.totalPublicacoes, 0);
   const totalComVeiculacao = resumos.reduce((soma, item) => soma + item.comVeiculacao, 0);
@@ -230,6 +227,27 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
   const investimentoTotal = resumos.reduce((soma, item) => soma + item.investimento, 0);
   const receitaTotal = resumos.reduce((soma, item) => soma + item.receita, 0);
   const retornoMedio = investimentoTotal > 0 ? receitaTotal / investimentoTotal : null;
+  const contagensSelecionadas = brandIds.flatMap((brandId) => {
+    const dados = resultadosVisiveis[chaveMarca(brandId)];
+    return dados ? [dados.resumo.totalPublicacoes] : [];
+  });
+  // O contador do canal representa somente as marcas escolhidas. Exibir a
+  // soma parcial das marcas já consultadas pareceria um total geral incorreto.
+  const totalPublicacoesGeral = brandIds.length > 0 && contagensSelecionadas.length === brandIds.length
+    ? contagensSelecionadas.reduce((soma, valor) => soma + valor, 0)
+    : null;
+  const algumaContagemFalhou = brandIds.some((brandId) => resultadosVisiveis[chaveMarca(brandId)] === null);
+
+  function contadorMarca(brandId: string) {
+    const key = chaveMarca(brandId);
+    if (!(key in resultadosVisiveis)) {
+      return <Loader2 size={12} className="animate-spin" aria-label="Contagem ainda não consultada" />;
+    }
+    const dados = resultadosVisiveis[key];
+    return dados
+      ? dados.resumo.totalPublicacoes
+      : <TriangleAlert size={12} aria-label="Não foi possível consultar a contagem" />;
+  }
 
   function alternarMarca(id: string) {
     setBrandIds((atual) => (
@@ -256,7 +274,13 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
         }`}>
         {canalAtivo && <HaloSelecao cor="#8a7000" />}
         <ChannelLogo canal="mercadolivre" size="sm" variant="logo" />
-        <span className="text-xs tabular-nums text-muted-foreground">{totalPublicacoesGeral}</span>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {totalPublicacoesGeral === null
+            ? algumaContagemFalhou
+              ? <TriangleAlert size={12} aria-label="Não foi possível consultar a contagem" />
+              : <Loader2 size={12} className="animate-spin" aria-label="Contagem ainda não consultada" />
+            : totalPublicacoesGeral}
+        </span>
       </motion.button>
       {CANAIS_FUTUROS.map(({ canal, label }) => (
         <span key={canal} role="switch" aria-checked="false" aria-disabled="true"
@@ -288,7 +312,9 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
             }`}>
             {ativo && accent && <HaloSelecao cor={accent} />}
             {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={17} /> : marca.marcaLabel}
-            <span className="text-xs tabular-nums text-muted-foreground">{contagemPorMarca[marca.brandId] ?? 0}</span>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {contadorMarca(marca.brandId)}
+            </span>
           </motion.button>
         );
       })}
@@ -320,6 +346,9 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
 
   const reduzir = useReducedMotion();
   const periodo = periodoLabel(inicio, fim);
+  const aguardandoPrimeiraResposta = !preCarregado
+    || preCarregado.inicio !== inicio
+    || preCarregado.fim !== fim;
 
   return (
     <Card>
@@ -330,7 +359,11 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
       {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusPublicacaoBotao /></div>, acaoSlot)}
       <div className="px-4 pb-5 pt-4 sm:px-5">
         <AnimatePresence mode="wait">
-          {brandIds.length === 0 ? (
+          {aguardandoPrimeiraResposta ? (
+            <div key="carregamento-inicial" role="status" aria-label="Carregando publicações">
+              <Skeleton className="h-52 w-full" />
+            </div>
+          ) : brandIds.length === 0 ? (
             <EstadoVazio key="sem-marca" icone={Megaphone} texto="Selecione uma marca acima para ver as publicações patrocinadas." ilustrado />
           ) : !canalAtivo ? (
             <EstadoVazio key="sem-canal" icone={Megaphone} texto="Nenhum canal selecionado. Ative o Mercado Livre acima para ver as publicações." />
@@ -433,7 +466,9 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                   const roas = item.investimento > 0 ? item.receita / item.investimento : null;
                   const qualidadeLabel = item.qualidade !== null
                     ? `${inteiro.format(Math.round(item.qualidade))}/100`
-                    : item.qualidadeStatus === "nao_aplicavel" ? "Não aplicável" : "Indisponível";
+                    : item.qualidadeStatus === "nao_consultada"
+                      ? "Consultando"
+                      : item.qualidadeStatus === "nao_aplicavel" ? "Não aplicável" : "Indisponível";
                   return (
                     <motion.article
                       key={`${marca?.brandId ?? ""}:${item.itemId}`}
@@ -503,7 +538,9 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                               { label: "Nível", valor: traduzirNivelQualidade(item.nivelQualidade) },
                               { label: "Pendências abertas", valor: String(item.pendencias.length) },
                             ]}
-                            nota={item.qualidadeStatus === "nao_aplicavel" || item.qualidadeStatus === "indisponivel"
+                            nota={item.qualidadeStatus === "nao_consultada"
+                              ? "As métricas de publicidade já estão disponíveis. Qualidade e pendências estão sendo consultadas separadamente para não atrasar o restante do card."
+                              : item.qualidadeStatus === "nao_aplicavel" || item.qualidadeStatus === "indisponivel"
                               ? motivoQualidadeIndisponivel(item.status, item.qualidadeStatus)
                               : "A pontuação e as pendências representam a avaliação atual da publicação e não variam com o período selecionado. Uma nota alta não garante cliques ou vendas."}
                           />
@@ -632,7 +669,9 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                             { label: "Pontuação", valor: qualidadeLabel },
                             { label: "Pendências abertas", valor: String(item.pendencias.length) },
                           ]}
-                          nota={item.qualidadeStatus === "nao_aplicavel" || item.qualidadeStatus === "indisponivel"
+                          nota={item.qualidadeStatus === "nao_consultada"
+                            ? "O nível de qualidade está sendo consultado. Impressões, cliques, vendas, investimento e receita já podem ser analisados normalmente."
+                            : item.qualidadeStatus === "nao_aplicavel" || item.qualidadeStatus === "indisponivel"
                             ? motivoQualidadeIndisponivel(item.status, item.qualidadeStatus)
                             : "O nível resume a pontuação atual do cadastro. Ele não mede rentabilidade e não acompanha o intervalo escolhido no calendário."}
                         />

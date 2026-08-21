@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   AlertTriangle, BarChart3, Gauge, Hourglass, Megaphone,
   Package, RefreshCw, ShoppingBag, Sparkles, TrendingDown, TrendingUp,
 } from "lucide-react";
-import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
-import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { stagger } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -19,19 +18,14 @@ import metricasConfig from "@/config/metricas.json";
 import { agruparPorSecao, Bloco, Foco, RotuloSecao, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo } from "./metricas-primitives";
-import { FaturamentoCard } from "./painel/faturamento-card";
-import { GiroBaixoCard, MaisVendidosCard, ParadosCard, ReposicaoCard } from "./painel/listas-cards";
-import { ReclamacoesCard } from "./painel/reclamacoes-card";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
-import { actionContarPedidosPorCanal, actionContarPedidosPorMarca } from "../vendas/actions";
+import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
   actionListarInsights, actionListarSugestoes,
   actionObterDesempenhoPublicacoes, actionObterPosVenda, actionObterSaudeLoja,
 } from "./actions";
-import { AcoesCard, type Insight, type Sugestao } from "./acoes-card";
-import { ComparacaoCard } from "./comparacao-card";
-import { PublicacoesCard, type DesempenhoPreCarregado } from "./publicacoes-card";
-import { ScoreCard } from "./score-card";
+import type { Insight, Sugestao } from "./acoes-card";
+import type { DesempenhoPreCarregado } from "./publicacoes-card";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -41,6 +35,23 @@ const copy = metricasConfig.mosaico;
 const blocosCopy = copy.blocos;
 
 const FILTRO_PADRAO: CardFiltro = { brandId: [], canal: [] };
+
+function PainelCarregando() {
+  return <div className="shimmer h-52 w-full rounded-[1.25rem] bg-muted" role="status" aria-label="Carregando painel" />;
+}
+
+const CalendarioPopoverRange = dynamic(() => import("@/shared/design-system/primitives/CalendarioPopoverRange").then((modulo) => modulo.CalendarioPopoverRange));
+const BotaoHoje = dynamic(() => import("@/shared/design-system/primitives/BotaoHoje").then((modulo) => modulo.BotaoHoje));
+const FaturamentoCard = dynamic(() => import("./painel/faturamento-card").then((modulo) => modulo.FaturamentoCard), { loading: PainelCarregando });
+const ReclamacoesCard = dynamic(() => import("./painel/reclamacoes-card").then((modulo) => modulo.ReclamacoesCard), { loading: PainelCarregando });
+const AcoesCard = dynamic(() => import("./acoes-card").then((modulo) => modulo.AcoesCard), { loading: PainelCarregando });
+const ComparacaoCard = dynamic(() => import("./comparacao-card").then((modulo) => modulo.ComparacaoCard), { loading: PainelCarregando });
+const PublicacoesCard = dynamic(() => import("./publicacoes-card").then((modulo) => modulo.PublicacoesCard), { loading: PainelCarregando });
+const ScoreCard = dynamic(() => import("./score-card").then((modulo) => modulo.ScoreCard), { loading: PainelCarregando });
+const GiroBaixoCard = dynamic(() => import("./painel/listas-cards").then((modulo) => modulo.GiroBaixoCard), { loading: PainelCarregando });
+const MaisVendidosCard = dynamic(() => import("./painel/listas-cards").then((modulo) => modulo.MaisVendidosCard), { loading: PainelCarregando });
+const ParadosCard = dynamic(() => import("./painel/listas-cards").then((modulo) => modulo.ParadosCard), { loading: PainelCarregando });
+const ReposicaoCard = dynamic(() => import("./painel/listas-cards").then((modulo) => modulo.ReposicaoCard), { loading: PainelCarregando });
 
 /* ── Datas ─────────────────────────────────────────────────────── */
 
@@ -133,10 +144,9 @@ function useDadosDoCard(
    foco — decisão tomada com o usuário). */
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
-function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, periodoLabel, accent }: {
+function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent }: {
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;
-  carregandoSaude: boolean;
   periodoLabel?: string;
   /** Acento do card em foco — o calendário e o "Hoje" pintam com a mesma
    *  cor do ícone do card, em vez de um teal genérico igual para todos. */
@@ -149,12 +159,10 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, periodoLabel, acc
         valor={{ inicio: periodo.inicio, fim: periodo.fim }}
         max={hoje}
         onChange={({ inicio, fim }) => trocarDatas(inicio, fim)}
-        disabled={carregandoSaude}
         accent={accent}
       />
       <BotaoHoje
         ativo={periodo.inicio === hoje && periodo.fim === hoje}
-        disabled={carregandoSaude}
         onClick={() => {
           const jaEstaEmHoje = periodo.inicio === hoje && periodo.fim === hoje;
           trocarDatas(jaEstaEmHoje ? "" : hoje, jaEstaEmHoje ? "" : hoje);
@@ -276,8 +284,9 @@ export function Mosaico({
 
   useEffect(() => {
     if (primeirasContagens.current) { primeirasContagens.current = false; return; }
-    actionContarPedidosPorMarca().then(setMarcas).catch(() => setMarcas([]));
-    actionContarPedidosPorCanal().then(setCanais).catch(() => setCanais([]));
+    actionObterFiltrosPedidos()
+      .then((resultado) => { setMarcas(resultado.marcas); setCanais(resultado.canais); })
+      .catch(() => { setMarcas([]); setCanais([]); });
   }, []);
 
   // Independente do resto: depende da API do Mercado Livre, que é lenta. Não
@@ -378,7 +387,18 @@ export function Mosaico({
   // Só a primeira marca (a aba padrão do card) — trocar de aba com o card já
   // aberto continua buscando na hora, é uma escolha de quem já está olhando.
   const [publicacoes, setPublicacoes] = useState<DesempenhoPreCarregado | null>(publicacoesInicial);
-  const primeiraMarcaPublicacoes = saude.dados?.marcas[0]?.brandId ?? null;
+  // Publicações não depende de Saúde para descobrir quais marcas existem.
+  // Os filtros leves já chegaram no HTML; Saúde pode continuar no próprio
+  // ritmo enquanto Product Ads começa em paralelo para a primeira marca.
+  const marcasPublicacoes = useMemo(() => {
+    if (saude.dados?.marcas.length) return saude.dados.marcas;
+    return marcas.map((marca) => ({
+      brandId: marca.brandId,
+      marca: marca.slug,
+      marcaLabel: marca.nome,
+    }));
+  }, [saude.dados, marcas]);
+  const primeiraMarcaPublicacoes = marcasPublicacoes[0]?.brandId ?? null;
   const primeirasPublicacoes = useRef(Boolean(publicacoesInicial));
   useEffect(() => {
     if (primeirasPublicacoes.current) { primeirasPublicacoes.current = false; return; }
@@ -386,8 +406,17 @@ export function Mosaico({
     const inicioEfetivo = inicio ?? diasAtras(29);
     const fimEfetivo = fim ?? hoje;
     let ativo = true;
-    actionObterDesempenhoPublicacoes({ brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo })
-      .then((dados) => { if (ativo) setPublicacoes({ brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo, dados }); })
+    const filtros = { brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo };
+    actionObterDesempenhoPublicacoes({ ...filtros, detalhes: false })
+      .then((dados) => {
+        if (!ativo) return;
+        setPublicacoes({ ...filtros, dados });
+        // Qualidade, pendências e data completam a mesma tela depois. O cache
+        // do servidor reaproveita a listagem Product Ads desta primeira etapa.
+        actionObterDesempenhoPublicacoes({ ...filtros, detalhes: true })
+          .then((completo) => { if (ativo) setPublicacoes({ ...filtros, dados: completo }); })
+          .catch(() => { /* As métricas principais já estão disponíveis. */ });
+      })
       .catch(() => { if (ativo) setPublicacoes({ brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo, dados: null }); });
     return () => { ativo = false; };
   }, [primeiraMarcaPublicacoes, inicio, fim]);
@@ -437,11 +466,6 @@ export function Mosaico({
   );
 
   const dadosFaturamento = faturamento.dados?.faturamento ?? null;
-  // `?? []` sozinho cria um array novo a cada render mesmo com `saude.dados`
-  // estável — o memo abaixo prende a mesma referência enquanto `marcas` não
-  // muda de fato, para não invalidar o bloco de Publicações à toa.
-  const marcasPublicacoes = useMemo(() => saude.dados?.marcas ?? [], [saude.dados]);
-
   const blocoFaturamento = useMemo<BlocoDef>(() => ({
     id: "faturamento",
     secao: "financeiro",
@@ -761,6 +785,10 @@ export function Mosaico({
       titulo: blocosCopy.publicacoes.titulo,
       icone: Megaphone,
       accent: "var(--acento-3)",
+      carregando: !publicacoes
+        || publicacoes.brandId !== primeiraMarcaPublicacoes
+        || publicacoes.inicio !== (inicio ?? diasAtras(29))
+        || publicacoes.fim !== (fim ?? hoje),
       resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
       explicacao: {
         resumo: "Como cada anúncio patrocinado se saiu no Mercado Livre durante o período selecionado, sem misturar vendas orgânicas com resultados da publicidade.",
@@ -781,7 +809,7 @@ export function Mosaico({
         />
       ),
     };
-  }, [marcasPublicacoes, inicio, fim, publicacoes]);
+  }, [marcasPublicacoes, primeiraMarcaPublicacoes, inicio, fim, publicacoes]);
 
   // Junta, separa em seções (Financeiro / Saúde / Atendimento / Estoque /
   // Marketing) e ordena por urgência dentro de cada uma — o trabalho pesado
@@ -929,7 +957,6 @@ export function Mosaico({
           <BarraPeriodo
             periodo={periodo}
             trocarDatas={trocarDatas}
-            carregandoSaude={carregandoSaude}
             periodoLabel={saude.dados?.periodoLabel}
             accent={blocoAberto?.accent}
           />

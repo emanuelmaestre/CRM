@@ -30,14 +30,20 @@ export async function actionListarClientes(busca?: string, brandIds?: string[], 
   const ctx = await getCrudContext();
   const brandIdsValidados = brandIds?.length ? z.array(BrandIdSchema).parse(brandIds) : undefined;
   const canalTiposValidados = canalTipos?.length ? z.array(CanalVendaSchema).parse(canalTipos) : undefined;
-  const result = await listarClientes(ctx, {
-    busca: busca?.trim(),
-    brandIds: brandIdsValidados,
-    canalTipos: canalTiposValidados,
-    limit: 50,
-  });
+  const [result, marcas, canais] = await Promise.all([
+    listarClientes(ctx, {
+      busca: busca?.trim(),
+      brandIds: brandIdsValidados,
+      canalTipos: canalTiposValidados,
+      limit: 50,
+    }),
+    contarClientesPorMarca(ctx, { canalTipos: canalTiposValidados }),
+    contarClientesPorCanal(ctx, { brandIds: brandIdsValidados }),
+  ]);
   return {
     ...result,
+    marcas,
+    canais,
     permissions: { canArchive: ctx.perfil === "admin" || ctx.perfil === "gestor" },
   };
 }
@@ -83,6 +89,15 @@ export async function actionCriarAnotacao(clienteId: string, texto: string) {
   const nova = await criarAnotacaoCliente(ctx, { clienteId: ClienteIdSchema.parse(clienteId), texto });
   revalidatePath(`/clientes/${clienteId}`);
   return nova;
+}
+
+export async function actionObterFiltrosClientes() {
+  const ctx = await getCrudContext();
+  const [marcas, canais] = await Promise.all([
+    contarClientesPorMarca(ctx),
+    contarClientesPorCanal(ctx),
+  ]);
+  return { marcas, canais };
 }
 
 export async function actionCriarTarefaCliente(clienteId: string, titulo: string, responsavelId?: string, prazo?: string) {

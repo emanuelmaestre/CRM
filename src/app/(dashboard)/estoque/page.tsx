@@ -1,5 +1,5 @@
 import { EstoqueLista } from "./estoque-lista";
-import { actionContarProdutosPorCanal, actionContarProdutosPorMarca } from "./actions";
+import { actionObterFiltrosEstoque } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
 export const metadata = { title: pagesConfig.estoque.metadataTitle };
@@ -9,10 +9,8 @@ export const metadata = { title: pagesConfig.estoque.metadataTitle };
    JavaScript carregava. Resolvidas aqui, viajam dentro do HTML da primeira
    resposta e a tela nasce com os filtros prontos. */
 export default async function EstoquePage() {
-  const [marcas, canais] = await Promise.all([
-    actionContarProdutosPorMarca().catch(() => []),
-    actionContarProdutosPorCanal().catch(() => []),
-  ]);
+  const { marcas, canais } = await actionObterFiltrosEstoque()
+    .catch(() => ({ marcas: [], canais: [] }));
 
   return <EstoqueLista marcasIniciais={marcas} canaisIniciais={canais} />;
 }

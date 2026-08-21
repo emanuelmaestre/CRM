@@ -1,5 +1,5 @@
 import { ClientesLista } from "./clientes-lista";
-import { actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
+import { actionObterFiltrosClientes } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
 export const metadata = { title: pagesConfig.clientes.metadataTitle };
@@ -16,10 +16,8 @@ export const metadata = { title: pagesConfig.clientes.metadataTitle };
    próprio componente recarrega a contagem no primeiro filtro que o usuário
    mexer. */
 export default async function ClientesPage() {
-  const [marcas, canais] = await Promise.all([
-    actionContarClientesPorMarca().catch(() => []),
-    actionContarClientesPorCanal().catch(() => []),
-  ]);
+  const { marcas, canais } = await actionObterFiltrosClientes()
+    .catch(() => ({ marcas: [], canais: [] }));
 
   return <ClientesLista marcasIniciais={marcas} canaisIniciais={canais} />;
 }

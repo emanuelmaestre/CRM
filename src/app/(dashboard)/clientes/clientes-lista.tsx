@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Eye, PlugZap2, RefreshCw } from "lucide-react";
 import { springs, transicao, variantes, escalonamento, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
-import { actionListarClientes, actionContarClientesPorCanal, actionContarClientesPorMarca } from "./actions";
+import { actionListarClientes } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -210,8 +210,9 @@ function variantesLinha(reduzir: boolean | null) {
   return variantes(reduzir, { hidden: { opacity: 0 }, show: { opacity: 1, transition: springs.settleFast } });
 }
 
-type ContagemCanais = Awaited<ReturnType<typeof actionContarClientesPorCanal>>;
-type ContagemMarcas = Awaited<ReturnType<typeof actionContarClientesPorMarca>>;
+type ConsultaClientes = Awaited<ReturnType<typeof actionListarClientes>>;
+type ContagemCanais = ConsultaClientes["canais"];
+type ContagemMarcas = ConsultaClientes["marcas"];
 
 export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
   /** Contagens já resolvidas no servidor (ver page.tsx) — chegam junto com o
@@ -225,7 +226,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [total, setTotal] = useState(0);
   const [busca, setBusca] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const requestId = useRef(0);
   const [, startTransition] = useTransition();
 
@@ -241,25 +242,6 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const brandIdsKey = brandIdsArray.slice().sort().join(",");
   const canaisKey = canaisArray.slice().sort().join(",");
 
-  // A primeira execução de cada efeito é pulada só quando o servidor de fato
-  // mandou a contagem pronta (ver page.tsx) — aí repeti-la no navegador seria
-  // refazer o que acabou de chegar no HTML. Se a pré-busca falhou ou veio
-  // vazia, a guarda nasce falsa e a tela busca normalmente, como antes.
-  const primeiraContagemMarcas = useRef(marcasIniciais.length > 0);
-  const primeiraContagemCanais = useRef(canaisIniciais.length > 0);
-
-  useEffect(() => {
-    if (primeiraContagemMarcas.current) { primeiraContagemMarcas.current = false; return; }
-    actionContarClientesPorMarca(canaisArray.length ? canaisArray : undefined).then(setMarcas).catch(() => setMarcas([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canaisKey]);
-
-  useEffect(() => {
-    if (primeiraContagemCanais.current) { primeiraContagemCanais.current = false; return; }
-    actionContarClientesPorCanal(brandIdsArray.length ? brandIdsArray : undefined).then(setCanais).catch(() => setCanais([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandIdsKey]);
-
   const carregar = useCallback((q?: string, marcasAtuais?: string[], canaisAtuais?: string[]) => {
     const currentRequest = ++requestId.current;
     startTransition(async () => {
@@ -273,6 +255,8 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
         if (currentRequest !== requestId.current) return;
         setClientes(res.data as Cliente[]);
         setTotal(res.total);
+        setMarcas(res.marcas);
+        setCanais(res.canais);
       } catch {
         if (currentRequest !== requestId.current) return;
         toast.error(copy.messages.loadError);
@@ -391,7 +375,8 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
         initial={reduzir ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={transicao(reduzir, { ...springs.settle, delay: 0.1 })}
-        className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden"
+        className={`rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)] overflow-hidden transition-opacity ${loading && clientes.length > 0 ? "opacity-55" : ""}`}
+        aria-busy={loading || undefined}
       >
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
@@ -408,7 +393,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
           </div>
         </div>
 
-        {loading ? (
+        {loading && clientes.length === 0 ? (
           <div>
             {[...Array(4)].map((_, i) => <SkeletonRow key={i} />)}
           </div>

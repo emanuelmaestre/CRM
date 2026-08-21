@@ -170,7 +170,10 @@ export async function contarPublicacoesPorMarca(
   });
 }
 
-export async function obterDesempenhoPublicacoes(
+/** Caminho crítico do card: consulta apenas Product Ads e já devolve todas as
+ * métricas principais. Qualidade, pendências e data pertencem a outra API e
+ * são anexadas depois, sem segurar investimento, receita, cliques e vendas. */
+export async function obterDesempenhoPublicacoesBase(
   ctx: CrudContext,
   filtros: { brandId: string; inicio: string; fim: string },
 ): Promise<DesempenhoPublicacoesResultado> {
@@ -195,15 +198,45 @@ export async function obterDesempenhoPublicacoes(
     .sort((a, b) => a.titulo.localeCompare(b.titulo, "pt-BR"));
   const exibidos = comVeiculacao.slice(0, LIMITE_EXIBICAO);
 
+  return {
+    periodo: { inicio: filtros.inicio, fim: filtros.fim },
+    parcial: false,
+    itens: exibidos,
+    semVeiculacao: semVeiculacao.slice(0, LIMITE_EXIBICAO),
+    resumo: {
+      totalPublicacoes: anuncios.length,
+      comVeiculacao: comVeiculacao.length,
+      semVeiculacao: semVeiculacao.length,
+      investimento: Math.round(anuncios.reduce((soma, item) => soma + item.investimento, 0) * 100) / 100,
+      receita: Math.round(anuncios.reduce((soma, item) => soma + item.receita, 0) * 100) / 100,
+      unidadesAtribuidas: anuncios.reduce((soma, item) => soma + item.unidadesAtribuidas, 0),
+    },
+  };
+}
+
+/** Segunda etapa progressiva: reaproveita a listagem já obtida do Product Ads
+ * e consulta somente os detalhes dos itens efetivamente exibidos. */
+export async function enriquecerDesempenhoPublicacoes(
+  ctx: CrudContext,
+  filtros: { brandId: string; inicio: string; fim: string },
+  base: DesempenhoPublicacoesResultado,
+): Promise<DesempenhoPublicacoesResultado> {
+  if (base.itens.length === 0) return base;
+
+  const marca = await ctx.db.select({ slug: brand.slug }).from(brand).where(and(
+    eq(brand.orgId, ctx.orgId), eq(brand.id, filtros.brandId), eq(brand.active, true),
+  )).then((rows) => rows[0]);
+  if (!marca || !isBrandSlug(marca.slug)) return base;
+
   // Qualidade e data de criação pertencem à API de Itens, não à de Product
   // Ads. Consultar apenas os itens que aparecem evita centenas de chamadas
   // para anúncios zerados.
   const publicacoesProvider = await criarMLProvider(marca.slug);
   const [performances, datasCriacao] = await Promise.all([
-    Promise.allSettled(exibidos.map((item) => publicacoesProvider.obterPerformanceItem(item.itemId))),
-    publicacoesProvider.consultarDataCriacaoAnuncios(exibidos.map((item) => item.itemId)).catch(() => ({} as Record<string, string | null>)),
+    Promise.allSettled(base.itens.map((item) => publicacoesProvider.obterPerformanceItem(item.itemId))),
+    publicacoesProvider.consultarDataCriacaoAnuncios(base.itens.map((item) => item.itemId)).catch(() => ({} as Record<string, string | null>)),
   ]);
-  const itens = exibidos.map((item, indice) => {
+  const itens = base.itens.map((item, indice) => {
     const performance = performances[indice];
     const dataCriacao = datasCriacao[item.itemId] ?? null;
     if (performance.status === "fulfilled") {
@@ -225,17 +258,16 @@ export async function obterDesempenhoPublicacoes(
   });
 
   return {
-    periodo: { inicio: filtros.inicio, fim: filtros.fim },
+    ...base,
     parcial: performances.some((item) => item.status === "rejected"),
     itens,
-    semVeiculacao: semVeiculacao.slice(0, LIMITE_EXIBICAO),
-    resumo: {
-      totalPublicacoes: anuncios.length,
-      comVeiculacao: comVeiculacao.length,
-      semVeiculacao: semVeiculacao.length,
-      investimento: Math.round(anuncios.reduce((soma, item) => soma + item.investimento, 0) * 100) / 100,
-      receita: Math.round(anuncios.reduce((soma, item) => soma + item.receita, 0) * 100) / 100,
-      unidadesAtribuidas: anuncios.reduce((soma, item) => soma + item.unidadesAtribuidas, 0),
-    },
   };
+}
+
+export async function obterDesempenhoPublicacoes(
+  ctx: CrudContext,
+  filtros: { brandId: string; inicio: string; fim: string },
+): Promise<DesempenhoPublicacoesResultado> {
+  const base = await obterDesempenhoPublicacoesBase(ctx, filtros);
+  return enriquecerDesempenhoPublicacoes(ctx, filtros, base);
 }

@@ -1,41 +1,21 @@
 import { Suspense } from "react";
 import { Mosaico } from "./mosaico";
-import {
-  actionListarInsights, actionListarSugestoes,
-  actionObterPosVenda,
-} from "./actions";
-import { actionContarPedidosPorCanal, actionContarPedidosPorMarca } from "../vendas/actions";
+import { actionObterFiltrosPedidos } from "../vendas/actions";
 import pagesConfig from "@/config/pages.json";
 
 export const metadata = { title: pagesConfig.metricas.metadataTitle };
 
-function diasAtras(total: number): string {
-  const data = new Date();
-  data.setDate(data.getDate() - total);
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
-}
-const HOJE = diasAtras(0);
-
-/* Só leituras locais entram no HTML inicial. Saúde da loja inclui reputação e
-   reclamações do Mercado Livre; Publicações faz até duas chamadas externas
-   por anúncio. Colocar essas duas buscas aqui prendia a resposta inteira por
-   alguns segundos. O Mosaico já tem os efeitos e skeletons necessários para
-   carregá-las depois que a tela está interativa. */
+/* A entrada espera apenas os filtros leves. Pós-venda e recomendações não são
+   necessários para tornar o mosaico clicável e carregam no próprio ritmo
+   depois da hidratação, junto dos demais conteúdos de cada painel. */
 async function ConteudoMetricas() {
-  const [marcas, canais, posVenda, insights, sugestoes] = await Promise.all([
-    actionContarPedidosPorMarca().catch(() => []),
-    actionContarPedidosPorCanal().catch(() => []),
-    actionObterPosVenda({ inicio: HOJE, fim: HOJE }).catch(() => null),
-    actionListarInsights().catch(() => []),
-    actionListarSugestoes().catch(() => []),
-  ]);
+  const { marcas, canais } = await actionObterFiltrosPedidos()
+    .catch(() => ({ marcas: [], canais: [] }));
 
   return (
     <Mosaico
       marcasIniciais={marcas}
       canaisIniciais={canais}
-      posVendaInicial={posVenda}
-      acoesIniciais={{ insights, sugestoes }}
     />
   );
 }

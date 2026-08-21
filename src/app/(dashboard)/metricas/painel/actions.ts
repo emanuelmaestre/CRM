@@ -1,15 +1,14 @@
 "use server";
 
 import { z } from "zod";
-import { unstable_cache } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
+import { obterReclamacoesMetricasComCache } from "../reclamacoes-cache";
 import {
   obterDashboardData,
   type DashboardFilters,
 } from "@/modules/metricas/application/dashboard.service";
 import {
   listarMensagensReclamacao,
-  obterReclamacoesAbertas,
   responderReclamacao,
 } from "@/modules/metricas/application/reclamacoes.service";
 
@@ -27,12 +26,7 @@ export async function actionObterDashboardData(filters?: DashboardFilters) {
 // segundo — vale a pena servir do cache em vez de esperar o ML de novo.
 export async function actionObterReclamacoes() {
   const ctx = await getCrudContext();
-  const obterComCache = unstable_cache(
-    () => obterReclamacoesAbertas(ctx),
-    ["metricas-reclamacoes", ctx.orgId],
-    { revalidate: 90, tags: [`reclamacoes-${ctx.orgId}`] },
-  );
-  return obterComCache();
+  return obterReclamacoesMetricasComCache(ctx.orgId);
 }
 
 export async function actionListarMensagensReclamacao(marca: string, claimId: string) {
