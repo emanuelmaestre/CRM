@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -198,7 +198,6 @@ export function Mosaico({
   acoesIniciais?: { insights: Insight[]; sugestoes: Sugestao[] } | null;
   publicacoesInicial?: DesempenhoPreCarregado | null;
 }) {
-  const router = useRouter();
   const params = useSearchParams();
   const cardAberto = params.get("card");
 
@@ -773,16 +772,19 @@ export function Mosaico({
   const indiceAberto = blocos.findIndex((bloco) => bloco.id === cardAberto);
   const blocoAberto = indiceAberto >= 0 ? blocos[indiceAberto] : null;
 
-  /* O card aberto vive na URL: recarregar, favoritar e o botão voltar do
-     navegador passam a funcionar de graça. `replace` porque abrir e fechar
-     card não merece uma entrada de histórico cada. */
+  /* O card aberto vive na URL, mas abrir/fechar é estado local da própria
+     tela — não uma navegação. `router.replace` fazia o Next renderizar de
+     novo a page.tsx inteira (incluindo as buscas do mosaico) antes de montar
+     o painel; por isso o clique parecia morto por alguns segundos. A History
+     API é integrada ao useSearchParams no App Router e atualiza a URL sem
+     pedir um novo payload ao servidor. */
   const abrir = useCallback((id: string) => {
-    router.replace(`/metricas?card=${id}`, { scroll: false });
-  }, [router]);
+    window.history.replaceState(null, "", `/metricas?card=${encodeURIComponent(id)}`);
+  }, []);
 
   const fechar = useCallback(() => {
-    router.replace("/metricas", { scroll: false });
-  }, [router]);
+    window.history.replaceState(null, "", "/metricas");
+  }, []);
 
   const pular = useCallback((passo: number) => {
     if (blocos.length === 0 || indiceAberto < 0) return;

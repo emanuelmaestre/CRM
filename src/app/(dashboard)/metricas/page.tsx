@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Mosaico } from "./mosaico";
 import {
   actionListarInsights, actionListarSugestoes,
-  actionObterDesempenhoPublicacoes, actionObterPosVenda, actionObterSaudeLoja,
+  actionObterPosVenda,
 } from "./actions";
 import { actionContarPedidosPorCanal, actionContarPedidosPorMarca } from "../vendas/actions";
 import pagesConfig from "@/config/pages.json";
@@ -16,58 +16,59 @@ function diasAtras(total: number): string {
 }
 const HOJE = diasAtras(0);
 
-/* O mosaico soma oito buscas independentes, quase todas locais ao banco —
-   só Reclamações depende da API do Mercado Livre (lenta, já cacheada por 90s
-   em painel/actions.ts) e por isso fica de fora daqui: não vale prender a
-   primeira resposta da página nela. As outras sete eram disparadas pelo
-   navegador uma a uma, cada uma como sua própria requisição de Server
-   Action — e cada requisição paga de novo a autenticação (ver
-   getAuthContext em auth/session.ts) além de competir pela conexão única do
-   banco (ver getDatabaseClientOptions em db/index.ts). Buscando tudo aqui
-   dentro de `Promise.all`, tudo isso roda numa única requisição.
-
-   Cada busca usa o mesmo argumento que o efeito correspondente usa na
-   primeira carga do navegador (ver mosaico.tsx), para o resultado pré-buscado
-   bater com a chave que o mosaico monta e a busca não ser refeita à toa:
-   Saúde e Pós-venda com `inicio`/`fim` = hoje, porque "Hoje" é o período
-   padrão da tela (mesmo default que `periodo` usa em mosaico.tsx).
-
-   Publicações depende de saber a primeira marca, que só se sabe depois da
-   Saúde responder — por isso sai de um segundo `await`, não do mesmo
-   `Promise.all`; ainda assim é uma consulta local rápida, não custa a
-   navegação.
-
-   Falha não derruba a página: sem dado inicial cada parte cai no caminho
-   antigo e busca pelo navegador, exatamente como fazia antes. */
-export default async function MetricasPage() {
-  const [marcas, canais, saude, posVenda, insights, sugestoes] = await Promise.all([
+/* Só leituras locais entram no HTML inicial. Saúde da loja inclui reputação e
+   reclamações do Mercado Livre; Publicações faz até duas chamadas externas
+   por anúncio. Colocar essas duas buscas aqui prendia a resposta inteira por
+   alguns segundos. O Mosaico já tem os efeitos e skeletons necessários para
+   carregá-las depois que a tela está interativa. */
+async function ConteudoMetricas() {
+  const [marcas, canais, posVenda, insights, sugestoes] = await Promise.all([
     actionContarPedidosPorMarca().catch(() => []),
     actionContarPedidosPorCanal().catch(() => []),
-    actionObterSaudeLoja({ inicio: HOJE, fim: HOJE }).catch(() => null),
     actionObterPosVenda({ inicio: HOJE, fim: HOJE }).catch(() => null),
     actionListarInsights().catch(() => []),
     actionListarSugestoes().catch(() => []),
   ]);
 
-  const primeiraMarca = saude?.marcas[0]?.brandId ?? null;
-  const inicioPublicacoes = HOJE;
-  const publicacoes = primeiraMarca
-    ? await actionObterDesempenhoPublicacoes({ brandId: primeiraMarca, inicio: inicioPublicacoes, fim: HOJE }).catch(() => null)
-    : null;
+  return (
+    <Mosaico
+      marcasIniciais={marcas}
+      canaisIniciais={canais}
+      posVendaInicial={posVenda}
+      acoesIniciais={{ insights, sugestoes }}
+    />
+  );
+}
 
+function CarregandoMetricas() {
+  return (
+    <div className="flex flex-col gap-5" role="status" aria-label="Carregando métricas">
+      {Array.from({ length: 4 }, (_, secao) => (
+        <div key={secao} className="flex flex-col gap-2">
+          <div className="shimmer h-3 w-24 rounded bg-muted" />
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            {Array.from({ length: secao === 0 ? 3 : 2 }, (_, card) => (
+              <div key={card} className="card-surface h-12 p-3">
+                <div className="shimmer h-full w-full rounded bg-muted" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      <span className="sr-only">Carregando os indicadores do painel.</span>
+    </div>
+  );
+}
+
+export default function MetricasPage() {
   return (
     <div>
-      {/* O mosaico lê o card aberto de `?card=` — useSearchParams exige um
-          limite de Suspense para não forçar a página inteira a ser dinâmica. */}
-      <Suspense fallback={null}>
-        <Mosaico
-          marcasIniciais={marcas}
-          canaisIniciais={canais}
-          saudeInicial={saude}
-          posVendaInicial={posVenda}
-          acoesIniciais={{ insights, sugestoes }}
-          publicacoesInicial={primeiraMarca ? { brandId: primeiraMarca, inicio: inicioPublicacoes, fim: HOJE, dados: publicacoes } : null}
-        />
+      {/* O await fica dentro do filho assíncrono: assim esta fronteira pode
+          entregar feedback imediatamente, em vez de existir só depois que
+          todas as consultas já terminaram. Também cobre o useSearchParams do
+          Mosaico durante a pré-renderização. */}
+      <Suspense fallback={<CarregandoMetricas />}>
+        <ConteudoMetricas />
       </Suspense>
     </div>
   );

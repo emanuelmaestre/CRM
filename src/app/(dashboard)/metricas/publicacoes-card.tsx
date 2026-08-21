@@ -12,7 +12,6 @@ import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
-import { NumeroAnimado } from "./metricas-primitives";
 import { inteiro, moeda } from "@/shared/design-system/format";
 import { springs, staggerExagerado, entradaExagerada, variantes } from "@/shared/design-system/motion-variants";
 
@@ -255,7 +254,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                         </div>
                         <div className="flex shrink-0 items-center gap-0.5">
                           <span className="rounded-full px-2.5 py-1 text-xs font-bold tabular-nums" style={{ color: corQualidade(item.qualidade), background: `color-mix(in srgb, ${corQualidade(item.qualidade)} 12%, transparent)` }}>
-                            {item.qualidade === null ? "Sem dado" : <><NumeroAnimado valor={item.qualidade} formatar={(v) => inteiro.format(Math.round(v))} />/100</>}
+                            {item.qualidade === null ? "Sem dado" : `${inteiro.format(Math.round(item.qualidade))}/100`}
                           </span>
                           <CalculoPopover
                             compacto
@@ -285,7 +284,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                               periodoLabel={periodo}
                             />
                           </dt>
-                          <dd className="mt-1 font-semibold tabular-nums"><NumeroAnimado valor={item.visitas} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
+                          <dd className="mt-1 font-semibold tabular-nums">{inteiro.format(item.visitas)}</dd>
                         </div>
                         <div>
                           <dt className="flex items-center gap-1 text-xs text-muted-foreground"><Package size={12} /> Unidades
@@ -299,7 +298,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                               periodoLabel={periodo}
                             />
                           </dt>
-                          <dd className="mt-1 font-semibold tabular-nums"><NumeroAnimado valor={item.unidadesVendidas} formatar={(v) => inteiro.format(Math.round(v))} /></dd>
+                          <dd className="mt-1 font-semibold tabular-nums">{inteiro.format(item.unidadesVendidas)}</dd>
                         </div>
                         <div>
                           <dt className="flex items-center gap-1 text-xs text-muted-foreground"><TrendingUp size={12} /> Conversão
@@ -318,7 +317,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                             />
                           </dt>
                           <dd className="mt-1 font-semibold tabular-nums">
-                            {item.conversaoEstimada === null ? "Sem dado" : <NumeroAnimado valor={item.conversaoEstimada} formatar={(v) => `${v.toFixed(2)}%`} />}
+                            {item.conversaoEstimada === null ? "Sem dado" : `${item.conversaoEstimada.toFixed(2)}%`}
                           </dd>
                         </div>
                         <div>
@@ -336,7 +335,7 @@ export function PublicacoesCard({ marcas, inicio, fim, preCarregado, acaoSlot }:
                               periodoLabel={periodo}
                             />
                           </dt>
-                          <dd className="mt-1 font-semibold tabular-nums"><NumeroAnimado valor={item.receita} formatar={(v) => moeda.format(v)} /></dd>
+                          <dd className="mt-1 font-semibold tabular-nums">{moeda.format(item.receita)}</dd>
                         </div>
                         <div>
                           <dt className="flex items-center gap-1 text-xs text-muted-foreground"><Gauge size={12} /> Retorno

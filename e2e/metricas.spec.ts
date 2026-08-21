@@ -27,11 +27,21 @@ test.describe("Métricas", () => {
     await page.goto("/metricas");
     const bloco = page.getByRole("button", { name: /abrir saúde da loja/i });
     await expect(bloco).toBeVisible({ timeout: 15_000 });
+
+    // Abrir um card é interação local. Uma navegação RSC para a própria página
+    // repetiria todas as consultas do mosaico antes de o diálogo aparecer.
+    const navegacoesRsc: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "GET" && request.headers().rsc === "1" && request.url().includes("/metricas")) {
+        navegacoesRsc.push(request.url());
+      }
+    });
     await bloco.click();
 
     const painel = page.getByRole("dialog");
     await expect(painel).toBeVisible();
     await expect(page).toHaveURL(/\?card=score/);
+    expect(navegacoesRsc).toEqual([]);
 
     // O conteúdo do card só existe depois de abrir — é o ganho do mosaico.
     const explicacao = painel.getByRole("button", { name: /como é calculado/i });
