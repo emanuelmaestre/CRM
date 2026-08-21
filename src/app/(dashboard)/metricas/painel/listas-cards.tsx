@@ -392,12 +392,16 @@ function corGravidade(diasParado: number | null): string {
 /** Catálogo fixo dos 5 status possíveis — não muda por item, é a legenda
  *  completa, pra quem nunca viu um "Encerrado" na tela ainda saber o que
  *  significa antes de precisar achar um pra tocar e descobrir. */
+// Textos neutros de propósito: essa legenda é compartilhada por qualquer
+// card que tenha selo de status (Estoque Parado, Repor em breve, ...) —
+// uma versão amarrada a "não vende" (só fazia sentido em Parado) ficava
+// errada em Reposição, onde o produto pode até vender bem.
 const LEGENDA_STATUS: Array<{ titulo: string; texto: string; cor: string }> = [
-  { titulo: "Ativo no ML", cor: "var(--success)", texto: "O anúncio está publicado e visível no Mercado Livre, só não vende: não é um problema técnico." },
-  { titulo: "Pausado", cor: "var(--warning)", texto: "Você mesmo pausou o anúncio, ele não vender é esperado: ninguém consegue comprar algo pausado." },
-  { titulo: "Encerrado no ML", cor: "var(--destructive)", texto: "O anúncio não existe mais lá, mas o produto continua no catálogo do CRM com saldo: ninguém consegue comprar por nenhum canal." },
+  { titulo: "Ativo no ML", cor: "var(--success)", texto: "O anúncio está publicado e visível no Mercado Livre — está tudo certo do lado técnico." },
+  { titulo: "Pausado", cor: "var(--warning)", texto: "Você mesmo pausou o anúncio — ninguém consegue comprar enquanto ele estiver pausado." },
+  { titulo: "Encerrado no ML", cor: "var(--destructive)", texto: "O anúncio não existe mais lá, mas o produto continua no catálogo do CRM: ninguém consegue comprar por nenhum canal." },
   { titulo: "Sem vínculo com o ML", cor: "var(--info)", texto: "Não achamos nenhum anúncio deste produto ligado a uma conta do Mercado Livre, o vínculo pode ter se perdido." },
-  { titulo: "Status indisponível", cor: "var(--muted-foreground)", texto: "Falha temporária ao consultar o Mercado Livre agora, o resto do dado (saldo, dias parado) continua confiável." },
+  { titulo: "Status indisponível", cor: "var(--muted-foreground)", texto: "Falha temporária ao consultar o Mercado Livre agora — o restante do dado continua confiável." },
 ];
 
 /** Selo de status por item — mesmo visual em qualquer card que mostre a

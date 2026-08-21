@@ -420,6 +420,16 @@ export function Mosaico({
     <ScopeRow marcas={marcas} canais={comCanais ? canais : []} filtro={filtro} onChange={comSugestao(definir)} />
   ), [marcas, canais, comSugestao]);
 
+  // Reclamação só existe pra quem vende pelo Mercado Livre — a API não
+  // devolve isso pra Shopee/TikTok Shop. Shopee/TikTok aparecem travados
+  // (mesmo padrão de "ainda não disponível" já usado em Publicidade) em vez
+  // de sumirem, pra deixar claro que a tela é sobre canais de venda — só que
+  // esse canal específico ainda não dá pra filtrar.
+  const canaisReclamacoes = useMemo(
+    () => canais.map((canal) => (canal.tipo === "mercadolivre" ? canal : { ...canal, conectado: false })),
+    [canais],
+  );
+
   const dadosFaturamento = faturamento.dados?.faturamento ?? null;
   // `?? []` sozinho cria um array novo a cada render mesmo com `saude.dados`
   // estável — o memo abaixo prende a mesma referência enquanto `marcas` não
@@ -560,13 +570,20 @@ export function Mosaico({
         dados={reclamacoesVisiveis}
         carregando={carregandoReclamacoes}
         semFiltro={semFiltroReclamacoes}
-        // Sem pílulas de canal: o Mercado Livre não separa reclamação por
-        // canal de venda, então filtrar por canal aqui não mudaria nada.
-        scope={escopo(filtroReclamacoes, setFiltroReclamacoes, false)}
+        // Canal aparece, mas Shopee/TikTok vêm travados — reclamação só
+        // existe pra Mercado Livre, ver canaisReclamacoes acima.
+        scope={(
+          <ScopeRow
+            marcas={marcas}
+            canais={canaisReclamacoes}
+            filtro={filtroReclamacoes}
+            onChange={comSugestao(setFiltroReclamacoes)}
+          />
+        )}
         acaoSlot={acaoSlot}
       />
     ),
-  }), [reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroReclamacoes, escopo]);
+  }), [reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroReclamacoes, marcas, canaisReclamacoes, comSugestao]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",
