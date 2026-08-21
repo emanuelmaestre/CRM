@@ -61,18 +61,20 @@ function montarGrade(mesReferencia: Date): Date[] {
   return dias;
 }
 
-/** Pulso sutil em volta do gatilho quando um período está aplicado — mesmo
- *  espírito do halo usado nas pílulas de marca/canal, na cor genérica de
- *  seleção (o período não pertence a nenhuma marca ou canal específico). */
+/** Pulso em volta do gatilho quando um período está aplicado — teal
+ *  (var(--acento-1)), não o índigo de var(--selecionado): aquele já
+ *  identifica o dia marcado dentro do próprio calendário e as pílulas de
+ *  marca/canal, então repeti-lo aqui confundia "período aplicado" com
+ *  "filtro marcado". */
 function HaloSelecao({ reduzir }: { reduzir: boolean | null }) {
   return (
     <AnimatePresence>
       <motion.span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[0.75rem]"
-        style={{ boxShadow: "0 0 0 1px var(--selecionado)" }}
+        style={{ boxShadow: "0 0 0 2px var(--acento-1)" }}
         initial={{ opacity: 0, scale: 1 }}
-        animate={reduzir ? { opacity: 0.35 } : { opacity: [0.35, 0, 0.35], scale: [1, 1.06, 1] }}
+        animate={reduzir ? { opacity: 0.55 } : { opacity: [0.55, 0.1, 0.55], scale: [1, 1.06, 1] }}
         transition={reduzir ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
       />
     </AnimatePresence>
@@ -471,11 +473,13 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             return !atual;
           });
         }}
-        style={inicioSelecionado && fimSelecionado && !aberto ? { borderColor: "var(--selecionado)", color: "var(--selecionado)" } : undefined}
+        style={inicioSelecionado && fimSelecionado && !aberto
+          ? { borderColor: "var(--acento-1)", color: "var(--acento-1)", background: "color-mix(in srgb, var(--acento-1) 12%, var(--card))" }
+          : undefined}
         className={cn(
           "group press-feedback relative inline-flex h-11 items-center gap-2 rounded-[0.75rem] px-3.5 text-xs transition-all duration-200 disabled:opacity-50",
           inicioSelecionado && fimSelecionado
-            ? "border-2 bg-card font-extrabold shadow-[0_2px_6px_rgba(14,15,19,.14)]"
+            ? "border-2 font-extrabold shadow-[0_2px_6px_rgba(14,15,19,.14)]"
             : "border border-border bg-muted font-semibold text-muted-foreground hover:bg-card hover:text-foreground",
           aberto && "border border-foreground/60 bg-card shadow-[0_0_0_3px_rgba(14,15,19,.08)]",
         )}

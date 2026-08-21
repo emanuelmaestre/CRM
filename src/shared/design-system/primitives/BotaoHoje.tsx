@@ -3,9 +3,10 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs } from "../motion-variants";
 
-/** Pulso sutil em volta do botão quando "hoje" está selecionado — mesmo
- *  espírito do halo usado nas pílulas de marca/canal, só que na cor
- *  genérica de seleção (período não pertence a marca nem canal nenhum). */
+/** Pulso em volta do botão quando "hoje" está selecionado — teal
+ *  (var(--acento-1)), não o índigo de var(--selecionado): aquela cor já
+ *  satura as pílulas de marca/canal, e usá-la aqui também confundia
+ *  "período aplicado" com "filtro marcado". */
 function HaloSelecao() {
   const reduzMovimento = useReducedMotion();
   return (
@@ -13,9 +14,9 @@ function HaloSelecao() {
       <motion.span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[0.75rem]"
-        style={{ boxShadow: "0 0 0 1px var(--selecionado)" }}
+        style={{ boxShadow: "0 0 0 2px var(--acento-1)" }}
         initial={{ opacity: 0, scale: 1 }}
-        animate={reduzMovimento ? { opacity: 0.35 } : { opacity: [0.35, 0, 0.35], scale: [1, 1.06, 1] }}
+        animate={reduzMovimento ? { opacity: 0.55 } : { opacity: [0.55, 0.1, 0.55], scale: [1, 1.06, 1] }}
         transition={reduzMovimento ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
       />
     </AnimatePresence>
@@ -61,10 +62,12 @@ export function BotaoHoje({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={ativo}
-      style={ativo && !disabled ? { borderColor: "var(--selecionado)", color: "var(--selecionado)" } : undefined}
+      style={ativo && !disabled
+        ? { borderColor: "var(--acento-1)", color: "var(--acento-1)", background: "color-mix(in srgb, var(--acento-1) 12%, var(--card))" }
+        : undefined}
       className={`relative h-11 shrink-0 items-center justify-center rounded-[0.75rem] px-3.5 text-xs transition-all duration-200 disabled:opacity-50 ${
         ativo
-          ? "border-2 bg-card font-extrabold shadow-[0_2px_6px_rgba(14,15,19,.14)]"
+          ? "border-2 font-extrabold shadow-[0_2px_6px_rgba(14,15,19,.14)]"
           : "border border-border bg-muted font-bold text-muted-foreground hover:bg-card hover:text-foreground"
       } ${className ?? "inline-flex"}`}
     >
