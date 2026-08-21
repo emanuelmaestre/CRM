@@ -61,6 +61,24 @@ function montarGrade(mesReferencia: Date): Date[] {
   return dias;
 }
 
+/** Pulso sutil em volta do gatilho quando um período está aplicado — mesmo
+ *  espírito do halo usado nas pílulas de marca/canal, na cor genérica de
+ *  seleção (o período não pertence a nenhuma marca ou canal específico). */
+function HaloSelecao({ reduzir }: { reduzir: boolean | null }) {
+  return (
+    <AnimatePresence>
+      <motion.span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[0.75rem]"
+        style={{ boxShadow: "0 0 0 1px var(--selecionado)" }}
+        initial={{ opacity: 0, scale: 1 }}
+        animate={reduzir ? { opacity: 0.35 } : { opacity: [0.35, 0, 0.35], scale: [1, 1.06, 1] }}
+        transition={reduzir ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </AnimatePresence>
+  );
+}
+
 interface Posicao {
   top: number;
   left: number;
@@ -453,21 +471,25 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             return !atual;
           });
         }}
+        style={inicioSelecionado && fimSelecionado && !aberto ? { borderColor: "var(--selecionado)", color: "var(--selecionado)" } : undefined}
         className={cn(
-          "group press-feedback relative inline-flex h-11 items-center gap-2 rounded-[0.75rem] border px-3.5 text-xs transition-all duration-200 disabled:opacity-50",
+          "group press-feedback relative inline-flex h-11 items-center gap-2 rounded-[0.75rem] px-3.5 text-xs transition-all duration-200 disabled:opacity-50",
           inicioSelecionado && fimSelecionado
-            ? "border-border bg-card font-extrabold text-foreground shadow-[0_2px_6px_rgba(14,15,19,.14)]"
-            : "border-border bg-muted font-semibold text-muted-foreground hover:bg-card hover:text-foreground",
-          aberto && "border-foreground/60 bg-card shadow-[0_0_0_3px_rgba(14,15,19,.08)]",
+            ? "border-2 bg-card font-extrabold shadow-[0_2px_6px_rgba(14,15,19,.14)]"
+            : "border border-border bg-muted font-semibold text-muted-foreground hover:bg-card hover:text-foreground",
+          aberto && "border border-foreground/60 bg-card shadow-[0_0_0_3px_rgba(14,15,19,.08)]",
         )}
       >
+        {inicioSelecionado && fimSelecionado && !aberto && <HaloSelecao reduzir={reduzir} />}
         <CalendarRange
           size={15}
           strokeWidth={2}
           aria-hidden="true"
           className={cn(
             "shrink-0 transition-all duration-200 group-hover:scale-110",
-            inicioSelecionado && fimSelecionado ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
+            inicioSelecionado && fimSelecionado
+              ? aberto ? "text-foreground" : ""
+              : "text-muted-foreground group-hover:text-foreground",
           )}
         />
         <span className="whitespace-nowrap tabular-nums">{rotulo}</span>

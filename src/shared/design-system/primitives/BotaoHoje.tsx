@@ -1,7 +1,26 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs } from "../motion-variants";
+
+/** Pulso sutil em volta do botão quando "hoje" está selecionado — mesmo
+ *  espírito do halo usado nas pílulas de marca/canal, só que na cor
+ *  genérica de seleção (período não pertence a marca nem canal nenhum). */
+function HaloSelecao() {
+  const reduzMovimento = useReducedMotion();
+  return (
+    <AnimatePresence>
+      <motion.span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[0.75rem]"
+        style={{ boxShadow: "0 0 0 1px var(--selecionado)" }}
+        initial={{ opacity: 0, scale: 1 }}
+        animate={reduzMovimento ? { opacity: 0.35 } : { opacity: [0.35, 0, 0.35], scale: [1, 1.06, 1] }}
+        transition={reduzMovimento ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </AnimatePresence>
+  );
+}
 
 /* ── Atalho de período ─────────────────────────────────────────────
    Chegar em "hoje" custava abrir o calendário e clicar duas vezes (De: e
@@ -42,12 +61,14 @@ export function BotaoHoje({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={ativo}
-      className={`h-11 shrink-0 items-center justify-center rounded-[0.75rem] border px-3.5 text-xs transition-all duration-200 disabled:opacity-50 ${
+      style={ativo && !disabled ? { borderColor: "var(--selecionado)", color: "var(--selecionado)" } : undefined}
+      className={`relative h-11 shrink-0 items-center justify-center rounded-[0.75rem] px-3.5 text-xs transition-all duration-200 disabled:opacity-50 ${
         ativo
-          ? "border-border bg-card font-extrabold text-foreground shadow-[0_2px_6px_rgba(14,15,19,.14)]"
-          : "border-border bg-muted font-bold text-muted-foreground hover:bg-card hover:text-foreground"
+          ? "border-2 bg-card font-extrabold shadow-[0_2px_6px_rgba(14,15,19,.14)]"
+          : "border border-border bg-muted font-bold text-muted-foreground hover:bg-card hover:text-foreground"
       } ${className ?? "inline-flex"}`}
     >
+      {ativo && !disabled && <HaloSelecao />}
       Hoje
     </motion.button>
   );
