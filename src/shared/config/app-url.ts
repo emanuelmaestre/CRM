@@ -11,3 +11,7 @@ export function obterAppUrl(envUrl = process.env.NEXT_PUBLIC_APP_URL): string {
 export function obterUrlCallbackMercadoLivre(envUrl = process.env.NEXT_PUBLIC_APP_URL): string {
   return `${obterAppUrl(envUrl)}/api/ml/callback`;
 }
+
+export function obterUrlCallbackShopee(envUrl = process.env.NEXT_PUBLIC_APP_URL): string {
+  return `${obterAppUrl(envUrl)}/api/shopee/callback`;
+}
