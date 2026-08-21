@@ -497,11 +497,7 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
 
   return (
     <Card>
-      <AcaoSlotFiltro
-        scope={scope}
-        acaoSlot={acaoSlot}
-        extra={<div className="flex shrink-0 items-center gap-2">{contagem}<EntendaStatusReclamacaoBotao /></div>}
-      />
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusReclamacaoBotao />} />
       <CardHead scope={<div className="sm:hidden">{scope}</div>} />
 
       {semFiltro && (
@@ -537,6 +533,10 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
               {copy.partialLabel}: {dados.marcasComFalha.join(", ")}
             </p>
           )}
+          {/* Desceu do cabeçalho do painel pra cá, colado na lista que ele
+              está contando — fica claro que o número é sobre essas linhas
+              logo abaixo, não uma métrica solta do card inteiro. */}
+          {contagem && <div className="mx-5 mt-3 flex justify-end">{contagem}</div>}
           <motion.div variants={stagger} initial="hidden" animate="show" className="mt-4">
             {dados.itens.map((item) => (
               <motion.div key={item.id} variants={listItem}>
