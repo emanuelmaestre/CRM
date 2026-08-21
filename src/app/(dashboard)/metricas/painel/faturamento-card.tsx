@@ -159,8 +159,8 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                   </span>
                 )}
                 {variacao !== null && dados && (
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    {copy.comparisonLabel}
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title={`${copy.comparisonLabel}: ${dados.janelaAnteriorLabel}`}>
+                    vs. {dados.janelaAnteriorLabel}
                     <CalculoPopover
                       titulo="Variação de faturamento"
                       significado="Mostra se a receita cresceu ou caiu em comparação com uma janela anterior de mesma duração. Valor positivo representa crescimento; negativo, queda."
