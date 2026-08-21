@@ -6,14 +6,14 @@
 | **Produto** | CRM Inteligente — Plano Acelera |
 | **Codinome interno** | `LEO` |
 | **Repositório** | https://github.com/emanuelmaestre/CRM.git |
-| **Versão do documento** | 2.2 (inclusão da operação Armarinhos Lima) |
-| **Data** | 31/07/2026 |
+| **Versão do documento** | 2.3 (Anúncios/Publicidade e Shopee saem de planejado para implementado; registro de evolução 31/07–21/08) |
+| **Data** | 21/08/2026 |
 | **Contratante** | Grupo administrativo das marcas KARZI, WUWU e Armarinhos Lima |
 | **Contratada** | Emanuel Maestre dos Santos — Desenvolvedor de Software |
 | **Base contratual** | Contrato de 17/07/2026 + Anexo I (Plano Acelera) |
 | **Prazo estimado** | 8 semanas a partir do recebimento de acessos e dados |
 | **Garantia** | 90 dias a partir do go-live |
-| **Status** | Fase A concluída — fundação, núcleo, segurança e staging homologados |
+| **Status** | Fase A concluída. Fases B/C em andamento com escopo maior do que o previsto em 31/07: módulo **Publicidade/Anúncios** (Product Ads do Mercado Livre) construído e validado ao vivo contra as 3 contas; conector **Shopee** com fluxo OAuth (connect + callback) e proxy de IP fixo implementados em 21/08, **ainda sem confirmação de teste ao vivo em produção**; TikTok Shop segue não iniciado. Painel (`/dashboard`) foi fundido em Métricas como mosaico de cards. Inbox de conversa via WhatsApp (Z-API) foi **removido do escopo ativo** em 09/08 — o que resta de WhatsApp hoje são avisos internos automáticos (estoque, vendas, operação), não atendimento ao cliente final; mensageria com cliente ficou restrita ao canal nativo de reclamações do Mercado Livre. Achado crítico de segurança (RLS ausente em 3 tabelas de Anúncios) corrigido em 18/08. Ver §22 "Registro de Evolução" para o detalhamento completo. |
 
 > **Como ler este documento:** ele usa termos técnicos porque é a fonte da verdade da engenharia,
 > mas todo termo difícil vem acompanhado de um balão 💡 explicando em palavras simples.
@@ -47,7 +47,8 @@
 19. Invariantes não-negociáveis
 20. Riscos e mitigação
 21. Métricas de sucesso
-22. Checklist de revisão final deste PRD
+22. Registro de Evolução (31/07 – 21/08/2026)
+23. Checklist de revisão final deste PRD
 
 ---
 
@@ -202,8 +203,8 @@ migrations e docs vivos desde o dia 1).
 | Auth | **Supabase Auth** + perfis `admin/gestor/vendedor` | cliente controla os próprios usuários |
 | Jobs/Filas | **Inngest** (funções duráveis, cron, retry, chave de idempotência) | serverless-friendly; validado no Viratour |
 | Cache/Rate limit | **Upstash Redis** | validado no Viratour |
-| WhatsApp | **Z-API** atrás da interface `MessagingProvider` | experiência real; Meta Cloud API como plano B plugável |
-| Marketplaces | APIs oficiais (**Mercado Livre, Shopee, TikTok Shop** — lista fechada) atrás de `ChannelProvider` | Cláusula 10.2 permite trocar fornecedor |
+| WhatsApp | **Z-API** — desde 09/08/2026 usado só para **avisos internos automáticos** (estoque, vendas, operação), não para atendimento ao cliente final. 💡 *O inbox de conversa com o cliente por WhatsApp saiu do escopo ativo; ver §22.* | Meta Cloud API segue como plano B plugável se o inbox de cliente voltar ao escopo |
+| Marketplaces | APIs oficiais (**Mercado Livre — implementado**, **Shopee — OAuth/proxy implementados em 21/08, sem confirmação de teste ao vivo**, **TikTok Shop — não iniciado**) atrás de `ChannelProvider` | Cláusula 10.2 permite trocar fornecedor |
 | **IA** | **OpenAI** via `AiService` central — `gpt-4.1-mini` (triagem/estruturação) + `gpt-4.1` (insights executivos) + embeddings p/ busca semântica (P2) | decisão de stack do projeto; modelos em camadas por custo |
 | Documentos | **@react-pdf/renderer** (PDF) + **docx** (Word) | exigência do Anexo I item 05 |
 | E-mail/Agenda | Gmail API / Google Calendar API | Anexo I item 03 |
@@ -297,8 +298,10 @@ de outro módulo — a comunicação entre módulos é por **serviços de aplica
 embute validação Zod, checagem de perfil, escopo `org_id`/RLS, evento de domínio e auditoria.
 💡 *Resultado: criar um novo cadastro no sistema custa horas, não dias — e nasce seguro e auditado.*
 
-**Módulos do LEO:** `clientes`, `estoque`, `canais` (conectores), `inbox`, `vendas`, `reguas`,
-`scoring`, `ai`, `documentos`, `relatorios`, `importacao`, `auditoria`, `jobs`, `observability`.
+**Módulos do LEO:** `clientes`, `estoque`, `canais` (conectores), `avaliacoes` (o que restou do
+`inbox` depois da redução de escopo de 09/08 — ver §22), `vendas`, `anuncios`/`publicidade`
+(Product Ads, novo desde 15/08 — ver §22), `reguas`, `scoring`, `ai`, `documentos`, `relatorios`
+(fundido em `metricas`), `importacao`, `auditoria`, `jobs`, `observability`.
 
 **Fronteiras explícitas (o que cada um NÃO faz):** `canais/` não decide regra de negócio; `reguas/`
 não envia nada sem passar pelos gates; `ai/` não altera status, preço ou estoque; `scoring/` não
@@ -474,11 +477,18 @@ passo 1. É um ciclo: **o sistema aprende do próprio resultado.**
 - Perfis: vendedor vê carteira e atendimento; custo/margem só gestor+.
 
 ### M2 — Estoque sincronizado (P0)
-- Saldo único por SKU (fonte da verdade) espelhado nos canais via `produto_canal`.
+- **Atualizado em 13/08/2026:** não existe mais saldo local editável — o saldo do produto é o
+  **maior valor entre os canais** conectados (não a soma), e o cadastro manual de produto foi
+  removido: **todo produto nasce por sincronização com o Mercado Livre**, nunca por criação manual
+  dentro do sistema. Isso segue a mesma filosofia já aplicada em Cliente (nenhuma entidade nasce de
+  cadastro manual, só de sincronização de canal).
+- Espelhamento de saldo entre canais via `produto_canal`.
 - **Baixa automática** no `pedido.pago` de qualquer canal; estorno em cancelamento.
-- Sincronização de saldo para os canais com fila + retry; **reconciliação noturna** compara saldo
-  local × canal e **alerta divergência sem corrigir sozinho**.
-- Alertas: mínimo atingido (limiar por SKU) e estoque parado (sem venda há N dias + capital preso em R$).
+- Sincronização de saldo para os canais com fila + retry; **reconciliação noturna** (automação A5,
+  de hora em hora) compara saldo local × canal e **alerta divergência sem corrigir sozinho**.
+- Alertas: mínimo atingido (limiar por SKU) e estoque parado (sem venda há N dias + capital preso em R$) —
+  agora exibindo também o status do anúncio no Mercado Livre (Ativo/Pausado/Em revisão/Encerrado).
+- Produto é desativado automaticamente quando o anúncio correspondente some do Mercado Livre (20/08/2026).
 
 ### M3 — Conectores (P0, ativação faseada)
 
@@ -496,10 +506,10 @@ como Evolução (Cláusula 4.3).
 
 | Conector | Tipo | Nota |
 |---|---|---|
-| Mercado Livre | Channel + avaliação | OAuth; mensagens pós-venda só pelo canal oficial |
-| Shopee | Channel | API oficial |
-| TikTok Shop | Channel | API oficial |
-| WhatsApp (Z-API) | Messaging | 1 instância por marca (sigilo entre marcas) |
+| Mercado Livre | Channel + avaliação | **Implementado.** OAuth; mensagens pós-venda só pelo canal oficial; webhook com verificação de assinatura corrigido em 09/08 (rejeitava 100% das notificações reais antes disso) |
+| Shopee | Channel | **OAuth (connect + callback) e proxy de IP fixo implementados em 21/08/2026.** Shopee exige IP estático nas chamadas — resolvido via proxy Fixie. Ainda **sem confirmação de teste ao vivo em produção** — pendente de validação com conta real |
+| TikTok Shop | Channel | Não iniciado |
+| WhatsApp (Z-API) | Messaging | **Reduzido em 09/08/2026** a avisos internos automáticos (estoque, vendas, operação) — não é mais inbox de conversa com o cliente final. Ver §22 |
 | Instagram/Facebook | Messaging | Meta Graph; DMs no inbox, por conta de marca |
 | Cobranças | Billing | gateway definido na Fase 1 (Asaas já dominado) |
 | Gmail + Calendar | Mail | e-mail na timeline; agenda comercial |
@@ -531,12 +541,27 @@ Cada bloqueio grava o motivo. Opt-out em toda mensagem; revogação cancela exec
 
 ### M5 — Inteligência (P0/P1) → detalhada na §11
 
-### M6 — Painel e relatórios (P0)
-- **Painel executivo**: vendas, conversão e ticket por canal/marca/vendedor em tempo quase-real;
-  alertas de estoque; execuções e bloqueios de réguas; saúde dos conectores; consumo de IA.
-- **Relatórios exportáveis** PDF/XLSX com filtros por período, canal, marca e vendedor.
+### M6 — Painel e Métricas (P0)
+- **Atualizado em 15–16/08/2026:** a antiga tela `/relatórios` foi removida e o antigo Painel
+  (`/dashboard`) foi **fundido dentro de Métricas** — `/dashboard` hoje é um redirect. Métricas
+  virou um **mosaico de cards clicáveis**, cada um expansível para tela cheia com o detalhe daquele
+  indicador (Faturamento, Reclamações, Vendas/Pedidos, Estoque Parado, Vendem mais, Score da
+  loja/Placar geral, Publicidade x Orgânico, Comparação, entre outros).
+- **Redesenho de 21/08/2026:** card em destaque no topo (o mais urgente do momento, ou Faturamento
+  por padrão) + grade de 2 colunas abaixo, todos maiores, ocupando a tela inteira sem barra de
+  rolagem — válido para tablet/desktop; no mobile o layout permanece empilhado por seção.
+- **Regra "sem filtro = sem dado"**: Clientes, Pedidos e as 3 abas então existentes do Inbox (hoje
+  reduzidas a Avaliações) só mostram dado quando marca/canal está filtrado — decisão deliberada do
+  cliente, não um bug de UI.
+- Vários cards ganharam o botão **"Entenda os status"** explicando os status possíveis
+  (Reclamações, Vendas/Pedidos, Estoque).
+- Filtro de marca/canal unificado visualmente em todo o app (mesmas pílulas em Métricas, Estoque,
+  Avaliações, Publicidade, Vendas).
 - **Trilha de auditoria navegável** (quem fez o quê, quando, origem: manual/job/IA/webhook).
 - Busca global (Ctrl+K / botão de busca no mobile).
+- **Pendente de confirmação do usuário:** relatórios exportáveis PDF/XLSX por período/canal/marca/
+  vendedor não foram localizados nos commits do período — confirmar se esse recurso já existe em
+  algum lugar do app ou se segue como pendência.
 
 ### M7 — LGPD e importação (P0) → segurança completa na §12
 - Consentimento como entidade (finalidade × canal × marca × origem × prova), gate de toda régua,
@@ -545,6 +570,28 @@ Cada bloqueio grava o motivo. Opt-out em toda mensagem; revogação cancela exec
 - **Importação/migração**: pipeline `arquivo → interpretação (planilha/XML/CSV; PDF/DOCS com
   extração assistida) → validação → prévia → confirmação`, com relatório de aceitos/rejeitados
   por linha e motivo. 💡 *A prévia mostra o que vai entrar antes de entrar — migração sem susto.*
+
+### M8 — Publicidade / Anúncios (implementado em 15–21/08/2026)
+
+💡 *Módulo novo desde a v2.2 deste PRD. Construído sobre a API real de Product Ads do Mercado
+Livre — os paths e métricas usados foram confirmados ao vivo contra as 3 contas (KARZI, WUWU e
+Armarinhos Lima), não só contra documentação. **Pendente de confirmação do usuário:** se este
+módulo está formalmente enquadrado em alguma linha do Anexo I ou se deve ser tratado como
+Evolução (Cláusula 4.3) — este PRD registra o que foi construído, sem se pronunciar sobre o
+enquadramento contratual.*
+
+- **Visão geral e KPIs**: investimento, receita atribuída, conversões, ROAS/ACOS/TACOS/CVR/CTR/CPC
+  (com explicação de cada sigla na própria tela) por marca e por canal.
+- **Produtos em anúncio**: status do anúncio no Mercado Livre (Ativo/Pausado/Em revisão/Encerrado,
+  cada um com cor própria) refletido também em Estoque e em Vendas (cards "Estoque Parado" e
+  "Vendem mais").
+- **Histórico e comparação de marcas**, **campanhas** com atenção por campanha e impacto da mídia
+  paga, **publicações** com filtro real, status e data de publicação real do anúncio.
+- Sincronização diária agendada (job Inngest — não tinha gatilho até 15/08, corrigido no mesmo dia)
+  + botão de sincronizar sob demanda com hora da última atualização visível.
+- **RLS habilitado nas 3 tabelas do módulo em 18/08/2026** (commit `eec77c3`), corrigindo um achado
+  crítico do pentest de compliance ML — as tabelas ficaram sem isolamento por linha desde a criação
+  do módulo em 15/08 até a correção em 18/08.
 
 ---
 
@@ -992,7 +1039,96 @@ Métricas de suporte:
 - 0 incidentes LGPD; 0 mensagens sem opt-in; 0 vazamentos de vínculo entre marcas.
 - 100% das telas aprovadas nos 4 breakpoints de teste.
 
-## 22. Checklist de revisão final deste PRD
+## 22. Registro de Evolução (31/07 – 21/08/2026)
+
+💡 *Esta seção é o changelog do produto entre a v2.2 (31/07/2026) e a v2.3 (21/08/2026) — 299
+commits agrupados por tema, não listados um por um. Ela é o "chapéu"; onde uma mudança contradiz o
+corpo do documento, o corpo foi atualizado junto (§5, §9) — o changelog aqui não é a única fonte
+da verdade sobre o estado atual, só o histórico de como se chegou lá.*
+
+### 22.1 Módulo Publicidade / Anúncios — construído do zero (15–21/08)
+O módulo não existia na v2.2. Foi implementado em 4 fases entre 15 e 21/08: visão geral com KPIs,
+produtos em anúncio, histórico e comparação de marcas, e campanhas — todos sobre a API real de
+Product Ads do Mercado Livre, com paths e métricas confirmados ao vivo contra as 3 contas (não só
+contra documentação — a busca inicial na web tinha detalhes errados que só a validação ao vivo
+corrigiu). Passou por três nomes até estabilizar: `Anúncios` → `Marketing` → **`Publicidade`**
+(nome atual no menu). Detalhe completo em §9·M8.
+
+### 22.2 Integração Shopee (21/08)
+Fluxo de conexão OAuth (`connect` + `callback`) implementado, junto com suporte a proxy de IP fixo
+(Fixie) — a Shopee exige IP estático nas chamadas à API, o que a infraestrutura serverless não
+oferece por padrão. **Sem confirmação de teste ao vivo em produção** até a data deste documento.
+
+### 22.3 Segurança
+- 9 vulnerabilidades de dependências corrigidas e `drizzle-kit` movido para `devDependencies` (15/08).
+- Controle de acesso quebrado corrigido em `/estoque/alertas`, e vazamento de erro do Mercado Livre
+  tratado (15/08).
+- RLS habilitado em `estoque_divergencia`, que estava sem isolamento por linha (09/08).
+- **Achado crítico**: as 3 tabelas do módulo de Anúncios ficaram sem RLS entre a criação do módulo
+  (15/08) e a correção (commit `eec77c3`, 18/08/2026) — reportado no pentest de compliance ML
+  entregue em 17/08 e corrigido no dia seguinte.
+- Correções de FK/RLS em `estoque_canal_saldo` para impedir acesso cruzado entre tenants (14/08).
+
+### 22.4 Redução de escopo: Inbox de conversa com o cliente
+Em 09/08/2026 a integração Z-API de WhatsApp foi removida como canal de atendimento ao cliente
+(commit `996d173`, junto com a aplicação dos princípios de design da Apple). Em 18/08 o módulo
+`Inbox` (que tinha as abas Conversas/Perguntas/Avaliações) foi reduzido a só **Avaliações**
+(commit `9b08e54`) — hoje é uma tela somente leitura das opiniões vindas do Mercado Livre. O que
+resta de WhatsApp no sistema são avisos internos automáticos para a equipe (estoque, vendas,
+operação) — não é mais conversa com o cliente final. **Pendente de confirmação do usuário**: se
+essa redução de escopo foi formalizada como mudança contratual ou é um ajuste de produto dentro do
+mesmo escopo — o PRD apenas registra o que o código reflete hoje.
+
+### 22.5 Estoque e Vendas — simplificação
+- Cadastro manual de produto removido: todo produto nasce de sincronização com o Mercado Livre
+  (10/08). Saldo de estoque deixou de ser um valor local e passou a ser o maior saldo entre os
+  canais conectados, nunca a soma (13/08).
+- Funil de vendas removido do front, deixando só a lista de pedidos (11/08); tarefas e agenda
+  comercial também saíram do módulo de estoque/vendas (13/08).
+- Reconciliação de estoque e sincronização de preço/título direto com o Mercado Livre (06/08);
+  importação de catálogo do ML para Estoque (09/08); produto é desativado automaticamente quando o
+  anúncio correspondente some do Mercado Livre (20/08).
+
+### 22.6 Métricas e Painel — fusão e redesenho
+- `/relatorios` removido em 15/08 — o que sobreviveu do antigo módulo (SLA, margem por marca,
+  reputação, alertas) foi incorporado a Métricas no mesmo dia.
+- Painel (`/dashboard`) fundido em Métricas como mosaico de cards clicáveis (16/08); `/dashboard`
+  passou a ser redirect.
+- Card em foco ganhou tela cheia própria e pré-carregamento das abas mais pesadas (16/08); mosaico
+  separado em 5 seções (17/08); virou índice de navegação compacto e ganhou ilustrações nas telas
+  sem escopo (18/08).
+- Redesenho de 21/08: card em destaque no topo (o mais urgente do momento, ou Faturamento por
+  padrão) + grade de 2 colunas abaixo, todos maiores, ocupando a tela inteira sem rolagem — só em
+  tablet/desktop; mobile mantém o layout empilhado por seção.
+- "Entenda os status" adicionado a Reclamações, Vendas/Pedidos e Estoque; regra "sem filtro = sem
+  dado" aplicada a Clientes, Pedidos e Avaliações.
+
+### 22.7 PWA
+Instalação como app no Android via Service Worker, com correção do `manifest.json` que estava
+quebrado (21/08/2026).
+
+### 22.8 Identidade do produto
+A aplicação foi renomeada para **Elisa Lima** durante o período (17/08) — título da aba do
+navegador, favicon/monograma e rodapés legais atualizados; e-mail de contato dos documentos legais
+unificado para `producao@elisalima.com.br`. Páginas de Termos e Privacidade passaram por redesign
+editorial completo (18/08).
+
+### 22.9 UI/UX transversal
+Cores por status de anúncio no Mercado Livre (Ativo/Pausado/Em revisão/Encerrado, cada uma com
+tom próprio) replicadas em Estoque, Vendas e Publicidade; filtros de marca/canal unificados
+visualmente (mesmas pílulas em todas as telas); distinção visual entre comprador, vendedor e
+Mercado Livre nas mensagens de reclamação (21/08); ilustrações dedicadas em telas vazias
+(Estoque, Avaliações, Publicações); correções extensas de responsividade e acessibilidade mobile
+ao longo de 14–21/08 (alvo de toque, rolagem de tabelas, calendário unificado, cabeçalhos fixos).
+
+### 22.10 Pipeline e infraestrutura
+Fila de eventos e ciclo de jobs corrigidos para não acumular nem repetir um job inteiro por falha
+isolada de um item (commit `6f28b7d`, PR #19, 20/08); redução de bloqueios e consultas do painel
+(21/08); páginas passam a nascer com dados já embutidos no HTML em vez de buscar depois (19/08).
+
+---
+
+## 23. Checklist de revisão final deste PRD
 
 Revisão executada na emissão da v2.0 — tudo conferido:
 
@@ -1026,6 +1162,18 @@ Revisão executada na emissão da v2.0 — tudo conferido:
       (§6.3 — estudo Supabase)
 - [x] Conventional Commits + narrativa técnica no Git (§15 — aulas Fase 3.2/4.1)
 - [x] Roteiro de diagnóstico do kickoff em 6 blocos (Apêndice C — "Base para a Reunião")
+
+**Adições da v2.3 — atualização de 21/08/2026 (299 commits desde 31/07):**
+
+- [x] Registro de Evolução novo, agrupado por tema (§22)
+- [x] Cabeçalho (versão/data/status) reflete Publicidade/Anúncios e Shopee implementados, com o
+      que ainda não tem teste ao vivo confirmado
+- [x] Módulo M8 — Publicidade/Anúncios documentado (§9), incluindo o achado de RLS ausente e sua correção
+- [x] M2 (Estoque), M6 (Painel/Métricas) e M3 (Conectores) atualizados para não contradizer o changelog
+- [x] Redução de escopo do Inbox de conversa com o cliente (WhatsApp/Z-API) registrada no corpo (§5.1, §5.3) e no changelog (§22.4)
+- [ ] **Pendente de confirmação do usuário**: enquadramento contratual do módulo Publicidade/Anúncios frente ao Anexo I (Evolução formal ou já coberto por alguma linha existente)
+- [ ] **Pendente de confirmação do usuário**: se a redução do Inbox de WhatsApp foi formalizada como mudança de escopo contratual
+- [ ] **Pendente de confirmação do usuário**: existência de relatórios exportáveis PDF/XLSX (não localizados nos commits do período)
 
 ---
 
