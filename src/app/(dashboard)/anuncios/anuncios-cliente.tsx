@@ -457,6 +457,9 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
 
   const marca = dados.marcas.find((item) => item.brandId === marcaAtiva) ?? dados.marcas[0];
   const marcaAnterior = consulta.anterior?.marcas.find((item) => item.brandId === marca.brandId) ?? null;
+  // Período/Hoje pintam com a cor da marca ativa — mesma identidade que já
+  // aparece na logo dela na pílula de seleção, em vez de um teal genérico.
+  const acentoMarca = isBrandSlug(marca.brandSlug) ? getBrandConfig(marca.brandSlug)?.color : undefined;
 
   const contaMercadoLivre = contas.find((conta) => conta.brandId === marca.brandId && conta.canal === "mercadolivre");
 
@@ -540,6 +543,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
             max={hojeISO}
             onChange={setPeriodo}
             disabled={carregando}
+            accent={acentoMarca}
           />
           <BotaoHoje
             ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
@@ -552,6 +556,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
               )
             }
             className="hidden sm:inline-flex"
+            accent={acentoMarca}
           />
           <button type="button" onClick={exportar} disabled={exportando}
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">

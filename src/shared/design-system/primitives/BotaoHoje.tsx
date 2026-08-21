@@ -3,18 +3,20 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { springs } from "../motion-variants";
 
-/** Pulso em volta do botão quando "hoje" está selecionado — teal
- *  (var(--acento-1)), não o índigo de var(--selecionado): aquela cor já
- *  satura as pílulas de marca/canal, e usá-la aqui também confundia
- *  "período aplicado" com "filtro marcado". */
-function HaloSelecao() {
+/** Pulso em volta do botão quando "hoje" está selecionado — na cor de
+ *  identidade de quem chamou o botão (o acento do card aberto, no
+ *  Métricas; a cor da marca ativa, em Anúncios), não num índigo fixo:
+ *  aquele já satura as pílulas de marca/canal e o dia marcado no
+ *  calendário, e usá-lo aqui também confundia "período aplicado" com
+ *  "filtro marcado". */
+function HaloSelecao({ accent }: { accent: string }) {
   const reduzMovimento = useReducedMotion();
   return (
     <AnimatePresence>
       <motion.span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[0.75rem]"
-        style={{ boxShadow: "0 0 0 2px var(--acento-1)" }}
+        style={{ boxShadow: `0 0 0 2px ${accent}` }}
         initial={{ opacity: 0, scale: 1 }}
         animate={reduzMovimento ? { opacity: 0.55 } : { opacity: [0.55, 0.1, 0.55], scale: [1, 1.06, 1] }}
         transition={reduzMovimento ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
@@ -39,6 +41,7 @@ export function BotaoHoje({
   atraso = 0.08,
   onClick,
   className,
+  accent = "var(--acento-1)",
 }: {
   /** true quando o período já é hoje→hoje — dá o mesmo feedback visual do
    *  dia selecionado no calendário, sem precisar abrir nada para saber. */
@@ -50,6 +53,10 @@ export function BotaoHoje({
    *  (ver CalendarioPopoverRange) — o botão avulso some só ali para não
    *  duplicar a ação, e volta no desktop onde sobra espaço. */
   className?: string;
+  /** Cor de identidade de quem chamou o botão — o mesmo acento do ícone do
+   *  card aberto, no Métricas, ou a cor da marca ativa, em Anúncios. Sem
+   *  isso, cai no teal padrão do design system. */
+  accent?: string;
 }) {
   return (
     <motion.button
@@ -63,7 +70,7 @@ export function BotaoHoje({
       disabled={disabled}
       aria-pressed={ativo}
       style={ativo && !disabled
-        ? { borderColor: "var(--acento-1)", color: "var(--acento-1)", background: "color-mix(in srgb, var(--acento-1) 12%, var(--card))" }
+        ? { borderColor: accent, color: accent, background: `color-mix(in srgb, ${accent} 12%, var(--card))` }
         : undefined}
       className={`relative h-11 shrink-0 items-center justify-center rounded-[0.75rem] px-3.5 text-xs transition-all duration-200 disabled:opacity-50 ${
         ativo
@@ -71,7 +78,7 @@ export function BotaoHoje({
           : "border border-border bg-muted font-bold text-muted-foreground hover:bg-card hover:text-foreground"
       } ${className ?? "inline-flex"}`}
     >
-      {ativo && !disabled && <HaloSelecao />}
+      {ativo && !disabled && <HaloSelecao accent={accent} />}
       Hoje
     </motion.button>
   );

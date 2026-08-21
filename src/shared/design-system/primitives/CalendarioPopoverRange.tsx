@@ -61,18 +61,19 @@ function montarGrade(mesReferencia: Date): Date[] {
   return dias;
 }
 
-/** Pulso em volta do gatilho quando um período está aplicado — teal
- *  (var(--acento-1)), não o índigo de var(--selecionado): aquele já
- *  identifica o dia marcado dentro do próprio calendário e as pílulas de
+/** Pulso em volta do gatilho quando um período está aplicado — na cor de
+ *  identidade de quem chamou o calendário (ver `accent` em
+ *  CalendarioPopoverRangeProps), não num índigo fixo: aquele já identifica
+ *  o dia marcado dentro do calendário de outros contextos e as pílulas de
  *  marca/canal, então repeti-lo aqui confundia "período aplicado" com
  *  "filtro marcado". */
-function HaloSelecao({ reduzir }: { reduzir: boolean | null }) {
+function HaloSelecao({ reduzir, accent }: { reduzir: boolean | null; accent: string }) {
   return (
     <AnimatePresence>
       <motion.span
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 rounded-[0.75rem]"
-        style={{ boxShadow: "0 0 0 2px var(--acento-1)" }}
+        style={{ boxShadow: `0 0 0 2px ${accent}` }}
         initial={{ opacity: 0, scale: 1 }}
         animate={reduzir ? { opacity: 0.55 } : { opacity: [0.55, 0.1, 0.55], scale: [1, 1.06, 1] }}
         transition={reduzir ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
@@ -129,12 +130,16 @@ interface MesProps {
   onHover: (dia: Date) => void;
   pulsando: boolean;
   reduzir: boolean | null;
+  /** Cor de quem chamou o calendário (o mesmo acento do ícone do card, no
+   *  Métricas; a cor da marca ativa, em Anúncios) — pinta o intervalo sendo
+   *  escolhido com essa identidade em vez de uma cor fixa igual para todos. */
+  accent: string;
 }
 
 /** Fora do componente principal — recriar isto a cada render perderia o
  *  estado interno do `useMemo` da grade e disparava o aviso do lint de
  *  "componente criado durante o render". */
-function Mes({ mes, direcaoNav, onAnterior, onProximo, foraDoLimite, papel, onEscolher, onHover, pulsando, reduzir }: MesProps) {
+function Mes({ mes, direcaoNav, onAnterior, onProximo, foraDoLimite, papel, onEscolher, onHover, pulsando, reduzir, accent }: MesProps) {
   const grade = useMemo(() => montarGrade(mes), [mes]);
   return (
     <div className="flex-1">
@@ -182,9 +187,9 @@ function Mes({ mes, direcaoNav, onAnterior, onProximo, foraDoLimite, papel, onEs
 
           return (
             <div key={dia.toISOString()} className="relative">
-              {papelDia === "meio" && <span aria-hidden="true" className="absolute inset-y-0 -inset-x-px" style={{ background: "color-mix(in srgb, var(--selecionado) 14%, transparent)" }} />}
-              {papelDia === "inicio" && <span aria-hidden="true" className="absolute inset-y-0 left-1/2 right-0" style={{ background: "color-mix(in srgb, var(--selecionado) 14%, transparent)" }} />}
-              {papelDia === "fim" && <span aria-hidden="true" className="absolute inset-y-0 left-0 right-1/2" style={{ background: "color-mix(in srgb, var(--selecionado) 14%, transparent)" }} />}
+              {papelDia === "meio" && <span aria-hidden="true" className="absolute inset-y-0 -inset-x-px" style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)` }} />}
+              {papelDia === "inicio" && <span aria-hidden="true" className="absolute inset-y-0 left-1/2 right-0" style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)` }} />}
+              {papelDia === "fim" && <span aria-hidden="true" className="absolute inset-y-0 left-0 right-1/2" style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)` }} />}
               <motion.button
                 type="button"
                 data-date={paraISO(dia)}
@@ -201,10 +206,10 @@ function Mes({ mes, direcaoNav, onAnterior, onProximo, foraDoLimite, papel, onEs
                   !bloqueado && foraDoMes && "text-muted-foreground/35 hover:bg-muted",
                   !bloqueado && !foraDoMes && !extremo && "text-foreground hover:bg-muted",
                 )}
-                style={extremo ? { background: "var(--gradient-signature)", color: "#fff" } : undefined}
+                style={extremo ? { background: accent, color: "#fff" } : undefined}
               >
                 {hoje && !extremo && (
-                  <span aria-hidden="true" className="absolute inset-0 rounded-full border-2" style={{ borderColor: "var(--selecionado)" }} />
+                  <span aria-hidden="true" className="absolute inset-0 rounded-full border-2" style={{ borderColor: accent }} />
                 )}
                 {dia.getDate()}
               </motion.button>
@@ -229,9 +234,13 @@ interface CalendarioPopoverRangeProps {
   onChange: (valor: RangeDatas) => void;
   disabled?: boolean;
   atraso?: number;
+  /** Cor de identidade de quem chamou o calendário — o mesmo acento do
+   *  ícone do card aberto, no Métricas, ou a cor da marca ativa, em
+   *  Anúncios. Sem isso, cai no teal padrão do design system. */
+  accent?: string;
 }
 
-export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disabled, atraso = 0 }: CalendarioPopoverRangeProps) {
+export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disabled, atraso = 0, accent = "var(--acento-1)" }: CalendarioPopoverRangeProps) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<Posicao | null>(null);
   const [pulsando, setPulsando] = useState(false);
@@ -415,6 +424,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
           onHover={(dia) => inicioRascunho && setHoverDia(dia)}
           pulsando={pulsando}
           reduzir={reduzir}
+          accent={accent}
         />
         {posicao.doisMeses && (
           <Mes
@@ -428,6 +438,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             onHover={(dia) => inicioRascunho && setHoverDia(dia)}
             pulsando={pulsando}
             reduzir={reduzir}
+            accent={accent}
           />
         )}
       </div>
@@ -474,7 +485,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
           });
         }}
         style={inicioSelecionado && fimSelecionado && !aberto
-          ? { borderColor: "var(--acento-1)", color: "var(--acento-1)", background: "color-mix(in srgb, var(--acento-1) 12%, var(--card))" }
+          ? { borderColor: accent, color: accent, background: `color-mix(in srgb, ${accent} 12%, var(--card))` }
           : undefined}
         className={cn(
           "group press-feedback relative inline-flex h-11 items-center gap-2 rounded-[0.75rem] px-3.5 text-xs transition-all duration-200 disabled:opacity-50",
@@ -484,7 +495,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
           aberto && "border border-foreground/60 bg-card shadow-[0_0_0_3px_rgba(14,15,19,.08)]",
         )}
       >
-        {inicioSelecionado && fimSelecionado && !aberto && <HaloSelecao reduzir={reduzir} />}
+        {inicioSelecionado && fimSelecionado && !aberto && <HaloSelecao reduzir={reduzir} accent={accent} />}
         <CalendarRange
           size={15}
           strokeWidth={2}

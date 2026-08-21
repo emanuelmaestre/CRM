@@ -133,11 +133,14 @@ function useDadosDoCard(
    foco — decisão tomada com o usuário). */
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
-function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, periodoLabel }: {
+function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, periodoLabel, accent }: {
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;
   carregandoSaude: boolean;
   periodoLabel?: string;
+  /** Acento do card em foco — o calendário e o "Hoje" pintam com a mesma
+   *  cor do ícone do card, em vez de um teal genérico igual para todos. */
+  accent?: string;
 }) {
   return (
     <>
@@ -147,6 +150,7 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, periodoLabel }: {
         max={hoje}
         onChange={({ inicio, fim }) => trocarDatas(inicio, fim)}
         disabled={carregandoSaude}
+        accent={accent}
       />
       <BotaoHoje
         ativo={periodo.inicio === hoje && periodo.fim === hoje}
@@ -156,6 +160,7 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, periodoLabel }: {
           trocarDatas(jaEstaEmHoje ? "" : hoje, jaEstaEmHoje ? "" : hoje);
         }}
         className="hidden sm:inline-flex"
+        accent={accent}
       />
       <span className="text-[11px] text-muted-foreground">
         {periodoLabel ?? ""}
@@ -926,6 +931,7 @@ export function Mosaico({
             trocarDatas={trocarDatas}
             carregandoSaude={carregandoSaude}
             periodoLabel={saude.dados?.periodoLabel}
+            accent={blocoAberto?.accent}
           />
         }
       />
