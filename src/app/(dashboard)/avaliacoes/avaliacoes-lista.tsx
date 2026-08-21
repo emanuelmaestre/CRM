@@ -283,8 +283,8 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
               {item.reviewsTotal ? `${item.reviewsTotal} opiniões` : "Sem opiniões"}
             </p>
           </div>
-          <span className={`text-right text-xl font-black tabular-nums sm:w-10 ${baixa ? "text-destructive" : "text-foreground"}`}>
-            {item.ratingAverage?.toFixed(1) ?? "Sem avaliação"}
+          <span className={`shrink-0 whitespace-nowrap text-right text-xl font-black tabular-nums sm:w-10 ${baixa ? "text-destructive" : "text-foreground"}`}>
+            {item.ratingAverage?.toFixed(1) ?? "—"}
           </span>
           {temDetalhe ? (
             <motion.span
@@ -535,7 +535,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     return (
       <div className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.06)]">
         <EmptyState
-          illustration="funnel"
+          illustration="reviews"
           title="Selecione um filtro"
           description="Escolha uma marca ou canal acima para ver as opiniões."
         />
@@ -551,8 +551,8 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
         <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)] md:items-center">
           <div className="flex flex-col items-center justify-center gap-1 md:items-start">
             <span className="flex items-center gap-1.5">
-              <p className="text-[3.25rem] font-black leading-none tracking-[-0.03em] tabular-nums text-foreground">
-                {carregando ? "…" : media === null ? "Sem avaliação" : media.toFixed(1).replace(".", ",")}
+              <p className="whitespace-nowrap text-[3.25rem] font-black leading-none tracking-[-0.03em] tabular-nums text-foreground">
+                {carregando ? "…" : media === null ? "—" : media.toFixed(1).replace(".", ",")}
               </p>
               {!carregando && (
                 <CalculoPopover

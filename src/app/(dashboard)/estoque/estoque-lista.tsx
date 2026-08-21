@@ -894,7 +894,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
           fique órfão numa quebra e mantém a fileira previsível independente
           de quantas marcas/canais existirem. */}
       <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="mb-4 flex flex-col items-center gap-2.5 lg:w-fit lg:mx-auto lg:flex-row lg:flex-wrap lg:gap-3">
-        <motion.div variants={staggerExagerado} data-tour="estoque-empresa" className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible">
+        <motion.div variants={staggerExagerado} data-tour="estoque-empresa" className="order-2 flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:order-none lg:w-auto lg:flex-wrap lg:overflow-visible">
           {marcas.map((marca) => (
             <MarcaPill
               key={marca.brandId}
@@ -909,7 +909,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
         <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
 
-        <motion.div variants={staggerExagerado} className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible">
+        <motion.div variants={staggerExagerado} className="order-1 flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:order-none lg:w-auto lg:flex-wrap lg:overflow-visible">
           {canais.map((item) => (
             <CanalPill
               key={item.tipo}

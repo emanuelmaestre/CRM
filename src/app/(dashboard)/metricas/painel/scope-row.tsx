@@ -87,37 +87,47 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
 }) {
   if (marcas.length === 0 && canais.length === 0) return null;
 
+  // No mobile, marca e canal já quebravam em duas fileiras por falta de
+  // espaço (empresas em cima, canais embaixo) — formaliza isso em dois
+  // grupos de verdade (em vez de uma sequência só) pra poder inverter a
+  // ordem visual só ali (canal em cima, empresa embaixo) com `order`, sem
+  // mudar nada no desktop: `sm:contents` desfaz o agrupamento a partir do
+  // sm, voltando pra sequência única de sempre dentro do AcaoSlotFiltro. */
   return (
     <>
-      {marcas.map((marca) => (
-        <Pilula
-          key={marca.brandId}
-          ativo={filtro.brandId.includes(marca.brandId)}
-          onClick={() => onChange({ ...filtro, brandId: alternar(filtro.brandId, marca.brandId) })}
-          accent={isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined}
-          total={marca.total}
-        >
-          {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={17} /> : marca.nome}
-        </Pilula>
-      ))}
+      <div className="order-2 flex flex-wrap items-center justify-center gap-2 sm:order-none sm:contents">
+        {marcas.map((marca) => (
+          <Pilula
+            key={marca.brandId}
+            ativo={filtro.brandId.includes(marca.brandId)}
+            onClick={() => onChange({ ...filtro, brandId: alternar(filtro.brandId, marca.brandId) })}
+            accent={isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined}
+            total={marca.total}
+          >
+            {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={17} /> : marca.nome}
+          </Pilula>
+        ))}
+      </div>
 
       {marcas.length > 0 && canais.length > 0 && (
-        <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border" />
+        <span aria-hidden="true" className="hidden h-4 w-px shrink-0 bg-border sm:block" />
       )}
 
-      {canais.map((canal) => (
-        <Pilula
-          key={canal.tipo}
-          ativo={filtro.canal.includes(canal.tipo)}
-          desabilitado={!canal.conectado}
-          onClick={() => onChange({ ...filtro, canal: alternar(filtro.canal, canal.tipo) })}
-          rotulo={canalLabel(canal.tipo)}
-          accent={channelAccent(canal.tipo)}
-          total={canal.total}
-        >
-          <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
-        </Pilula>
-      ))}
+      <div className="order-1 flex flex-wrap items-center justify-center gap-2 sm:order-none sm:contents">
+        {canais.map((canal) => (
+          <Pilula
+            key={canal.tipo}
+            ativo={filtro.canal.includes(canal.tipo)}
+            desabilitado={!canal.conectado}
+            onClick={() => onChange({ ...filtro, canal: alternar(filtro.canal, canal.tipo) })}
+            rotulo={canalLabel(canal.tipo)}
+            accent={channelAccent(canal.tipo)}
+            total={canal.total}
+          >
+            <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
+          </Pilula>
+        ))}
+      </div>
     </>
   );
 }

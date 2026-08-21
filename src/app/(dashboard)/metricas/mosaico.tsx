@@ -185,6 +185,7 @@ const TOUR: CoachMarkStep[] = [
  *  Tailwind lê o código-fonte para saber quais classes gerar — uma string
  *  do tipo `lg:grid-cols-${n}` não existiria no CSS final. */
 const COLUNAS_LG: Record<number, string> = {
+  2: "lg:grid-cols-2",
   3: "lg:grid-cols-3",
   4: "lg:grid-cols-4",
   5: "lg:grid-cols-5",
@@ -777,6 +778,22 @@ export function Mosaico({
     if (cardAberto && indiceAberto < 0 && blocos.length > 0) fechar();
   }, [cardAberto, indiceAberto, blocos.length, fechar]);
 
+  /* Seções de 1 bloco só (hoje: Placar geral, Atendimento, Marketing) juntam
+   *  a mesma linha em vez de cada uma abrir uma linha própria com um
+   *  cardzinho perdido e o resto vazio — o "buraco" que sobrou depois que
+   *  várias seções encolheram para 1 card. `ordem` (aplicada via `style`,
+   *  só tem efeito dentro de contexto flex — inerte no mobile, que não é
+   *  flex) agrupa essas seções lado a lado na posição em que a primeira
+   *  delas aparece, sem mudar a ordem real do DOM nem a leitura em mobile.
+   *  Reduce em vez de contador mutável: o React Compiler não permite
+   *  reatribuir uma variável presa no fechamento durante a renderização. */
+  const gruposComOrdem = useMemo(() => grupos.reduce<Array<{ grupo: typeof grupos[number]; ordem: number; sozinho: boolean }>>((acc, grupo) => {
+    const sozinho = grupo.blocos.length === 1;
+    const singleAnterior = sozinho ? acc.find((item) => item.sozinho) : undefined;
+    const ordem = singleAnterior ? singleAnterior.ordem : acc.length;
+    return [...acc, { grupo, ordem, sozinho }];
+  }, []), [grupos]);
+
   return (
     <>
       <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-3">
@@ -804,25 +821,38 @@ export function Mosaico({
             qualquer coisa. */}
         {/* Permanece dentro do container compartilhado de 1440px para que a
             proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}
-        <div data-coachmark="mosaico-grade" className="flex flex-col gap-3.5 lg:gap-6">
-              {grupos.map((grupo) => (
-                <section key={grupo.id} className="flex flex-col gap-2">
+        {/* No mobile o container é bloco normal — cada seção empilhada, uma
+            por linha, exatamente como sempre foi (gap-3.5 vertical). A
+            partir do lg vira uma linha flex: seções com 2+ blocos continuam
+            ocupando a linha inteira (lg:w-full, força a quebra igual antes);
+            seções de 1 bloco só (Placar geral, Atendimento, Marketing hoje)
+            dividem a mesma linha entre si (lg:flex-1) em vez de cada uma
+            abrir uma linha própria com um cardzinho perdido no canto e o
+            resto vazio — era esse o buraco que sobrou depois que várias
+            seções encolheram para 1 card. `order` (via style, só tem efeito
+            dentro de contexto flex — inerte no mobile) agrupa as seções de 1
+            bloco lado a lado na posição da primeira que aparecer, sem mudar
+            a ordem real do DOM nem a leitura em voz alta/mobile. */}
+        <div data-coachmark="mosaico-grade" className="space-y-3.5 lg:flex lg:flex-row lg:flex-wrap lg:items-start lg:gap-x-3 lg:gap-y-6 lg:space-y-0">
+              {gruposComOrdem.map(({ grupo, ordem, sozinho }) => (
+                <section
+                  key={grupo.id}
+                  style={{ order: ordem }}
+                  className={`flex flex-col gap-2 ${sozinho ? "lg:min-w-[220px] lg:flex-1" : "lg:w-full"}`}
+                >
                   <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
                   {/* Colunas por seção, não uma grade fixa para todas: a seção
-                      preenche a linha com os cards que tem, então uma de 3 itens
-                      dá cards de 1/3 e a de 4 itens dá cards de 1/4 — em vez de
-                      todo mundo herdar a largura da maior e sobrar buraco. O
-                      piso de 3 evita o extremo oposto: 2 itens esticados pela
-                      metade da tela cada. Uma seção de 1 item só (ex.: Saúde da
-                      loja sozinha, depois que Termômetro saiu) não entra nesse
-                      piso — um card só forçado a 1/3 da grade deixaria os
-                      outros 2/3 vazios, o mesmo buraco que o piso de 3 existe
-                      pra evitar. Vira flex, largura do próprio conteúdo. Só
-                      afeta lg+; abaixo disso a grade continua a mesma de sempre. */}
+                      preenche a linha com os cards que tem — 2 itens dá cards
+                      de 1/2, 4 itens dá cards de 1/4 — sem piso artificial,
+                      que era o que sobrava buraco quando uma seção tinha
+                      menos itens que o piso. Uma seção de 1 item só preenche a
+                      largura da própria fatia da linha compartilhada (ver
+                      gruposComOrdem acima), em vez de ficar do tamanho do
+                      próprio conteúdo. */}
                   <ul className={
-                    grupo.blocos.length === 1
-                      ? "grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:flex lg:gap-3"
-                      : `grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:gap-3 ${COLUNAS_LG[Math.max(3, grupo.blocos.length)] ?? "lg:grid-cols-6"}`
+                    sozinho
+                      ? "grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-1"
+                      : `grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:gap-3 ${COLUNAS_LG[grupo.blocos.length] ?? "lg:grid-cols-6"}`
                   }>
                     {grupo.blocos.map((bloco) => (
                       <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />

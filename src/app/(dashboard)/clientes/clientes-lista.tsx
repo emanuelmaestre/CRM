@@ -317,7 +317,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
         <motion.div
           data-tour="clientes-empresa"
           variants={staggerExagerado}
-          className="flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible"
+          className="order-2 flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:order-none lg:w-auto lg:flex-wrap lg:overflow-visible"
         >
           {marcas.map((marca) => (
             <MarcaPill
@@ -335,7 +335,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
         <motion.div
           variants={staggerExagerado}
-          className="flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible"
+          className="order-1 flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:order-none lg:w-auto lg:flex-wrap lg:overflow-visible"
         >
           {canais.map((item) => (
             <CanalPill
@@ -356,7 +356,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
           value={busca}
           onChange={handleBusca}
           placeholder={copy.searchPlaceholder}
-          className="h-11 w-full px-3.5 rounded-[0.75rem] border-2 border-border bg-card text-sm text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] placeholder:text-muted-foreground/80 focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] lg:max-w-xs lg:flex-1"
+          className="order-3 h-11 w-full px-3.5 rounded-[0.75rem] border-2 border-border bg-card text-sm text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] placeholder:text-muted-foreground/80 focus:outline-none focus:border-[rgba(155,48,217,.5)] focus:shadow-[0_0_0_3px_rgba(155,48,217,.08)] transition-[border-color,box-shadow] lg:order-none lg:max-w-xs lg:flex-1"
         />
       </motion.div>
 

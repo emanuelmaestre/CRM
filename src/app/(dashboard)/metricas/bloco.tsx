@@ -177,14 +177,14 @@ export function Bloco({ def, focado, onAbrir }: {
         <motion.div
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
-          className="card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-1.5 overflow-hidden px-2.5 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 lg:gap-2.5 lg:px-3.5 lg:py-3"
+          className="card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-1.5 overflow-hidden px-2.5 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 lg:gap-3 lg:px-5 lg:py-4"
         >
           <span
-            className="flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center rounded-full lg:h-7 lg:w-7"
+            className="flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center rounded-full lg:h-9 lg:w-9"
             style={{ background: tint(accent, 9), color: accent }}
           >
             <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
-            <Icone size={14} strokeWidth={1.9} className="hidden lg:block" />
+            <Icone size={18} strokeWidth={1.9} className="hidden lg:block" />
           </span>
           {/* O título mais longo ("Recomendações") passa raspando na largura
               de um card de 2 colunas no celular, e quem tem tamanho de texto
@@ -196,7 +196,7 @@ export function Bloco({ def, focado, onAbrir }: {
               (text-wrap:balance não resolve sozinho — é uma palavra só, não
               há como equilibrar entre linhas; serve pros títulos de 2-3
               palavras.) */}
-          <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] lg:text-[13.5px]">
+          <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] lg:text-[15.5px]">
             {def.titulo}
           </span>
           <button

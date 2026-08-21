@@ -38,14 +38,14 @@ export function AvaliacoesCliente({ itensIniciais }: {
           linha inteira e centraliza sozinha. No mobile, empresa em cima e
           canal embaixo; uma linha só no desktop. */}
       <div className="flex flex-col items-center gap-2 lg:flex-row lg:justify-center lg:gap-3">
-        <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none flex justify-center lg:hidden">
-          <EmpresasRow marcasAtivas={marcasAtivas} onToggleMarca={alternarMarca} contagemMarca={contagens.marcas} />
-        </div>
-        <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none flex justify-center lg:hidden">
+        <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none flex justify-center lg:hidden">
           <CanaisRow canaisAtivos={canaisAtivos} onToggleCanal={alternarCanal} contagemCanal={contagens.canais} />
         </div>
+        <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none flex justify-center lg:hidden">
+          <EmpresasRow marcasAtivas={marcasAtivas} onToggleMarca={alternarMarca} contagemMarca={contagens.marcas} />
+        </div>
 
-        <div className="hidden lg:block min-w-0 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none">
+        <div className="hidden lg:block min-w-0 overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none">
           <FiltroEscopoBar
             marcasAtivas={marcasAtivas}
             canaisAtivos={canaisAtivos}

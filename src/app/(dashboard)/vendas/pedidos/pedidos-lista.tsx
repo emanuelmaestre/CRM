@@ -13,6 +13,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
+import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { springs, variantes, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
@@ -90,6 +91,45 @@ const GRUPOS_STATUS = [
   { chave: "cancelado", label: "Cancelado", statuses: ["cancelado"], dica: undefined as string | undefined },
 ] as const;
 type ChaveGrupoStatus = (typeof GRUPOS_STATUS)[number]["chave"];
+
+/** Catálogo dos status reais do pedido — só o que o Mercado Livre de fato
+ *  devolve (ver comentário de GRUPOS_STATUS acima); nada de Entregue,
+ *  Concluído ou Devolvido, que não existem como dado real da API. */
+const LEGENDA_STATUS_PEDIDOS: Array<{ titulo: string; cor: string; texto: string }> = [
+  { titulo: "Todos", cor: "var(--muted-foreground)", texto: "Mostra os pedidos de qualquer status, sem recorte — o ponto de partida antes de filtrar." },
+  { titulo: "Em aberto", cor: "var(--info)", texto: "Criado, Pago, Separado e Enviado. O Mercado Livre não informa esses quatro estágios separadamente pelo pedido, então praticamente todo pedido ativo fica agrupado aqui até ser cancelado." },
+  { titulo: "Cancelado", cor: "var(--destructive)", texto: "O pedido foi cancelado — pelo comprador, pelo vendedor ou automaticamente por falta de pagamento." },
+];
+
+function EntendaStatusPedidoBotao() {
+  return (
+    <AnimatedInfoPopover
+      trigger={(
+        <AnimatedInfoTrigger
+          title="Entenda os status dos pedidos"
+          iconSize={13}
+          className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+        >
+          Entenda os status
+        </AnimatedInfoTrigger>
+      )}
+      align="end"
+      sideOffset={8}
+      collisionPadding={12}
+      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Status do pedido</p>
+      <dl className="mt-3 flex flex-col gap-3">
+        {LEGENDA_STATUS_PEDIDOS.map((item) => (
+          <div key={item.titulo}>
+            <dt className="text-[12.5px] font-bold" style={{ color: item.cor }}>{item.titulo}</dt>
+            <dd className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{item.texto}</dd>
+          </div>
+        ))}
+      </dl>
+    </AnimatedInfoPopover>
+  );
+}
 
 function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
@@ -396,48 +436,58 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   return (
     <div>
       {/* Barra de escopo — empresa e canal. No desktop tudo numa linha,
-          centralizado; no mobile empilha e cada fileira rola por dentro se
-          precisar (mesmo padrão já usado em Inbox e Clientes). */}
-      <motion.div
-        variants={staggerExagerado}
-        initial="hidden"
-        animate="show"
-        className="mb-4 flex flex-col items-center gap-2 lg:w-fit lg:mx-auto lg:flex-row lg:flex-wrap"
-      >
+          centralizado, com "Entenda os status" alinhado à direita; no
+          mobile empilha e cada fileira rola por dentro se precisar (mesmo
+          padrão já usado em Inbox e Clientes). */}
+      <div className="mb-4 flex flex-col items-center gap-2 lg:relative lg:flex-row lg:justify-center">
         <motion.div
           variants={staggerExagerado}
-          className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible"
+          initial="hidden"
+          animate="show"
+          className="flex flex-col items-center gap-2 lg:w-fit lg:flex-row lg:flex-wrap"
         >
-          {marcas.map((marca) => (
-            <MarcaPill
-              key={marca.brandId}
-              marca={marca}
-              ativo={brandIds.includes(marca.brandId)}
-              onClick={() => setBrandIds((atual) => atual.includes(marca.brandId)
-                ? atual.filter((id) => id !== marca.brandId)
-                : [...atual, marca.brandId])}
-            />
-          ))}
+          <motion.div
+            variants={staggerExagerado}
+            className="order-2 flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:order-none lg:w-auto lg:flex-wrap lg:overflow-visible"
+          >
+            {marcas.map((marca) => (
+              <MarcaPill
+                key={marca.brandId}
+                marca={marca}
+                ativo={brandIds.includes(marca.brandId)}
+                onClick={() => setBrandIds((atual) => atual.includes(marca.brandId)
+                  ? atual.filter((id) => id !== marca.brandId)
+                  : [...atual, marca.brandId])}
+              />
+            ))}
+          </motion.div>
+
+          <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
+
+          <motion.div
+            variants={staggerExagerado}
+            className="order-1 flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:order-none lg:w-auto lg:flex-wrap lg:overflow-visible"
+          >
+            {canais.map((item) => (
+              <CanalPill
+                key={item.tipo}
+                canal={item}
+                ativo={canaisSel.includes(item.tipo as CanalVenda)}
+                onClick={() => setCanaisSel((atual) => atual.includes(item.tipo as CanalVenda)
+                  ? atual.filter((tipo) => tipo !== item.tipo)
+                  : [...atual, item.tipo as CanalVenda])}
+              />
+            ))}
+          </motion.div>
         </motion.div>
 
-        <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
-
-        <motion.div
-          variants={staggerExagerado}
-          className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible"
-        >
-          {canais.map((item) => (
-            <CanalPill
-              key={item.tipo}
-              canal={item}
-              ativo={canaisSel.includes(item.tipo as CanalVenda)}
-              onClick={() => setCanaisSel((atual) => atual.includes(item.tipo as CanalVenda)
-                ? atual.filter((tipo) => tipo !== item.tipo)
-                : [...atual, item.tipo as CanalVenda])}
-            />
-          ))}
-        </motion.div>
-      </motion.div>
+        <div className="hidden lg:absolute lg:right-0 lg:top-0 lg:block">
+          <EntendaStatusPedidoBotao />
+        </div>
+        <div className="lg:hidden">
+          <EntendaStatusPedidoBotao />
+        </div>
+      </div>
 
       {/* Filtros — no desktop, uma linha só como sempre foi (busca cresce,
           o resto tem largura própria). No mobile isso empilhava em blocos
@@ -485,7 +535,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           transition={springs.settleFast}
           className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
-          <EmptyState illustration="reports" title="Escolha uma empresa ou canal para começar" />
+          <EmptyState illustration="revenue" title="Escolha uma empresa ou canal para começar" />
         </motion.div>
       ) : (
       <div className="flex flex-col gap-4">
