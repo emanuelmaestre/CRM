@@ -490,7 +490,12 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
   );
 
   const abasCriterio = (
-    <div className="flex gap-0.5 overflow-x-auto rounded-[0.75rem] bg-muted p-1 scrollbar-none sm:flex-wrap sm:overflow-visible" role="tablist" aria-label={copy.ordenarPor}>
+    // Mobile: grade de 2 colunas, tudo visível numa tela só, sem arrastar
+    // pro lado — o wrap antigo em linha só (flex-wrap) ficava torto (2, depois
+    // 3, depois 1 item por linha); grid alinha as bordas certinho mesmo com
+    // 7 opções de texto de tamanhos bem diferentes. Desktop mantém a fileira
+    // única de sempre, com espaço de sobra pra não precisar de grade.
+    <div className="grid grid-cols-2 gap-1 rounded-[0.75rem] bg-muted p-1 sm:flex sm:flex-wrap sm:gap-0.5" role="tablist" aria-label={copy.ordenarPor}>
       {copy.criterios.map((opcao) => {
         const ativo = opcao.chave === criterio;
         return (
@@ -500,7 +505,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
             role="tab"
             aria-selected={ativo}
             onClick={() => setCriterio(opcao.chave as Criterio)}
-            className={`press-feedback relative flex h-11 shrink-0 items-center whitespace-nowrap rounded-[0.5rem] px-3 text-[11px] transition-colors ${ativo ? "font-extrabold" : "font-semibold"}`}
+            className={`press-feedback relative flex min-h-11 items-center justify-center rounded-[0.5rem] px-2 py-2 text-center text-[11px] leading-tight transition-colors sm:h-11 sm:shrink-0 sm:justify-start sm:whitespace-nowrap sm:px-3 sm:text-left ${ativo ? "font-extrabold" : "font-semibold"}`}
             style={{ color: ativo ? "var(--foreground)" : "var(--muted-foreground)" }}
           >
             {ativo && (

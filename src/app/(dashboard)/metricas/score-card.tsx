@@ -267,7 +267,11 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
           iconSize={13}
           className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
         >
-          Entenda a pontuação
+          {/* No mobile, "Entenda a pontuação" ao lado do Período não cabia
+              numa linha só — rótulo mais curto aqui, o botão continua com o
+              title completo pra quem usa leitor de tela. */}
+          <span className="sm:hidden">Pontuação</span>
+          <span className="hidden sm:inline">Entenda a pontuação</span>
         </AnimatedInfoTrigger>
       )}
       align="start"

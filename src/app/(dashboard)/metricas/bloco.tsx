@@ -352,20 +352,25 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                 </button>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex flex-row flex-wrap items-center justify-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2">
                 <div className="flex min-w-0 flex-wrap items-center justify-center gap-2 sm:justify-start">
                   {barraPeriodo}
                 </div>
                 {/* Alvo do portal: sempre presente no DOM, mesmo vazio — um
                     card com ação própria (aba, "como é calculado") a desenha
-                    aqui via createPortal quando monta. */}
+                    aqui via createPortal quando monta. Com o pai em flex-wrap
+                    (mobile e desktop), conteúdo curto (botão só, ver Score)
+                    sobe pra mesma linha do Período sozinho quando cabe; largo
+                    (grade de critérios, filtro de marca/canal) quebra pra
+                    linha de baixo — sem precisar de dois layouts diferentes
+                    por tamanho de tela. */}
                 {/* sm:flex-1: cresce pra preencher o espaço que sobra ao lado do
                     período — sem isso um card que centraliza algo dentro do
                     próprio slot (ver ParadosCard) não tinha largura nenhuma pra
                     centralizar em relação a. Cards de um botão só (Score,
                     Reclamações) não mudam de lugar: `justify-end` continua
                     empurrando o conteúdo pro fim, seja a caixa larga ou não. */}
-                <div ref={setAcaoSlot} className="flex min-w-0 flex-wrap items-center justify-start gap-2 empty:hidden sm:ml-auto sm:flex-1 sm:justify-end" />
+                <div ref={setAcaoSlot} className="flex min-w-0 flex-wrap items-center justify-center gap-2 empty:hidden sm:ml-auto sm:flex-1 sm:justify-end" />
               </div>
             </motion.div>
 
