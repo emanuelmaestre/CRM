@@ -998,6 +998,26 @@ export class MercadoLivreProvider implements ChannelProvider {
     return resultado[referencia.listingId] ?? null;
   }
 
+  /** Data de publicação do anúncio (`date_created` do próprio item na API de
+   *  Itens) — não vem junto de nenhuma resposta da API de Product Ads, que
+   *  só devolve item_id/status/métricas. Mesmo padrão de multiget batelado
+   *  já usado em `consultarStatusAnuncios`, só trocando os atributos pedidos. */
+  async consultarDataCriacaoAnuncios(ids: string[]): Promise<Record<string, string | null>> {
+    const resultado: Record<string, string | null> = {};
+    for (let i = 0; i < ids.length; i += 20) {
+      const lote = ids.slice(i, i + 20);
+      const resp = await this.get<Array<{ code: number; body?: { id: string; date_created?: string } }>>(
+        `/items?ids=${lote.join(",")}&attributes=id,date_created`,
+      );
+      for (const entrada of resp) {
+        const id = entrada.body?.id;
+        if (!id) continue;
+        resultado[id] = entrada.code === 200 ? (entrada.body?.date_created ?? null) : null;
+      }
+    }
+    return resultado;
+  }
+
   async obterPerformanceItem(itemId: string): Promise<MLPerformanceItem> {
     const resposta = await this.get<{
       entity_id?: string;
