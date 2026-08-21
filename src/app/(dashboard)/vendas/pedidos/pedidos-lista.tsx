@@ -10,7 +10,7 @@ import {
 } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
@@ -151,7 +151,7 @@ function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; on
       aria-pressed={ativo}
       aria-label={marca.nome}
       title={bloqueada ? copy.brandSelector.emptyHint.replace("{marca}", marca.nome) : undefined}
-      className={`relative inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
+      className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
           : ativo
@@ -162,9 +162,9 @@ function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; on
     >
       <HaloSelecao ativo={ativo} cor={brandColor(slug)} reduzir={reduzir} />
       {temIdentidade
-        ? <BrandLogo brand={slug} height={13} />
-        : <span className="text-[13px] font-semibold text-foreground">{marca.nome}</span>}
-      <span className="text-[11px] tabular-nums text-muted-foreground">{marca.total}</span>
+        ? <BrandLogo brand={slug} height={17} />
+        : <span className="text-sm font-semibold text-foreground">{marca.nome}</span>}
+      <span className="text-xs tabular-nums text-muted-foreground">{marca.total}</span>
     </motion.button>
   );
 }
@@ -184,17 +184,18 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
       aria-pressed={ativo}
       aria-label={label}
       title={canal.conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
-      className={`relative inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 transition-colors ${
+      className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         !canal.conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
-            ? "border-2 border-selecionado bg-selecionado/07"
+            ? "border-2 bg-card/70"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
+      style={canal.conectado && ativo ? { borderColor: channelAccent(canal.tipo) } : undefined}
     >
-      <HaloSelecao ativo={ativo} cor="var(--selecionado)" reduzir={reduzir} />
-      <ChannelLogo canal={canal.tipo} size="xs" variant="logo" />
-      <span className="text-[11px] tabular-nums text-muted-foreground">{canal.total}</span>
+      <HaloSelecao ativo={ativo} cor={channelAccent(canal.tipo)} reduzir={reduzir} />
+      <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
+      <span className="text-xs tabular-nums text-muted-foreground">{canal.total}</span>
     </motion.button>
   );
 }
@@ -427,7 +428,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
       >
         <motion.div
           variants={staggerExagerado}
-          className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible"
+          className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible"
         >
           {marcas.map((marca) => (
             <MarcaPill
@@ -445,7 +446,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
         <motion.div
           variants={staggerExagerado}
-          className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible"
+          className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible"
         >
           {canais.map((item) => (
             <CanalPill

@@ -18,7 +18,7 @@ import {
 } from "./actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
@@ -528,11 +528,14 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
         !conectado
           ? "border border-border opacity-50"
           : ativo
-            ? "border-2 border-selecionado bg-selecionado/12"
+            ? "border-2 bg-card/70"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
+      // Cor própria do canal quando selecionado (mesmo padrão de Avaliações),
+      // não um índigo genérico — cada canal já tem identidade visual.
+      style={conectado && ativo ? { borderColor: channelAccent(tipo) } : undefined}
     >
-      <HaloSelecao ativo={ativo} cor="var(--selecionado)" reduzir={reduzir} />
+      <HaloSelecao ativo={ativo} cor={channelAccent(tipo)} reduzir={reduzir} />
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
       {conectado ? (
         <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
@@ -949,7 +952,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
           fique órfão numa quebra e mantém a fileira previsível independente
           de quantas marcas/canais existirem. */}
       <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="mb-4 flex flex-col items-center gap-2.5 lg:w-fit lg:mx-auto lg:flex-row lg:flex-wrap lg:gap-3">
-        <motion.div variants={staggerExagerado} data-tour="estoque-empresa" className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible">
+        <motion.div variants={staggerExagerado} data-tour="estoque-empresa" className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible">
           {marcas.map((marca) => (
             <MarcaPill
               key={marca.brandId}
@@ -964,7 +967,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
         <span aria-hidden="true" className="hidden h-5 w-px bg-border lg:block" />
 
-        <motion.div variants={staggerExagerado} className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible">
+        <motion.div variants={staggerExagerado} className="flex w-full justify-center gap-2 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible">
           {canais.map((item) => (
             <CanalPill
               key={item.tipo}

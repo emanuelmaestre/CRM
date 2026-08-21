@@ -141,9 +141,10 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
         !conectado
           ? "border border-border opacity-50 cursor-not-allowed"
           : ativo
-            ? "border-2 border-selecionado bg-selecionado/12"
+            ? "border-2 bg-card/70"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
       }`}
+      style={conectado && ativo ? { borderColor: channelAccent(tipo) } : undefined}
     >
       <HaloSelecao ativo={ativo} cor={channelAccent(tipo)} reduzir={reduzir} />
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
@@ -332,7 +333,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
         <motion.div
           data-tour="clientes-empresa"
           variants={staggerExagerado}
-          className="flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible"
+          className="flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible"
         >
           {marcas.map((marca) => (
             <MarcaPill
@@ -350,7 +351,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
         <motion.div
           variants={staggerExagerado}
-          className="flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-thin lg:w-auto lg:flex-wrap lg:overflow-visible"
+          className="flex w-full justify-center gap-2.5 overflow-x-auto overscroll-x-contain px-0.5 scrollbar-none lg:w-auto lg:flex-wrap lg:overflow-visible"
         >
           {canais.map((item) => (
             <CanalPill
