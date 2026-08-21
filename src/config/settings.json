@@ -18,7 +18,7 @@
     "title": "Automações",
     "description": "Avisos automáticos no WhatsApp e histórico de disparos das réguas",
     "icon": "Repeat",
-    "columns": ["Quando", "Régua", "Cliente", "Marca", "Status", "Gate", "Motivo"],
+    "columns": ["Quando", "Régua", "Cliente", "Marca", "Status", "Bloqueio", "Motivo"],
     "emptyNoRules": "Nenhuma régua cadastrada - por isso não há disparos. As réguas ainda não podem ser criadas pelo sistema.",
     "emptyNoRuns": "Nenhum disparo registrado ainda.",
     "loadError": "Erro ao carregar o histórico de automações."
@@ -105,7 +105,7 @@
       "protections": [
         { "id": "stock", "label": "Estoque intacto", "description": "Nenhuma baixa ou estorno" },
         { "id": "automation", "label": "Automações pausadas", "description": "Sem régua ou notificação" },
-        { "id": "sync", "label": "Marketplace protegido", "description": "Nenhum saldo será enviado" },
+        { "id": "sync", "label": "Canal de vendas protegido", "description": "Nenhum saldo será enviado" },
         { "id": "dates", "label": "Datas preservadas", "description": "Relatórios no período correto" }
       ],
       "stages": {
@@ -183,7 +183,7 @@
       "database": "salvo no banco",
       "environment": "configurado no ambiente",
       "mismatch": "O ID salvo no banco diverge do ID configurado no ambiente.",
-      "required": "Obrigatório para marketplaces",
+      "required": "Obrigatório para canais de vendas",
       "placeholder": "Seller, shop ou conta externa"
     }
   }

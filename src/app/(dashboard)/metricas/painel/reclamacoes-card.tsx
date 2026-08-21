@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, ChevronDown, Info, Loader2, Scale, Send } from "lucide-react";
+import { ArrowRight, ChevronDown, Loader2, Scale, Send } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
@@ -73,7 +73,7 @@ function statusReclamacao(item: ReclamacoesResultado["itens"][number]): StatusRe
     return {
       chave: "mediacao",
       label: "Mediação",
-      hint: "Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida.",
+      hint: "A reclamação foi encaminhada para a mediação oficial do Mercado Livre. O comprador não aceitou a resposta e solicitou uma decisão da plataforma.",
       className: "",
       style: { background: tint(copy.accent, 10), color: copy.accent },
     };
@@ -82,14 +82,14 @@ function statusReclamacao(item: ReclamacoesResultado["itens"][number]): StatusRe
     return {
       chave: "reaberta",
       label: "Reaberta",
-      hint: "Este caso já tinha sido encerrado antes — alguém voltou a mandar mensagem depois disso. O prazo abaixo é de quando isso aconteceu, não de quando a reclamação foi aberta originalmente.",
+      hint: "Este caso já havia sido encerrado, mas alguém voltou a enviar mensagens. O prazo abaixo começa nessa nova interação, não na abertura original da reclamação.",
       className: "bg-warning/10 text-warning",
     };
   }
   return {
     chave: "acao",
     label: "Precisa de resposta",
-    hint: "Ainda não foi respondida — o Mercado Livre espera uma ação sua (mensagem, reembolso ou abrir disputa).",
+    hint: "A reclamação ainda não foi respondida. O Mercado Livre aguarda uma ação sua, como enviar uma mensagem, realizar um reembolso ou abrir uma disputa.",
     className: "bg-warning/10 text-warning",
   };
 }
@@ -288,13 +288,17 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
 
   return (
     <div className={`border-b border-border last:border-0 ${resolvida ? "opacity-70" : ""}`}>
-      <button
-        type="button"
-        onClick={abrir}
-        aria-expanded={aberta}
-        className="press-feedback flex w-full items-start justify-between gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40"
+      <div
+        className="relative flex w-full items-start justify-between gap-3 px-5 py-3 text-left"
       >
-        <div className="min-w-0">
+        <button
+         type="button"
+         onClick={abrir}
+         aria-expanded={aberta}
+          aria-label={aberta ? `Fechar conversa da reclamação ${item.estagio}` : `Abrir conversa da reclamação ${item.estagio}`}
+          className="press-feedback absolute inset-0 z-0 w-full transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        />
+        <div className="pointer-events-none relative z-10 min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className={`text-sm font-semibold ${resolvida ? "text-muted-foreground line-through decoration-1" : "text-foreground"}`}>
               {item.estagio}
@@ -304,19 +308,15 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
                 sem nenhuma indicação de status, só o texto cru do estágio. */}
             <AnimatedInfoPopover
               trigger={(
-                // Trigger não pode ser <button>: esta linha inteira já é um
-                // <button> (abre/fecha a thread) — <button> dentro de <button>
-                // é HTML inválido. `stopPropagation` evita que o clique também
-                // dispare o onClick da linha por baixo.
-                <span
-                  role="button"
-                  tabIndex={0}
+                <button
+                  type="button"
+                  aria-label={`Entenda o status ${status.label}`}
                   onClick={(event) => event.stopPropagation()}
-                  className={`press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${status.className}`}
+                  className={`pointer-events-auto press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${status.className}`}
                   style={status.style}
                 >
                   {status.label}
-                </span>
+                </button>
               )}
               align="start"
               sideOffset={6}
@@ -338,14 +338,13 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
                 {" · "}<span className="text-muted-foreground/70">Motivo:</span> {item.motivo}
                 <AnimatedInfoPopover
                   trigger={(
-                    <span
-                      role="button"
-                      tabIndex={0}
+                    <AnimatedInfoTrigger
+                      aria-label="Entenda o código do motivo da reclamação"
+                      title="Entenda o código do motivo da reclamação"
                       onClick={(event) => event.stopPropagation()}
-                      className="press-feedback ml-0.5 inline-flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-primary"
-                    >
-                      <Info aria-hidden="true" size={10} />
-                    </span>
+                      iconSize={10}
+                      className="pointer-events-auto press-feedback ml-0.5 inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:text-primary"
+                    />
                   )}
                   align="start"
                   sideOffset={6}
@@ -353,14 +352,14 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
                   className="z-[100] w-64 rounded-xl border border-border bg-card p-3 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
                 >
                   <p className="text-[12px] leading-relaxed text-foreground/85">
-                    Código do motivo da reclamação — o Mercado Livre não devolve um texto legível para ele.
+                    Este é o código do motivo da reclamação. O Mercado Livre não fornece uma descrição legível para esse código.
                   </p>
                 </AnimatedInfoPopover>
               </span>
             )}
           </p>
         </div>
-        <div className="flex shrink-0 items-start gap-2">
+        <div className="pointer-events-none relative z-10 flex shrink-0 items-start gap-2">
           <div className="text-right">
             <p className={status.chave !== "acao" && status.chave !== "mediacao"
               ? "max-w-[7rem] text-[11px] font-semibold leading-snug text-muted-foreground"
@@ -374,7 +373,7 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
               <Link
                 href={item.pedidoHref}
                 onClick={(event) => event.stopPropagation()}
-                className="press-feedback mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                className="pointer-events-auto press-feedback mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
               >
                 {copy.orderLabel} <ArrowRight size={11} />
               </Link>
@@ -388,7 +387,7 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
             <ChevronDown size={16} />
           </motion.span>
         </div>
-      </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {aberta && (
@@ -459,9 +458,9 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
  *  nos popovers individuais, só reunido num lugar só pra quem quer entender
  *  todos de uma vez sem precisar achar um exemplo de cada na lista. */
 const LEGENDA_STATUS_RECLAMACOES: Array<{ titulo: string; texto: string; cor: string }> = [
-  { titulo: "Mediação", cor: "var(--destructive)", texto: "Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida. É o estágio mais sério, o próprio ML entra na conversa." },
-  { titulo: "Precisa de resposta", cor: "var(--warning)", texto: "Ainda não foi respondida — o Mercado Livre espera uma ação sua (mensagem, reembolso ou abrir disputa)." },
-  { titulo: "Reaberta", cor: "var(--warning)", texto: "Este caso já tinha sido encerrado antes — alguém voltou a mandar mensagem depois disso. O prazo mostrado é de quando isso aconteceu, não da abertura original." },
+  { titulo: "Mediação", cor: "var(--destructive)", texto: "A reclamação foi encaminhada para a mediação oficial do Mercado Livre. O comprador não aceitou a resposta e solicitou uma decisão da plataforma. Este é o estágio mais sério, pois o próprio Mercado Livre participa da conversa." },
+  { titulo: "Precisa de resposta", cor: "var(--warning)", texto: "A reclamação ainda não foi respondida. O Mercado Livre aguarda uma ação sua, como enviar uma mensagem, realizar um reembolso ou abrir uma disputa." },
+  { titulo: "Reaberta", cor: "var(--warning)", texto: "Este caso já havia sido encerrado, mas alguém voltou a enviar mensagens. O prazo mostrado começa nessa nova interação, não na abertura original." },
   { titulo: copy.awaitingMediatorLabel, cor: "var(--muted-foreground)", texto: copy.awaitingMediatorHint },
   { titulo: copy.resolvedLabel, cor: "var(--success)", texto: copy.resolvedHint },
 ];
@@ -483,10 +482,10 @@ function EntendaStatusReclamacaoBotao() {
       collisionPadding={12}
       // No desktop o popover fica mais largo e os 5 status se dividem em 2
       // colunas — mesmo padrão já usado nos cards de Estoque.
-      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] sm:w-[min(30rem,calc(100vw-1.5rem))]"
+      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] lg:w-[min(30rem,calc(100vw-1.5rem))]"
     >
       <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Status da reclamação</p>
-      <dl className="mt-3 flex flex-col gap-3 sm:grid sm:grid-cols-2 sm:gap-x-5 sm:gap-y-4">
+      <dl className="mt-3 flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-x-5 lg:gap-y-4">
         {LEGENDA_STATUS_RECLAMACOES.map((item) => (
           <div key={item.titulo}>
             <dt className="text-[12.5px] font-bold" style={{ color: item.cor }}>{item.titulo}</dt>
@@ -582,7 +581,7 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
               aparece embaixo dele, sem explicar o resto. */}
           {dados.pendentes > dados.itens.filter((item) => item.precisaAcao).length && (
             <p className="mx-5 mb-1 mt-2 text-[11px] font-medium text-muted-foreground">
-              +{dados.pendentes - dados.itens.filter((item) => item.precisaAcao).length} outras reclamações a resolver não mostradas aqui — veja todas no Mercado Livre.
+              +{dados.pendentes - dados.itens.filter((item) => item.precisaAcao).length} outras reclamações a resolver não mostradas aqui. Veja todas no Mercado Livre.
             </p>
           )}
         </>

@@ -97,7 +97,7 @@ export const A24_pollPedidos = inngest.createFunction(
         resultados,
       };
       if (contas.length === 0) {
-        throw new Error("A24 sem contas de marketplace conectadas para o polling de contingência.");
+        throw new Error("A24 sem contas de canais de venda conectadas para a consulta de contingência.");
       }
       // Mesma regra do A5: falha isolada não derruba a volta inteira. Uma conta
       // instável fazia o job todo ser repetido pelo Inngest — e como cada

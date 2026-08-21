@@ -1,10 +1,17 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { medirTempo } from "@/shared/lib/observability/medir-tempo";
 import { z } from "zod";
-import { obterDesempenhoPublicacoes, type DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
+import {
+  contarPublicacoesPorMarca,
+  obterDesempenhoPublicacoes,
+  PUBLICACOES_CACHE_TAG,
+  type DesempenhoPublicacoesResultado,
+} from "@/modules/metricas/application/publicacoes.service";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
+import { db } from "@/shared/lib/db";
 import { obterSaudeLoja, type SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import { obterAtendimento, type AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
 import { obterPosVenda, type PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
@@ -34,12 +41,56 @@ const PublicacoesSchema = z.object({
   fim: z.string().date(),
 });
 
+/* Publicações pagina as métricas patrocinadas do período e consulta a
+   qualidade de no máximo 20 anúncios exibidos. Os argumentos entram na chave do cache,
+   então organizações, marcas e períodos nunca compartilham resultado. A
+   autorização continua fora do cache e roda em toda chamada. */
+const obterDesempenhoPublicacoesComCache = unstable_cache(
+  async (orgId: string, filtros: z.infer<typeof PublicacoesSchema>) =>
+    obterDesempenhoPublicacoes({ db, orgId, perfil: "gestor" }, filtros),
+  ["metricas-publicacoes"],
+  { revalidate: 120, tags: [PUBLICACOES_CACHE_TAG] },
+);
+
 export async function actionObterDesempenhoPublicacoes(
   filtros: z.infer<typeof PublicacoesSchema>,
 ): Promise<DesempenhoPublicacoesResultado> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, ["admin", "gestor"]);
-  return obterDesempenhoPublicacoes(ctx, PublicacoesSchema.parse(filtros));
+  const filtrosValidos = PublicacoesSchema.parse(filtros);
+  return medirTempo(
+    "metricas/publicacoes",
+    () => obterDesempenhoPublicacoesComCache(ctx.orgId, filtrosValidos),
+  );
+}
+
+const ContarPublicacoesSchema = z.object({
+  brandIds: z.array(z.string().uuid()).max(20),
+  inicio: z.string().date(),
+  fim: z.string().date(),
+});
+
+const contarPublicacoesPorMarcaComCache = unstable_cache(
+  async (orgId: string, filtros: z.infer<typeof ContarPublicacoesSchema>) =>
+    contarPublicacoesPorMarca({ db, orgId, perfil: "gestor" }, filtros),
+  ["metricas-publicacoes-contagem"],
+  { revalidate: 120, tags: [PUBLICACOES_CACHE_TAG] },
+);
+
+/** Alimenta o número ao lado de cada pílula de marca em Publicações — mesmo
+ *  espírito de `contarPedidosPorMarca`/`contarProdutosPorMarca`, só que
+ *  aqui a contagem não vem do banco: chama a API de Product Ads do
+ *  Mercado Livre por marca (ver `contarPublicacoesPorMarca`). */
+export async function actionContarPublicacoesPorMarca(
+  filtros: z.infer<typeof ContarPublicacoesSchema>,
+): Promise<Array<{ brandId: string; total: number }>> {
+  const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
+  const filtrosValidos = ContarPublicacoesSchema.parse(filtros);
+  return medirTempo(
+    "metricas/publicacoes-contagem",
+    () => contarPublicacoesPorMarcaComCache(ctx.orgId, filtrosValidos),
+  );
 }
 
 export async function actionObterSaudeLoja(filtros: MetricasFiltros = {}): Promise<SaudeLojaResultado> {

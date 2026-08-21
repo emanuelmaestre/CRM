@@ -9,7 +9,7 @@ const MINUTO = 60_000;
 const ROTINAS_AGENDADAS = [
   {
     nome: "A24-poll-pedidos",
-    titulo: "Pedidos de marketplace",
+    titulo: "Pedidos dos canais de vendas",
     categoria: "Pedidos",
     agenda: "a cada 4 minutos",
     cron: "*/4 * * * *",
@@ -17,7 +17,7 @@ const ROTINAS_AGENDADAS = [
   },
   {
     nome: "A18-saude-conectores",
-    titulo: "Health-check dos conectores",
+    titulo: "Verificação de integridade dos conectores",
     categoria: "Canais",
     agenda: "a cada 15 minutos",
     cron: "*/15 * * * *",
@@ -49,7 +49,7 @@ const ROTINAS_AGENDADAS = [
   },
   {
     nome: "A23-refresh-ml-tokens",
-    titulo: "Renovação de tokens ML",
+    titulo: "Renovação de credenciais do Mercado Livre",
     categoria: "Canais",
     agenda: "a cada hora",
     cron: "0 * * * *",
@@ -73,7 +73,7 @@ const ROTINAS_AGENDADAS = [
   },
   {
     nome: "A13-scores-cliente",
-    titulo: "Scores de cliente",
+    titulo: "Pontuações de clientes",
     categoria: "CRM",
     agenda: "todo dia às 2h",
     cron: "0 2 * * *",
@@ -81,7 +81,7 @@ const ROTINAS_AGENDADAS = [
   },
   {
     nome: "A14-scores-produto",
-    titulo: "Scores de produto",
+    titulo: "Pontuações de produtos",
     categoria: "Estoque",
     agenda: "todo dia às 2h",
     cron: "0 2 * * *",
@@ -97,7 +97,7 @@ const ROTINAS_AGENDADAS = [
   },
   {
     nome: "A20-backup-verificacao",
-    titulo: "Verificação de backup",
+    titulo: "Verificação da cópia de segurança",
     categoria: "Operação",
     agenda: "todo dia às 4h",
     cron: "0 4 * * *",
@@ -105,7 +105,7 @@ const ROTINAS_AGENDADAS = [
   },
   {
     nome: "A32-sync-anuncios-ads",
-    titulo: "Product Ads",
+    titulo: "Anúncios patrocinados",
     categoria: "Anúncios",
     agenda: "todo dia às 6h",
     cron: "0 6 * * *",
@@ -129,7 +129,7 @@ const ROTINAS_AGENDADAS = [
   },
   {
     nome: "A15-insights-funil",
-    titulo: "Insights executivos IA",
+    titulo: "Análises executivas por IA",
     categoria: "IA",
     agenda: "segunda às 7h",
     cron: "0 7 * * 1",

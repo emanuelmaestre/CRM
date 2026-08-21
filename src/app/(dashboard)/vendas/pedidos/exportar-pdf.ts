@@ -75,7 +75,7 @@ export async function exportarPedidosPdf(input: {
     body: [[
       "Faturamento", moeda.format(input.resumo.faturamento),
       "Pedidos", input.resumo.totalPedidos.toLocaleString("pt-BR"),
-      "Ticket médio", moeda.format(input.resumo.ticketMedio),
+      "Valor médio por pedido", moeda.format(input.resumo.ticketMedio),
       "Cancel. / devol.", input.resumo.cancelados.toLocaleString("pt-BR"),
       "Frete", moeda.format(input.resumo.freteTotal),
       "Descontos", moeda.format(input.resumo.descontosTotal),

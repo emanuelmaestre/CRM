@@ -1,7 +1,7 @@
 {
   "header": {
     "title": "Saúde do Sistema",
-    "description": "Status em tempo real dos conectores, fila de jobs e últimas falhas"
+    "description": "Status em tempo real dos conectores, fila de tarefas e últimas falhas"
   },
   "labels": {
     "verifiedAt": "Verificado: {date}",
@@ -15,29 +15,29 @@
       "emptyDescription": "Adicione canais em Configurações para monitorá-los aqui."
     },
     "jobs": {
-      "title": "Automações (Jobs)",
+      "title": "Tarefas automáticas",
       "icon": "Zap",
-      "emptyTitle": "Nenhum job registrado ainda",
+      "emptyTitle": "Nenhuma tarefa registrada ainda",
       "emptyDescription": "As automações aparecerão aqui após o primeiro disparo."
     },
     "falhas": {
-      "title": "Fila de Falhas (Dead-letter)",
+      "title": "Fila de falhas definitivas",
       "icon": "AlertTriangle",
       "emptyTitle": "Nenhuma falha definitiva",
-      "emptyDescription": "Jobs que esgotaram todas as tentativas aparecem aqui para reprocessamento."
+      "emptyDescription": "Tarefas que esgotaram todas as tentativas aparecem aqui para reprocessamento."
     },
     "prontidao": {
-      "title": "Prontidão para Go-live",
+      "title": "Prontidão para entrada em produção",
       "icon": "ShieldCheck",
       "emptyTitle": "Sem verificações de prontidão",
-      "emptyDescription": "Os gates de produção aparecerão aqui."
+      "emptyDescription": "As verificações de produção aparecerão aqui."
     },
     "backup": {
-      "title": "Backup e Integridade",
+      "title": "Cópia de segurança e integridade",
       "icon": "Shield",
       "rows": [
         {
-          "label": "Último backup automático",
+          "label": "Última cópia de segurança automática",
           "value": "-"
         },
         {
@@ -45,11 +45,11 @@
           "value": "-"
         },
         {
-          "label": "RPO alvo",
+          "label": "Ponto de recuperação desejado (RPO)",
           "value": "24 horas"
         },
         {
-          "label": "RTO alvo",
+          "label": "Tempo de recuperação desejado (RTO)",
           "value": "4 horas"
         }
       ]
@@ -89,13 +89,13 @@
     {
       "id": "A1",
       "nome": "Ingestão de pedidos",
-      "disparo": "Evento webhook",
+      "disparo": "Notificação automática do canal",
       "cron": null
     },
     {
       "id": "A5",
       "nome": "Coleta de saldo por canal",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 * * * *"
     },
     {
@@ -107,7 +107,7 @@
     {
       "id": "A7",
       "nome": "Detecção de encalhe",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 2 * * *"
     },
     {
@@ -119,49 +119,49 @@
     {
       "id": "A9",
       "nome": "Régua: aniversário",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 9 * * *"
     },
     {
       "id": "A10",
       "nome": "Régua: reativação",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 10 * * *"
     },
     {
       "id": "A11",
-      "nome": "Cancelar por opt-out",
+      "nome": "Cancelar após retirada do consentimento",
       "disparo": "consentimento_revogado",
       "cron": null
     },
     {
       "id": "A12",
       "nome": "Aviso conversa parada",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 * * * *"
     },
     {
       "id": "A13",
       "nome": "Notas de cliente",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 1 * * *"
     },
     {
       "id": "A14",
       "nome": "Notas de produto",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 1 * * *"
     },
     {
       "id": "A15",
       "nome": "Análises do funil (IA)",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 6 * * 1"
     },
     {
       "id": "A16",
       "nome": "Sugestões de campanha (IA)",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 7 * * 1"
     },
     {
@@ -173,37 +173,37 @@
     {
       "id": "A18",
       "nome": "Saúde dos conectores",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "*/15 * * * *"
     },
     {
       "id": "A20",
-      "nome": "Integridade e backup",
-      "disparo": "Cron",
+      "nome": "Integridade e cópia de segurança",
+      "disparo": "Agendamento",
       "cron": "0 4 * * *"
     },
     {
       "id": "A21",
       "nome": "Guarda de consumo de IA",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 */6 * * *"
     },
     {
       "id": "A22",
       "nome": "Retenção LGPD",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "0 3 1 * *"
     },
     {
       "id": "A23",
-      "nome": "Renovação de tokens Mercado Livre",
-      "disparo": "Cron",
+      "nome": "Renovação de credenciais do Mercado Livre",
+      "disparo": "Agendamento",
       "cron": "0 * * * *"
     },
     {
       "id": "A24",
       "nome": "Contingência de pedidos",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "*/4 * * * *"
     },
     {
@@ -227,7 +227,7 @@
     {
       "id": "A28",
       "nome": "Sincronização de avaliações do Mercado Livre",
-      "disparo": "Cron",
+      "disparo": "Agendamento",
       "cron": "*/20 * * * *"
     },
     {

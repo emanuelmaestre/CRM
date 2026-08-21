@@ -91,7 +91,7 @@ export function diagnosticarCampanha(dados: DadosDiagnosticoCampanha): Diagnosti
       tipo: "impressoes_altas_cliques_baixos",
       severidade: "atencao",
       titulo: "Muitas impressões, poucos cliques",
-      explicacao: `O anúncio aparece bastante (${dados.impressoes.toLocaleString("pt-BR")} impressões), mas gera pouco clique — CTR de ${(dados.ctr * 100).toFixed(2)}%.`,
+      explicacao: `O anúncio aparece bastante (${dados.impressoes.toLocaleString("pt-BR")} impressões), mas gera poucos cliques. O CTR é de ${(dados.ctr * 100).toFixed(2)}%.`,
       causasPossiveis: ["Preço fora da faixa esperada", "Foto ou título pouco atrativos", "Oferta menos competitiva que a concorrência direta"],
       acaoRecomendada: "Revisar preço, imagem principal e título antes de investir mais em exposição.",
     });
@@ -103,7 +103,7 @@ export function diagnosticarCampanha(dados: DadosDiagnosticoCampanha): Diagnosti
       tipo: "cliques_altos_vendas_baixas",
       severidade: "atencao",
       titulo: "Cliques não estão virando venda",
-      explicacao: `O anúncio atrai clique (${dados.cliques.toLocaleString("pt-BR")} no período), mas converte pouco — CVR de ${(dados.cvr * 100).toFixed(2)}%.`,
+      explicacao: `O anúncio atrai cliques (${dados.cliques.toLocaleString("pt-BR")} no período), mas converte pouco. A CVR é de ${(dados.cvr * 100).toFixed(2)}%.`,
       causasPossiveis: ["Página do anúncio (fotos, ficha técnica, avaliações)", "Preço competitivo no clique, mas alto na comparação final", "Reputação do vendedor ou prazo de frete"],
       acaoRecomendada: "Revisar a página do anúncio, reputação e condições de frete antes de aumentar tráfego.",
     });
@@ -118,7 +118,7 @@ export function diagnosticarCampanha(dados: DadosDiagnosticoCampanha): Diagnosti
       titulo: "Boa conversão com espaço para crescer",
       explicacao: `CVR de ${(dados.cvr * 100).toFixed(2)}% (acima do que costuma converter bem) enquanto ${(exposicaoNaoCapturada * 100).toFixed(0)}% das impressões possíveis ainda não são capturadas.`,
       causasPossiveis: ["Orçamento limitando a exposição", "Ranking do anúncio abaixo do que a qualidade permitiria"],
-      acaoRecomendada: "Avaliar aumento de orçamento e/ou melhoria de ranking — o produto já prova que converte.",
+      acaoRecomendada: "Avaliar o aumento do orçamento e a melhoria do ranking, pois o produto já demonstra capacidade de conversão.",
     });
   }
 
@@ -140,7 +140,7 @@ export function diagnosticarCampanha(dados: DadosDiagnosticoCampanha): Diagnosti
       tipo: "cpc_subindo_cvr_estavel",
       severidade: "atencao",
       titulo: "Custo por clique subindo, conversão estável",
-      explicacao: `CPC subiu ${(varCpc * 100).toFixed(0)}% enquanto a CVR se manteve estável — o custo de aquisição está aumentando por fora da conversão do produto.`,
+      explicacao: `O CPC subiu ${(varCpc * 100).toFixed(0)}% enquanto a CVR se manteve estável. O custo de aquisição está aumentando sem relação com a conversão do produto.`,
       causasPossiveis: ["Mais concorrência disputando o mesmo leilão", "Mudança na estratégia de lance da campanha"],
       acaoRecomendada: "Investigar concorrência direta e custo de aquisição antes de aceitar o CPC mais alto como normal.",
     });
@@ -152,7 +152,7 @@ export function diagnosticarCampanha(dados: DadosDiagnosticoCampanha): Diagnosti
       tipo: "cpc_estavel_cvr_caindo",
       severidade: "critico",
       titulo: "Conversão caindo sem mudança no custo de aquisição",
-      explicacao: `CVR caiu ${Math.abs(varCvr * 100).toFixed(0)}% enquanto o CPC ficou estável — o tráfego continua custando o mesmo, mas convertendo menos.`,
+      explicacao: `A CVR caiu ${Math.abs(varCvr * 100).toFixed(0)}% enquanto o CPC ficou estável. O tráfego continua custando o mesmo, mas está convertendo menos.`,
       causasPossiveis: ["Preço alterado", "Estoque de variação específica em falta", "Reputação ou avaliações recentes", "Concorrência com oferta melhor na mesma busca"],
       acaoRecomendada: "Investigar mudanças recentes no próprio anúncio (preço, estoque, avaliações) antes de mexer na campanha.",
     });

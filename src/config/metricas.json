@@ -1,7 +1,7 @@
 {
   "_doc": {
     "proposito": "Textos da página de Métricas. Mantidos fora do componente para o time de conteúdo ajustar copy sem tocar em React.",
-    "inspiracao": "As Métricas do Mercado Livre mostram termômetro, taxas e tempo de resposta em painéis separados, cada um exigindo uma leitura própria. Aqui a leitura começa por um número só (Score de Saúde), que se abre nos pilares que o formaram, e as marcas aparecem lado a lado em vez de uma conta por vez."
+    "inspiracao": "As Métricas do Mercado Livre mostram termômetro, taxas e tempo de resposta em painéis separados, cada um exigindo uma leitura própria. Aqui a leitura começa por um número só (Pontuação de Saúde), que se abre nos pilares que o formaram, e as marcas aparecem lado a lado em vez de uma conta por vez."
   },
   "secoes": {
     "saude": "Placar geral",
@@ -11,13 +11,13 @@
     "acoes": "Recomendações"
   },
   "score": {
-    "titulo": "Score de Saúde da Loja",
+    "titulo": "Pontuação de Saúde da Loja",
     "subtitulo": "Cinco pilares, um número",
-    "explicacao": "O score resume a saúde da loja em uma nota de 0 a 100. Ele combina reputação, pós-venda, satisfação, atendimento e catálogo. Cada pilar tem um peso; quando um deles ainda não possui dados, ele não recebe nota zero: sai temporariamente do cálculo e seu peso é distribuído entre os pilares medidos.",
+    "explicacao": "A pontuação resume a saúde da loja em uma nota de 0 a 100. Ela combina reputação, pós-venda, satisfação, atendimento e catálogo. Cada pilar tem um peso; quando um deles ainda não possui dados, ele não recebe nota zero: sai temporariamente do cálculo e seu peso é distribuído entre os pilares medidos.",
     "parcialPrefixo": "Leitura parcial:",
     "parcialSufixo": "de 5 pilares com dado",
     "semDado": "Ainda não há dado suficiente para calcular",
-    "semDadoDescricao": "Conecte um canal e sincronize pedidos, avaliações e mensagens para o score nascer.",
+    "semDadoDescricao": "Conecte um canal e sincronize pedidos, avaliações e mensagens para gerar a pontuação.",
     "consolidado": "Consolidado",
     "consolidadoNota": "ponderado pelo faturamento de cada marca"
   },
@@ -51,7 +51,7 @@
     "criterios": [
       {
         "chave": "score",
-        "label": "Score"
+        "label": "Pontuação"
       },
       {
         "chave": "faturamento",
@@ -63,7 +63,7 @@
       },
       {
         "chave": "ticketMedio",
-        "label": "Ticket médio"
+        "label": "Valor médio por pedido"
       },
       {
         "chave": "notaMedia",
@@ -88,7 +88,7 @@
     "medianaLabel": "mediana de espera",
     "medianaNota": "Mediana, não média: uma conversa esquecida por semanas distorceria a média inteira.",
     "vazio": "Nenhuma mensagem de cliente no período",
-    "vazioDescricao": "Assim que o Inbox receber perguntas, o funil de resposta aparece aqui.",
+    "vazioDescricao": "Assim que a caixa de entrada receber perguntas, o funil de resposta aparece aqui.",
     "porCanalTitulo": "Por canal"
   },
   "erros": {
@@ -140,7 +140,7 @@
     "titulo": "Métricas da operação",
     "periodoLabel": "Período",
     "geradoEm": "Gerado em",
-    "scoreTitulo": "Score de Saúde da Loja",
+    "scoreTitulo": "Pontuação de Saúde da Loja",
     "scoreConsolidado": "Consolidado (ponderado pelo faturamento)",
     "pilaresTitulo": "Pilares por marca",
     "pilaresColunas": [
@@ -162,10 +162,10 @@
     "comparacaoTitulo": "Marca a marca",
     "comparacaoColunas": [
       "Marca",
-      "Score",
+      "Pontuação",
       "Faturamento",
       "Pedidos",
-      "Ticket médio",
+      "Valor médio por pedido",
       "Nota",
       "Reclamações"
     ],
@@ -177,7 +177,7 @@
     ],
     "atendimentoResumo": "{perguntas} perguntas · {taxa}% respondidas · mediana {mediana}",
     "semDado": "sem dado",
-    "rodape": "Pilar sem dado sai do cálculo e o peso é redistribuído - o score nunca trata ausência como zero.",
+    "rodape": "Pilar sem dado sai do cálculo e o peso é redistribuído; a pontuação nunca trata ausência como zero.",
     "atendimentoPorCanalTitulo": "Atendimento por canal",
     "atendimentoPorCanalColunas": [
       "Canal",
@@ -189,25 +189,25 @@
     "crescimentoColunas": [
       "Marca",
       "Cancelamento",
-      "Top 5 produtos",
+      "5 produtos mais vendidos",
       "Recorrência"
     ]
   },
   "mosaico": {
-    "_doc": "Textos do mosaico: o titulo curto e a legenda de cada bloco na visao compacta. Titulo curto porque o bloco tem uma linha; o titulo longo continua dentro do card em foco.",
+    "_doc": "Textos do mosaico: o título curto e a legenda de cada bloco na visão compacta. O título é curto porque o bloco tem uma linha; o título longo continua dentro do painel em foco.",
     "periodoLabel": "Período",
     "periodoPadrao": "Últimos 30 dias",
-    "usarEmTodos": "Usar em todos os cards",
-    "usarEmTodosDica": "Cada card filtra sozinho - isto só preenche os que ainda estão vazios.",
+    "usarEmTodos": "Usar em todos os painéis",
+    "usarEmTodosDica": "Cada painel possui seu próprio filtro; isto somente preenche os que ainda estão vazios.",
     "semFiltro": "Abra para escolher a marca.",
     "posicao": "{atual} de {total}",
     "blocos": {
       "faturamento": {
         "titulo": "Faturamento",
-        "legenda": "{pedidos} pedidos · ticket {ticket}"
+        "legenda": "{pedidos} pedidos · valor médio {ticket}"
       },
       "score": {
-        "titulo": "Score da loja",
+        "titulo": "Pontuação da loja",
         "legenda": "Cinco pilares, um número"
       },
       "comparacao": {

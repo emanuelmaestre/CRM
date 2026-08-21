@@ -27,7 +27,7 @@
       },
       {
         "title": "2. Uso dos dados",
-        "content": "Os dados de clientes e pedidos coletados via integrações de marketplace são utilizados exclusivamente para fins operacionais internos - gestão de pedidos, atendimento ao cliente e análise de desempenho. Nenhum dado é compartilhado com terceiros sem autorização expressa."
+        "content": "Os dados de clientes e pedidos coletados por integrações com canais de vendas são utilizados exclusivamente para fins operacionais internos: gestão de pedidos, atendimento ao cliente e análise de desempenho. Nenhum dado é compartilhado com terceiros sem autorização expressa."
       },
       {
         "title": "3. Acesso e segurança",
@@ -405,7 +405,7 @@
   "pedidos": {
     "metadataTitle": "Pedidos",
     "title": "Pedidos conectados",
-    "description": "Pedidos recebidos dos marketplaces e canais integrados",
+    "description": "Pedidos recebidos dos canais de vendas integrados",
     "columns": [
       "Pedido",
       "Cliente",
@@ -479,7 +479,7 @@
   "auditoria": {
     "metadataTitle": "Auditoria",
     "title": "Trilha de auditoria",
-    "description": "Histórico imutável de ações manuais, jobs, IA e webhooks",
+    "description": "Histórico imutável de ações manuais, tarefas automáticas, IA e notificações dos canais",
     "loading": "Carregando auditoria…",
     "searchPlaceholder": "Buscar por entidade, ação ou autor…",
     "allEntities": "Todas as entidades",
@@ -505,9 +505,9 @@
       "usuario": "Manual",
       "usuario_sintetico": "Seed sintético",
       "sistema": "Sistema",
-      "job": "Job",
+      "job": "Tarefa automática",
       "ia": "IA",
-      "webhook": "Webhook"
+      "webhook": "Notificação do canal"
     },
     "labels": {
       "system": "Sistema",

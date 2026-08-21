@@ -160,7 +160,7 @@ export function AnelScore({ valor, cor, tamanho = 168, faixaLabel }: {
         viewBox="0 0 160 160"
         className="relative h-full w-full"
         role="img"
-        aria-label={valor === null ? "Score indisponível" : `Score ${Math.round(valor)} de 100${faixaLabel ? `, ${faixaLabel}` : ""}`}
+        aria-label={valor === null ? "Pontuação indisponível" : `Pontuação ${Math.round(valor)} de 100${faixaLabel ? `, ${faixaLabel}` : ""}`}
       >
         <g transform="rotate(-225 80 80)">
           <circle

@@ -113,17 +113,19 @@ export function RotuloComInfo({ children, descricao, observacao }: {
         align="start"
         sideOffset={6}
         collisionPadding={12}
-        className="z-[100] w-[min(21rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-3 text-left normal-case shadow-[0_12px_32px_rgba(14,15,19,.18)]"
+        className="z-[100] w-[min(21rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card p-3 text-left normal-case shadow-[0_12px_32px_rgba(14,15,19,.18)] lg:w-[min(38rem,calc(100vw-1.5rem))]"
       >
             <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como ler este número</p>
             <p className="mt-0.5 text-[13px] font-bold text-foreground">{children}</p>
-            <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">{descricao}</p>
-            {observacao && (
-              <div className="mt-2 rounded-lg border border-border bg-muted/45 px-2.5 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground">Observação</p>
-                <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{observacao}</p>
-              </div>
-            )}
+            <div className={observacao ? "mt-1.5 flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-5" : "mt-1.5"}>
+              <p className="text-[12px] leading-relaxed text-muted-foreground">{descricao}</p>
+              {observacao && (
+                <div className="rounded-lg border border-border bg-muted/45 px-2.5 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-[.08em] text-muted-foreground">Observação</p>
+                  <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">{observacao}</p>
+                </div>
+              )}
+            </div>
       </AnimatedInfoPopover>
     </span>
   );

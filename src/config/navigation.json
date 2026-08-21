@@ -43,7 +43,7 @@
     },
     {
       "id": "anuncios",
-      "href": "/anuncios",
+      "href": "/publicidade",
       "label": "Publicidade",
       "icon": "Megaphone",
       "mobilePriority": 4,

@@ -90,7 +90,7 @@ export async function avaliarGates(input: GateInput): Promise<GateResult> {
     .then((rows) => rows[0]);
 
   if (!optIn) {
-    return { aprovado: false, gateBloqueado: "gate_1", motivo: "Sem opt-in registrado para esta finalidade/canal/marca" };
+    return { aprovado: false, gateBloqueado: "gate_1", motivo: "Sem consentimento registrado para esta finalidade, canal e marca" };
   }
 
   // Gate 2 — contatos originados em marketplace permanecem no canal de origem.
@@ -114,10 +114,10 @@ export async function avaliarGates(input: GateInput): Promise<GateResult> {
     .then((rows) => rows[0]);
 
   if (!template) {
-    return { aprovado: false, gateBloqueado: "gate_3", motivo: "Template não pertence à marca do pedido — violação de sigilo entre marcas" };
+    return { aprovado: false, gateBloqueado: "gate_3", motivo: "O modelo de mensagem não pertence à marca do pedido, o que viola o sigilo entre marcas" };
   }
   if (template.aprovado !== "true") {
-    return { aprovado: false, gateBloqueado: "gate_6", motivo: "Template não aprovado" };
+    return { aprovado: false, gateBloqueado: "gate_6", motivo: "Modelo de mensagem não aprovado" };
   }
 
   // Gate 4 — chave exata e cooldown por régua/cliente.
@@ -128,7 +128,7 @@ export async function avaliarGates(input: GateInput): Promise<GateResult> {
     .then((rows) => rows[0]);
 
   if (execucaoExistente) {
-    return { aprovado: false, gateBloqueado: "gate_4", motivo: `Disparo duplicado — idempotency_key já existe: ${input.idempotencyKey}` };
+    return { aprovado: false, gateBloqueado: "gate_4", motivo: `Disparo duplicado, o identificador da operação já existe: ${input.idempotencyKey}` };
   }
 
   const inicioCooldown = new Date(agora.getTime() - input.cooldownHoras * 60 * 60 * 1_000);
@@ -147,7 +147,7 @@ export async function avaliarGates(input: GateInput): Promise<GateResult> {
     .then((rows) => rows[0]);
 
   if (disparoNoCooldown) {
-    return { aprovado: false, gateBloqueado: "gate_4", motivo: `Cliente ainda está no cooldown de ${input.cooldownHoras} hora(s) desta régua` };
+    return { aprovado: false, gateBloqueado: "gate_4", motivo: `O cliente ainda está no intervalo de espera de ${input.cooldownHoras} hora(s) desta régua` };
   }
 
   // Gate 5 — dias úteis, 08h–20h em São Paulo e limite diário por cliente/marca.

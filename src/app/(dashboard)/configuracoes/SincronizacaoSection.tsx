@@ -37,7 +37,7 @@ const MODULOS = [
     chave: "anunciosStatus",
     resultado: "anunciosResultado",
     erro: "anunciosErro",
-    label: "Product Ads",
+    label: "Anúncios patrocinados",
     descricao: "Campanhas, anúncios e métricas de mídia paga usadas no módulo Anúncios.",
   },
   {
@@ -66,7 +66,7 @@ const MODULOS = [
     resultado: "mensagensResultado",
     erro: "mensagensErro",
     label: "Mensagens",
-    descricao: "Conversas pós-venda recentes que podem não ter chegado por webhook.",
+    descricao: "Conversas pós-venda recentes que podem não ter chegado pela notificação automática do canal.",
   },
 ] as const;
 
@@ -159,7 +159,7 @@ function SeloModulo({ label, status, resultado, erro }: { label: string; status:
                 <div>
                   <DialogPrimitive.Title className="text-[15px] font-bold text-foreground">{label} falhou</DialogPrimitive.Title>
                   <DialogPrimitive.Description className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
-                    Os demais módulos continuaram normalmente — só este precisou ser refeito.
+                    Os demais módulos continuaram normalmente. Somente este precisou ser refeito.
                   </DialogPrimitive.Description>
                 </div>
               </div>
@@ -240,7 +240,7 @@ function rotuloUltima(execucao: Execucao | null) {
 function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; execucao: Execucao | null }) {
   const mercadoLivre = conta.canal === "mercadolivre";
   const descricaoCanal = mercadoLivre
-    ? "No Mercado Livre, este clique força a fila completa: catálogo, pedidos, Product Ads, avaliações, termômetro, reclamações e mensagens."
+    ? "No Mercado Livre, este clique força a fila completa: catálogo, pedidos, anúncios patrocinados, avaliações, termômetro, reclamações e mensagens."
     : `Para ${conta.canalLabel}, o botão executa os módulos que o conector já suporta e marca o restante como sem suporte, sem travar a tela.`;
 
   return (
@@ -257,7 +257,7 @@ function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; exec
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/35 backdrop-blur-[2px] data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=open]:duration-300" />
         <DialogPrimitive.Content
-          className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[1.1rem] border border-border bg-card text-left shadow-[0_18px_48px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)] sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(34rem,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:data-[state=open]:slide-in-from-bottom-0"
+          className="fixed inset-x-3 bottom-3 z-50 flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-hidden rounded-[1.1rem] border border-border bg-card text-left shadow-[0_18px_48px_rgba(14,15,19,.24)] outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=open]:slide-in-from-bottom-2 data-[state=open]:duration-300 data-[state=open]:ease-[cubic-bezier(0.22,1,0.36,1)] lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:w-[min(42rem,calc(100vw-2rem))] lg:-translate-x-1/2 lg:-translate-y-1/2 lg:data-[state=open]:slide-in-from-bottom-0"
         >
           <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
             <div>
@@ -283,20 +283,22 @@ function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; exec
             </div>
           </div>
 
-          <div className="min-h-0 overflow-y-auto px-5 py-4">
-            <p className="text-[13px] leading-relaxed text-foreground/85">{descricaoCanal}</p>
+          <div className="min-h-0 overflow-y-auto px-5 py-4 lg:grid lg:grid-cols-[1.25fr_.75fr] lg:gap-5">
+            <div>
+              <p className="text-[13px] leading-relaxed text-foreground/85">{descricaoCanal}</p>
 
-            <p className="mt-4 text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">O que entra na fila</p>
-            <div className="mt-2 grid gap-2">
-              {MODULOS.map((modulo) => (
-                <div key={modulo.chave} className="rounded-lg border border-border bg-muted/35 px-3 py-2">
-                  <p className="text-[12px] font-bold text-foreground">{modulo.label}</p>
-                  <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{modulo.descricao}</p>
-                </div>
-              ))}
+              <p className="mt-4 text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">O que entra na fila</p>
+              <div className="mt-2 grid gap-2">
+                {MODULOS.map((modulo) => (
+                  <div key={modulo.chave} className="rounded-lg border border-border bg-muted/35 px-3 py-2">
+                    <p className="text-[12px] font-bold text-foreground">{modulo.label}</p>
+                    <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{modulo.descricao}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-4 border-t border-border pt-3">
+            <div className="mt-4 border-t border-border pt-3 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
               <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Como acompanhar</p>
               <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground">
                 A porcentagem sobe conforme cada módulo sai de “na fila” para “sincronizando” e depois “concluído”. Se um módulo falhar, ele aparece em vermelho e os demais continuam.

@@ -73,7 +73,7 @@ async function chamarOpenAIEstruturado<T>(opts: {
       entidadeId: opts.orgId,
       payload: { consumoAtual: consumo, limite: orcamentoMensal },
     });
-    throw new Error("Orçamento de IA atingido. Insights pausados até o próximo ciclo.");
+    throw new Error("Orçamento de IA atingido. Análises automáticas pausadas até o próximo ciclo.");
   }
 
   if (consumo >= alerta90) {

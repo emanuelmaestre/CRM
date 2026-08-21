@@ -68,25 +68,25 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
       // empilhar 5 blocos um embaixo do outro — a versão vertical exigia
       // rolar a lista inteira só pra ver "Dados usados". No mobile continua
       // empilhado (não tem largura de sobra pra 2 colunas ali).
-      className="z-[100] flex max-h-[var(--radix-popover-content-available-height)] w-[min(23rem,calc(100vw-1.5rem))] flex-col overflow-y-auto overscroll-contain rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] sm:w-[min(34rem,calc(100vw-1.5rem))]"
+      className="z-[100] flex w-[min(23rem,calc(100vw-1.5rem))] flex-col rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] lg:w-[min(38rem,calc(100vw-1.5rem))] lg:p-4"
     >
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Entenda o indicador</p>
-              <p className="mt-0.5 text-[16px] font-bold text-foreground">{titulo}</p>
+              <p className="mt-0.5 text-[16px] font-bold text-foreground lg:text-[15px]">{titulo}</p>
             </div>
-            <span className="shrink-0 rounded-lg bg-muted px-2.5 py-1 text-[16px] font-bold tabular-nums text-foreground">{resultado}</span>
+            <span className="shrink-0 rounded-lg bg-muted px-2.5 py-1 text-[16px] font-bold tabular-nums text-foreground lg:text-[15px]">{resultado}</span>
           </div>
 
-          <div className="mt-4 flex flex-col gap-4 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-0">
+          <div className="mt-4 flex flex-col gap-4 lg:mt-3 lg:grid lg:grid-cols-2 lg:gap-x-5 lg:gap-y-0">
             <div className="min-w-0">
               <section>
                 <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">O que significa</p>
-                <p className="mt-1 text-[13px] leading-relaxed text-foreground/85">{significado}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-foreground/85 lg:text-[12.5px] lg:leading-[1.55]">{significado}</p>
               </section>
-              <section className="mt-3">
+              <section className="mt-3 lg:mt-2.5">
                 <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Como é calculado</p>
-                <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">{formula}</p>
+                <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground lg:text-[12.5px] lg:leading-[1.55]">{formula}</p>
               </section>
 
               {barra && (
@@ -108,7 +108,7 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
               )}
             </div>
 
-            <div className="min-w-0 border-t border-border pt-4 sm:border-t-0 sm:border-l sm:pl-6 sm:pt-0">
+            <div className="min-w-0 border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pl-5 lg:pt-0">
               <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Dados usados</p>
               <dl className="mt-2 space-y-2">
                 {itens.map((item) => (
@@ -116,7 +116,7 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
                   // isso, um rótulo comprido ("Armarinhos Lima") espremia o
                   // valor ao lado e quebrava ele no meio ("do" numa linha,
                   // "peso" na outra) — o valor nunca pode quebrar de jeito nenhum.
-                  <div key={item.label} className="flex items-center justify-between gap-3 text-[14px]">
+                  <div key={item.label} className="flex items-center justify-between gap-3 text-[14px] lg:text-[13px]">
                     <dt className="min-w-0 truncate text-muted-foreground">{item.label}</dt>
                     <dd className="shrink-0 whitespace-nowrap font-semibold tabular-nums text-foreground">{item.valor}</dd>
                   </div>
@@ -128,13 +128,13 @@ export function CalculoPopover({ titulo, significado, periodoLabel, formula, ite
                   {periodoLabel && (
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Período analisado</p>
-                      <p className="mt-1 text-[12px] font-semibold text-foreground">{periodoLabel}</p>
+                      <p className="mt-1 text-[12px] font-semibold text-foreground lg:text-[11.5px]">{periodoLabel}</p>
                     </div>
                   )}
                   {nota && (
                     <div className={periodoLabel ? "mt-3" : ""}>
                       <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">Importante</p>
-                      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground/90">{nota}</p>
+                      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground/90 lg:text-[11.5px] lg:leading-[1.55]">{nota}</p>
                     </div>
                   )}
                 </div>

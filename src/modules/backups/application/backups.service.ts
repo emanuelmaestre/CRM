@@ -39,7 +39,7 @@ async function buscarBackup(ctx: CrudContext, backupId: string) {
     .from(backupExport)
     .where(and(eq(backupExport.id, backupId), eq(backupExport.orgId, ctx.orgId)))
     .then((rows) => rows[0]);
-  if (!registro) throw new Error("Export de backup não encontrado.");
+  if (!registro) throw new Error("Exportação da cópia de segurança não encontrada.");
   return registro;
 }
 
@@ -98,7 +98,7 @@ export async function exportarTabelaBackup(ctx: CrudContext, rawInput: unknown) 
   assertPerfil(ctx, ["admin"]);
   const input = ExportarTabelaSchema.parse(rawInput);
   const registro = await buscarBackup(ctx, input.backupId);
-  if (registro.status !== "processando") throw new Error("Este backup já foi concluído ou falhou.");
+  if (registro.status !== "processando") throw new Error("Esta cópia de segurança já foi concluída ou falhou.");
 
   const linhas = await consultarTabela(ctx, input.chave);
   const dadosParciais = { ...(registro.dadosParciais as Record<string, unknown[]> ?? {}), [input.chave]: linhas };
@@ -131,7 +131,7 @@ export async function finalizarBackup(ctx: CrudContext, rawBackupId: unknown) {
   assertPerfil(ctx, ["admin"]);
   const backupId = z.string().uuid().parse(rawBackupId);
   const registro = await buscarBackup(ctx, backupId);
-  if (registro.status !== "processando") throw new Error("Este backup já foi concluído ou falhou.");
+  if (registro.status !== "processando") throw new Error("Esta cópia de segurança já foi concluída ou falhou.");
 
   try {
     const dados = registro.dadosParciais as Record<ChaveTabelaBackup, Record<string, unknown>[]> ?? {};
@@ -166,7 +166,7 @@ export async function finalizarBackup(ctx: CrudContext, rawBackupId: unknown) {
     const { error: uploadError } = await supabase.storage
       .from("documentos")
       .upload(storagePath, bytes, { contentType: "application/zip", upsert: true });
-    if (uploadError) throw new Error(`Falha ao armazenar o backup: ${uploadError.message}`);
+    if (uploadError) throw new Error(`Falha ao armazenar a cópia de segurança: ${uploadError.message}`);
 
     const [atualizado] = await ctx.db
       .update(backupExport)
@@ -201,7 +201,7 @@ export async function finalizarBackup(ctx: CrudContext, rawBackupId: unknown) {
 
     return { ...atualizado, urlAssinada: await assinarUrlBackup(storagePath) };
   } catch (erro) {
-    const mensagem = erro instanceof Error ? erro.message : "Falha desconhecida ao gerar o backup.";
+    const mensagem = erro instanceof Error ? erro.message : "Falha desconhecida ao gerar a cópia de segurança.";
     await ctx.db.update(backupExport).set({ status: "falhou", erro: mensagem, dadosParciais: null }).where(eq(backupExport.id, backupId));
     throw new Error(mensagem);
   }
@@ -210,7 +210,7 @@ export async function finalizarBackup(ctx: CrudContext, rawBackupId: unknown) {
 async function assinarUrlBackup(storagePath: string): Promise<string> {
   const supabase = criarSupabaseStorageAdmin();
   const { data, error } = await supabase.storage.from("documentos").createSignedUrl(storagePath, 60 * 60 * 24);
-  if (error || !data?.signedUrl) throw new Error("Não foi possível gerar o link de download do backup.");
+  if (error || !data?.signedUrl) throw new Error("Não foi possível gerar o link para baixar a cópia de segurança.");
   return data.signedUrl;
 }
 
@@ -238,6 +238,6 @@ export async function baixarBackup(ctx: CrudContext, rawBackupId: unknown) {
   assertPerfil(ctx, ["admin"]);
   const backupId = z.string().uuid().parse(rawBackupId);
   const registro = await buscarBackup(ctx, backupId);
-  if (!registro.storagePath) throw new Error("Este backup não tem arquivo disponível para download.");
+  if (!registro.storagePath) throw new Error("Esta cópia de segurança não tem arquivo disponível para ser baixado.");
   return { urlAssinada: await assinarUrlBackup(registro.storagePath) };
 }

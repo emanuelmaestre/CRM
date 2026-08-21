@@ -42,7 +42,7 @@ export const A20_backupVerificacao = inngest.createFunction(
           erro: "erro" in integridadeOk ? integridadeOk.erro : null,
           // Supabase gerencia backups automáticos; este job verifica a conectividade
           // e registra na audit_log para o RUNBOOK (RPO 24h / RTO 4h)
-          nota: "Este job comprova conectividade e leitura. Backup e restauração exigem evidência externa do provedor.",
+          nota: "Esta tarefa comprova conectividade e leitura. A cópia de segurança e a restauração exigem evidência externa do provedor.",
         },
       })
     );

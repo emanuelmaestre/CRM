@@ -88,7 +88,7 @@ export const legalDocuments = {
           body: [
             "O Elisa Lima CRM é o sistema interno usado para consolidar clientes, pedidos, produtos, estoque, anúncios, mensagens, avaliações, indicadores e rotinas operacionais das marcas KARZI, WUWU e ARMARINHOS LIMA.",
             "O acesso é individual, intransferível e depende de autorização da operadora. O usuário deve manter suas credenciais em sigilo e comunicar suspeitas de acesso indevido.",
-            "A plataforma não é uma loja aberta ao público. Ela organiza dados operacionais recebidos de marketplaces, canais de venda e ferramentas conectadas.",
+            "A plataforma não é uma loja aberta ao público. Ela organiza dados operacionais recebidos de canais de venda e ferramentas conectadas.",
           ],
           bullets: [
             "Contas podem ser suspensas em caso de violação, desligamento ou risco de segurança.",
@@ -103,7 +103,7 @@ export const legalDocuments = {
           icon: "badge",
           summary: "O usuário deve operar o CRM de forma lícita, segura e compatível com as plataformas conectadas.",
           body: [
-            "É proibido usar o CRM para finalidade ilícita, enganosa, ofensiva, discriminatória, fraudulenta, invasiva ou que viole direitos de propriedade intelectual, privacidade ou regras dos marketplaces.",
+            "É proibido usar o CRM para finalidade ilícita, enganosa, ofensiva, discriminatória, fraudulenta, invasiva ou que viole direitos de propriedade intelectual, privacidade ou regras dos canais de venda.",
             "Também é proibido compartilhar credenciais, extrair dados em massa fora das funções previstas, tentar burlar limites técnicos, publicar conteúdo sem revisão adequada ou usar dados de clientes para finalidade incompatível com a operação das marcas.",
           ],
           bullets: [
@@ -175,7 +175,7 @@ export const legalDocuments = {
           title: "Integração Shopee",
           eyebrow: "Open Platform",
           icon: "store",
-          summary: "A integração Shopee trata dados do marketplace apenas como intermediária operacional.",
+          summary: "A integração Shopee trata os dados do canal de venda apenas como intermediária operacional.",
           body: [
             "A conexão com Shopee Open Platform é usada para desenvolver, operar e manter recursos de loja, produtos, pedidos, logística, atendimento, marketing e mensageria quando autorizados pela conta da loja.",
             "Em relação a dados pessoais obtidos ou derivados de conteúdo da Shopee, o CRM atua como intermediário operacional entre a loja autorizada e a plataforma, processando dados somente conforme a finalidade da aplicação, as instruções da Shopee e a legislação aplicável.",

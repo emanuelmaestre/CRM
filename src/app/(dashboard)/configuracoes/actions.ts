@@ -35,6 +35,7 @@ import { inngest } from "@/shared/lib/inngest/client";
 import { whatsappAlertaConfigurado } from "@/shared/lib/whatsapp/notificacoes-admin";
 import { dispararSincronizacaoConta, obterUltimaSincronizacaoConta } from "@/modules/canais/application/sincronizacao.service";
 import { REPUTACAO_CACHE_TAG } from "@/modules/metricas/application/reputacao.service";
+import { PUBLICACOES_CACHE_TAG } from "@/modules/metricas/application/publicacoes.service";
 import { listarRotinasAgendadas } from "@/modules/jobs/application/rotinas-agendadas.service";
 import {
   baixarBackup,
@@ -103,7 +104,7 @@ export async function actionFinalizarBackup(backupId: unknown) {
     revalidatePath("/configuracoes");
     return {
       ok: false as const,
-      erro: error instanceof Error ? error.message : "Não foi possível gerar o backup.",
+      erro: error instanceof Error ? error.message : "Não foi possível gerar a cópia de segurança.",
     };
   }
 }
@@ -131,6 +132,7 @@ export async function actionDispararSincronizacaoConta(channelAccountId: string)
   const execucao = await dispararSincronizacaoConta(ctx, channelAccountId);
   revalidateTag(`reclamacoes-${ctx.orgId}`, "max");
   revalidateTag(REPUTACAO_CACHE_TAG, "max");
+  revalidateTag(PUBLICACOES_CACHE_TAG, "max");
   revalidatePath("/metricas");
   return execucao;
 }

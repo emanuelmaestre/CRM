@@ -135,7 +135,7 @@ export const A31_sincronizarConta = inngest.createFunction(
     await executarModulo("anuncios", async () => (
       conta.tipo === "mercadolivre"
         ? sincronizarAnunciosMercadoLivreConta(ctx, channelAccountId)
-        : semSuporte("Product Ads", conta.tipo)
+        : semSuporte("Anúncios patrocinados", conta.tipo)
     ));
 
     await executarModulo("avaliacoes", async () => (

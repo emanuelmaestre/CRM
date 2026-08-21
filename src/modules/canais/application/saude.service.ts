@@ -241,8 +241,8 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
   const jobsRecentes = new Set(execucoes.map((item) => item.nome));
 
   const prontidao: PainelSaudeData["prontidao"] = [
-    readinessFromMissing("env-core", "Ambiente base", CORE_ENV, "Variaveis essenciais configuradas."),
-    readinessFromMissing("inngest", "Inngest", INNGEST_ENV, "Chaves Inngest presentes para jobs e webhooks internos."),
+    readinessFromMissing("env-core", "Ambiente base", CORE_ENV, "Variáveis essenciais configuradas."),
+    readinessFromMissing("inngest", "Inngest", INNGEST_ENV, "Chaves do Inngest presentes para tarefas e notificações automáticas internas."),
     readinessFromMissing("openai", "OpenAI", OPENAI_ENV, "Chave OpenAI presente para IA e documentos executivos."),
     {
       id: "external-sends",
@@ -250,7 +250,7 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
       status: process.env.EXTERNAL_SENDS_ENABLED === "true" ? "ok" : "pendente",
       detail: process.env.EXTERNAL_SENDS_ENABLED === "true"
         ? "Disparos externos liberados neste ambiente."
-        : "Bloqueado por seguranca ate homologar canais, opt-in, marca e idempotencia.",
+        : "Bloqueado por segurança até homologar canais, consentimento, marca e controle de duplicidade.",
     },
     {
       id: "channel-accounts",
@@ -260,31 +260,31 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
         : canaisNaoConectados.length > 0 ? "falhou" : "pendente",
       detail: [
         canaisAusentes.length > 0 ? `Ausentes: ${canaisAusentes.join(", ")}` : null,
-        canaisNaoConectados.length > 0 ? `Nao conectados: ${canaisNaoConectados.join(", ")}` : null,
-        canaisAusentes.length === 0 && canaisNaoConectados.length === 0 ? "Canais prioritarios cadastrados e conectados." : null,
+        canaisNaoConectados.length > 0 ? `Não conectados: ${canaisNaoConectados.join(", ")}` : null,
+        canaisAusentes.length === 0 && canaisNaoConectados.length === 0 ? "Canais prioritários cadastrados e conectados." : null,
       ].filter(Boolean).join(" · "),
     },
     {
       id: "jobs-operacionais",
-      label: "Jobs operacionais",
+      label: "Tarefas operacionais",
       status: jobsRecentes.has("A18-saude-conectores") && jobsRecentes.has("A24-poll-pedidos") ? "ok" : "pendente",
       detail: jobsRecentes.has("A18-saude-conectores") && jobsRecentes.has("A24-poll-pedidos")
-        ? "A18 e A24 ja registraram execucao."
-        : "Aguardando execucao observavel de A18-saude-conectores e A24-poll-pedidos.",
+        ? "A18 e A24 já registraram execução."
+        : "Aguardando uma execução registrada das tarefas A18 e A24.",
     },
     {
       id: "storage-documentos",
-      label: "Storage de documentos",
+      label: "Armazenamento de documentos",
       status: "pendente",
-      detail: `Confirmar bucket "${STORAGE_BUCKET}", politicas privadas e URL assinada em ambiente real.`,
+      detail: `Confirme o repositório "${STORAGE_BUCKET}", as políticas privadas e o endereço temporário em ambiente real.`,
     },
     {
       id: "backup-restore",
-      label: "Backup e restore",
+      label: "Cópia de segurança e restauração",
       status: ultimoBackup?.status === "concluido" ? "ok" : "pendente",
       detail: ultimoBackup
-        ? `Ultimo A20: ${ultimoBackup.status}${ultimoBackup.erro ? ` · ${ultimoBackup.erro}` : ""}`
-        : "Nenhuma execucao de A20-backup-verificacao registrada.",
+        ? `Última execução da A20: ${ultimoBackup.status}${ultimoBackup.erro ? `, ${ultimoBackup.erro}` : ""}`
+        : "Nenhuma execução da tarefa A20 foi registrada.",
     },
   ];
 
@@ -302,15 +302,15 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
     prontidao,
     backup: [
       {
-        label: "Ultimo backup automatico",
+        label: "Última cópia de segurança automática",
         value: ultimoBackup?.finalizadoEm?.toISOString() ?? ultimoBackup?.iniciadoEm.toISOString() ?? "—",
       },
       {
-        label: "Ultimo teste de restauracao",
-        value: ultimoBackup?.status === "concluido" ? "Verificar evidencia no RUNBOOK" : "—",
+        label: "Último teste de restauração",
+        value: ultimoBackup?.status === "concluido" ? "Verificar evidência no manual operacional" : "—",
       },
-      { label: "RPO alvo", value: "24 horas" },
-      { label: "RTO alvo", value: "4 horas" },
+      { label: "Ponto de recuperação desejado (RPO)", value: "24 horas" },
+      { label: "Tempo de recuperação desejado (RTO)", value: "4 horas" },
     ],
   };
 }

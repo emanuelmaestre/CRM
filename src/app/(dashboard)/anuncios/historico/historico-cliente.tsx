@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { Info, LineChart } from "lucide-react";
+import { CircleAlert, LineChart } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { stagger } from "@/shared/design-system/motion-variants";
@@ -109,7 +109,7 @@ function GraficoHistorico({ pontos, dias }: { pontos: PontoHistorico[]; dias: Pe
         {aviso && (
           <p className="mt-3 flex items-start gap-1.5 text-[11px] text-muted-foreground">
             <span title={aviso} className="mt-0.5 inline-flex shrink-0">
-              <Info aria-hidden="true" size={12} />
+              <CircleAlert aria-hidden="true" size={12} />
             </span>
             {aviso}
           </p>

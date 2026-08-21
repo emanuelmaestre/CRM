@@ -48,6 +48,23 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.supabase.co" },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/anuncios/:path*",
+        destination: "/publicidade/:path*",
+        permanent: true,
+      },
+    ];
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/publicidade/:path*",
+        destination: "/anuncios/:path*",
+      },
+    ];
+  },
   async headers() {
     return [
       {

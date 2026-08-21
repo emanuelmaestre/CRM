@@ -4,7 +4,7 @@ import { tint } from "@/shared/design-system/color";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarDays, Check, CircleDot, Download, History, Info, MapPin, Package, Pencil, ShoppingBag, Star, Truck, WalletCards, X, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, CircleDot, Download, History, MapPin, Package, Pencil, ShoppingBag, Star, Truck, WalletCards, X, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
@@ -253,7 +253,7 @@ export function Cliente360({
               {[
                 { label: "Total comprado", value: dinheiro.format(data.resumoComercial.totalGasto), icon: WalletCards },
                 { label: "Pedidos", value: String(data.resumoComercial.totalPedidos), icon: ShoppingBag },
-                { label: "Ticket médio", value: dinheiro.format(data.resumoComercial.ticketMedio), icon: Star },
+                { label: "Valor médio por pedido", value: dinheiro.format(data.resumoComercial.ticketMedio), icon: Star },
                 { label: "Última compra", value: data.resumoComercial.ultimoPedidoEm ? new Date(data.resumoComercial.ultimoPedidoEm).toLocaleDateString("pt-BR") : "Sem dado", icon: CalendarDays },
               ].map((item) => {
                 const Icon = item.icon;
@@ -299,12 +299,12 @@ export function Cliente360({
                         className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium"
                         style={{ color: "var(--warning)", background: "color-mix(in srgb, #B57A00 10%, transparent)" }}
                       >
-                        <Info aria-hidden="true" size={12} strokeWidth={2.25} className="shrink-0" />
+                        <History aria-hidden="true" size={12} strokeWidth={2.25} className="shrink-0" />
                         {copy.address.pendingSubtitle}
                       </p>
                     ) : (
                       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Info aria-hidden="true" size={12} strokeWidth={2} className="shrink-0" />
+                        <MapPin aria-hidden="true" size={12} strokeWidth={2} className="shrink-0" />
                         {copy.address.subtitle}
                       </p>
                     )}

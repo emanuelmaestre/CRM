@@ -89,7 +89,7 @@ export async function exportarClientePDF(info: ClientePDF) {
     theme: "grid",
     body: [
       ["Total comprado", moeda.format(info.resumoComercial.totalGasto), "Pedidos", String(info.resumoComercial.totalPedidos)],
-      ["Ticket médio", moeda.format(info.resumoComercial.ticketMedio), "Primeira compra", data(info.resumoComercial.primeiroPedidoEm)],
+      ["Valor médio por pedido", moeda.format(info.resumoComercial.ticketMedio), "Primeira compra", data(info.resumoComercial.primeiroPedidoEm)],
       ["Última compra", data(info.resumoComercial.ultimoPedidoEm), "Marca preferida", info.resumoComercial.marcaPreferida?.nome ?? "Sem preferência"],
       ["Canal preferido", info.resumoComercial.canalPreferido?.canal ?? "Sem preferência", "Cancel. / devol.", `${info.resumoComercial.cancelados} / ${info.resumoComercial.devolvidos}`],
     ],

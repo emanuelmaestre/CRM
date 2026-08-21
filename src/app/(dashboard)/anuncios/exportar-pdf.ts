@@ -20,7 +20,7 @@ export async function exportarAnunciosPDF(marca: VisaoGeralMarca, periodo: strin
 
   autoTable(doc, {
     startY: 33,
-    head: [["Investimento", "Receita Ads", "Receita orgânica", "ROAS", "ACOS", "TACOS", "Impressões", "Cliques", "Vendas"]],
+    head: [["Investimento", "Receita de anúncios", "Receita orgânica", "ROAS", "ACOS", "TACOS", "Impressões", "Cliques", "Vendas"]],
     body: [[
       moeda.format(marca.resumo.investimentoTotal), moeda.format(marca.resumo.receitaTotal),
       moeda.format(marca.resumo.receitaOrganica), marca.resumo.roasMedio?.toFixed(2) ?? "Sem dado",

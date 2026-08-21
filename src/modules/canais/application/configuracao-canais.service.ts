@@ -75,7 +75,7 @@ const ContaCanalInputSchema = z.object({
     ctx.addIssue({
       code: "custom",
       path: ["externalAccountId"],
-      message: "ID externo é obrigatório para contas de marketplace.",
+      message: "O identificador externo é obrigatório para contas de canais de venda.",
     });
   }
 });
@@ -283,7 +283,7 @@ export async function atualizarContaCanalConfiguracao(ctx: CrudContext, input: u
   if (!contaAtual) throw new Error("Conta de canal nao encontrada.");
 
   if (!data.externalAccountId) {
-    throw new Error("ID externo é obrigatório para contas de marketplace.");
+    throw new Error("O identificador externo é obrigatório para contas de canais de venda.");
   }
 
   const metaAtual = contaAtual.meta && typeof contaAtual.meta === "object"

@@ -166,12 +166,12 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                       significado="Mostra se a receita cresceu ou caiu em comparação com uma janela anterior de mesma duração. Valor positivo representa crescimento; negativo, queda."
                       formula="quanto o faturamento do período atual variou em relação ao período anterior, em porcentagem"
                       resultado={`${positiva ? "+" : ""}${variacao}%`}
-                      periodoLabel={`${dados.janelaLabel} vs. ${dados.janelaAnteriorLabel}`}
+                      periodoLabel={`${dados.janelaLabel} em comparação com ${dados.janelaAnteriorLabel}`}
                       itens={[
                         { label: "Período atual", valor: dados.total },
                         { label: "Período anterior", valor: dados.totalAnterior },
                       ]}
-                      nota="O período anterior tem o mesmo número de dias do período atual, e termina bem antes dele começar, sem sobreposição."
+                      nota="O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
                     />
                   </span>
                 )}

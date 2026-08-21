@@ -109,7 +109,7 @@ function useDadosDoCard(
       .catch(() => {
         if (ativo) {
           setResultado({ chave, dados: null });
-          toast.error("Não foi possível carregar este card.", { id: chave });
+          toast.error("Não foi possível carregar este painel.", { id: chave });
         }
       });
     return () => { ativo = false; };
@@ -173,7 +173,7 @@ const TOUR: CoachMarkStep[] = [
   {
     target: '[data-coachmark="mosaico-grade"]',
     title: "Clique em qualquer bloco",
-    description: "Ele cresce e vira o card completo — é lá dentro que ficam De:/Até:/Hoje, e vale para o mosaico inteiro. Esc volta, ← → pulam de card.",
+    description: "Ele cresce e vira o painel completo. É nele que ficam De, Até e Hoje, e o período vale para todo o mosaico. Esc volta; as setas alternam entre os painéis.",
   },
 ];
 
@@ -461,13 +461,13 @@ export function Mosaico({
         : blocosCopy.faturamento.legenda,
     },
     explicacao: {
-      resumo: "Quanto entrou de dinheiro em pedidos válidos no período, a soma que sobra depois de tirar cancelamentos e devoluções.",
+      resumo: "Quanto entrou de dinheiro em pedidos válidos no período. É a soma que resta depois de excluir cancelamentos e devoluções.",
       pontos: [
         { titulo: "O que entra na soma", texto: "Todo pedido aprovado dentro do período escolhido, somado pelo valor pago pelo cliente." },
-        { titulo: "O que fica de fora", texto: "Pedidos cancelados ou devolvidos não contam aqui, eles têm o próprio número, em Cancelamento." },
-        { titulo: "Ticket médio", texto: "É esse faturamento dividido pela quantidade de pedidos, sobe quando poucos pedidos caros puxam a média." },
+        { titulo: "O que fica de fora", texto: "Pedidos cancelados ou devolvidos não entram nesta soma. Eles são medidos separadamente em Cancelamento." },
+        { titulo: "Valor médio por pedido", texto: "É o faturamento dividido pela quantidade de pedidos. O valor sobe quando poucos pedidos caros elevam a média." },
       ],
-      dica: "A variação já vem calculada contra a janela imediatamente anterior, do mesmo tamanho, não contra o mesmo período do ano passado.",
+      dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
     },
     render: (acaoSlot) => (
       <FaturamentoCard
@@ -504,9 +504,9 @@ export function Mosaico({
     explicacao: {
       resumo: "Uma nota de 0 a 100 que resume a saúde da operação: reputação, pós-venda, satisfação, atendimento e catálogo, numa média ponderada.",
       pontos: [
-        { titulo: "Cinco pilares, pesos diferentes", texto: "Reputação e pós-venda pesam mais que catálogo, um problema de entrega derruba o score mais que um item sem foto." },
-        { titulo: "Pilar sem dado sai da conta", texto: "Se um pilar não tem informação suficiente no período, o peso dele é redistribuído entre os demais, não vira zero." },
-        { titulo: "Consolidado pesa por faturamento", texto: "Ao ver todas as marcas juntas, quem fatura mais influencia mais o número final, não é uma média simples entre marcas." },
+        { titulo: "Cinco pilares, pesos diferentes", texto: "Reputação e pós-venda pesam mais que catálogo. Um problema de entrega reduz o score mais do que um item sem foto." },
+        { titulo: "Pilar sem dado sai da conta", texto: "Se um pilar não tiver informação suficiente no período, o peso será redistribuído entre os demais, em vez de virar zero." },
+        { titulo: "Consolidado pesa por faturamento", texto: "Ao visualizar todas as marcas juntas, as que faturam mais influenciam mais o resultado. Não se trata de uma média simples entre marcas." },
       ],
       dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso, para o score que está na tela.",
     },
@@ -526,14 +526,14 @@ export function Mosaico({
       legenda: blocosCopy.comparacao.legenda,
     },
     explicacao: {
-      resumo: "Coloca as marcas ativas lado a lado, medidas pelas mesmas réguas, quem lidera muda conforme o critério escolhido nas abas.",
+      resumo: "Coloca as marcas ativas lado a lado e utiliza os mesmos critérios de medição. A liderança muda conforme o critério escolhido nas abas.",
       pontos: [
-        { titulo: "Sete critérios, um de cada vez", texto: "Score, Faturamento, Pedidos, Ticket, Nota, Cancelamento e Recorrência: a ordenação e a barra seguem o critério ativo." },
+        { titulo: "Sete critérios, um de cada vez", texto: "Pontuação, Faturamento, Pedidos, Valor médio por pedido, Nota, Cancelamento e Recorrência: a ordenação e a barra seguem o critério ativo." },
         { titulo: "Cor de cada linha é a da marca", texto: "O destaque visual (barra, borda, número) é sempre a identidade da marca, não muda com o critério." },
-        { titulo: "Ponto de alerta ao lado do número", texto: "Score, Nota e Cancelamento têm um \"bom\" e um \"ruim\" objetivos, um pontinho colorido avisa quando o valor pede atenção." },
+        { titulo: "Ponto de alerta ao lado do número", texto: "Pontuação, Nota e Cancelamento possuem faixas objetivas. Um ponto colorido indica quando o valor requer atenção." },
         { titulo: "Cumprimento de pedidos", texto: "A barra embaixo de cada marca mostra o que aconteceu com os pedidos do período: entregues, em andamento, cancelados, devolvidos." },
       ],
-      dica: "Cancelamento é o único critério onde menor vence, 0% aparece no topo do ranking, não no fim.",
+      dica: "Cancelamento é o único critério em que o menor valor lidera. Por isso, 0% aparece no topo do ranking, e não no fim.",
     },
     render: (acaoSlot) => (
       <ComparacaoCard
@@ -566,10 +566,10 @@ export function Mosaico({
     explicacao: {
       resumo: "Reclamações que o cliente abriu no Mercado Livre contra um pedido da marca, dentro do período selecionado.",
       pontos: [
-        { titulo: "Só Mercado Livre", texto: "Outros canais não têm essa informação disponível pela API, por isso o card não separa por canal de venda." },
+        { titulo: "Só Mercado Livre", texto: "Outros canais não têm essa informação disponível pela API, por isso o painel não separa por canal de venda." },
         { titulo: "Mediação é o estágio mais sério", texto: "É quando o próprio Mercado Livre entra na conversa e passa a decidir o caso, em vez de só mediar entre marca e cliente." },
       ],
-      dica: "Reclamação aberta não é o mesmo que devolução, uma reclamação pode ser resolvida sem que o pedido seja cancelado ou devolvido.",
+      dica: "Reclamação aberta não é o mesmo que devolução. Uma reclamação pode ser resolvida sem que o pedido seja cancelado ou devolvido.",
     },
     render: (acaoSlot) => (
       <ReclamacoesCard
@@ -607,14 +607,14 @@ export function Mosaico({
         : null,
     },
     explicacao: {
-      resumo: "Produtos que já entraram na zona de atenção (saldo ainda acima do estoque mínimo, mas caminhando pra lá), onde ainda dá tempo de comprar antes de faltar.",
+      resumo: "Produtos que entraram na zona de atenção. O saldo ainda está acima do estoque mínimo, mas se aproxima dele, portanto ainda há tempo para repor antes que falte.",
       pontos: [
-        { titulo: "Zona de atenção, não de ruptura", texto: "Entra na lista quem tem saldo maior que o mínimo cadastrado, mas já até o dobro dele, quem já cruzou o mínimo saiu dessa janela de aviso." },
-        { titulo: "Precisa de mínimo cadastrado", texto: "Produto sem estoque mínimo definido não tem régua pra comparar, então não aparece aqui, não é falta de dado, é falta de referência." },
+        { titulo: "Zona de atenção, não de ruptura", texto: "Entra na lista quem possui saldo maior que o mínimo cadastrado, mas limitado a até o dobro desse valor. Quem já atingiu ou ficou abaixo do mínimo saiu desta janela de aviso." },
+        { titulo: "Precisa de mínimo cadastrado", texto: "Um produto sem estoque mínimo definido não possui referência para comparação e, por isso, não aparece aqui. Não é falta de dado, mas falta de parâmetro." },
         { titulo: "Urgência considera o ritmo de venda", texto: "Quanto mais perto do mínimo e mais rápido o produto está vendendo no período, maior a urgência de repor." },
-        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card pra ver o que cada um (Ativo, Pausado, Encerrado...) significa — repor não adianta se o anúncio estiver fora do ar." },
+        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel para saber o significado de cada status, como Ativo, Pausado e Encerrado. Repor não adianta se o anúncio estiver fora do ar." },
       ],
-      dica: "Esse card avisa antes do problema, diferente de Giro baixo e Parados, que mostram o que já não está saindo.",
+      dica: "Este painel avisa antes do problema, diferente de Giro baixo e Parados, que mostram o que já não está saindo.",
     },
     render: (acaoSlot) => (
       <ReposicaoCard
@@ -643,13 +643,12 @@ export function Mosaico({
       rodape: blocosCopy.maisVendidos.legenda,
     },
     explicacao: {
-      resumo: "Os produtos que mais saíram em quantidade dentro do período selecionado, o ranking de venda, não de faturamento.",
+      resumo: "Os produtos com mais unidades vendidas no período selecionado. É um ranking de volume de vendas, e não de faturamento.",
       pontos: [
         { titulo: "Ordena por unidades, não por dinheiro", texto: "Um produto barato vendido em volume pode aparecer na frente de um produto caro vendido poucas vezes." },
-        { titulo: "Barra de participação", texto: "Cada linha mostra a proporção da quantidade dele contra o líder da lista, não contra o total vendido no período." },
-        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card — um campeão de vendas com o anúncio pausado ou em revisão é o caso mais urgente: a venda já vinha acontecendo e parou." },
+        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel. Um campeão de vendas com o anúncio pausado ou em revisão é o caso mais urgente, pois as vendas estavam acontecendo e foram interrompidas." },
       ],
-      dica: "Combine com Top 5 produtos (no card Marca) para ver se a receita da marca depende demais de poucos itens campeões.",
+      dica: "Combine com 5 produtos mais vendidos, no painel Marca, para ver se a receita depende demais de poucos itens campeões.",
     },
     render: (acaoSlot) => (
       <MaisVendidosCard
@@ -675,11 +674,11 @@ export function Mosaico({
       legenda: blocosCopy.giroBaixo.legenda,
     },
     explicacao: {
-      resumo: "Produtos com saldo em estoque que quase não venderam no período, vendem, mas devagar demais pra girar o capital parado neles.",
+      resumo: "Produtos com saldo em estoque que quase não venderam no período. Eles ainda vendem, mas em ritmo insuficiente para movimentar o capital imobilizado.",
       pontos: [
-        { titulo: "Só quem ainda tem saldo", texto: "Produto zerado não conta como giro baixo, esse é o caso de Parados, quando também não vende há muito tempo." },
-        { titulo: "Limite baixo de propósito", texto: "Entra quem vendeu poucas unidades no período inteiro, o corte é apertado para não misturar \"vende pouco\" com \"vende razoável\"." },
-        { titulo: "Ordenado pelo que dói mais", texto: "Empate em quantidade vendida desempata por valor parado em estoque, o produto que trava mais dinheiro aparece primeiro." },
+        { titulo: "Só quem ainda tem saldo", texto: "Produto com saldo zerado não conta como giro baixo. Quando também não vende há muito tempo, ele pertence à categoria Parados." },
+        { titulo: "Limite baixo de propósito", texto: "Entra quem vendeu poucas unidades durante todo o período. O limite é restrito para diferenciar quem vende pouco de quem vende em volume razoável." },
+        { titulo: "Ordenado pelo que mais impacta", texto: "Em caso de empate na quantidade vendida, o valor imobilizado em estoque define a ordem. O produto que retém mais dinheiro aparece primeiro." },
         { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card. Giro baixo com o anúncio pausado ou em revisão pode não ser sobre demanda — pode ser o anúncio fora do ar." },
       ],
       dica: "Vale cruzar com o preço de venda: giro baixo em item caro imobiliza mais capital que giro baixo em item barato, mesmo com a mesma quantidade parada.",
@@ -709,14 +708,14 @@ export function Mosaico({
       alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
     },
     explicacao: {
-      resumo: "Produtos com saldo em estoque que não têm nenhuma venda registrada nos últimos 90 dias, capital parado há tempo suficiente pra ser considerado risco.",
+      resumo: "Produtos com saldo em estoque e sem nenhuma venda registrada nos últimos 90 dias. É capital imobilizado por tempo suficiente para ser considerado um risco.",
       pontos: [
         { titulo: "90 dias é o corte", texto: "Menos que isso é giro baixo (vende pouco); 90 dias ou mais sem nenhuma saída é parado (não vende)." },
-        { titulo: "Inclui quem nunca vendeu", texto: "Produto que nunca teve saída também entra aqui, não só quem vendia antes e parou." },
-        { titulo: "Ordenado pelo capital imobilizado", texto: "Quem tem mais dinheiro parado em estoque aparece primeiro, é o que mais justifica uma liquidação." },
-        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card pra ver o que cada um (Ativo, Pausado, Encerrado...) significa." },
+        { titulo: "Inclui quem nunca vendeu", texto: "Produtos que nunca tiveram saída também entram aqui, além daqueles que vendiam antes e pararam." },
+        { titulo: "Ordenado pelo capital imobilizado", texto: "Quem possui mais dinheiro imobilizado em estoque aparece primeiro, pois é o caso que mais pode justificar uma liquidação." },
+        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel para saber o significado de cada status, como Ativo, Pausado e Encerrado." },
       ],
-      dica: "Um item aqui não é necessariamente ruim, pode ser um lançamento recente sem tempo suficiente pra vender. Vale checar a data de cadastro antes de decidir liquidar.",
+      dica: "Um item nesta lista não é necessariamente ruim. Pode ser um lançamento recente que ainda não teve tempo suficiente para vender. Verifique a data de cadastro antes de decidir pela liquidação.",
     },
     render: (acaoSlot) => (
       <ParadosCard
@@ -737,11 +736,11 @@ export function Mosaico({
     accent: "var(--acento-1)",
     resumo: { valor: null, legenda: blocosCopy.acoes.legenda },
     explicacao: {
-      resumo: "Duas listas diferentes no mesmo card: observações automáticas sobre a operação, e ofertas sugeridas para reativar clientes específicos.",
+      resumo: "Duas listas diferentes no mesmo painel: observações automáticas sobre a operação e ofertas sugeridas para reativar clientes específicos.",
       pontos: [
-        { titulo: "Insights", texto: "Leituras automáticas dos números do período, algo que mudou, vale atenção ou foge do padrão, sem precisar caçar isso card por card." },
+        { titulo: "Análises automáticas", texto: "Leituras automáticas dos números do período que destacam mudanças, pontos de atenção ou desvios do padrão, sem exigir a análise individual de cada painel." },
         { titulo: "Sugestões de reativação", texto: "Ofertas geradas para segmentos de clientes (ex.: quem não compra há um tempo), esperando aprovação antes de sair." },
-        { titulo: "Nada sai sozinho", texto: "Toda sugestão fica com status \"sugerida\" até alguém aprovar ou recusar, o card nunca dispara oferta por conta própria." },
+        { titulo: "Nada sai sozinho", texto: "Toda sugestão permanece com o status \"Sugerida\" até ser aprovada ou recusada. O painel nunca envia uma oferta por conta própria." },
       ],
     },
     render: () => (
@@ -764,13 +763,13 @@ export function Mosaico({
       accent: "var(--acento-3)",
       resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
       explicacao: {
-        resumo: "Como cada anúncio está performando no Mercado Livre: visitas, conversão, vendas e, quando patrocinado, retorno do investimento em publicidade.",
+        resumo: "Como cada anúncio patrocinado se saiu no Mercado Livre durante o período selecionado, sem misturar vendas orgânicas com resultados da publicidade.",
         pontos: [
-          { titulo: "Visitas e conversão", texto: "Conversão estimada é a proporção de visitas que viraram venda, um anúncio com muita visita e pouca venda pode ter problema de preço, foto ou descrição." },
-          { titulo: "Receita em anúncios e ROI", texto: "Só aparece pra quem tem Product Ads ativo, mostra quanto foi investido em publicidade e quanto voltou em vendas." },
-          { titulo: "Pontuação de qualidade", texto: "Nota do próprio Mercado Livre sobre o anúncio (ficha técnica, fotos, atributos preenchidos), afeta o quanto ele aparece nas buscas." },
+          { titulo: "Impressões, cliques e vendas atribuídas", texto: "Todos os números vêm da mesma medição de publicidade do Mercado Livre. As vendas orgânicas ficam fora para não distorcer a conversão." },
+          { titulo: "Investimento, receita e retorno", texto: "O retorno compara a receita que o Mercado Livre atribuiu ao anúncio com o valor investido exatamente no período selecionado." },
+          { titulo: "Pontuação de qualidade", texto: "É a nota atribuída pelo Mercado Livre ao anúncio, considerando ficha técnica, fotos e atributos preenchidos. Essa nota influencia a exibição nas buscas." },
         ],
-        dica: "Um anúncio com boa pontuação de qualidade mas conversão baixa costuma ser problema de preço ou concorrência, não de cadastro.",
+        dica: "Publicações sem qualquer veiculação ficam separadas para não esconder os anúncios que realmente consumiram verba ou geraram resultado.",
       },
       render: (acaoSlot) => (
         <PublicacoesCard

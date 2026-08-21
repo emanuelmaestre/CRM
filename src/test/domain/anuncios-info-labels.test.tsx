@@ -82,10 +82,10 @@ describe("rótulos de Anúncios com informação", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador Vendas atribuídas (vendas que vieram do anúncio)" }));
 
-    expect(await screen.findByText(/Vendas atribuídas atual: 32/i)).toBeInTheDocument();
-    expect(screen.getByText(/a plataforma conectou aos anúncios/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Vendas atribuídas atuais: 32/i)).toBeInTheDocument();
+    expect(screen.getByText(/a plataforma associou aos anúncios/i)).toBeInTheDocument();
     expect(screen.getByText(/Com 650 cliques, isso representa CVR de 4,9%/i)).toBeInTheDocument();
-    expect(screen.getByText(/o tráfego virou venda real/i)).toBeInTheDocument();
+    expect(screen.getByText(/o tráfego gerou vendas reais/i)).toBeInTheDocument();
     expect(screen.getByText("Observação")).toBeInTheDocument();
     expect(screen.getByText(/não quer dizer que o anúncio foi o único motivo da compra/i)).toBeInTheDocument();
   });
@@ -138,9 +138,9 @@ describe("rótulos de Anúncios com informação", () => {
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador TACOS (peso do anúncio nas vendas)" }));
 
     expect(await screen.findByText(/TACOS atual: 12,5%/i)).toBeInTheDocument();
-    expect(screen.getByText(/TACOS é investimento em anúncios dividido pela receita total/i)).toBeInTheDocument();
+    expect(screen.getByText(/TACOS é o investimento em anúncios dividido pela receita total/i)).toBeInTheDocument();
     expect(screen.getByText(/R\$\s*1\.200,00 de mídia sobre R\$\s*10\.000,00 de receita total/i)).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s*4\.800,00 de ads \+ R\$\s*5\.200,00 orgânica/i)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s*4\.800,00 de anúncios \+ R\$\s*5\.200,00 de vendas orgânicas/i)).toBeInTheDocument();
     expect(screen.getByText(/a cada R\$\s*100,00 vendidos no total, R\$\s*12,50/i)).toBeInTheDocument();
     expect(screen.getByText("Observação")).toBeInTheDocument();
     expect(screen.getByText(/Diferente do ACOS, ele usa receita total/i)).toBeInTheDocument();

@@ -567,8 +567,8 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                   }))}
                   nota={
                     periodoAtivo
-                      ? "A nota média e a distribuição por estrela são o histórico completo do Mercado Livre, o Mercado Livre não permite recortar essas duas por data. O período escolhido acima filtra só os comentários com texto, na lista abaixo."
-                      : "A nota média e a distribuição por estrela são o histórico completo do Mercado Livre, sem recorte por período, porque o canal não permite. Só os comentários com texto podem ser filtrados por data (veja o filtro abaixo)."
+                      ? "A nota média e a distribuição por estrela representam todo o histórico do Mercado Livre, pois o canal não permite filtrar esses dados por data. O período escolhido acima filtra somente os comentários com texto na lista abaixo."
+                      : "A nota média e a distribuição por estrela representam todo o histórico do Mercado Livre, sem recorte por período, pois o canal não permite esse filtro. Somente os comentários com texto podem ser filtrados por data; veja o filtro abaixo."
                   }
                 />
               )}

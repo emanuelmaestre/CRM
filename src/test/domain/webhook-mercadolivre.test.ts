@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   resolverContaWebhookMarketplace: vi.fn(),
   obterTokenMercadoLivre: vi.fn(),
+  criarMLProvider: vi.fn(),
+  buscarPedidoPorId: vi.fn(),
   ingerirPedido: vi.fn(),
   receberMensagem: vi.fn(),
   resolverClientePorIdentidade: vi.fn(),
@@ -14,6 +16,7 @@ vi.mock("@/modules/canais/application/webhook-account.service", () => ({
 }));
 vi.mock("@/modules/canais/infrastructure/mercadolivre.provider", () => ({
   obterTokenMercadoLivre: mocks.obterTokenMercadoLivre,
+  criarMLProvider: mocks.criarMLProvider,
 }));
 vi.mock("@/modules/canais/application/ingestao-pedido.service", () => ({
   ingerirPedido: mocks.ingerirPedido,
@@ -128,6 +131,13 @@ describe("webhook Mercado Livre", () => {
   it("processa notificação de pedido (orders_v2) e chama ingerirPedido", async () => {
     mocks.resolverContaWebhookMarketplace.mockResolvedValue(CONTA);
     mocks.obterTokenMercadoLivre.mockResolvedValue({ accessToken: "token-abc" });
+    mocks.criarMLProvider.mockReturnValue({ buscarPedidoPorId: mocks.buscarPedidoPorId });
+    mocks.buscarPedidoPorId.mockResolvedValue({
+      providerOrderId: "999",
+      canal: "mercadolivre",
+      clienteExternalId: "42",
+      total: "150.5",
+    });
     mocks.ingerirPedido.mockResolvedValue({ pedidoId: "pedido-1", criado: true });
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,

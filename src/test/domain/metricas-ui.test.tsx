@@ -1,13 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ScoreCard } from "@/app/(dashboard)/metricas/score-card";
 import { AtendimentoCard } from "@/app/(dashboard)/metricas/atendimento-card";
 import { ComparacaoCard } from "@/app/(dashboard)/metricas/comparacao-card";
+import { PublicacoesCard } from "@/app/(dashboard)/metricas/publicacoes-card";
 import { ReputacaoCard } from "@/app/(dashboard)/metricas/reputacao-card";
 import { BarraComLimite } from "@/app/(dashboard)/metricas/metricas-primitives";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import type { AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
+import type { DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
+
+vi.mock("@/app/(dashboard)/metricas/actions", () => ({
+  actionObterDesempenhoPublicacoes: vi.fn(),
+  actionContarPublicacoesPorMarca: vi.fn().mockResolvedValue([]),
+}));
 
 class ResizeObserverMock implements ResizeObserver {
   observe() {}
@@ -95,6 +102,8 @@ describe("cards de Métricas", () => {
 
     const gatilho = screen.getByRole("button", { name: "Entenda o indicador Taxa de resposta" });
     expect(gatilho).toHaveAttribute("title", "Entenda o indicador: Taxa de resposta");
+    expect(gatilho).toHaveClass("[@media(pointer:coarse)]:min-h-11");
+    expect(gatilho).toHaveClass("[@media(pointer:coarse)]:min-w-11");
     fireEvent.click(gatilho);
 
     expect(await screen.findByText("O que significa")).toBeInTheDocument();
@@ -103,12 +112,20 @@ describe("cards de Métricas", () => {
     expect(screen.getByText("Período analisado")).toBeInTheDocument();
     expect(screen.getByText("Importante")).toBeInTheDocument();
     expect(screen.getByText("Mostra a parcela das perguntas que recebeu resposta.")).toBeInTheDocument();
+
+    const popover = document.querySelector("[data-radix-popper-content-wrapper] > div");
+    expect(popover).toHaveClass("max-h-[var(--radix-popover-content-available-height)]");
+    expect(popover).toHaveClass("overflow-y-auto");
+    expect(popover).toHaveClass("scrollbar-none");
+    const colunas = screen.getByText("O que significa").parentElement?.parentElement?.parentElement;
+    expect(colunas).toHaveClass("lg:grid-cols-2");
+    expect(colunas).not.toHaveClass("sm:grid-cols-2");
   });
 
   it("mostra o score consolidado e admite a leitura parcial da marca", async () => {
     render(<ScoreCard dados={resultado()} carregando={false} />);
 
-    expect(screen.getByRole("img", { name: /score 78 de 100, saudável/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /pontuação 78 de 100, saudável/i })).toBeInTheDocument();
 
     // Abrir a marca revela os pilares — e o aviso de que só 4 dos 5 têm dado.
     screen.getByRole("tab", { name: /karzi/i }).click();
@@ -185,6 +202,99 @@ describe("cards de Métricas", () => {
   it("diz que não há dado em vez de desenhar um funil vazio", () => {
     render(<AtendimentoCard dados={null} carregando={false} />);
     expect(screen.getByText(/nenhuma mensagem de cliente no período/i)).toBeInTheDocument();
+  });
+
+  it("mostra somente métricas patrocinadas do período e separa publicações sem veiculação", async () => {
+    const brandId = "11111111-1111-4111-8111-111111111111";
+    const base = {
+      status: "active",
+      ctr: 0.86,
+      cvr: 9.01,
+      qualidade: 80,
+      nivelQualidade: "Profesional",
+      qualidadeStatus: "disponivel" as const,
+      pendencias: [],
+      dataCriacao: "2026-05-10T12:00:00.000Z",
+    };
+    const dados: DesempenhoPublicacoesResultado = {
+      periodo: { inicio: "2026-06-01", fim: "2026-08-21" },
+      parcial: false,
+      resumo: {
+        totalPublicacoes: 3,
+        comVeiculacao: 2,
+        semVeiculacao: 1,
+        investimento: 61.59,
+        receita: 155.16,
+        unidadesAtribuidas: 10,
+      },
+      itens: [
+        {
+          ...base,
+          itemId: "MLB4613201381",
+          titulo: "Anúncio com retorno",
+          impressoes: 12_859,
+          cliques: 111,
+          unidadesAtribuidas: 10,
+          investimento: 48.32,
+          receita: 155.16,
+        },
+        {
+          ...base,
+          itemId: "MLB6631903384",
+          titulo: "Anúncio sem venda atribuída",
+          impressoes: 12_557,
+          cliques: 58,
+          unidadesAtribuidas: 0,
+          investimento: 13.27,
+          receita: 0,
+        },
+      ],
+      semVeiculacao: [{
+        ...base,
+        itemId: "MLB4806793213",
+        titulo: "Anúncio realmente zerado",
+        status: "idle",
+        impressoes: 0,
+        cliques: 0,
+        unidadesAtribuidas: 0,
+        ctr: null,
+        cvr: null,
+        investimento: 0,
+        receita: 0,
+        qualidade: null,
+        nivelQualidade: null,
+        qualidadeStatus: "nao_consultada",
+      }],
+    };
+
+    render(<PublicacoesCard
+      marcas={[{ brandId, marcaLabel: "KARZI", slug: "karzi" }]}
+      inicio="2026-06-01"
+      fim="2026-08-21"
+      preCarregado={{ brandId, inicio: "2026-06-01", fim: "2026-08-21", dados }}
+    />);
+
+    // O card começa sem marca nem canal selecionados — precisa escolher os
+    // dois antes de ver os dados. A troca passa por AnimatePresence
+    // mode="wait" (ver ScoreCard acima), então espera-se pelo conteúdo em
+    // vez de exigi-lo no mesmo tick.
+    fireEvent.click(screen.getByRole("switch", { name: /karzi/i }));
+    fireEvent.click(screen.getByRole("switch", { name: /mercado livre/i }));
+    expect(await screen.findAllByText("Impressões")).not.toHaveLength(0);
+    expect(screen.getAllByText("Cliques").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Investimento").length).toBeGreaterThan(0);
+    expect(screen.getByText("3.2x")).toBeInTheDocument();
+    expect(screen.getByText("0.0x")).toBeInTheDocument();
+    expect(screen.queryByText("Visitas")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Entenda o indicador Publicações patrocinadas" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Entenda o indicador Publicações com veiculação" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Entenda o indicador Situação da veiculação" })).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Entenda o indicador Retorno consolidado do período" }));
+    expect(screen.getByText(/não a média simples dos retornos individuais/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /1 publicação sem veiculação/i }));
+    expect(screen.getByText("Anúncio realmente zerado")).toBeInTheDocument();
   });
 
   it("BarraComLimite não espelha a barra quando o valor é negativo", () => {

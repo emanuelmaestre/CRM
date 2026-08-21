@@ -185,7 +185,7 @@ export function AtendimentoCard({ dados, carregando }: {
                 <CalculoPopover
                   titulo="Taxa de resposta"
                   significado="Mostra qual parcela das perguntas de pré-venda recebeu uma resposta da loja dentro do período selecionado. Quanto maior, mais completo está o atendimento."
-                  formula="quantas perguntas foram respondidas, dividido pelo total de perguntas recebidas no período"
+                  formula="quantidade de perguntas respondidas dividida pelo total de perguntas recebidas no período"
                   resultado={`${dados.taxaResposta}%`}
                   itens={[
                     { label: "Respondidas", valor: inteiro.format(dados.respondidas), fracao: dados.taxaResposta / 100 },

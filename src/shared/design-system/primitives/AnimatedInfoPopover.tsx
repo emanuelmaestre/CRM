@@ -51,7 +51,10 @@ export const AnimatedInfoTrigger = React.forwardRef<HTMLButtonElement, AnimatedI
           if (event.key === "Enter" || event.key === " ") dispararPulso();
           onKeyDown?.(event);
         }}
-        className={cn("relative isolate overflow-hidden", className)}
+        className={cn(
+          "relative isolate overflow-hidden [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11",
+          className,
+        )}
         {...props}
       >
         <AnimatePresence>
@@ -130,7 +133,13 @@ export function AnimatedInfoPopover({
             // escrevia opacity/transform a cada frame. Duas engines de animação
             // disputando as mesmas propriedades é o que fazia a abertura parecer
             // travada ou não acontecer, dependendo de qual delas "ganhava" o frame.
-            className={cn("origin-[var(--radix-popover-content-transform-origin)] outline-none", className)}
+            className={cn(
+              // A rolagem continua disponível por roda, trackpad e toque quando
+              // a janela é excepcionalmente baixa, mas a barra visual não toma
+              // espaço nem cria uma faixa cinza dentro dos cards INFO.
+              "scrollbar-none max-h-[var(--radix-popover-content-available-height)] origin-[var(--radix-popover-content-transform-origin)] overflow-y-auto overscroll-contain outline-none",
+              className,
+            )}
           >
             {children}
             {showArrow && <PopoverPrimitive.Arrow className={cn("fill-card", arrowClassName)} />}

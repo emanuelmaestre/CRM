@@ -257,7 +257,7 @@ export default function ConfiguracoesPage() {
         </Card>
 
         <Card
-          title="Backup"
+          title="Cópia de segurança"
           description="Exportação sob demanda dos dados da organização, em JSON e CSV"
           icon={getIcon("DatabaseBackup")}
         >

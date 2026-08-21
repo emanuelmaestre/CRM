@@ -104,7 +104,7 @@ function descricaoTacos(resumo: VisaoGeralResumo) {
   }
 
   return {
-    descricao: `TACOS atual: ${percentual(resumo.tacos)}. TACOS é investimento em anúncios dividido pela receita total: ${moeda.format(resumo.investimentoTotal)} de mídia sobre ${moeda.format(receitaTotal)} de receita total (${moeda.format(resumo.receitaTotal)} de ads + ${moeda.format(resumo.receitaOrganica)} orgânica). Isso significa que, a cada ${moeda.format(100)} vendidos no total, ${moeda.format(resumo.tacos)} vieram como peso de mídia. ${leitura}`,
+    descricao: `TACOS atual: ${percentual(resumo.tacos)}. TACOS é o investimento em anúncios dividido pela receita total: ${moeda.format(resumo.investimentoTotal)} de mídia sobre ${moeda.format(receitaTotal)} de receita total (${moeda.format(resumo.receitaTotal)} de anúncios + ${moeda.format(resumo.receitaOrganica)} de vendas orgânicas). Isso significa que, a cada ${moeda.format(100)} vendidos no total, ${moeda.format(resumo.tacos)} foram investidos em mídia. ${leitura}`,
     observacao,
   };
 }
@@ -114,7 +114,7 @@ function descricaoVendas(resumo: VisaoGeralResumo) {
 
   if (vendas === 0) {
     return {
-      descricao: "Vendas atribuídas atual: 0. Nenhuma compra foi associada aos anúncios neste período. Quando isso acontece, conversão, receita atribuída e ROAS tendem a ficar sem força.",
+      descricao: "Vendas atribuídas atuais: 0. Nenhuma compra foi associada aos anúncios neste período. Quando isso acontece, conversão, receita atribuída e ROAS tendem a perder força.",
       observacao: "Atribuída não quer dizer que o anúncio foi o único motivo da compra. Quer dizer que, pelas regras da plataforma, essa venda entrou na conta da mídia.",
     };
   }
@@ -125,7 +125,7 @@ function descricaoVendas(resumo: VisaoGeralResumo) {
     : "";
 
   return {
-    descricao: `Vendas atribuídas atual: ${inteiro.format(vendas)}. São ${vendasTexto} que a plataforma conectou aos anúncios no período.${leituraConversao} Use junto com Receita atribuída e ROAS para entender se o tráfego virou venda real.`,
+    descricao: `Vendas atribuídas atuais: ${inteiro.format(vendas)}. São ${vendasTexto} que a plataforma associou aos anúncios no período.${leituraConversao} Analise este número junto com Receita atribuída e ROAS para entender se o tráfego gerou vendas reais.`,
     observacao: "Atribuída não quer dizer que o anúncio foi o único motivo da compra. Quer dizer que, pelas regras da plataforma, essa venda entrou na conta da mídia.",
   };
 }

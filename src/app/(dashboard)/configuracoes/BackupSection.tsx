@@ -131,10 +131,10 @@ export function BackupSection() {
         return;
       }
       setConcluido({ urlAssinada: finalizado.backup.urlAssinada, tamanhoBytes: finalizado.backup.tamanhoBytes ?? 0 });
-      toast.success("Backup gerado com sucesso.");
+      toast.success("Cópia de segurança gerada com sucesso.");
       carregarHistorico();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o backup.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar a cópia de segurança.");
       setFinalizando(false);
     } finally {
       setRodando(false);
@@ -146,7 +146,7 @@ export function BackupSection() {
       const { urlAssinada } = await actionBaixarBackup(id);
       window.open(urlAssinada, "_blank", "noopener,noreferrer");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o link de download.");
+      toast.error(error instanceof Error ? error.message : "Não foi possível gerar o link para baixar o arquivo.");
     }
   }
 
@@ -171,16 +171,18 @@ export function BackupSection() {
             align="start"
             sideOffset={8}
             collisionPadding={12}
-            className="z-[100] w-[min(20rem,calc(100vw-1.5rem))] rounded-[0.9rem] border border-border bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+            className="z-[100] w-[min(20rem,calc(100vw-1.5rem))] rounded-[0.9rem] border border-border bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.24)] lg:w-[min(38rem,calc(100vw-1.5rem))]"
           >
                 <p className="text-[13px] font-semibold text-foreground">Exportação sob demanda dos dados da organização, em JSON e CSV</p>
-                <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
-                  Gera um ZIP com JSON e CSV de {TABELAS_BACKUP.length} tabelas — clientes, produtos, pedidos, canais,
-                  usuários, réguas e auditoria — desta organização.
-                </p>
-                <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
-                  Fica disponível para download por 24h. Depois disso, basta gerar um novo a partir daqui.
-                </p>
+                <div className="mt-2 flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-5">
+                  <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+                    Gera um arquivo ZIP com dados em JSON e CSV de {TABELAS_BACKUP.length} tabelas: clientes, produtos,
+                    pedidos, canais, usuários, réguas e auditoria. Todas pertencem a esta organização.
+                  </p>
+                  <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+                    O arquivo fica disponível para ser baixado por 24 horas. Depois desse prazo, basta gerar uma nova exportação.
+                  </p>
+                </div>
           </AnimatedInfoPopover>
         </div>
         <motion.button

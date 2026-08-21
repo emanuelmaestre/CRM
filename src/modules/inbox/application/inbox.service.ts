@@ -486,7 +486,7 @@ export async function responderPergunta(
     .then((r) => r[0]);
   if (!conversaRow) throw new Error("Pergunta não encontrada.");
   if (!conversaRow.conversa.externalId?.includes(PERGUNTA_EXTERNAL_ID_MARKER)) {
-    throw new Error("Esta conversa não é uma pergunta pré-venda de marketplace.");
+    throw new Error("Esta conversa não é uma pergunta de pré-venda de um canal de venda.");
   }
 
   if (process.env.EXTERNAL_SENDS_ENABLED !== "true") {

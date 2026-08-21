@@ -312,6 +312,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                     <AnimatedInfoPopover
                       trigger={(
                         <AnimatedInfoTrigger
+                          aria-label={`Entenda o painel ${def.titulo}`}
                           title={`O que é ${def.titulo}`}
                           iconSize={14}
                           className="press-feedback flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -320,11 +321,11 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                       align="start"
                       sideOffset={8}
                       collisionPadding={12}
-                      className="z-[100] w-[min(24rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+                      className="z-[100] w-[min(24rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] lg:w-[min(38rem,calc(100vw-1.5rem))]"
                     >
                       <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">{def.titulo}</p>
                       <p className="mt-2 text-[13px] leading-relaxed text-foreground/90">{def.explicacao.resumo}</p>
-                      <dl className="mt-3.5 flex flex-col gap-2.5 border-t border-border pt-3.5">
+                      <dl className="mt-3.5 flex flex-col gap-2.5 border-t border-border pt-3.5 lg:grid lg:grid-cols-2 lg:gap-x-6 lg:gap-y-4">
                         {def.explicacao.pontos.map((ponto) => (
                           <div key={ponto.titulo}>
                             <dt className="text-[11.5px] font-bold text-foreground">{ponto.titulo}</dt>

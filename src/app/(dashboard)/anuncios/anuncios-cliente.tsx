@@ -150,7 +150,7 @@ function descricaoComparacaoInvestimento({
   }
 
   const leitura = variacao > 0
-    ? "O gasto em mídia aumentou; confira se Receita Ads, conversões e ROAS cresceram junto."
+    ? "O gasto em mídia aumentou; confira se a receita de anúncios, as conversões e o ROAS cresceram junto."
     : variacao < 0
       ? "O gasto em mídia diminuiu; se receita ou conversões caíram, parte da queda pode vir de menor volume de investimento."
       : "O gasto em mídia ficou praticamente estável em relação ao período anterior.";
@@ -172,12 +172,12 @@ function descricaoComparacaoReceitaAds({
   variacao: number | null;
   dias: number;
 }) {
-  const observacao = "Receita Ads é a receita que a plataforma atribuiu aos anúncios. Não é receita total da marca e não é lucro: ainda não desconta mídia, custo do produto, taxas, frete ou impostos.";
+  const observacao = "Receita de anúncios é o valor que a plataforma atribuiu aos anúncios. Não é a receita total da marca nem o lucro, pois ainda não desconta mídia, custo do produto, taxas, frete ou impostos.";
   const atualTexto = moeda.format(atual);
 
   if (anterior === null) {
     return {
-      descricao: `Receita Ads atual: ${atualTexto}. Ainda não há período anterior carregado para comparar com ${periodoAnteriorTexto(dias)}. Use este valor junto com investimento e ROAS para entender o retorno da mídia paga.`,
+      descricao: `Receita de anúncios atual: ${atualTexto}. Ainda não há período anterior carregado para comparar com ${periodoAnteriorTexto(dias)}. Use este valor junto com investimento e ROAS para entender o retorno da mídia paga.`,
       observacao,
     };
   }
@@ -590,18 +590,18 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
           Campanhas completo), não sub-itens — por isso ganham linha própria
           aqui em cima, com peso de botão em vez de texto solto. */}
       <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-        <Link href="/anuncios/produtos" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+        <Link href="/publicidade/produtos" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
           <Package size={13} /> <span className="sm:hidden">Produtos</span><span className="hidden sm:inline">Ver produtos</span>
         </Link>
-        <Link href="/anuncios/historico" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+        <Link href="/publicidade/historico" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
           <History size={13} /> <span className="sm:hidden">Histórico</span><span className="hidden sm:inline">Ver histórico</span>
         </Link>
         {dados.marcas.length >= 2 && (
-          <Link href="/anuncios/comparacao" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+          <Link href="/publicidade/comparacao" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
             <GitCompare size={13} /> Comparar marcas
           </Link>
         )}
-        <Link href="/anuncios/campanhas" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+        <Link href="/publicidade/campanhas" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
           <BarChart3 size={13} /> <span className="sm:hidden">Campanhas</span><span className="hidden sm:inline">{copy.campanhas.verTodas}</span>
         </Link>
       </div>
@@ -665,7 +665,7 @@ function ComparativoPeriodo({ atual, anterior, dias }: { atual: VisaoGeralMarca;
       valor: variacao(atual.resumo.investimentoTotal, investimentoAnterior ?? 0),
     },
     {
-      label: "Receita Ads (venda que veio do anúncio)",
+      label: "Receita de anúncios (venda atribuída ao anúncio)",
       descricao: comparacaoReceitaAds.descricao,
       observacao: comparacaoReceitaAds.observacao,
       valor: variacao(atual.resumo.receitaTotal, receitaAnterior ?? 0),

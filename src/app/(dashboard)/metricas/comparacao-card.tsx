@@ -124,7 +124,7 @@ const CAMPO_DO_CRITERIO: Record<Criterio, string | null> = {
   score: null,
   faturamento: "Faturamento",
   pedidos: "Pedidos",
-  ticketMedio: "Ticket",
+  ticketMedio: "Valor médio por pedido",
   notaMedia: "Nota",
   cancelamento: "Cancelamento",
   recorrencia: "Recorrência",
@@ -136,21 +136,21 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       label: "Faturamento", valor: marca.faturamentoLabel, valorNumerico: marca.faturamento, formatarNumero: (v) => moeda.format(v),
       calculo: {
         titulo: "Faturamento",
-        significado: "Soma do valor de todos os pedidos aprovados da marca no período — sem contar os cancelados ou devolvidos.",
+        significado: "Soma do valor de todos os pedidos aprovados da marca no período, sem incluir os cancelados ou devolvidos.",
         formula: "soma do valor de cada pedido válido no período",
         resultado: marca.faturamentoLabel,
         itens: [
           { label: "Pedidos considerados", valor: inteiro.format(marca.pedidos) },
-          { label: "Ticket médio por pedido", valor: marca.ticketMedioLabel },
+          { label: "Valor médio por pedido", valor: marca.ticketMedioLabel },
         ],
-        nota: "Pedidos cancelados ou devolvidos não entram nessa soma — eles são medidos à parte, em Cancelamento.",
+        nota: "Pedidos cancelados ou devolvidos não entram nesta soma. Eles são medidos separadamente em Cancelamento.",
       },
     },
     {
       label: "Pedidos", valor: String(marca.pedidos), valorNumerico: marca.pedidos, formatarNumero: (v) => inteiro.format(Math.round(v)),
       calculo: {
         titulo: "Pedidos",
-        significado: "Quantidade de pedidos aprovados da marca no período — a mesma base usada para calcular Faturamento e Ticket médio.",
+        significado: "Quantidade de pedidos aprovados da marca no período. Esta é a mesma base usada para calcular Faturamento e Valor médio por pedido.",
         formula: "contagem de pedidos válidos (sem cancelados ou devolvidos) no período",
         resultado: String(marca.pedidos),
         itens: [{ label: "Total no período", valor: inteiro.format(marca.pedidos) }],
@@ -158,9 +158,9 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       },
     },
     {
-      label: "Ticket", valor: marca.ticketMedioLabel, valorNumerico: marca.ticketMedio, formatarNumero: (v) => moeda.format(v),
+      label: "Valor médio por pedido", valor: marca.ticketMedioLabel, valorNumerico: marca.ticketMedio, formatarNumero: (v) => moeda.format(v),
       calculo: {
-        titulo: "Ticket médio",
+        titulo: "Valor médio por pedido",
         significado: "Quanto cada pedido rendeu, em média, para a marca no período.",
         formula: "faturamento total dividido pelo número de pedidos",
         resultado: marca.ticketMedioLabel,
@@ -168,7 +168,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
           { label: "Faturamento", valor: marca.faturamentoLabel },
           { label: "Pedidos", valor: inteiro.format(marca.pedidos) },
         ],
-        nota: "Sobe quando poucos pedidos caros puxam a média — vale olhar junto com o volume de Pedidos, não sozinho.",
+        nota: "O valor sobe quando poucos pedidos caros elevam a média. Analise-o junto com o volume de Pedidos, e não isoladamente.",
       },
     },
     {
@@ -177,12 +177,12 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       ...(marca.notaMedia === null ? {} : { valorNumerico: marca.notaMedia, formatarNumero: (v: number) => `${v.toFixed(1)} ★` }),
       calculo: {
         titulo: "Nota média",
-        significado: "Média das avaliações que os clientes deixaram para os pedidos da marca no período — quanto mais perto de 5, melhor a experiência percebida.",
+        significado: "Média das avaliações que os clientes deixaram para os pedidos da marca no período. Quanto mais próximo de 5, melhor a experiência percebida.",
         formula: "média simples das notas (1 a 5) dadas pelos clientes no período",
         resultado: marca.notaMedia === null ? "Sem avaliação" : `${marca.notaMedia.toFixed(1)} ★`,
         itens: marca.notaMedia === null ? [] : [{ label: "Nota média no período", valor: `${marca.notaMedia.toFixed(1)} ★` }],
         nota: marca.notaMedia === null
-          ? "Nenhuma avaliação registrada nesse período ainda — por isso não há nota pra mostrar."
+          ? "Ainda não há avaliações registradas neste período. Por isso, não existe uma nota para mostrar."
           : "Considera todas as avaliações recebidas no período, não só as 5 estrelas.",
       },
     },
@@ -234,7 +234,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
         formula: "pedidos cancelados ou devolvidos, divididos pelo total de pedidos do período",
         resultado: "Sem dado",
         itens: [],
-        nota: "Sem dado nesse período — não houve pedidos da marca na janela selecionada.",
+        nota: "Não há dados neste período porque a marca não teve pedidos na janela selecionada.",
       } : {
         titulo: "Cancelamento",
         significado: "Mostra a parcela de todos os pedidos que foi cancelada ou devolvida. Quanto menor, mais saudável está a operação da marca.",
@@ -248,7 +248,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       },
     },
     {
-      label: "Top 5 produtos",
+      label: "5 produtos mais vendidos",
       valor: marca.concentracaoTop5 === null ? "Sem dado" : `${marca.concentracaoTop5}%`,
       ...(marca.concentracaoTop5 === null ? {} : { valorNumerico: marca.concentracaoTop5, formatarNumero: (v: number) => `${v.toFixed(0)}%` }),
       calculo: marca.concentracaoTop5 === null ? {
@@ -257,7 +257,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
         formula: "receita dos 5 produtos mais vendidos, dividida pela receita total (sem contar cancelados)",
         resultado: "Sem dado",
         itens: [],
-        nota: "Sem dado nesse período — não houve receita da marca na janela selecionada.",
+        nota: "Não há dados neste período porque a marca não teve receita na janela selecionada.",
       } : {
         titulo: "Concentração nos 5 mais vendidos",
         significado: "Mostra quanto da receita depende dos cinco produtos líderes. Uma concentração alta aumenta o impacto caso um desses itens pare de vender ou fique indisponível.",
@@ -280,7 +280,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
         formula: "receita de clientes que já tinham comprado antes, dividida pela receita total (sem contar cancelados)",
         resultado: "Sem dado",
         itens: [],
-        nota: "Sem dado nesse período — não houve receita da marca na janela selecionada.",
+        nota: "Não há dados neste período porque a marca não teve receita na janela selecionada.",
       } : {
         titulo: "Recorrência",
         significado: "Mostra quanto da receita veio de clientes que já haviam comprado anteriormente da mesma marca. Quanto maior, maior a retenção de clientes.",

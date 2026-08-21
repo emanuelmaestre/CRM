@@ -79,14 +79,14 @@ function explicacaoPilar(pilar: Pilar) {
 
   const SIGNIFICADO: Record<Pilar["chave"], string> = {
     reputacao: "Reputação da marca como vendedora, direto do termômetro público do Mercado Livre (a cor que qualquer comprador vê na página do anúncio), somada ao selo de Mercado Líder quando a marca tem.",
-    posVenda: "Quantas taxas de problema no pós-venda — reclamações, cancelamentos, atraso de envio — estouraram o limite considerado saudável no período.",
+    posVenda: "Quantidade de taxas de problemas no pós-venda, como reclamações, cancelamentos e atrasos no envio, que ultrapassaram o limite considerado saudável no período.",
     satisfacao: "Nota média (1 a 5 estrelas) que os clientes deixaram nos pedidos da marca no período.",
-    atendimento: "Velocidade com que a marca respondeu às mensagens de clientes no período — quanto mais rápido, melhor o pilar.",
-    estoque: "Quantos produtos ativos do catálogo têm saldo disponível pra vender, e quantos já estão abaixo do mínimo configurado.",
+    atendimento: "Velocidade com que a marca respondeu às mensagens de clientes no período. Quanto mais rápida a resposta, melhor o pilar.",
+    estoque: "Quantidade de produtos ativos do catálogo que possuem saldo disponível para venda e quantidade dos que já estão abaixo do mínimo configurado.",
   };
 
   const FORMULA: Record<Pilar["chave"], string> = {
-    reputacao: "convertido direto do termômetro de reputação do Mercado Livre pra uma escala de 0 a 100",
+    reputacao: "conversão direta do termômetro de reputação do Mercado Livre para uma escala de 0 a 100",
     posVenda: "parte de 100 e desconta conforme as taxas de reclamação, cancelamento e atraso passam do limite saudável",
     satisfacao: "nota média das avaliações recebidas no período, na mesma escala de 0 a 100",
     atendimento: "mediana do tempo de resposta às mensagens, convertida pra escala de 0 a 100 (resposta rápida pontua mais)",
@@ -100,8 +100,8 @@ function explicacaoPilar(pilar: Pilar) {
     resultado,
     itens: [{ label: "Nesta marca e período", valor: pilar.detalhe }],
     nota: semDado
-      ? "Sem dado neste período — este pilar sai da conta do score, e o peso dele é redistribuído entre os outros que têm dado."
-      : `Peso ${pilar.peso} de 100 na composição do score — quanto maior o peso, mais este pilar move o número final.`,
+      ? "Não há dados neste período. Este pilar sai do cálculo do score, e seu peso é redistribuído entre os pilares que possuem dados."
+      : `Peso ${pilar.peso} de 100 na composição do score. Quanto maior o peso, maior a influência deste pilar no resultado final.`,
   };
 }
 
@@ -177,11 +177,11 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
     return (
       <CalculoPopover
         compacto
-        titulo="Score consolidado"
+        titulo="Pontuação consolidada"
         significado="Resume a saúde de todas as marcas em uma nota única de 0 a 100. Marcas com maior faturamento influenciam mais o resultado consolidado."
         formula={porFaturamento
-          ? "média dos scores de cada marca, ponderada pelo faturamento do período"
-          : "média simples dos scores de cada marca (nenhuma faturou no período)"}
+          ? "média das pontuações de cada marca, ponderada pelo faturamento do período"
+          : "média simples das pontuações de cada marca (nenhuma faturou no período)"}
         resultado={String(score)}
         itens={medidas.map((marca) => ({
           label: marca.marcaLabel,
@@ -189,7 +189,7 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
             ? `${marca.score} · ${Math.round((marca.faturamento / pesoTotal) * 100)}% do peso`
             : String(marca.score),
         }))}
-        nota="Marca que fatura mais pesa mais no retrato do negócio, não é uma média simples entre marcas."
+        nota="A marca que fatura mais possui maior peso no retrato do negócio. Não se trata de uma média simples entre marcas."
       />
     );
   }
@@ -200,17 +200,17 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
   return (
     <CalculoPopover
       compacto
-      titulo={`Score · ${marcaSelecionada.marcaLabel}`}
+      titulo={`Pontuação, ${marcaSelecionada.marcaLabel}`}
       significado="Resume a saúde desta marca em uma nota de 0 a 100, combinando reputação, pós-venda, satisfação, atendimento e catálogo."
-      formula="média ponderada das notas dos pilares medidos (0–100 cada)"
+      formula="média ponderada das notas dos pilares medidos, cada uma em uma escala de 0 a 100"
       resultado={String(score)}
       itens={medidos.map((pilar) => ({
         label: pilar.label,
         valor: `${Math.round(pilar.nota as number)} · peso ${Math.round((pilar.peso / pesoTotal) * 100)}%`,
       }))}
       nota={medidos.length < 5
-        ? `Só ${medidos.length} de 5 pilares tinham dado, o peso dos outros foi redistribuído entre esses.`
-        : "Os 5 pilares tinham dado neste período; nenhum peso precisou ser redistribuído."}
+        ? `Somente ${medidos.length} de 5 pilares possuíam dados. O peso dos demais foi redistribuído entre eles.`
+        : "Os 5 pilares possuíam dados neste período. Nenhum peso precisou ser redistribuído."}
     />
   );
 }
@@ -263,11 +263,11 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
     <AnimatedInfoPopover
       trigger={(
         <AnimatedInfoTrigger
-          title="Entenda quais dados formam o Score de Saúde da Loja"
+          title="Entenda quais dados formam a Pontuação de Saúde da Loja"
           iconSize={13}
           className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
         >
-          Entenda o score
+          Entenda a pontuação
         </AnimatedInfoTrigger>
       )}
       align="start"
@@ -275,7 +275,7 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
       collisionPadding={12}
       className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
     >
-      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como o score funciona</p>
+      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como a pontuação funciona</p>
       <p className="mt-2 text-[13px] leading-relaxed text-foreground/85">{copy.explicacao}</p>
     </AnimatedInfoPopover>
   );

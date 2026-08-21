@@ -107,11 +107,13 @@ describe("provider de Product Ads do Mercado Livre", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const provider = new MercadoLivreAdsProvider("token-123", "karzi");
-    const anuncios = await provider.listarAnuncios(555, "MLB", new Date("2026-08-14"), new Date("2026-08-14"));
+    const anuncios = await provider.listarAnuncios(555, "MLB", new Date(2026, 5, 1, 12), new Date(2026, 7, 21, 12));
 
     const [url] = fetchMock.mock.calls[0];
     expect(String(url)).toContain("/marketplace/advertising/MLB/advertisers/555/product_ads/ads/search");
     expect(String(url)).not.toContain("items/search");
+    expect(String(url)).toContain("date_from=2026-06-01");
+    expect(String(url)).toContain("date_to=2026-08-21");
 
     expect(anuncios).toEqual([expect.objectContaining({
       itemId: "MLB123", campaignId: 999, adGroupId: 4242, recommended: true,

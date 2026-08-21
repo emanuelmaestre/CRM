@@ -102,11 +102,11 @@ function AtencaoLinha({ alertas }: { alertas: Alerta[] }) {
       align="start"
       sideOffset={6}
       collisionPadding={12}
-      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card text-left shadow-[0_16px_40px_rgba(14,15,19,.20)]"
+      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card text-left shadow-[0_16px_40px_rgba(14,15,19,.20)] lg:w-[min(38rem,calc(100vw-1.5rem))]"
     >
-          <ul className="flex flex-col divide-y divide-border">
+          <ul className="grid gap-px overflow-hidden rounded-xl bg-border lg:grid-cols-2">
             {alertas.map((alerta) => (
-              <li key={alerta.chave} className="flex items-start gap-2 px-3 py-2.5">
+              <li key={alerta.chave} className="flex items-start gap-2 bg-card px-3 py-2.5">
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: COR_PRIORIDADE[alerta.prioridade] }} />
                 <p className="text-[12px] leading-relaxed text-foreground">{alerta.descricao}</p>
               </li>

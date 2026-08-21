@@ -332,7 +332,7 @@ export async function sincronizarAnunciosMercadoLivreConta(
   referencia: Date = new Date(),
 ): Promise<ResultadoSincronizacaoMarca> {
   const conta = await listarContasMercadoLivreAds(ctx, channelAccountId).then((rows) => rows[0]);
-  if (!conta) throw new Error("Conta Mercado Livre conectada não encontrada para sincronizar Product Ads.");
-  if (!isBrandSlug(conta.brandSlug)) throw new Error("Marca Mercado Livre inválida para sincronizar Product Ads.");
+  if (!conta) throw new Error("Conta Mercado Livre conectada não encontrada para sincronizar os anúncios patrocinados.");
+  if (!isBrandSlug(conta.brandSlug)) throw new Error("Marca Mercado Livre inválida para sincronizar os anúncios patrocinados.");
   return sincronizarMarca(ctx, conta.contaId, conta.brandId, conta.brandSlug, referencia);
 }

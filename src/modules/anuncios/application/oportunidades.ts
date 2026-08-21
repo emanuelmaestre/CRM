@@ -86,7 +86,7 @@ export function identificarOportunidadeRecuperacao(dados: DadosOportunidadeCampa
     campanhaId: dados.campanhaId,
     campanhaNome: dados.campanhaNome,
     titulo: "ROAS caiu em relação ao período anterior",
-    explicacao: `ROAS caiu de ${dados.roasAnterior.toFixed(2)}x para ${dados.roasAtual.toFixed(2)}x — queda de ${(queda * 100).toFixed(0)}%.`,
+    explicacao: `O ROAS caiu de ${dados.roasAnterior.toFixed(2)}x para ${dados.roasAtual.toFixed(2)}x, uma queda de ${(queda * 100).toFixed(0)}%.`,
     criterios: [`ROAS anterior: ${dados.roasAnterior.toFixed(2)}x`, `ROAS atual: ${dados.roasAtual.toFixed(2)}x`],
     impacto,
     scoreImpacto: score,
@@ -110,7 +110,7 @@ export function identificarOportunidadeRanking(dados: DadosOportunidadeCampanha)
     campanhaId: dados.campanhaId,
     campanhaNome: dados.campanhaNome,
     titulo: "O gargalo é ranking, não verba",
-    explicacao: `${(porRanking * 100).toFixed(0)}% das impressões são perdidas por ranking (contra ${(porOrcamento * 100).toFixed(0)}% por orçamento) — o principal gargalo não é orçamento.`,
+    explicacao: `${(porRanking * 100).toFixed(0)}% das impressões são perdidas por ranking, em comparação com ${(porOrcamento * 100).toFixed(0)}% por orçamento. Portanto, o principal gargalo não é o orçamento.`,
     criterios: [
       `Perda por ranking: ${(porRanking * 100).toFixed(0)}%`,
       `Perda por orçamento: ${(porOrcamento * 100).toFixed(0)}%`,

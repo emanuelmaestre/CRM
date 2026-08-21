@@ -124,7 +124,7 @@ export interface MLAnuncio {
  *  em `obterAdvertiser`, nunca genericamente em qualquer 404. */
 export class PublicidadeNaoHabilitadaError extends Error {
   constructor(brandSlug: string) {
-    super(`Publicidade (Product Ads) não está habilitada na conta Mercado Livre de ${brandSlug}.`);
+    super(`A publicidade com anúncios patrocinados não está habilitada na conta Mercado Livre de ${brandSlug}.`);
     this.name = "PublicidadeNaoHabilitadaError";
   }
 }

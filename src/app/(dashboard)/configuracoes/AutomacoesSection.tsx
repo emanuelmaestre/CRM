@@ -23,6 +23,12 @@ function dataHora(iso: string): string {
   }).format(new Date(iso));
 }
 
+function rotuloBloqueio(valor: string | null): string {
+  if (!valor) return "Sem bloqueio";
+  const numero = valor.match(/^gate_(\d+)$/i)?.[1];
+  return numero ? `Bloqueio ${numero}` : valor.replaceAll("_", " ").replace(/\bgate\b/gi, "bloqueio");
+}
+
 const horaAgora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(new Date());
 
 /** Troca {placeholder} por uma pilulazinha destacada e *texto* pelo negrito
@@ -319,7 +325,7 @@ export function AutomacoesSection() {
                   <td className="px-3 py-2.5">{item.clienteNome}</td>
                   <td className="px-3 py-2.5">{item.brandNome}</td>
                   <td className="px-3 py-2.5 capitalize">{item.status.replaceAll("_", " ")}</td>
-                  <td className="px-3 py-2.5">{item.gate ?? "Sem gate"}</td>
+                  <td className="px-3 py-2.5">{rotuloBloqueio(item.gate)}</td>
                   <td className="px-3 py-2.5 text-muted-foreground">{item.motivo ?? "Sem motivo"}</td>
                 </tr>
               ))}

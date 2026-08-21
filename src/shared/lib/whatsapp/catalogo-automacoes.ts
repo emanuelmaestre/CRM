@@ -116,7 +116,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
     categoria: "Operacional",
     icone: DatabaseBackup,
     emoji: "🚨",
-    titulo: "Backup falhou",
+    titulo: "Cópia de segurança falhou",
     tom: "Esse aqui é sério: se o backup falhar, o aviso chega na hora, não no fim do mês.",
     modelo: "🚨 *Verificação de backup falhou*\nAbrangência: toda a organização (este item não é por empresa/canal).\nDetalhe: {detalhe}",
   },
