@@ -18,6 +18,7 @@ export function BotaoHoje({
   disabled,
   atraso = 0.08,
   onClick,
+  className,
 }: {
   /** true quando o período já é hoje→hoje — dá o mesmo feedback visual do
    *  dia selecionado no calendário, sem precisar abrir nada para saber. */
@@ -25,6 +26,10 @@ export function BotaoHoje({
   disabled?: boolean;
   atraso?: number;
   onClick: () => void;
+  /** No mobile o calendário já abre com o mesmo atalho "Hoje" lá dentro
+   *  (ver CalendarioPopoverRange) — o botão avulso some só ali para não
+   *  duplicar a ação, e volta no desktop onde sobra espaço. */
+  className?: string;
 }) {
   return (
     <motion.button
@@ -37,11 +42,11 @@ export function BotaoHoje({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={ativo}
-      className={`inline-flex h-11 shrink-0 items-center justify-center rounded-[0.75rem] border px-3.5 text-xs transition-all duration-200 disabled:opacity-50 ${
+      className={`h-11 shrink-0 items-center justify-center rounded-[0.75rem] border px-3.5 text-xs transition-all duration-200 disabled:opacity-50 ${
         ativo
           ? "border-border bg-card font-extrabold text-foreground shadow-[0_2px_6px_rgba(14,15,19,.14)]"
           : "border-border bg-muted font-bold text-muted-foreground hover:bg-card hover:text-foreground"
-      }`}
+      } ${className ?? "inline-flex"}`}
     >
       Hoje
     </motion.button>

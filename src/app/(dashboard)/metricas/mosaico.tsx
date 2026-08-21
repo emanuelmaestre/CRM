@@ -155,6 +155,7 @@ function BarraPeriodo({ periodo, trocarDatas, carregandoSaude, periodoLabel }: {
           const jaEstaEmHoje = periodo.inicio === hoje && periodo.fim === hoje;
           trocarDatas(jaEstaEmHoje ? "" : hoje, jaEstaEmHoje ? "" : hoje);
         }}
+        className="hidden sm:inline-flex"
       />
       <span className="text-[11px] text-muted-foreground">
         {periodoLabel ?? ""}

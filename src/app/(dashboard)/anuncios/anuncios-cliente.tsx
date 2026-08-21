@@ -551,6 +551,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
                   : { inicio: hojeISO, fim: hojeISO }
               )
             }
+            className="hidden sm:inline-flex"
           />
           <button type="button" onClick={exportar} disabled={exportando}
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
