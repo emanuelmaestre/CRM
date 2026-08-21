@@ -105,7 +105,7 @@ export interface ProdutoGiroBaixo extends ProdutoBase {
 
 /** Status real do anúncio no Mercado Livre — sem isso, "parado" parecia
  *  sempre "ninguém compra" quando às vezes é "o próprio vendedor pausou". */
-export type StatusAnuncioParado = "ativo" | "pausado" | "encerrado" | "sem_vinculo" | "nao_consultado";
+export type StatusAnuncioParado = "ativo" | "pausado" | "em_revisao" | "encerrado" | "sem_vinculo" | "nao_consultado";
 
 export interface ProdutoParado extends ProdutoBase {
   saldo: number;
@@ -248,7 +248,12 @@ function traduzirStatusAnuncio(status: MLStatusAnuncio): { statusAnuncio: Status
   const motivo = status.subStatus[0] ? (SUB_STATUS_LABEL[status.subStatus[0]] ?? status.subStatus[0]) : null;
   if (status.status === "active") return { statusAnuncio: "ativo", motivoStatus: motivo };
   if (status.status === "paused") return { statusAnuncio: "pausado", motivoStatus: motivo };
-  if (status.status === "closed" || status.status === "under_review" || status.status === "nao_encontrado") {
+  // under_review é moderação — o anúncio pode voltar a ficar ativo assim que
+  // o problema for corrigido. Diferente de "closed"/não encontrado, que são
+  // definitivos: confirmado na documentação oficial do ML, não é o mesmo
+  // status e não pode virar o mesmo selo.
+  if (status.status === "under_review") return { statusAnuncio: "em_revisao", motivoStatus: motivo };
+  if (status.status === "closed" || status.status === "nao_encontrado") {
     return { statusAnuncio: "encerrado", motivoStatus: motivo };
   }
   return { statusAnuncio: "nao_consultado", motivoStatus: motivo };
