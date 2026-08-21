@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
 interface ShopeeCredentials {
@@ -40,7 +41,7 @@ export class ShopeeProvider implements ChannelProvider {
     const timeFrom = Math.floor(desde.getTime() / 1000);
     const timeTo = Math.floor(Date.now() / 1000);
 
-    const listRes = await fetch(this.url("/order/get_order_list", {
+    const listRes = await shopeeFetch(this.url("/order/get_order_list", {
       time_range_field: "create_time",
       time_from: timeFrom,
       time_to: timeTo,
@@ -61,7 +62,7 @@ export class ShopeeProvider implements ChannelProvider {
 
     // Busca detalhes (itens de linha) em lote — máx 50 por chamada
     const sns = orders.map((o) => o.order_sn).join(",");
-    const detailRes = await fetch(this.url("/order/get_order_detail", {
+    const detailRes = await shopeeFetch(this.url("/order/get_order_detail", {
       order_sn_list: sns,
       response_optional_fields: "item_list,recipient_address,buyer_user_id",
     }), { signal: AbortSignal.timeout(15000) });
@@ -110,7 +111,7 @@ export class ShopeeProvider implements ChannelProvider {
     const item = referencia.skuId
       ? { item_id: Number(referencia.listingId), model_list: [{ model_id: Number(referencia.skuId), normal_stock: saldo }] }
       : { item_id: Number(referencia.listingId), normal_stock: saldo };
-    const res = await fetch(this.url("/product/update_stock"), {
+    const res = await shopeeFetch(this.url("/product/update_stock"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ item_list: [item] }),
@@ -123,7 +124,7 @@ export class ShopeeProvider implements ChannelProvider {
   }
 
   async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
-    const res = await fetch(this.url("/product/get_model_list", {
+    const res = await shopeeFetch(this.url("/product/get_model_list", {
       item_id: Number(referencia.listingId),
     }), { signal: AbortSignal.timeout(8000) });
     const data = await res.json().catch(() => null) as {
@@ -158,7 +159,7 @@ export class ShopeeProvider implements ChannelProvider {
   async saude(): Promise<SaudeConector> {
     const inicio = Date.now();
     try {
-      const res = await fetch(this.url("/shop/get_shop_info"), { signal: AbortSignal.timeout(5000) });
+      const res = await shopeeFetch(this.url("/shop/get_shop_info"), { signal: AbortSignal.timeout(5000) });
       const latenciaMs = Date.now() - inicio;
       if (!res.ok) return { status: "degradado", latenciaMs, mensagem: `HTTP ${res.status}`, verificadoEm: new Date() };
       return { status: "ok", latenciaMs, mensagem: "Conectado", verificadoEm: new Date() };

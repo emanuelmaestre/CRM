@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { obterAppUrl } from "@/shared/config/app-url";
+import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { createClient } from "@supabase/supabase-js";
 import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
@@ -106,7 +107,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const timestamp = Math.floor(Date.now() / 1000);
   const sign = assinar(partnerId, partnerKey, path, timestamp);
 
-  const tokenRes = await fetch(
+  const tokenRes = await shopeeFetch(
     `https://partner.shopeemobile.com${path}?${new URLSearchParams({
       partner_id: partnerId,
       timestamp: String(timestamp),

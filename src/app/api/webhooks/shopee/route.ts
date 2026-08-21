@@ -6,6 +6,7 @@ import { resolverContaWebhookMarketplace } from "@/modules/canais/application/we
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 import { brandEnvSuffix } from "@/shared/config/brands";
+import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -79,7 +80,7 @@ async function buscarDetalheShopee(
     response_optional_fields: "item_list,recipient_address,total_amount",
   });
 
-  const res = await fetch(`https://partner.shopeemobile.com${path}?${qs}`, {
+  const res = await shopeeFetch(`https://partner.shopeemobile.com${path}?${qs}`, {
     signal: AbortSignal.timeout(10000),
   });
 
