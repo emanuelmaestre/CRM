@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { MotionProvider } from "@/shared/providers/motion-provider";
+import { ServiceWorkerRegister } from "@/shared/providers/service-worker-register";
 import appConfig from "@/config/app.json";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang={appConfig.locale}>
       <body className="font-sans antialiased">
         <MotionProvider>
+          <ServiceWorkerRegister />
           {children}
           <Toaster
             richColors
