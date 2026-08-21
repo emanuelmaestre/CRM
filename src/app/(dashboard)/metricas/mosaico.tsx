@@ -845,17 +845,9 @@ export function Mosaico({
             para cima do mosaico inteiro; o rótulo da seção ganha um ponto na
             cor do pior alerta, então dá pra saber onde olhar antes de abrir
             qualquer coisa. */}
-        {/* Telas muito largas (MacBook com janela maximizada, TV) deixavam a
-            caixa de 1440px do layout compartilhado sobrando como um vão vazio
-            do lado direito, bem visível contra o fundo cinza — as outras
-            telas do app (Vendas, Estoque) não sentem isso porque tabelas já
-            preenchem bem os 1440px; a grade de cards aqui, não. "Escapa" do
-            container pai só a partir de 2xl (~1536px) e recentra numa caixa
-            mais larga — mudança isolada do Métricas, o resto do app continua
-            travado em 1440px como sempre. */}
-        <div className="2xl:relative 2xl:left-1/2 2xl:w-screen 2xl:-translate-x-1/2">
-          <div className="2xl:mx-auto 2xl:max-w-[1800px] 2xl:px-[clamp(1rem,2.2vw,2rem)]">
-            <div data-coachmark="mosaico-grade" className="flex flex-col gap-3.5 lg:gap-6">
+        {/* Permanece dentro do container compartilhado de 1440px para que a
+            proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}
+        <div data-coachmark="mosaico-grade" className="flex flex-col gap-3.5 lg:gap-6">
               {grupos.map((grupo) => (
                 <section key={grupo.id} className="flex flex-col gap-2">
                   <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
@@ -881,8 +873,6 @@ export function Mosaico({
                   </ul>
                 </section>
               ))}
-            </div>
-          </div>
         </div>
       </motion.div>
 
