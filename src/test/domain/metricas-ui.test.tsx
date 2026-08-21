@@ -11,9 +11,9 @@ import type { AtendimentoResumo } from "@/modules/metricas/application/atendimen
 import type { DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 
+const obterPublicacoes = vi.fn();
 vi.mock("@/app/(dashboard)/metricas/actions", () => ({
-  actionObterDesempenhoPublicacoes: vi.fn(),
-  actionContarPublicacoesPorMarca: vi.fn().mockResolvedValue([]),
+  actionObterDesempenhoPublicacoes: (...args: unknown[]) => obterPublicacoes(...args),
 }));
 
 class ResizeObserverMock implements ResizeObserver {
@@ -266,19 +266,22 @@ describe("cards de Métricas", () => {
         qualidadeStatus: "nao_consultada",
       }],
     };
+    obterPublicacoes.mockResolvedValue(dados);
 
     render(<PublicacoesCard
       marcas={[{ brandId, marcaLabel: "KARZI", slug: "karzi" }]}
       inicio="2026-06-01"
       fim="2026-08-21"
-      preCarregado={{ brandId, inicio: "2026-06-01", fim: "2026-08-21", dados }}
     />);
 
-    // O card começa sem marca nem canal selecionados — precisa escolher os
-    // dois antes de ver os dados. A troca passa por AnimatePresence
-    // mode="wait" (ver ScoreCard acima), então espera-se pelo conteúdo em
-    // vez de exigi-lo no mesmo tick.
+    // Sem seleção não há consulta nem spinner permanente: a tela explica os
+    // dois passos e só começa a buscar depois de marca + canal.
+    expect(screen.getByText(/selecione uma marca e depois ative o mercado livre/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Contagem ainda não consultada")).not.toBeInTheDocument();
+    expect(obterPublicacoes).not.toHaveBeenCalled();
+
     fireEvent.click(screen.getByRole("switch", { name: /karzi/i }));
+    expect(obterPublicacoes).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("switch", { name: /mercado livre/i }));
     expect(await screen.findAllByText("Impressões")).not.toHaveLength(0);
     expect(screen.getAllByText("Cliques").length).toBeGreaterThan(0);

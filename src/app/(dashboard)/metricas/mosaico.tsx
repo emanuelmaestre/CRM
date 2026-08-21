@@ -22,10 +22,9 @@ import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actio
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
   actionListarInsights, actionListarSugestoes,
-  actionObterDesempenhoPublicacoes, actionObterPosVenda, actionObterSaudeLoja,
+  actionObterPosVenda, actionObterSaudeLoja,
 } from "./actions";
 import type { Insight, Sugestao } from "./acoes-card";
-import type { DesempenhoPreCarregado } from "./publicacoes-card";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -199,7 +198,7 @@ const COLUNAS_LG: Record<number, string> = {
 
 export function Mosaico({
   marcasIniciais = [], canaisIniciais = [], saudeInicial = null,
-  posVendaInicial = null, acoesIniciais = null, publicacoesInicial = null,
+  posVendaInicial = null, acoesIniciais = null,
 }: {
   /* O mosaico é a soma de oito buscas independentes. Sete (todas menos
      Reclamações, que depende da API do Mercado Livre) são resolvidas no
@@ -210,7 +209,6 @@ export function Mosaico({
   saudeInicial?: SaudeLojaResultado | null;
   posVendaInicial?: PosVendaResultado | null;
   acoesIniciais?: { insights: Insight[]; sugestoes: Sugestao[] } | null;
-  publicacoesInicial?: DesempenhoPreCarregado | null;
 }) {
   const params = useSearchParams();
   const cardAberto = params.get("card");
@@ -384,42 +382,14 @@ export function Mosaico({
     return () => { ativo = false; };
   }, []);
 
-  // Só a primeira marca (a aba padrão do card) — trocar de aba com o card já
-  // aberto continua buscando na hora, é uma escolha de quem já está olhando.
-  const [publicacoes, setPublicacoes] = useState<DesempenhoPreCarregado | null>(publicacoesInicial);
-  // Publicações não depende de Saúde para descobrir quais marcas existem.
-  // Os filtros leves já chegaram no HTML; Saúde pode continuar no próprio
-  // ritmo enquanto Product Ads começa em paralelo para a primeira marca.
-  const marcasPublicacoes = useMemo(() => {
-    if (saude.dados?.marcas.length) return saude.dados.marcas;
-    return marcas.map((marca) => ({
+  // Publicações usa somente os filtros leves e estáveis que chegam com a
+  // página. Não troca de ordem quando Saúde responde e não consulta Product
+  // Ads até a pessoa escolher marca e canal dentro do card.
+  const marcasPublicacoes = useMemo(() => marcas.map((marca) => ({
       brandId: marca.brandId,
       marca: marca.slug,
       marcaLabel: marca.nome,
-    }));
-  }, [saude.dados, marcas]);
-  const primeiraMarcaPublicacoes = marcasPublicacoes[0]?.brandId ?? null;
-  const primeirasPublicacoes = useRef(Boolean(publicacoesInicial));
-  useEffect(() => {
-    if (primeirasPublicacoes.current) { primeirasPublicacoes.current = false; return; }
-    if (!primeiraMarcaPublicacoes) return;
-    const inicioEfetivo = inicio ?? diasAtras(29);
-    const fimEfetivo = fim ?? hoje;
-    let ativo = true;
-    const filtros = { brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo };
-    actionObterDesempenhoPublicacoes({ ...filtros, detalhes: false })
-      .then((dados) => {
-        if (!ativo) return;
-        setPublicacoes({ ...filtros, dados });
-        // Qualidade, pendências e data completam a mesma tela depois. O cache
-        // do servidor reaproveita a listagem Product Ads desta primeira etapa.
-        actionObterDesempenhoPublicacoes({ ...filtros, detalhes: true })
-          .then((completo) => { if (ativo) setPublicacoes({ ...filtros, dados: completo }); })
-          .catch(() => { /* As métricas principais já estão disponíveis. */ });
-      })
-      .catch(() => { if (ativo) setPublicacoes({ brandId: primeiraMarcaPublicacoes, inicio: inicioEfetivo, fim: fimEfetivo, dados: null }); });
-    return () => { ativo = false; };
-  }, [primeiraMarcaPublicacoes, inicio, fim]);
+    })), [marcas]);
 
   /* ── Cores do pico do gráfico de Faturamento ──
      Segue o que está filtrado no card: marca escolhida manda; sem marca mas
@@ -785,10 +755,6 @@ export function Mosaico({
       titulo: blocosCopy.publicacoes.titulo,
       icone: Megaphone,
       accent: "var(--acento-3)",
-      carregando: !publicacoes
-        || publicacoes.brandId !== primeiraMarcaPublicacoes
-        || publicacoes.inicio !== (inicio ?? diasAtras(29))
-        || publicacoes.fim !== (fim ?? hoje),
       resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
       explicacao: {
         resumo: "Como cada anúncio patrocinado se saiu no Mercado Livre durante o período selecionado, sem misturar vendas orgânicas com resultados da publicidade.",
@@ -804,12 +770,11 @@ export function Mosaico({
           marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
           inicio={inicio ?? diasAtras(29)}
           fim={fim ?? hoje}
-          preCarregado={publicacoes}
           acaoSlot={acaoSlot}
         />
       ),
     };
-  }, [marcasPublicacoes, primeiraMarcaPublicacoes, inicio, fim, publicacoes]);
+  }, [marcasPublicacoes, inicio, fim]);
 
   // Junta, separa em seções (Financeiro / Saúde / Atendimento / Estoque /
   // Marketing) e ordena por urgência dentro de cada uma — o trabalho pesado
