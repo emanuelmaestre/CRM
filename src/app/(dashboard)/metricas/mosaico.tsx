@@ -641,6 +641,7 @@ export function Mosaico({
       pontos: [
         { titulo: "Ordena por unidades, não por dinheiro", texto: "Um produto barato vendido em volume pode aparecer na frente de um produto caro vendido poucas vezes." },
         { titulo: "Barra de participação", texto: "Cada linha mostra a proporção da quantidade dele contra o líder da lista, não contra o total vendido no período." },
+        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card — um campeão de vendas com o anúncio pausado ou em revisão é o caso mais urgente: a venda já vinha acontecendo e parou." },
       ],
       dica: "Combine com Top 5 produtos (no card Marca) para ver se a receita da marca depende demais de poucos itens campeões.",
     },

@@ -95,6 +95,8 @@ export interface ProdutoMaisVendido extends ProdutoBase {
   receita: string;
   /** Participação (0–100) na receita do topo da lista, para a barra de proporção. */
   participacao: number;
+  statusAnuncio: StatusAnuncioParado;
+  motivoStatus: string | null;
 }
 
 export interface ProdutoGiroBaixo extends ProdutoBase {
@@ -494,7 +496,13 @@ export async function obterDashboardData(
     quantidade: venda.quantidade,
     receita: formatCurrency(venda.receita),
     participacao: maiorQuantidade > 0 ? Math.round((venda.quantidade / maiorQuantidade) * 100) : 0,
+    statusAnuncio: "nao_consultado" as StatusAnuncioParado,
+    motivoStatus: null as string | null,
   }));
+
+  // Um campeão de vendas com o anúncio pausado/em revisão é o caso mais
+  // urgente dos 4 cards: é receita real que já estava entrando e parou.
+  await enriquecerComStatusAnuncio(ctx, maisVendidos);
 
   /* ── 2. Produtos que não vendem (giro baixo) ── */
   const giroBaixo: ProdutoGiroBaixo[] = produtosAtivos

@@ -161,6 +161,48 @@ function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazi
 /* ── 1. Vendem mais ───────────────────────────────────────────── */
 const copyVendidos = dashboardConfig.cards.maisVendidos;
 
+/** Um campeão de vendas com o anúncio pausado/em revisão é o caso mais
+ *  urgente entre os 4 cards: a receita já estava entrando de verdade e
+ *  parou — diferente de Estoque Parado/Repor, aqui não é um risco futuro,
+ *  é uma perda acontecendo agora. */
+function statusAnuncioInfoMaisVendidos(item: ProdutoMaisVendido): { label: string; className: string; hint: string } {
+  const motivo = item.motivoStatus ? ` (${item.motivoStatus})` : "";
+
+  const MAPA: Record<StatusAnuncioParado, { label: string; className: string; hint: string }> = {
+    ativo: {
+      label: "Ativo no ML",
+      className: "bg-success/10 text-success",
+      hint: `Publicado e visível no Mercado Livre — as ${item.quantidade} ${copyVendidos.unitLabel} deste período vieram com o anúncio no ar normalmente.`,
+    },
+    pausado: {
+      label: "Pausado",
+      className: "bg-warning/10 text-warning",
+      hint: `Este anúncio está pausado no Mercado Livre${motivo} agora — mesmo sendo um dos mais vendidos do período, ninguém consegue comprar enquanto ele ficar assim.`,
+    },
+    em_revisao: {
+      label: "Em revisão no ML",
+      className: "bg-acento-2/10 text-acento-2",
+      hint: `O Mercado Livre pausou este anúncio pra moderação${motivo} — as vendas registradas são do período antes da pausa; ele pode voltar assim que o problema for corrigido.`,
+    },
+    encerrado: {
+      label: "Encerrado no ML",
+      className: "bg-destructive/10 text-destructive",
+      hint: `Este anúncio não existe mais no Mercado Livre${motivo} — as vendas mostradas aconteceram antes dele ser encerrado, hoje ninguém consegue comprar por lá.`,
+    },
+    sem_vinculo: {
+      label: "Sem vínculo com o ML",
+      className: "bg-info/10 text-info",
+      hint: "Não encontramos nenhum anúncio deste produto vinculado a uma conta do Mercado Livre — o vínculo pode ter se perdido.",
+    },
+    nao_consultado: {
+      label: "Status indisponível",
+      className: "bg-muted text-muted-foreground",
+      hint: "Não foi possível confirmar agora o status deste anúncio no Mercado Livre (falha temporária na consulta) — o restante do dado continua confiável.",
+    },
+  };
+  return MAPA[item.statusAnuncio];
+}
+
 export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
   itens: ProdutoMaisVendido[] | null;
   carregando: boolean;
@@ -171,7 +213,7 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot
   const lista = itens ?? [];
   return (
     <>
-      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}
@@ -195,6 +237,7 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot
             contexto={item.receita}
             medidor={item.participacao}
             acento={copyVendidos.accent}
+            statusBadge={<SeloStatus status={statusAnuncioInfoMaisVendidos(item)} />}
           />
         ))}
       </ListaCard>
