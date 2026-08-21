@@ -7,7 +7,7 @@ import { ArrowRight, ChevronDown, Info, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
-import { AnimatedInfoPopover } from "@/shared/design-system/primitives/AnimatedInfoPopover";
+import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { AcaoSlotFiltro } from "./listas-cards";
@@ -426,6 +426,49 @@ function LinhaReclamacao({ item, aberta, onAlternar }: {
   );
 }
 
+/** Catálogo fixo dos 5 status possíveis do selo — mesmo texto que já existe
+ *  nos popovers individuais, só reunido num lugar só pra quem quer entender
+ *  todos de uma vez sem precisar achar um exemplo de cada na lista. */
+const LEGENDA_STATUS_RECLAMACOES: Array<{ titulo: string; texto: string; cor: string }> = [
+  { titulo: "Mediação", cor: "var(--destructive)", texto: "Escalada para a mediação oficial do Mercado Livre — o comprador não aceitou a resposta e pediu que o ML decida. É o estágio mais sério, o próprio ML entra na conversa." },
+  { titulo: "Precisa de resposta", cor: "var(--warning)", texto: "Ainda não foi respondida — o Mercado Livre espera uma ação sua (mensagem, reembolso ou abrir disputa)." },
+  { titulo: "Reaberta", cor: "var(--warning)", texto: "Este caso já tinha sido encerrado antes — alguém voltou a mandar mensagem depois disso. O prazo mostrado é de quando isso aconteceu, não da abertura original." },
+  { titulo: copy.awaitingMediatorLabel, cor: "var(--muted-foreground)", texto: copy.awaitingMediatorHint },
+  { titulo: copy.resolvedLabel, cor: "var(--success)", texto: copy.resolvedHint },
+];
+
+function EntendaStatusReclamacaoBotao() {
+  return (
+    <AnimatedInfoPopover
+      trigger={(
+        <AnimatedInfoTrigger
+          title="Entenda os status das reclamações"
+          iconSize={13}
+          className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+        >
+          Entenda os status
+        </AnimatedInfoTrigger>
+      )}
+      align="end"
+      sideOffset={8}
+      collisionPadding={12}
+      // No desktop o popover fica mais largo e os 5 status se dividem em 2
+      // colunas — mesmo padrão já usado nos cards de Estoque.
+      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] sm:w-[min(30rem,calc(100vw-1.5rem))]"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Status da reclamação</p>
+      <dl className="mt-3 flex flex-col gap-3 sm:grid sm:grid-cols-2 sm:gap-x-5 sm:gap-y-4">
+        {LEGENDA_STATUS_RECLAMACOES.map((item) => (
+          <div key={item.titulo}>
+            <dt className="text-[12.5px] font-bold" style={{ color: item.cor }}>{item.titulo}</dt>
+            <dd className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{item.texto}</dd>
+          </div>
+        ))}
+      </dl>
+    </AnimatedInfoPopover>
+  );
+}
+
 export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot }: {
   dados: ReclamacoesResultado | null;
   carregando: boolean;
@@ -454,7 +497,11 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
 
   return (
     <Card>
-      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={contagem} />
+      <AcaoSlotFiltro
+        scope={scope}
+        acaoSlot={acaoSlot}
+        extra={<div className="flex shrink-0 items-center gap-2">{contagem}<EntendaStatusReclamacaoBotao /></div>}
+      />
       <CardHead scope={<div className="sm:hidden">{scope}</div>} />
 
       {semFiltro && (
