@@ -58,7 +58,7 @@ export function CardHead({ scope, className }: {
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-2 px-4 pt-4 sm:px-5 sm:pt-5", className)}>
+    <div className={cn("flex flex-wrap items-center justify-center gap-2 px-4 pt-4 sm:px-5 sm:justify-start sm:pt-5", className)}>
       {scope}
     </div>
   );

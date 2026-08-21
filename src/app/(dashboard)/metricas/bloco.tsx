@@ -353,7 +353,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center justify-center gap-2 sm:justify-start">
                   {barraPeriodo}
                 </div>
                 {/* Alvo do portal: sempre presente no DOM, mesmo vazio — um
