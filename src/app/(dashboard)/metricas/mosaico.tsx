@@ -843,7 +843,7 @@ export function Mosaico({
               em Bloco) — cresce em altura, não em padding, então não sobra
               barra de rolagem mesmo com poucos cards, e o card continua
               proporcional com mais cards. */}
-          <div className="hidden lg:flex lg:h-[calc(100dvh-7.5rem)] lg:min-h-[26rem] lg:flex-col lg:gap-3">
+          <div className="hidden lg:flex lg:h-[calc(100dvh-9.5rem)] lg:min-h-[26rem] lg:flex-col lg:gap-3">
             {destaque && (
               <ul className="shrink-0">
                 <Bloco
