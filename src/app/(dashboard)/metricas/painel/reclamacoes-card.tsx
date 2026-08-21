@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, ChevronDown, Info, Loader2, Send } from "lucide-react";
+import { ArrowRight, ChevronDown, Info, Loader2, Scale, Send } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
@@ -179,21 +179,50 @@ function formatarMensagem(texto: string): React.ReactNode {
 }
 
 /* ── Balão de mensagem ────────────────────────────────────────
-   Mensagens do vendedor (nós) alinhadas à direita, do outro lado à
-   esquerda — leitura de conversa, não de log. */
+   A API do ML já diferencia comprador, vendedor (você) e mediador — antes
+   isso virava um booleano só ("é vendedor?") e comprador/mediador saíam
+   idênticos na tela, cinza dos dois lados. Agora são 3 leituras:
+   - Você: balão à direita, na cor do card — igual já era.
+   - Comprador: balão à esquerda, cinza neutro, com rótulo "Comprador".
+   - Mercado Livre (mediação): não é mais um balão de conversa — vira uma
+     faixa central, com ícone de balança e cor própria (info, não a cor de
+     "urgente" do card), porque mediação é uma intervenção oficial da
+     plataforma, não mais uma fala entre as duas partes. */
 function Balao({ mensagem }: { mensagem: ReclamacaoMensagem }) {
+  const hora = mensagem.criadaEm
+    ? new Date(mensagem.criadaEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+    : null;
+
+  if (mensagem.remetente === "mediador") {
+    return (
+      <div className="flex justify-center px-2">
+        <div
+          className="flex max-w-[92%] items-start gap-2 rounded-xl px-3.5 py-2.5 text-sm leading-relaxed text-foreground"
+          style={{ background: tint("var(--info)", 8) }}
+        >
+          <Scale size={14} strokeWidth={2} className="mt-0.5 shrink-0" style={{ color: "var(--info)" }} aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--info)" }}>Mercado Livre · Mediação</p>
+            <p className="mt-0.5 whitespace-pre-line">{formatarMensagem(mensagem.texto)}</p>
+            {hora && <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">{hora}</p>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const deVendedor = mensagem.remetente === "vendedor";
   return (
-    <div className={`flex ${mensagem.deVendedor ? "justify-end" : "justify-start"}`}>
+    <div className={`flex ${deVendedor ? "justify-end" : "justify-start"}`}>
       <div
         className="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed text-foreground"
-        style={{ background: mensagem.deVendedor ? tint(copy.accent, 8) : "var(--muted)" }}
+        style={{ background: deVendedor ? tint(copy.accent, 8) : "var(--muted)" }}
       >
-        <p className="whitespace-pre-line">{formatarMensagem(mensagem.texto)}</p>
-        {mensagem.criadaEm && (
-          <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">
-            {new Date(mensagem.criadaEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-          </p>
+        {!deVendedor && (
+          <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Comprador</p>
         )}
+        <p className="whitespace-pre-line">{formatarMensagem(mensagem.texto)}</p>
+        {hora && <p className="mt-1 text-[10px] tabular-nums text-muted-foreground">{hora}</p>}
       </div>
     </div>
   );

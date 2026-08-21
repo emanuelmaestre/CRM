@@ -53,17 +53,19 @@ afterAll(async () => {
 });
 
 describe.sequential("reclamações — mensagens e resposta", () => {
-  it("lista mensagens e marca quais são do vendedor", async () => {
+  it("lista mensagens e identifica comprador, vendedor e mediador separadamente", async () => {
     providerMock.listarMensagensReclamacao.mockResolvedValue([
       { remetente: "complainant", destinatario: "respondent", texto: "Cadê meu produto?", criadaEm: "2026-02-01T00:00:00Z" },
       { remetente: "respondent", destinatario: "complainant", texto: "Já estamos verificando.", criadaEm: "2026-02-02T00:00:00Z" },
+      { remetente: "mediator", destinatario: "respondent", texto: "O Mercado Livre está analisando o caso.", criadaEm: "2026-02-03T00:00:00Z" },
     ]);
 
     const mensagens = await listarMensagensReclamacao(ctx, "karzi", "5204934310");
 
     expect(mensagens).toEqual([
-      { deVendedor: false, destinatario: "respondent", texto: "Cadê meu produto?", criadaEm: "2026-02-01T00:00:00Z" },
-      { deVendedor: true, destinatario: "complainant", texto: "Já estamos verificando.", criadaEm: "2026-02-02T00:00:00Z" },
+      { remetente: "comprador", destinatario: "respondent", texto: "Cadê meu produto?", criadaEm: "2026-02-01T00:00:00Z" },
+      { remetente: "vendedor", destinatario: "complainant", texto: "Já estamos verificando.", criadaEm: "2026-02-02T00:00:00Z" },
+      { remetente: "mediador", destinatario: "respondent", texto: "O Mercado Livre está analisando o caso.", criadaEm: "2026-02-03T00:00:00Z" },
     ]);
   });
 

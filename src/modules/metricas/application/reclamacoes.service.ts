@@ -154,11 +154,23 @@ export async function obterReclamacoesAbertas(
   };
 }
 
+/** "vendedor" é você; "comprador" e "mediador" (o próprio Mercado Livre,
+ *  quando o caso escala pra mediação oficial) são papéis distintos — antes
+ *  os dois viravam o mesmo "não é vendedor" e ficavam indistinguíveis na
+ *  tela. Valor bruto vem de `sender_role` da API do ML. */
+export type RemetenteReclamacao = "comprador" | "vendedor" | "mediador";
+
 export interface ReclamacaoMensagem {
-  deVendedor: boolean;
+  remetente: RemetenteReclamacao;
   destinatario: string;
   texto: string;
   criadaEm: string | null;
+}
+
+function normalizarRemetente(bruto: string): RemetenteReclamacao {
+  if (bruto === "respondent") return "vendedor";
+  if (bruto === "mediator") return "mediador";
+  return "comprador";
 }
 
 /** Reclamação não é persistida localmente — a marca é o que identifica qual
@@ -173,7 +185,7 @@ export async function listarMensagensReclamacao(
   const provider = await criarMLProvider(marca);
   const mensagens = await provider.listarMensagensReclamacao(claimId);
   return mensagens.map((mensagem) => ({
-    deVendedor: mensagem.remetente === "respondent",
+    remetente: normalizarRemetente(mensagem.remetente),
     destinatario: mensagem.destinatario,
     texto: mensagem.texto,
     criadaEm: mensagem.criadaEm,
