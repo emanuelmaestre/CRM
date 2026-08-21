@@ -13,6 +13,7 @@ import { CalendarioPopoverRange } from "@/shared/design-system/primitives/Calend
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { stagger } from "@/shared/design-system/motion-variants";
+import { tint } from "@/shared/design-system/color";
 import anunciosConfig from "@/config/anuncios.json";
 import channelsConfig from "@/config/channels.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
@@ -588,19 +589,47 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
           Campanhas completo), não sub-itens — por isso ganham linha própria
           aqui em cima, com peso de botão em vez de texto solto. */}
       <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-        <Link href="/publicidade/produtos" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-          <Package size={13} /> <span className="sm:hidden">Produtos</span><span className="hidden sm:inline">Ver produtos</span>
+        {/* Cada atalho leva a própria cor de identidade (mesmo selo com fundo
+            tingido usado nos blocos do mosaico de Métricas) — antes eram 4
+            botões cinza idênticos, difíceis de diferenciar num relance. A
+            borda acompanha a cor no hover, o resto do botão continua neutro. */}
+        <Link
+          href="/publicidade/produtos"
+          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#157781] hover:text-foreground"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#157781", 9), color: "#157781" }}>
+            <Package size={14} />
+          </span>
+          <span className="sm:hidden">Produtos</span><span className="hidden sm:inline">Ver produtos</span>
         </Link>
-        <Link href="/publicidade/historico" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-          <History size={13} /> <span className="sm:hidden">Histórico</span><span className="hidden sm:inline">Ver histórico</span>
+        <Link
+          href="/publicidade/historico"
+          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#2563EB] hover:text-foreground"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#2563EB", 9), color: "#2563EB" }}>
+            <History size={14} />
+          </span>
+          <span className="sm:hidden">Histórico</span><span className="hidden sm:inline">Ver histórico</span>
         </Link>
         {dados.marcas.length >= 2 && (
-          <Link href="/publicidade/comparacao" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-            <GitCompare size={13} /> Comparar marcas
+          <Link
+            href="/publicidade/comparacao"
+            className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#7058D3] hover:text-foreground"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#7058D3", 9), color: "#7058D3" }}>
+              <GitCompare size={14} />
+            </span>
+            Comparar marcas
           </Link>
         )}
-        <Link href="/publicidade/campanhas" className="inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-          <BarChart3 size={13} /> <span className="sm:hidden">Campanhas</span><span className="hidden sm:inline">{copy.campanhas.verTodas}</span>
+        <Link
+          href="/publicidade/campanhas"
+          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#C42E79] hover:text-foreground"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#C42E79", 9), color: "#C42E79" }}>
+            <BarChart3 size={14} />
+          </span>
+          <span className="sm:hidden">Campanhas</span><span className="hidden sm:inline">{copy.campanhas.verTodas}</span>
         </Link>
       </div>
 

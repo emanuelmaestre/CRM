@@ -174,14 +174,14 @@ const VARIANTES = {
     titulo: "lg:text-[15.5px]",
   },
   grande: {
-    caixa: "lg:min-h-[7rem] lg:gap-4 lg:px-7 lg:py-6",
+    caixa: "lg:gap-4 lg:px-7 lg:py-6",
     icone: "lg:h-12 lg:w-12",
     iconeTamanho: 22,
     rotulo: "lg:text-[11px]",
     titulo: "lg:text-[18px]",
   },
   destaque: {
-    caixa: "lg:min-h-[8rem] lg:gap-5 lg:px-9 lg:py-8",
+    caixa: "lg:gap-5 lg:px-9 lg:py-8",
     icone: "lg:h-16 lg:w-16",
     iconeTamanho: 30,
     rotulo: "lg:text-[12px]",
@@ -210,7 +210,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
   const tam = VARIANTES[variante];
 
   return (
-    <li className={`relative ${className ?? ""}`}>
+    <li className={`relative h-full ${className ?? ""}`}>
       {/* Sem AnimatePresence de propósito: o bloco precisa sair da árvore no
           mesmo quadro em que o painel entra, senão os dois seguram o layoutId
           por um instante e o crescimento vira um piscar. */}
@@ -218,7 +218,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
         <motion.div
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
-          className={`card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-1.5 overflow-hidden px-2.5 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${tam.caixa}`}
+          className={`card-surface relative flex h-full min-h-11 w-full cursor-pointer items-center gap-1.5 overflow-hidden px-2.5 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${tam.caixa}`}
         >
           <span
             className={`flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center rounded-full ${tam.icone}`}

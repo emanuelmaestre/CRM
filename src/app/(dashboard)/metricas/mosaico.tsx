@@ -834,28 +834,34 @@ export function Mosaico({
             ))}
           </div>
 
-          {/* Tablet/desktop: um card em destaque na linha de cima (largura
-              inteira, bem maior), os outros em duplas abaixo — cada um leva
-              o próprio rótulo de seção dentro de si (ver `secaoLabel`), em
-              vez de uma linha inteira por seção que mudava de tamanho de
-              linha pra linha e deixava buraco quando a seção tinha poucos
-              itens. */}
-          <ul className="hidden lg:grid lg:grid-cols-2 lg:gap-3">
+          {/* Tablet/desktop: um card em destaque no topo (largura inteira,
+              bem maior), os outros em grade abaixo — cada um leva o próprio
+              rótulo de seção dentro de si (ver `secaoLabel`). A altura do
+              conjunto é travada em "o que sobra da tela" (100dvh menos a
+              barra do topo e o padding do layout) e os cards de baixo
+              esticam pra preencher esse espaço (`auto-rows-fr` + `h-full`
+              em Bloco) — cresce em altura, não em padding, então não sobra
+              barra de rolagem mesmo com poucos cards, e o card continua
+              proporcional com mais cards. */}
+          <div className="hidden lg:flex lg:h-[calc(100dvh-7.5rem)] lg:min-h-[26rem] lg:flex-col lg:gap-3">
             {destaque && (
-              <Bloco
-                key={destaque.bloco.id}
-                def={destaque.bloco}
-                focado={destaque.bloco.id === cardAberto}
-                onAbrir={() => abrir(destaque.bloco.id)}
-                secaoLabel={destaque.secaoLabel}
-                variante="destaque"
-                className="lg:col-span-2"
-              />
+              <ul className="shrink-0">
+                <Bloco
+                  key={destaque.bloco.id}
+                  def={destaque.bloco}
+                  focado={destaque.bloco.id === cardAberto}
+                  onAbrir={() => abrir(destaque.bloco.id)}
+                  secaoLabel={destaque.secaoLabel}
+                  variante="destaque"
+                />
+              </ul>
             )}
-            {resto.map(({ bloco, secaoLabel }) => (
-              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
-            ))}
-          </ul>
+            <ul className="grid flex-1 auto-rows-fr grid-cols-2 gap-3">
+              {resto.map(({ bloco, secaoLabel }) => (
+                <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
+              ))}
+            </ul>
+          </div>
         </div>
       </motion.div>
 
