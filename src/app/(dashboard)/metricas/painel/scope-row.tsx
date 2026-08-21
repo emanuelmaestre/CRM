@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -17,43 +18,59 @@ function canalLabel(tipo: string) {
   return (channelsConfig.items as Record<string, { label?: string }>)[tipo]?.label ?? tipo;
 }
 
-/** Converte "var(--karzi)" ou "#RRGGBB" num valor utilizável em rgba() para o
- *  fundo tingido — var(--x) não entra em color-mix em todo navegador suportado,
- *  então o fundo usa a mesma cor em baixa opacidade via CSS var diretamente. */
-function corAtiva(cor: string) {
-  return { color: cor, background: `color-mix(in srgb, ${cor} 16%, transparent)` };
+function HaloSelecao({ cor }: { cor: string }) {
+  const reduzMovimento = useReducedMotion();
+  return (
+    <AnimatePresence>
+      <motion.span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-full"
+        style={{ boxShadow: `0 0 0 1px ${cor}` }}
+        initial={{ opacity: 0, scale: 1 }}
+        animate={reduzMovimento ? { opacity: 0.35 } : { opacity: [0.35, 0, 0.35], scale: [1, 1.18, 1] }}
+        transition={reduzMovimento ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+      />
+    </AnimatePresence>
+  );
 }
 
-function Pilula({ ativo, desabilitado, onClick, rotulo, iconOnly, accent, children }: {
+function Pilula({ ativo, desabilitado, onClick, rotulo, accent, total, children }: {
   ativo: boolean;
   desabilitado?: boolean;
   onClick: () => void;
   rotulo?: string;
-  iconOnly?: boolean;
   /** Cor de identidade (marca ou canal) usada quando selecionado — cada pílula
    *  tinge com a própria cor em vez de todas ficarem roxas. */
   accent?: string;
+  total?: number;
   children: React.ReactNode;
 }) {
+  const reduzMovimento = useReducedMotion();
   return (
-    <button
+    <motion.button
       type="button"
       onClick={desabilitado ? undefined : onClick}
       disabled={desabilitado}
       aria-pressed={ativo}
       aria-label={rotulo}
       title={rotulo}
-      style={ativo && !desabilitado && accent ? corAtiva(accent) : undefined}
-      className={`inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full transition-colors ${iconOnly ? "px-3" : "px-3.5"} text-[13px] font-semibold ${
+      whileHover={desabilitado ? undefined : { scale: reduzMovimento ? 1 : 1.03 }}
+      whileTap={desabilitado ? undefined : { scale: reduzMovimento ? 1 : 0.97 }}
+      style={ativo && !desabilitado && accent ? { borderColor: accent, color: accent } : undefined}
+      className={`relative inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-card/70 px-3.5 transition-colors text-[13px] font-semibold ${
         desabilitado
           ? "cursor-not-allowed border border-border text-muted-foreground opacity-40"
           : ativo
-            ? "border border-transparent font-bold"
-            : "border border-border text-muted-foreground hover:bg-muted"
+            ? "border-2 font-bold"
+            : "border border-border/80 bg-card/40 text-muted-foreground hover:bg-card/70"
       }`}
     >
+      {ativo && !desabilitado && accent && <HaloSelecao cor={accent} />}
       {children}
-    </button>
+      {typeof total === "number" && (
+        <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
+      )}
+    </motion.button>
   );
 }
 
@@ -78,6 +95,7 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
           ativo={filtro.brandId.includes(marca.brandId)}
           onClick={() => onChange({ ...filtro, brandId: alternar(filtro.brandId, marca.brandId) })}
           accent={isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined}
+          total={marca.total}
         >
           {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={17} /> : marca.nome}
         </Pilula>
@@ -94,8 +112,8 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
           desabilitado={!canal.conectado}
           onClick={() => onChange({ ...filtro, canal: alternar(filtro.canal, canal.tipo) })}
           rotulo={canalLabel(canal.tipo)}
-          iconOnly
           accent={channelAccent(canal.tipo)}
+          total={canal.total}
         >
           <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
         </Pilula>

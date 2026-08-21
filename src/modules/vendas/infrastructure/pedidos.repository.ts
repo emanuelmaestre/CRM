@@ -7,7 +7,7 @@ import { CANAIS_VENDA, type ConsultaPedidos } from "../domain/consulta-pedidos";
 function filtrosConsulta(orgId: string, opts: ConsultaPedidos): SQL[] {
   const filtros: SQL[] = [eq(pedido.orgId, orgId)];
   if (opts.brandIds?.length) filtros.push(inArray(pedido.brandId, opts.brandIds));
-  if (opts.canal) filtros.push(eq(pedido.canal, opts.canal));
+  if (opts.canais?.length) filtros.push(inArray(pedido.canal, opts.canais));
   if (opts.statuses?.length) filtros.push(inArray(pedido.status, opts.statuses));
   if (opts.inicio) filtros.push(gte(pedido.createdAt, opts.inicio));
   if (opts.fim) filtros.push(lte(pedido.createdAt, opts.fim));
@@ -95,9 +95,9 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
   };
 }
 
-export function consultarPedidosPorMarca(orgId: string, canal?: string) {
+export function consultarPedidosPorMarca(orgId: string, canais?: string[]) {
   const filtros: SQL[] = [eq(pedido.orgId, orgId)];
-  if (canal) filtros.push(eq(pedido.canal, canal));
+  if (canais?.length) filtros.push(inArray(pedido.canal, canais));
   return db
     .select({ brandId: brand.id, nome: brand.name, slug: brand.slug, total: sql<number>`count(${pedido.id})` })
     .from(brand)

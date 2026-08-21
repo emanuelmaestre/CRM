@@ -188,7 +188,7 @@ function descricaoCabecalhos(campanhas: CampanhaVisaoGeral[]): Record<string, In
       descricao: `Receita é o faturamento atribuído aos anúncios no período. Nesta lista, as campanhas somam ${moeda.format(receitaTotal)} em receita atribuída.`,
       observacao: "Receita aqui não é lucro. Ela ainda não desconta investimento, custo do produto, frete, taxas ou impostos.",
     },
-    "ROAS (retorno por real investido)": {
+    "ROAS": {
       descricao: roasPonderado === null
         ? "ROAS fica sem dado quando não há investimento para comparar com a receita atribuída."
         : `ROAS é receita atribuída dividida pelo investimento. No total da lista, cada ${moeda.format(1)} investido voltou como ${moeda.format(roasPonderado)} em receita atribuída (${decimal2.format(roasPonderado)}x).`,

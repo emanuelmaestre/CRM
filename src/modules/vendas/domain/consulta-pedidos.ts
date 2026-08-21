@@ -11,7 +11,7 @@ const PedidoStatusSchema = z.enum([
 
 const ConsultaPedidosEntradaSchema = z.object({
   brandIds: z.array(z.string().uuid()).optional(),
-  canal: z.enum(CANAIS_VENDA).optional(),
+  canais: z.array(z.enum(CANAIS_VENDA)).optional(),
   statuses: z.array(PedidoStatusSchema).optional(),
   busca: z.string().trim().max(100).optional(),
   inicio: z.string().datetime({ offset: true }).optional(),
@@ -21,7 +21,7 @@ const ConsultaPedidosEntradaSchema = z.object({
 
 export interface ConsultaPedidos {
   brandIds?: string[];
-  canal?: CanalVenda;
+  canais?: CanalVenda[];
   /** Vazio/ausente = sem filtro de status. Mais de um status = "está em
    *  qualquer um destes" — é o que permite agrupar estágios que o Mercado
    *  Livre não distingue (ver GRUPOS_STATUS na tela) num único filtro. */
@@ -37,7 +37,7 @@ export function normalizarConsultaPedidos(entrada: unknown): ConsultaPedidos & {
   const validada = ConsultaPedidosEntradaSchema.parse({
     ...candidata,
     brandIds: Array.isArray(candidata.brandIds) && candidata.brandIds.length ? candidata.brandIds : undefined,
-    canal: candidata.canal || undefined,
+    canais: Array.isArray(candidata.canais) && candidata.canais.length ? candidata.canais : undefined,
     statuses: Array.isArray(candidata.statuses) && candidata.statuses.length ? candidata.statuses : undefined,
     busca: candidata.busca || undefined,
     inicio: candidata.inicio || undefined,

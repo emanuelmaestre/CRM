@@ -12,7 +12,7 @@ import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedi
 
 export async function actionListarPedidosDetalhados(opts: {
   brandIds?: string[];
-  canal?: string;
+  canais?: string[];
   statuses?: string[];
   busca?: string;
   inicio?: string;
@@ -34,7 +34,7 @@ export async function actionListarPedidosDetalhados(opts: {
 
 export async function actionListarPedidosParaPdf(opts: {
   brandIds?: string[];
-  canal?: string;
+  canais?: string[];
   statuses?: string[];
   busca?: string;
   inicio?: string;
@@ -49,10 +49,10 @@ export async function actionListarPedidosParaPdf(opts: {
   return { ...result, resumo };
 }
 
-export async function actionContarPedidosPorMarca(canal?: string) {
+export async function actionContarPedidosPorMarca(canais?: string[]) {
   const ctx = await getCrudContext();
-  const { canal: canalValidado } = normalizarConsultaPedidos({ canal });
-  return contarPedidosPorMarca(ctx, { canal: canalValidado });
+  const { canais: canaisValidados } = normalizarConsultaPedidos({ canais });
+  return contarPedidosPorMarca(ctx, { canais: canaisValidados });
 }
 
 export async function actionContarPedidosPorCanal(brandIds?: string[]) {

@@ -292,7 +292,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [loading, setLoading] = useState(true);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [brandIds, setBrandIds] = useState<string[]>([]);
-  const [canal, setCanal] = useState<CanalVenda | "">("");
+  const [canaisSel, setCanaisSel] = useState<CanalVenda[]>([]);
   const [statusGrupo, setStatusGrupo] = useState<ChaveGrupoStatus>("");
   const statusesAtivos = GRUPOS_STATUS.find((grupo) => grupo.chave === statusGrupo)?.statuses ?? [];
   const [busca, setBusca] = useState("");
@@ -316,8 +316,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
   useEffect(() => {
     if (primeiraContagemMarcas.current) { primeiraContagemMarcas.current = false; return; }
-    actionContarPedidosPorMarca(canal || undefined).then(setMarcas).catch(() => setMarcas([]));
-  }, [canal]);
+    actionContarPedidosPorMarca(canaisSel.length ? canaisSel : undefined).then(setMarcas).catch(() => setMarcas([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canaisSel.join(",")]);
 
   useEffect(() => {
     if (primeiraContagemCanais.current) { primeiraContagemCanais.current = false; return; }
@@ -329,14 +330,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
     return () => window.clearTimeout(task);
   }, [busca]);
 
-  const carregar = useCallback((marcas?: string[], canalAtual?: string, statusesAtual?: string[], buscaAtual?: string, inicio?: string, fim?: string) => {
+  const carregar = useCallback((marcas?: string[], canaisAtual?: string[], statusesAtual?: string[], buscaAtual?: string, inicio?: string, fim?: string) => {
     const currentRequest = ++requestId.current;
     startTransition(async () => {
       setLoading(true);
       try {
         const res = await actionListarPedidosDetalhados({
           brandIds: marcas?.length ? marcas : undefined,
-          canal: canalAtual || undefined,
+          canais: canaisAtual?.length ? canaisAtual : undefined,
           statuses: statusesAtual?.length ? statusesAtual : undefined,
           busca: buscaAtual || undefined,
           inicio: inicioDoDia(inicio ?? ""),
@@ -359,20 +360,20 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   // Sem marca ou canal escolhidos não há o que carregar: a tela mostra o
   // convite, e as contagens de marca/canal (rápidas) já estão aquecendo por
   // trás para quando a escolha acontecer.
-  const escopoDefinido = brandIds.length > 0 || canal !== "";
+  const escopoDefinido = brandIds.length > 0 || canaisSel.length > 0;
 
   useEffect(() => {
     if (!escopoDefinido) return;
-    carregar(brandIds, canal, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
+    carregar(brandIds, canaisSel, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandIds.join(","), canal, statusGrupo, buscaAplicada, dataInicial, dataFinal, carregar, escopoDefinido]);
+  }, [brandIds.join(","), canaisSel.join(","), statusGrupo, buscaAplicada, dataInicial, dataFinal, carregar, escopoDefinido]);
 
   async function carregarMais() {
     setCarregandoMais(true);
     try {
       const res = await actionListarPedidosDetalhados({
         brandIds: brandIds.length ? brandIds : undefined,
-        canal: canal || undefined,
+        canais: canaisSel.length ? canaisSel : undefined,
         statuses: statusesAtivos.length ? [...statusesAtivos] : undefined,
         busca: buscaAplicada || undefined,
         inicio: inicioDoDia(dataInicial),
@@ -390,10 +391,10 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
   function atualizar() {
     if (!escopoDefinido) return;
-    carregar(brandIds, canal, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
+    carregar(brandIds, canaisSel, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
   }
 
-  const filtrando = brandIds.length > 0 || canal !== "" || statusGrupo !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
+  const filtrando = brandIds.length > 0 || canaisSel.length > 0 || statusGrupo !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
 
   async function exportarPdf() {
     if (pedidos.length === 0) return;
@@ -401,7 +402,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
     try {
       const relatorio = await actionListarPedidosParaPdf({
         brandIds: brandIds.length ? brandIds : undefined,
-        canal: canal || undefined,
+        canais: canaisSel.length ? canaisSel : undefined,
         statuses: statusesAtivos.length ? [...statusesAtivos] : undefined,
         busca: buscaAplicada || undefined,
         inicio: inicioDoDia(dataInicial),
@@ -452,8 +453,10 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             <CanalPill
               key={item.tipo}
               canal={item}
-              ativo={canal === item.tipo}
-              onClick={() => setCanal((atual) => atual === item.tipo ? "" : item.tipo)}
+              ativo={canaisSel.includes(item.tipo as CanalVenda)}
+              onClick={() => setCanaisSel((atual) => atual.includes(item.tipo as CanalVenda)
+                ? atual.filter((tipo) => tipo !== item.tipo)
+                : [...atual, item.tipo as CanalVenda])}
             />
           ))}
         </motion.div>

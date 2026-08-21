@@ -150,9 +150,9 @@ export async function resumirPedidos(
  *  espírito de `contarProdutosPorMarca`/`contarProdutosPorCanal` do Estoque:
  *  cada dimensão é contada já cruzada com a outra, para a pílula nunca
  *  prometer um número que a lista não entrega. */
-export async function contarPedidosPorMarca(ctx: CrudContext, opts: { canal?: string } = {}) {
+export async function contarPedidosPorMarca(ctx: CrudContext, opts: { canais?: string[] } = {}) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
-  return consultarPedidosPorMarca(ctx.orgId, opts.canal);
+  return consultarPedidosPorMarca(ctx.orgId, opts.canais);
 }
 
 export async function contarPedidosPorCanal(ctx: CrudContext, opts: { brandIds?: string[] } = {}) {

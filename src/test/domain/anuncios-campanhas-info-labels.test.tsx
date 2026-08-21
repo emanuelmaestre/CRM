@@ -101,7 +101,7 @@ describe("cabeçalhos da tabela de campanhas com informação", () => {
     expect(screen.getByRole("button", { name: "Explicar indicador Orçamento" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador Investido" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Explicar indicador Receita" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Explicar indicador ROAS (retorno por real investido)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Explicar indicador ROAS" })).toBeInTheDocument();
   });
 
   it("usa descrições dinâmicas nos cabeçalhos de campanhas", async () => {
@@ -133,7 +133,7 @@ describe("cabeçalhos da tabela de campanhas com informação", () => {
     expect(await screen.findByText(/1 de 2 campanhas têm orçamento informado/i)).toBeInTheDocument();
     expect(screen.getByText(/somando R\$\s*500,00/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ROAS (retorno por real investido)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ROAS" }));
 
     expect(await screen.findByText(/cada R\$\s*1,00 investido voltou como R\$\s*3,00/i)).toBeInTheDocument();
     expect(screen.getByText(/3,00x/i)).toBeInTheDocument();
