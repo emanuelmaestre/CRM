@@ -75,25 +75,19 @@ function statusLabel(status: string) {
 }
 
 /* ── Grupos de status ──────────────────────────────────────────
-   O Mercado Livre não distingue Criado/Pago/Separado/Enviado no campo de
-   status do pedido — só Pago e Cancelado realmente acontecem na prática (as
-   outras vêm do status de envio, que esta integração ainda não lê). Um
-   filtro com 9 pílulas prometia uma granularidade que os dados quase nunca
-   entregam. Agrupado em 5, cada opção que junta mais de um status ganha um
-   `title` explicando o quê — a dica aparece passando o mouse, sem precisar
-   de mais nenhum elemento na tela. */
+   O Mercado Livre só devolve o status do pedido em si (pago/cancelado) —
+   Entregue, Avaliação solicitada, Concluído e Devolvido nunca vêm desse
+   campo: os dois primeiros exigiriam ler a API de Shipments (que esta
+   integração não consulta), e os outros dois nem existem como valor real
+   do Mercado Livre. Sem dado de verdade por trás, esses grupos ficavam
+   sempre vazios — removidos até essa leitura existir. */
 const GRUPOS_STATUS = [
   { chave: "", label: "Todos", statuses: [] as string[], dica: undefined as string | undefined },
   {
     chave: "aberto", label: "Em aberto", statuses: ["criado", "pago", "separado", "enviado"],
-    dica: "Criado, Pago, Separado e Enviado — o Mercado Livre não informa esses estágios separadamente, então a maior parte dos pedidos fica aqui até ser concluída ou cancelada.",
-  },
-  {
-    chave: "concluido", label: "Concluído", statuses: ["entregue", "avaliacao_solicitada", "concluido"],
-    dica: "Entregue, Avaliação solicitada e Concluído.",
+    dica: "Criado, Pago, Separado e Enviado — o Mercado Livre não informa esses estágios separadamente, então a maior parte dos pedidos fica aqui até ser cancelada.",
   },
   { chave: "cancelado", label: "Cancelado", statuses: ["cancelado"], dica: undefined as string | undefined },
-  { chave: "devolvido", label: "Devolvido", statuses: ["devolvido"], dica: undefined as string | undefined },
 ] as const;
 type ChaveGrupoStatus = (typeof GRUPOS_STATUS)[number]["chave"];
 

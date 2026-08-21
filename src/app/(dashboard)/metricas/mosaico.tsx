@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   AlertTriangle, BarChart3, Gauge, Hourglass, Megaphone,
-  Package, RefreshCw, ShoppingBag, Sparkles, TrendingDown, TrendingUp,
+  Package, RefreshCw, ShoppingBag, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { stagger } from "@/shared/design-system/motion-variants";
@@ -21,10 +21,8 @@ import { type Periodo } from "./metricas-primitives";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
-  actionListarInsights, actionListarSugestoes,
   actionObterPosVenda, actionObterSaudeLoja,
 } from "./actions";
-import type { Insight, Sugestao } from "./acoes-card";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -43,7 +41,6 @@ const CalendarioPopoverRange = dynamic(() => import("@/shared/design-system/prim
 const BotaoHoje = dynamic(() => import("@/shared/design-system/primitives/BotaoHoje").then((modulo) => modulo.BotaoHoje));
 const FaturamentoCard = dynamic(() => import("./painel/faturamento-card").then((modulo) => modulo.FaturamentoCard), { loading: PainelCarregando });
 const ReclamacoesCard = dynamic(() => import("./painel/reclamacoes-card").then((modulo) => modulo.ReclamacoesCard), { loading: PainelCarregando });
-const AcoesCard = dynamic(() => import("./acoes-card").then((modulo) => modulo.AcoesCard), { loading: PainelCarregando });
 const ComparacaoCard = dynamic(() => import("./comparacao-card").then((modulo) => modulo.ComparacaoCard), { loading: PainelCarregando });
 const PublicacoesCard = dynamic(() => import("./publicacoes-card").then((modulo) => modulo.PublicacoesCard), { loading: PainelCarregando });
 const ScoreCard = dynamic(() => import("./score-card").then((modulo) => modulo.ScoreCard), { loading: PainelCarregando });
@@ -198,9 +195,9 @@ const COLUNAS_LG: Record<number, string> = {
 
 export function Mosaico({
   marcasIniciais = [], canaisIniciais = [], saudeInicial = null,
-  posVendaInicial = null, acoesIniciais = null,
+  posVendaInicial = null,
 }: {
-  /* O mosaico é a soma de oito buscas independentes. Sete (todas menos
+  /* O mosaico é a soma de sete buscas independentes. Seis (todas menos
      Reclamações, que depende da API do Mercado Livre) são resolvidas no
      servidor e chegam dentro do HTML (ver page.tsx) — só Reclamações continua
      carregando no próprio ritmo pelo navegador. */
@@ -208,7 +205,6 @@ export function Mosaico({
   canaisIniciais?: ScopeCanal[];
   saudeInicial?: SaudeLojaResultado | null;
   posVendaInicial?: PosVendaResultado | null;
-  acoesIniciais?: { insights: Insight[]; sugestoes: Sugestao[] } | null;
 }) {
   const params = useSearchParams();
   const cardAberto = params.get("card");
@@ -366,21 +362,6 @@ export function Mosaico({
       });
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
-
-  const [acoes, setAcoes] = useState<{ carregado: boolean; insights: Insight[]; sugestoes: Sugestao[] }>(
-    acoesIniciais
-      ? { carregado: true, insights: acoesIniciais.insights, sugestoes: acoesIniciais.sugestoes }
-      : { carregado: false, insights: [], sugestoes: [] },
-  );
-  const primeirasAcoes = useRef(Boolean(acoesIniciais));
-  useEffect(() => {
-    if (primeirasAcoes.current) { primeirasAcoes.current = false; return; }
-    let ativo = true;
-    Promise.all([actionListarInsights(), actionListarSugestoes()])
-      .then(([insights, sugestoes]) => { if (ativo) setAcoes({ carregado: true, insights, sugestoes }); })
-      .catch(() => { if (ativo) setAcoes({ carregado: true, insights: [], sugestoes: [] }); });
-    return () => { ativo = false; };
-  }, []);
 
   // Publicações usa somente os filtros leves e estáveis que chegam com a
   // página. Não troca de ordem quando Saúde responde e não consulta Product
@@ -722,30 +703,6 @@ export function Mosaico({
     ),
   }), [parados, filtroParados, escopo]);
 
-  const blocoAcoes = useMemo<BlocoDef>(() => ({
-    id: "acoes",
-    secao: "marketing",
-    titulo: blocosCopy.acoes.titulo,
-    icone: Sparkles,
-    accent: "var(--acento-1)",
-    resumo: { valor: null, legenda: blocosCopy.acoes.legenda },
-    explicacao: {
-      resumo: "Duas listas diferentes no mesmo painel: observações automáticas sobre a operação e ofertas sugeridas para reativar clientes específicos.",
-      pontos: [
-        { titulo: "Análises automáticas", texto: "Leituras automáticas dos números do período que destacam mudanças, pontos de atenção ou desvios do padrão, sem exigir a análise individual de cada painel." },
-        { titulo: "Sugestões de reativação", texto: "Ofertas geradas para segmentos de clientes (ex.: quem não compra há um tempo), esperando aprovação antes de sair." },
-        { titulo: "Nada sai sozinho", texto: "Toda sugestão permanece com o status \"Sugerida\" até ser aprovada ou recusada. O painel nunca envia uma oferta por conta própria." },
-      ],
-    },
-    render: () => (
-      <AcoesCard
-        insightsIniciais={acoes.insights}
-        sugestoesIniciais={acoes.sugestoes}
-        carregandoInicial={!acoes.carregado}
-      />
-    ),
-  }), [acoes]);
-
   // Só existe com marca conectada — um bloco que abriria vazio não vira bloco.
   const blocoPublicacoes = useMemo<BlocoDef | null>(() => {
     if (marcasPublicacoes.length === 0) return null;
@@ -781,11 +738,11 @@ export function Mosaico({
   // (recriar cada bloco) já aconteceu nos memos acima, isolado por grupo.
   const { grupos, lista: blocos } = useMemo(() => agruparPorSecao([
     blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
-    blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoAcoes,
+    blocoMaisVendidos, blocoGiroBaixo, blocoParados,
     ...(blocoPublicacoes ? [blocoPublicacoes] : []),
   ]), [
     blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
-    blocoMaisVendidos, blocoGiroBaixo, blocoParados, blocoAcoes,
+    blocoMaisVendidos, blocoGiroBaixo, blocoParados,
     blocoPublicacoes,
   ]);
 
