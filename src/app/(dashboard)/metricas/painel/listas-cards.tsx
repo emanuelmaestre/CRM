@@ -235,7 +235,6 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot
             formatarDestaque={(v) => `${Math.round(v)} ${copyVendidos.unitLabel}`}
             destaqueCor={copyVendidos.accent}
             contexto={item.receita}
-            medidor={item.participacao}
             acento={copyVendidos.accent}
             statusBadge={<SeloStatus status={statusAnuncioInfoMaisVendidos(item)} />}
           />
