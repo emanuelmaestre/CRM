@@ -236,11 +236,13 @@ interface CalendarioPopoverRangeProps {
   atraso?: number;
   /** Cor de identidade de quem chamou o calendário — o mesmo acento do
    *  ícone do card aberto, no Métricas, ou a cor da marca ativa, em
-   *  Anúncios. Sem isso, cai no teal padrão do design system. */
+   *  Anúncios. Sem isso, cai num cinza-chumbo neutro (var(--foreground)) —
+   *  telas de lista (Avaliações, Vendas, Auditoria...) não têm um "ícone de
+   *  card" pra herdar, então não faz sentido inventar uma cor de destaque. */
   accent?: string;
 }
 
-export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disabled, atraso = 0, accent = "var(--acento-1)" }: CalendarioPopoverRangeProps) {
+export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disabled, atraso = 0, accent = "var(--foreground)" }: CalendarioPopoverRangeProps) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<Posicao | null>(null);
   const [pulsando, setPulsando] = useState(false);

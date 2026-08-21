@@ -41,7 +41,7 @@ export function BotaoHoje({
   atraso = 0.08,
   onClick,
   className,
-  accent = "var(--acento-1)",
+  accent = "var(--foreground)",
 }: {
   /** true quando o período já é hoje→hoje — dá o mesmo feedback visual do
    *  dia selecionado no calendário, sem precisar abrir nada para saber. */
@@ -55,7 +55,7 @@ export function BotaoHoje({
   className?: string;
   /** Cor de identidade de quem chamou o botão — o mesmo acento do ícone do
    *  card aberto, no Métricas, ou a cor da marca ativa, em Anúncios. Sem
-   *  isso, cai no teal padrão do design system. */
+   *  isso, cai num cinza-chumbo neutro (var(--foreground)). */
   accent?: string;
 }) {
   return (
