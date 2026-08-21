@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, ChevronDown, Info, Loader2, Send } from "lucide-react";
@@ -11,6 +10,7 @@ import { listItem, springs, stagger } from "@/shared/design-system/motion-varian
 import { AnimatedInfoPopover } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
+import { AcaoSlotFiltro } from "./listas-cards";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { actionListarMensagensReclamacao, actionResponderReclamacao } from "./actions";
 import type { ReclamacaoMensagem } from "@/modules/metricas/application/reclamacoes.service";
@@ -454,8 +454,8 @@ export function ReclamacoesCard({ dados, carregando, semFiltro, scope, acaoSlot 
 
   return (
     <Card>
-      <CardHead scope={scope} />
-      {acaoSlot && contagem && createPortal(contagem, acaoSlot)}
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={contagem} />
+      <CardHead scope={<div className="sm:hidden">{scope}</div>} />
 
       {semFiltro && (
         <EmptyState

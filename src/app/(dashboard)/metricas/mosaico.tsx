@@ -453,13 +453,14 @@ export function Mosaico({
       ],
       dica: "A variação já vem calculada contra a janela imediatamente anterior, do mesmo tamanho, não contra o mesmo período do ano passado.",
     },
-    render: () => (
+    render: (acaoSlot) => (
       <FaturamentoCard
         dados={dadosFaturamento}
         carregando={faturamento.carregando}
         semFiltro={faturamento.semFiltro}
         cores={coresFaturamento}
         scope={escopo(filtroFaturamento, setFiltroFaturamento)}
+        acaoSlot={acaoSlot}
       />
     ),
   }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, filtroFaturamento, coresFaturamento, escopo]);
@@ -626,12 +627,13 @@ export function Mosaico({
       ],
       dica: "Combine com Top 5 produtos (no card Marca) para ver se a receita da marca depende demais de poucos itens campeões.",
     },
-    render: () => (
+    render: (acaoSlot) => (
       <MaisVendidosCard
         itens={maisVendidos.dados?.maisVendidos ?? null}
         carregando={maisVendidos.carregando}
         semFiltro={maisVendidos.semFiltro}
         scope={escopo(filtroMaisVendidos, setFiltroMaisVendidos)}
+        acaoSlot={acaoSlot}
       />
     ),
   }), [maisVendidos, filtroMaisVendidos, escopo]);
@@ -657,12 +659,13 @@ export function Mosaico({
       ],
       dica: "Vale cruzar com o preço de venda: giro baixo em item caro imobiliza mais capital que giro baixo em item barato, mesmo com a mesma quantidade parada.",
     },
-    render: () => (
+    render: (acaoSlot) => (
       <GiroBaixoCard
         itens={giroBaixo.dados?.giroBaixo ?? null}
         carregando={giroBaixo.carregando}
         semFiltro={giroBaixo.semFiltro}
         scope={escopo(filtroGiroBaixo, setFiltroGiroBaixo)}
+        acaoSlot={acaoSlot}
       />
     ),
   }), [giroBaixo, filtroGiroBaixo, escopo]);

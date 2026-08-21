@@ -161,40 +161,44 @@ function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazi
 /* ── 1. Vendem mais ───────────────────────────────────────────── */
 const copyVendidos = dashboardConfig.cards.maisVendidos;
 
-export function MaisVendidosCard({ itens, carregando, semFiltro, scope }: {
+export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
   itens: ProdutoMaisVendido[] | null;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
+  acaoSlot?: HTMLElement | null;
 }) {
   const lista = itens ?? [];
   return (
-    <ListaCard
-      vazio={lista.length === 0}
-      carregando={carregando}
-      semFiltro={semFiltro}
-      ilustracao="bestSellers"
-      vazioTitulo={copyVendidos.emptyTitle}
-      vazioDescricao={copyVendidos.emptyDescription}
-      scope={scope}
-    >
-      {lista.map((item) => (
-        <LinhaProduto
-          key={item.produtoId}
-          nome={item.nome}
-          sku={item.sku}
-          marca={item.marcaLabel}
-          marcaSlug={item.marca}
-          destaque={`${item.quantidade} ${copyVendidos.unitLabel}`}
-          destaqueNumerico={item.quantidade}
-          formatarDestaque={(v) => `${Math.round(v)} ${copyVendidos.unitLabel}`}
-          destaqueCor={copyVendidos.accent}
-          contexto={item.receita}
-          medidor={item.participacao}
-          acento={copyVendidos.accent}
-        />
-      ))}
-    </ListaCard>
+    <>
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
+      <ListaCard
+        vazio={lista.length === 0}
+        carregando={carregando}
+        semFiltro={semFiltro}
+        ilustracao="bestSellers"
+        vazioTitulo={copyVendidos.emptyTitle}
+        vazioDescricao={copyVendidos.emptyDescription}
+        scope={<div className="sm:hidden">{scope}</div>}
+      >
+        {lista.map((item) => (
+          <LinhaProduto
+            key={item.produtoId}
+            nome={item.nome}
+            sku={item.sku}
+            marca={item.marcaLabel}
+            marcaSlug={item.marca}
+            destaque={`${item.quantidade} ${copyVendidos.unitLabel}`}
+            destaqueNumerico={item.quantidade}
+            formatarDestaque={(v) => `${Math.round(v)} ${copyVendidos.unitLabel}`}
+            destaqueCor={copyVendidos.accent}
+            contexto={item.receita}
+            medidor={item.participacao}
+            acento={copyVendidos.accent}
+          />
+        ))}
+      </ListaCard>
+    </>
   );
 }
 
@@ -250,7 +254,7 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
   return (
     <>
       {/* Fora do ListaCard de propósito — ver comentário maior em ParadosCard. */}
-      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}
@@ -287,14 +291,17 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
 /* ── 3. Giro baixo ────────────────────────────────────────────── */
 const copyGiro = dashboardConfig.cards.giroBaixo;
 
-export function GiroBaixoCard({ itens, carregando, semFiltro, scope }: {
+export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
   itens: ProdutoGiroBaixo[] | null;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
+  acaoSlot?: HTMLElement | null;
 }) {
   const lista = itens ?? [];
   return (
+    <>
+    <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
     <ListaCard
       vazio={lista.length === 0}
       carregando={carregando}
@@ -302,7 +309,7 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope }: {
       ilustracao="slowMoving"
       vazioTitulo={copyGiro.emptyTitle}
       vazioDescricao={copyGiro.emptyDescription}
-      scope={scope}
+      scope={<div className="sm:hidden">{scope}</div>}
     >
       {lista.map((item) => (
         <LinhaProduto
@@ -324,6 +331,7 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope }: {
         />
       ))}
     </ListaCard>
+    </>
   );
 }
 
@@ -420,13 +428,24 @@ function SeloStatus({ status }: { status: { label: string; className: string; hi
 /** Bloco portado pro cabeçalho do painel: pílulas de marca/canal centralizadas
  *  + botão "Entenda os status" fixo à direita — mesmo esqueleto pra qualquer
  *  card que tenha selo de status do ML (ver comentário maior em ParadosCard). */
-function AcaoSlotFiltro({ scope, acaoSlot }: { scope?: React.ReactNode; acaoSlot?: HTMLElement | null }) {
+export function AcaoSlotFiltro({ scope, acaoSlot, extra }: {
+  scope?: React.ReactNode;
+  acaoSlot?: HTMLElement | null;
+  /** Ação extra à direita (ex.: "Entenda os status") — cards sem selo de
+   *  status (Faturamento, Vendem mais...) não passam isso, só centralizam
+   *  o filtro sozinho. */
+  extra?: React.ReactNode;
+}) {
   if (!acaoSlot) return null;
   return createPortal(
     <div className="hidden w-full items-center gap-3 sm:flex">
       <div className="mx-auto flex min-w-0 flex-wrap items-center justify-center gap-2">{scope}</div>
-      <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
-      <EntendaStatusBotao />
+      {extra && (
+        <>
+          <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+          {extra}
+        </>
+      )}
     </div>,
     acaoSlot,
   );
@@ -481,7 +500,7 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
           — botão e pílulas dentro dele ficavam invisíveis (e, pior, sem filtro
           nenhum visível em lugar nenhum no desktop) até o usuário escolher uma
           marca, só que não tinha como escolher porque o filtro tinha sumido. */}
-      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}

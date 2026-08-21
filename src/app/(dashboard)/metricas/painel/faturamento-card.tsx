@@ -9,6 +9,7 @@ import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover
 import { springs } from "@/shared/design-system/motion-variants";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
+import { AcaoSlotFiltro } from "./listas-cards";
 import { moeda } from "@/shared/design-system/format";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
 import { tint } from "@/shared/design-system/color";
@@ -97,13 +98,16 @@ function EsqueletoFaturamento() {
   );
 }
 
-export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope }: {
+export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope, acaoSlot }: {
   dados: FaturamentoResumo | null;
   carregando: boolean;
   semFiltro: boolean;
   /** Cor de cada marca ativa no filtro do card — vazio ("todas"), 1 ou várias. */
   cores?: string[];
   scope?: React.ReactNode;
+  /** Nó do cabeçalho do Foco onde o filtro de marca/canal é portado no
+   *  desktop — mesmo mecanismo do Estoque Parado/Repor em breve. */
+  acaoSlot?: HTMLElement | null;
 }) {
   const [focado, setFocado] = useState<number | null>(null);
   const valorAnimado = useContagem(dados?.totalNumerico ?? 0);
@@ -114,7 +118,8 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
 
   return (
     <Card>
-      <CardHead scope={scope} />
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
+      <CardHead scope={<div className="sm:hidden">{scope}</div>} />
 
       {/* Troca por crossfade, nunca desmontando o Card — evita o "piscar"
           ao mudar de filtro. Com conteúdo anterior na tela, uma busca em
