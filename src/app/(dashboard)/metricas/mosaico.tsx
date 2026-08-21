@@ -780,6 +780,23 @@ export function Mosaico({
     [grupos],
   );
 
+  /* Card em destaque, linha inteira no topo, bem maior que os outros —
+   *  o crítico do momento manda (ex.: reclamação com mediação em aberto);
+   *  sem nenhum alerta ativo, Faturamento assume por ser a métrica
+   *  primária de qualquer marca. Os outros 8 seguem em duplas abaixo,
+   *  também maiores que a grade de 4-5 colunas de antes, pra preencher a
+   *  tela em vez de deixar sobrar vazio embaixo (só lg+; mobile intocado). */
+  const { destaque, resto } = useMemo(() => {
+    const critico = blocosComSecao.find((item) => item.bloco.resumo.alerta?.nivel === "critico");
+    const atencao = blocosComSecao.find((item) => item.bloco.resumo.alerta?.nivel === "atencao");
+    const faturamento = blocosComSecao.find((item) => item.bloco.id === "faturamento");
+    const escolhido = critico ?? atencao ?? faturamento ?? blocosComSecao[0];
+    return {
+      destaque: escolhido,
+      resto: blocosComSecao.filter((item) => item.bloco.id !== escolhido?.bloco.id),
+    };
+  }, [blocosComSecao]);
+
   return (
     <>
       <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-3">
@@ -817,14 +834,26 @@ export function Mosaico({
             ))}
           </div>
 
-          {/* Tablet/desktop: uma grade única, todos os cards do mesmo
-              tamanho — cada um leva o próprio rótulo de seção dentro de si
-              (ver `secaoLabel`), em vez de uma linha inteira por seção que
-              mudava de tamanho de linha pra linha e deixava buraco quando a
-              seção tinha poucos itens. */}
-          <ul className="hidden lg:grid lg:grid-cols-4 lg:gap-3 xl:grid-cols-5">
-            {blocosComSecao.map(({ bloco, secaoLabel }) => (
-              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} />
+          {/* Tablet/desktop: um card em destaque na linha de cima (largura
+              inteira, bem maior), os outros em duplas abaixo — cada um leva
+              o próprio rótulo de seção dentro de si (ver `secaoLabel`), em
+              vez de uma linha inteira por seção que mudava de tamanho de
+              linha pra linha e deixava buraco quando a seção tinha poucos
+              itens. */}
+          <ul className="hidden lg:grid lg:grid-cols-2 lg:gap-3">
+            {destaque && (
+              <Bloco
+                key={destaque.bloco.id}
+                def={destaque.bloco}
+                focado={destaque.bloco.id === cardAberto}
+                onAbrir={() => abrir(destaque.bloco.id)}
+                secaoLabel={destaque.secaoLabel}
+                variante="destaque"
+                className="lg:col-span-2"
+              />
+            )}
+            {resto.map(({ bloco, secaoLabel }) => (
+              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
             ))}
           </ul>
         </div>

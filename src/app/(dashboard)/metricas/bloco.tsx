@@ -160,23 +160,57 @@ function corAlerta(nivel: NivelAlerta) {
  *  deliberada: sem prévia de valor, sem sinal de alerta, sem seta). A
  *  ordem dentro de cada seção é a mesma sempre (ver `agruparPorSecao`,
  *  que não reordena mais por urgência). */
-export function Bloco({ def, focado, onAbrir, secaoLabel }: {
+/** Tamanhos por variante — só o desktop (lg+) muda; mobile é sempre o
+ *  mesmo card compacto de sempre. "grande" é o par de colunas do mosaico
+ *  desktop, "destaque" é o card do topo (linha inteira, o mais urgente do
+ *  momento ou Faturamento). Escritos por extenso (não montados em runtime)
+ *  porque o Tailwind lê o código-fonte pra saber quais classes gerar. */
+const VARIANTES = {
+  compacto: {
+    caixa: "lg:gap-3 lg:px-5 lg:py-4",
+    icone: "lg:h-9 lg:w-9",
+    iconeTamanho: 18,
+    rotulo: "lg:text-[10px]",
+    titulo: "lg:text-[15.5px]",
+  },
+  grande: {
+    caixa: "lg:min-h-[7rem] lg:gap-4 lg:px-7 lg:py-6",
+    icone: "lg:h-12 lg:w-12",
+    iconeTamanho: 22,
+    rotulo: "lg:text-[11px]",
+    titulo: "lg:text-[18px]",
+  },
+  destaque: {
+    caixa: "lg:min-h-[8rem] lg:gap-5 lg:px-9 lg:py-8",
+    icone: "lg:h-16 lg:w-16",
+    iconeTamanho: 30,
+    rotulo: "lg:text-[12px]",
+    titulo: "lg:text-[26px]",
+  },
+} as const;
+
+export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto", className }: {
   def: BlocoDef;
   focado: boolean;
   onAbrir: () => void;
   /** Rótulo da seção (ex.: "Financeiro"), mostrado pequeno acima do título.
-   *  Só o mosaico desktop passa isto — lá os 9 cards vivem numa grade única
-   *  do mesmo tamanho, sem mais um cabeçalho de seção cobrindo a linha
-   *  inteira, então a seção precisa viajar dentro do próprio card para não
-   *  se perder. O mobile continua com o cabeçalho de seção de sempre, então
-   *  não passa esta prop — o card lá não repete a informação. */
+   *  Só o mosaico desktop passa isto — lá os cards vivem em destaque/duplas,
+   *  sem mais um cabeçalho de seção cobrindo a linha inteira, então a seção
+   *  precisa viajar dentro do próprio card para não se perder. O mobile
+   *  continua com o cabeçalho de seção de sempre, então não passa esta
+   *  prop — o card lá não repete a informação. */
   secaoLabel?: string;
+  variante?: keyof typeof VARIANTES;
+  /** Classe extra no <li> — hoje só usada pelo card em destaque, pra
+   *  ocupar as duas colunas da grade desktop (col-span-2). */
+  className?: string;
 }) {
   const reduzir = useReducedMotion();
   const { icone: Icone, accent } = def;
+  const tam = VARIANTES[variante];
 
   return (
-    <li className="relative">
+    <li className={`relative ${className ?? ""}`}>
       {/* Sem AnimatePresence de propósito: o bloco precisa sair da árvore no
           mesmo quadro em que o painel entra, senão os dois seguram o layoutId
           por um instante e o crescimento vira um piscar. */}
@@ -184,18 +218,18 @@ export function Bloco({ def, focado, onAbrir, secaoLabel }: {
         <motion.div
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
-          className="card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-1.5 overflow-hidden px-2.5 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 lg:gap-3 lg:px-5 lg:py-4"
+          className={`card-surface relative flex min-h-11 w-full cursor-pointer items-center gap-1.5 overflow-hidden px-2.5 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${tam.caixa}`}
         >
           <span
-            className="flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center rounded-full lg:h-9 lg:w-9"
+            className={`flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center rounded-full ${tam.icone}`}
             style={{ background: tint(accent, 9), color: accent }}
           >
             <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
-            <Icone size={18} strokeWidth={1.9} className="hidden lg:block" />
+            <Icone size={tam.iconeTamanho} strokeWidth={1.9} className="hidden lg:block" />
           </span>
           <span className="flex min-w-0 flex-1 flex-col text-left">
             {secaoLabel && (
-              <span className="hidden text-[10px] font-semibold uppercase tracking-[.06em] text-muted-foreground/70 lg:block">
+              <span className={`hidden text-[10px] font-semibold uppercase tracking-[.06em] text-muted-foreground/70 lg:block ${tam.rotulo}`}>
                 {secaoLabel}
               </span>
             )}
@@ -209,7 +243,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel }: {
                 (text-wrap:balance não resolve sozinho — é uma palavra só, não
                 há como equilibrar entre linhas; serve pros títulos de 2-3
                 palavras.) */}
-            <span className="text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] lg:text-[15.5px]">
+            <span className={`text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] ${tam.titulo}`}>
               {def.titulo}
             </span>
           </span>
