@@ -160,10 +160,17 @@ function corAlerta(nivel: NivelAlerta) {
  *  deliberada: sem prévia de valor, sem sinal de alerta, sem seta). A
  *  ordem dentro de cada seção é a mesma sempre (ver `agruparPorSecao`,
  *  que não reordena mais por urgência). */
-export function Bloco({ def, focado, onAbrir }: {
+export function Bloco({ def, focado, onAbrir, secaoLabel }: {
   def: BlocoDef;
   focado: boolean;
   onAbrir: () => void;
+  /** Rótulo da seção (ex.: "Financeiro"), mostrado pequeno acima do título.
+   *  Só o mosaico desktop passa isto — lá os 9 cards vivem numa grade única
+   *  do mesmo tamanho, sem mais um cabeçalho de seção cobrindo a linha
+   *  inteira, então a seção precisa viajar dentro do próprio card para não
+   *  se perder. O mobile continua com o cabeçalho de seção de sempre, então
+   *  não passa esta prop — o card lá não repete a informação. */
+  secaoLabel?: string;
 }) {
   const reduzir = useReducedMotion();
   const { icone: Icone, accent } = def;
@@ -186,18 +193,25 @@ export function Bloco({ def, focado, onAbrir }: {
             <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
             <Icone size={18} strokeWidth={1.9} className="hidden lg:block" />
           </span>
-          {/* O título mais longo ("Recomendações") passa raspando na largura
-              de um card de 2 colunas no celular, e quem tem tamanho de texto
-              aumentado no iOS renderiza a fonte ~33% maior sem que o layout
-              mude junto — aí a palavra estoura por poucos pixels e o
-              overflow-wrap joga só o "s" pra segunda linha. Por isso o gap,
-              o padding e o ícone são menores que no desktop: compram ~8px
-              de folga, o suficiente pra palavra caber inteira nesse caso.
-              (text-wrap:balance não resolve sozinho — é uma palavra só, não
-              há como equilibrar entre linhas; serve pros títulos de 2-3
-              palavras.) */}
-          <span className="min-w-0 flex-1 text-left text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] lg:text-[15.5px]">
-            {def.titulo}
+          <span className="flex min-w-0 flex-1 flex-col text-left">
+            {secaoLabel && (
+              <span className="hidden text-[10px] font-semibold uppercase tracking-[.06em] text-muted-foreground/70 lg:block">
+                {secaoLabel}
+              </span>
+            )}
+            {/* O título mais longo ("Recomendações") passa raspando na largura
+                de um card de 2 colunas no celular, e quem tem tamanho de texto
+                aumentado no iOS renderiza a fonte ~33% maior sem que o layout
+                mude junto — aí a palavra estoura por poucos pixels e o
+                overflow-wrap joga só o "s" pra segunda linha. Por isso o gap,
+                o padding e o ícone são menores que no desktop: compram ~8px
+                de folga, o suficiente pra palavra caber inteira nesse caso.
+                (text-wrap:balance não resolve sozinho — é uma palavra só, não
+                há como equilibrar entre linhas; serve pros títulos de 2-3
+                palavras.) */}
+            <span className="text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] lg:text-[15.5px]">
+              {def.titulo}
+            </span>
           </span>
           <button
             type="button"

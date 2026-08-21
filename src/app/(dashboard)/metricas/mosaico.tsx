@@ -181,17 +181,6 @@ const TOUR: CoachMarkStep[] = [
   },
 ];
 
-/** Classes escritas por extenso (e não montadas em runtime) porque o
- *  Tailwind lê o código-fonte para saber quais classes gerar — uma string
- *  do tipo `lg:grid-cols-${n}` não existiria no CSS final. */
-const COLUNAS_LG: Record<number, string> = {
-  2: "lg:grid-cols-2",
-  3: "lg:grid-cols-3",
-  4: "lg:grid-cols-4",
-  5: "lg:grid-cols-5",
-  6: "lg:grid-cols-6",
-};
-
 /* ── Mosaico ───────────────────────────────────────────────────── */
 
 export function Mosaico({
@@ -778,21 +767,18 @@ export function Mosaico({
     if (cardAberto && indiceAberto < 0 && blocos.length > 0) fechar();
   }, [cardAberto, indiceAberto, blocos.length, fechar]);
 
-  /* Seções de 1 bloco só (hoje: Placar geral, Atendimento, Marketing) juntam
-   *  a mesma linha em vez de cada uma abrir uma linha própria com um
-   *  cardzinho perdido e o resto vazio — o "buraco" que sobrou depois que
-   *  várias seções encolheram para 1 card. `ordem` (aplicada via `style`,
-   *  só tem efeito dentro de contexto flex — inerte no mobile, que não é
-   *  flex) agrupa essas seções lado a lado na posição em que a primeira
-   *  delas aparece, sem mudar a ordem real do DOM nem a leitura em mobile.
-   *  Reduce em vez de contador mutável: o React Compiler não permite
-   *  reatribuir uma variável presa no fechamento durante a renderização. */
-  const gruposComOrdem = useMemo(() => grupos.reduce<Array<{ grupo: typeof grupos[number]; ordem: number; sozinho: boolean }>>((acc, grupo) => {
-    const sozinho = grupo.blocos.length === 1;
-    const singleAnterior = sozinho ? acc.find((item) => item.sozinho) : undefined;
-    const ordem = singleAnterior ? singleAnterior.ordem : acc.length;
-    return [...acc, { grupo, ordem, sozinho }];
-  }, []), [grupos]);
+  /* Versão desktop/tablet: uma grade única, todos os cards do mesmo tamanho,
+   *  em vez de uma linha inteira por seção — era isso que fazia o card mudar
+   *  de tamanho de linha pra linha (2 cards largos em Financeiro, 4 cards
+   *  estreitos em Estoque) e sobrar buraco quando uma seção tinha poucos
+   *  itens. A seção não desaparece: cada card carrega o próprio rótulo de
+   *  seção como selo pequeno (ver `secaoLabel` em `Bloco`). Só afeta lg+; no
+   *  mobile a lista abaixo continua agrupada por seção, uma por linha, como
+   *  sempre foi. */
+  const blocosComSecao = useMemo(
+    () => grupos.flatMap((grupo) => grupo.blocos.map((bloco) => ({ bloco, secaoLabel: grupo.label }))),
+    [grupos],
+  );
 
   return (
     <>
@@ -813,53 +799,34 @@ export function Mosaico({
           </span>
         )}
 
-        {/* 5 seções em vez de uma grade só de 14 — cada uma com o próprio
-            rótulo e a própria ordenação por urgência (ver agruparPorSecao em
-            bloco.tsx). Um bloco com alerta sobe dentro do grupo dele, não
-            para cima do mosaico inteiro; o rótulo da seção ganha um ponto na
-            cor do pior alerta, então dá pra saber onde olhar antes de abrir
-            qualquer coisa. */}
         {/* Permanece dentro do container compartilhado de 1440px para que a
             proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}
-        {/* No mobile o container é bloco normal — cada seção empilhada, uma
-            por linha, exatamente como sempre foi (gap-3.5 vertical). A
-            partir do lg vira uma linha flex: seções com 2+ blocos continuam
-            ocupando a linha inteira (lg:w-full, força a quebra igual antes);
-            seções de 1 bloco só (Placar geral, Atendimento, Marketing hoje)
-            dividem a mesma linha entre si (lg:flex-1) em vez de cada uma
-            abrir uma linha própria com um cardzinho perdido no canto e o
-            resto vazio — era esse o buraco que sobrou depois que várias
-            seções encolheram para 1 card. `order` (via style, só tem efeito
-            dentro de contexto flex — inerte no mobile) agrupa as seções de 1
-            bloco lado a lado na posição da primeira que aparecer, sem mudar
-            a ordem real do DOM nem a leitura em voz alta/mobile. */}
-        <div data-coachmark="mosaico-grade" className="space-y-3.5 lg:flex lg:flex-row lg:flex-wrap lg:items-start lg:gap-x-3 lg:gap-y-6 lg:space-y-0">
-              {gruposComOrdem.map(({ grupo, ordem, sozinho }) => (
-                <section
-                  key={grupo.id}
-                  style={{ order: ordem }}
-                  className={`flex flex-col gap-2 ${sozinho ? "lg:min-w-[220px] lg:flex-1" : "lg:w-full"}`}
-                >
-                  <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
-                  {/* Colunas por seção, não uma grade fixa para todas: a seção
-                      preenche a linha com os cards que tem — 2 itens dá cards
-                      de 1/2, 4 itens dá cards de 1/4 — sem piso artificial,
-                      que era o que sobrava buraco quando uma seção tinha
-                      menos itens que o piso. Uma seção de 1 item só preenche a
-                      largura da própria fatia da linha compartilhada (ver
-                      gruposComOrdem acima), em vez de ficar do tamanho do
-                      próprio conteúdo. */}
-                  <ul className={
-                    sozinho
-                      ? "grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-1"
-                      : `grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3 lg:gap-3 ${COLUNAS_LG[grupo.blocos.length] ?? "lg:grid-cols-6"}`
-                  }>
-                    {grupo.blocos.map((bloco) => (
-                      <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
-                    ))}
-                  </ul>
-                </section>
-              ))}
+        <div data-coachmark="mosaico-grade">
+          {/* Mobile: agrupado por seção, uma seção por linha com rótulo
+              próprio — exatamente como sempre foi, intocado. */}
+          <div className="flex flex-col gap-3.5 lg:hidden">
+            {grupos.map((grupo) => (
+              <section key={grupo.id} className="flex flex-col gap-2">
+                <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
+                <ul className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
+                  {grupo.blocos.map((bloco) => (
+                    <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+
+          {/* Tablet/desktop: uma grade única, todos os cards do mesmo
+              tamanho — cada um leva o próprio rótulo de seção dentro de si
+              (ver `secaoLabel`), em vez de uma linha inteira por seção que
+              mudava de tamanho de linha pra linha e deixava buraco quando a
+              seção tinha poucos itens. */}
+          <ul className="hidden lg:grid lg:grid-cols-4 lg:gap-3 xl:grid-cols-5">
+            {blocosComSecao.map(({ bloco, secaoLabel }) => (
+              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} />
+            ))}
+          </ul>
         </div>
       </motion.div>
 
