@@ -103,6 +103,8 @@ export interface ProdutoGiroBaixo extends ProdutoBase {
   quantidade: number;
   saldo: number;
   valorParado: string;
+  statusAnuncio: StatusAnuncioParado;
+  motivoStatus: string | null;
 }
 
 /** Status real do anúncio no Mercado Livre — sem isso, "parado" parecia
@@ -521,7 +523,14 @@ export async function obterDashboardData(
     .map(({ valorParadoNumerico, ...resto }) => ({
       ...resto,
       valorParado: formatCurrency(valorParadoNumerico),
+      statusAnuncio: "nao_consultado" as StatusAnuncioParado,
+      motivoStatus: null as string | null,
     }));
+
+  // Mesmo raciocínio de Estoque Parado: saber se o anúncio ainda está no ar
+  // muda o que fazer com um produto que quase não vende — reativar antes de
+  // decidir liquidar, por exemplo.
+  await enriquecerComStatusAnuncio(ctx, giroBaixo);
 
   /* ── 3. Produtos que não saem (estoque parado) ── */
   const parados: ProdutoParado[] = produtosAtivos

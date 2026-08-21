@@ -680,6 +680,7 @@ export function Mosaico({
         { titulo: "Só quem ainda tem saldo", texto: "Produto zerado não conta como giro baixo, esse é o caso de Parados, quando também não vende há muito tempo." },
         { titulo: "Limite baixo de propósito", texto: "Entra quem vendeu poucas unidades no período inteiro, o corte é apertado para não misturar \"vende pouco\" com \"vende razoável\"." },
         { titulo: "Ordenado pelo que dói mais", texto: "Empate em quantidade vendida desempata por valor parado em estoque, o produto que trava mais dinheiro aparece primeiro." },
+        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card. Giro baixo com o anúncio pausado ou em revisão pode não ser sobre demanda — pode ser o anúncio fora do ar." },
       ],
       dica: "Vale cruzar com o preço de venda: giro baixo em item caro imobiliza mais capital que giro baixo em item barato, mesmo com a mesma quantidade parada.",
     },

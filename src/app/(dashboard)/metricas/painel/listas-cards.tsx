@@ -341,6 +341,47 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
 /* ── 3. Giro baixo ────────────────────────────────────────────── */
 const copyGiro = dashboardConfig.cards.giroBaixo;
 
+/** Um produto que quase não vende com o anúncio pausado/em revisão muda a
+ *  decisão: o problema pode não ser falta de demanda, e sim o anúncio fora
+ *  do ar — vale reativar antes de cogitar liquidar o estoque parado nele. */
+function statusAnuncioInfoGiroBaixo(item: ProdutoGiroBaixo): { label: string; className: string; hint: string } {
+  const motivo = item.motivoStatus ? ` (${item.motivoStatus})` : "";
+
+  const MAPA: Record<StatusAnuncioParado, { label: string; className: string; hint: string }> = {
+    ativo: {
+      label: "Ativo no ML",
+      className: "bg-success/10 text-success",
+      hint: "O anúncio está publicado e visível no Mercado Livre. O giro baixo aqui é sobre demanda mesmo, não sobre o anúncio estar fora do ar.",
+    },
+    pausado: {
+      label: "Pausado",
+      className: "bg-warning/10 text-warning",
+      hint: `Este anúncio está pausado no Mercado Livre${motivo}. O giro baixo pode ser reflexo disso — ninguém consegue comprar enquanto ele ficar assim.`,
+    },
+    em_revisao: {
+      label: "Em revisão no ML",
+      className: "bg-acento-2/10 text-acento-2",
+      hint: `O Mercado Livre pausou este anúncio para moderação${motivo}. Ele pode voltar a vender assim que o problema for corrigido — vale reavaliar o giro depois disso.`,
+    },
+    encerrado: {
+      label: "Encerrado no ML",
+      className: "bg-destructive/10 text-destructive",
+      hint: `Este anúncio não existe mais no Mercado Livre${motivo}. O giro baixo não reflete demanda real: ninguém consegue comprar por lá.`,
+    },
+    sem_vinculo: {
+      label: "Sem vínculo com o ML",
+      className: "bg-info/10 text-info",
+      hint: "Não encontramos nenhum anúncio deste produto vinculado a uma conta do Mercado Livre. O vínculo pode ter se perdido.",
+    },
+    nao_consultado: {
+      label: "Status indisponível",
+      className: "bg-muted text-muted-foreground",
+      hint: "Não foi possível confirmar agora o status deste anúncio no Mercado Livre devido a uma falha temporária na consulta. Os demais dados continuam confiáveis.",
+    },
+  };
+  return MAPA[item.statusAnuncio];
+}
+
 export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
   itens: ProdutoGiroBaixo[] | null;
   carregando: boolean;
@@ -351,7 +392,7 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
   const lista = itens ?? [];
   return (
     <>
-    <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
+    <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
     <ListaCard
       vazio={lista.length === 0}
       carregando={carregando}
@@ -378,6 +419,7 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
           destaqueCor={item.quantidade === 0 ? "var(--muted-foreground)" : undefined}
           contexto={`${item.saldo} ${copyGiro.stockLabel} · ${item.valorParado}`}
           acento={copyGiro.accent}
+          statusBadge={<SeloStatus status={statusAnuncioInfoGiroBaixo(item)} />}
         />
       ))}
     </ListaCard>
