@@ -47,6 +47,12 @@
     "title": "Campanhas",
     "description": "Todas as campanhas da marca, com diagnóstico e os anúncios que compõem cada uma",
     "voltar": "Voltar para a Visão Geral",
+    "lista": {
+      "titulo": "Campanhas",
+      "criadaEm": "Criada em",
+      "investimento": "Investido",
+      "roas": "ROAS"
+    },
     "expandir": "Ver anúncios e diagnóstico",
     "recolher": "Fechar",
     "semDiagnostico": "Nenhum sinal relevante identificado nesta campanha com os dados de hoje.",
@@ -56,9 +62,10 @@
       "vazio": "Nenhum anúncio com dado sincronizado para esta campanha.",
       "colunas": [
         "Anúncio",
+        "Criado em",
         "Investido",
         "Receita",
-        "ROAS (retorno por real investido)",
+        "ROAS",
         "Cliques",
         "Vendas"
       ],
@@ -85,15 +92,16 @@
   "produtosDetalhe": {
     "metadataTitle": "Produtos - Publicidade",
     "title": "Produtos",
-    "description": "Todos os anúncios da marca, independente da campanha - onde o investimento está indo item por item",
+    "description": "Todos os anúncios da marca, item por item, independente de qual campanha cada um pertence",
     "voltar": "Voltar para a Visão Geral",
     "vazio": "Nenhum anúncio sincronizado ainda para esta marca.",
     "colunas": [
       "Anúncio",
       "Campanha",
+      "Criado em",
       "Investido",
       "Receita",
-      "ROAS (retorno por real investido)",
+      "ROAS",
       "Cliques",
       "Vendas"
     ],
@@ -113,15 +121,15 @@
   "historicoDetalhe": {
     "metadataTitle": "Histórico - Publicidade",
     "title": "Histórico",
-    "description": "Evolução diária de investimento, receita e ROAS da marca",
+    "description": "Como o investimento, a receita e o retorno em anúncios da marca mudaram dia a dia",
     "voltar": "Voltar para a Visão Geral",
     "vazio": "Ainda não há histórico suficiente",
     "vazioDescricao": "O histórico se acumula sozinho a cada sincronização diária - volte aqui depois de alguns dias.",
     "umPontoAviso": "Só existe 1 dia de dado sincronizado até agora - a tendência aparece conforme os próximos dias forem sincronizados.",
     "colunas": [
       "Data",
-      "Investido",
-      "Receita",
+      "Investido (dinheiro gasto em anúncios)",
+      "Receita (venda que veio do anúncio)",
       "ROAS (retorno por real investido)",
       "Cliques",
       "Vendas"
@@ -129,11 +137,6 @@
     "grafico": {
       "investimento": "Investimento",
       "receita": "Receita"
-    },
-    "periodos": {
-      "7": "7 dias",
-      "30": "30 dias",
-      "90": "90 dias"
     }
   },
   "comparacaoDetalhe": {
@@ -164,7 +167,6 @@
     "tipos": {
       "escala": "Oportunidade de escala",
       "recuperacao": "Oportunidade de recuperação",
-      "ranking": "Gargalo de ranking",
       "orcamento": "Limitada por orçamento"
     }
   },

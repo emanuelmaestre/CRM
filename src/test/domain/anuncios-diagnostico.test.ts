@@ -6,7 +6,6 @@ function base(parcial: Partial<DadosDiagnosticoCampanha>): DadosDiagnosticoCampa
     impressoes: 0, cliques: 0, vendas: 0, ctr: null, cvr: null,
     cpcAtual: null, cpcAnterior: null, cvrAnterior: null,
     roasAtual: null,
-    lostImpressionShareByBudget: null, lostImpressionShareByAdRank: null,
     estoqueDiasCobertura: null,
     ...parcial,
   };
@@ -15,9 +14,14 @@ function base(parcial: Partial<DadosDiagnosticoCampanha>): DadosDiagnosticoCampa
 /* As regras "roas_bom_perda_orcamento", "roas_ruim_perda_orcamento" e
    "roas_bom_estoque_baixo" saíram do motor — as três exigiam `roasMinimo`
    (o break-even, calculado a partir do custo do produto). O custo nunca
-   existiu no schema, então as três nunca dispararam em produção. O motor
-   fica só com regras que dependem apenas do funil, que o Mercado Livre
-   entrega pronto. */
+   existiu no schema, então as três nunca dispararam em produção.
+
+   A regra "conversao_boa_exposicao_baixa" também saiu: dependia de
+   lostImpressionShareByBudget/lostImpressionShareByAdRank, testadas ao
+   vivo contra as 3 contas reais e confirmadas ausentes na API do Mercado
+   Livre hoje (ver mercadolivre-ads.provider.ts) — nunca disparava de
+   verdade. O motor fica só com regras que dependem apenas do funil, que
+   o Mercado Livre entrega pronto. */
 
 describe("motor de diagnóstico — regras de funil", () => {
   it("não dispara regra nenhuma sem amostra mínima", () => {
@@ -35,13 +39,6 @@ describe("motor de diagnóstico — regras de funil", () => {
     expect(achados.map((a) => a.tipo)).toContain("cliques_altos_vendas_baixas");
   });
 
-  it("sinaliza boa conversão com espaço de exposição não capturado", () => {
-    const achados = diagnosticarCampanha(base({
-      cvr: 0.05, lostImpressionShareByBudget: 0.2, lostImpressionShareByAdRank: 0.15,
-    }));
-    expect(achados.map((a) => a.tipo)).toContain("conversao_boa_exposicao_baixa");
-  });
-
   it("distingue CPC subindo com CVR estável (investigar leilão) de CVR caindo (investigar produto)", () => {
     const leilao = diagnosticarCampanha(base({ cpcAtual: 3, cpcAnterior: 2, cvr: 0.03, cvrAnterior: 0.031 }));
     expect(leilao.map((a) => a.tipo)).toContain("cpc_subindo_cvr_estavel");
@@ -53,9 +50,7 @@ describe("motor de diagnóstico — regras de funil", () => {
   });
 
   it("toda recomendação carrega causas possíveis e ação — nunca só um título seco", () => {
-    const achados = diagnosticarCampanha(base({
-      cvr: 0.05, lostImpressionShareByBudget: 0.2, lostImpressionShareByAdRank: 0.15,
-    }));
+    const achados = diagnosticarCampanha(base({ cliques: 100, vendas: 1, cvr: 0.005 }));
     expect(achados.length).toBeGreaterThan(0);
     for (const achado of achados) {
       expect(achado.causasPossiveis.length).toBeGreaterThan(0);

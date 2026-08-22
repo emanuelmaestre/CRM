@@ -16,19 +16,22 @@ export function Linha({ dados, cor, largura = 96, altura = 36 }: { dados: number
   if (dados.length < 2) return null;
   const max = Math.max(...dados);
   const min = Math.min(...dados);
-  // Margem de 7px (não 3) em cima e embaixo: com só 3px, o traço e a
-  // bolinha do ponto final (raio 2.75 + contorno) chegavam quase colados
-  // na borda da caixa, e cortados pelo `overflow-hidden` do card em volta
-  // — lia como "gráfico cortado" em vez de "pico do gráfico".
-  const margem = 7;
+  // Margem vertical de 7px (não 3): o traço e a bolinha do ponto final
+  // (raio 2.75 + contorno) chegavam quase colados na borda da caixa.
+  // Margem HORIZONTAL de 3px: sem ela, o último ponto cai exatamente em
+  // x = largura — metade da bolinha fica fora da viewBox e é cortada pelo
+  // `overflow-hidden` do card em volta. Isso é o que lia como "cortado",
+  // não a folga vertical.
+  const margemV = 7;
+  const margemH = 3;
   const ponto = (v: number, i: number) => {
-    const x = (i / (dados.length - 1)) * largura;
-    const y = altura - ((v - min) / (max - min || 1)) * (altura - margem * 2) - margem;
+    const x = margemH + (i / (dados.length - 1)) * (largura - margemH * 2);
+    const y = altura - ((v - min) / (max - min || 1)) * (altura - margemV * 2) - margemV;
     return [x, y] as const;
   };
   const pontos = dados.map(ponto);
   const d = pontos.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const area = `${d} L${largura},${altura} L0,${altura} Z`;
+  const area = `${d} L${largura - margemH},${altura} L${margemH},${altura} Z`;
   const [ux, uy] = pontos[pontos.length - 1];
   const id = `mv-area-${cor.replace(/[^a-z0-9]/gi, "")}`;
   return (

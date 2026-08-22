@@ -26,6 +26,9 @@ export interface AnuncioProduto {
   titulo: string | null;
   status: string | null;
   preco: number | null;
+  /** Data de criação do anúncio (item) no Mercado Livre — confirmado ao
+   *  vivo em product_ads/ads/search (ver mercadolivre-ads.provider.ts). */
+  criadoEm: string | null;
   recomendado: boolean | null;
   buyBoxWinner: boolean | null;
   permalink: string | null;
@@ -104,10 +107,17 @@ export async function obterProdutosDaMarca(
     return {
       itemId: linha.itemId,
       campanhaId: linha.campaignId,
-      campanhaNome: nomeCampanhaPorId.get(linha.campaignId) ?? linha.campaignId,
+      /* Confirmado ao vivo (22/08/2026): a API do Mercado Livre às vezes
+       * devolve um campaign_id diferente pro mesmo anúncio dependendo do
+       * endpoint — `campaigns/search` usa um id, `ads/search` usa outro
+       * pro mesmo anúncio dessa campanha. Não é bug nosso; o fallback pro
+       * id cru é intencional pra nunca esconder o dado, só fica menos
+       * bonito quando a API diverge assim. */
+      campanhaNome: nomeCampanhaPorId.get(linha.campaignId) ?? `Campanha ${linha.campaignId}`,
       titulo: linha.titulo,
       status: linha.status,
       preco: paraNumeroOuNull(linha.preco),
+      criadoEm: linha.anuncioCriadoEm?.toISOString() ?? null,
       recomendado: linha.recomendado,
       buyBoxWinner: linha.buyBoxWinner,
       permalink: linha.permalink,

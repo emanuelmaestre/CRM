@@ -1,0 +1,1 @@
+ALTER TABLE "ads_anuncio_snapshot" ADD COLUMN "anuncio_criado_em" timestamp with time zone;

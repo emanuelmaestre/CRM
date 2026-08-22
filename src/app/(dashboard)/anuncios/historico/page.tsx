@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import anunciosConfig from "@/config/anuncios.json";
 import { HistoricoClienteDetalhe } from "./historico-cliente";
 
@@ -15,10 +14,6 @@ export default function HistoricoDetalhePage() {
       >
         <ArrowLeft size={13} /> {anunciosConfig.historicoDetalhe.voltar}
       </Link>
-      <PageHeader
-        title={anunciosConfig.historicoDetalhe.title}
-        description={anunciosConfig.historicoDetalhe.description}
-      />
       <HistoricoClienteDetalhe />
     </div>
   );

@@ -38,12 +38,11 @@ export async function exportarAnunciosPDF(marca: VisaoGeralMarca, periodo: strin
   doc.text("Campanhas", margem, y);
   autoTable(doc, {
     startY: y + 4,
-    head: [["Campanha", "Status", "Criada em", "Investido", "Receita", "ROAS", "ACOS", "CTR", "CVR", "Imp. share", "Perda orçamento", "Perda ranking"]],
+    head: [["Campanha", "Status", "Criada em", "Investido", "Receita", "ROAS", "ACOS", "CTR", "CVR", "Imp. share"]],
     body: marca.campanhas.map((campanha) => [
       campanha.nome, campanha.status, campanha.criadaEm ? new Date(campanha.criadaEm).toLocaleDateString("pt-BR") : "Não informada", moeda.format(campanha.investimento), moeda.format(campanha.receita),
       campanha.roas?.toFixed(2) ?? "Sem dado", percentual(campanha.acos), percentual(campanha.ctr),
       percentual(campanha.cvr), percentual(campanha.impressionShare),
-      percentual(campanha.lostImpressionShareByBudget), percentual(campanha.lostImpressionShareByAdRank),
     ]),
     styles: { fontSize: 7.5, cellPadding: 2 },
     headStyles: { fillColor: [37, 99, 235], fontSize: 7.5 },

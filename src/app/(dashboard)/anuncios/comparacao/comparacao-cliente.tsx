@@ -10,7 +10,8 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "../actions";
-import { Card, rotuloComExplicacaoEmNegrito } from "../anuncios-primitives";
+import { SeletorCanalAnuncios } from "../anuncios-cliente";
+import { Card, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { ClassificacaoDependencia } from "@/modules/anuncios/application/metricas-calculadas";
 import type { VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
@@ -71,6 +72,13 @@ export function ComparacaoClienteDetalhe() {
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
+          <div>
+            <h1 className="text-base font-bold text-foreground">{copy.title}</h1>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">{copy.description}</p>
+          </div>
+          <SeletorCanalAnuncios totalCampanhas={marcasOrdenadas.reduce((soma, marca) => soma + marca.campanhas.length, 0)} />
+        </div>
         <div className="divide-y divide-border px-4 py-2 md:hidden">
           {marcasOrdenadas.map((marca) => {
             const dependencia = marca.resumo.dependenciaMidia.classificacao;
@@ -94,9 +102,22 @@ export function ComparacaoClienteDetalhe() {
           <table className="w-full min-w-[780px] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
-                {copy.colunas.map((coluna: string, indice: number) => (
-                  <th key={coluna} className={`px-3 py-2 ${indice > 0 ? "text-right" : ""}`}>{rotuloComExplicacaoEmNegrito(coluna)}</th>
-                ))}
+                <th className="whitespace-nowrap px-3 py-2">{copy.colunas[0]}</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">
+                  <RotuloComInfo descricao="Quanto cada marca gastou em mídia paga, nos dados de hoje.">{copy.colunas[1]}</RotuloComInfo>
+                </th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">
+                  <RotuloComInfo descricao="Faturamento atribuído aos anúncios de cada marca, nos dados de hoje. Não é lucro, pois ainda não desconta investimento, custo do produto, frete, taxas ou impostos.">{copy.colunas[2]}</RotuloComInfo>
+                </th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">
+                  <RotuloComInfo descricao="Receita atribuída dividida pelo investimento de cada marca. Quanto maior, mais retorno a mídia paga trouxe por real investido.">{copy.colunas[3]}</RotuloComInfo>
+                </th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">
+                  <RotuloComInfo descricao="Quanto das vendas de cada marca veio de anúncios, em relação ao total de vendas (pagas e orgânicas). Mostra o peso da mídia paga no resultado, não o retorno dela.">{copy.colunas[4]}</RotuloComInfo>
+                </th>
+                <th className="whitespace-nowrap px-3 py-2 text-right">
+                  <RotuloComInfo descricao="Classifica cada marca pelo quanto das vendas depende de mídia paga: Baixa (até 30%), Moderada (30% a 55%), Alta (55% a 75%) ou Crítica (acima de 75%). Dependência alta não é automaticamente ruim, uma marca nova sem histórico orgânico pode depender bastante de mídia e ainda estar saudável.">{copy.colunas[5]}</RotuloComInfo>
+                </th>
               </tr>
             </thead>
             <tbody>

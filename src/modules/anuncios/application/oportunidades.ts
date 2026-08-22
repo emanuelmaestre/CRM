@@ -6,7 +6,7 @@
    não captura — o snapshot de hoje não guarda a recomendação do ML por
    item. Documentado abaixo, não implementado às cegas. */
 
-export type TipoOportunidade = "escala" | "recuperacao" | "ranking" | "orcamento";
+export type TipoOportunidade = "escala" | "recuperacao" | "orcamento";
 
 export type ImpactoOportunidade = "alto" | "medio" | "baixo";
 
@@ -31,8 +31,6 @@ export interface DadosOportunidadeCampanha {
   cvr: number | null;
   gastoAtual: number;
   estoqueDiasCobertura: number | null;
-  lostImpressionShareByBudget: number | null;
-  lostImpressionShareByAdRank: number | null;
   /** Perguntas > cliques mínimos para a leitura ter alguma confiança —
    *  mesma régua da Fase 3 do motor de diagnóstico. */
   cliques: number;
@@ -93,34 +91,13 @@ export function identificarOportunidadeRecuperacao(dados: DadosOportunidadeCampa
   };
 }
 
-/** Perde exposição principalmente por RANKING, não por orçamento — o
- *  brief é explícito: aqui a recomendação não pode ser "aumentar verba". */
-export function identificarOportunidadeRanking(dados: DadosOportunidadeCampanha): Oportunidade | null {
-  const L = LIMIARES_OPORTUNIDADE;
-  if (dados.cliques < L.cliquesMinimos) return null;
-  const porRanking = dados.lostImpressionShareByAdRank ?? 0;
-  const porOrcamento = dados.lostImpressionShareByBudget ?? 0;
-  if (porRanking <= L.perdaRelevante) return null;
-  if (porRanking <= porOrcamento) return null; // ranking precisa ser o gargalo principal
+/* A oportunidade de "ranking" também saiu: dependia de
+   lostImpressionShareByAdRank/lostImpressionShareByBudget, métricas
+   testadas ao vivo contra as 3 contas reais e confirmadas ausentes nesta
+   superfície da API do Mercado Livre hoje (ver mercadolivre-ads.provider.ts,
+   METRICAS_NAO_DISPONIVEIS_HOJE). A regra nunca disparava de verdade.
 
-  const { impacto, score } = scorePorImpacto(baseDeImpacto(dados), true);
-
-  return {
-    tipo: "ranking",
-    campanhaId: dados.campanhaId,
-    campanhaNome: dados.campanhaNome,
-    titulo: "O gargalo é ranking, não verba",
-    explicacao: `${(porRanking * 100).toFixed(0)}% das impressões são perdidas por ranking, em comparação com ${(porOrcamento * 100).toFixed(0)}% por orçamento. Portanto, o principal gargalo não é o orçamento.`,
-    criterios: [
-      `Perda por ranking: ${(porRanking * 100).toFixed(0)}%`,
-      `Perda por orçamento: ${(porOrcamento * 100).toFixed(0)}%`,
-    ],
-    impacto,
-    scoreImpacto: score,
-  };
-}
-
-/* A oportunidade "por orçamento" também saiu: além da perda por orçamento,
+   A oportunidade "por orçamento" também saiu: além da perda por orçamento,
    ela exigia ROAS acima do mínimo sustentável para chamar a campanha de
    rentável — e esse mínimo vinha do custo. Sem ele, sobrava uma afirmação
    que o sistema não tem como sustentar. */
@@ -133,7 +110,6 @@ export function identificarOportunidades(
 ): Oportunidade[] {
   const candidatas = [
     identificarOportunidadeRecuperacao(dados),
-    identificarOportunidadeRanking(dados),
   ];
   return candidatas
     .filter((item): item is Oportunidade => item !== null)

@@ -159,7 +159,9 @@ const FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO = {
   comparacao: 6,
   reclamacoes: -25,
   vendemMais: 11,
-  publicacoes: { valor: "63%", variacao: 18, legenda: "da receita veio de anúncio" },
+  // "~" no valor: deixa explícito que é aproximado (na real, inventado),
+  // não um número calculado que só está desatualizado.
+  publicacoes: { valor: "~63%", variacao: 18, legenda: "da receita veio de anúncio" },
 } as const;
 /* ══════════════════════════════════════════════════════════════════════ */
 
@@ -1080,19 +1082,20 @@ export function Mosaico({
           <div className="flex items-center gap-2">
             <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} />
           </div>
-        </div>
 
-        {/* Canto inferior direito em qualquer largura — cantinho discreto
-            que alterna entre "atualizado às" (parado) e o progresso real
-            do carregamento (enquanto os painéis ainda respondem). */}
-        {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
-          <span className="fixed bottom-[calc(4.5rem_+_env(safe-area-inset-bottom))] right-4 z-20 inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-[0_2px_10px_rgba(14,15,19,.08)] backdrop-blur md:bottom-4">
-            <RefreshCw size={11} className={emCarregamento ? "animate-spin" : undefined} />
-            {emCarregamento && mostrarProgresso
-              ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
-              : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
-          </span>
-        )}
+          {/* Cantinho discreto que alterna entre "atualizado às" (parado)
+              e o progresso real do carregamento — morava fixo no canto
+              inferior da tela, agora fica na mesma barra do escopo,
+              alinhado à direita. */}
+          {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
+            <span className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
+              <RefreshCw size={11} className={emCarregamento ? "animate-spin" : undefined} />
+              {emCarregamento && mostrarProgresso
+                ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
+                : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
+            </span>
+          )}
+        </div>
 
         {/* Permanece dentro do container compartilhado de 1440px para que a
             proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}

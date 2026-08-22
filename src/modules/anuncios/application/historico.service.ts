@@ -1,4 +1,4 @@
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsCampanhaSnapshot } from "@/shared/lib/db/schema";
 
@@ -27,17 +27,27 @@ function paraNumero(valor: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** Últimos `dias` de snapshot da marca, um ponto agregado por data,
+/** Snapshot da marca no intervalo pedido, um ponto agregado por data,
  *  ordenado do mais antigo para o mais novo (ordem natural de leitura de
- *  um gráfico de tendência). */
+ *  um gráfico de tendência). `inicio`/`fim` (um calendário de verdade)
+ *  substituem os antigos botões fixos de "7/30/90 dias" — quando ausentes,
+ *  cai no comportamento antigo de olhar pra trás `dias` dias a partir de
+ *  hoje, pra não quebrar quem ainda chama sem intervalo explícito. */
 export async function obterHistoricoDaMarca(
   ctx: CrudContext,
-  opcoes: { brandId: string; dias?: number },
+  opcoes: { brandId: string; dias?: number; inicio?: string; fim?: string },
 ): Promise<PontoHistorico[]> {
-  const dias = opcoes.dias ?? 30;
-  const dataLimite = new Date();
-  dataLimite.setDate(dataLimite.getDate() - dias);
-  const dataLimiteStr = dataLimite.toISOString().slice(0, 10);
+  let dataInicioStr: string;
+  const dataFimStr = opcoes.fim ?? new Date().toISOString().slice(0, 10);
+
+  if (opcoes.inicio) {
+    dataInicioStr = opcoes.inicio;
+  } else {
+    const dias = opcoes.dias ?? 30;
+    const dataLimite = new Date();
+    dataLimite.setDate(dataLimite.getDate() - dias);
+    dataInicioStr = dataLimite.toISOString().slice(0, 10);
+  }
 
   const linhas = await ctx.db
     .select({
@@ -52,7 +62,8 @@ export async function obterHistoricoDaMarca(
     .where(and(
       eq(adsCampanhaSnapshot.orgId, ctx.orgId),
       eq(adsCampanhaSnapshot.brandId, opcoes.brandId),
-      gte(adsCampanhaSnapshot.data, dataLimiteStr),
+      gte(adsCampanhaSnapshot.data, dataInicioStr),
+      lte(adsCampanhaSnapshot.data, dataFimStr),
     ))
     .orderBy(asc(adsCampanhaSnapshot.data));
 

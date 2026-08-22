@@ -104,7 +104,7 @@ const BRAND_SLUG_REAL: Record<string, string> = {
  *  com identidade: usa o gradiente do PRODUTO, que é justamente o que a
  *  regra de uso restrito reserva pra este lugar. */
 const SUPERFICIES_HERO: { id: string; label: string; fundo: string }[] = [
-  { id: "grafite", label: "Grafite", fundo: "#171A22" },
+  { id: "grafite", label: "Grafite", fundo: "#3B3F46" },
   { id: "tinta", label: "Azul-tinta", fundo: "#101828" },
   { id: "assinatura", label: "Assinatura", fundo: "linear-gradient(135deg, #2A1622 0%, #17121D 42%, #14131F 100%)" },
   { id: "preto", label: "Preto", fundo: "#15171C" },
@@ -213,7 +213,7 @@ function Anel({ pct, cor, centro, legenda }: { pct: number; cor: string; centro:
       </svg>
       <div className="absolute grid place-items-center leading-none">
         <span className="sd-num text-[14px] font-bold">{centro}</span>
-        {legenda && <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: "var(--sd-sub)" }}>{legenda}</span>}
+        {legenda && <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: "var(--sd-sub)" }}>{legenda}</span>}
       </div>
     </div>
   );
@@ -384,7 +384,7 @@ const CARDS: CardDef[] = [
   },
   {
     id: "publicacoes", secao: "Marketing", titulo: "Publicações", icone: Megaphone, tom: "var(--sd-wuwu)",
-    metrica: "63%", legenda: "da receita veio de anúncio", delta: 18,
+    metrica: "63%", legenda: "da receita veio de anúncio", delta: 18, status: true,
     preview: <Anel pct={63} cor="var(--sd-wuwu)" centro="63%" legenda="pago" />,
   },
 ];
@@ -762,7 +762,15 @@ function Card({ card, estado, onAbrir, reduzir, pct }: { card: CardDef; estado: 
           <div className="mt-1.5"><Delta valor={card.delta} subirEhRuim={card.subirEhRuim} /></div>
           <p className="mt-1 truncate text-[11.5px]" style={{ color: "var(--sd-sub)" }}>{card.legenda}</p>
         </div>
-        <div className="shrink-0">{card.preview}</div>
+        <div className="shrink-0">
+          {card.preview}
+          {/* A linha decorativa sozinha não diz se está subindo ou caindo
+           *  sem olhar com atenção — uma palavra em negrito embaixo tira
+           *  a ambiguidade sem precisar de legenda longa. */}
+          {card.id === "giroBaixo" && (
+            <p className="mt-1 text-right text-[10px] font-bold" style={{ color: "var(--sd-warn)" }}>Caindo</p>
+          )}
+        </div>
       </div>
 
       {(card.chips || card.status) && (

@@ -6,11 +6,12 @@ import { toast } from "sonner";
 import { CircleAlert, LineChart } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
+import { CalendarioPopoverRange, type RangeDatas } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterHistoricoDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
-import { SeletorMarca } from "../anuncios-cliente";
-import { Card, CardHead, rotuloComExplicacaoEmNegrito } from "../anuncios-primitives";
+import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
+import { Card, CardHead, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { PontoHistorico } from "@/modules/anuncios/application/historico.service";
 import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
@@ -18,9 +19,18 @@ import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral
 const copy = anunciosConfig.historicoDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const diaMes = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
+const dataCompleta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-const PERIODOS = [7, 30, 90] as const;
-type PeriodoHistorico = (typeof PERIODOS)[number];
+function hojeISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function periodoPadrao(): RangeDatas {
+  const fim = new Date();
+  const inicio = new Date();
+  inicio.setDate(inicio.getDate() - 30);
+  return { inicio: inicio.toISOString().slice(0, 10), fim: fim.toISOString().slice(0, 10) };
+}
 
 function Esqueleto() {
   return (
@@ -78,20 +88,21 @@ function GraficoLinha({ pontos, cor, largura = 640, altura = 140 }: {
   );
 }
 
-function avisoUmPonto(ponto: PontoHistorico, dias: PeriodoHistorico) {
-  const periodo = copy.periodos[String(dias) as "7" | "30" | "90"];
-  return `Só existe 1 dia de dado sincronizado neste filtro (${diaMes.format(new Date(`${ponto.data}T00:00:00`))}), embora o período escolhido seja ${periodo}. A tendência aparece quando houver pelo menos 2 dias sincronizados.`;
+function avisoUmPonto(ponto: PontoHistorico, periodo: RangeDatas) {
+  const inicioFmt = dataCompleta.format(new Date(`${periodo.inicio}T00:00:00`));
+  const fimFmt = dataCompleta.format(new Date(`${periodo.fim}T00:00:00`));
+  return `Só existe 1 dia de dado sincronizado neste filtro (${dataCompleta.format(new Date(`${ponto.data}T00:00:00`))}), embora o período escolhido vá de ${inicioFmt} a ${fimFmt}. A tendência aparece quando houver pelo menos 2 dias sincronizados.`;
 }
 
-function GraficoHistorico({ pontos, dias }: { pontos: PontoHistorico[]; dias: PeriodoHistorico }) {
+function GraficoHistorico({ pontos, periodo }: { pontos: PontoHistorico[]; periodo: RangeDatas }) {
   const investimento = pontos.map((p, i) => ({ x: i, y: p.investimento }));
   const receita = pontos.map((p, i) => ({ x: i, y: p.receita }));
-  const aviso = pontos.length === 1 ? avisoUmPonto(pontos[0], dias) : null;
+  const aviso = pontos.length === 1 ? avisoUmPonto(pontos[0], periodo) : null;
 
   return (
     <Card>
-      <CardHead title={copy.title} icon={LineChart} accent="var(--acento-2)" />
-      <div className="px-4 pb-4 sm:px-5">
+      <CardHead title={copy.title} subtitle={copy.description} icon={LineChart} accent="var(--acento-2)" />
+      <div className="px-4 pb-4 pt-4 sm:px-5">
         <div className="mb-2 flex items-center gap-4 text-[11px] font-medium text-muted-foreground">
           <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-info" /> {copy.grafico.investimento}</span>
           <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" /> {copy.grafico.receita}</span>
@@ -124,7 +135,7 @@ export function HistoricoClienteDetalhe() {
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
   const [pontos, setPontos] = useState<PontoHistorico[] | null>(null);
   const [pontosBrandId, setPontosBrandId] = useState<string | null>(null);
-  const [dias, setDias] = useState<PeriodoHistorico>(30);
+  const [periodo, setPeriodo] = useState<RangeDatas>(periodoPadrao);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
@@ -141,15 +152,16 @@ export function HistoricoClienteDetalhe() {
   }, []);
 
   useEffect(() => {
-    if (!marcaAtiva) return;
+    if (!marcaAtiva || !periodo.inicio || !periodo.fim) return;
+    const chave = `${marcaAtiva}:${periodo.inicio}:${periodo.fim}`;
     let ativo = true;
-    actionObterHistoricoDaMarca({ brandId: marcaAtiva, dias })
-      .then((resultado) => { if (ativo) { setPontos(resultado); setPontosBrandId(`${marcaAtiva}:${dias}`); } })
-      .catch(() => { if (ativo) { toast.error(anunciosConfig.erros.carregar); setPontosBrandId(`${marcaAtiva}:${dias}`); } });
+    actionObterHistoricoDaMarca({ brandId: marcaAtiva, inicio: periodo.inicio, fim: periodo.fim })
+      .then((resultado) => { if (ativo) { setPontos(resultado); setPontosBrandId(chave); } })
+      .catch(() => { if (ativo) { toast.error(anunciosConfig.erros.carregar); setPontosBrandId(chave); } });
     return () => { ativo = false; };
-  }, [marcaAtiva, dias]);
+  }, [marcaAtiva, periodo]);
 
-  const carregandoPontos = marcaAtiva !== null && pontosBrandId !== `${marcaAtiva}:${dias}`;
+  const carregandoPontos = marcaAtiva !== null && pontosBrandId !== `${marcaAtiva}:${periodo.inicio}:${periodo.fim}`;
 
   if (carregando) return <Esqueleto />;
 
@@ -167,23 +179,9 @@ export function HistoricoClienteDetalhe() {
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
         <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
+        <SeletorCanalAnuncios totalCampanhas={marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
         <span className="h-px flex-1 bg-border" />
-        <div className="flex gap-1">
-          {PERIODOS.map((periodo) => (
-            <button
-              key={periodo}
-              type="button"
-              onClick={() => setDias(periodo)}
-              className="press-feedback min-h-11 rounded-full px-3 text-xs font-semibold transition-colors"
-              style={{
-                background: dias === periodo ? "var(--foreground)" : "var(--muted)",
-                color: dias === periodo ? "var(--background)" : "var(--muted-foreground)",
-              }}
-            >
-              {copy.periodos[String(periodo) as "7" | "30" | "90"]}
-            </button>
-          ))}
-        </div>
+        <CalendarioPopoverRange rotulo="Período" valor={periodo} max={hojeISO()} onChange={setPeriodo} />
       </div>
 
       {carregandoPontos || !pontos ? (
@@ -194,14 +192,14 @@ export function HistoricoClienteDetalhe() {
         </div>
       ) : (
         <>
-          <GraficoHistorico pontos={pontos} dias={dias} />
+          <GraficoHistorico pontos={pontos} periodo={periodo} />
 
           <Card>
             <div className="divide-y divide-border px-4 py-2 md:hidden">
               {[...pontos].reverse().map((ponto) => (
                 <article key={ponto.data} className="py-4">
                   <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-semibold text-foreground">{diaMes.format(new Date(`${ponto.data}T00:00:00`))}</h4>
+                    <h4 className="text-sm font-semibold text-foreground">{dataCompleta.format(new Date(`${ponto.data}T00:00:00`))}</h4>
                     <Roas valor={ponto.roas} />
                   </div>
                   <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -214,18 +212,33 @@ export function HistoricoClienteDetalhe() {
               ))}
             </div>
             <div className="table-scroll hidden px-1 pb-5 pt-3 md:block sm:px-2">
-              <table className="w-full min-w-[560px] text-sm">
+              <table className="w-full min-w-[720px] text-sm">
                 <thead>
                   <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
-                    {copy.colunas.map((coluna: string, indice: number) => (
-                      <th key={coluna} className={`px-3 py-2 ${indice > 0 ? "text-right" : ""}`}>{rotuloComExplicacaoEmNegrito(coluna)}</th>
-                    ))}
+                    <th className="whitespace-nowrap px-3 py-2">
+                      <RotuloComInfo descricao="O dia a que os números desta linha se referem, dentro do período escolhido. Não é a data de criação de nada, é o dia da sincronização que gerou este ponto do histórico.">{copy.colunas[0]}</RotuloComInfo>
+                    </th>
+                    <th className="whitespace-nowrap px-3 py-2 text-right">
+                      <RotuloComInfo descricao="Quanto a marca gastou em mídia paga nesse dia.">{copy.colunas[1]}</RotuloComInfo>
+                    </th>
+                    <th className="whitespace-nowrap px-3 py-2 text-right">
+                      <RotuloComInfo descricao="Faturamento atribuído aos anúncios da marca nesse dia. Não é lucro, pois ainda não desconta investimento, custo do produto, frete, taxas ou impostos.">{copy.colunas[2]}</RotuloComInfo>
+                    </th>
+                    <th className="whitespace-nowrap px-3 py-2 text-right">
+                      <RotuloComInfo descricao="Receita atribuída dividida pelo investimento nesse dia. Ajuda a comparar retorno entre dias, mas não é margem nem lucro.">{copy.colunas[3]}</RotuloComInfo>
+                    </th>
+                    <th className="whitespace-nowrap px-3 py-2 text-right">
+                      <RotuloComInfo descricao="Vezes que clicaram nos anúncios da marca nesse dia.">{copy.colunas[4]}</RotuloComInfo>
+                    </th>
+                    <th className="whitespace-nowrap px-3 py-2 text-right">
+                      <RotuloComInfo descricao="Vendas que vieram de anúncios pagos nesse dia. Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).">{copy.colunas[5]}</RotuloComInfo>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {[...pontos].reverse().map((ponto, indice, arr) => (
                     <tr key={ponto.data} className={indice < arr.length - 1 ? "border-b border-border" : ""}>
-                      <td className="px-3 py-2.5 font-medium text-foreground">{diaMes.format(new Date(`${ponto.data}T00:00:00`))}</td>
+                      <td className="px-3 py-2.5 font-medium text-foreground">{dataCompleta.format(new Date(`${ponto.data}T00:00:00`))}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(ponto.investimento)}</td>
                       <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(ponto.receita)}</td>
                       <td className="px-3 py-2.5 text-right font-semibold">

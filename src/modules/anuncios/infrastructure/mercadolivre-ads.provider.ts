@@ -113,6 +113,10 @@ export interface MLAnuncio {
   domainId: string | null;
   permalink: string | null;
   thumbnail: string | null;
+  /** Confirmado ao vivo em `product_ads/ads/search` (ver
+   *  scripts/inspecionar-anuncio-ml.mjs) — mesma data que a API core
+   *  `/items/{id}` devolve para o mesmo item_id. */
+  dateCreated: string | null;
   metricas: MLMetricasBrutas;
 }
 
@@ -162,6 +166,7 @@ interface MLAnuncioRaw {
   domain_id?: string | null;
   permalink?: string | null;
   thumbnail?: string | null;
+  date_created?: string | null;
   metrics?: MLMetricasBrutas;
 }
 
@@ -196,6 +201,7 @@ function normalizarAnuncio(bruta: MLAnuncioRaw): MLAnuncio {
     domainId: bruta.domain_id ?? null,
     permalink: bruta.permalink ?? null,
     thumbnail: bruta.thumbnail ?? null,
+    dateCreated: bruta.date_created ?? null,
     metricas: bruta.metrics ?? {},
   };
 }

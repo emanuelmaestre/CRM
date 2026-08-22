@@ -119,6 +119,10 @@ export const adsAnuncioSnapshot = pgTable("ads_anuncio_snapshot", {
   titulo: text("titulo"),
   status: text("status"),
   preco: numeric("preco", { precision: 12, scale: 2 }),
+  /** Confirmado ao vivo em product_ads/ads/search (mesma chave devolvida
+   *  pela API core /items/{id}) — data de criação do anúncio (item), não
+   *  da campanha. Ver scripts/inspecionar-anuncio-ml.mjs. */
+  anuncioCriadoEm: timestamp("anuncio_criado_em", { withTimezone: true }),
   /** Sinal real do Mercado Livre — alimenta a "Oportunidade de Produto"
    *  do Radar (Fase 3): produto que o ML recomenda anunciar. */
   recomendado: boolean("recomendado"),

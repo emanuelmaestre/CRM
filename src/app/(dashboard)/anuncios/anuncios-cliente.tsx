@@ -321,7 +321,7 @@ const CANAIS_ANUNCIOS = ["mercadolivre", "shopee", "tiktokshop"] as const;
  *  deixar claro que a tela é sobre canais de venda (mesma leitura de
  *  Vendas/Estoque), mas Shopee/TikTok ficam travados como "ainda não
  *  disponível" em vez de fingir que dá pra filtrar por eles. */
-function SeletorCanalAnuncios({ totalCampanhas }: { totalCampanhas: number }) {
+export function SeletorCanalAnuncios({ totalCampanhas }: { totalCampanhas: number }) {
   const reduzir = useReducedMotion();
   return (
     <div className="flex flex-wrap gap-1.5">

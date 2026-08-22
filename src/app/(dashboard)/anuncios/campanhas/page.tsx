@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import anunciosConfig from "@/config/anuncios.json";
 import { CampanhasClienteDetalhe } from "./campanhas-cliente";
 
@@ -15,10 +14,6 @@ export default function CampanhasDetalhePage() {
       >
         <ArrowLeft size={13} /> {anunciosConfig.campanhasDetalhe.voltar}
       </Link>
-      <PageHeader
-        title={anunciosConfig.campanhasDetalhe.title}
-        description={anunciosConfig.campanhasDetalhe.description}
-      />
       <CampanhasClienteDetalhe />
     </div>
   );

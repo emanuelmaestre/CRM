@@ -470,8 +470,12 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                     </span>
                   )}
                 </span>
+                {/* `self-center`, não o `items-end` da linha: a fileira é
+                    alinhada pela base pro número/legenda ficarem colados
+                    embaixo, mas isso empurrava o gráfico junto — ele fica
+                    melhor centralizado na própria altura. */}
                 {tam.comPreview && def.preview && (
-                  <span className="hidden shrink-0 overflow-hidden lg:block">{def.preview}</span>
+                  <span className="hidden shrink-0 self-center overflow-hidden lg:block">{def.preview}</span>
                 )}
               </span>
 

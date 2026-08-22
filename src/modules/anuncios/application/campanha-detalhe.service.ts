@@ -14,6 +14,9 @@ export interface AnuncioDaCampanha {
   titulo: string | null;
   status: string | null;
   preco: number | null;
+  /** Data de criação do anúncio (item) no Mercado Livre — confirmado ao
+   *  vivo em product_ads/ads/search (ver mercadolivre-ads.provider.ts). */
+  criadoEm: string | null;
   recomendado: boolean | null;
   permalink: string | null;
   thumbnail: string | null;
@@ -77,6 +80,7 @@ export async function obterAnunciosDaCampanha(
       titulo: linha.titulo,
       status: linha.status,
       preco: paraNumeroOuNull(linha.preco),
+      criadoEm: linha.anuncioCriadoEm?.toISOString() ?? null,
       recomendado: linha.recomendado,
       permalink: linha.permalink,
       thumbnail: linha.thumbnail,

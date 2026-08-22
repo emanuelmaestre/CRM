@@ -152,6 +152,7 @@ function valoresAnuncio(
     titulo: anuncio.title,
     status: anuncio.status,
     preco: anuncio.price !== null ? String(anuncio.price) : null,
+    anuncioCriadoEm: anuncio.dateCreated ? new Date(anuncio.dateCreated) : null,
     recomendado: anuncio.recommended,
     buyBoxWinner: anuncio.buyBoxWinner,
     logisticType: anuncio.logisticType,

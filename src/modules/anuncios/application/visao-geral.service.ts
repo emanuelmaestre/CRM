@@ -41,10 +41,6 @@ export interface CampanhaVisaoGeral {
   receitaOrganica: number;
   sov: number | null;
   impressionShare: number | null;
-  topImpressionShare: number | null;
-  lostImpressionShareByBudget: number | null;
-  lostImpressionShareByAdRank: number | null;
-  acosBenchmark: number | null;
   diagnosticos: Diagnostico[];
   oportunidades: Oportunidade[];
 }
@@ -296,7 +292,6 @@ export async function obterVisaoGeral(
         cvr,
         cpcAtual: paraNumeroOuNull(linha.cpc), cpcAnterior: null, cvrAnterior: null,
         roasAtual: roas,
-        lostImpressionShareByBudget: null, lostImpressionShareByAdRank: null,
         estoqueDiasCobertura: null,
       });
 
@@ -306,7 +301,6 @@ export async function obterVisaoGeral(
         roasAtual: roas, roasAnterior: null,
         cvr, gastoAtual: investimento,
         estoqueDiasCobertura: null,
-        lostImpressionShareByBudget: null, lostImpressionShareByAdRank: null,
         cliques,
       });
 
@@ -326,10 +320,6 @@ export async function obterVisaoGeral(
         receitaOrganica: paraNumero(linha.organicUnitsAmount),
         sov: paraNumeroOuNull(linha.sov),
         impressionShare: paraNumeroOuNull(linha.impressionShare),
-        topImpressionShare: paraNumeroOuNull(linha.topImpressionShare),
-        lostImpressionShareByBudget: paraNumeroOuNull(linha.lostImpressionShareByBudget),
-        lostImpressionShareByAdRank: paraNumeroOuNull(linha.lostImpressionShareByAdRank),
-        acosBenchmark: paraNumeroOuNull(linha.acosBenchmark),
         diagnosticos, oportunidades,
       };
     });

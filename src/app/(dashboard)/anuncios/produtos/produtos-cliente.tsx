@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { AlertTriangle, RefreshCw, Sparkles, Trophy } from "lucide-react";
+import { AlertTriangle, Package, RefreshCw, Sparkles, Trophy } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterProdutosDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
-import { SeletorMarca } from "../anuncios-cliente";
-import { Card, CardHead, rotuloComExplicacaoEmNegrito } from "../anuncios-primitives";
+import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
+import { Card, CardHead, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { AnuncioProduto, ProdutosResultado } from "@/modules/anuncios/application/produtos.service";
 import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
@@ -18,6 +18,7 @@ import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral
 const copy = anunciosConfig.produtosDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 type Filtro = "todos" | "recomendados" | "desperdicio";
 const FILTROS = ["todos", "recomendados", "desperdicio"] as const satisfies readonly Filtro[];
@@ -94,32 +95,7 @@ export function ProdutosClienteDetalhe() {
           estreitas, só não força a quebra quando cabe tudo junto. */}
       <div className="flex flex-wrap items-center gap-3">
         <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
-        {/* Separador entre os dois grupos — sem ele, marca e filtro de
-            recomendação (que não têm nada a ver um com o outro) ficavam
-            grudados na mesma fileira, parecendo um grupo só. */}
-        <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
-        <div className="flex flex-wrap gap-1.5">
-          {FILTROS.map((item) => {
-            const ativo = item === filtro;
-            return (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setFiltro(item)}
-                className="press-feedback rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
-                style={{
-                  // var(--selecionado) é o acento de "isto está escolhido" usado
-                  // no resto do app (Estoque, Vendas, halo de seleção) — preto
-                  // puro (--foreground) não seguia esse padrão do design system.
-                  background: ativo ? "var(--selecionado)" : "var(--muted)",
-                  color: ativo ? "#fff" : "var(--muted-foreground)",
-                }}
-              >
-                {copy.filtros[item]}
-              </button>
-            );
-          })}
-        </div>
+        <SeletorCanalAnuncios totalCampanhas={marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
         <span className="h-px min-w-4 flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
@@ -139,6 +115,36 @@ export function ProdutosClienteDetalhe() {
       )}
 
       <Card>
+        <CardHead
+          title={copy.title}
+          subtitle={copy.description}
+          icon={Package}
+          accent="var(--acento-2)"
+          trailing={(
+            <div className="flex flex-wrap gap-1.5">
+              {FILTROS.map((item) => {
+                const ativo = item === filtro;
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setFiltro(item)}
+                    className="press-feedback rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+                    style={{
+                      // var(--selecionado) é o acento de "isto está escolhido" usado
+                      // no resto do app (Estoque, Vendas, halo de seleção) — preto
+                      // puro (--foreground) não seguia esse padrão do design system.
+                      background: ativo ? "var(--selecionado)" : "var(--muted)",
+                      color: ativo ? "#fff" : "var(--muted-foreground)",
+                    }}
+                  >
+                    {copy.filtros[item]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        />
         {carregandoProdutos ? (
           <div className="p-5"><Skeleton className="h-64 w-full" /></div>
         ) : anunciosFiltrados.length === 0 ? (
@@ -175,11 +181,12 @@ export function ProdutosClienteDetalhe() {
                   </div>
                 </div>
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                  <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.receita)}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={anuncio.roas} /></dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">Cliques</dt><dd className="mt-0.5 tabular-nums">{anuncio.cliques.toLocaleString("pt-BR")}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Criado em</dt><dd className="mt-0.5 font-medium tabular-nums">{anuncio.criadoEm ? dataCurta.format(new Date(anuncio.criadoEm)) : "Não informada"}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.receita)}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={anuncio.roas} /></dd></div>
+                  <div><dt className="text-xs text-muted-foreground">Cliques</dt><dd className="mt-0.5 tabular-nums">{anuncio.cliques.toLocaleString("pt-BR")}</dd></div>
+                  <div className="text-right"><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
                 </dl>
               </article>
             ))}
@@ -188,9 +195,26 @@ export function ProdutosClienteDetalhe() {
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
-                  {copy.colunas.map((coluna: string, indice: number) => (
-                    <th key={coluna} className={`px-3 py-2 ${indice > 1 ? "text-right" : ""}`}>{rotuloComExplicacaoEmNegrito(coluna)}</th>
-                  ))}
+                  <th className="whitespace-nowrap px-3 py-2">{copy.colunas[0]}</th>
+                  <th className="whitespace-nowrap px-3 py-2">{copy.colunas[1]}</th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right">
+                    <RotuloComInfo descricao="Data em que o anúncio (item) foi criado no Mercado Livre. Não é a data em que ele entrou nesta campanha, é a origem do anúncio em si.">{copy.colunas[2]}</RotuloComInfo>
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right">
+                    <RotuloComInfo descricao="Quanto foi gasto em mídia com este anúncio, nos dados de hoje.">{copy.colunas[3]}</RotuloComInfo>
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right">
+                    <RotuloComInfo descricao="Faturamento atribuído a este anúncio hoje. Não é lucro, pois ainda não desconta investimento, custo do produto, frete, taxas ou impostos.">{copy.colunas[4]}</RotuloComInfo>
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right">
+                    <RotuloComInfo descricao="Receita deste anúncio dividida pelo investimento nele. Ajuda a comparar retorno entre anúncios, mas não é margem nem lucro.">{copy.colunas[5]}</RotuloComInfo>
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right">
+                    <RotuloComInfo descricao="Vezes que clicaram neste anúncio hoje.">{copy.colunas[6]}</RotuloComInfo>
+                  </th>
+                  <th className="whitespace-nowrap px-3 py-2 text-right">
+                    <RotuloComInfo descricao="Vendas que vieram deste anúncio pago hoje. Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).">{copy.colunas[7]}</RotuloComInfo>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -211,6 +235,7 @@ export function ProdutosClienteDetalhe() {
                       </div>
                     </td>
                     <td className="max-w-[180px] truncate px-3 py-2.5 text-muted-foreground">{anuncio.campanhaNome}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{anuncio.criadoEm ? dataCurta.format(new Date(anuncio.criadoEm)) : "Não informada"}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(anuncio.investimento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(anuncio.receita)}</td>
                     <td className="px-3 py-2.5 text-right font-semibold">

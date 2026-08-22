@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   identificarOportunidades,
-  identificarOportunidadeRanking,
   identificarOportunidadeRecuperacao,
   type DadosOportunidadeCampanha,
 } from "@/modules/anuncios/application/oportunidades";
@@ -15,8 +14,6 @@ function base(parcial: Partial<DadosOportunidadeCampanha>): DadosOportunidadeCam
     cvr: null,
     gastoAtual: 0,
     estoqueDiasCobertura: null,
-    lostImpressionShareByBudget: null,
-    lostImpressionShareByAdRank: null,
     cliques: 50, // acima do mínimo por padrão; testes de amostra sobrescrevem
     ...parcial,
   };
@@ -25,7 +22,12 @@ function base(parcial: Partial<DadosOportunidadeCampanha>): DadosOportunidadeCam
 /* "Escala" e "Por orçamento" saíram — as duas exigiam `roasMinimo` (o
    break-even, calculado a partir do custo do produto) para chamar a
    campanha de "rentável". O custo nunca existiu no schema, então nenhuma
-   das duas jamais disparou em produção. */
+   das duas jamais disparou em produção.
+
+   "Ranking" também saiu: dependia de lostImpressionShareByAdRank/
+   lostImpressionShareByBudget, testadas ao vivo contra as 3 contas reais
+   e confirmadas ausentes na API do Mercado Livre hoje (ver
+   mercadolivre-ads.provider.ts) — nunca disparava de verdade. */
 
 describe("Radar de Oportunidades", () => {
   it("identifica recuperação quando o ROAS caiu de forma relevante", () => {
@@ -36,22 +38,6 @@ describe("Radar de Oportunidades", () => {
 
   it("não identifica recuperação numa queda pequena (ruído normal)", () => {
     const oportunidade = identificarOportunidadeRecuperacao(base({ roasAnterior: 5.0, roasAtual: 4.7 }));
-    expect(oportunidade).toBeNull();
-  });
-
-  it("identifica gargalo de ranking só quando ranking supera orçamento como causa", () => {
-    const oportunidade = identificarOportunidadeRanking(base({
-      lostImpressionShareByAdRank: 0.3, lostImpressionShareByBudget: 0.1,
-    }));
-    expect(oportunidade?.tipo).toBe("ranking");
-    // A recomendação nunca pode ser sobre orçamento aqui.
-    expect(oportunidade?.explicacao.toLowerCase()).not.toContain("aumentar orçamento");
-  });
-
-  it("não confunde ranking com orçamento quando orçamento é a causa maior", () => {
-    const oportunidade = identificarOportunidadeRanking(base({
-      lostImpressionShareByAdRank: 0.2, lostImpressionShareByBudget: 0.35,
-    }));
     expect(oportunidade).toBeNull();
   });
 

@@ -12,7 +12,6 @@
 export type TipoSinalDiagnostico =
   | "impressoes_altas_cliques_baixos"
   | "cliques_altos_vendas_baixas"
-  | "conversao_boa_exposicao_baixa"
   | "roas_bom_perda_orcamento"
   | "roas_ruim_perda_orcamento"
   | "roas_bom_estoque_baixo"
@@ -46,9 +45,6 @@ export interface DadosDiagnosticoCampanha {
   cpcAnterior: number | null;
   cvrAnterior: number | null;
   roasAtual: number | null;
-  /** Frações 0–1, direto do Mercado Livre. */
-  lostImpressionShareByBudget: number | null;
-  lostImpressionShareByAdRank: number | null;
   /** Dias de estoque no ritmo de venda atual — mesmo conceito já usado no
    *  Painel (ver dashboard.service.ts `coberturaDias`). */
   estoqueDiasCobertura: number | null;
@@ -64,7 +60,6 @@ export const LIMIARES_DIAGNOSTICO = {
   ctrBaixo: 0.005,
   cvrBaixo: 0.01,
   cvrBom: 0.03,
-  exposicaoAindaComEspaco: 0.3, // soma de perda por orçamento + ranking
   perdaOrcamentoRelevante: 0.15,
   estoqueDiasBaixo: 15,
   variacaoCpcRelevante: 0.15,
@@ -109,20 +104,14 @@ export function diagnosticarCampanha(dados: DadosDiagnosticoCampanha): Diagnosti
     });
   }
 
-  // 3. Boa conversão, ainda com espaço de exposição — oportunidade de crescer.
-  const exposicaoNaoCapturada = (dados.lostImpressionShareByBudget ?? 0) + (dados.lostImpressionShareByAdRank ?? 0);
-  if (dados.cvr !== null && dados.cvr >= L.cvrBom && exposicaoNaoCapturada > L.exposicaoAindaComEspaco) {
-    achados.push({
-      tipo: "conversao_boa_exposicao_baixa",
-      severidade: "oportunidade",
-      titulo: "Boa conversão com espaço para crescer",
-      explicacao: `CVR de ${(dados.cvr * 100).toFixed(2)}% (acima do que costuma converter bem) enquanto ${(exposicaoNaoCapturada * 100).toFixed(0)}% das impressões possíveis ainda não são capturadas.`,
-      causasPossiveis: ["Orçamento limitando a exposição", "Ranking do anúncio abaixo do que a qualidade permitiria"],
-      acaoRecomendada: "Avaliar o aumento do orçamento e a melhoria do ranking, pois o produto já demonstra capacidade de conversão.",
-    });
-  }
+  /* A regra "Boa conversão com espaço para crescer" também saiu daqui:
+     dependia de lostImpressionShareByBudget/lostImpressionShareByAdRank,
+     testadas ao vivo contra as 3 contas reais e confirmadas ausentes
+     nesta superfície da API do Mercado Livre hoje (ver
+     mercadolivre-ads.provider.ts, METRICAS_NAO_DISPONIVEIS_HOJE) — nunca
+     disparava de verdade.
 
-  /* Três regras que existiam aqui — "Rentável e limitada por orçamento",
+     Três regras que existiam aqui — "Rentável e limitada por orçamento",
      "Perda por orçamento, mas a campanha já não é rentável" e "Rentável,
      mas o estoque não aguenta escalar" — saíram junto com o break-even.
      As três abriam com `roasMinimo !== null`, e esse mínimo vinha do custo

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import anunciosConfig from "@/config/anuncios.json";
 import { ComparacaoClienteDetalhe } from "./comparacao-cliente";
 
@@ -15,10 +14,6 @@ export default function ComparacaoDetalhePage() {
       >
         <ArrowLeft size={13} /> {anunciosConfig.comparacaoDetalhe.voltar}
       </Link>
-      <PageHeader
-        title={anunciosConfig.comparacaoDetalhe.title}
-        description={anunciosConfig.comparacaoDetalhe.description}
-      />
       <ComparacaoClienteDetalhe />
     </div>
   );

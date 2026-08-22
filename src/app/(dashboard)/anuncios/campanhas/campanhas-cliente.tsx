@@ -9,8 +9,8 @@ import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { springs, stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterAnunciosDaCampanha, actionObterVisaoGeralAnuncios } from "../actions";
-import { SeletorMarca } from "../anuncios-cliente";
-import { Card, rotuloComExplicacaoEmNegrito } from "../anuncios-primitives";
+import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
+import { Card, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { AnuncioDaCampanha } from "@/modules/anuncios/application/campanha-detalhe.service";
 import type { CampanhaVisaoGeral, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
@@ -20,6 +20,7 @@ import { tint } from "@/shared/design-system/color";
 const copy = anunciosConfig.campanhasDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
   active: { label: "Ativa", cor: "var(--success)" },
@@ -56,21 +57,31 @@ function LinhaDiagnostico({ diagnostico }: { diagnostico: Diagnostico }) {
   );
 }
 
+/* "Participação no topo", "Perdida por orçamento", "Perdida por ranking" e
+ *  "ACOS benchmark" saíram daqui de propósito: são métricas testadas ao
+ *  vivo contra as 3 contas reais (ver mercadolivre-ads.provider.ts) e a
+ *  API do Mercado Livre rejeita o pedido com "Field X not allowed" — não é
+ *  falta de sincronização, é ausência confirmada nesta superfície da API
+ *  hoje. Mostrar "Sem dado" fixo pra sempre é pior do que não mostrar. */
 function PainelExposicao({ campanha }: { campanha: CampanhaVisaoGeral }) {
   const percentual = (valor: number | null) => valor === null ? "Sem dado" : `${(Math.abs(valor) <= 1 ? valor * 100 : valor).toFixed(1)}%`;
-  const itens = [
-    ["ROAS objetivo", campanha.roasObjetivo === null ? "Sem dado" : `${campanha.roasObjetivo.toFixed(2)}x`],
-    ["Participação de impressão", percentual(campanha.impressionShare ?? campanha.sov)],
-    ["Participação no topo", percentual(campanha.topImpressionShare)],
-    ["Perdida por orçamento", percentual(campanha.lostImpressionShareByBudget)],
-    ["Perdida por ranking", percentual(campanha.lostImpressionShareByAdRank)],
-    ["ACOS benchmark", percentual(campanha.acosBenchmark)],
+  const itens: [string, string, string][] = [
+    [
+      "ROAS objetivo",
+      campanha.roasObjetivo === null ? "Sem dado" : `${campanha.roasObjetivo.toFixed(2)}x`,
+      "Meta de retorno configurada para a campanha no Mercado Livre (receita esperada por real investido). Não é o ROAS realizado, que fica na coluna Investido/Receita da lista de anúncios.",
+    ],
+    [
+      "Participação de impressão",
+      percentual(campanha.impressionShare ?? campanha.sov),
+      "De todas as vezes que os anúncios desta campanha poderiam ter aparecido nas buscas do Mercado Livre, em quantas eles realmente apareceram.",
+    ],
   ];
   return (
-    <dl className="col-span-full grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-3 lg:grid-cols-6">
-      {itens.map(([label, valor]) => (
+    <dl className="col-span-full grid grid-cols-2 gap-3 rounded-xl border border-border bg-card p-3">
+      {itens.map(([label, valor, descricao]) => (
         <div key={label} className="min-w-0">
-          <dt className="text-[11px] text-muted-foreground">{label}</dt>
+          <dt className="text-[11px] text-muted-foreground"><RotuloComInfo descricao={descricao}>{label}</RotuloComInfo></dt>
           <dd className="mt-0.5 truncate text-sm font-semibold tabular-nums text-foreground">{valor}</dd>
         </div>
       ))}
@@ -92,21 +103,38 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
             {anuncio.recomendado && <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success/10 px-2 py-1 text-xs font-semibold text-success"><Sparkles size={11} /> {copy.anuncios.recomendado}</span>}
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
-            <div><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</dd></div>
-            <div className="text-right"><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.receita)}</dd></div>
-            <div><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={anuncio.roas} /></dd></div>
-            <div className="text-right"><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Criado em</dt><dd className="mt-0.5 font-medium tabular-nums">{anuncio.criadoEm ? dataCurta.format(new Date(anuncio.criadoEm)) : "Não informada"}</dd></div>
+            <div className="text-right"><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.receita)}</dd></div>
+            <div className="text-right"><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={anuncio.roas} /></dd></div>
+            <div><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
           </dl>
         </article>
       ))}
     </div>
     <div className="table-scroll hidden md:block">
-      <table className="w-full min-w-[560px] text-[12px]">
+      <table className="w-full min-w-[640px] text-[12px]">
         <thead>
           <tr className="border-b border-border text-left text-[10px] font-medium uppercase text-muted-foreground">
-            {copy.anuncios.colunas.map((coluna: string, indice: number) => (
-              <th key={coluna} className={`px-2 py-1.5 ${indice > 0 ? "text-right" : ""}`}>{rotuloComExplicacaoEmNegrito(coluna)}</th>
-            ))}
+            <th className="whitespace-nowrap px-2 py-1.5">{copy.anuncios.colunas[0]}</th>
+            <th className="whitespace-nowrap px-2 py-1.5 text-right">
+              <RotuloComInfo descricao="Data em que o anúncio (item) foi criado no Mercado Livre. Não é a data em que ele entrou nesta campanha, é a origem do anúncio em si.">{copy.anuncios.colunas[1]}</RotuloComInfo>
+            </th>
+            <th className="whitespace-nowrap px-2 py-1.5 text-right">
+              <RotuloComInfo descricao="Quanto foi gasto em mídia com este anúncio, nos dados de hoje.">{copy.anuncios.colunas[2]}</RotuloComInfo>
+            </th>
+            <th className="whitespace-nowrap px-2 py-1.5 text-right">
+              <RotuloComInfo descricao="Faturamento atribuído a este anúncio hoje. Não é lucro, pois ainda não desconta investimento, custo do produto, frete, taxas ou impostos.">{copy.anuncios.colunas[3]}</RotuloComInfo>
+            </th>
+            <th className="whitespace-nowrap px-2 py-1.5 text-right">
+              <RotuloComInfo descricao="Receita deste anúncio dividida pelo investimento nele. Ajuda a comparar retorno entre anúncios, mas não é margem nem lucro.">{copy.anuncios.colunas[4]}</RotuloComInfo>
+            </th>
+            <th className="whitespace-nowrap px-2 py-1.5 text-right">
+              <RotuloComInfo descricao="Vezes que clicaram neste anúncio hoje.">{copy.anuncios.colunas[5]}</RotuloComInfo>
+            </th>
+            <th className="whitespace-nowrap px-2 py-1.5 text-right">
+              <RotuloComInfo descricao="Vendas que vieram deste anúncio pago hoje. Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).">{copy.anuncios.colunas[6]}</RotuloComInfo>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -120,6 +148,7 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
                   </span>
                 )}
               </td>
+              <td className="px-2 py-2 text-right tabular-nums text-muted-foreground">{anuncio.criadoEm ? dataCurta.format(new Date(anuncio.criadoEm)) : "Não informada"}</td>
               <td className="px-2 py-2 text-right tabular-nums text-foreground">{moeda.format(anuncio.investimento)}</td>
               <td className="px-2 py-2 text-right tabular-nums text-foreground">{moeda.format(anuncio.receita)}</td>
               <td className="px-2 py-2 text-right font-semibold">
@@ -172,7 +201,10 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
             {campanha.diagnosticos.length} sinal{campanha.diagnosticos.length !== 1 ? "is" : ""}
           </span>
         )}
-        <span className="shrink-0 text-right text-[13px] font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</span>
+        <span className="hidden w-20 shrink-0 text-right text-[13px] tabular-nums text-muted-foreground sm:block">
+          {campanha.criadaEm ? dataCurta.format(new Date(campanha.criadaEm)) : "Não informada"}
+        </span>
+        <span className="w-24 shrink-0 text-right text-[13px] font-medium tabular-nums text-foreground">{moeda.format(campanha.investimento)}</span>
         <span className="hidden w-16 shrink-0 justify-end text-right text-[13px] font-semibold sm:inline-flex">
           <Roas valor={campanha.roas} />
         </span>
@@ -190,7 +222,9 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
             <div className="grid grid-cols-1 gap-4 border-t border-border bg-muted/40 px-3 py-4 lg:grid-cols-2">
               <PainelExposicao campanha={campanha} />
               <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">{copy.diagnostico.titulo}</p>
+                <p className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">
+                  <RotuloComInfo descricao="Regras que cruzam sinais da campanha (cliques, conversão, tendência de CPC) para apontar o que fazer, nunca um número isolado sem contexto.">{copy.diagnostico.titulo}</RotuloComInfo>
+                </p>
                 {campanha.diagnosticos.length === 0 ? (
                   <p className="text-[12px] text-muted-foreground">{copy.semDiagnostico}</p>
                 ) : (
@@ -201,8 +235,15 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
                   </ul>
                 )}
               </div>
-              <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">{copy.anuncios.titulo}</p>
+              {/* col-span-full: a lista de anúncios precisa da largura inteira
+                  do card. Dividindo a linha 50/50 com o Diagnóstico, a tabela
+                  (Anúncio/Investido/Receita/ROAS/Cliques/Vendas) não cabia e
+                  ganhava barra de rolagem horizontal própria — largura cheia
+                  resolve sem precisar cortar coluna. */}
+              <div className="col-span-full">
+                <p className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">
+                  <RotuloComInfo descricao="Cada anúncio (item) que compõe esta campanha, com investimento, receita e ROAS individuais, para ver o desempenho item a item dentro da mesma campanha.">{copy.anuncios.titulo}</RotuloComInfo>
+                </p>
                 <TabelaAnuncios anuncios={anuncios} carregando={carregandoAnuncios} />
               </div>
             </div>
@@ -257,6 +298,7 @@ export function CampanhasClienteDetalhe() {
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
         <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={(brandId) => { setMarcaAtiva(brandId); setExpandida(null); }} />
+        <SeletorCanalAnuncios totalCampanhas={dados.marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
         <span className="h-px flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
@@ -269,6 +311,17 @@ export function CampanhasClienteDetalhe() {
           <EmptyState illustration="reports" title={anunciosConfig.campanhas.semDado} />
         ) : (
           <div>
+            <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <span aria-hidden className="w-[15px] shrink-0" />
+              <span className="min-w-0 flex-1">{copy.lista.titulo}</span>
+              <span className="hidden w-20 shrink-0 text-right sm:block">{copy.lista.criadaEm}</span>
+              <span className="w-24 shrink-0 text-right">
+                <RotuloComInfo descricao="Quanto foi gasto em mídia com esta campanha, nos dados de hoje.">{copy.lista.investimento}</RotuloComInfo>
+              </span>
+              <span className="hidden w-16 shrink-0 justify-end text-right sm:inline-flex">
+                <RotuloComInfo descricao="Receita atribuída dividida pelo investimento da campanha, nos dados de hoje. É o retorno realizado, diferente do ROAS objetivo (a meta configurada no Mercado Livre para esta campanha).">{copy.lista.roas}</RotuloComInfo>
+              </span>
+            </div>
             {marca.campanhas.map((campanha) => (
               <LinhaCampanha
                 key={campanha.campanhaId}

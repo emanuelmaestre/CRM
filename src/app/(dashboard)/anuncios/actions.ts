@@ -53,10 +53,12 @@ export async function actionObterProdutosDaMarca(
 const HistoricoDaMarcaSchema = z.object({
   brandId: z.string().uuid(),
   dias: z.number().int().min(1).max(180).optional(),
+  inicio: z.string().date().optional(),
+  fim: z.string().date().optional(),
 });
 
 export async function actionObterHistoricoDaMarca(
-  filtros: { brandId: string; dias?: number },
+  filtros: { brandId: string; dias?: number; inicio?: string; fim?: string },
 ): Promise<PontoHistorico[]> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
