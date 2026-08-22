@@ -9,6 +9,7 @@
    FaturamentoCard) não usam nada daqui — são maiores, com hover/foco, e
    continuam como estão. */
 
+import { ArrowDown, ArrowUp, Minus } from "lucide-react";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 
@@ -49,18 +50,41 @@ export function Linha({ dados, cor, largura = 96, altura = 36 }: { dados: number
   );
 }
 
-/** Duas barras, anterior vs. atual — para quando a série tem 1 ponto só
- *  (ex.: período "Hoje" em Faturamento) e uma linha de tendência não faz
- *  sentido com um ponto único, mas o card já sabe o total do período
- *  anterior (mesma base do Delta/variação mostrado ao lado do número). */
-export function BarrasComparacao({ anterior, atual, cor }: { anterior: number; atual: number; cor: string }) {
-  const maior = Math.max(anterior, atual, 1);
-  const alturaAnterior = Math.max(4, Math.round((anterior / maior) * 100));
-  const alturaAtual = Math.max(4, Math.round((atual / maior) * 100));
+/** Selo grande de tendência: seta + percentual num círculo tingido —
+ *  substitui a linha/barras pequenas quando a série tem 1 ponto só (ex.:
+ *  período "Hoje") e some, ou quando o card só tem UM número pra comparar
+ *  (sem série no tempo), não uma sequência de pontos pra desenhar.
+ *  `subirEhRuim` segue a mesma semântica do Delta: por padrão subir é bom
+ *  (verde) e cair é ruim (vermelho); nos cards onde é o contrário
+ *  (Reclamações, Giro baixo…) o chamador inverte a leitura. Sem variação
+ *  (`valor` null), o selo fica neutro — nunca inventa uma direção. */
+export function IndicadorTendencia({ valor, subirEhRuim, tamanho = 72 }: { valor: number | null; subirEhRuim?: boolean; tamanho?: number }) {
+  if (valor === null) {
+    return (
+      <div
+        className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-full"
+        style={{ width: tamanho, height: tamanho, background: "var(--muted)" }}
+      >
+        <Minus size={Math.round(tamanho * 0.32)} strokeWidth={2.5} style={{ color: "var(--muted-foreground)" }} />
+        <span className="text-[10px] font-bold" style={{ color: "var(--muted-foreground)" }}>estável</span>
+      </div>
+    );
+  }
+  const subiu = valor > 0;
+  const bom = subirEhRuim ? !subiu : subiu;
+  const cor = valor === 0 ? "var(--muted-foreground)" : bom ? "var(--success)" : "var(--destructive)";
+  const Icone = valor === 0 ? Minus : subiu ? ArrowUp : ArrowDown;
   return (
-    <div className="flex h-9 items-end gap-1.5" role="img" aria-label={`Comparação com o período anterior: ${anterior} contra ${atual} agora.`}>
-      <span className="w-2.5 rounded-t-[3px]" style={{ height: `${alturaAnterior}%`, background: "var(--chart-bar)" }} />
-      <span className="w-2.5 rounded-t-[3px]" style={{ height: `${alturaAtual}%`, background: cor }} />
+    <div
+      className="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-full"
+      style={{ width: tamanho, height: tamanho, background: `color-mix(in srgb, ${cor} 14%, transparent)` }}
+      role="img"
+      aria-label={`Variação de ${valor}% contra o período anterior, ${bom ? "resultado bom" : "resultado ruim"}.`}
+    >
+      <Icone size={Math.round(tamanho * 0.36)} strokeWidth={2.75} style={{ color: cor }} />
+      <span className="text-[13px] font-extrabold tabular-nums" style={{ color: cor }}>
+        {subiu ? "+" : ""}{valor}%
+      </span>
     </div>
   );
 }

@@ -18,7 +18,7 @@ import metricasConfig from "@/config/metricas.json";
 import { agruparPorSecao, Bloco, Foco, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo, AnelScore } from "./metricas-primitives";
-import { Linha, BarrasMarca, BarrasComparacao, MiniRanking, BarraSplit } from "./mini-visuais";
+import { Linha, BarrasMarca, IndicadorTendencia, MiniRanking, BarraSplit } from "./mini-visuais";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
@@ -522,11 +522,13 @@ export function Mosaico({
     // uma linha de tendência — em vez de deixar o espaço vazio, duas
     // barras (anterior vs. atual) usam o mesmo total que já alimenta o
     // Delta ao lado do número, sem inventar dado novo.
-    preview: dadosFaturamento && dadosFaturamento.serie.length > 1
-      ? <Linha dados={dadosFaturamento.serie.map((ponto) => ponto.valor)} cor={coresFaturamento[0] ?? "var(--gradient-signature)"} largura={180} altura={60} />
-      : dadosFaturamento
-        ? <BarrasComparacao anterior={dadosFaturamento.totalAnteriorNumerico} atual={dadosFaturamento.totalNumerico} cor="var(--acento-2)" />
-        : undefined,
+    // Selo grande de tendência (seta + %) em vez da linha fina de antes —
+    // com 1 dia só de período ("Hoje") a linha não tinha 2 pontos pra
+    // desenhar nada e o espaço ficava vazio; o selo usa a mesma variação
+    // que já alimenta o Delta ao lado do número, então nunca some.
+    preview: dadosFaturamento
+      ? <IndicadorTendencia valor={dadosFaturamento.variacaoPercentual} tamanho={72} />
+      : undefined,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
       <FaturamentoCard
