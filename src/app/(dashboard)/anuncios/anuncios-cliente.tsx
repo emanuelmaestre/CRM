@@ -532,6 +532,10 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
           <SeletorCanalAnuncios totalCampanhas={dados.marcas.reduce((soma, m) => soma + m.campanhas.length, 0)} />
         </div>
+        {/* Risco separador só no mobile empilhado — do sm em diante os dois
+            grupos já ficam lado a lado na mesma linha, com o traço abaixo
+            fazendo esse papel (ver `flex-1` dele, sm:block). */}
+        <span aria-hidden="true" className="h-px w-full bg-border sm:hidden" />
         <span className="hidden h-px flex-1 bg-border sm:block" />
         {/* Período, Hoje, PDF e sincronizar viram um grupo só — antes o
             período ficava colado nas pílulas de marca/canal, empurrando
@@ -583,38 +587,45 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         </div>
       </div>
 
+      {/* Risco separador só no mobile, entre o grupo de Período/PDF/sincronizar
+          e a fileira de atalhos abaixo — mesma lógica do risco acima, entre
+          marca/canal e período. */}
+      <span aria-hidden="true" className="h-px w-full bg-border sm:hidden" />
+
       {/* Navegação pro resto do módulo — antes vivia pendurada como texto
           minúsculo do lado do rótulo "Campanhas", parecendo detalhe daquela
           seção. São páginas irmãs (Produtos, Histórico, Comparação,
           Campanhas completo), não sub-itens — por isso ganham linha própria
           aqui em cima, com peso de botão em vez de texto solto. */}
-      <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+      <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
         {/* Cada atalho leva a própria cor de identidade (mesmo selo com fundo
             tingido usado nos blocos do mosaico de Métricas) — antes eram 4
             botões cinza idênticos, difíceis de diferenciar num relance. A
-            borda acompanha a cor no hover, o resto do botão continua neutro. */}
+            borda acompanha a cor no hover, o resto do botão continua neutro.
+            Grade 2x2 até o sm (os 4 atalhos em duas fileiras parelhas); do sm
+            em diante volta a ser uma fileira só, como sempre foi. */}
         <Link
           href="/publicidade/produtos"
-          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#157781] hover:text-foreground"
+          className="group inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#157781] hover:text-foreground lg:justify-start"
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#157781", 9), color: "#157781" }}>
             <Package size={14} />
           </span>
-          <span className="sm:hidden">Produtos</span><span className="hidden sm:inline">Ver produtos</span>
+          <span className="lg:hidden">Produtos</span><span className="hidden lg:inline">Ver produtos</span>
         </Link>
         <Link
           href="/publicidade/historico"
-          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#2563EB] hover:text-foreground"
+          className="group inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#2563EB] hover:text-foreground lg:justify-start"
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#2563EB", 9), color: "#2563EB" }}>
             <History size={14} />
           </span>
-          <span className="sm:hidden">Histórico</span><span className="hidden sm:inline">Ver histórico</span>
+          <span className="lg:hidden">Histórico</span><span className="hidden lg:inline">Ver histórico</span>
         </Link>
         {dados.marcas.length >= 2 && (
           <Link
             href="/publicidade/comparacao"
-            className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#7058D3] hover:text-foreground"
+            className="group inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#7058D3] hover:text-foreground lg:justify-start"
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#7058D3", 9), color: "#7058D3" }}>
               <GitCompare size={14} />
@@ -624,12 +635,12 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         )}
         <Link
           href="/publicidade/campanhas"
-          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#C42E79] hover:text-foreground"
+          className="group inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#C42E79] hover:text-foreground lg:justify-start"
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#C42E79", 9), color: "#C42E79" }}>
             <BarChart3 size={14} />
           </span>
-          <span className="sm:hidden">Campanhas</span><span className="hidden sm:inline">{copy.campanhas.verTodas}</span>
+          <span className="lg:hidden">Campanhas</span><span className="hidden lg:inline">{copy.campanhas.verTodas}</span>
         </Link>
       </div>
 

@@ -278,7 +278,7 @@ function ConteudoCarregando() {
   );
 }
 
-export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto", className, corFundo }: {
+export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto", className }: {
   def: BlocoDef;
   focado: boolean;
   onAbrir: () => void;
@@ -293,11 +293,6 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
   /** Classe extra no <li> — hoje só usada pelo card em destaque, pra
    *  ocupar as duas colunas da grade desktop (col-span-2). */
   className?: string;
-  /** TEMPORÁRIO — paleta de teste da cor do card em destaque (ver
-   *  PaletaTesteCorHero em mosaico.tsx). Sobrescreve o cinza fixo enquanto
-   *  o dono decide a cor definitiva; remover junto com a paleta quando
-   *  a escolha for confirmada. */
-  corFundo?: string;
 }) {
   const reduzir = useReducedMotion();
   const { icone: Icone, accent, resumo, carregando, semFiltro } = def;
@@ -319,7 +314,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
           className={`card-surface relative flex h-full w-full cursor-pointer flex-col overflow-hidden text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${tam.caixa} gap-2 px-3.5 py-3`}
-          style={{ background: escuro ? (corFundo ?? "#3B3F46") : "var(--card)", transition: "background-color .25s ease" }}
+          style={{ background: "var(--card)" }}
         >
           {/* Fio de assinatura do produto — só no card em destaque, o único
               lugar com "temperatura" na tela (ver mosaico.tsx). */}
@@ -385,7 +380,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                     )}
                     {def.chips && def.chips.length > 0 && (
                       <span className="mt-2.5 hidden items-center gap-1.5 overflow-hidden lg:flex">
-                        {def.chips.map((chip) => <ChipMarcaTile key={chip.slug} slug={chip.slug} label={chip.label} height={18} fundoClaro />)}
+                        {def.chips.map((chip) => <ChipMarcaTile key={chip.slug} slug={chip.slug} label={chip.label} height={18} />)}
                       </span>
                     )}
                   </>
@@ -494,7 +489,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                   vez de empurrar o card pra baixo. */}
               {(def.chips && def.chips.length > 0) || def.temLegendaStatus ? (
                 <span className="mt-3 hidden items-center gap-1.5 overflow-hidden border-t border-border pt-3 lg:flex">
-                  {def.chips?.map((chip) => <ChipMarcaTile key={chip.slug} slug={chip.slug} label={chip.label} height={18} fundoClaro />)}
+                  {def.chips?.map((chip) => <ChipMarcaTile key={chip.slug} slug={chip.slug} label={chip.label} height={18} />)}
                   {def.temLegendaStatus && (
                     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border px-2 py-1 text-[10px] font-semibold" style={{ color: corSub }}>
                       <Info size={11} /> Entenda os status

@@ -37,49 +37,6 @@ function PainelCarregando() {
   return <div className="shimmer h-52 w-full rounded-[1.25rem] bg-muted" role="status" aria-label="Carregando painel" />;
 }
 
-/** TEMPORÁRIO — bolinhas de teste pra escolher a cor definitiva do fundo
- *  do card em destaque (Faturamento). Sem persistência de propósito: é
- *  só pra decidir olhando ao vivo. Remover este componente e a prop
- *  `corFundo` em Bloco assim que a cor final for confirmada. */
-const CORES_TESTE_HERO = [
-  { hex: "#C7CAD1", nome: "Cinza claro" },
-  { hex: "#B3B7BE", nome: "Cinza claro 2" },
-  { hex: "#9FA3AB", nome: "Cinza médio-claro" },
-  { hex: "#8B8F98", nome: "Cinza médio" },
-  { hex: "#767B85", nome: "Cinza médio-escuro" },
-  { hex: "#626771", nome: "Cinza escuro" },
-  { hex: "#4E535D", nome: "Cinza-chumbo" },
-  { hex: "#3B3F46", nome: "Chumbo" },
-] as const;
-
-function PaletaTesteCorHero({ valor, onChange }: { valor: string; onChange: (hex: string) => void }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 rounded-full border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-      <span className="font-semibold">🎨 Testando cor do card — temporário:</span>
-      <div className="flex items-center gap-1.5">
-        {CORES_TESTE_HERO.map((cor) => {
-          const selecionada = cor.hex === valor;
-          return (
-            <button
-              key={cor.hex}
-              type="button"
-              title={cor.nome}
-              aria-label={`Usar ${cor.nome}`}
-              aria-pressed={selecionada}
-              onClick={() => onChange(cor.hex)}
-              className="press-feedback h-6 w-6 shrink-0 rounded-full transition-shadow"
-              style={{
-                background: cor.hex,
-                boxShadow: selecionada ? "0 0 0 2px var(--card), 0 0 0 4px var(--foreground)" : "0 0 0 1px var(--border)",
-              }}
-            />
-          );
-        })}
-      </div>
-      <span className="font-mono">{valor}</span>
-    </div>
-  );
-}
 
 const CalendarioPopoverRange = dynamic(() => import("@/shared/design-system/primitives/CalendarioPopoverRange").then((modulo) => modulo.CalendarioPopoverRange));
 const BotaoHoje = dynamic(() => import("@/shared/design-system/primitives/BotaoHoje").then((modulo) => modulo.BotaoHoje));
@@ -358,9 +315,6 @@ export function Mosaico({
   const maisVendidos = useDadosDoCard(cache, periodo, filtroGlobal);
   const giroBaixo = useDadosDoCard(cache, periodo, filtroGlobal);
   const parados = useDadosDoCard(cache, periodo, filtroGlobal);
-
-  // TEMPORÁRIO — ver PaletaTesteCorHero acima. Remover junto com ela.
-  const [corHeroTeste, setCorHeroTeste] = useState<string>(CORES_TESTE_HERO[CORES_TESTE_HERO.length - 1].hex);
 
   const [reclamacoes, setReclamacoes] = useState<ReclamacoesResultado | null>(null);
   const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
@@ -1123,7 +1077,7 @@ export function Mosaico({
             mesmo tempo. Fica sempre visível (mesmo com um card aberto por
             cima, ver Foco), então trocar marca ou data não exige fechar
             o painel primeiro. */}
-        <div className="flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-border bg-card/70 px-3 py-2.5 shadow-[0_2px_12px_rgba(14,15,19,.04)]">
+        <div className="flex flex-wrap items-center justify-center gap-2 rounded-[1.25rem] border border-border bg-card/70 px-3 py-2.5 shadow-[0_2px_12px_rgba(14,15,19,.04)] sm:justify-start">
           {escopo}
           <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border sm:block" />
           <div className="flex items-center gap-2">
@@ -1155,20 +1109,16 @@ export function Mosaico({
             celular e tablet fiquem iguais ao desktop. */}
         <div data-coachmark="mosaico-grade" className="flex flex-col gap-3">
           {destaque && (
-            <>
-              <PaletaTesteCorHero valor={corHeroTeste} onChange={setCorHeroTeste} />
-              <ul>
-                <Bloco
-                  key={destaque.bloco.id}
-                  def={destaque.bloco}
-                  focado={destaque.bloco.id === cardAberto}
-                  onAbrir={() => abrir(destaque.bloco.id)}
-                  secaoLabel={destaque.secaoLabel}
-                  variante="destaque"
-                  corFundo={corHeroTeste}
-                />
-              </ul>
-            </>
+            <ul>
+              <Bloco
+                key={destaque.bloco.id}
+                def={destaque.bloco}
+                focado={destaque.bloco.id === cardAberto}
+                onAbrir={() => abrir(destaque.bloco.id)}
+                secaoLabel={destaque.secaoLabel}
+                variante="destaque"
+              />
+            </ul>
           )}
           {/* Sem altura travada de propósito: forçar o conjunto a preencher
               a viewport (`h-[calc(100dvh-…)]` + `auto-rows-fr`) esticava os

@@ -101,16 +101,20 @@ const LEGENDA_STATUS_PEDIDOS: Array<{ titulo: string; cor: string; texto: string
   { titulo: "Cancelado", cor: "var(--destructive)", texto: "O pedido foi cancelado — pelo comprador, pelo vendedor ou automaticamente por falta de pagamento." },
 ];
 
-function EntendaStatusPedidoBotao() {
+/** `compacto`: no mobile este botão mudou de lugar (ver comentário na barra
+ *  de filtros mais abaixo) — foi morar na mesma linha de "Todos"/"Período",
+ *  onde "Entenda os status" não cabe. "Status" sozinho já basta ali porque
+ *  o ícone de info ao lado já indica que é uma explicação, não um filtro. */
+function EntendaStatusPedidoBotao({ compacto }: { compacto?: boolean }) {
   return (
     <AnimatedInfoPopover
       trigger={(
         <AnimatedInfoTrigger
           title="Entenda os status dos pedidos"
           iconSize={13}
-          className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          className="press-feedback inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
         >
-          Entenda os status
+          {compacto ? "Status" : "Entenda os status"}
         </AnimatedInfoTrigger>
       )}
       align="end"
@@ -484,9 +488,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         <div className="hidden lg:absolute lg:right-0 lg:top-0 lg:block">
           <EntendaStatusPedidoBotao />
         </div>
-        <div className="lg:hidden">
-          <EntendaStatusPedidoBotao />
-        </div>
       </div>
 
       {/* Filtros — no desktop, uma linha só como sempre foi (busca cresce,
@@ -525,6 +526,13 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             valor={{ inicio: dataInicial, fim: dataFinal }}
             onChange={({ inicio, fim }) => { setDataInicial(inicio); setDataFinal(fim); }}
           />
+          {/* Mobile: "Entenda os status" (virou "Status" aqui, compacto) sai
+              da própria fileira acima e entra nesta linha, junto de
+              Todos/Período — o desktop mantém a versão de sempre, ancorada
+              no canto direito da barra de escopo (ver acima). */}
+          <div className="lg:hidden">
+            <EntendaStatusPedidoBotao compacto />
+          </div>
         </div>
       </div>
 

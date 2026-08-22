@@ -132,7 +132,7 @@ export function Delta({ valor, subirEhRuim }: { valor: number | null | undefined
 /** Chip pequeno de marca pro rodapé do tile — mostra a LOGO da marca
  *  quando ela tem uma cadastrada (o mesmo `BrandLogo` do resto do app),
  *  e cai pro nome em texto colorido só pras marcas sem logo. */
-export function ChipMarcaTile({ slug, label, height = 13, fundoClaro }: { slug: string; label: string; height?: number; fundoClaro?: boolean }) {
+export function ChipMarcaTile({ slug, label, height = 13 }: { slug: string; label: string; height?: number }) {
   const cor = isBrandSlug(slug) ? getBrandConfig(slug)?.color : undefined;
   return (
     /* `whitespace-nowrap` + `shrink-0`: num card estreito (grade de 4
@@ -141,19 +141,9 @@ export function ChipMarcaTile({ slug, label, height = 13, fundoClaro }: { slug: 
     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
       {/* 13, não 11 — o mesmo valor do chip equivalente no protótipo
           (mosaico-redesign.tsx). Com 11 a logo ficava ~18% menor do que
-          deveria dentro do mesmo espaço de chip.
-          `fundoClaro`: no card escuro (destaque), a logo da KARZI usa
-          tinta preta — sem um fundo claro por trás ela quase some contra
-          o cinza-chumbo do card. Um selo branco atrás resolve sem precisar
-          de um asset de logo escuro dedicado. */}
+          deveria dentro do mesmo espaço de chip. */}
       {isBrandSlug(slug) ? (
-        fundoClaro ? (
-          <span className="inline-flex items-center rounded-full bg-white px-2 py-1">
-            <BrandLogo brand={slug} height={height} />
-          </span>
-        ) : (
-          <BrandLogo brand={slug} height={height} />
-        )
+        <BrandLogo brand={slug} height={height} />
       ) : (
         <span
           className="inline-flex items-center gap-1 rounded-full px-1.5 py-[1px] text-[9.5px] font-semibold"
