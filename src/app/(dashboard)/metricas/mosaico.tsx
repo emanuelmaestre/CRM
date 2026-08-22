@@ -1116,13 +1116,23 @@ export function Mosaico({
         {/* Permanece dentro do container compartilhado de 1440px para que a
             proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}
         <div data-coachmark="mosaico-grade">
-          {/* Mobile: sem card em destaque — Faturamento é só o primeiro card
-              da mesma grade uniforme dos outros 8 (mesmo tamanho, mesmo
-              estilo "grande", com preview visível como os demais), 2 colunas
-              (2x2x2x2x2, sobra 1 no fim com 9 blocos). O card escuro de
-              linha inteira é coisa de tablet/desktop (ver abaixo). */}
+          {/* Mobile: 1x2x2x2x2 — Faturamento sozinho na primeira linha
+              (col-span-2), os outros 8 em pares abaixo. Mesmo estilo
+              "grande" (com preview) em todos; o card escuro/linha-única do
+              hero é só tablet/desktop (ver abaixo) — aqui Faturamento
+              aparenta igual aos demais, só que ocupando a largura toda. */}
           <ul className="grid grid-cols-2 items-start gap-3 lg:hidden">
-            {blocos.map((bloco) => (
+            {destaque && (
+              <Bloco
+                key={destaque.bloco.id}
+                def={destaque.bloco}
+                focado={destaque.bloco.id === cardAberto}
+                onAbrir={() => abrir(destaque.bloco.id)}
+                variante="grande"
+                className="col-span-2"
+              />
+            )}
+            {resto.map(({ bloco }) => (
               <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} variante="grande" />
             ))}
           </ul>
