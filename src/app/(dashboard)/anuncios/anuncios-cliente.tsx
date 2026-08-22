@@ -595,7 +595,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
             borda acompanha a cor no hover, o resto do botão continua neutro. */}
         <Link
           href="/publicidade/produtos"
-          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#157781] hover:text-foreground"
+          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#157781] hover:text-foreground"
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#157781", 9), color: "#157781" }}>
             <Package size={14} />
@@ -604,7 +604,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         </Link>
         <Link
           href="/publicidade/historico"
-          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#2563EB] hover:text-foreground"
+          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#2563EB] hover:text-foreground"
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#2563EB", 9), color: "#2563EB" }}>
             <History size={14} />
@@ -614,7 +614,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         {dados.marcas.length >= 2 && (
           <Link
             href="/publicidade/comparacao"
-            className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#7058D3] hover:text-foreground"
+            className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#7058D3] hover:text-foreground"
           >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#7058D3", 9), color: "#7058D3" }}>
               <GitCompare size={14} />
@@ -624,7 +624,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         )}
         <Link
           href="/publicidade/campanhas"
-          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#C42E79] hover:text-foreground"
+          className="group inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#C42E79] hover:text-foreground"
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#C42E79", 9), color: "#C42E79" }}>
             <BarChart3 size={14} />

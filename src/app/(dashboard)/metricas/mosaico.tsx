@@ -15,7 +15,7 @@ import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import metricasConfig from "@/config/metricas.json";
 
-import { agruparPorSecao, Bloco, Foco, RotuloSecao, type BlocoDef } from "./bloco";
+import { agruparPorSecao, Bloco, Foco, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo, AnelScore } from "./metricas-primitives";
 import { Linha, BarrasMarca, MiniRanking, BarraSplit } from "./mini-visuais";
@@ -35,6 +35,50 @@ const blocosCopy = copy.blocos;
 
 function PainelCarregando() {
   return <div className="shimmer h-52 w-full rounded-[1.25rem] bg-muted" role="status" aria-label="Carregando painel" />;
+}
+
+/** TEMPORÁRIO — bolinhas de teste pra escolher a cor definitiva do fundo
+ *  do card em destaque (Faturamento). Sem persistência de propósito: é
+ *  só pra decidir olhando ao vivo. Remover este componente e a prop
+ *  `corFundo` em Bloco assim que a cor final for confirmada. */
+const CORES_TESTE_HERO = [
+  { hex: "#C7CAD1", nome: "Cinza claro" },
+  { hex: "#B3B7BE", nome: "Cinza claro 2" },
+  { hex: "#9FA3AB", nome: "Cinza médio-claro" },
+  { hex: "#8B8F98", nome: "Cinza médio" },
+  { hex: "#767B85", nome: "Cinza médio-escuro" },
+  { hex: "#626771", nome: "Cinza escuro" },
+  { hex: "#4E535D", nome: "Cinza-chumbo" },
+  { hex: "#3B3F46", nome: "Chumbo" },
+] as const;
+
+function PaletaTesteCorHero({ valor, onChange }: { valor: string; onChange: (hex: string) => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-full border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+      <span className="font-semibold">🎨 Testando cor do card — temporário:</span>
+      <div className="flex items-center gap-1.5">
+        {CORES_TESTE_HERO.map((cor) => {
+          const selecionada = cor.hex === valor;
+          return (
+            <button
+              key={cor.hex}
+              type="button"
+              title={cor.nome}
+              aria-label={`Usar ${cor.nome}`}
+              aria-pressed={selecionada}
+              onClick={() => onChange(cor.hex)}
+              className="press-feedback h-6 w-6 shrink-0 rounded-full transition-shadow"
+              style={{
+                background: cor.hex,
+                boxShadow: selecionada ? "0 0 0 2px var(--card), 0 0 0 4px var(--foreground)" : "0 0 0 1px var(--border)",
+              }}
+            />
+          );
+        })}
+      </div>
+      <span className="font-mono">{valor}</span>
+    </div>
+  );
 }
 
 const CalendarioPopoverRange = dynamic(() => import("@/shared/design-system/primitives/CalendarioPopoverRange").then((modulo) => modulo.CalendarioPopoverRange));
@@ -314,6 +358,9 @@ export function Mosaico({
   const maisVendidos = useDadosDoCard(cache, periodo, filtroGlobal);
   const giroBaixo = useDadosDoCard(cache, periodo, filtroGlobal);
   const parados = useDadosDoCard(cache, periodo, filtroGlobal);
+
+  // TEMPORÁRIO — ver PaletaTesteCorHero acima. Remover junto com ela.
+  const [corHeroTeste, setCorHeroTeste] = useState<string>(CORES_TESTE_HERO[CORES_TESTE_HERO.length - 1].hex);
 
   const [reclamacoes, setReclamacoes] = useState<ReclamacoesResultado | null>(null);
   const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
@@ -1098,34 +1145,18 @@ export function Mosaico({
         </div>
 
         {/* Permanece dentro do container compartilhado de 1440px para que a
-            proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}
-        <div data-coachmark="mosaico-grade">
-          {/* Mobile: agrupado por seção, uma seção por linha com rótulo
-              próprio — exatamente como sempre foi, intocado. */}
-          <div className="flex flex-col gap-3.5 lg:hidden">
-            {grupos.map((grupo) => (
-              <section key={grupo.id} className="flex flex-col gap-2">
-                <RotuloSecao label={grupo.label} alerta={grupo.alerta} />
-                <ul className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-3">
-                  {grupo.blocos.map((bloco) => (
-                    <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} />
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
+            proporção do mosaico seja a mesma em Safari, Windows e telas 2xl.
 
-          {/* Tablet/desktop: um card em destaque no topo (largura inteira,
-              bem maior), os outros em grade abaixo — cada um leva o próprio
-              rótulo de seção dentro de si (ver `secaoLabel`).
-
-              Sem altura travada de propósito: forçar o conjunto a preencher
-              a viewport (`h-[calc(100dvh-…)]` + `auto-rows-fr`) esticava os
-              cards e abria um vazio enorme entre o título e o número. A
-              altura sai do conteúdo; `items-start` impede que a linha da
-              grade estique os cards mais baixos pra acompanhar o mais alto. */}
-          <div className="hidden lg:flex lg:flex-col lg:gap-3">
-            {destaque && (
+            Mesmo layout em qualquer largura de tela: um card em destaque no
+            topo (Faturamento, linha inteira) e os outros numa grade de 2
+            colunas (4 a partir de xl) — 1x2x2x2x2 com os 9 blocos atuais.
+            Antes o mobile tinha a própria grade agrupada por seção (1/2/3
+            colunas variando); unificado a pedido do usuário, para que
+            celular e tablet fiquem iguais ao desktop. */}
+        <div data-coachmark="mosaico-grade" className="flex flex-col gap-3">
+          {destaque && (
+            <>
+              <PaletaTesteCorHero valor={corHeroTeste} onChange={setCorHeroTeste} />
               <ul>
                 <Bloco
                   key={destaque.bloco.id}
@@ -1134,15 +1165,21 @@ export function Mosaico({
                   onAbrir={() => abrir(destaque.bloco.id)}
                   secaoLabel={destaque.secaoLabel}
                   variante="destaque"
+                  corFundo={corHeroTeste}
                 />
               </ul>
-            )}
-            <ul className="grid grid-cols-2 items-start gap-3 xl:grid-cols-4">
-              {resto.map(({ bloco, secaoLabel }) => (
-                <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
-              ))}
-            </ul>
-          </div>
+            </>
+          )}
+          {/* Sem altura travada de propósito: forçar o conjunto a preencher
+              a viewport (`h-[calc(100dvh-…)]` + `auto-rows-fr`) esticava os
+              cards e abria um vazio enorme entre o título e o número. A
+              altura sai do conteúdo; `items-start` impede que a linha da
+              grade estique os cards mais baixos pra acompanhar o mais alto. */}
+          <ul className="grid grid-cols-2 items-start gap-3 xl:grid-cols-4">
+            {resto.map(({ bloco, secaoLabel }) => (
+              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
+            ))}
+          </ul>
         </div>
       </motion.div>
 

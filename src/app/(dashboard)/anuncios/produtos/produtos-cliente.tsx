@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AlertTriangle, Package, RefreshCw, Sparkles, Trophy } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
+import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterProdutosDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
@@ -121,28 +122,12 @@ export function ProdutosClienteDetalhe() {
           icon={Package}
           accent="var(--acento-2)"
           trailing={(
-            <div className="flex flex-wrap gap-1.5">
-              {FILTROS.map((item) => {
-                const ativo = item === filtro;
-                return (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setFiltro(item)}
-                    className="press-feedback rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
-                    style={{
-                      // var(--selecionado) é o acento de "isto está escolhido" usado
-                      // no resto do app (Estoque, Vendas, halo de seleção) — preto
-                      // puro (--foreground) não seguia esse padrão do design system.
-                      background: ativo ? "var(--selecionado)" : "var(--muted)",
-                      color: ativo ? "#fff" : "var(--muted-foreground)",
-                    }}
-                  >
-                    {copy.filtros[item]}
-                  </button>
-                );
-              })}
-            </div>
+            <SelectPopover
+              valor={filtro}
+              onChange={setFiltro}
+              buttonClassName="press-feedback inline-flex h-11 min-w-[9rem] items-center justify-between gap-2 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado"
+              itens={FILTROS.map((item) => ({ value: item, label: copy.filtros[item] }))}
+            />
           )}
         />
         {carregandoProdutos ? (
