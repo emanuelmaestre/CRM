@@ -588,7 +588,10 @@ export function Mosaico({
       // num anel de 56px em nenhum tamanho de fonte, mas ela já aparece
       // como texto normal embaixo do número no corpo do card — "pontos" é
       // curto o bastante pra caber e ainda diz o que o número é.
-      ? <AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={64} faixaLabel="pontos" />
+      // Sem faixaLabel: "pontos" apertava demais dentro do anel do tile.
+      // A mesma informação já está clara pelo contexto (título "Pontuação
+      // da loja" bem acima) sem precisar repetir dentro do círculo.
+      ? <AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} />
       : undefined,
     chips: chipsDoFiltro,
     temLegendaStatus: true,

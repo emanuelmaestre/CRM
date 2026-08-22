@@ -416,12 +416,16 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                   {secaoLabel}
                 </span>
               )}
-              {/* O título mais longo ("Recomendações") passa raspando na largura
-                  de um card de 2 colunas no celular, e quem tem tamanho de texto
-                  aumentado no iOS renderiza a fonte ~33% maior sem que o layout
-                  mude junto — aí a palavra estoura por poucos pixels e o
-                  overflow-wrap joga só o "s" pra segunda linha. */}
-              <span className={`text-[13px] font-bold leading-snug tracking-[-0.01em] [overflow-wrap:anywhere] [text-wrap:balance] ${tam.titulo}`} style={{ color: corTexto }}>
+              {/* O título mais longo ("Reclamações", "Recomendações") passa
+                  raspando na largura de um card de 2 colunas no celular, e
+                  quem tem tamanho de texto aumentado no iOS renderiza a fonte
+                  ~33% maior sem que o layout mude junto — aí a palavra
+                  estoura por poucos pixels. `overflow-wrap:anywhere` cortava
+                  em QUALQUER ponto (ex.: "Reclamaçõe" + "s" orfã numa linha
+                  só); hyphens-auto quebra na sílaba certa em português
+                  ("Reclama-ções"), o `<html lang>` já é "pt-BR" pra isso
+                  funcionar. */}
+              <span className={`hyphens-auto text-[13px] font-bold leading-snug tracking-[-0.01em] [overflow-wrap:break-word] [text-wrap:balance] ${tam.titulo}`} style={{ color: corTexto }}>
                 {def.titulo}
               </span>
             </span>

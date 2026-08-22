@@ -94,15 +94,19 @@ export function MiniRanking({ itens }: { itens: { nome: string; valor: number; s
   const max = Math.max(...itens.map((i) => i.valor), 1);
   return (
     /* Largura fixa pelo mesmo motivo de `BarrasMarca` (container sem
-       largura própria); `min-w-0` mantém o `truncate` do nome funcionando. */
-    <div className="flex w-[136px] min-w-0 flex-col gap-1">
+       largura própria); `min-w-0` mantém o `truncate` do nome funcionando.
+       Mais estreito no celular (grade de 2 colunas espreme o card) e volta
+       aos 136px de sempre a partir de lg — era o único preview "grande" (os
+       demais são anel/linha/barras, bem mais compactos) que não cabia
+       junto do número+legenda numa coluna só, e amassava tudo. */
+    <div className="flex w-[92px] min-w-0 flex-col gap-1 lg:w-[136px]">
       {itens.map((item, indice) => {
         const cor = item.slug && isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined;
         return (
-          <div key={`${item.nome}-${indice}`} className="flex items-center gap-1.5">
+          <div key={`${item.nome}-${indice}`} className="flex items-center gap-1 lg:gap-1.5">
             <span className="w-2.5 shrink-0 text-[9px] font-bold tabular-nums" style={{ color: "var(--muted-foreground)" }}>{indice + 1}</span>
             <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium text-foreground">{item.nome}</span>
-            <div className="h-1 w-8 shrink-0 overflow-hidden rounded-full" style={{ background: "var(--muted)" }}>
+            <div className="hidden h-1 w-8 shrink-0 overflow-hidden rounded-full lg:block" style={{ background: "var(--muted)" }}>
               <div className="h-full rounded-full" style={{ width: `${(item.valor / max) * 100}%`, background: cor ?? "var(--muted-foreground)" }} />
             </div>
           </div>

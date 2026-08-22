@@ -1,16 +1,26 @@
-// Backfill de frete/desconto/acréscimo para pedidos do Mercado Livre que já
-// existiam no banco antes desses campos existirem (ver commit "feat: detalhe
-// da venda ganha frete real, desconto, acrescimo e valor liquido").
+// Backfill de frete/desconto/acréscimo/taxaMarketplace para pedidos do
+// Mercado Livre que já existiam no banco antes desses campos existirem (ver
+// commit "feat: detalhe da venda ganha frete real, desconto, acrescimo e
+// valor liquido", e a adição posterior de taxaMarketplace).
 //
 // O fluxo normal de sincronização (ingerirPedido em ingestao-pedido.service.ts)
 // só reconcilia status de pedido já existente — nunca revisita frete/desconto/
-// acréscimo. Sem este script, todo pedido importado antes da feature fica pra
-// sempre com esses campos em "0", mesmo que o pedido real tenha tido frete,
-// cupom ou juro de parcelamento.
+// acréscimo/taxaMarketplace. Sem este script, todo pedido importado antes de
+// cada um desses campos existir fica pra sempre sem o valor real, mesmo que
+// o pedido de verdade tenha tido frete, cupom, juro de parcelamento ou
+// comissão do canal.
 //
-// Por padrão só toca pedidos com os três campos ainda em "0" (o estado que
-// todo pedido pré-feature tem) — rodar de novo é seguro, não reprocessa quem
-// já foi enriquecido. Passe --all para forçar reprocessar todo mundo.
+// Confirmado ao vivo (22/08/2026): a API do Mercado Livre devolve `sale_fee`
+// normalmente pra pedidos de meses atrás — a lacuna nunca foi a API não ter
+// o dado, foi este mesmo bug de sincronização (`ingerirPedido` só reconcilia
+// status, nunca revisita os campos enriquecidos) já batido uma vez pra
+// frete/desconto/acréscimo e nunca estendido pra taxaMarketplace quando ela
+// foi adicionada.
+//
+// Por padrão só toca pedidos com frete/desconto/acréscimo ainda em "0" OU
+// com algum item sem taxaMarketplace — rodar de novo é seguro, não
+// reprocessa quem já foi enriquecido. Passe --all para forçar reprocessar
+// todo mundo.
 //
 // Uso:
 //   node scripts/backfill-frete-desconto-acrescimo.mjs                 # todas as marcas, só os que faltam
@@ -102,20 +112,26 @@ async function processarMarca(marca) {
 
   let query = supabase
     .from("pedido")
-    .select("id, provider_order_id, frete, desconto, acrescimo")
+    .select("id, provider_order_id, frete, desconto, acrescimo, pedido_item(id, quantidade, taxa_marketplace, produto:produto_id(sku))")
     .eq("org_id", orgId)
     .eq("brand_id", marca.id)
     .eq("canal", "mercadolivre")
     .not("provider_order_id", "is", null);
 
-  if (!forcarTodos) {
-    // PostgREST compara pelo valor numérico depois de fazer o cast, não pela
-    // string — "0" bate com "0.00" armazenado na coluna numeric(12,2).
-    query = query.eq("frete", "0").eq("desconto", "0").eq("acrescimo", "0");
-  }
-
-  const { data: pedidos, error } = await query;
+  const { data: todosPedidos, error } = await query;
   if (error) throw new Error(`Falha ao listar pedidos de ${marca.slug}: ${error.message}`);
+
+  // Filtrado em JS, não no PostgREST: "algum item sem taxaMarketplace" é uma
+  // condição sobre a tabela relacionada (pedido_item), que o PostgREST não
+  // filtra de forma direta numa query aninhada como esta.
+  const pedidos = forcarTodos
+    ? todosPedidos
+    : (todosPedidos ?? []).filter((p) =>
+        // PostgREST compara pelo valor numérico depois de fazer o cast, não
+        // pela string — "0" bate com "0.00" armazenado na coluna numeric(12,2).
+        Number(p.frete) === 0 || Number(p.desconto) === 0 || Number(p.acrescimo) === 0
+        || (p.pedido_item ?? []).some((item) => item.taxa_marketplace === null),
+      );
 
   if (!pedidos?.length) {
     console.log("  Nenhum pedido pendente de backfill.");
@@ -137,8 +153,28 @@ async function processarMarca(marca) {
       const desconto = typeof order.coupon?.amount === "number" ? order.coupon.amount : 0;
       const acrescimo = calcularAcrescimo(order);
 
-      const mudou = frete !== Number(p.frete) || desconto !== Number(p.desconto) || acrescimo !== Number(p.acrescimo);
-      const rotulo = `  #${p.provider_order_id}: frete ${frete} · desconto ${desconto} · acréscimo ${acrescimo}`;
+      // Casa cada order_item da API com o pedido_item do banco pelo SKU do
+      // vendedor (mesmo campo usado na ingestão normal, ver
+      // normalizarPedidoMercadoLivre em mercadolivre.provider.ts). Quando
+      // duas linhas do pedido têm o mesmo SKU (raro, mas possível), casa na
+      // ordem em que aparecem — não há outro identificador estável aqui.
+      const itensBanco = [...(p.pedido_item ?? [])];
+      const taxasPorItem = [];
+      for (const orderItem of order.order_items ?? []) {
+        const sku = orderItem.item?.seller_sku;
+        if (typeof orderItem.sale_fee !== "number" || !sku) continue;
+        const indice = itensBanco.findIndex((item) => item.produto?.sku === sku);
+        if (indice === -1) continue;
+        const [itemBanco] = itensBanco.splice(indice, 1);
+        if (itemBanco.taxa_marketplace === null) {
+          taxasPorItem.push({ id: itemBanco.id, taxaMarketplace: orderItem.sale_fee });
+        }
+      }
+
+      const mudouPedido = frete !== Number(p.frete) || desconto !== Number(p.desconto) || acrescimo !== Number(p.acrescimo);
+      const mudou = mudouPedido || taxasPorItem.length > 0;
+      const rotulo = `  #${p.provider_order_id}: frete ${frete} · desconto ${desconto} · acréscimo ${acrescimo}`
+        + (taxasPorItem.length > 0 ? ` · taxa ${taxasPorItem.map((t) => t.taxaMarketplace).join("+")}` : "");
 
       if (!mudou) {
         console.log(`${rotulo} (sem mudança)`);
@@ -146,11 +182,20 @@ async function processarMarca(marca) {
         console.log(`${rotulo} (dry-run, não gravado)`);
         atualizados += 1;
       } else {
-        const { error: erroUpdate } = await supabase
-          .from("pedido")
-          .update({ frete: String(frete), desconto: String(desconto), acrescimo: String(acrescimo) })
-          .eq("id", p.id);
-        if (erroUpdate) throw new Error(erroUpdate.message);
+        if (mudouPedido) {
+          const { error: erroUpdate } = await supabase
+            .from("pedido")
+            .update({ frete: String(frete), desconto: String(desconto), acrescimo: String(acrescimo) })
+            .eq("id", p.id);
+          if (erroUpdate) throw new Error(erroUpdate.message);
+        }
+        for (const item of taxasPorItem) {
+          const { error: erroItem } = await supabase
+            .from("pedido_item")
+            .update({ taxa_marketplace: String(item.taxaMarketplace) })
+            .eq("id", item.id);
+          if (erroItem) throw new Error(erroItem.message);
+        }
         console.log(`${rotulo} (gravado)`);
         atualizados += 1;
       }
