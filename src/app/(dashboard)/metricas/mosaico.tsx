@@ -18,7 +18,7 @@ import metricasConfig from "@/config/metricas.json";
 import { agruparPorSecao, Bloco, Foco, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo, AnelScore } from "./metricas-primitives";
-import { Linha, BarrasMarca, IndicadorTendencia, MiniRanking, BarraSplit } from "./mini-visuais";
+import { Linha, BarrasMarca, MiniRanking, BarraSplit } from "./mini-visuais";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
@@ -519,15 +519,19 @@ export function Mosaico({
       dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
     },
     // Com 1 dia só (período "Hoje"), a série não tem 2 pontos pra desenhar
-    // uma linha de tendência — em vez de deixar o espaço vazio, duas
-    // barras (anterior vs. atual) usam o mesmo total que já alimenta o
-    // Delta ao lado do número, sem inventar dado novo.
-    // Selo grande de tendência (seta + %) em vez da linha fina de antes —
-    // com 1 dia só de período ("Hoje") a linha não tinha 2 pontos pra
-    // desenhar nada e o espaço ficava vazio; o selo usa a mesma variação
-    // que já alimenta o Delta ao lado do número, então nunca some.
+    // uma linha — cai pra [anterior, atual], o mesmo par de números que já
+    // alimenta o Delta ao lado do nome, então a linha nunca some. Verde
+    // subindo / vermelho descendo, maior que a linha fina de antes (140×64
+    // em vez de 96×36) pra não sumir no card grande.
     preview: dadosFaturamento
-      ? <IndicadorTendencia valor={dadosFaturamento.variacaoPercentual} tamanho={72} />
+      ? <Linha
+          dados={dadosFaturamento.serie.length > 1
+            ? dadosFaturamento.serie.map((ponto) => ponto.valor)
+            : [dadosFaturamento.totalAnteriorNumerico, dadosFaturamento.totalNumerico]}
+          cor={dadosFaturamento.totalNumerico >= dadosFaturamento.totalAnteriorNumerico ? "var(--success)" : "var(--destructive)"}
+          largura={140}
+          altura={64}
+        />
       : undefined,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
