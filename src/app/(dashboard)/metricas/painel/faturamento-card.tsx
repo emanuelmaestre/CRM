@@ -35,6 +35,18 @@ function GraficoSerie({ serie, aoFocar, cores }: {
   aoFocar: (indice: number | null) => void;
   cores: string[];
 }) {
+  // Com 1 dia só (período "Hoje"), a barra única — sempre o pico —
+  // ocupava a largura inteira do gráfico com o gradiente de destaque,
+  // parecendo um bloco quebrado/sem dado em vez de um gráfico de verdade.
+  // Uma frase substitui a barra até existir pelo menos 2 dias pra comparar.
+  if (serie.length <= 1) {
+    return (
+      <p className="flex h-36 items-center justify-center text-center text-xs text-muted-foreground">
+        Escolha um período com mais de 1 dia para ver a evolução diária.
+      </p>
+    );
+  }
+
   const marcas = [0, Math.floor((serie.length - 1) / 2), serie.length - 1];
   const indicePico = serie.reduce(
     (melhor, ponto, indice) => (ponto.valor > (serie[melhor]?.valor ?? 0) ? indice : melhor),

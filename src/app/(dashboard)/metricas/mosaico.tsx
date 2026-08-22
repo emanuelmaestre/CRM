@@ -18,7 +18,7 @@ import metricasConfig from "@/config/metricas.json";
 import { agruparPorSecao, Bloco, Foco, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo, AnelScore } from "./metricas-primitives";
-import { Linha, BarrasMarca, MiniRanking, BarraSplit } from "./mini-visuais";
+import { Linha, BarrasMarca, BarrasComparacao, MiniRanking, BarraSplit } from "./mini-visuais";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
@@ -510,7 +510,7 @@ export function Mosaico({
         : blocosCopy.faturamento.legenda,
     },
     explicacao: {
-      resumo: "Quanto entrou de dinheiro em pedidos válidos no período. É a soma que resta depois de excluir cancelamentos e devoluções.",
+      resumo: "Faturamento bruto: quanto entrou de dinheiro em pedidos válidos no período, sem descontar taxa do canal, frete, custo do produto ou imposto. É a soma que resta depois de excluir cancelamentos e devoluções.",
       pontos: [
         { titulo: "O que entra na soma", texto: "Todo pedido aprovado dentro do período escolhido, somado pelo valor pago pelo cliente." },
         { titulo: "O que fica de fora", texto: "Pedidos cancelados ou devolvidos não entram nesta soma. Eles são medidos separadamente em Cancelamento." },
@@ -518,9 +518,15 @@ export function Mosaico({
       ],
       dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
     },
+    // Com 1 dia só (período "Hoje"), a série não tem 2 pontos pra desenhar
+    // uma linha de tendência — em vez de deixar o espaço vazio, duas
+    // barras (anterior vs. atual) usam o mesmo total que já alimenta o
+    // Delta ao lado do número, sem inventar dado novo.
     preview: dadosFaturamento && dadosFaturamento.serie.length > 1
       ? <Linha dados={dadosFaturamento.serie.map((ponto) => ponto.valor)} cor={coresFaturamento[0] ?? "var(--gradient-signature)"} largura={180} altura={60} />
-      : undefined,
+      : dadosFaturamento
+        ? <BarrasComparacao anterior={dadosFaturamento.totalAnteriorNumerico} atual={dadosFaturamento.totalNumerico} cor="var(--acento-2)" />
+        : undefined,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
       <FaturamentoCard
@@ -1099,37 +1105,45 @@ export function Mosaico({
         </div>
 
         {/* Permanece dentro do container compartilhado de 1440px para que a
-            proporção do mosaico seja a mesma em Safari, Windows e telas 2xl.
-
-            Mesmo layout em qualquer largura de tela: um card em destaque no
-            topo (Faturamento, linha inteira) e os outros numa grade de 2
-            colunas (4 a partir de xl) — 1x2x2x2x2 com os 9 blocos atuais.
-            Antes o mobile tinha a própria grade agrupada por seção (1/2/3
-            colunas variando); unificado a pedido do usuário, para que
-            celular e tablet fiquem iguais ao desktop. */}
-        <div data-coachmark="mosaico-grade" className="flex flex-col gap-3">
-          {destaque && (
-            <ul>
-              <Bloco
-                key={destaque.bloco.id}
-                def={destaque.bloco}
-                focado={destaque.bloco.id === cardAberto}
-                onAbrir={() => abrir(destaque.bloco.id)}
-                secaoLabel={destaque.secaoLabel}
-                variante="destaque"
-              />
-            </ul>
-          )}
-          {/* Sem altura travada de propósito: forçar o conjunto a preencher
-              a viewport (`h-[calc(100dvh-…)]` + `auto-rows-fr`) esticava os
-              cards e abria um vazio enorme entre o título e o número. A
-              altura sai do conteúdo; `items-start` impede que a linha da
-              grade estique os cards mais baixos pra acompanhar o mais alto. */}
-          <ul className="grid grid-cols-2 items-start gap-3 xl:grid-cols-4">
-            {resto.map(({ bloco, secaoLabel }) => (
-              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
+            proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}
+        <div data-coachmark="mosaico-grade">
+          {/* Mobile: sem card em destaque — Faturamento é só o primeiro card
+              da mesma grade uniforme dos outros 8 (mesmo tamanho, mesmo
+              estilo "grande", com preview visível como os demais), 2 colunas
+              (2x2x2x2x2, sobra 1 no fim com 9 blocos). O card escuro de
+              linha inteira é coisa de tablet/desktop (ver abaixo). */}
+          <ul className="grid grid-cols-2 items-start gap-3 lg:hidden">
+            {blocos.map((bloco) => (
+              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} variante="grande" />
             ))}
           </ul>
+
+          {/* Tablet/desktop: um card em destaque no topo (Faturamento, linha
+              inteira) e os outros numa grade de 2 colunas (4 a partir de xl). */}
+          <div className="hidden lg:flex lg:flex-col lg:gap-3">
+            {destaque && (
+              <ul>
+                <Bloco
+                  key={destaque.bloco.id}
+                  def={destaque.bloco}
+                  focado={destaque.bloco.id === cardAberto}
+                  onAbrir={() => abrir(destaque.bloco.id)}
+                  secaoLabel={destaque.secaoLabel}
+                  variante="destaque"
+                />
+              </ul>
+            )}
+            {/* Sem altura travada de propósito: forçar o conjunto a preencher
+                a viewport (`h-[calc(100dvh-…)]` + `auto-rows-fr`) esticava os
+                cards e abria um vazio enorme entre o título e o número. A
+                altura sai do conteúdo; `items-start` impede que a linha da
+                grade estique os cards mais baixos pra acompanhar o mais alto. */}
+            <ul className="grid grid-cols-2 items-start gap-3 xl:grid-cols-4">
+              {resto.map(({ bloco, secaoLabel }) => (
+                <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
+              ))}
+            </ul>
+          </div>
         </div>
       </motion.div>
 

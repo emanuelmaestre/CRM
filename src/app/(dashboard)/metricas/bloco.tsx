@@ -301,6 +301,10 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
   // O card em destaque virou fundo claro (branco), não mais escuro — as
   // duas cores de texto passam a ser as mesmas do resto do app; só o
   // vermelho/verde da variação (Delta, semântico) continua colorido.
+  // O card em destaque virou fundo claro, igual aos outros cards do
+  // módulo — as duas cores de texto passam a ser as mesmas do resto do
+  // app; só o vermelho/verde da variação (Delta, semântico) continua
+  // colorido.
   const corTexto = "var(--foreground)";
   const corSub = "var(--muted-foreground)";
 
@@ -318,7 +322,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
         >
           {/* Fio de assinatura do produto — só no card em destaque, o único
               lugar com "temperatura" na tela (ver mosaico.tsx). */}
-          {escuro && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ background: "var(--gradient-signature)" }} />}
+          {escuro && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ background: "var(--border)" }} />}
 
           {/* ── Card em destaque: uma linha horizontal só ──────────────
               Ícone | (seção · título + número + variação, legenda, chips) |
@@ -330,17 +334,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
             <span className="flex flex-1 items-center gap-4 lg:gap-5">
               <span
                 className={`flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center ${tam.icone}`}
-                // `tint(accent, 9)` mistura com TRANSPARENTE — num card
-                // escuro isso deixa o fundo quase preto e o ícone (na cor
-                // sólida do accent) sem contraste nenhum, quase invisível.
-                // Aqui mistura com branco em vez de transparente — sólido,
-                // sem deixar o fundo do card transparecer — e continua
-                // lendo como "a cor do card", só que visível de verdade.
-                style={{
-                  background: `color-mix(in srgb, ${accent} 28%, white)`,
-                  color: `color-mix(in srgb, ${accent} 75%, white)`,
-                  borderRadius: "32%",
-                }}
+                style={{ background: tint(accent, 9), color: accent, borderRadius: "32%" }}
               >
                 <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
                 <Icone size={tam.iconeTamanho} strokeWidth={1.9} className="hidden lg:block" />
@@ -379,7 +373,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                       </span>
                     )}
                     {def.chips && def.chips.length > 0 && (
-                      <span className="mt-2.5 hidden items-center gap-1.5 overflow-hidden lg:flex">
+                      <span className="mt-2.5 hidden items-center gap-4 overflow-hidden lg:flex">
                         {def.chips.map((chip) => <ChipMarcaTile key={chip.slug} slug={chip.slug} label={chip.label} height={18} />)}
                       </span>
                     )}
@@ -478,7 +472,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                     embaixo, mas isso empurrava o gráfico junto — ele fica
                     melhor centralizado na própria altura. */}
                 {tam.comPreview && def.preview && (
-                  <span className="hidden shrink-0 self-center overflow-hidden lg:block">{def.preview}</span>
+                  <span className="block shrink-0 self-center overflow-hidden">{def.preview}</span>
                 )}
               </span>
 

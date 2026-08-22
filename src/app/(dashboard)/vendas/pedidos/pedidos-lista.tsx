@@ -503,21 +503,27 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar pedido ou cliente…" className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-selecionado" />
         </label>
-        <div className="flex items-center gap-2">
+        {/* Mobile: Todos/Período/Status viram 3 colunas do mesmo tamanho
+            (grid, não flex), com um risco fino separando cada uma — antes
+            "Todos" crescia (flex-1) e empurrava os outros dois pra direita,
+            com espaçamento desigual. Do md em diante volta a ser a fileira
+            de sempre, auto-ajustada ao conteúdo. */}
+        <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 md:flex md:items-center">
           {/* buttonClassName força 44px de altura — o padrão do componente é
               36px, que ficava desalinhado ao lado dos calendários e do Hoje
               (todos 44px) nesta linha. */}
-          <div className="min-w-0 flex-1 md:flex-initial">
+          <div className="min-w-0 md:flex-initial">
             <SelectPopover
               valor={statusGrupo}
               onChange={setStatusGrupo}
-              buttonClassName="press-feedback inline-flex h-11 w-full min-w-[7rem] items-center justify-between gap-2 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado disabled:opacity-60 md:w-auto"
+              buttonClassName="press-feedback inline-flex h-11 w-full min-w-[7rem] items-center justify-center gap-2 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado disabled:opacity-60 md:w-auto md:justify-between"
               itens={GRUPOS_STATUS.map((grupo) => ({
                 value: grupo.chave,
                 label: grupo.chave === "" ? copy.statusFilter.all : grupo.label,
               }))}
             />
           </div>
+          <span aria-hidden="true" className="h-6 w-px justify-self-center bg-border md:hidden" />
           {/* "Hoje" saiu como botão avulso — o popover de Período já tem o
               mesmo atalho lá dentro (ver CalendarioPopoverRange), o botão
               daqui fora só duplicava a ação e tomava espaço na linha. */}
@@ -526,11 +532,12 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             valor={{ inicio: dataInicial, fim: dataFinal }}
             onChange={({ inicio, fim }) => { setDataInicial(inicio); setDataFinal(fim); }}
           />
+          <span aria-hidden="true" className="h-6 w-px justify-self-center bg-border md:hidden" />
           {/* Mobile: "Entenda os status" (virou "Status" aqui, compacto) sai
               da própria fileira acima e entra nesta linha, junto de
               Todos/Período — o desktop mantém a versão de sempre, ancorada
               no canto direito da barra de escopo (ver acima). */}
-          <div className="lg:hidden">
+          <div className="min-w-0 lg:hidden">
             <EntendaStatusPedidoBotao compacto />
           </div>
         </div>

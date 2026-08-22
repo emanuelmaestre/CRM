@@ -203,7 +203,7 @@
     "posicao": "{atual} de {total}",
     "blocos": {
       "faturamento": {
-        "titulo": "Faturamento",
+        "titulo": "Faturamento bruto",
         "legenda": "{pedidos} pedidos · valor médio {ticket}"
       },
       "score": {

@@ -49,6 +49,22 @@ export function Linha({ dados, cor, largura = 96, altura = 36 }: { dados: number
   );
 }
 
+/** Duas barras, anterior vs. atual — para quando a série tem 1 ponto só
+ *  (ex.: período "Hoje" em Faturamento) e uma linha de tendência não faz
+ *  sentido com um ponto único, mas o card já sabe o total do período
+ *  anterior (mesma base do Delta/variação mostrado ao lado do número). */
+export function BarrasComparacao({ anterior, atual, cor }: { anterior: number; atual: number; cor: string }) {
+  const maior = Math.max(anterior, atual, 1);
+  const alturaAnterior = Math.max(4, Math.round((anterior / maior) * 100));
+  const alturaAtual = Math.max(4, Math.round((atual / maior) * 100));
+  return (
+    <div className="flex h-9 items-end gap-1.5" role="img" aria-label={`Comparação com o período anterior: ${anterior} contra ${atual} agora.`}>
+      <span className="w-2.5 rounded-t-[3px]" style={{ height: `${alturaAnterior}%`, background: "var(--chart-bar)" }} />
+      <span className="w-2.5 rounded-t-[3px]" style={{ height: `${alturaAtual}%`, background: cor }} />
+    </div>
+  );
+}
+
 /** Split simples de duas partes (ex.: pendentes vs. resolvidas) — pro
  *  caso em que não existe série no tempo real pra desenhar, só uma
  *  proporção entre dois totais. */

@@ -7,7 +7,7 @@
   "cards": {
     "faturamento": {
       "icon": "TrendingUp",
-      "title": "Faturamento",
+      "title": "Faturamento bruto",
       "accent": "var(--acento-2)",
       "ordersLabel": "pedidos",
       "ticketLabel": "valor médio por pedido",
