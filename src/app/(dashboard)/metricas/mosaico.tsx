@@ -90,6 +90,21 @@ function semFiltroDefinido(filtro: CardFiltro) {
  *  pra importar a função de lá aqui: aquele arquivo puxa Drizzle/Postgres
  *  no topo, e isto aqui é "use client". Null quando não há base de
  *  comparação (snapshot ausente ou zero), nunca um percentual inventado. */
+/** "R$ 1.234,56" (o formato que o serviço já devolve) → 1234.56. */
+function valorParaNumero(formatado: string): number {
+  const limpo = formatado.replace(/[^\d,-]/g, "").replace(",", ".");
+  const numero = Number(limpo);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+/** "R$ 6,3k" — compacto de propósito pro número caber no card sem
+ *  quebrar linha; não precisa dos centavos exatos aqui. */
+function formatarReaisCompacto(valor: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1,
+  }).format(valor);
+}
+
 function calcularVariacao(atual: number, anterior: number | null): number | null {
   if (anterior === null || anterior === 0) return null;
   return Math.round(((atual - anterior) / anterior) * 100);
@@ -862,18 +877,20 @@ export function Mosaico({
     carregando: parados.carregando,
     semFiltro: parados.semFiltro,
     resumo: {
-      valor: parados.dados ? String(parados.dados.parados.length) : null,
-      legenda: blocosCopy.parados.legenda,
+      // Capital parado, não quantidade de itens — "R$ 6,3k" diz mais do
+      // que "6" sozinho. Soma só os itens que a lista devolve (capada em
+      // TAMANHO_LISTA no serviço); com mais parados que isso, o valor
+      // real é maior do que o mostrado — aproximado de propósito, a
+      // pedido do usuário, em vez de buscar a soma exata à parte.
+      valor: parados.dados && parados.dados.parados.length > 0
+        ? formatarReaisCompacto(parados.dados.parados.reduce((soma, item) => soma + valorParaNumero(item.valorParado), 0))
+        : parados.dados ? "R$ 0" : null,
+      legenda: parados.dados ? `${parados.dados.parados.length} ${blocosCopy.parados.legenda}` : blocosCopy.parados.legenda,
       variacao: parados.dados
         ? calcularVariacao(parados.dados.parados.length, snapshotOntem?.paradosQtd ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.parados
         : null,
       // Mais itens parados é piora, não melhora.
       subirEhRuim: true,
-      // A lista é ordenada por capital imobilizado, então o primeiro item
-      // é justamente o que mais justifica uma liquidação.
-      sinal: parados.dados?.parados[0]?.valorParado
-        ? { texto: parados.dados.parados[0].valorParado, tom: "ruim" as const }
-        : undefined,
       alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
     },
     explicacao: {

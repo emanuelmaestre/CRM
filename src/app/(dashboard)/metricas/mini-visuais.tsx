@@ -16,9 +16,14 @@ export function Linha({ dados, cor, largura = 96, altura = 36 }: { dados: number
   if (dados.length < 2) return null;
   const max = Math.max(...dados);
   const min = Math.min(...dados);
+  // Margem de 7px (não 3) em cima e embaixo: com só 3px, o traço e a
+  // bolinha do ponto final (raio 2.75 + contorno) chegavam quase colados
+  // na borda da caixa, e cortados pelo `overflow-hidden` do card em volta
+  // — lia como "gráfico cortado" em vez de "pico do gráfico".
+  const margem = 7;
   const ponto = (v: number, i: number) => {
     const x = (i / (dados.length - 1)) * largura;
-    const y = altura - ((v - min) / (max - min || 1)) * (altura - 6) - 3;
+    const y = altura - ((v - min) / (max - min || 1)) * (altura - margem * 2) - margem;
     return [x, y] as const;
   };
   const pontos = dados.map(ponto);
