@@ -584,13 +584,16 @@ export function Mosaico({
       dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso, para o score que está na tela.",
     },
     preview: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
-      // Sem faixaLabel aqui: "EXCELENTE" não cabe dentro de um anel de
-      // 56px em nenhum tamanho de fonte, e a mesma informação já aparece
-      // como texto normal embaixo do número no corpo do card.
-      ? <AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} />
+      // "PONTOS" no lugar da faixa ("EXCELENTE" etc.): a faixa não cabe
+      // num anel de 56px em nenhum tamanho de fonte, mas ela já aparece
+      // como texto normal embaixo do número no corpo do card — "pontos" é
+      // curto o bastante pra caber e ainda diz o que o número é.
+      ? <AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={64} faixaLabel="pontos" />
       : undefined,
+    chips: chipsDoFiltro,
+    temLegendaStatus: true,
     render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
-  }), [saude.dados, carregandoSaude, snapshotOntem]);
+  }), [saude.dados, carregandoSaude, snapshotOntem, chipsDoFiltro]);
 
   const blocoComparacao = useMemo<BlocoDef>(() => ({
     id: "comparacao",

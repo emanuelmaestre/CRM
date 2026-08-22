@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "drizzle-orm";
-import { differenceInCalendarDays, startOfDay, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
+import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subHours, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
@@ -194,6 +194,23 @@ function montarBaldes(agora: Date, granularidade: Granularidade, totalPontos?: n
   return baldes;
 }
 
+const horaCurta = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", timeZone: "America/Sao_Paulo" });
+
+/** Baldes por HORA — só para quando a janela pedida é 1 dia só (ex.:
+ *  filtro "Hoje"). Nesse caso, baldear por dia dá 1 ponto só e a série
+ *  não tem como desenhar uma linha de verdade; por hora usa os
+ *  `pedido.createdAt` reais do próprio dia — 24 baldes, sem inventar
+ *  nenhum dado, só numa resolução mais fina que a diária. */
+function montarBaldesHora(inicioDia: Date, fimDia: Date): Map<number, number> {
+  const baldes = new Map<number, number>();
+  const totalHoras = Math.max(1, Math.round((fimDia.getTime() - inicioDia.getTime()) / (60 * 60 * 1000)) + 1);
+  for (let i = 0; i < totalHoras; i++) {
+    const inicio = startOfHour(subHours(fimDia, totalHoras - 1 - i));
+    baldes.set(inicio.getTime(), 0);
+  }
+  return baldes;
+}
+
 /* ── Consulta principal ───────────────────────────────────────── */
 
 /** Normaliza um filtro de string|string[] opcional numa lista sem vazios; [] quando ausente. */
@@ -345,12 +362,16 @@ export async function obterDashboardData(
   const inicioJanelaAnterior = subDays(inicioJanela, janelaDias);
   const fimJanelaAnterior = inicioJanela;
 
+  // "Hoje" (1 dia só) baldeado por dia dá 1 ponto — sem 2 pontos não dá
+  // pra desenhar uma linha de tendência de verdade. Por hora usa os
+  // `pedido.createdAt` reais do próprio dia (ver montarBaldesHora): mais
+  // fino que o normal, mas ainda dado real, nunca inventado.
+  const serieHoraria = personalizado && janelaDias === 1;
   const granularidadeSerie: Granularidade = personalizado ? "dia" : granularidade;
   const pontosSerie = personalizado ? Math.min(janelaDias, 60) : PONTOS_SERIE[granularidade];
-  const inicioSerie = inicioDoBalde(
-    recuarBaldes(fimJanela, granularidadeSerie, pontosSerie - 1),
-    granularidadeSerie,
-  );
+  const inicioSerie = serieHoraria
+    ? inicioJanela
+    : inicioDoBalde(recuarBaldes(fimJanela, granularidadeSerie, pontosSerie - 1), granularidadeSerie);
   // A série pode olhar mais para trás que a janela de produto (12 meses vs 365 dias
   // batem, mas 12 semanas < 84 dias não). Busca pedidos desde o que for mais antigo.
   const inicioBusca = inicioSerie < inicioJanelaAnterior ? inicioSerie : inicioJanelaAnterior;
@@ -414,14 +435,16 @@ export async function obterDashboardData(
   ]);
 
   /* ── Faturamento ── */
-  const baldes = montarBaldes(fimJanela, granularidadeSerie, personalizado ? pontosSerie : undefined);
+  const baldes = serieHoraria
+    ? montarBaldesHora(inicioJanela, fimJanela)
+    : montarBaldes(fimJanela, granularidadeSerie, personalizado ? pontosSerie : undefined);
   let totalJanela = 0;
   let pedidosNaJanela = 0;
   let totalJanelaAnterior = 0;
 
   for (const item of pedidosJanela) {
     const valor = parseMoney(item.total);
-    const chave = inicioDoBalde(item.createdAt, granularidadeSerie).getTime();
+    const chave = (serieHoraria ? startOfHour(item.createdAt) : inicioDoBalde(item.createdAt, granularidadeSerie)).getTime();
     if (baldes.has(chave)) baldes.set(chave, (baldes.get(chave) ?? 0) + valor);
 
     if (item.createdAt >= inicioJanela && item.createdAt <= fimJanela) {
@@ -436,7 +459,7 @@ export async function obterDashboardData(
   const valoresSerie = [...baldes.values()];
   const maiorValor = Math.max(...valoresSerie, 0);
   const serie: SeriePonto[] = [...baldes.entries()].map(([chave, valor]) => ({
-    label: rotuloDoBalde(new Date(chave), granularidadeSerie),
+    label: serieHoraria ? `${horaCurta.format(new Date(chave))}h` : rotuloDoBalde(new Date(chave), granularidadeSerie),
     valor,
     altura: maiorValor > 0 ? Math.max(2, Math.round((valor / maiorValor) * 100)) : 0,
   }));

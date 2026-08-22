@@ -206,8 +206,12 @@ export function AnelScore({ valor, cor, tamanho = 168, faixaLabel }: {
             </span>
             {faixaLabel && (
               <span
-                className="mt-1.5 font-bold uppercase tracking-[0.08em]"
-                style={{ color: cor, fontSize: Math.max(11, Math.round(tamanho * 0.058)) }}
+                className="mt-1 font-bold uppercase leading-none"
+                // Sem tracking largo em anéis pequenos: "PONTOS" com
+                // tracking-[0.08em] não cabia na largura de um anel de
+                // 56px e transbordava. Tracking encolhe junto com a fonte
+                // (proporcional ao tamanho) em vez de ficar fixo.
+                style={{ color: cor, fontSize: Math.max(8, Math.round(tamanho * 0.065)), letterSpacing: tamanho < 96 ? "0.02em" : "0.08em" }}
               >
                 {faixaLabel}
               </span>

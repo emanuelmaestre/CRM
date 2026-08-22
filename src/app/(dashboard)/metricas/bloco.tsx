@@ -352,7 +352,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                   </span>
                   {!carregando && !semFiltro && (
                     <>
-                      <span className={`font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
+                      <span className={`whitespace-nowrap font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
                         {resumo.valor ?? "—"}
                       </span>
                       <Sinal resumo={resumo} />
@@ -456,7 +456,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
               <span className="mt-4 flex items-end justify-between gap-3">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-1">
-                    <span className={`font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
+                    <span className={`whitespace-nowrap font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
                       {resumo.valor ?? "—"}
                     </span>
                   </span>

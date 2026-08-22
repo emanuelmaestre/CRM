@@ -534,8 +534,15 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
         </div>
         {/* Risco separador só no mobile empilhado — do sm em diante os dois
             grupos já ficam lado a lado na mesma linha, com o traço abaixo
-            fazendo esse papel (ver `flex-1` dele, sm:block). */}
-        <span aria-hidden="true" className="h-px w-full bg-border sm:hidden" />
+            fazendo esse papel (ver `flex-1` dele, sm:block). Esmaece nas
+            pontas em vez de ir de ponta a ponta — ao lado de pílulas
+            arredondadas, uma linha sólida cortando a largura inteira ficava
+            pesada; o gradiente lê como divisor sem competir com elas. */}
+        <span
+          aria-hidden="true"
+          className="h-px w-full sm:hidden"
+          style={{ background: "linear-gradient(to right, transparent, var(--border) 15%, var(--border) 85%, transparent)" }}
+        />
         <span className="hidden h-px flex-1 bg-border sm:block" />
         {/* Período, Hoje, PDF e sincronizar viram um grupo só — antes o
             período ficava colado nas pílulas de marca/canal, empurrando
@@ -589,8 +596,12 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
 
       {/* Risco separador só no mobile, entre o grupo de Período/PDF/sincronizar
           e a fileira de atalhos abaixo — mesma lógica do risco acima, entre
-          marca/canal e período. */}
-      <span aria-hidden="true" className="h-px w-full bg-border sm:hidden" />
+          marca/canal e período (esmaecido nas pontas, não de ponta a ponta). */}
+      <span
+        aria-hidden="true"
+        className="h-px w-full sm:hidden"
+        style={{ background: "linear-gradient(to right, transparent, var(--border) 15%, var(--border) 85%, transparent)" }}
+      />
 
       {/* Navegação pro resto do módulo — antes vivia pendurada como texto
           minúsculo do lado do rótulo "Campanhas", parecendo detalhe daquela

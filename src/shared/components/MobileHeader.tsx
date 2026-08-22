@@ -21,9 +21,21 @@ export function MobileHeader() {
     router.refresh();
   }
 
+  function handleLogoClick() {
+    router.push("/metricas");
+    router.refresh();
+  }
+
   return (
     <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between px-4 backdrop-blur-md md:hidden">
-      <ElisaLimaLogo className="w-24" />
+      <button
+        type="button"
+        onClick={handleLogoClick}
+        aria-label="Ir para Métricas"
+        className="press-feedback rounded-lg"
+      >
+        <ElisaLimaLogo className="w-24" />
+      </button>
       <button
         type="button"
         onClick={handleLogout}
