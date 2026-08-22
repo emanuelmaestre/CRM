@@ -131,8 +131,11 @@ export function ChipMarcaTile({ slug, label }: { slug: string; label: string }) 
        colunas) o nome longo ("ARMARINHOS LIMA") quebrava letra por letra
        na vertical em vez de sair da linha inteiro. */
     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+      {/* 13, não 11 — o mesmo valor do chip equivalente no protótipo
+          (mosaico-redesign.tsx). Com 11 a logo ficava ~18% menor do que
+          deveria dentro do mesmo espaço de chip. */}
       {isBrandSlug(slug) ? (
-        <BrandLogo brand={slug} height={11} />
+        <BrandLogo brand={slug} height={13} />
       ) : (
         <span
           className="inline-flex items-center gap-1 rounded-full px-1.5 py-[1px] text-[9.5px] font-semibold"

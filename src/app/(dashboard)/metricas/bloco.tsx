@@ -47,6 +47,11 @@ export interface ResumoBloco {
   sinal?: { texto: string; tom?: "neutro" | "bom" | "ruim" };
   /** Um alerta promove o bloco para o topo do mosaico e tinge a borda. */
   alerta?: { nivel: NivelAlerta; texto: string } | null;
+  /** Selo vermelho no canto (estilo "hoje") — só pra prazo/urgência real,
+   *  nunca decorativo. Hoje só Reclamações usa: quantas foram abertas
+   *  hoje de verdade (`diasAberta === 0`). Ausente quando o número é 0 —
+   *  um selo "0 hoje" não avisa nada, só ocupa espaço. */
+  selo?: string;
 }
 
 /** As 5 seções do mosaico, na ordem em que aparecem na tela. `label` é o
@@ -203,21 +208,28 @@ const VARIANTES = {
     comPreview: false,
   },
   grande: {
-    caixa: "lg:gap-0 lg:px-5 lg:py-5",
+    // py-5 (20px), não py-4 (16px) — o mesmo padding vertical do card
+    // equivalente no protótipo.
+    caixa: "lg:gap-1 lg:px-5 lg:py-5",
     icone: "lg:h-10 lg:w-10",
     iconeTamanho: 19,
-    rotulo: "lg:text-[10px]",
-    titulo: "lg:text-[16px]",
-    numero: "text-[22px] lg:text-stat-md",
+    rotulo: "lg:text-[10.5px]",
+    titulo: "lg:text-[15.5px]",
+    numero: "text-[20px] lg:text-[22px]",
     comPreview: true,
   },
   destaque: {
-    caixa: "lg:gap-3 lg:px-8 lg:py-7",
-    icone: "lg:h-14 lg:w-14",
-    iconeTamanho: 26,
-    rotulo: "lg:text-[12px]",
-    titulo: "lg:text-[20px]",
-    numero: "text-[26px] lg:text-stat-lg",
+    // O destaque é uma única linha horizontal (ícone | texto | gráfico),
+    // diferente da grade abaixo, que empilha 3 blocos verticalmente (título,
+    // número, rodapé) — por estrutura, uma linha só fica mais baixa que uma
+    // pilha de 3, mesmo com fonte maior. Padding bem mais generoso é o que
+    // compensa isso e devolve a sensação de "o maior card da tela".
+    caixa: "lg:gap-5 lg:px-10 lg:py-10",
+    icone: "lg:h-16 lg:w-16",
+    iconeTamanho: 30,
+    rotulo: "lg:text-[12.5px]",
+    titulo: "lg:text-[24px]",
+    numero: "text-[28px] lg:text-stat-lg",
     comPreview: true,
   },
 } as const;
@@ -288,7 +300,6 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
   const escuro = variante === "destaque";
   const corTexto = escuro ? "#FFFFFF" : "var(--foreground)";
   const corSub = escuro ? "rgba(255,255,255,.62)" : "var(--muted-foreground)";
-  const corAlertaBorda = resumo.alerta ? corAlerta(resumo.alerta.nivel) : null;
 
   return (
     <li className={`relative h-full ${className ?? ""}`}>
@@ -300,11 +311,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
           className={`card-surface relative flex h-full w-full cursor-pointer flex-col overflow-hidden text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${tam.caixa} gap-2 px-3.5 py-3`}
-          style={{
-            background: escuro ? "#171A22" : "var(--card)",
-            borderColor: corAlertaBorda ?? undefined,
-            borderWidth: corAlertaBorda ? 1.5 : undefined,
-          }}
+          style={{ background: escuro ? "#171A22" : "var(--card)" }}
         >
           {/* Fio de assinatura do produto — só no card em destaque, o único
               lugar com "temperatura" na tela (ver mosaico.tsx). */}
@@ -320,7 +327,17 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
             <span className="flex flex-1 items-center gap-4 lg:gap-5">
               <span
                 className={`flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center ${tam.icone}`}
-                style={{ background: tint(accent, 9), color: accent, borderRadius: "32%" }}
+                // `tint(accent, 9)` mistura com TRANSPARENTE — num card
+                // escuro isso deixa o fundo quase preto e o ícone (na cor
+                // sólida do accent) sem contraste nenhum, quase invisível.
+                // Aqui mistura com branco em vez de transparente, e mais
+                // forte, pra continuar lendo como "a cor do card" mas
+                // visível de verdade sobre o fundo escuro.
+                style={{
+                  background: `color-mix(in srgb, ${accent} 22%, transparent)`,
+                  color: `color-mix(in srgb, ${accent} 75%, white)`,
+                  borderRadius: "32%",
+                }}
               >
                 <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
                 <Icone size={tam.iconeTamanho} strokeWidth={1.9} className="hidden lg:block" />
@@ -371,7 +388,14 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                 <span className="hidden shrink-0 lg:block">{def.preview}</span>
               )}
 
-              {resumo.alerta && (
+              {resumo.selo ? (
+                <span
+                  className="absolute right-4 top-4 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                  style={{ background: "var(--destructive)" }}
+                >
+                  {resumo.selo}
+                </span>
+              ) : resumo.alerta && (
                 <span
                   aria-label={resumo.alerta.nivel === "critico" ? "Crítico" : "Atenção"}
                   className="absolute right-4 top-4 h-2 w-2 rounded-full"
@@ -404,7 +428,14 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                 {def.titulo}
               </span>
             </span>
-            {resumo.alerta && (
+            {resumo.selo ? (
+              <span
+                className="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                style={{ background: "var(--destructive)" }}
+              >
+                {resumo.selo}
+              </span>
+            ) : resumo.alerta && (
               <span
                 aria-label={resumo.alerta.nivel === "critico" ? "Crítico" : "Atenção"}
                 className="h-2 w-2 shrink-0 rounded-full"
@@ -419,16 +450,22 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
             <span className="mt-4 block"><ConteudoVazio tam={tam} /></span>
           ) : (
             <>
+              {/* Estrutura copiada exatamente do protótipo
+                  (mosaico-redesign.tsx): número+sufixo numa linha, o sinal
+                  (Delta lá, Sinal aqui) numa linha própria embaixo — não
+                  na mesma linha de base do número — e só depois a legenda.
+                  Três linhas, não duas; era essa diferença de estrutura
+                  que fazia o corpo do card parecer mais baixo. */}
               <span className="mt-4 flex items-end justify-between gap-3">
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-baseline gap-1.5">
+                  <span className="flex items-baseline gap-1">
                     <span className={`font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
                       {resumo.valor ?? "—"}
                     </span>
-                    <Sinal resumo={resumo} />
                   </span>
+                  <span className="mt-1.5 block"><Sinal resumo={resumo} /></span>
                   {(resumo.rodape ?? resumo.legenda) && (
-                    <span className="mt-1.5 block truncate text-[11.5px]" style={{ color: corSub }}>
+                    <span className="mt-1 block truncate text-[11.5px]" style={{ color: corSub }}>
                       {resumo.rodape ?? resumo.legenda}
                     </span>
                   )}

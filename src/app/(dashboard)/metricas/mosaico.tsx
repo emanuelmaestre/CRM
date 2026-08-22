@@ -95,6 +95,59 @@ function calcularVariacao(atual: number, anterior: number | null): number | null
   return Math.round(((atual - anterior) / anterior) * 100);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+ * PLACAR FICTÍCIO TEMPORÁRIO — pedido explícito do usuário em 22/08/2026.
+ *
+ * O job A30 só passou a existir hoje; a primeira foto real só é gravada
+ * esta noite (cron 02:30 UTC ≈ 23:30 em Brasília), então até lá
+ * `snapshotOntem` é sempre null e os 4 cards abaixo (Pontuação da loja,
+ * Giro baixo, Parados, Repor em breve) ficariam sem nenhum percentual.
+ * A pedido do usuário, ENQUANTO ISSO estes 4 números fictícios preenchem
+ * o espaço — os mesmos valores do protótipo de referência, sem relação
+ * com o dado real.
+ *
+ * Isto SE DESLIGA SOZINHO: o `??` abaixo só é alcançado quando
+ * `calcularVariacao` devolve null por falta de `snapshotOntem`. Assim que
+ * o job gravar a primeira foto (a partir de amanhã), `snapshotOntem` deixa
+ * de ser null, `calcularVariacao` passa a devolver o percentual real, e
+ * este fallback para de ser lido — sem precisar editar nada aqui de novo.
+ * Pode apagar este bloco quando confirmar (alguns dias depois) que os 4
+ * cards já mostram variação real todo santo dia. */
+const VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT = {
+  score: 2,
+  giroBaixo: -4,
+  parados: 3,
+  reposicao: 14,
+} as const;
+
+/* Mesmo pedido, mas SEM desligamento automático — diferente do bloco acima,
+ * estes três não têm nenhum cálculo real por trás esperando pra assumir:
+ *   • Marca/Comparação: "3 marcas comparadas" não tem variação real
+ *     concebível — 3 não vira 3,2. Fictício pra sempre, por natureza do
+ *     dado, não por falta de implementação.
+ *   • Reclamações: dá pra fazer de verdade (é só o job A30 passar a
+ *     gravar `pendentes` também), mas ainda não grava — diferente de
+ *     Marca, este poderia sair da lista quando alguém fizer essa adição.
+ *   • Vendem mais: dá pra fazer de verdade (unidades vendidas têm data,
+ *     igual Faturamento), só que ninguém implementou ainda o comparativo
+ *     contra a janela anterior.
+ *   • Publicações: o mosaico não consulta a API de Ads pra nenhuma marca
+ *     ao carregar — de propósito (ver comentário perto de `blocoPublicacoes`
+ *     mais abaixo): consultar todas as marcas na API do Mercado Livre toda
+ *     vez que a tela abre deixaria o mosaico inteiro mais lento à toa. Um
+ *     número real aqui exigiria essa busca antecipada — é uma troca de
+ *     performance, não só UI, então fica fictício até essa decisão ser
+ *     tomada.
+ * Precisa apagar Vendem mais/Publicações NA MÃO quando virarem reais —
+ * Marca/Comparação fica assim de vez. */
+const FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO = {
+  comparacao: 6,
+  reclamacoes: -25,
+  vendemMais: 11,
+  publicacoes: { valor: "63%", variacao: 18, legenda: "da receita veio de anúncio" },
+} as const;
+/* ══════════════════════════════════════════════════════════════════════ */
+
 function useDadosDoCard(
   cache: React.MutableRefObject<Map<string, Promise<DashboardData>>>,
   periodo: Periodo,
@@ -482,7 +535,7 @@ export function Mosaico({
       // Variação real contra a foto de ontem (job A30) quando ela já
       // existe; sem base ainda, cai no "/100" pra não deixar o card mudo.
       variacao: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
-        ? calcularVariacao(Math.round(saude.dados.scoreGeral), snapshotOntem?.scoreGeral ?? null)
+        ? calcularVariacao(Math.round(saude.dados.scoreGeral), snapshotOntem?.scoreGeral ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.score
         : null,
       sinal: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
         ? { texto: "/100", tom: "neutro" as const }
@@ -501,6 +554,9 @@ export function Mosaico({
       dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso, para o score que está na tela.",
     },
     preview: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
+      // Sem faixaLabel aqui: "EXCELENTE" não cabe dentro de um anel de
+      // 56px em nenhum tamanho de fonte, e a mesma informação já aparece
+      // como texto normal embaixo do número no corpo do card.
       ? <AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} />
       : undefined,
     render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
@@ -516,13 +572,17 @@ export function Mosaico({
     carregando: carregandoSaude,
     resumo: {
       valor: saude.dados ? String(saude.dados.marcas.length) : null,
-      legenda: blocosCopy.comparacao.legenda,
-      // Quem está na frente por faturamento — o card compara marcas, e
-      // essa é a resposta que ele dá antes de ser aberto.
-      sinal: (() => {
+      // Quem está na frente por faturamento vira parte da legenda — a
+      // resposta que o card dá antes de ser aberto — já que o espaço do
+      // percentual (variacao) foi ocupado pelo fictício abaixo.
+      legenda: (() => {
         const lider = [...(saude.dados?.marcas ?? [])].sort((a, b) => b.faturamento - a.faturamento)[0];
-        return lider ? { texto: `${lider.marcaLabel} lidera`, tom: "bom" as const } : undefined;
+        return lider ? `${lider.marcaLabel} lidera` : blocosCopy.comparacao.legenda;
       })(),
+      // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
+      // arquivo. "3 marcas" não tem variação real conceitualmente (3 não
+      // vira 3,2), então isto não se desliga sozinho.
+      variacao: saude.dados ? FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.comparacao : null,
     },
     explicacao: {
       resumo: "Coloca as marcas ativas lado a lado e utiliza os mesmos critérios de medição. A liderança muda conforme o critério escolhido nas abas.",
@@ -564,15 +624,30 @@ export function Mosaico({
       // "pendentes" (não "total"): reclamações já resolvidas no Mercado Livre
       // (sem ação nossa restante) não deveriam acender alerta crítico no mosaico.
       valor: reclamacoesVisiveis ? String(reclamacoesVisiveis.pendentes) : null,
-      legenda: blocosCopy.reclamacoes.legenda,
       // Quantas do total ainda dependem de nós — o número grande sozinho
-      // ("5") não diz se são 5 de 6 ou 5 de 50.
-      sinal: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
-        ? { texto: `de ${reclamacoesVisiveis.total}`, tom: "neutro" as const }
-        : undefined,
+      // ("5") não diz se são 5 de 6 ou 5 de 50. Foi pro lugar da legenda
+      // porque o espaço do percentual (variacao) virou o fictício abaixo.
+      legenda: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
+        ? `de ${reclamacoesVisiveis.total}`
+        : blocosCopy.reclamacoes.legenda,
+      // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
+      // arquivo. Reclamações não entra no job A30 (não grava snapshot de
+      // pendentes), então não há como calcular isto de verdade ainda.
+      variacao: reclamacoesVisiveis ? FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.reclamacoes : null,
+      // Menos reclamações é notícia boa — sem isto, "-25%" pintaria de
+      // vermelho, como se cair fosse piora.
+      subirEhRuim: true,
       alerta: reclamacoesVisiveis && reclamacoesVisiveis.pendentes > 0
         ? { nivel: "critico", texto: "a resolver" }
         : null,
+      // Selo real, não decorativo: quantas foram abertas HOJE de verdade
+      // (diasAberta === 0), não uma marcação fixa que aparece todo dia
+      // independente do que aconteceu. Some sozinho em dias sem abertura
+      // nova — um selo "0 hoje" não avisa nada.
+      selo: (() => {
+        const hoje = reclamacoesVisiveis?.itens.filter((item) => item.diasAberta === 0).length ?? 0;
+        return hoje > 0 ? `${hoje} hoje` : undefined;
+      })(),
     },
     explicacao: {
       resumo: "Reclamações que o cliente abriu no Mercado Livre contra um pedido da marca, dentro do período selecionado.",
@@ -625,7 +700,7 @@ export function Mosaico({
       valor: reposicao.dados ? String(reposicao.dados.reposicao.length) : null,
       legenda: blocosCopy.reposicao.legenda,
       variacao: reposicao.dados
-        ? calcularVariacao(reposicao.dados.reposicao.length, snapshotOntem?.reposicaoQtd ?? null)
+        ? calcularVariacao(reposicao.dados.reposicao.length, snapshotOntem?.reposicaoQtd ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.reposicao
         : null,
       // Mais itens precisando de reposição é notícia ruim, não boa — sem
       // isto a seta pra cima (mais SKUs em alerta) apareceria verde.
@@ -693,11 +768,10 @@ export function Mosaico({
         : null,
       legenda: maisVendidos.dados?.maisVendidos[0]?.nome ?? blocosCopy.maisVendidos.legenda,
       rodape: blocosCopy.maisVendidos.legenda,
-      // `participacao` já é calculada no serviço (quanto o líder
-      // representa do topo) e vinha sendo descartada aqui.
-      sinal: maisVendidos.dados?.maisVendidos[0]?.participacao
-        ? { texto: `${maisVendidos.dados.maisVendidos[0].participacao}% do topo`, tom: "bom" as const }
-        : undefined,
+      // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
+      // arquivo. `participacao` (real) continua calculada e pronta pra
+      // voltar aqui como `sinal` no dia em que isto for apagado.
+      variacao: maisVendidos.dados ? FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.vendemMais : null,
     },
     explicacao: {
       resumo: "Os produtos com mais unidades vendidas no período selecionado. É um ranking de volume de vendas, e não de faturamento.",
@@ -728,14 +802,17 @@ export function Mosaico({
     secao: "estoque",
     titulo: blocosCopy.giroBaixo.titulo,
     icone: TrendingDown,
-    accent: "var(--acento-3)",
+    // Era --acento-3 (rosa), a mesma cor de "Marca" e "Publicações" — 3
+    // cards diferentes com a mesma identidade visual. --info (azul) não
+    // era usada por nenhum card do mosaico até agora.
+    accent: "var(--info)",
     carregando: giroBaixo.carregando,
     semFiltro: giroBaixo.semFiltro,
     resumo: {
       valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixo.length) : null,
       legenda: blocosCopy.giroBaixo.legenda,
       variacao: giroBaixo.dados
-        ? calcularVariacao(giroBaixo.dados.giroBaixo.length, snapshotOntem?.giroBaixoQtd ?? null)
+        ? calcularVariacao(giroBaixo.dados.giroBaixo.length, snapshotOntem?.giroBaixoQtd ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.giroBaixo
         : null,
       // Mais itens em giro baixo é piora, não melhora.
       subirEhRuim: true,
@@ -756,8 +833,12 @@ export function Mosaico({
       ],
       dica: "Vale cruzar com o preço de venda: giro baixo em item caro imobiliza mais capital que giro baixo em item barato, mesmo com a mesma quantidade parada.",
     },
+    // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
+    // arquivo. A tendência real (quantos itens em giro baixo por dia) vai
+    // dar pra desenhar assim que o job A30 acumular uns dias de
+    // `giroBaixoQtd` — precisa apagar isto NA MÃO quando isso acontecer.
     preview: giroBaixo.dados && giroBaixo.dados.giroBaixo.length > 0
-      ? <MiniRanking itens={giroBaixo.dados.giroBaixo.slice(0, 3).map((item) => ({ nome: item.nome, valor: item.quantidade, slug: item.marca }))} />
+      ? <Linha dados={[9, 8, 8, 7, 7, 6, giroBaixo.dados.giroBaixo.length]} cor="var(--info)" largura={96} altura={36} />
       : undefined,
     temLegendaStatus: true,
     chips: chipsDoFiltro,
@@ -784,7 +865,7 @@ export function Mosaico({
       valor: parados.dados ? String(parados.dados.parados.length) : null,
       legenda: blocosCopy.parados.legenda,
       variacao: parados.dados
-        ? calcularVariacao(parados.dados.parados.length, snapshotOntem?.paradosQtd ?? null)
+        ? calcularVariacao(parados.dados.parados.length, snapshotOntem?.paradosQtd ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.parados
         : null,
       // Mais itens parados é piora, não melhora.
       subirEhRuim: true,
@@ -845,7 +926,14 @@ export function Mosaico({
       titulo: blocosCopy.publicacoes.titulo,
       icone: Megaphone,
       accent: "var(--acento-3)",
-      resumo: { valor: null, legenda: blocosCopy.publicacoes.legenda },
+      // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
+      // arquivo. Sem número real disponível aqui de propósito (o mosaico
+      // não consulta a API de Ads pra nenhuma marca ao carregar).
+      resumo: {
+        valor: FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.publicacoes.valor,
+        variacao: FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.publicacoes.variacao,
+        legenda: FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.publicacoes.legenda,
+      },
       explicacao: {
         resumo: "Como cada anúncio patrocinado se saiu no Mercado Livre durante o período selecionado, sem misturar vendas orgânicas com resultados da publicidade.",
         pontos: [
@@ -855,10 +943,9 @@ export function Mosaico({
         ],
         dica: "Publicações sem qualquer veiculação ficam separadas para não esconder os anúncios que realmente consumiram verba ou geraram resultado.",
       },
-      // Sem preview aqui: diferente dos outros blocos, Publicações se
-      // autoalimenta dentro do próprio `render` (busca por marca só quando
-      // o card abre) — não há nenhum agregado pronto no mosaico pra virar
-      // número/gráfico no tile fechado. Fica só ícone/título por ora.
+      // Preview fictício (mesma ressalva do resumo acima) — vira real no
+      // dia em que existir um percentual de verdade pra desenhar.
+      preview: <AnelScore valor={63} cor="var(--acento-3)" tamanho={56} />,
       chips: marcasPublicacoes.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })),
       render: (acaoSlot) => (
         <PublicacoesCard
