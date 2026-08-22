@@ -2,11 +2,12 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { X } from "lucide-react";
+import { Info, SlidersHorizontal, X } from "lucide-react";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
 import { useFocusTrap } from "@/shared/design-system/primitives/useFocusTrap";
 import { tint } from "@/shared/design-system/color";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
+import { Delta, ChipMarcaTile } from "./mini-visuais";
 
 /* ── Mosaico → Foco ────────────────────────────────────────────────
    O mosaico existe porque 14 cards empilhados viravam oito telas de
@@ -35,6 +36,15 @@ export interface ResumoBloco {
   subirEhRuim?: boolean;
   /** Frase curta abaixo do número — o detalhe que cabe no bloco. */
   rodape?: string;
+  /** Segundo número do card, mostrado ao lado do principal quando NÃO há
+   *  variação percentual pra mostrar. Só Faturamento tem janela anterior
+   *  calculada (ver `variacao`); os outros cards não têm base de
+   *  comparação no tempo, mas quase todos já carregam um segundo dado
+   *  real que estava sendo descartado — capital travado em Giro baixo,
+   *  cobertura em dias em Repor, participação do líder em Vendem mais.
+   *  É esse valor que entra aqui: informação de verdade no lugar onde um
+   *  "+6%" inventado ficaria. */
+  sinal?: { texto: string; tom?: "neutro" | "bom" | "ruim" };
   /** Um alerta promove o bloco para o topo do mosaico e tinge a borda. */
   alerta?: { nivel: NivelAlerta; texto: string } | null;
 }
@@ -86,6 +96,21 @@ export interface BlocoDef {
    *  `subtitulo` (texto fixo sempre visível) por algo sob demanda: a régua
    *  não precisa ocupar espaço permanente na tela pra existir. */
   explicacao?: ExplicacaoBloco;
+  /** Mini-gráfico do tile fechado (linha/barras/anel/ranking — ver
+   *  mini-visuais.tsx), escolhido pela natureza do dado de cada card.
+   *  Ausente = tile sem preview (ex.: Publicações, que não tem agregado
+   *  calculado fora do próprio card aberto). */
+  preview?: React.ReactNode;
+  /** Marcas ativas no filtro deste card — vira chip pequeno no rodapé do
+   *  tile, o único lugar (fora do card aberto) onde a cor de marca aparece
+   *  no mosaico. */
+  chips?: { slug: string; label: string }[];
+  /** True nos cards cujo painel aberto tem a legenda "Entenda os status"
+   *  (os que mostram status do anúncio no Mercado Livre, mais
+   *  Reclamações). O tile só sinaliza que a explicação existe lá dentro —
+   *  não é um botão próprio, porque o tile inteiro já é um botão e
+   *  aninhar dois controles quebra teclado e leitor de tela. */
+  temLegendaStatus?: boolean;
   /** O card inteiro. Função porque só é montado quando o bloco abre.
    *  `acaoSlot` é o nó do DOM que o Foco reserva na própria barra de
    *  cabeçalho — um card com uma ação própria (aba, botão "como é
@@ -155,16 +180,18 @@ function corAlerta(nivel: NivelAlerta) {
 
 /* ── Bloco ─────────────────────────────────────────────────────── */
 
-/** Botão compacto: ícone + nome, nada mais. O mosaico virou um índice de
- *  navegação para os 14 cards — quem quer o número abre o card (decisão
- *  deliberada: sem prévia de valor, sem sinal de alerta, sem seta). A
- *  ordem dentro de cada seção é a mesma sempre (ver `agruparPorSecao`,
- *  que não reordena mais por urgência). */
+/** Card rico: ícone, título, número grande + variação, mini-gráfico e chip
+ *  de marca — tudo que já era calculado em `resumo` (e descartado até
+ *  aqui) passa a aparecer no tile fechado. Abrir o card continua levando
+ *  ao painel de detalhe completo (Foco); o tile só parou de esconder o
+ *  que já sabia. A ordem dentro de cada seção é a mesma sempre (ver
+ *  `agruparPorSecao`, que não reordena por urgência). */
 /** Tamanhos por variante — só o desktop (lg+) muda; mobile é sempre o
- *  mesmo card compacto de sempre. "grande" é o par de colunas do mosaico
- *  desktop, "destaque" é o card do topo (linha inteira, o mais urgente do
- *  momento ou Faturamento). Escritos por extenso (não montados em runtime)
- *  porque o Tailwind lê o código-fonte pra saber quais classes gerar. */
+ *  mesmo card compacto (sem preview/chips, pra caber). "grande" é o par de
+ *  colunas do mosaico desktop, "destaque" é o card do topo (linha inteira,
+ *  o mais urgente do momento ou Faturamento — fundo escuro fixo).
+ *  Escritos por extenso (não montados em runtime) porque o Tailwind lê o
+ *  código-fonte pra saber quais classes gerar. */
 const VARIANTES = {
   compacto: {
     caixa: "lg:gap-3 lg:px-5 lg:py-4",
@@ -172,22 +199,72 @@ const VARIANTES = {
     iconeTamanho: 18,
     rotulo: "lg:text-[10px]",
     titulo: "lg:text-[15.5px]",
+    numero: "text-[20px] lg:text-[22px]",
+    comPreview: false,
   },
   grande: {
-    caixa: "lg:gap-4 lg:px-7 lg:py-6",
-    icone: "lg:h-12 lg:w-12",
-    iconeTamanho: 22,
-    rotulo: "lg:text-[11px]",
-    titulo: "lg:text-[18px]",
+    caixa: "lg:gap-0 lg:px-5 lg:py-5",
+    icone: "lg:h-10 lg:w-10",
+    iconeTamanho: 19,
+    rotulo: "lg:text-[10px]",
+    titulo: "lg:text-[16px]",
+    numero: "text-[22px] lg:text-stat-md",
+    comPreview: true,
   },
   destaque: {
-    caixa: "lg:gap-5 lg:px-9 lg:py-8",
-    icone: "lg:h-16 lg:w-16",
-    iconeTamanho: 30,
+    caixa: "lg:gap-3 lg:px-8 lg:py-7",
+    icone: "lg:h-14 lg:w-14",
+    iconeTamanho: 26,
     rotulo: "lg:text-[12px]",
-    titulo: "lg:text-[26px]",
+    titulo: "lg:text-[20px]",
+    numero: "text-[26px] lg:text-stat-lg",
+    comPreview: true,
   },
 } as const;
+
+/** O que aparece ao lado do número grande: a variação percentual quando
+ *  ela existe de verdade (hoje só Faturamento, o único com janela
+ *  anterior calculada) e, quando não existe, o segundo dado real do card
+ *  (ver `sinal` em `ResumoBloco`). Nunca os dois — e nunca um percentual
+ *  inventado só pra preencher o espaço. */
+function Sinal({ resumo }: { resumo: ResumoBloco }) {
+  if (resumo.variacao !== null && resumo.variacao !== undefined) {
+    return <Delta valor={resumo.variacao} subirEhRuim={resumo.subirEhRuim} />;
+  }
+  if (!resumo.sinal) return null;
+  const cor = resumo.sinal.tom === "bom"
+    ? "var(--success)"
+    : resumo.sinal.tom === "ruim"
+      ? "var(--destructive)"
+      : "var(--muted-foreground)";
+  return (
+    <span className="whitespace-nowrap text-[11px] font-semibold tabular-nums" style={{ color: cor }}>
+      {resumo.sinal.texto}
+    </span>
+  );
+}
+
+/** Card vazio da regra "sem filtro = sem dado": sem pílula nenhuma aqui —
+ *  escolher marca/canal é coisa de dentro do card aberto (ver `ScopeRow`
+ *  no `render` de cada bloco). O tile só avisa e continua sendo o mesmo
+ *  botão de sempre. */
+function ConteudoVazio({ tam }: { tam: (typeof VARIANTES)[keyof typeof VARIANTES] }) {
+  return (
+    <span className={`flex min-w-0 flex-1 items-center gap-1.5 text-[11.5px] text-muted-foreground ${tam.comPreview ? "lg:text-[12.5px]" : ""}`}>
+      <SlidersHorizontal size={13} strokeWidth={1.9} className="shrink-0" />
+      Escolha uma marca ou canal
+    </span>
+  );
+}
+
+function ConteudoCarregando() {
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <span className="shimmer block h-5 w-16 rounded" />
+      <span className="shimmer block h-2.5 w-24 rounded" />
+    </span>
+  );
+}
 
 export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto", className }: {
   def: BlocoDef;
@@ -206,8 +283,12 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
   className?: string;
 }) {
   const reduzir = useReducedMotion();
-  const { icone: Icone, accent } = def;
+  const { icone: Icone, accent, resumo, carregando, semFiltro } = def;
   const tam = VARIANTES[variante];
+  const escuro = variante === "destaque";
+  const corTexto = escuro ? "#FFFFFF" : "var(--foreground)";
+  const corSub = escuro ? "rgba(255,255,255,.62)" : "var(--muted-foreground)";
+  const corAlertaBorda = resumo.alerta ? corAlerta(resumo.alerta.nivel) : null;
 
   return (
     <li className={`relative h-full ${className ?? ""}`}>
@@ -218,35 +299,165 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
         <motion.div
           layoutId={`bloco-${def.id}`}
           transition={transicao(reduzir, springs.settle)}
-          className={`card-surface relative flex h-full min-h-11 w-full cursor-pointer items-center gap-1.5 overflow-hidden px-2.5 py-2.5 text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${tam.caixa}`}
+          className={`card-surface relative flex h-full w-full cursor-pointer flex-col overflow-hidden text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${tam.caixa} gap-2 px-3.5 py-3`}
+          style={{
+            background: escuro ? "#171A22" : "var(--card)",
+            borderColor: corAlertaBorda ?? undefined,
+            borderWidth: corAlertaBorda ? 1.5 : undefined,
+          }}
         >
-          <span
-            className={`flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center rounded-full ${tam.icone}`}
-            style={{ background: tint(accent, 9), color: accent }}
-          >
-            <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
-            <Icone size={tam.iconeTamanho} strokeWidth={1.9} className="hidden lg:block" />
-          </span>
-          <span className="flex min-w-0 flex-1 flex-col text-left">
-            {secaoLabel && (
-              <span className={`hidden text-[10px] font-semibold uppercase tracking-[.06em] text-muted-foreground/70 lg:block ${tam.rotulo}`}>
-                {secaoLabel}
+          {/* Fio de assinatura do produto — só no card em destaque, o único
+              lugar com "temperatura" na tela (ver mosaico.tsx). */}
+          {escuro && <span aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px]" style={{ background: "var(--gradient-signature)" }} />}
+
+          {/* ── Card em destaque: uma linha horizontal só ──────────────
+              Ícone | (seção · título + número + variação, legenda, chips) |
+              gráfico grande à direita. Difere dos outros tiles de propósito:
+              ali o número mora numa segunda linha abaixo do título, aqui ele
+              divide a mesma linha de base — é o que dá a leitura de manchete
+              que o card do topo precisa ter. */}
+          {escuro ? (
+            <span className="flex flex-1 items-center gap-4 lg:gap-5">
+              <span
+                className={`flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center ${tam.icone}`}
+                style={{ background: tint(accent, 9), color: accent, borderRadius: "32%" }}
+              >
+                <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
+                <Icone size={tam.iconeTamanho} strokeWidth={1.9} className="hidden lg:block" />
               </span>
-            )}
-            {/* O título mais longo ("Recomendações") passa raspando na largura
-                de um card de 2 colunas no celular, e quem tem tamanho de texto
-                aumentado no iOS renderiza a fonte ~33% maior sem que o layout
-                mude junto — aí a palavra estoura por poucos pixels e o
-                overflow-wrap joga só o "s" pra segunda linha. Por isso o gap,
-                o padding e o ícone são menores que no desktop: compram ~8px
-                de folga, o suficiente pra palavra caber inteira nesse caso.
-                (text-wrap:balance não resolve sozinho — é uma palavra só, não
-                há como equilibrar entre linhas; serve pros títulos de 2-3
-                palavras.) */}
-            <span className={`text-[13px] font-bold leading-snug tracking-[-0.01em] text-foreground [overflow-wrap:anywhere] [text-wrap:balance] ${tam.titulo}`}>
-              {def.titulo}
+
+              <span className="flex min-w-0 flex-1 flex-col">
+                {secaoLabel && (
+                  <span className={`hidden text-[10px] font-semibold uppercase tracking-[.06em] lg:block ${tam.rotulo}`} style={{ color: corSub }}>
+                    {secaoLabel} · em destaque agora
+                  </span>
+                )}
+                <span className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className={`font-bold leading-tight tracking-[-0.01em] ${tam.titulo}`} style={{ color: corTexto }}>
+                    {def.titulo}
+                  </span>
+                  {!carregando && !semFiltro && (
+                    <>
+                      <span className={`font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
+                        {resumo.valor ?? "—"}
+                      </span>
+                      <Sinal resumo={resumo} />
+                    </>
+                  )}
+                </span>
+                {carregando ? (
+                  <span className="mt-1.5 flex flex-col gap-1.5">
+                    <span className="shimmer block h-5 w-40 rounded" />
+                  </span>
+                ) : semFiltro ? (
+                  <span className="mt-1.5"><ConteudoVazio tam={tam} /></span>
+                ) : (
+                  <>
+                    {(resumo.rodape ?? resumo.legenda) && (
+                      <span className="mt-1.5 block truncate text-[12.5px]" style={{ color: corSub }}>
+                        {resumo.rodape ?? resumo.legenda}
+                      </span>
+                    )}
+                    {def.chips && def.chips.length > 0 && (
+                      <span className="mt-2.5 hidden gap-1.5 overflow-hidden lg:flex">
+                        {def.chips.map((chip) => <ChipMarcaTile key={chip.slug} slug={chip.slug} label={chip.label} />)}
+                      </span>
+                    )}
+                  </>
+                )}
+              </span>
+
+              {!carregando && !semFiltro && def.preview && (
+                <span className="hidden shrink-0 lg:block">{def.preview}</span>
+              )}
+
+              {resumo.alerta && (
+                <span
+                  aria-label={resumo.alerta.nivel === "critico" ? "Crítico" : "Atenção"}
+                  className="absolute right-4 top-4 h-2 w-2 rounded-full"
+                  style={{ background: corAlerta(resumo.alerta.nivel) }}
+                />
+              )}
             </span>
+          ) : (
+          <>
+          <span className="flex items-center gap-2.5">
+            <span
+              className={`flex h-[1.375rem] w-[1.375rem] shrink-0 items-center justify-center ${tam.icone}`}
+              style={{ background: tint(accent, 9), color: accent, borderRadius: "32%" }}
+            >
+              <Icone size={13} strokeWidth={1.9} className="lg:hidden" />
+              <Icone size={tam.iconeTamanho} strokeWidth={1.9} className="hidden lg:block" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col text-left">
+              {secaoLabel && (
+                <span className={`hidden text-[10px] font-semibold uppercase tracking-[.06em] lg:block ${tam.rotulo}`} style={{ color: corSub }}>
+                  {secaoLabel}
+                </span>
+              )}
+              {/* O título mais longo ("Recomendações") passa raspando na largura
+                  de um card de 2 colunas no celular, e quem tem tamanho de texto
+                  aumentado no iOS renderiza a fonte ~33% maior sem que o layout
+                  mude junto — aí a palavra estoura por poucos pixels e o
+                  overflow-wrap joga só o "s" pra segunda linha. */}
+              <span className={`text-[13px] font-bold leading-snug tracking-[-0.01em] [overflow-wrap:anywhere] [text-wrap:balance] ${tam.titulo}`} style={{ color: corTexto }}>
+                {def.titulo}
+              </span>
+            </span>
+            {resumo.alerta && (
+              <span
+                aria-label={resumo.alerta.nivel === "critico" ? "Crítico" : "Atenção"}
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: corAlerta(resumo.alerta.nivel) }}
+              />
+            )}
           </span>
+
+          {carregando ? (
+            <span className="mt-4 block"><ConteudoCarregando /></span>
+          ) : semFiltro ? (
+            <span className="mt-4 block"><ConteudoVazio tam={tam} /></span>
+          ) : (
+            <>
+              <span className="mt-4 flex items-end justify-between gap-3">
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-baseline gap-1.5">
+                    <span className={`font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
+                      {resumo.valor ?? "—"}
+                    </span>
+                    <Sinal resumo={resumo} />
+                  </span>
+                  {(resumo.rodape ?? resumo.legenda) && (
+                    <span className="mt-1.5 block truncate text-[11.5px]" style={{ color: corSub }}>
+                      {resumo.rodape ?? resumo.legenda}
+                    </span>
+                  )}
+                </span>
+                {tam.comPreview && def.preview && (
+                  <span className="hidden shrink-0 overflow-hidden lg:block">{def.preview}</span>
+                )}
+              </span>
+
+              {/* Rodapé separado por linha, como no card aberto: chips de
+                  marca (quando o card compara marcas) ou o lembrete de que
+                  existe legenda de status lá dentro. `overflow-hidden`
+                  porque numa coluna estreita o excesso sai pela borda em
+                  vez de empurrar o card pra baixo. */}
+              {(def.chips && def.chips.length > 0) || def.temLegendaStatus ? (
+                <span className="mt-3 hidden items-center gap-1.5 overflow-hidden border-t border-border pt-3 lg:flex">
+                  {def.chips?.map((chip) => <ChipMarcaTile key={chip.slug} slug={chip.slug} label={chip.label} />)}
+                  {def.temLegendaStatus && (
+                    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border px-2 py-1 text-[10px] font-semibold" style={{ color: corSub }}>
+                      <Info size={11} /> Entenda os status
+                    </span>
+                  )}
+                </span>
+              ) : null}
+            </>
+          )}
+          </>
+          )}
+
           <button
             type="button"
             onClick={onAbrir}
@@ -344,8 +555,8 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
             <motion.div layout="position" className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
               <div className="flex items-center gap-2">
                 <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                  style={{ background: tint(def.accent, 9), color: def.accent }}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center"
+                  style={{ background: tint(def.accent, 9), color: def.accent, borderRadius: "32%" }}
                 >
                   <def.icone size={16} strokeWidth={1.9} />
                 </span>

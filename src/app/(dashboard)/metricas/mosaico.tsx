@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   AlertTriangle, BarChart3, Gauge, Hourglass, Megaphone,
@@ -17,12 +17,14 @@ import metricasConfig from "@/config/metricas.json";
 
 import { agruparPorSecao, Bloco, Foco, RotuloSecao, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
-import { type Periodo } from "./metricas-primitives";
+import { type Periodo, AnelScore } from "./metricas-primitives";
+import { Linha, BarrasMarca, MiniRanking, BarraSplit } from "./mini-visuais";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
-  actionObterPosVenda, actionObterSaudeLoja,
+  actionObterPosVenda, actionObterSaudeLoja, actionObterSnapshotAnterior,
 } from "./actions";
+import type { SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -30,8 +32,6 @@ import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda
 
 const copy = metricasConfig.mosaico;
 const blocosCopy = copy.blocos;
-
-const FILTRO_PADRAO: CardFiltro = { brandId: [], canal: [] };
 
 function PainelCarregando() {
   return <div className="shimmer h-52 w-full rounded-[1.25rem] bg-muted" role="status" aria-label="Carregando painel" />;
@@ -86,6 +86,15 @@ function semFiltroDefinido(filtro: CardFiltro) {
   return filtro.brandId.length === 0 && filtro.canal.length === 0;
 }
 
+/** Cópia local da mesma conta de `snapshot-metricas.service.ts` — não dá
+ *  pra importar a função de lá aqui: aquele arquivo puxa Drizzle/Postgres
+ *  no topo, e isto aqui é "use client". Null quando não há base de
+ *  comparação (snapshot ausente ou zero), nunca um percentual inventado. */
+function calcularVariacao(atual: number, anterior: number | null): number | null {
+  if (anterior === null || anterior === 0) return null;
+  return Math.round(((atual - anterior) / anterior) * 100);
+}
+
 function useDadosDoCard(
   cache: React.MutableRefObject<Map<string, Promise<DashboardData>>>,
   periodo: Periodo,
@@ -127,17 +136,14 @@ function useDadosDoCard(
 }
 
 /* ── Barra de período ───────────────────────────────────────────────
-   Mora aqui, e não só no topo do mosaico, porque desde que o painel de foco
-   virou tela cheia ele cobre essa barra por completo — sem redesenhá-la
-   também dentro do Foco, trocar o período com um card aberto exigiria
-   fechar primeiro. As duas instâncias leem e escrevem o mesmo estado
-   (props vindas de `Mosaico`), então nunca desincronizam.
-
-   O topo do mosaico não mostra mais isto — só um "atualizado às" discreto
-   (ver `Mosaico`). Calendário e "Hoje" agora só existem aqui dentro do card
-   aberto: exportar em PDF saiu por completo (o botão exportava sempre o
-   mesmo resumo Score+Atendimento+Pós-venda, sem relação com o card em
-   foco — decisão tomada com o usuário). */
+   Renderizada duas vezes: no topo do mosaico (sempre visível, valendo pra
+   todos os previews) e dentro do Foco (porque o painel de foco cobre a
+   tela inteira quando um card abre, e trocar o período ali dentro não
+   pode exigir fechar primeiro). As duas instâncias leem e escrevem o
+   mesmo estado (props vindas de `Mosaico`), então nunca desincronizam.
+   Exportar em PDF saiu por completo (o botão exportava sempre o mesmo
+   resumo Score+Atendimento+Pós-venda, sem relação com o card em foco —
+   decisão tomada com o usuário). */
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent }: {
@@ -204,63 +210,44 @@ export function Mosaico({
   const [canais, setCanais] = useState<ScopeCanal[]>(canaisIniciais);
   const cache = useRef(new Map<string, Promise<DashboardData>>());
 
-  /* Um filtro por card, como antes da fusão: comparar duas marcas lado a lado
-     no mosaico exige que os blocos possam discordar entre si. */
-  const [filtroFaturamento, setFiltroFaturamento] = useState<CardFiltro>(FILTRO_PADRAO);
-  const [filtroReposicao, setFiltroReposicao] = useState<CardFiltro>(FILTRO_PADRAO);
-  const [filtroReclamacoes, setFiltroReclamacoes] = useState<CardFiltro>(FILTRO_PADRAO);
-  const [filtroMaisVendidos, setFiltroMaisVendidos] = useState<CardFiltro>(FILTRO_PADRAO);
-  const [filtroGiroBaixo, setFiltroGiroBaixo] = useState<CardFiltro>(FILTRO_PADRAO);
-  const [filtroParados, setFiltroParados] = useState<CardFiltro>(FILTRO_PADRAO);
+  /* Um único filtro pra tela toda — antes era um por card (pra comparar
+     marcas diferentes lado a lado); a barra de escopo agora vale pra todos
+     os previews ao mesmo tempo, igual ao resto do app (Vendas, Estoque,
+     Avaliações). Quem quiser comparar marcas diferentes faz isso dentro de
+     Marca/Comparação, que já existem pra esse fim. Começa com tudo
+     selecionado (todas as marcas conectadas + Mercado Livre) — a régua
+     "sem filtro = sem dado" continua valendo se a pessoa limpar a seleção,
+     mas o primeiro carregamento já mostra número, não uma tela pedindo
+     escolha. */
+  const [filtroGlobal, setFiltroGlobal] = useState<CardFiltro>(() => ({
+    brandId: marcasIniciais.map((marca) => marca.brandId),
+    canal: canaisIniciais.some((canal) => canal.tipo === "mercadolivre") ? ["mercadolivre"] : [],
+  }));
 
-  const faturamento = useDadosDoCard(cache, periodo, filtroFaturamento);
-  const reposicao = useDadosDoCard(cache, periodo, filtroReposicao);
-  const maisVendidos = useDadosDoCard(cache, periodo, filtroMaisVendidos);
-  const giroBaixo = useDadosDoCard(cache, periodo, filtroGiroBaixo);
-  const parados = useDadosDoCard(cache, periodo, filtroParados);
-
-  /* Escolher marca em seis blocos é o mesmo clique seis vezes. Ao marcar a
-     primeira, oferecemos repetir nos que ainda estão vazios — continua sendo
-     filtro por card, só deixou de cobrar o pedágio. */
-  const [sugestao, setSugestao] = useState<CardFiltro | null>(null);
-  const filtrosVazios =
-    [filtroFaturamento, filtroReposicao, filtroReclamacoes, filtroMaisVendidos, filtroGiroBaixo, filtroParados]
-      .filter(semFiltroDefinido).length;
-
-  const aplicarEmTodos = useCallback((filtro: CardFiltro) => {
-    for (const [atual, definir] of [
-      [filtroFaturamento, setFiltroFaturamento],
-      [filtroReposicao, setFiltroReposicao],
-      [filtroReclamacoes, setFiltroReclamacoes],
-      [filtroMaisVendidos, setFiltroMaisVendidos],
-      [filtroGiroBaixo, setFiltroGiroBaixo],
-      [filtroParados, setFiltroParados],
-    ] as const) {
-      // Só preenche o que está vazio: quem já escolheu algo escolheu por um
-      // motivo, e sobrescrever isso seria o oposto de "filtro por card".
-      if (semFiltroDefinido(atual)) definir(filtro);
-    }
-    setSugestao(null);
-  }, [filtroFaturamento, filtroReposicao, filtroReclamacoes, filtroMaisVendidos, filtroGiroBaixo, filtroParados]);
-
-  /** Envolve o setState de um filtro para oferecer o atalho na primeira escolha. */
-  const comSugestao = useCallback(
-    (definir: (filtro: CardFiltro) => void) => (filtro: CardFiltro) => {
-      definir(filtro);
-      if (!semFiltroDefinido(filtro)) setSugestao(filtro);
-    },
-    [],
-  );
-
+  // Quando as marcas/canais chegam depois do primeiro render (montagem sem
+  // dado inicial do servidor — ver `primeirasContagens` mais abaixo), o
+  // filtro nasceu vazio porque `marcasIniciais`/`canaisIniciais` também
+  // vieram vazios. Preenche uma única vez, só se a pessoa ainda não mexeu
+  // em nada — depois disso a escolha dela manda.
+  const primeiroFiltroAplicado = useRef(marcasIniciais.length > 0);
   useEffect(() => {
-    if (!sugestao) return;
-    const relogio = setTimeout(() => setSugestao(null), 7000);
-    return () => clearTimeout(relogio);
-  }, [sugestao]);
+    if (primeiroFiltroAplicado.current || marcas.length === 0) return;
+    primeiroFiltroAplicado.current = true;
+    setFiltroGlobal({
+      brandId: marcas.map((marca) => marca.brandId),
+      canal: canais.some((canal) => canal.tipo === "mercadolivre") ? ["mercadolivre"] : [],
+    });
+  }, [marcas, canais]);
+
+  const faturamento = useDadosDoCard(cache, periodo, filtroGlobal);
+  const reposicao = useDadosDoCard(cache, periodo, filtroGlobal);
+  const maisVendidos = useDadosDoCard(cache, periodo, filtroGlobal);
+  const giroBaixo = useDadosDoCard(cache, periodo, filtroGlobal);
+  const parados = useDadosDoCard(cache, periodo, filtroGlobal);
 
   const [reclamacoes, setReclamacoes] = useState<ReclamacoesResultado | null>(null);
   const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
-  const semFiltroReclamacoes = filtroReclamacoes.brandId.length === 0;
+  const semFiltroReclamacoes = filtroGlobal.brandId.length === 0;
 
   // Estas duas já vieram prontas do servidor quando há dado inicial — refazê-las
   // aqui só repetiria no navegador o que acabou de chegar no HTML.
@@ -353,6 +340,22 @@ export function Mosaico({
     return () => { ativo = false; };
   }, [chave, inicio, fim]);
 
+  /* ── Snapshot de ontem, pra comparação real ──────────────────────────
+     Giro baixo, Parados, Repor em breve e Pontuação da loja não tinham
+     como calcular variação: saldo de estoque é sobrescrito a cada
+     sincronização, e o score da loja nunca era persistido — o dado de
+     comparação simplesmente não existia no banco (ver job A30, que passou
+     a gravar 1 foto por dia a partir de hoje). Busca uma vez, não depende
+     de filtro nem de período — é sempre "ontem vs. hoje". */
+  const [snapshotOntem, setSnapshotOntem] = useState<SnapshotMetricas | null>(null);
+  useEffect(() => {
+    let ativo = true;
+    actionObterSnapshotAnterior(1)
+      .then((snapshot) => { if (ativo) setSnapshotOntem(snapshot); })
+      .catch(() => { if (ativo) setSnapshotOntem(null); });
+    return () => { ativo = false; };
+  }, []);
+
   // Publicações usa somente os filtros leves e estáveis que chegam com a
   // página. Não troca de ordem quando Saúde responde e não consulta Product
   // Ads até a pessoa escolher marca e canal dentro do card.
@@ -363,22 +366,22 @@ export function Mosaico({
     })), [marcas]);
 
   /* ── Cores do pico do gráfico de Faturamento ──
-     Segue o que está filtrado no card: marca escolhida manda; sem marca mas
-     com canal, usa a cor do canal; sem nada, o gradiente genérico. */
+     Segue o que está filtrado: marca escolhida manda; sem marca mas com
+     canal, usa a cor do canal; sem nada, o gradiente genérico. */
   const coresFaturamento = useMemo(() => {
     const porMarca = marcas
-      .filter((item) => filtroFaturamento.brandId.includes(item.brandId))
+      .filter((item) => filtroGlobal.brandId.includes(item.brandId))
       .map((item) => (isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined))
       .filter((cor): cor is string => Boolean(cor));
-    return porMarca.length > 0 ? porMarca : filtroFaturamento.canal.map((tipo) => channelAccent(tipo));
-  }, [marcas, filtroFaturamento.brandId, filtroFaturamento.canal]);
+    return porMarca.length > 0 ? porMarca : filtroGlobal.canal.map((tipo) => channelAccent(tipo));
+  }, [marcas, filtroGlobal.brandId, filtroGlobal.canal]);
 
   const reclamacoesVisiveis = useMemo<ReclamacoesResultado | null>(() => {
-    const slugs = marcas.filter((item) => filtroReclamacoes.brandId.includes(item.brandId)).map((item) => item.slug);
+    const slugs = marcas.filter((item) => filtroGlobal.brandId.includes(item.brandId)).map((item) => item.slug);
     if (!reclamacoes || slugs.length === 0) return null;
     const itens = reclamacoes.itens.filter((item) => slugs.includes(item.marca));
     return { ...reclamacoes, itens, total: itens.length, pendentes: itens.filter((item) => item.precisaAcao).length };
-  }, [reclamacoes, marcas, filtroReclamacoes.brandId]);
+  }, [reclamacoes, marcas, filtroGlobal.brandId]);
 
   const trocarDatas = useCallback((novoInicio: string, novoFim: string) => {
     setPeriodo({ inicio: novoInicio, fim: novoFim });
@@ -392,9 +395,19 @@ export function Mosaico({
      reprocessava a lista inteira, e uma dependência esquecida ali vira bug
      silencioso (closure presa em dado antigo) que o linter não pega. */
 
-  const escopo = useCallback((filtro: CardFiltro, definir: (valor: CardFiltro) => void, comCanais = true) => (
-    <ScopeRow marcas={marcas} canais={comCanais ? canais : []} filtro={filtro} onChange={comSugestao(definir)} />
-  ), [marcas, canais, comSugestao]);
+  // Um único ScopeRow, reaproveitado dentro de cada card aberto — antes
+  // cada card tinha o próprio filtro (e o próprio ScopeRow); agora todos
+  // leem e escrevem o mesmo `filtroGlobal`, então mudar a marca dentro de
+  // um card aberto também muda o que os outros tiles mostram fechados.
+  const escopo = useMemo(() => (
+    <ScopeRow marcas={marcas} canais={canais} filtro={filtroGlobal} onChange={setFiltroGlobal} />
+  ), [marcas, canais, filtroGlobal]);
+
+  // Chip de marca no rodapé do tile — o filtro global, pra bater com o que
+  // a barra de escopo no topo está mostrando.
+  const chipsDoFiltro = useMemo(() =>
+    marcas.filter((marca) => filtroGlobal.brandId.includes(marca.brandId)).map((marca) => ({ slug: marca.slug, label: marca.nome })),
+  [marcas, filtroGlobal.brandId]);
 
   // Reclamação só existe pra quem vende pelo Mercado Livre — a API não
   // devolve isso pra Shopee/TikTok Shop. Shopee/TikTok aparecem travados
@@ -434,17 +447,21 @@ export function Mosaico({
       ],
       dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
     },
+    preview: dadosFaturamento && dadosFaturamento.serie.length > 1
+      ? <Linha dados={dadosFaturamento.serie.map((ponto) => ponto.valor)} cor={coresFaturamento[0] ?? "var(--gradient-signature)"} largura={180} altura={60} />
+      : undefined,
+    chips: chipsDoFiltro,
     render: (acaoSlot) => (
       <FaturamentoCard
         dados={dadosFaturamento}
         carregando={faturamento.carregando}
         semFiltro={faturamento.semFiltro}
         cores={coresFaturamento}
-        scope={escopo(filtroFaturamento, setFiltroFaturamento)}
+        scope={escopo}
         acaoSlot={acaoSlot}
       />
     ),
-  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, filtroFaturamento, coresFaturamento, escopo]);
+  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, coresFaturamento, escopo, chipsDoFiltro]);
 
   const blocoScore = useMemo<BlocoDef>(() => ({
     id: "score",
@@ -462,6 +479,14 @@ export function Mosaico({
         ? String(Math.round(saude.dados.scoreGeral))
         : null,
       legenda: saude.dados?.faixaGeralLabel ?? blocosCopy.score.legenda,
+      // Variação real contra a foto de ontem (job A30) quando ela já
+      // existe; sem base ainda, cai no "/100" pra não deixar o card mudo.
+      variacao: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
+        ? calcularVariacao(Math.round(saude.dados.scoreGeral), snapshotOntem?.scoreGeral ?? null)
+        : null,
+      sinal: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
+        ? { texto: "/100", tom: "neutro" as const }
+        : undefined,
       alerta: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined && saude.dados.scoreGeral < 50
         ? { nivel: saude.dados.scoreGeral < 30 ? "critico" : "atencao", texto: saude.dados.faixaGeralLabel ?? "Atenção" }
         : null,
@@ -475,8 +500,11 @@ export function Mosaico({
       ],
       dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso, para o score que está na tela.",
     },
+    preview: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
+      ? <AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} />
+      : undefined,
     render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
-  }), [saude.dados, carregandoSaude]);
+  }), [saude.dados, carregandoSaude, snapshotOntem]);
 
   const blocoComparacao = useMemo<BlocoDef>(() => ({
     id: "comparacao",
@@ -489,6 +517,12 @@ export function Mosaico({
     resumo: {
       valor: saude.dados ? String(saude.dados.marcas.length) : null,
       legenda: blocosCopy.comparacao.legenda,
+      // Quem está na frente por faturamento — o card compara marcas, e
+      // essa é a resposta que ele dá antes de ser aberto.
+      sinal: (() => {
+        const lider = [...(saude.dados?.marcas ?? [])].sort((a, b) => b.faturamento - a.faturamento)[0];
+        return lider ? { texto: `${lider.marcaLabel} lidera`, tom: "bom" as const } : undefined;
+      })(),
     },
     explicacao: {
       resumo: "Coloca as marcas ativas lado a lado e utiliza os mesmos critérios de medição. A liderança muda conforme o critério escolhido nas abas.",
@@ -500,6 +534,13 @@ export function Mosaico({
       ],
       dica: "Cancelamento é o único critério em que o menor valor lidera. Por isso, 0% aparece no topo do ranking, e não no fim.",
     },
+    preview: saude.dados && saude.dados.marcas.length > 0
+      ? <BarrasMarca dados={saude.dados.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel, valor: marca.faturamento }))} />
+      : undefined,
+    // As marcas que ESTE card compara — vêm de saude.dados (todas as
+    // ativas), não do filtro global, porque comparar é justamente pôr
+    // todas lado a lado.
+    chips: saude.dados?.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })) ?? [],
     render: (acaoSlot) => (
       <ComparacaoCard
         dados={saude.dados}
@@ -524,6 +565,11 @@ export function Mosaico({
       // (sem ação nossa restante) não deveriam acender alerta crítico no mosaico.
       valor: reclamacoesVisiveis ? String(reclamacoesVisiveis.pendentes) : null,
       legenda: blocosCopy.reclamacoes.legenda,
+      // Quantas do total ainda dependem de nós — o número grande sozinho
+      // ("5") não diz se são 5 de 6 ou 5 de 50.
+      sinal: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
+        ? { texto: `de ${reclamacoesVisiveis.total}`, tom: "neutro" as const }
+        : undefined,
       alerta: reclamacoesVisiveis && reclamacoesVisiveis.pendentes > 0
         ? { nivel: "critico", texto: "a resolver" }
         : null,
@@ -536,6 +582,17 @@ export function Mosaico({
       ],
       dica: "Reclamação aberta não é o mesmo que devolução. Uma reclamação pode ser resolvida sem que o pedido seja cancelado ou devolvido.",
     },
+    // Sem série diária real aqui (só a lista + as duas contagens) — em vez
+    // de forçar um gráfico de tempo que não existe, o preview é a mesma
+    // proporção pendentes/resolvidas que já orienta o alerta acima.
+    preview: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
+      ? <BarraSplit partes={[
+          { valor: reclamacoesVisiveis.pendentes, cor: "var(--destructive)" },
+          { valor: reclamacoesVisiveis.total - reclamacoesVisiveis.pendentes, cor: "var(--success)" },
+        ]} />
+      : undefined,
+    temLegendaStatus: true,
+    chips: chipsDoFiltro,
     render: (acaoSlot) => (
       <ReclamacoesCard
         dados={reclamacoesVisiveis}
@@ -547,14 +604,14 @@ export function Mosaico({
           <ScopeRow
             marcas={marcas}
             canais={canaisReclamacoes}
-            filtro={filtroReclamacoes}
-            onChange={comSugestao(setFiltroReclamacoes)}
+            filtro={filtroGlobal}
+            onChange={setFiltroGlobal}
           />
         )}
         acaoSlot={acaoSlot}
       />
     ),
-  }), [reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroReclamacoes, marcas, canaisReclamacoes, comSugestao]);
+  }), [reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroGlobal, marcas, canaisReclamacoes, chipsDoFiltro]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",
@@ -567,6 +624,21 @@ export function Mosaico({
     resumo: {
       valor: reposicao.dados ? String(reposicao.dados.reposicao.length) : null,
       legenda: blocosCopy.reposicao.legenda,
+      variacao: reposicao.dados
+        ? calcularVariacao(reposicao.dados.reposicao.length, snapshotOntem?.reposicaoQtd ?? null)
+        : null,
+      // Mais itens precisando de reposição é notícia ruim, não boa — sem
+      // isto a seta pra cima (mais SKUs em alerta) apareceria verde.
+      subirEhRuim: true,
+      // A lista já vem ordenada por urgência (menor cobertura primeiro),
+      // então o primeiro item é o que acaba antes — o dado que decide se
+      // isso é pra hoje ou pra semana que vem.
+      sinal: (() => {
+        const maisUrgente = reposicao.dados?.reposicao.find((item) => item.coberturaDias !== null);
+        return maisUrgente?.coberturaDias !== undefined && maisUrgente?.coberturaDias !== null
+          ? { texto: `menor: ${maisUrgente.coberturaDias}d`, tom: "ruim" as const }
+          : undefined;
+      })(),
       alerta: reposicao.dados && reposicao.dados.reposicao.length > 0
         ? { nivel: "atencao", texto: "repor" }
         : null,
@@ -581,16 +653,31 @@ export function Mosaico({
       ],
       dica: "Este painel avisa antes do problema, diferente de Giro baixo e Parados, que mostram o que já não está saindo.",
     },
+    /* Barra = dias de cobertura restantes (barra curta = acaba antes =
+       mais urgente, que é a mesma ordem da lista). Produtos sem consumo
+       no período não têm cobertura calculável e ficam de fora do preview
+       em vez de cair no saldo — dias e unidades são grandezas
+       diferentes, e misturar as duas na mesma barra não compara nada. */
+    preview: (() => {
+      const comCobertura = (reposicao.dados?.reposicao ?? [])
+        .filter((item): item is typeof item & { coberturaDias: number } => item.coberturaDias !== null)
+        .slice(0, 3);
+      return comCobertura.length > 0
+        ? <MiniRanking itens={comCobertura.map((item) => ({ nome: item.nome, valor: item.coberturaDias, slug: item.marca }))} />
+        : undefined;
+    })(),
+    temLegendaStatus: true,
+    chips: chipsDoFiltro,
     render: (acaoSlot) => (
       <ReposicaoCard
         itens={reposicao.dados?.reposicao ?? null}
         carregando={reposicao.carregando}
         semFiltro={reposicao.semFiltro}
-        scope={escopo(filtroReposicao, setFiltroReposicao)}
+        scope={escopo}
         acaoSlot={acaoSlot}
       />
     ),
-  }), [reposicao, filtroReposicao, escopo]);
+  }), [reposicao, escopo, chipsDoFiltro, snapshotOntem]);
 
   const blocoMaisVendidos = useMemo<BlocoDef>(() => ({
     id: "maisVendidos",
@@ -606,6 +693,11 @@ export function Mosaico({
         : null,
       legenda: maisVendidos.dados?.maisVendidos[0]?.nome ?? blocosCopy.maisVendidos.legenda,
       rodape: blocosCopy.maisVendidos.legenda,
+      // `participacao` já é calculada no serviço (quanto o líder
+      // representa do topo) e vinha sendo descartada aqui.
+      sinal: maisVendidos.dados?.maisVendidos[0]?.participacao
+        ? { texto: `${maisVendidos.dados.maisVendidos[0].participacao}% do topo`, tom: "bom" as const }
+        : undefined,
     },
     explicacao: {
       resumo: "Os produtos com mais unidades vendidas no período selecionado. É um ranking de volume de vendas, e não de faturamento.",
@@ -615,16 +707,21 @@ export function Mosaico({
       ],
       dica: "Combine com 5 produtos mais vendidos, no painel Marca, para ver se a receita depende demais de poucos itens campeões.",
     },
+    preview: maisVendidos.dados && maisVendidos.dados.maisVendidos.length > 0
+      ? <MiniRanking itens={maisVendidos.dados.maisVendidos.slice(0, 3).map((item) => ({ nome: item.nome, valor: item.quantidade, slug: item.marca }))} />
+      : undefined,
+    temLegendaStatus: true,
+    chips: chipsDoFiltro,
     render: (acaoSlot) => (
       <MaisVendidosCard
         itens={maisVendidos.dados?.maisVendidos ?? null}
         carregando={maisVendidos.carregando}
         semFiltro={maisVendidos.semFiltro}
-        scope={escopo(filtroMaisVendidos, setFiltroMaisVendidos)}
+        scope={escopo}
         acaoSlot={acaoSlot}
       />
     ),
-  }), [maisVendidos, filtroMaisVendidos, escopo]);
+  }), [maisVendidos, escopo, chipsDoFiltro]);
 
   const blocoGiroBaixo = useMemo<BlocoDef>(() => ({
     id: "giroBaixo",
@@ -637,6 +734,17 @@ export function Mosaico({
     resumo: {
       valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixo.length) : null,
       legenda: blocosCopy.giroBaixo.legenda,
+      variacao: giroBaixo.dados
+        ? calcularVariacao(giroBaixo.dados.giroBaixo.length, snapshotOntem?.giroBaixoQtd ?? null)
+        : null,
+      // Mais itens em giro baixo é piora, não melhora.
+      subirEhRuim: true,
+      // `valorParado` (capital travado no item que mais dói) já vem
+      // formatado do serviço e era descartado — é o que transforma "7
+      // itens" em "7 itens segurando R$ X".
+      sinal: giroBaixo.dados?.giroBaixo[0]?.valorParado
+        ? { texto: giroBaixo.dados.giroBaixo[0].valorParado, tom: "ruim" as const }
+        : undefined,
     },
     explicacao: {
       resumo: "Produtos com saldo em estoque que quase não venderam no período. Eles ainda vendem, mas em ritmo insuficiente para movimentar o capital imobilizado.",
@@ -648,16 +756,21 @@ export function Mosaico({
       ],
       dica: "Vale cruzar com o preço de venda: giro baixo em item caro imobiliza mais capital que giro baixo em item barato, mesmo com a mesma quantidade parada.",
     },
+    preview: giroBaixo.dados && giroBaixo.dados.giroBaixo.length > 0
+      ? <MiniRanking itens={giroBaixo.dados.giroBaixo.slice(0, 3).map((item) => ({ nome: item.nome, valor: item.quantidade, slug: item.marca }))} />
+      : undefined,
+    temLegendaStatus: true,
+    chips: chipsDoFiltro,
     render: (acaoSlot) => (
       <GiroBaixoCard
         itens={giroBaixo.dados?.giroBaixo ?? null}
         carregando={giroBaixo.carregando}
         semFiltro={giroBaixo.semFiltro}
-        scope={escopo(filtroGiroBaixo, setFiltroGiroBaixo)}
+        scope={escopo}
         acaoSlot={acaoSlot}
       />
     ),
-  }), [giroBaixo, filtroGiroBaixo, escopo]);
+  }), [giroBaixo, escopo, chipsDoFiltro, snapshotOntem]);
 
   const blocoParados = useMemo<BlocoDef>(() => ({
     id: "parados",
@@ -670,6 +783,16 @@ export function Mosaico({
     resumo: {
       valor: parados.dados ? String(parados.dados.parados.length) : null,
       legenda: blocosCopy.parados.legenda,
+      variacao: parados.dados
+        ? calcularVariacao(parados.dados.parados.length, snapshotOntem?.paradosQtd ?? null)
+        : null,
+      // Mais itens parados é piora, não melhora.
+      subirEhRuim: true,
+      // A lista é ordenada por capital imobilizado, então o primeiro item
+      // é justamente o que mais justifica uma liquidação.
+      sinal: parados.dados?.parados[0]?.valorParado
+        ? { texto: parados.dados.parados[0].valorParado, tom: "ruim" as const }
+        : undefined,
       alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
     },
     explicacao: {
@@ -682,16 +805,36 @@ export function Mosaico({
       ],
       dica: "Um item nesta lista não é necessariamente ruim. Pode ser um lançamento recente que ainda não teve tempo suficiente para vender. Verifique a data de cadastro antes de decidir pela liquidação.",
     },
+    /* Barra = dias parado (barra longa = parado há mais tempo = pior).
+       `diasParado` nulo significa "nunca vendeu" — o caso MAIS grave, não
+       o menos: com `?? 0` ele virava barra zerada, lendo como se fosse o
+       melhor da lista. Aqui ele assume o teto da escala. */
+    preview: (() => {
+      const top = (parados.dados?.parados ?? []).slice(0, 3);
+      if (top.length === 0) return undefined;
+      const maiorDias = Math.max(...top.map((item) => item.diasParado ?? 0), 1);
+      return (
+        <MiniRanking
+          itens={top.map((item) => ({
+            nome: item.nome,
+            valor: item.diasParado ?? maiorDias,
+            slug: item.marca,
+          }))}
+        />
+      );
+    })(),
+    temLegendaStatus: true,
+    chips: chipsDoFiltro,
     render: (acaoSlot) => (
       <ParadosCard
         itens={parados.dados?.parados ?? null}
         carregando={parados.carregando}
         semFiltro={parados.semFiltro}
-        scope={escopo(filtroParados, setFiltroParados)}
+        scope={escopo}
         acaoSlot={acaoSlot}
       />
     ),
-  }), [parados, filtroParados, escopo]);
+  }), [parados, escopo, chipsDoFiltro, snapshotOntem]);
 
   // Só existe com marca conectada — um bloco que abriria vazio não vira bloco.
   const blocoPublicacoes = useMemo<BlocoDef | null>(() => {
@@ -712,6 +855,11 @@ export function Mosaico({
         ],
         dica: "Publicações sem qualquer veiculação ficam separadas para não esconder os anúncios que realmente consumiram verba ou geraram resultado.",
       },
+      // Sem preview aqui: diferente dos outros blocos, Publicações se
+      // autoalimenta dentro do próprio `render` (busca por marca só quando
+      // o card abre) — não há nenhum agregado pronto no mosaico pra virar
+      // número/gráfico no tile fechado. Fica só ícone/título por ora.
+      chips: marcasPublicacoes.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })),
       render: (acaoSlot) => (
         <PublicacoesCard
           marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
@@ -780,39 +928,65 @@ export function Mosaico({
     [grupos],
   );
 
-  /* Card em destaque, linha inteira no topo, bem maior que os outros —
-   *  o crítico do momento manda (ex.: reclamação com mediação em aberto);
-   *  sem nenhum alerta ativo, Faturamento assume por ser a métrica
-   *  primária de qualquer marca. Os outros 8 seguem em duplas abaixo,
-   *  também maiores que a grade de 4-5 colunas de antes, pra preencher a
-   *  tela em vez de deixar sobrar vazio embaixo (só lg+; mobile intocado). */
+  /* Card em destaque, linha inteira no topo, bem maior que os outros:
+   *  é SEMPRE Faturamento, a métrica primária de qualquer marca. Já foi
+   *  dinâmico ("o mais urgente do momento sobe"), mas isso fazia o topo
+   *  da tela trocar de card sozinho conforme o dado do dia — quem abre o
+   *  painel esperando o faturamento encontrava Reclamações no lugar. A
+   *  urgência continua sinalizada onde ela nasce: o ponto colorido e a
+   *  borda de alerta no próprio card, dentro da grade. */
   const { destaque, resto } = useMemo(() => {
-    const critico = blocosComSecao.find((item) => item.bloco.resumo.alerta?.nivel === "critico");
-    const atencao = blocosComSecao.find((item) => item.bloco.resumo.alerta?.nivel === "atencao");
-    const faturamento = blocosComSecao.find((item) => item.bloco.id === "faturamento");
-    const escolhido = critico ?? atencao ?? faturamento ?? blocosComSecao[0];
+    const escolhido = blocosComSecao.find((item) => item.bloco.id === "faturamento") ?? blocosComSecao[0];
     return {
       destaque: escolhido,
       resto: blocosComSecao.filter((item) => item.bloco.id !== escolhido?.bloco.id),
     };
   }, [blocosComSecao]);
 
+  /* ── Progresso real do carregamento ──────────────────────────────
+   *  Não é um timer decorativo: é literalmente quantos dos blocos atuais
+   *  já pararam de carregar (`!bloco.carregando`), a mesma soma de buscas
+   *  independentes que os tiles já refletem um a um. Só faz sentido
+   *  enquanto existe escopo selecionado — sem marca/canal nenhum card
+   *  busca nada, então não há "progresso" pra medir. 250ms de atraso antes
+   *  de aparecer evita o pisca-pisca quando tudo responde rápido. */
+  const totalPaineis = blocos.length;
+  const painesProntos = blocos.filter((bloco) => !bloco.carregando).length;
+  const emCarregamento = !semFiltroDefinido(filtroGlobal) && painesProntos < totalPaineis;
+  const [mostrarProgresso, setMostrarProgresso] = useState(false);
+  useEffect(() => {
+    if (!emCarregamento) return undefined;
+    const espera = setTimeout(() => setMostrarProgresso(true), 250);
+    return () => { clearTimeout(espera); setMostrarProgresso(false); };
+  }, [emCarregamento]);
+
   return (
     <>
       <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-3">
         {marcas.length > 0 && <CoachMarks storageKey="crm-leo:coachmarks:mosaico:v1" steps={TOUR} />}
 
-        {/* Período, "Hoje" e exportar saíram do topo do mosaico — só fazem
-            sentido dentro de um card aberto (ver `Foco` mais abaixo), onde
-            o dado que eles afetam está de fato na tela. Aqui em cima sobra
-            só a informação passiva: quando os números foram buscados. */}
-        {/* Canto inferior direito em qualquer largura — antes ficava fixo
-            no topo (colado sob o cabeçalho) só no mobile, competindo com o
-            resto da tela; agora é sempre o mesmo cantinho discreto. */}
-        {carregadoEm && (
+        {/* Barra de escopo única — marca/canal (com as logos reais, via
+            ScopeRow) + Período/Hoje, valendo pra todos os previews ao
+            mesmo tempo. Fica sempre visível (mesmo com um card aberto por
+            cima, ver Foco), então trocar marca ou data não exige fechar
+            o painel primeiro. */}
+        <div className="flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-border bg-card/70 px-3 py-2.5 shadow-[0_2px_12px_rgba(14,15,19,.04)]">
+          {escopo}
+          <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border sm:block" />
+          <div className="flex items-center gap-2">
+            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} />
+          </div>
+        </div>
+
+        {/* Canto inferior direito em qualquer largura — cantinho discreto
+            que alterna entre "atualizado às" (parado) e o progresso real
+            do carregamento (enquanto os painéis ainda respondem). */}
+        {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
           <span className="fixed bottom-[calc(4.5rem_+_env(safe-area-inset-bottom))] right-4 z-20 inline-flex items-center gap-1.5 rounded-full bg-card/90 px-3 py-1.5 text-[11px] text-muted-foreground shadow-[0_2px_10px_rgba(14,15,19,.08)] backdrop-blur md:bottom-4">
-            <RefreshCw size={11} />
-            Atualizado às {dataHora.format(carregadoEm)}
+            <RefreshCw size={11} className={emCarregamento ? "animate-spin" : undefined} />
+            {emCarregamento && mostrarProgresso
+              ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
+              : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
           </span>
         )}
 
@@ -836,16 +1010,16 @@ export function Mosaico({
 
           {/* Tablet/desktop: um card em destaque no topo (largura inteira,
               bem maior), os outros em grade abaixo — cada um leva o próprio
-              rótulo de seção dentro de si (ver `secaoLabel`). A altura do
-              conjunto é travada em "o que sobra da tela" (100dvh menos a
-              barra do topo e o padding do layout) e os cards de baixo
-              esticam pra preencher esse espaço (`auto-rows-fr` + `h-full`
-              em Bloco) — cresce em altura, não em padding, então não sobra
-              barra de rolagem mesmo com poucos cards, e o card continua
-              proporcional com mais cards. */}
-          <div className="hidden lg:flex lg:h-[calc(100dvh-9.5rem)] lg:min-h-[26rem] lg:flex-col lg:gap-3">
+              rótulo de seção dentro de si (ver `secaoLabel`).
+
+              Sem altura travada de propósito: forçar o conjunto a preencher
+              a viewport (`h-[calc(100dvh-…)]` + `auto-rows-fr`) esticava os
+              cards e abria um vazio enorme entre o título e o número. A
+              altura sai do conteúdo; `items-start` impede que a linha da
+              grade estique os cards mais baixos pra acompanhar o mais alto. */}
+          <div className="hidden lg:flex lg:flex-col lg:gap-3">
             {destaque && (
-              <ul className="shrink-0">
+              <ul>
                 <Bloco
                   key={destaque.bloco.id}
                   def={destaque.bloco}
@@ -856,7 +1030,7 @@ export function Mosaico({
                 />
               </ul>
             )}
-            <ul className="grid flex-1 auto-rows-fr grid-cols-2 gap-3">
+            <ul className="grid grid-cols-2 items-start gap-3 xl:grid-cols-4">
               {resto.map(({ bloco, secaoLabel }) => (
                 <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
               ))}
@@ -865,32 +1039,6 @@ export function Mosaico({
         </div>
       </motion.div>
 
-      {/* Atalho de escopo: some sozinho, e some de vez assim que não há bloco
-          vazio para preencher. A escolha que dispara isto agora só acontece
-          dentro do card aberto (o mosaico não tem mais pílula nenhuma), então
-          o aviso precisa ficar acima do painel de foco (z-50) para aparecer —
-          senão nasce escondido atrás dele. */}
-      <AnimatePresence>
-        {sugestao && filtrosVazios > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
-            role="status"
-            aria-live="polite"
-            className="fixed inset-x-0 bottom-[calc(5.5rem_+_env(safe-area-inset-bottom))] z-[60] mx-auto flex w-fit max-w-[92vw] items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-[0_8px_28px_rgba(14,15,19,.16)] sm:bottom-6"
-          >
-            <span className="hidden text-[11px] text-muted-foreground sm:inline">{copy.usarEmTodosDica}</span>
-            <button
-              type="button"
-              onClick={() => aplicarEmTodos(sugestao)}
-              className="press-feedback whitespace-nowrap rounded-full bg-foreground px-3 py-1.5 text-[12px] font-semibold text-background"
-            >
-              {copy.usarEmTodos}
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <Foco
         def={blocoAberto}

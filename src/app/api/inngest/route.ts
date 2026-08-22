@@ -25,6 +25,7 @@ import { A26_importarHistorico } from "@/modules/jobs/A26-importar-historico";
 import { A27_syncAnuncio } from "@/modules/jobs/A27-sync-anuncio";
 import { A28_syncAvaliacoesML } from "@/modules/jobs/A28-sync-avaliacoes-ml";
 import { A29_recoletaPorVenda } from "@/modules/jobs/A29-recoleta-por-venda";
+import { A30_snapshotMetricas } from "@/modules/jobs/A30-snapshot-metricas";
 import { A31_sincronizarConta } from "@/modules/jobs/A31-sincronizar-conta";
 import { A32_syncAnunciosAds } from "@/modules/jobs/A32-sync-anuncios-ads";
 
@@ -56,6 +57,7 @@ export const { GET, POST, PUT } = serve({
     A27_syncAnuncio,
     A28_syncAvaliacoesML,
     A29_recoletaPorVenda,
+    A30_snapshotMetricas,
     A31_sincronizarConta,
     A32_syncAnunciosAds,
   ],

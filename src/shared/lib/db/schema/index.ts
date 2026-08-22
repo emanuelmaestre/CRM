@@ -10,3 +10,4 @@ export * from "./reguas";
 export * from "./scoring";
 export * from "./anuncios";
 export * from "./backups";
+export * from "./metricas";

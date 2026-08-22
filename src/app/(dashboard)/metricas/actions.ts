@@ -17,6 +17,7 @@ import { obterSaudeLoja, type SaudeLojaResultado } from "@/modules/metricas/appl
 import { obterAtendimento, type AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
 import { obterReclamacoesMetricasComCache } from "./reclamacoes-cache";
 import { obterPosVenda, type PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
+import { obterSnapshotAnterior, type SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import {
   aprovarSugestao,
   listarInsights,
@@ -133,6 +134,16 @@ export async function actionObterPosVenda(filtros: MetricasFiltros = {}): Promis
   assertPerfil(ctx, [...PERFIS]);
   const { inicio, fim, brandIds } = FiltrosSchema.parse(filtros);
   return obterPosVenda(ctx, { ...resolverJanela(inicio, fim), brandIds });
+}
+
+/** Foto de N dias atrás gravada pelo job A30 — a base de comparação que
+ *  Giro baixo, Parados, Repor em breve e Pontuação da loja não tinham
+ *  antes (saldo de estoque e score da loja não guardavam histórico). Null
+ *  até a tabela acumular pelo menos uma foto no passado. */
+export async function actionObterSnapshotAnterior(diasAtras = 1): Promise<SnapshotMetricas | null> {
+  const ctx = await getCrudContext();
+  assertPerfil(ctx, [...PERFIS]);
+  return obterSnapshotAnterior(ctx, diasAtras);
 }
 
 /* ── Recomendações ───────────────────────────────────────────────
