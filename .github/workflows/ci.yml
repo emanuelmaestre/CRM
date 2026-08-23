@@ -84,8 +84,11 @@ jobs:
           psql "$DATABASE_URL" -c "select id, hash, created_at from drizzle.__drizzle_migrations order by created_at;" || echo "(falhou ao ler drizzle.__drizzle_migrations)"
           echo "--- tabelas existentes em public ---"
           psql "$DATABASE_URL" -c "select tablename from pg_tables where schemaname='public' order by tablename;" || echo "(falhou ao listar tabelas)"
-          echo "--- tentando migrate de novo com stack trace ---"
-          node --stack-trace-limit=100 node_modules/.bin/drizzle-kit migrate 2>&1 | tail -100 || true
+          echo "--- aplicando cada arquivo de migration na ordem, um por vez, via psql ---"
+          for f in $(ls supabase/migrations/00*.sql | sort); do
+            echo "=== $f ==="
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f" || { echo "!!! FALHOU EM: $f !!!"; break; }
+          done
 
       - name: Grant application role privileges
         run: npm run db:ci:grants
