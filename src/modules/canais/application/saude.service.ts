@@ -11,7 +11,7 @@ import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<ChannelProvider | null> {
   try {
     switch (tipo) {
-      case "shopee":       return criarShopeeProvider(brandSlug);
+      case "shopee":       return await criarShopeeProvider(brandSlug);
       case "mercadolivre": return await criarMLProvider(brandSlug);
       case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
       default:             return null;

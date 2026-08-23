@@ -3,6 +3,7 @@ import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { obterShopeeBaseUrl, obterShopeeAppCredenciais } from "@/shared/config/shopee-env";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 interface ShopeeCredentials {
   partnerId: string;
@@ -170,15 +171,90 @@ export class ShopeeProvider implements ChannelProvider {
   }
 }
 
-export function criarShopeeProvider(brandSlug: BrandSlug): ShopeeProvider {
+// Mesmo desenho do token do Mercado Livre (obterTokenMercadoLivre): um client
+// reaproveitado entre chamadas e cache curto por marca, porque webhook e jobs
+// batem aqui a cada notificação. O que a Shopee guarda por marca é o par
+// shop_id + access_token — partner_id/partner_key continuam vindo do ambiente,
+// já que são do app, não da loja.
+let supabaseTokenClient: SupabaseClient | null = null;
+const cacheTokenPorMarca = new Map<string, { valor: LinhaTokenShopee | null; expiraEm: number }>();
+const TTL_CACHE_TOKEN_MS = 60_000;
+
+interface LinhaTokenShopee {
+  access_token?: string;
+  seller_id?: string;
+  expires_at?: string;
+}
+
+export async function obterTokenShopee(brandSlug: BrandSlug): Promise<{
+  shopId: string;
+  accessToken: string;
+}> {
+  const upper = brandEnvSuffix(brandSlug);
+  const orgId = process.env.DEFAULT_ORG_ID;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  let tokenRow: LinhaTokenShopee | null = null;
+  const cacheKey = `${orgId}:${brandSlug}`;
+  const emCache = cacheTokenPorMarca.get(cacheKey);
+  if (emCache && emCache.expiraEm > Date.now()) {
+    tokenRow = emCache.valor;
+  } else if (orgId && supabaseUrl && serviceRoleKey) {
+    supabaseTokenClient ??= createClient(supabaseUrl, serviceRoleKey);
+    const supabase = supabaseTokenClient;
+    const marca = await supabase
+      .from("brand")
+      .select("id")
+      .eq("org_id", orgId)
+      .eq("slug", brandSlug)
+      .eq("active", true)
+      .maybeSingle();
+    if (marca.data?.id) {
+      const result = await supabase
+        .from("canal_tokens")
+        .select("access_token, seller_id, expires_at")
+        .eq("org_id", orgId)
+        .eq("brand_id", marca.data.id)
+        .eq("canal", "shopee")
+        .maybeSingle();
+      tokenRow = result.data;
+    }
+    cacheTokenPorMarca.set(cacheKey, { valor: tokenRow, expiraEm: Date.now() + TTL_CACHE_TOKEN_MS });
+  }
+
+  const tokenBancoExpirado = tokenRow?.expires_at
+    ? new Date(tokenRow.expires_at).getTime() <= Date.now() + 60_000
+    : false;
+  const accessToken = tokenBancoExpirado
+    ? process.env[`SHOPEE_ACCESS_TOKEN_${upper}`]
+    : tokenRow?.access_token ?? process.env[`SHOPEE_ACCESS_TOKEN_${upper}`];
+  const shopId = (tokenBancoExpirado ? undefined : tokenRow?.seller_id)
+    ?? process.env[`SHOPEE_SHOP_ID_${upper}`];
+
+  if (accessToken && (!tokenRow || tokenBancoExpirado)) {
+    const motivo = tokenRow ? "token OAuth em canal_tokens expirado" : "nenhum token persistido em canal_tokens";
+    console.warn(
+      `[shopee] usando SHOPEE_ACCESS_TOKEN_${upper} do ambiente (${motivo}). ` +
+      "Reconecte via OAuth em /configuracoes assim que possível.",
+    );
+  }
+
+  if (!accessToken || !shopId) {
+    const motivo = tokenBancoExpirado ? "token OAuth expirado" : "token ausente";
+    throw new Error(`Credencial Shopee indisponível para ${upper}: ${motivo}.`);
+  }
+
+  return { shopId, accessToken };
+}
+
+export async function criarShopeeProvider(brandSlug: BrandSlug): Promise<ShopeeProvider> {
   const upper = brandEnvSuffix(brandSlug);
   const { partnerId, partnerKey } = obterShopeeAppCredenciais();
-  const shopId = process.env[`SHOPEE_SHOP_ID_${upper}`];
-  const accessToken = process.env[`SHOPEE_ACCESS_TOKEN_${upper}`];
-
-  if (!partnerId || !partnerKey || !shopId || !accessToken) {
+  if (!partnerId || !partnerKey) {
     throw new Error(`Credenciais Shopee não configuradas para ${upper}.`);
   }
 
+  const { shopId, accessToken } = await obterTokenShopee(brandSlug);
   return new ShopeeProvider({ partnerId, partnerKey, shopId, accessToken });
 }
