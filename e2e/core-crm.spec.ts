@@ -9,11 +9,11 @@ test.describe("CRM Core — clientes e estoque", () => {
       .filter({ hasText: "Alice Exemplo", visible: true })
       .first();
     await expect(cliente).toBeVisible();
-    await cliente.getByRole("button", { name: "Ver ficha" }).click();
+    await cliente.getByRole("button", { name: "VER" }).click();
     await expect(page).toHaveURL(/\/clientes\/40000000-0000-4000-8000-000000000001$/, { timeout: 15_000 });
     await expect(page.getByTestId("cliente-360")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Alice Exemplo" })).toBeVisible();
-    await expect(page.getByText("Timeline unificada")).toBeVisible();
+    await expect(page.getByText("Histórico")).toBeVisible();
   });
 
   test("exibe o saldo real do livro-razão", async ({ page }) => {
