@@ -25,6 +25,16 @@ export function resolveDatabaseConnectionString(connectionString: string): strin
   return url.toString();
 }
 
+// app.current_org_id não vai mais na connection string. Foi confirmado que
+// esse GUC não tinha nenhum efeito na conexão da app: o role "postgres" do
+// Supabase tem rolbypassrls=true, então as policies de RLS que o liam nunca
+// eram avaliadas para essa conexão (ver memória "RLS decorativo"). Setar via
+// ALTER ROLE/DATABASE (a alternativa cogitada para preservar o GUC sem
+// prender o pooler em session mode) também não é permitido — o "postgres"
+// do Supabase não é superuser de verdade. Como o valor era inerte, a
+// correção é não tentar setá-lo: isso libera usar o pooler em transaction
+// mode e subir `max` (ver getDatabaseClientOptions). A validação do UUID
+// continua aqui para pegar cedo o placeholder do .env.example.
 export function buildTenantConnectionString(connectionString: string, orgId: string): string {
   if (!UUID_PATTERN.test(orgId)) {
     throw new Error(
@@ -33,9 +43,6 @@ export function buildTenantConnectionString(connectionString: string, orgId: str
   }
 
   const url = new URL(resolveDatabaseConnectionString(connectionString));
-  const currentOptions = url.searchParams.get("options")?.trim();
-  const tenantOption = `-c app.current_org_id=${orgId}`;
-  url.searchParams.set("options", currentOptions ? `${currentOptions} ${tenantOption}` : tenantOption);
   url.searchParams.set("application_name", "crm-leo");
   return url.toString();
 }
@@ -43,14 +50,12 @@ export function buildTenantConnectionString(connectionString: string, orgId: str
 export function getDatabaseClientOptions() {
   return {
     prepare: false,
-    // O RLS lê app.current_org_id de um parâmetro de conexão (ver
-    // buildTenantConnectionString), o que obriga o pooler em session mode.
-    // Nesse modo cada conexão aqui segura uma conexão real do Postgres, e o
-    // total é multiplicado por instância serverless — subir `max` é o caminho
-    // curto para esgotar o banco. Fica em 1 de propósito; para ganhar
-    // paralelismo é preciso antes mover o GUC para dentro da transação
-    // (set_config(..., true)) e migrar para transaction mode.
-    max: 1,
+    // app.current_org_id não é mais setado na conexão (era inerte, ver
+    // buildTenantConnectionString) — isso libera usar o pooler do Supabase
+    // em transaction mode (porta 6543, conexões multiplexadas), então `max`
+    // pode subir sem multiplicar conexões reais por instância serverless
+    // como acontecia em session mode.
+    max: 10,
     idle_timeout: 10,
     connect_timeout: 10,
     // Conexão ociosa já é fechada por idle_timeout. O teto de 60s só derrubava

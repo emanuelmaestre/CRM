@@ -3,7 +3,7 @@
     {
       "directHost": "db.hnyswnefymnszuqzrewm.supabase.co",
       "poolerHost": "aws-1-sa-east-1.pooler.supabase.com",
-      "poolerPort": 5432
+      "poolerPort": 6543
     }
   ]
 }

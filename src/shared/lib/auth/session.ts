@@ -13,13 +13,15 @@ import { perfilPermitido, perfilPodeAcessar, moduloPodeAcessar, type Perfil } fr
 
 const OrgIdSchema = z.string().uuid();
 
-/* O SELECT em app_user compete pela única conexão do pool (ver
-   getDatabaseClientOptions em db/index.ts — max: 1 é obrigatório enquanto o
-   RLS depender de app.current_org_id na conexão). Uma tela como Métricas
-   dispara ~8 server actions independentes ao montar; cada uma é sua própria
-   requisição HTTP, então o cache do React abaixo (escopado à requisição) não
-   compartilha nada entre elas — eram 8 SELECTs de usuário na fila só para
-   entrar na tela, antes de qualquer dado de verdade ser buscado.
+/* O SELECT em app_user competia pela única conexão do pool (getDatabaseClientOptions
+   em db/index.ts tinha max: 1 até o pooler mudar para transaction mode — ver
+   histórico do arquivo). Uma tela como Métricas dispara ~8 server actions
+   independentes ao montar; cada uma é sua própria requisição HTTP, então o
+   cache do React abaixo (escopado à requisição) não compartilha nada entre
+   elas — eram 8 SELECTs de usuário na fila só para entrar na tela, antes de
+   qualquer dado de verdade ser buscado. Mantido mesmo com `max` maior porque
+   ainda evita SELECTs redundantes de app_user por navegação; candidato a
+   remoção se a métrica de contenção mostrar que não faz mais diferença.
 
    Este cache extra vive na instância (módulo, não requisição) e é por
    userId, com TTL curto: reduz esse SELECT repetido para o normal — uma vez

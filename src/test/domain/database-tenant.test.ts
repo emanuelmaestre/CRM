@@ -6,12 +6,15 @@ import {
 } from "@/shared/lib/db";
 
 describe("Conexão tenant do Postgres", () => {
-  it("configura a org e o nome da aplicação na sessão", () => {
+  it("configura o nome da aplicação na sessão", () => {
     const orgId = "123e4567-e89b-42d3-a456-426614174000";
     const result = new URL(buildTenantConnectionString("postgresql://user:secret@localhost:5432/crm", orgId));
 
     expect(result.searchParams.get("application_name")).toBe("crm-leo");
-    expect(result.searchParams.get("options")).toContain(`app.current_org_id=${orgId}`);
+    // app.current_org_id não vai mais na connection string — era inerte
+    // para a conexão da app (role "postgres" tem rolbypassrls=true, ver
+    // src/shared/lib/db/index.ts).
+    expect(result.searchParams.has("options")).toBe(false);
   });
 
   it("rejeita organização inválida", () => {
@@ -26,9 +29,9 @@ describe("Conexão tenant do Postgres", () => {
       .toThrow("DEFAULT_ORG_ID deve ser o UUID de uma org existente");
   });
 
-  it("limita conexões por instância serverless", () => {
+  it("permite paralelismo via pooler em transaction mode", () => {
     expect(getDatabaseClientOptions()).toMatchObject({
-      max: 1,
+      max: 10,
       idle_timeout: 10,
       connect_timeout: 10,
       max_lifetime: 60 * 30,
@@ -36,13 +39,13 @@ describe("Conexão tenant do Postgres", () => {
     });
   });
 
-  it("usa o pooler regional quando a URL aponta para o host direto do Supabase", () => {
+  it("usa o pooler regional em transaction mode quando a URL aponta para o host direto do Supabase", () => {
     const directUrl =
       "postgresql://postgres:secret@db.hnyswnefymnszuqzrewm.supabase.co:5432/postgres?sslmode=require";
     const result = new URL(resolveDatabaseConnectionString(directUrl));
 
     expect(result.hostname).toBe("aws-1-sa-east-1.pooler.supabase.com");
-    expect(result.port).toBe("5432");
+    expect(result.port).toBe("6543");
     expect(result.username).toBe("postgres.hnyswnefymnszuqzrewm");
     expect(result.password).toBe("secret");
     expect(result.searchParams.get("sslmode")).toBe("require");
