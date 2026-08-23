@@ -13,21 +13,30 @@ interface ShopeeCredentials {
 }
 
 export class ShopeeProvider implements ChannelProvider {
-  private readonly baseUrl = `${obterShopeeBaseUrl()}/api/v2`;
+  private readonly host = obterShopeeBaseUrl();
   private creds: ShopeeCredentials;
 
   constructor(creds: ShopeeCredentials) {
     this.creds = creds;
   }
 
-  private assinar(path: string, timestamp: number): string {
-    const base = `${this.creds.partnerId}${path}${timestamp}${this.creds.accessToken}${this.creds.shopId}`;
+  // A Shopee assina o CAMINHO COMPLETO da chamada (com /api/v2), o mesmo que
+  // connect/route.ts e callback/route.ts já usam ("/api/v2/shop/auth_partner",
+  // "/api/v2/auth/token/get"). Assinar só o sufixo (ex.: "/shop/get_shop_info",
+  // sem o /api/v2) gera uma sign que não bate com a URL de fato chamada — a
+  // Shopee aceita a chamada, mas rejeita com 403 "Wrong sign" silencioso (sem
+  // reprovar a request em si, só a assinatura), então nenhum request feito
+  // por este provider — get_shop_info, get_order_list, update_stock, etc. —
+  // jamais funcionou até este fix, mesmo com token válido.
+  private assinar(apiPath: string, timestamp: number): string {
+    const base = `${this.creds.partnerId}${apiPath}${timestamp}${this.creds.accessToken}${this.creds.shopId}`;
     return crypto.createHmac("sha256", this.creds.partnerKey).update(base).digest("hex");
   }
 
   private url(path: string, params: Record<string, string | number> = {}): string {
+    const apiPath = `/api/v2${path}`;
     const ts = Math.floor(Date.now() / 1000);
-    const sign = this.assinar(path, ts);
+    const sign = this.assinar(apiPath, ts);
     const qs = new URLSearchParams({
       partner_id: this.creds.partnerId,
       shop_id: this.creds.shopId,
@@ -36,7 +45,7 @@ export class ShopeeProvider implements ChannelProvider {
       sign,
       ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
     });
-    return `${this.baseUrl}${path}?${qs}`;
+    return `${this.host}${apiPath}?${qs}`;
   }
 
   async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
