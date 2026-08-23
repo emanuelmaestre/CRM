@@ -700,6 +700,20 @@
       "shipping": "8.00",
       "discount": "0.00",
       "daysAgo": 1
+    },
+    {
+      "key": "order9",
+      "id": "61000000-0000-4000-8000-000000000009",
+      "brand": "karzi",
+      "client": "alice",
+      "channelAccount": "karzi_ml",
+      "providerOrderId": "SYN-ML-1009",
+      "channel": "mercadolivre",
+      "status": "pago",
+      "total": "249.90",
+      "shipping": "15.00",
+      "discount": "0.00",
+      "daysAgo": 0
     }
   ],
   "orderItems": [
@@ -765,6 +779,13 @@
       "product": "armarinhos_fita",
       "quantity": 2,
       "unitPrice": "19.90"
+    },
+    {
+      "id": "62000000-0000-4000-8000-000000000010",
+      "order": "order9",
+      "product": "karzi_bag",
+      "quantity": 1,
+      "unitPrice": "249.90"
     }
   ],
   "opportunities": [

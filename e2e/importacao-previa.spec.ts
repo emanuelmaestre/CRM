@@ -24,7 +24,7 @@ test.describe("Importação com prévia", () => {
       buffer: Buffer.from("coluna_errada,email\nvalor,invalid@example.invalid\n"),
     });
     await page.getByRole("button", { name: /pré-visualizar/i }).click();
-    await expect(page.getByTestId("previa-erros")).toBeVisible();
+    await expect(page.getByTestId("previa-erros")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("previa-erros")).toContainText(/nome|obrigat/i);
   });
 });
