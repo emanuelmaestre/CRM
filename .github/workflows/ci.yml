@@ -71,6 +71,19 @@ jobs:
       - name: Apply migrations to clean database
         run: npm run db:migrate
 
+      # TEMPORARIO — segunda rodada de diagnostico (a 0030 tinha um CREATE
+      # TABLE duplicado real, ja corrigido, mas o CI continua falhando no
+      # mesmo lugar — precisa achar o proximo ponto de verdade).
+      - name: DEBUG - inspect migration state
+        if: failure()
+        run: |
+          sudo apt-get install -y postgresql-client >/dev/null 2>&1 || true
+          echo "--- aplicando cada arquivo de migration na ordem, um por vez, via psql ---"
+          for f in $(ls supabase/migrations/00*.sql | sort); do
+            echo "=== $f ==="
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f" || { echo "!!! FALHOU EM: $f !!!"; break; }
+          done
+
       - name: Grant application role privileges
         run: npm run db:ci:grants
 
