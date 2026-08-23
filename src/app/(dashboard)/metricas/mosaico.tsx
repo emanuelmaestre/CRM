@@ -210,6 +210,10 @@ function useDadosDoCard(
    resumo Score+Atendimento+Pós-venda, sem relação com o card em foco —
    decisão tomada com o usuário). */
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
+// Só a hora — usado no mobile pra "Atualizado às" caber na mesma linha do
+// Período sem forçar quebra (a data completa some ali, mas some porque a
+// atualização é sempre "agora", não porque falte informação relevante).
+const apenasHora = new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent }: {
   periodo: Periodo;
@@ -1007,18 +1011,28 @@ export function Mosaico({
 
           <span aria-hidden="true" className="h-px w-full shrink-0 bg-border sm:h-6 sm:w-px sm:self-stretch" />
 
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
+          <div className="flex flex-nowrap items-center justify-center gap-2 sm:contents">
             <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} />
 
             {/* Cantinho discreto que alterna entre "atualizado às" (parado)
                 e o progresso real do carregamento — mesma linha do Período,
-                alinhado à direita dela. */}
+                alinhado à direita dela. `flex-nowrap` no container acima +
+                texto curto aqui no mobile (só a hora, sem "Atualizado às" +
+                data) garantem que nunca quebra pra uma segunda linha ali —
+                a versão completa volta a partir do sm, onde sobra largura. */}
             {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
-              <span className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
-                <RefreshCw size={11} className={emCarregamento ? "animate-spin" : undefined} />
-                {emCarregamento && mostrarProgresso
-                  ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
-                  : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
+              <span className="ml-auto inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
+                <RefreshCw size={11} className={`shrink-0 ${emCarregamento ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">
+                  {emCarregamento && mostrarProgresso
+                    ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
+                    : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
+                </span>
+                <span className="sm:hidden">
+                  {emCarregamento && mostrarProgresso
+                    ? `${painesProntos}/${totalPaineis}`
+                    : carregadoEm && apenasHora.format(carregadoEm)}
+                </span>
               </span>
             )}
           </div>
