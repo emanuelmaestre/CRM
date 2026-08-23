@@ -721,7 +721,10 @@ export function Mosaico({
       dica: "Combine com 5 produtos mais vendidos, no painel Marca, para ver se a receita depende demais de poucos itens campeões.",
     },
     preview: maisVendidos.dados && maisVendidos.dados.maisVendidos.length > 0
-      ? <MiniRanking itens={maisVendidos.dados.maisVendidos.slice(0, 3).map((item) => ({ nome: item.nome, valor: item.quantidade, slug: item.marca }))} />
+      // -mt-1.5: sobe um pouco a lista 1º/2º/3º dentro do próprio espaço
+      // flutuante (ver "sobrepor" em bloco.tsx) — pedido específico deste
+      // card, sem mexer nos outros três que usam o mesmo alinhamento.
+      ? <span className="-mt-1.5 block"><MiniRanking itens={maisVendidos.dados.maisVendidos.slice(0, 3).map((item) => ({ nome: item.nome, valor: item.quantidade, slug: item.marca }))} /></span>
       : undefined,
     previewAlinhamento: "sobrepor",
     temLegendaStatus: true,
