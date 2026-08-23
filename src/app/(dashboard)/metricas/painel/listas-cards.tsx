@@ -528,7 +528,7 @@ function SeloStatus({ status }: { status: { label: string; className: string; hi
           type="button"
           aria-label={`Entenda o status ${status.label}`}
           onClick={(event) => event.stopPropagation()}
-          className={`press-feedback cursor-pointer text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${corTexto}`}
+          className={`press-feedback cursor-pointer text-[10.5px] font-extrabold uppercase tracking-wide transition-opacity hover:opacity-80 ${corTexto}`}
         >
           {status.label}
         </button>
