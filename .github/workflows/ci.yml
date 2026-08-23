@@ -69,7 +69,12 @@ jobs:
         run: npm run db:ci:bootstrap
 
       - name: Apply migrations to clean database
-        run: npm run db:migrate
+        run: |
+          sudo apt-get install -y postgresql-client >/dev/null 2>&1 || true
+          for f in $(ls supabase/migrations/00*.sql | sort); do
+            echo "=== $f ==="
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f" || { echo "!!! FALHOU EM: $f !!!"; exit 1; }
+          done
 
       - name: Grant application role privileges
         run: npm run db:ci:grants
