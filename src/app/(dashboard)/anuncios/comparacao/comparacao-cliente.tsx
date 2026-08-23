@@ -72,7 +72,11 @@ export function ComparacaoClienteDetalhe() {
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       <Card>
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3">
+        {/* Mobile: título centralizado, canal embaixo, também centralizado —
+            `justify-between` com o texto à esquerda e a pílula sozinha à
+            direita ficava desalinhado quando quebrava de linha num
+            container estreito. Do md em diante volta ao lado a lado. */}
+        <div className="flex flex-col items-center gap-3 border-b border-border px-4 py-3 text-center md:flex-row md:items-start md:justify-between md:text-left">
           <div>
             <h1 className="text-base font-bold text-foreground">{copy.title}</h1>
             <p className="mt-0.5 text-[12px] text-muted-foreground">{copy.description}</p>

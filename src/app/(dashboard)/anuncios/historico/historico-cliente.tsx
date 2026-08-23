@@ -177,11 +177,21 @@ export function HistoricoClienteDetalhe() {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
-        <SeletorCanalAnuncios totalCampanhas={marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
-        <span className="h-px flex-1 bg-border" />
-        <CalendarioPopoverRange rotulo="Período" valor={periodo} max={hojeISO()} onChange={setPeriodo} />
+      {/* Mobile: centralizado, com o canal (Mercado Livre) acima e as
+          empresas abaixo — `order` inverte só a leitura visual, sem mudar
+          o DOM; `md:contents` desfaz o agrupamento a partir do md, voltando
+          à fileira única de sempre (marca, canal, Período). */}
+      <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
+        <div className="order-1 flex w-full justify-center gap-1.5 md:order-none md:contents">
+          <SeletorCanalAnuncios totalCampanhas={marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
+        </div>
+        <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
+          <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
+        </div>
+        <span className="hidden h-px flex-1 bg-border md:block" />
+        <div className="order-3 flex w-full justify-center md:order-none md:contents">
+          <CalendarioPopoverRange rotulo="Período" valor={periodo} max={hojeISO()} onChange={setPeriodo} />
+        </div>
       </div>
 
       {carregandoPontos || !pontos ? (

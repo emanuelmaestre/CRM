@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { ChevronDown, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronDown, RefreshCw, Sparkles } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { springs, stagger } from "@/shared/design-system/motion-variants";
@@ -296,11 +297,36 @@ export function CampanhasClienteDetalhe() {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={(brandId) => { setMarcaAtiva(brandId); setExpandida(null); }} />
-        <SeletorCanalAnuncios totalCampanhas={dados.marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
-        <span className="h-px flex-1 bg-border" />
+      {/* Mobile: "Voltar" e "Atualizado em" dividem a mesma linha — no
+          desktop o link mora sozinho lá em cima (ver page.tsx) e o horário
+          fica na fileira de filtros, à direita. */}
+      <div className="flex items-center justify-between gap-2 md:hidden">
+        <Link
+          href="/publicidade"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft size={13} /> {copy.voltar}
+        </Link>
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <RefreshCw size={11} />
+          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}
+        </span>
+      </div>
+
+      {/* Mobile: centralizado, com o canal (Mercado Livre) acima e as
+          empresas abaixo — `order` inverte só a leitura visual, sem mudar
+          o DOM; `md:contents` desfaz o agrupamento a partir do md, voltando
+          à fileira única de sempre (marca, canal, horário — que já saiu
+          daqui, ver acima). */}
+      <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
+        <div className="order-1 flex w-full justify-center gap-1.5 md:order-none md:contents">
+          <SeletorCanalAnuncios totalCampanhas={dados.marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
+        </div>
+        <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
+          <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={(brandId) => { setMarcaAtiva(brandId); setExpandida(null); }} />
+        </div>
+        <span className="hidden h-px flex-1 bg-border md:block" />
+        <span className="hidden items-center gap-1.5 text-[11px] text-muted-foreground md:inline-flex">
           <RefreshCw size={11} />
           {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}
         </span>
