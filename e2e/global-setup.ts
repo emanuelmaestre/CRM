@@ -35,10 +35,15 @@ async function globalSetup(config: FullConfig) {
       if (await pinInput.isVisible().catch(() => false)) {
         await pinInput.fill(clientesPin);
         await page.getByRole("button", { name: /entrar/i }).click();
-        // O verificarPinClientes + router.refresh() já foi visto passar de
-        // 10s num runner de CI frio; 30s dá folga sem mascarar PIN errado
-        // (nesse caso o formulário nunca some, só timeout de qualquer jeito).
-        await expect(page.locator("#clientes-pin")).toBeHidden({ timeout: 30_000 });
+        // O gate é decidido no servidor (cookie + verificarCookiePin em
+        // layout.tsx), não em estado de cliente — então, em vez de confiar
+        // no router.refresh() completar dentro da mesma render (já visto
+        // travar em CI sem erro nem timeout claro), um reload direto é
+        // determinístico: se o cookie foi gravado, o SSR já não mostra o
+        // gate, ponto.
+        await page.waitForTimeout(1_500);
+        await page.reload();
+        await expect(page.locator("#clientes-pin")).toBeHidden({ timeout: 15_000 });
       }
     }
 
