@@ -25,7 +25,7 @@ export function ChannelConnectionStrip({ canal, items }: Props) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
       <ChannelLogo canal={canal} variant="pill" size="sm" />
 
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+      <div className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:basis-auto">
         {items.map((item, index) => {
           const conectado = item.pronto || item.status === "conectado";
           return (
@@ -34,7 +34,7 @@ export function ChannelConnectionStrip({ canal, items }: Props) {
               initial={reduzir ? false : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={reduzir ? { duration: 0 } : { duration: 0.22, delay: index * 0.05, ease: [0, 0, 0.2, 1] }}
-              className="flex min-h-9 items-center gap-2 rounded-full border border-border px-3 text-xs font-semibold text-foreground"
+              className="flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-border px-3 text-xs font-semibold text-foreground"
             >
               <StatusDot conectado={conectado} />
               {isBrandSlug(item.brand) && <BrandLogo brand={item.brand} height={13} />}

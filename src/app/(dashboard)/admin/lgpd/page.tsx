@@ -165,13 +165,13 @@ export default function AdminLgpdPage() {
         description="Controle exportação, revogação, anonimização e exclusão com auditoria."
       />
 
-      <div className="grid gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
         <SectionCard title="Abrir solicitação" icon={Plus}>
           <div className="grid gap-3">
             <select
               value={clienteId}
               onChange={(event) => setClienteId(event.target.value)}
-              className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm"
+              className="min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 text-sm"
             >
               {clientes.map((clienteItem) => (
                 <option key={clienteItem.id} value={clienteItem.id}>
@@ -182,7 +182,7 @@ export default function AdminLgpdPage() {
             <select
               value={tipo}
               onChange={(event) => setTipo(event.target.value as Solicitacao["tipo"])}
-              className="min-h-11 rounded-xl border border-border bg-background px-3 text-sm"
+              className="min-h-11 w-full min-w-0 rounded-xl border border-border bg-background px-3 text-sm"
             >
               {Object.entries(tipoLabel).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
