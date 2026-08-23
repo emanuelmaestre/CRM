@@ -71,6 +71,22 @@ jobs:
       - name: Apply migrations to clean database
         run: npm run db:migrate
 
+      # TEMPORARIO — so pra diagnosticar o CI falhando em silencio neste
+      # passo (drizzle-kit sai com exit 1 sem imprimir erro nenhum). Mostra
+      # ate onde a migration foi (tabela de tracking do drizzle) e o que
+      # existe de fato no banco, pra achar qual migration/statement parou.
+      # Remover assim que a causa real for encontrada.
+      - name: DEBUG - inspect migration state
+        if: failure()
+        run: |
+          sudo apt-get install -y postgresql-client >/dev/null 2>&1 || true
+          echo "--- drizzle migrations tracking table ---"
+          psql "$DATABASE_URL" -c "select id, hash, created_at from drizzle.__drizzle_migrations order by created_at;" || echo "(falhou ao ler drizzle.__drizzle_migrations)"
+          echo "--- tabelas existentes em public ---"
+          psql "$DATABASE_URL" -c "select tablename from pg_tables where schemaname='public' order by tablename;" || echo "(falhou ao listar tabelas)"
+          echo "--- tentando migrate de novo com stack trace ---"
+          node --stack-trace-limit=100 node_modules/.bin/drizzle-kit migrate 2>&1 | tail -100 || true
+
       - name: Grant application role privileges
         run: npm run db:ci:grants
 
