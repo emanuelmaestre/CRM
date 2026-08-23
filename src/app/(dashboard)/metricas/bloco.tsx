@@ -291,7 +291,7 @@ function ConteudoCarregando() {
   );
 }
 
-export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto", className }: {
+export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto", className, ativoLayout = true }: {
   def: BlocoDef;
   focado: boolean;
   onAbrir: () => void;
@@ -306,6 +306,15 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
   /** Classe extra no <li> — hoje só usada pelo card em destaque, pra
    *  ocupar as duas colunas da grade desktop (col-span-2). */
   className?: string;
+  /** Mosaico e mobile e desktop vivem os DOIS sempre montados (uma árvore
+   *  fica só `display:none` via CSS pro breakpoint errado — React nunca a
+   *  desmonta). Sem isto, as duas cópias do mesmo card reivindicam o mesmo
+   *  `layoutId` ao mesmo tempo, e o Framer às vezes anima de volta pra
+   *  cópia invisível — o card visível fica vazio ao fechar. Só a árvore do
+   *  breakpoint realmente ativo (ver `useEhDesktop` em mosaico.tsx) recebe
+   *  o `layoutId` de verdade; a outra (invisível de qualquer forma) fica
+   *  sem crescimento compartilhado, o que não se nota porque ninguém a vê. */
+  ativoLayout?: boolean;
 }) {
   const reduzir = useReducedMotion();
   const { icone: Icone, accent, resumo, carregando, semFiltro } = def;
@@ -328,7 +337,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
           por um instante e o crescimento vira um piscar. */}
       {!focado && (
         <motion.div
-          layoutId={`bloco-${def.id}`}
+          layoutId={ativoLayout ? `bloco-${def.id}` : undefined}
           transition={transicao(reduzir, springs.settle)}
           className={`card-surface relative flex h-full w-full cursor-pointer flex-col overflow-hidden text-left transition-shadow hover:shadow-[0_6px_20px_rgba(14,15,19,.10)] has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${tam.caixa} gap-2 px-3.5 py-3`}
           style={{ background: "var(--card)" }}
@@ -503,12 +512,21 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                     nunca corta). */}
                 {tam.comPreview && def.preview && (
                   <span
-                    className={`block shrink-0 overflow-hidden ${
+                    className={`block shrink-0 ${
+                      /* Sem `overflow-hidden` no modo "sobrepor": ali o
+                         preview é `absolute`, não empurra layout nenhum, e
+                         recortar o próprio conteúdo só contradiz a regra do
+                         card ("preview pode sobrepor, texto nunca corta").
+                         Era isso que cortava a metade de cima da 1ª linha
+                         do ranking quando o card sobe a lista com margem
+                         negativa (ver Vendem mais em mosaico.tsx). O card
+                         inteiro já tem `overflow-hidden` próprio, então
+                         nada escapa pra fora dele de qualquer forma. */
                       def.previewAlinhamento === "sobrepor"
                         ? "absolute right-0 top-0"
                         : def.previewAlinhamento === "start"
-                          ? "self-start"
-                          : "self-center"
+                          ? "self-start overflow-hidden"
+                          : "self-center overflow-hidden"
                     }`}
                   >
                     {def.preview}

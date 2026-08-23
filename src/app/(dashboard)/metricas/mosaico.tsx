@@ -18,7 +18,7 @@ import metricasConfig from "@/config/metricas.json";
 import { agruparPorSecao, Bloco, Foco, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo, AnelScore } from "./metricas-primitives";
-import { Linha, BarrasMarca, FlechaTendencia, MiniRanking } from "./mini-visuais";
+import { Linha, BarrasMarca, MiniRanking } from "./mini-visuais";
 import { actionObterDashboardData } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
@@ -156,9 +156,30 @@ const FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO = {
   vendemMais: 11,
   // "~" no valor: deixa explícito que é aproximado (na real, inventado),
   // não um número calculado que só está desatualizado.
-  publicacoes: { valor: "~63%", variacao: 18, legenda: "da receita veio de anúncio" },
+  publicacoes: { valor: "~63%", variacao: 18, legenda: "Receita via anúncio" },
 } as const;
 /* ══════════════════════════════════════════════════════════════════════ */
+
+/** As grades mobile e desktop ficam as DUAS sempre montadas (só CSS —
+ *  `lg:hidden`/`hidden lg:flex` — troca qual aparece; o React nunca
+ *  desmonta a outra). Sem saber qual é a de verdade, cada card teria duas
+ *  cópias reivindicando o mesmo `layoutId` compartilhado com o Foco ao
+ *  mesmo tempo — e o Framer podia animar de volta pra cópia invisível ao
+ *  fechar, deixando o card visível vazio (achado real, só no mobile). Este
+ *  hook diz qual árvore é a ativa de verdade, pelo breakpoint real da
+ *  tela — mesmo valor que o `lg:` do Tailwind usa (1024px) — pra só ela
+ *  receber o `layoutId` de verdade (ver `ativoLayout` em `Bloco`). */
+function useEhDesktop() {
+  const [ehDesktop, setEhDesktop] = useState(false);
+  useEffect(() => {
+    const consulta = window.matchMedia("(min-width: 1024px)");
+    const atualizar = () => setEhDesktop(consulta.matches);
+    atualizar();
+    consulta.addEventListener("change", atualizar);
+    return () => consulta.removeEventListener("change", atualizar);
+  }, []);
+  return ehDesktop;
+}
 
 function useDadosDoCard(
   cache: React.MutableRefObject<Map<string, Promise<DashboardData>>>,
@@ -278,6 +299,7 @@ export function Mosaico({
 }) {
   const params = useSearchParams();
   const cardAberto = params.get("card");
+  const ehDesktop = useEhDesktop();
 
   const [periodo, setPeriodo] = useState<Periodo>({ inicio: hoje, fim: hoje });
   const [marcas, setMarcas] = useState<ScopeMarca[]>(marcasIniciais);
@@ -482,18 +504,27 @@ export function Mosaico({
       ],
       dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
     },
-    // Com 1 dia só (período "Hoje"), a série não tem 2 pontos pra desenhar
-    // uma linha — cai pra [anterior, atual], o mesmo par de números que já
-    // alimenta o Delta ao lado do nome, então a linha nunca some. Verde
-    // subindo / vermelho descendo, maior que a linha fina de antes (140×64
-    // em vez de 96×36) pra não sumir no card grande.
-    // Flecha de tendência (o zigue-zague do lucide) em vez da linha da
-    // série: a linha dependia de ter vários pontos pra dizer alguma coisa e
-    // virava um traço reto — ou sumia — nos períodos curtos. A flecha lê a
-    // mesma variação que já aparece ao lado do número, então nunca fica
-    // vazia: sobe verde, desce vermelha.
+    /* Gráfico da série, grande — a curva do faturamento no tempo, que é o
+       que o card do topo tem de mais característico pra mostrar.
+       Já foi uma flecha de ícone por um tempo, porque a linha "sumia" nos
+       períodos curtos; a causa real era a série vir com menos de 2 pontos
+       (ex.: período "Hoje"), e não o tamanho. O fallback abaixo resolve
+       isso na origem: sem 2 pontos na série, desenha [anterior, atual] —
+       o mesmo par que já alimenta o "+9%" ao lado do número —, então a
+       linha nunca fica vazia e continua dizendo a mesma verdade.
+       Verde subindo / vermelho descendo, mesma leitura semântica do Delta. */
     preview: dadosFaturamento
-      ? <FlechaTendencia valor={dadosFaturamento.variacaoPercentual} />
+      ? (
+        <Linha
+          dados={dadosFaturamento.serie.length > 1
+            ? dadosFaturamento.serie.map((ponto) => ponto.valor)
+            : [dadosFaturamento.totalAnteriorNumerico, dadosFaturamento.totalNumerico]}
+          cor={(dadosFaturamento.variacaoPercentual ?? 0) < 0 ? "var(--destructive)" : "var(--success)"}
+          largura={180}
+          altura={60}
+          espessura={2.5}
+        />
+      )
       : undefined,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
@@ -1112,10 +1143,11 @@ export function Mosaico({
                 onAbrir={() => abrir(destaque.bloco.id)}
                 variante="grande"
                 className="col-span-2"
+                ativoLayout={!ehDesktop}
               />
             )}
             {restoMobile.map(({ bloco }) => (
-              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} variante="grande" />
+              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} variante="grande" ativoLayout={!ehDesktop} />
             ))}
             {destaqueFinal && (
               <Bloco
@@ -1125,6 +1157,7 @@ export function Mosaico({
                 onAbrir={() => abrir(destaqueFinal.bloco.id)}
                 variante="grande"
                 className="col-span-2"
+                ativoLayout={!ehDesktop}
               />
             )}
           </ul>
@@ -1144,6 +1177,7 @@ export function Mosaico({
                   onAbrir={() => abrir(destaque.bloco.id)}
                   secaoLabel={destaque.secaoLabel}
                   variante="destaque"
+                  ativoLayout={ehDesktop}
                 />
               </ul>
             )}
@@ -1154,7 +1188,7 @@ export function Mosaico({
                 grade estique os cards mais baixos pra acompanhar o mais alto. */}
             <ul className="grid grid-cols-2 items-start gap-3 xl:grid-cols-4">
               {resto.map(({ bloco, secaoLabel }) => (
-                <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
+                <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" ativoLayout={ehDesktop} />
               ))}
             </ul>
           </div>

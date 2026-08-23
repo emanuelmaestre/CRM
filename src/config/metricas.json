@@ -224,15 +224,15 @@
       },
       "reposicao": {
         "titulo": "Repor em breve",
-        "legenda": "itens no mínimo"
+        "legenda": "Itens no mínimo"
       },
       "maisVendidos": {
         "titulo": "Vendem mais",
-        "legenda": "no topo do período"
+        "legenda": "No topo do período"
       },
       "giroBaixo": {
         "titulo": "Giro baixo",
-        "legenda": "menos de 10 vendas/semana"
+        "legenda": "Menos de 10/semana"
       },
       "parados": {
         "titulo": "Estoque parado",

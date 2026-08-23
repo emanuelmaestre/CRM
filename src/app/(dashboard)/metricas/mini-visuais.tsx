@@ -9,15 +9,17 @@
    FaturamentoCard) não usam nada daqui — são maiores, com hover/foco, e
    continuam como estão. */
 
-import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 
-export function Linha({ dados, cor, largura = 96, altura = 36, classeResponsiva }: {
+export function Linha({ dados, cor, largura = 96, altura = 36, espessura = 1.75, classeResponsiva }: {
   dados: number[];
   cor: string;
   largura?: number;
   altura?: number;
+  /** Espessura do traço. O card em destaque usa mais grosso — no tamanho
+   *  grande dele, o traço fino de 1.75 lia como um fio solto. */
+  espessura?: number;
   /** Classes Tailwind que sobrescrevem o tamanho renderizado (ex.: mais
    *  estreito no mobile) sem recalcular os pontos do traço — o SVG usa
    *  `largura`/`altura` só pro viewBox/matemática interna; o navegador
@@ -61,8 +63,10 @@ export function Linha({ dados, cor, largura = 96, altura = 36, classeResponsiva 
         </linearGradient>
       </defs>
       <path d={area} fill={`url(#${id})`} />
-      <path d={d} fill="none" stroke={cor} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={ux} cy={uy} r="2.75" fill="var(--card)" stroke={cor} strokeWidth="1.75" />
+      <path d={d} fill="none" stroke={cor} strokeWidth={espessura} strokeLinecap="round" strokeLinejoin="round" />
+      {/* Ponto final acompanha a espessura do traço — num traço grosso, a
+          bolinha de raio fixo somia dentro dele. */}
+      <circle cx={ux} cy={uy} r={espessura * 1.6} fill="var(--card)" stroke={cor} strokeWidth={espessura} />
     </svg>
   );
 }
@@ -127,7 +131,16 @@ export function MiniRanking({ itens }: { itens: { nome: string; valor: number; s
         const cor = item.slug && isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined;
         return (
           <div key={`${item.nome}-${indice}`} className="flex items-center gap-1 lg:gap-1.5">
-            <span className="w-2.5 shrink-0 text-[9px] font-bold tabular-nums" style={{ color: "var(--muted-foreground)" }}>{indice + 1}</span>
+            {/* Célula quadrada com centralização real (grid), não texto
+                solto numa largura: o "1" é bem mais estreito que "2"/"3"
+                nesta fonte e escorregava pro canto, e sem `leading-none`
+                ainda subia meio pixel em relação aos vizinhos. */}
+            <span
+              className="grid h-3 w-3 shrink-0 place-items-center text-[9px] font-bold leading-none tabular-nums"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              {indice + 1}
+            </span>
             <span className="min-w-0 flex-1 truncate text-[10.5px] font-medium text-foreground">{item.nome}</span>
             <div className="hidden h-1 w-8 shrink-0 overflow-hidden rounded-full lg:block" style={{ background: "var(--muted)" }}>
               <div className="h-full rounded-full" style={{ width: `${(item.valor / max) * 100}%`, background: cor ?? "var(--muted-foreground)" }} />
@@ -136,37 +149,6 @@ export function MiniRanking({ itens }: { itens: { nome: string; valor: number; s
         );
       })}
     </div>
-  );
-}
-
-/** Flecha de tendência grande (o zigue-zague do lucide) — para o tile em
- *  destaque, onde uma linha de série fina sumia e, em período curto, virava
- *  um traço reto sem leitura. Lê a mesma variação do `Delta`, só que como
- *  imagem: sobe verde, desce vermelha, estável neutra. */
-export function FlechaTendencia({ valor, subirEhRuim, tamanho = 72 }: {
-  valor: number | null | undefined;
-  subirEhRuim?: boolean;
-  tamanho?: number;
-}) {
-  const semBase = valor === null || valor === undefined;
-  const subiu = !semBase && valor > 0;
-  const estavel = !semBase && valor === 0;
-  const bom = subirEhRuim ? !subiu : subiu;
-  const cor = semBase || estavel ? "var(--muted-foreground)" : bom ? "var(--success)" : "var(--destructive)";
-  const Icone = semBase || estavel ? Minus : subiu ? TrendingUp : TrendingDown;
-  return (
-    // Sem fundo tingido nem moldura: a flecha sozinha, no tamanho cheio do
-    // espaço. O selo quadrado que existia aqui competia com o ícone-badge
-    // do próprio card, logo à esquerda — dois quadradinhos arredondados na
-    // mesma linha liam como se fossem dois botões.
-    <span
-      className="grid shrink-0 place-items-center"
-      style={{ width: tamanho, height: tamanho, color: cor }}
-      role="img"
-      aria-label={semBase ? "Sem base de comparação" : estavel ? "Estável" : `${subiu ? "Subiu" : "Caiu"} ${Math.abs(valor)}%`}
-    >
-      <Icone size={tamanho} strokeWidth={1.75} />
-    </span>
   );
 }
 
