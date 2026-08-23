@@ -28,6 +28,7 @@ import { A29_recoletaPorVenda } from "@/modules/jobs/A29-recoleta-por-venda";
 import { A30_snapshotMetricas } from "@/modules/jobs/A30-snapshot-metricas";
 import { A31_sincronizarConta } from "@/modules/jobs/A31-sincronizar-conta";
 import { A32_syncAnunciosAds } from "@/modules/jobs/A32-sync-anuncios-ads";
+import { A33_refreshShopeeTokens } from "@/modules/jobs/A33-refresh-shopee-tokens";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -60,5 +61,6 @@ export const { GET, POST, PUT } = serve({
     A30_snapshotMetricas,
     A31_sincronizarConta,
     A32_syncAnunciosAds,
+    A33_refreshShopeeTokens,
   ],
 });
