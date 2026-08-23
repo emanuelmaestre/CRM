@@ -69,16 +69,19 @@ export function BarraSplit({ partes }: { partes: { valor: number; cor: string }[
 export function BarrasMarca({ dados }: { dados: { slug: string; label: string; valor: number }[] }) {
   const max = Math.max(...dados.map((d) => d.valor), 1);
   return (
-    /* Largura fixa, não `w-full`: o preview mora num container `shrink-0`
-       dentro do tile, que não tem largura própria — com `w-full` as barras
-       colapsavam pra zero e sobravam só as bolinhas. */
-    <div className="flex w-24 flex-col gap-1">
+    /* Largura do TRILHO da barra é fixa e curta (`w-9`), não o container
+       inteiro — os pontinhos ficam no tamanho de sempre, só o rastro da
+       barra é mais curto. Isso "corta" a ilustração em vez de cortar a
+       legenda ao lado ("WUWU lidera"): o container não precisa mais de uma
+       largura própria grande (`w-24` já tirava espaço demais do texto no
+       tile), o tamanho agora é a soma natural de bolinha+trilho curto. */
+    <div className="flex shrink-0 flex-col gap-1">
       {dados.map((item) => {
         const cor = isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined;
         return (
           <div key={item.slug} className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: cor ?? "var(--muted-foreground)" }} />
-            <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--muted)" }}>
+            <div className="h-1.5 w-9 shrink-0 overflow-hidden rounded-full" style={{ background: "var(--muted)" }}>
               <div className="h-full rounded-full" style={{ width: `${(item.valor / max) * 100}%`, background: cor ?? "var(--muted-foreground)" }} />
             </div>
           </div>

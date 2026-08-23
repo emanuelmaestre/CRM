@@ -298,7 +298,10 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
-  /** Nó do cabeçalho do Foco onde o botão "Entenda os status" é portado. */
+  /** Nó do cabeçalho do Foco onde o botão Status é portado. Sozinho aqui —
+   *  este card não tem Período (ver mosaico.tsx), então o slot da barra de
+   *  período à esquerda leva o "Atualizado às" no lugar (ver mosaico.tsx),
+   *  e este, à direita, fica só com Status, embaixo do X de fechar. */
   acaoSlot?: HTMLElement | null;
 }) {
   const lista = itens ?? [];
@@ -514,6 +517,10 @@ const LEGENDA_STATUS: Array<{ titulo: string; texto: string; cor: string }> = [
 /** Selo de status por item — mesmo visual em qualquer card que mostre a
  *  situação do anúncio no ML (Estoque Parado, Repor em breve, ...). */
 function SeloStatus({ status }: { status: { label: string; className: string; hint: string } }) {
+  // Só a cor do texto (ex.: "text-success"), sem o fundo — o pill colorido
+  // ("bg-success/10" etc.) ficava grande demais do lado do resto da linha.
+  // Negrito é o que carrega a ênfase agora, em qualquer tamanho de tela.
+  const corTexto = status.className.split(" ").find((classe) => classe.startsWith("text-")) ?? "text-muted-foreground";
   return (
     <AnimatedInfoPopover
       trigger={(
@@ -521,7 +528,7 @@ function SeloStatus({ status }: { status: { label: string; className: string; hi
           type="button"
           aria-label={`Entenda o status ${status.label}`}
           onClick={(event) => event.stopPropagation()}
-          className={`press-feedback cursor-pointer rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${status.className}`}
+          className={`press-feedback cursor-pointer text-[10px] font-bold uppercase tracking-wide transition-opacity hover:opacity-80 ${corTexto}`}
         >
           {status.label}
         </button>

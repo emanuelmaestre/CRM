@@ -1136,13 +1136,26 @@ export function Mosaico({
         onAnterior={() => pular(-1)}
         onProximo={() => pular(1)}
         barraPeriodo={
-          <BarraPeriodo
-            periodo={periodo}
-            trocarDatas={trocarDatas}
-            periodoLabel={saude.dados?.periodoLabel}
-            accent={blocoAberto?.accent}
-            semHoje={blocoAberto?.id === "comparacao"}
-          />
+          // Repor em breve não tem Período (ver semPeriodo em BarraPeriodo) —
+          // no lugar, à esquerda, mostra quando o saldo foi lido. O botão
+          // Status, sozinho no slot da direita (ver ReposicaoCard), acaba
+          // embaixo do X de fechar.
+          blocoAberto?.id === "reposicao" ? (
+            carregadoEm && (
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
+                <RefreshCw size={11} />
+                Atualizado às {dataHora.format(carregadoEm)}
+              </span>
+            )
+          ) : (
+            <BarraPeriodo
+              periodo={periodo}
+              trocarDatas={trocarDatas}
+              periodoLabel={saude.dados?.periodoLabel}
+              accent={blocoAberto?.accent}
+              semHoje={blocoAberto?.id === "comparacao"}
+            />
+          )
         }
       />
     </>
