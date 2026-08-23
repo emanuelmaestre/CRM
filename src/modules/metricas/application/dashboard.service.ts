@@ -19,15 +19,13 @@ import type { MLStatusAnuncio } from "@/modules/canais/infrastructure/mercadoliv
    "parado". Ficam nomeados aqui para serem discutíveis e ajustáveis
    sem caçar número mágico no meio de query. */
 
-/** Zona de atenção de reposição: saldo acima do mínimo, mas até N× o mínimo.
- *  Avisa enquanto ainda dá tempo de repor — quem já bateu no mínimo passou do ponto. */
-const FATOR_ZONA_ATENCAO = 2;
-
-/** Vendas no período abaixo ou igual a isto contam como giro baixo. */
-const LIMITE_GIRO_BAIXO = 2;
+/** Menos que isto de vendas por semana conta como giro baixo — a taxa é fixa
+ *  por semana; o limite real usado na filtragem escala com a janela do
+ *  período em análise (ver `LIMITE_GIRO_BAIXO_POR_SEMANA / 7 * janelaDias`). */
+const LIMITE_GIRO_BAIXO_POR_SEMANA = 10;
 
 /** Dias sem nenhuma saída de estoque para o item ser considerado parado. */
-const DIAS_PARA_PARADO = 90;
+const DIAS_PARA_PARADO = 15;
 
 /** Quantos itens cada lista traz. Lista curta é lista que se lê. */
 const TAMANHO_LISTA = 6;
@@ -537,11 +535,16 @@ export async function obterDashboardData(
   // urgente dos 4 cards: é receita real que já estava entrando e parou.
   await enriquecerComStatusAnuncio(ctx, maisVendidos);
 
-  /* ── 2. Produtos que não vendem (giro baixo) ── */
+  /* ── 2. Produtos que não vendem (giro baixo) ──
+     Menos de 10 vendas por semana — a régua é semanal, então o limite usado
+     aqui escala com o tamanho da janela em análise (30/84/365 dias, ou o
+     período personalizado), em vez de comparar sempre contra um total fixo
+     de 10 independente de a janela ser curta ou longa. */
+  const limiteGiroBaixo = (LIMITE_GIRO_BAIXO_POR_SEMANA / 7) * janelaDias;
   const giroBaixo: ProdutoGiroBaixo[] = produtosAtivos
     .filter((item) => (item.saldo ?? 0) > 0)
     .map((item) => ({ item, quantidade: vendasPorProduto.get(item.id)?.quantidade ?? 0 }))
-    .filter(({ quantidade }) => quantidade <= LIMITE_GIRO_BAIXO)
+    .filter(({ quantidade }) => quantidade < limiteGiroBaixo)
     .map(({ item, quantidade }) => ({
       ...base(item),
       quantidade,
@@ -595,29 +598,28 @@ export async function obterDashboardData(
   // vendedor pausou o anúncio (achado real ao auditar os dados de produção).
   await enriquecerComStatusAnuncio(ctx, parados);
 
-  /* ── 4. Reposição (baixo estoque, ainda em tempo) ── */
+  /* ── 4. Reposição (bateu o mínimo, repor em breve) ── */
   const reposicao: ProdutoReposicao[] = produtosAtivos
     .filter((item) => {
       const saldo = item.saldo ?? 0;
       const minimo = item.estoqueMinimo;
       // Sem mínimo cadastrado não há régua para avisar.
       if (minimo <= 0) return false;
-      // Já bateu ou passou do mínimo: saiu da zona de "dá tempo de repor".
-      return saldo > minimo && saldo <= minimo * FATOR_ZONA_ATENCAO;
+      // Bateu (ou já ficou abaixo d)o mínimo: é exatamente o gatilho do aviso.
+      return saldo > 0 && saldo <= minimo;
     })
     .map((item) => {
       const saldo = item.saldo ?? 0;
       const minimo = item.estoqueMinimo;
       const vendidoNaJanela = vendasPorProduto.get(item.id)?.quantidade ?? 0;
       const consumoDiario = vendidoNaJanela / janelaDias;
-      const folga = minimo * FATOR_ZONA_ATENCAO - minimo;
       return {
         ...base(item),
         saldo,
         minimo,
         coberturaDias: consumoDiario > 0 ? Math.floor(saldo / consumoDiario) : null,
-        // 100 = encostando no mínimo; 0 = no topo da zona de atenção.
-        urgencia: folga > 0 ? Math.round(((minimo * FATOR_ZONA_ATENCAO - saldo) / folga) * 100) : 100,
+        // 100 = zerado; 0 = encostando no mínimo por cima.
+        urgencia: minimo > 0 ? Math.round(((minimo - saldo) / minimo) * 100) : 100,
         statusAnuncio: "nao_consultado" as StatusAnuncioParado,
         motivoStatus: null as string | null,
       };

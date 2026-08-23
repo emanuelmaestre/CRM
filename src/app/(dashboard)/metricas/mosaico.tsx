@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
-  AlertTriangle, BarChart3, Gauge, Hourglass, Megaphone,
+  BarChart3, Gauge, Hourglass, Megaphone,
   Package, RefreshCw, ShoppingBag, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
@@ -18,15 +18,14 @@ import metricasConfig from "@/config/metricas.json";
 import { agruparPorSecao, Bloco, Foco, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo, AnelScore } from "./metricas-primitives";
-import { Linha, BarrasMarca, FlechaTendencia, MiniRanking, BarraSplit } from "./mini-visuais";
-import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
+import { Linha, BarrasMarca, FlechaTendencia, MiniRanking } from "./mini-visuais";
+import { actionObterDashboardData } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
   actionObterPosVenda, actionObterSaudeLoja, actionObterSnapshotAnterior,
 } from "./actions";
 import type { SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
-import type { ReclamacoesResultado } from "@/modules/metricas/application/reclamacoes.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 
@@ -41,7 +40,6 @@ function PainelCarregando() {
 const CalendarioPopoverRange = dynamic(() => import("@/shared/design-system/primitives/CalendarioPopoverRange").then((modulo) => modulo.CalendarioPopoverRange));
 const BotaoHoje = dynamic(() => import("@/shared/design-system/primitives/BotaoHoje").then((modulo) => modulo.BotaoHoje));
 const FaturamentoCard = dynamic(() => import("./painel/faturamento-card").then((modulo) => modulo.FaturamentoCard), { loading: PainelCarregando });
-const ReclamacoesCard = dynamic(() => import("./painel/reclamacoes-card").then((modulo) => modulo.ReclamacoesCard), { loading: PainelCarregando });
 const ComparacaoCard = dynamic(() => import("./comparacao-card").then((modulo) => modulo.ComparacaoCard), { loading: PainelCarregando });
 const PublicacoesCard = dynamic(() => import("./publicacoes-card").then((modulo) => modulo.PublicacoesCard), { loading: PainelCarregando });
 const ScoreCard = dynamic(() => import("./score-card").then((modulo) => modulo.ScoreCard), { loading: PainelCarregando });
@@ -141,9 +139,6 @@ const VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT = {
  *   • Marca/Comparação: "3 marcas comparadas" não tem variação real
  *     concebível — 3 não vira 3,2. Fictício pra sempre, por natureza do
  *     dado, não por falta de implementação.
- *   • Reclamações: dá pra fazer de verdade (é só o job A30 passar a
- *     gravar `pendentes` também), mas ainda não grava — diferente de
- *     Marca, este poderia sair da lista quando alguém fizer essa adição.
  *   • Vendem mais: dá pra fazer de verdade (unidades vendidas têm data,
  *     igual Faturamento), só que ninguém implementou ainda o comparativo
  *     contra a janela anterior.
@@ -158,7 +153,6 @@ const VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT = {
  * Marca/Comparação fica assim de vez. */
 const FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO = {
   comparacao: 6,
-  reclamacoes: -25,
   vendemMais: 11,
   // "~" no valor: deixa explícito que é aproximado (na real, inventado),
   // não um número calculado que só está desatualizado.
@@ -264,10 +258,8 @@ export function Mosaico({
   marcasIniciais = [], canaisIniciais = [], saudeInicial = null,
   posVendaInicial = null,
 }: {
-  /* O mosaico é a soma de sete buscas independentes. Seis (todas menos
-     Reclamações, que depende da API do Mercado Livre) são resolvidas no
-     servidor e chegam dentro do HTML (ver page.tsx) — só Reclamações continua
-     carregando no próprio ritmo pelo navegador. */
+  /* O mosaico é a soma de seis buscas independentes, todas resolvidas no
+     servidor e entregues dentro do HTML (ver page.tsx). */
   marcasIniciais?: ScopeMarca[];
   canaisIniciais?: ScopeCanal[];
   saudeInicial?: SaudeLojaResultado | null;
@@ -316,10 +308,6 @@ export function Mosaico({
   const giroBaixo = useDadosDoCard(cache, periodo, filtroGlobal);
   const parados = useDadosDoCard(cache, periodo, filtroGlobal);
 
-  const [reclamacoes, setReclamacoes] = useState<ReclamacoesResultado | null>(null);
-  const [carregandoReclamacoes, setCarregandoReclamacoes] = useState(true);
-  const semFiltroReclamacoes = filtroGlobal.brandId.length === 0;
-
   // Estas duas já vieram prontas do servidor quando há dado inicial — refazê-las
   // aqui só repetiria no navegador o que acabou de chegar no HTML.
   const primeirasContagens = useRef(marcasIniciais.length > 0 || canaisIniciais.length > 0);
@@ -329,24 +317,6 @@ export function Mosaico({
     actionObterFiltrosPedidos()
       .then((resultado) => { setMarcas(resultado.marcas); setCanais(resultado.canais); })
       .catch(() => { setMarcas([]); setCanais([]); });
-  }, []);
-
-  // Independente do resto: depende da API do Mercado Livre, que é lenta. Não
-  // tem recorte por canal (o ML não separa reclamação por canal de venda).
-  useEffect(() => {
-    let ativo = true;
-    actionObterReclamacoes()
-      .then((resultado) => { if (ativo) setReclamacoes(resultado); })
-      .catch(() => {
-        if (!ativo) return;
-        // `semContaConectada: false` aqui seria mentir — o card leria isso como
-        // "conta conectada, zero reclamações" quando na verdade a busca falhou.
-        // O toast é o que diferencia as duas leituras para quem está olhando.
-        setReclamacoes({ itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: false });
-        toast.error(metricasConfig.erros.carregar, { id: "metricas-reclamacoes" });
-      })
-      .finally(() => { if (ativo) setCarregandoReclamacoes(false); });
-    return () => { ativo = false; };
   }, []);
 
   /* ── Saúde da loja e atendimento ── */
@@ -447,13 +417,6 @@ export function Mosaico({
     return porMarca.length > 0 ? porMarca : filtroGlobal.canal.map((tipo) => channelAccent(tipo));
   }, [marcas, filtroGlobal.brandId, filtroGlobal.canal]);
 
-  const reclamacoesVisiveis = useMemo<ReclamacoesResultado | null>(() => {
-    const slugs = marcas.filter((item) => filtroGlobal.brandId.includes(item.brandId)).map((item) => item.slug);
-    if (!reclamacoes || slugs.length === 0) return null;
-    const itens = reclamacoes.itens.filter((item) => slugs.includes(item.marca));
-    return { ...reclamacoes, itens, total: itens.length, pendentes: itens.filter((item) => item.precisaAcao).length };
-  }, [reclamacoes, marcas, filtroGlobal.brandId]);
-
   const trocarDatas = useCallback((novoInicio: string, novoFim: string) => {
     setPeriodo({ inicio: novoInicio, fim: novoFim });
   }, []);
@@ -479,16 +442,6 @@ export function Mosaico({
   const chipsDoFiltro = useMemo(() =>
     marcas.filter((marca) => filtroGlobal.brandId.includes(marca.brandId)).map((marca) => ({ slug: marca.slug, label: marca.nome })),
   [marcas, filtroGlobal.brandId]);
-
-  // Reclamação só existe pra quem vende pelo Mercado Livre — a API não
-  // devolve isso pra Shopee/TikTok Shop. Shopee/TikTok aparecem travados
-  // (mesmo padrão de "ainda não disponível" já usado em Publicidade) em vez
-  // de sumirem, pra deixar claro que a tela é sobre canais de venda — só que
-  // esse canal específico ainda não dá pra filtrar.
-  const canaisReclamacoes = useMemo(
-    () => canais.map((canal) => (canal.tipo === "mercadolivre" ? canal : { ...canal, conectado: false })),
-    [canais],
-  );
 
   const dadosFaturamento = faturamento.dados?.faturamento ?? null;
   const blocoFaturamento = useMemo<BlocoDef>(() => ({
@@ -646,82 +599,6 @@ export function Mosaico({
     ),
   }), [saude.dados, carregandoSaude, carregadoEm, posVenda.dados]);
 
-  const blocoReclamacoes = useMemo<BlocoDef>(() => ({
-    id: "reclamacoes",
-    secao: "atendimento",
-    titulo: blocosCopy.reclamacoes.titulo,
-    icone: AlertTriangle,
-    accent: "var(--destructive)",
-    carregando: carregandoReclamacoes,
-    semFiltro: semFiltroReclamacoes,
-    resumo: {
-      // "pendentes" (não "total"): reclamações já resolvidas no Mercado Livre
-      // (sem ação nossa restante) não deveriam acender alerta crítico no mosaico.
-      valor: reclamacoesVisiveis ? String(reclamacoesVisiveis.pendentes) : null,
-      // Quantas do total ainda dependem de nós — o número grande sozinho
-      // ("5") não diz se são 5 de 6 ou 5 de 50. Foi pro lugar da legenda
-      // porque o espaço do percentual (variacao) virou o fictício abaixo.
-      legenda: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
-        ? `de ${reclamacoesVisiveis.total}`
-        : blocosCopy.reclamacoes.legenda,
-      // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
-      // arquivo. Reclamações não entra no job A30 (não grava snapshot de
-      // pendentes), então não há como calcular isto de verdade ainda.
-      variacao: reclamacoesVisiveis ? FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.reclamacoes : null,
-      // Menos reclamações é notícia boa — sem isto, "-25%" pintaria de
-      // vermelho, como se cair fosse piora.
-      subirEhRuim: true,
-      alerta: reclamacoesVisiveis && reclamacoesVisiveis.pendentes > 0
-        ? { nivel: "critico", texto: "a resolver" }
-        : null,
-      // Selo real, não decorativo: quantas foram abertas HOJE de verdade
-      // (diasAberta === 0), não uma marcação fixa que aparece todo dia
-      // independente do que aconteceu. Some sozinho em dias sem abertura
-      // nova — um selo "0 hoje" não avisa nada.
-      selo: (() => {
-        const hoje = reclamacoesVisiveis?.itens.filter((item) => item.diasAberta === 0).length ?? 0;
-        return hoje > 0 ? `${hoje} hoje` : undefined;
-      })(),
-    },
-    explicacao: {
-      resumo: "Reclamações que o cliente abriu no Mercado Livre contra um pedido da marca, dentro do período selecionado.",
-      pontos: [
-        { titulo: "Só Mercado Livre", texto: "Outros canais não têm essa informação disponível pela API, por isso o painel não separa por canal de venda." },
-        { titulo: "Mediação é o estágio mais sério", texto: "É quando o próprio Mercado Livre entra na conversa e passa a decidir o caso, em vez de só mediar entre marca e cliente." },
-      ],
-      dica: "Reclamação aberta não é o mesmo que devolução. Uma reclamação pode ser resolvida sem que o pedido seja cancelado ou devolvido.",
-    },
-    // Sem série diária real aqui (só a lista + as duas contagens) — em vez
-    // de forçar um gráfico de tempo que não existe, o preview é a mesma
-    // proporção pendentes/resolvidas que já orienta o alerta acima.
-    preview: reclamacoesVisiveis && reclamacoesVisiveis.total > 0
-      ? <BarraSplit partes={[
-          { valor: reclamacoesVisiveis.pendentes, cor: "var(--destructive)" },
-          { valor: reclamacoesVisiveis.total - reclamacoesVisiveis.pendentes, cor: "var(--success)" },
-        ]} />
-      : undefined,
-    temLegendaStatus: true,
-    chips: chipsDoFiltro,
-    render: (acaoSlot) => (
-      <ReclamacoesCard
-        dados={reclamacoesVisiveis}
-        carregando={carregandoReclamacoes}
-        semFiltro={semFiltroReclamacoes}
-        // Canal aparece, mas Shopee/TikTok vêm travados — reclamação só
-        // existe pra Mercado Livre, ver canaisReclamacoes acima.
-        scope={(
-          <ScopeRow
-            marcas={marcas}
-            canais={canaisReclamacoes}
-            filtro={filtroGlobal}
-            onChange={setFiltroGlobal}
-          />
-        )}
-        acaoSlot={acaoSlot}
-      />
-    ),
-  }), [reclamacoesVisiveis, carregandoReclamacoes, semFiltroReclamacoes, filtroGlobal, marcas, canaisReclamacoes, chipsDoFiltro]);
-
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",
     secao: "estoque",
@@ -753,11 +630,11 @@ export function Mosaico({
         : null,
     },
     explicacao: {
-      resumo: "Produtos que entraram na zona de atenção. O saldo ainda está acima do estoque mínimo, mas se aproxima dele, portanto ainda há tempo para repor antes que falte.",
+      resumo: "Produtos que bateram o estoque mínimo cadastrado — o aviso de que é hora de repor em breve, antes que o saldo zere.",
       pontos: [
-        { titulo: "Zona de atenção, não de ruptura", texto: "Entra na lista quem possui saldo maior que o mínimo cadastrado, mas limitado a até o dobro desse valor. Quem já atingiu ou ficou abaixo do mínimo saiu desta janela de aviso." },
+        { titulo: "Gatilho é bater o mínimo", texto: "Entra na lista quem tem saldo maior que zero e igual ou abaixo do estoque mínimo cadastrado. Quem ainda está acima do mínimo não aparece aqui." },
         { titulo: "Precisa de mínimo cadastrado", texto: "Um produto sem estoque mínimo definido não possui referência para comparação e, por isso, não aparece aqui. Não é falta de dado, mas falta de parâmetro." },
-        { titulo: "Urgência considera o ritmo de venda", texto: "Quanto mais perto do mínimo e mais rápido o produto está vendendo no período, maior a urgência de repor." },
+        { titulo: "Urgência considera o ritmo de venda", texto: "Quanto mais perto de zerar e mais rápido o produto está vendendo no período, maior a urgência de repor." },
         { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel para saber o significado de cada status, como Ativo, Pausado e Encerrado. Repor não adianta se o anúncio estiver fora do ar." },
       ],
       dica: "Este painel avisa antes do problema, diferente de Giro baixo e Parados, que mostram o que já não está saindo.",
@@ -861,7 +738,7 @@ export function Mosaico({
       resumo: "Produtos com saldo em estoque que quase não venderam no período. Eles ainda vendem, mas em ritmo insuficiente para movimentar o capital imobilizado.",
       pontos: [
         { titulo: "Só quem ainda tem saldo", texto: "Produto com saldo zerado não conta como giro baixo. Quando também não vende há muito tempo, ele pertence à categoria Parados." },
-        { titulo: "Limite baixo de propósito", texto: "Entra quem vendeu poucas unidades durante todo o período. O limite é restrito para diferenciar quem vende pouco de quem vende em volume razoável." },
+        { titulo: "Menos de 10 vendas por semana", texto: "O corte é uma taxa semanal: entra quem vende, em média, menos de 10 unidades por semana no período — o limite escala junto quando o período é maior que uma semana." },
         { titulo: "Ordenado pelo que mais impacta", texto: "Em caso de empate na quantidade vendida, o valor imobilizado em estoque define a ordem. O produto que retém mais dinheiro aparece primeiro." },
         { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card. Giro baixo com o anúncio pausado ou em revisão pode não ser sobre demanda — pode ser o anúncio fora do ar." },
       ],
@@ -913,9 +790,9 @@ export function Mosaico({
       alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
     },
     explicacao: {
-      resumo: "Produtos com saldo em estoque e sem nenhuma venda registrada nos últimos 90 dias. É capital imobilizado por tempo suficiente para ser considerado um risco.",
+      resumo: "Produtos com saldo em estoque e sem nenhuma venda registrada nos últimos 15 dias. É capital imobilizado por tempo suficiente para ser considerado um risco.",
       pontos: [
-        { titulo: "90 dias é o corte", texto: "Menos que isso é giro baixo (vende pouco); 90 dias ou mais sem nenhuma saída é parado (não vende)." },
+        { titulo: "15 dias é o corte", texto: "Menos que isso é giro baixo (vende pouco); 15 dias ou mais sem nenhuma saída é parado (não vende)." },
         { titulo: "Inclui quem nunca vendeu", texto: "Produtos que nunca tiveram saída também entram aqui, além daqueles que vendiam antes e pararam." },
         { titulo: "Ordenado pelo capital imobilizado", texto: "Quem possui mais dinheiro imobilizado em estoque aparece primeiro, pois é o caso que mais pode justificar uma liquidação." },
         { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel para saber o significado de cada status, como Ativo, Pausado e Encerrado." },
@@ -998,11 +875,11 @@ export function Mosaico({
   // Marketing) e ordena por urgência dentro de cada uma — o trabalho pesado
   // (recriar cada bloco) já aconteceu nos memos acima, isolado por grupo.
   const { grupos, lista: blocos } = useMemo(() => agruparPorSecao([
-    blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
+    blocoFaturamento, blocoScore, blocoReposicao, blocoComparacao,
     blocoMaisVendidos, blocoGiroBaixo, blocoParados,
     ...(blocoPublicacoes ? [blocoPublicacoes] : []),
   ]), [
-    blocoFaturamento, blocoScore, blocoReclamacoes, blocoReposicao, blocoComparacao,
+    blocoFaturamento, blocoScore, blocoReposicao, blocoComparacao,
     blocoMaisVendidos, blocoGiroBaixo, blocoParados,
     blocoPublicacoes,
   ]);
@@ -1051,18 +928,21 @@ export function Mosaico({
     [grupos],
   );
 
-  /* Card em destaque, linha inteira no topo, bem maior que os outros:
-   *  é SEMPRE Faturamento, a métrica primária de qualquer marca. Já foi
-   *  dinâmico ("o mais urgente do momento sobe"), mas isso fazia o topo
-   *  da tela trocar de card sozinho conforme o dado do dia — quem abre o
-   *  painel esperando o faturamento encontrava Reclamações no lugar. A
-   *  urgência continua sinalizada onde ela nasce: o ponto colorido e a
-   *  borda de alerta no próprio card, dentro da grade. */
-  const { destaque, resto } = useMemo(() => {
+  /* Dois cards em destaque, linha inteira, maiores que os demais: Faturamento
+   *  sempre abre a grade (métrica primária de qualquer marca) e Estoque
+   *  Parado sempre a fecha (o alerta mais grave de estoque, o que mais
+   *  justifica ação). Já foi dinâmico ("o mais urgente do momento sobe"),
+   *  mas isso fazia o topo trocar de card sozinho conforme o dado do dia —
+   *  a urgência continua sinalizada onde ela nasce: o ponto colorido e a
+   *  borda de alerta no próprio card, dentro da grade. Grade final:
+   *  1 (Faturamento) × 2 × 2 × 2 × 1 (Parados). */
+  const { destaque, resto, destaqueFinal } = useMemo(() => {
     const escolhido = blocosComSecao.find((item) => item.bloco.id === "faturamento") ?? blocosComSecao[0];
+    const final = blocosComSecao.find((item) => item.bloco.id === "parados" && item.bloco.id !== escolhido?.bloco.id);
     return {
       destaque: escolhido,
-      resto: blocosComSecao.filter((item) => item.bloco.id !== escolhido?.bloco.id),
+      destaqueFinal: final,
+      resto: blocosComSecao.filter((item) => item.bloco.id !== escolhido?.bloco.id && item.bloco.id !== final?.bloco.id),
     };
   }, [blocosComSecao]);
 
@@ -1092,20 +972,26 @@ export function Mosaico({
             ScopeRow) + Período/Hoje, valendo pra todos os previews ao
             mesmo tempo. Fica sempre visível (mesmo com um card aberto por
             cima, ver Foco), então trocar marca ou data não exige fechar
-            o painel primeiro. */}
+            o painel primeiro.
+
+            Ordem visual via `order` (mesmo mecanismo que o ScopeRow já usa
+            pra reordenar canal/marca no mobile): canal → marca → Período
+            (com "Atualizado às" na mesma linha) — o filtro de escopo (o
+            que decide QUAIS dados aparecem) vem antes do filtro de tempo
+            (QUANDO), e "Atualizado às" cola no Período por ser sobre a
+            mesma coisa: até quando esse recorte está valendo. */}
         <div className="flex flex-wrap items-center justify-center gap-2 rounded-[1.25rem] border border-border bg-card/70 px-3 py-2.5 shadow-[0_2px_12px_rgba(14,15,19,.04)] sm:justify-start">
           {escopo}
-          <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border sm:block" />
-          <div className="flex items-center gap-2">
+          <span aria-hidden="true" className="order-[3] hidden h-6 w-px shrink-0 bg-border sm:block" />
+          <div className="order-[4] flex items-center gap-2">
             <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} />
           </div>
 
           {/* Cantinho discreto que alterna entre "atualizado às" (parado)
-              e o progresso real do carregamento — morava fixo no canto
-              inferior da tela, agora fica na mesma barra do escopo,
-              alinhado à direita. */}
+              e o progresso real do carregamento — mora na mesma linha do
+              Período (ver ordem acima), alinhado à direita dela. */}
           {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
-            <span className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
+            <span className="order-[5] ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
               <RefreshCw size={11} className={emCarregamento ? "animate-spin" : undefined} />
               {emCarregamento && mostrarProgresso
                 ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
@@ -1117,11 +1003,12 @@ export function Mosaico({
         {/* Permanece dentro do container compartilhado de 1440px para que a
             proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}
         <div data-coachmark="mosaico-grade">
-          {/* Mobile: 1x2x2x2x2 — Faturamento sozinho na primeira linha
-              (col-span-2), os outros 8 em pares abaixo. Mesmo estilo
+          {/* Mobile: 1x2x2x2x1 — Faturamento sozinho na primeira linha
+              (col-span-2), os demais em pares no meio, Estoque Parado
+              sozinho na última linha (col-span-2 também). Mesmo estilo
               "grande" (com preview) em todos; o card escuro/linha-única do
-              hero é só tablet/desktop (ver abaixo) — aqui Faturamento
-              aparenta igual aos demais, só que ocupando a largura toda. */}
+              hero é só tablet/desktop (ver abaixo) — aqui os dois destaques
+              aparentam iguais aos demais, só que ocupando a largura toda. */}
           <ul className="grid grid-cols-2 items-start gap-3 lg:hidden">
             {destaque && (
               <Bloco
@@ -1136,10 +1023,22 @@ export function Mosaico({
             {resto.map(({ bloco }) => (
               <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} variante="grande" />
             ))}
+            {destaqueFinal && (
+              <Bloco
+                key={destaqueFinal.bloco.id}
+                def={destaqueFinal.bloco}
+                focado={destaqueFinal.bloco.id === cardAberto}
+                onAbrir={() => abrir(destaqueFinal.bloco.id)}
+                variante="grande"
+                className="col-span-2"
+              />
+            )}
           </ul>
 
           {/* Tablet/desktop: um card em destaque no topo (Faturamento, linha
-              inteira) e os outros numa grade de 2 colunas (4 a partir de xl). */}
+              inteira), os demais numa grade de 2 colunas (4 a partir de xl)
+              e Estoque Parado fechando em outra linha inteira, no mesmo
+              estilo "destaque" do topo. */}
           <div className="hidden lg:flex lg:flex-col lg:gap-3">
             {destaque && (
               <ul>
@@ -1163,6 +1062,18 @@ export function Mosaico({
                 <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
               ))}
             </ul>
+            {destaqueFinal && (
+              <ul>
+                <Bloco
+                  key={destaqueFinal.bloco.id}
+                  def={destaqueFinal.bloco}
+                  focado={destaqueFinal.bloco.id === cardAberto}
+                  onAbrir={() => abrir(destaqueFinal.bloco.id)}
+                  secaoLabel={destaqueFinal.secaoLabel}
+                  variante="destaque"
+                />
+              </ul>
+            )}
           </div>
         </div>
       </motion.div>

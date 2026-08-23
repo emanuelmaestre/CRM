@@ -41,7 +41,7 @@ describe("contratos JSON da interface", () => {
 
   it("mantém marcas e assistentes consistentes", () => {
     expect(appConfig.brandOrder).toEqual(Object.keys(brandsConfig));
-    expect(appConfig.brandOrder).toEqual(["wuwu", "armarinhos_lima", "karzi"]);
+    expect(appConfig.brandOrder).toEqual(["armarinhos_lima", "karzi", "wuwu"]);
     for (const brand of Object.values(brandsConfig)) {
       expect(brand.logo).toMatch(/^\/logos\/.+\.svg$/);
       expect(brand.logoSize.width).toBeGreaterThan(0);

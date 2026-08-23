@@ -224,11 +224,7 @@
       },
       "reposicao": {
         "titulo": "Repor em breve",
-        "legenda": "itens perto do mínimo"
-      },
-      "reclamacoes": {
-        "titulo": "Reclamações",
-        "legenda": "abertas no Mercado Livre"
+        "legenda": "itens no mínimo"
       },
       "maisVendidos": {
         "titulo": "Vendem mais",
@@ -236,11 +232,11 @@
       },
       "giroBaixo": {
         "titulo": "Giro baixo",
-        "legenda": "com saldo e quase sem saída"
+        "legenda": "menos de 10 vendas/semana"
       },
       "parados": {
         "titulo": "Estoque parado",
-        "legenda": "sem saída há 90 dias"
+        "legenda": "sem saída há 15 dias"
       }
     }
   }

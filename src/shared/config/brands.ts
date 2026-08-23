@@ -16,7 +16,7 @@ export function getBrandConfig(slug: string) {
   return isBrandSlug(slug) ? brandsConfig[slug] : null;
 }
 
-/** Ordem canônica das marcas (WUWU → Armarinhos Lima → KARZI, definida pela
+/** Ordem canônica das marcas (Armarinhos Lima → KARZI → WUWU, definida pela
  *  ordem das chaves em brands.json) — usada para ordenar pílulas/cards de
  *  marca de forma consistente em todo o sistema, em vez de cada tela ordenar
  *  por contagem ou nome (o que faz a ordem mudar sozinha quando os números

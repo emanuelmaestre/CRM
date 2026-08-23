@@ -35,9 +35,9 @@
   "mercadoLivre": {
     "title": "Mercado Livre",
     "brands": [
-      { "slug": "wuwu", "label": "WUWU" },
       { "slug": "armarinhos_lima", "label": "ARMARINHOS LIMA" },
-      { "slug": "karzi", "label": "KARZI" }
+      { "slug": "karzi", "label": "KARZI" },
+      { "slug": "wuwu", "label": "WUWU" }
     ],
     "labels": {
       "loading": "Verificando…",

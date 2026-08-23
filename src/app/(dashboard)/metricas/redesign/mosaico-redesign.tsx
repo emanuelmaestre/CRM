@@ -82,12 +82,12 @@ const TOKENS = `
 @media (prefers-reduced-motion: reduce) { .sd-shimmer::after { animation: none; } }
 `;
 
-/* Ordem canônica do app real (WUWU → Armarinhos Lima → KARZI) e as cores
+/* Ordem canônica do app real (Armarinhos Lima → KARZI → WUWU) e as cores
    de marca que já existem em brands.json — não são valores novos. */
 const MARCAS: { slug: string; label: string; curto: string; cor: string }[] = [
-  { slug: "wuwu", label: "WUWU", curto: "WUWU", cor: "var(--sd-wuwu)" },
   { slug: "lima", label: "ARMARINHOS LIMA", curto: "LIMA", cor: "var(--sd-lima)" },
   { slug: "karzi", label: "KARZI", curto: "KARZI", cor: "var(--sd-karzi)" },
+  { slug: "wuwu", label: "WUWU", curto: "WUWU", cor: "var(--sd-wuwu)" },
 ];
 
 /** Slug curto do protótipo → slug real de brands.json, o que BrandLogo
