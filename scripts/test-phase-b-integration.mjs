@@ -57,7 +57,7 @@ try {
         'uq_pedido_org_canal_provider_legacy',
         'uq_mensagem_org_provider',
         'idx_pedido_recebido',
-        'idx_evento_dominio_pendente'
+        'idx_evento_dominio_fila'
       )
   `;
   assert.equal(indexes.length, 5, "Os índices de idempotência, SLA e recuperação da Fase B devem existir.");
