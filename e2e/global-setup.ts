@@ -33,9 +33,18 @@ async function globalSetup(config: FullConfig) {
       await page.goto(`${baseURL}/clientes`);
       const pinInput = page.locator("#clientes-pin");
       if (await pinInput.isVisible().catch(() => false)) {
-        await pinInput.fill(clientesPin);
-        await page.getByRole("button", { name: /entrar/i }).click();
-        await expect(page.locator("#clientes-pin")).toBeHidden({ timeout: 10_000 });
+        // Tentativa dupla: em CI o primeiro clique já foi visto perder a
+        // corrida com o server action (input preenchido, botão nunca some).
+        for (let tentativa = 1; tentativa <= 2; tentativa += 1) {
+          await pinInput.fill(clientesPin);
+          await page.getByRole("button", { name: /entrar/i }).click();
+          try {
+            await expect(page.locator("#clientes-pin")).toBeHidden({ timeout: 10_000 });
+            break;
+          } catch (erro) {
+            if (tentativa === 2) throw erro;
+          }
+        }
       }
     }
 
