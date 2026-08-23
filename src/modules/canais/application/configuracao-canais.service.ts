@@ -25,10 +25,17 @@ const CANAL_LABEL: Record<string, string> = {
 // Shopee tem um par de partner_id/partner_key por ambiente (SHOPEE_ENV) — a
 // função lê qual sufixo (TEST/LIVE) vale agora, então essa lista não pode ser
 // estática como as dos outros canais.
+//
+// Sem SHOPEE_ACCESS_TOKEN_{BRAND} de propósito: o token vem do OAuth e mora
+// em canal_tokens (criarShopeeProvider lê de lá), não do ambiente. Mesmo
+// padrão do Mercado Livre, que também não cobra ML_ACCESS_TOKEN_{BRAND}
+// aqui — SHOPEE_SHOP_ID_{BRAND} continua exigido pelo mesmo motivo que
+// ML_SELLER_ID_{BRAND}: é o valor usado para detectar se o OAuth conectou a
+// loja errada (externalAccountIdMismatch), não uma credencial de acesso.
 function envPorCanal(canal: string): string[] {
   if (canal === "shopee") {
     const sufixo = shopeeAppEnvSuffix();
-    return [`SHOPEE_PARTNER_ID_${sufixo}`, `SHOPEE_PARTNER_KEY_${sufixo}`, "SHOPEE_SHOP_ID_{BRAND}", "SHOPEE_ACCESS_TOKEN_{BRAND}"];
+    return [`SHOPEE_PARTNER_ID_${sufixo}`, `SHOPEE_PARTNER_KEY_${sufixo}`, "SHOPEE_SHOP_ID_{BRAND}"];
   }
   return ENV_POR_CANAL[canal] ?? [];
 }
