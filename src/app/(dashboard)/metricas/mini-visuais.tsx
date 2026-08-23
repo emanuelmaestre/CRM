@@ -114,7 +114,14 @@ export function BarrasMarca({ dados }: { dados: { slug: string; label: string; v
 
 /** Top-N com barra colorida por marca — ordem já vem pronta de quem
  *  chama (o serviço já ordena a lista original). */
-export function MiniRanking({ itens }: { itens: { nome: string; valor: number; slug?: string }[] }) {
+export function MiniRanking({ itens, largo = false }: {
+  itens: { nome: string; valor: number; slug?: string }[];
+  /** Card que ocupa a linha inteira (Estoque parado no mobile) tem espaço
+   *  de sobra entre o número e a lista — ali o nome do produto pode
+   *  aparecer bem mais, em vez de truncar em 2-3 caracteres como nos
+   *  cards da grade de 2 colunas. */
+  largo?: boolean;
+}) {
   if (itens.length === 0) return null;
   const max = Math.max(...itens.map((i) => i.valor), 1);
   return (
@@ -126,7 +133,7 @@ export function MiniRanking({ itens }: { itens: { nome: string; valor: number; s
        mínimo", "no topo do período") dividia a linha com este preview e
        cortava; 76px é o mínimo que ainda mostra 2-3 caracteres do nome do
        item antes de truncar, liberando o resto pra legenda. */
-    <div className="flex w-[76px] min-w-0 flex-col gap-1 lg:w-[136px]">
+    <div className={`flex min-w-0 flex-col gap-1 ${largo ? "w-[150px] lg:w-[180px]" : "w-[76px] lg:w-[136px]"}`}>
       {itens.map((item, indice) => {
         const cor = item.slug && isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined;
         return (

@@ -881,6 +881,11 @@ export function Mosaico({
       const maiorDias = Math.max(...top.map((item) => item.diasParado ?? 0), 1);
       return (
         <MiniRanking
+          // Este card fecha a grade sozinho, na linha inteira (ver
+          // `destaqueFinal`), então sobra espaço entre o número e a lista —
+          // o nome do produto aparece bem mais aqui do que nos cards da
+          // grade de 2 colunas.
+          largo
           itens={top.map((item) => ({
             nome: item.nome,
             valor: item.diasParado ?? maiorDias,
