@@ -201,24 +201,14 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
   const investimentoTotal = resumos.reduce((soma, item) => soma + item.investimento, 0);
   const receitaTotal = resumos.reduce((soma, item) => soma + item.receita, 0);
   const retornoMedio = investimentoTotal > 0 ? receitaTotal / investimentoTotal : null;
-  const contagensSelecionadas = brandIds.flatMap((brandId) => {
-    const dados = resultados[chaveMarca(brandId)];
-    return dados ? [dados.resumo.totalPublicacoes] : [];
-  });
-  // O contador do canal representa somente as marcas escolhidas. Exibir a
-  // soma parcial das marcas já consultadas pareceria um total geral incorreto.
-  const totalPublicacoesGeral = brandIds.length > 0 && contagensSelecionadas.length === brandIds.length
-    ? contagensSelecionadas.reduce((soma, valor) => soma + valor, 0)
-    : null;
   const algumaContagemFalhou = brandIds.some((brandId) => resultados[chaveMarca(brandId)] === null);
 
-  function contadorMarca(brandId: string) {
+  /** A pílula não mostra mais contagem (regra do sistema inteiro), mas
+   *  ainda precisa distinguir "ainda não consultei" de "consultei e
+   *  falhou" — só o segundo caso acende o aviso. */
+  function falhouParaMarca(brandId: string) {
     const key = chaveMarca(brandId);
-    if (!(key in resultados)) return null;
-    const dados = resultados[key];
-    return dados
-      ? dados.resumo.totalPublicacoes
-      : <TriangleAlert size={12} aria-label="Não foi possível consultar a contagem" />;
+    return key in resultados && resultados[key] === null;
   }
 
   function alternarMarca(id: string) {
@@ -246,20 +236,19 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
         }`}>
         {canalAtivo && <HaloSelecao cor="#8a7000" />}
         <ChannelLogo canal="mercadolivre" size="sm" variant="logo" />
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {totalPublicacoesGeral === null
-            ? algumaContagemFalhou
-              ? <TriangleAlert size={12} aria-label="Não foi possível consultar a contagem" />
-              : null
-            : totalPublicacoesGeral}
-        </span>
+        {/* Sem contagem na pílula (mesma regra do resto do sistema — ver
+            ScopeRow e as listas de Vendas/Estoque/Clientes). O aviso de
+            falha continua: ele não é a contagem, é "esta consulta não
+            voltou", que muda a leitura de tudo que o card mostra abaixo. */}
+        {algumaContagemFalhou && (
+          <TriangleAlert size={12} className="text-muted-foreground" aria-label="Não foi possível consultar as publicações desta marca" />
+        )}
       </motion.button>
       {CANAIS_FUTUROS.map(({ canal, label }) => (
         <span key={canal} role="switch" aria-checked="false" aria-disabled="true"
           title={`${label} (em breve)`}
           className="inline-flex h-11 shrink-0 cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card/40 px-3.5 text-muted-foreground opacity-40">
           <ChannelLogo canal={canal} size="sm" variant="logo" />
-          <span className="text-xs tabular-nums text-muted-foreground">0</span>
         </span>
       ))}
     </div>
@@ -284,9 +273,11 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
             }`}>
             {ativo && accent && <HaloSelecao cor={accent} />}
             {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={17} /> : marca.marcaLabel}
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {contadorMarca(marca.brandId)}
-            </span>
+            {/* Sem contagem — só o aviso quando a consulta desta marca
+                falhou (ver comentário na pílula de canal acima). */}
+            {falhouParaMarca(marca.brandId) && (
+              <TriangleAlert size={12} className="text-muted-foreground" aria-label="Não foi possível consultar as publicações desta marca" />
+            )}
           </motion.button>
         );
       })}
@@ -351,10 +342,18 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
                 transition={springs.settleFast}
                 className="mb-4 grid grid-cols-3 gap-2 rounded-xl bg-muted/40 p-3 text-center"
               >
-                <div>
+                {/* Os três blocos são colunas de altura igual (a grade já
+                    estica) com o ícone de info ancorado no rodapé por
+                    `mt-auto` — antes o ícone vinha inline no fim do rótulo,
+                    então o bloco cujo texto quebra em duas linhas
+                    ("publicações patrocinadas") empurrava o próprio ícone
+                    uma linha abaixo dos outros dois. */}
+                <div className="flex h-full flex-col items-center">
                   <p className="text-lg font-bold tabular-nums">{totalPublicacoes}</p>
                   <p className="text-center text-[11px] text-muted-foreground">
-                    {totalPublicacoes === 1 ? "publicação patrocinada" : "publicações patrocinadas"}{" "}
+                    {totalPublicacoes === 1 ? "publicação patrocinada" : "publicações patrocinadas"}
+                  </p>
+                  <span className="mt-auto pt-1.5">
                     <CalculoPopover
                       compacto
                       titulo="Publicações patrocinadas"
@@ -369,11 +368,12 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
                       periodoLabel={periodo}
                       nota="O resumo considera todas as publicações retornadas. A grade destaca no máximo 20 por marca para não tornar a página lenta."
                     />
-                  </p>
+                  </span>
                 </div>
-                <div>
+                <div className="flex h-full flex-col items-center">
                   <p className="text-lg font-bold tabular-nums" style={totalComVeiculacao > 0 ? { color: "var(--success)" } : undefined}>{totalComVeiculacao}</p>
-                  <p className="text-center text-[11px] text-muted-foreground">com veiculação{" "}
+                  <p className="text-center text-[11px] text-muted-foreground">com veiculação</p>
+                  <span className="mt-auto pt-1.5">
                     <CalculoPopover
                       compacto
                       titulo="Publicações com veiculação"
@@ -387,11 +387,12 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
                       periodoLabel={periodo}
                       nota="Veiculação no período é diferente do status atual. Um anúncio pode estar em espera hoje e ainda possuir resultado no intervalo analisado."
                     />
-                  </p>
+                  </span>
                 </div>
-                <div>
+                <div className="flex h-full flex-col items-center">
                   <p className="text-lg font-bold tabular-nums">{retornoMedio === null ? "—" : `${retornoMedio.toFixed(1)}x`}</p>
-                  <p className="text-center text-[11px] text-muted-foreground">retorno do período{" "}
+                  <p className="text-center text-[11px] text-muted-foreground">retorno do período</p>
+                  <span className="mt-auto pt-1.5">
                     <CalculoPopover
                       compacto
                       titulo="Retorno consolidado do período"
@@ -407,7 +408,7 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
                         ? "Nenhuma publicação consumiu investimento no período."
                         : "É um retorno ponderado pelos valores totais, não a média simples dos retornos individuais. Receita atribuída não é lucro líquido."}
                     />
-                  </p>
+                  </span>
                 </div>
               </motion.div>
               <p className="mb-3 text-xs text-muted-foreground">
@@ -449,13 +450,23 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
                           )}
                         </div>
                       )}
-                      <div className="flex items-center gap-1.5">
-                        <h4 className="min-w-0 truncate text-sm font-semibold">{item.titulo}</h4>
+                      {/* `items-start` + sem `truncate`: o nome do produto
+                          aparece inteiro, quebrando em quantas linhas
+                          precisar. Antes cortava em uma linha só — e num
+                          anúncio do Mercado Livre o começo do título é
+                          quase sempre genérico ("Strass Tcheco Vidro
+                          Hotfix..."), então era justamente o final, que
+                          diferencia um anúncio do outro, que sumia. O
+                          alinhamento sai de `center` porque com título de
+                          2-3 linhas o ícone de pendência ficava boiando no
+                          meio; no topo ele acompanha a primeira linha. */}
+                      <div className="flex items-start gap-1.5">
+                        <h4 className="min-w-0 flex-1 text-sm font-semibold leading-snug [overflow-wrap:break-word]">{item.titulo}</h4>
                         {/* Pendência sinaliza aqui em cima, perto do título — antes só
                             aparecia como texto no fim do card, fácil de passar batido
                             escaneando uma grade de 20 publicações. */}
                         {item.pendencias.length > 0 && (
-                          <TriangleAlert size={13} className="shrink-0" style={{ color: "var(--warning)" }} aria-label="Publicação com pendência" />
+                          <TriangleAlert size={13} className="mt-0.5 shrink-0" style={{ color: "var(--warning)" }} aria-label="Publicação com pendência" />
                         )}
                       </div>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -467,9 +478,15 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
                           o status era texto cinza corrido junto do ID, fácil de perder
                           numa grade de cards; agora tem o mesmo peso visual da qualidade. */}
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {/* Selo mais fino: menos respiro vertical (py-0.5),
+                            fonte um degrau menor e semibold no lugar de
+                            bold, e fundo mais discreto (10%). O peso de
+                            antes fazia dois selos lado a lado dominarem o
+                            card inteiro, competindo com o próprio nome do
+                            produto logo acima. */}
                         <span
-                          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold"
-                          style={{ color: corStatus(item.status), background: `color-mix(in srgb, ${corStatus(item.status)} 12%, transparent)` }}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                          style={{ color: corStatus(item.status), background: `color-mix(in srgb, ${corStatus(item.status)} 10%, transparent)` }}
                         >
                           {rotuloStatus(item.status)}
                           <CalculoPopover
@@ -488,8 +505,8 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
                           />
                         </span>
                         <span
-                          className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold tabular-nums"
-                          style={{ color: corQualidade(item.qualidade), background: `color-mix(in srgb, ${corQualidade(item.qualidade)} 12%, transparent)` }}
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+                          style={{ color: corQualidade(item.qualidade), background: `color-mix(in srgb, ${corQualidade(item.qualidade)} 10%, transparent)` }}
                         >
                           {qualidadeLabel}
                           <CalculoPopover

@@ -227,8 +227,11 @@ export default function ConfigurarAlertasEstoque() {
                       : "border border-border bg-card text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  <ChannelLogo canal={item.tipo} size="xs" variant="logo" />
-                  <span className="tabular-nums opacity-60">{item.total}</span>
+                  {/* Sem contagem ao lado do logo — mesma regra do resto do
+                      sistema (ver ScopeRow em Métricas e as pílulas de
+                      Vendas/Estoque/Clientes). `size="sm"` iguala o tamanho
+                      do logo ao usado em todas as outras telas. */}
+                  <ChannelLogo canal={item.tipo} size="sm" variant="logo" />
                 </button>
               ))}
             </div>

@@ -157,7 +157,7 @@ export function MiniRanking({ itens }: { itens: { nome: string; valor: number; s
 export function Delta({ valor, subirEhRuim }: { valor: number | null | undefined; subirEhRuim?: boolean }) {
   if (valor === null || valor === undefined) return null;
   if (valor === 0) {
-    return <span className="text-[11px] font-semibold" style={{ color: "var(--muted-foreground)" }}>estável</span>;
+    return <span className="text-[11px] font-semibold" style={{ color: "var(--muted-foreground)" }}>Estável</span>;
   }
   const subiu = valor > 0;
   const bom = subirEhRuim ? !subiu : subiu;
