@@ -66,7 +66,12 @@ export async function consultarPedidosDetalhados(
 export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedidos) {
   const [resumo] = await db
     .select({
-      totalPedidos: count(),
+      // Mesmo recorte do faturamento (exclui cancelado/devolvido): os dois
+      // cards ficam lado a lado na tela, e contar aqui os cancelados que o
+      // faturamento não conta fazia os números não fecharem entre si — quem
+      // dividisse um pelo outro pra achar o ticket médio erraria. Cancelado e
+      // devolvido já têm cards próprios ao lado, com quantidade e valor.
+      totalPedidos: sql<number>`count(*) filter (where ${pedido.status} not in ('cancelado', 'devolvido'))`,
       faturamento: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
       ticketMedio: sql<string>`coalesce(avg(${pedido.total}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
       cancelados: sql<number>`count(*) filter (where ${pedido.status} in ('cancelado', 'devolvido'))`,
