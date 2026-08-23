@@ -5,9 +5,9 @@ import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.serv
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { receberMensagem } from "@/modules/inbox/application/inbox.service";
-import { brandEnvSuffix } from "@/shared/config/brands";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
+import { obterTokenShopee } from "@/modules/canais/infrastructure/shopee.provider";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -186,10 +186,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const conta = await resolverContaWebhookMarketplace("shopee", String(shop_id));
 
-    const upper = brandEnvSuffix(conta.brandSlug);
     const { partnerId = "", partnerKey = "" } = obterShopeeAppCredenciais();
-    const shopId = process.env[`SHOPEE_SHOP_ID_${upper}`] ?? "";
-    const accessToken = process.env[`SHOPEE_ACCESS_TOKEN_${upper}`] ?? "";
+    const { shopId, accessToken } = await obterTokenShopee(conta.brandSlug);
 
     const detalhe = await buscarDetalheShopee(data.ordersn, partnerId, partnerKey, shopId, accessToken);
 
