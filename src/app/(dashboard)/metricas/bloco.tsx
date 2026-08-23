@@ -662,8 +662,15 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                 </button>
               </div>
 
-              <div className="flex flex-row flex-wrap items-center justify-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2">
-                <div className="flex min-w-0 flex-wrap items-center justify-center gap-2 sm:justify-start">
+              {/* `justify-between` + `order` só no mobile: Status (ou
+                  qualquer ação do acaoSlot) no canto esquerdo, "Atualizado
+                  às"/Período no direito — cantos opostos em vez de
+                  agrupados no centro, mais fácil de escanear numa tela
+                  estreita. A partir do sm volta ao normal (`sm:justify-start`
+                  + `sm:order-none` nos dois, já correto: barraPeriodo à
+                  esquerda, acaoSlot empurrado pro fim via `sm:ml-auto`). */}
+              <div className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:justify-start sm:gap-2">
+                <div className="order-2 flex min-w-0 flex-wrap items-center justify-center gap-2 sm:order-none sm:justify-start">
                   {barraPeriodo}
                 </div>
                 {/* Alvo do portal: sempre presente no DOM, mesmo vazio — um
@@ -680,7 +687,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                     centralizar em relação a. Cards de um botão só (Score,
                     Reclamações) não mudam de lugar: `justify-end` continua
                     empurrando o conteúdo pro fim, seja a caixa larga ou não. */}
-                <div ref={setAcaoSlot} className="flex min-w-0 flex-wrap items-center justify-center gap-2 empty:hidden sm:ml-auto sm:flex-1 sm:justify-end" />
+                <div ref={setAcaoSlot} className="order-1 flex min-w-0 flex-wrap items-center justify-center gap-2 empty:hidden sm:order-none sm:ml-auto sm:flex-1 sm:justify-end" />
               </div>
             </motion.div>
 
