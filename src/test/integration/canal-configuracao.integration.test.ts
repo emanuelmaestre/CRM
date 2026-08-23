@@ -184,7 +184,7 @@ describe.sequential("configuração de canais — editar e remover conta", () =>
       brandId,
       tipo: "shopee",
       nome: "Marketplace sem ID",
-    })).rejects.toThrow(/ID externo/);
+    })).rejects.toThrow(/identificador externo/);
 
     await expect(criarContaCanalConfiguracao(ctxAdmin, {
       brandId,
