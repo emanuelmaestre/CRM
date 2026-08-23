@@ -356,6 +356,28 @@ export async function applySyntheticCatalog(tx, catalog, anchor) {
     `;
   }
 
+  // O saldo é só dos canais (0026_estoque_por_canal): cada produto sintético
+  // tem 1 produto_canal e um balanceId fixo pra sua linha em
+  // estoque_canal_saldo. Sem isso a ficha de estoque sempre mostra 0, mesmo
+  // com produto e produto_canal semeados.
+  const canalPorProduto = new Map(catalog.productChannels.map((pc) => [pc.product, pc]));
+  for (const item of catalog.products) {
+    const canal = canalPorProduto.get(item.key);
+    if (!canal) continue;
+    await tx`
+      insert into public.estoque_canal_saldo
+        (id, org_id, produto_id, channel_account_id, produto_canal_id, saldo, verificado_em, criado_em)
+      values
+        (${item.balanceId}, ${orgId}, ${item.id}, ${channels.get(canal.channelAccount).id},
+         ${canal.id}, ${item.balance}, ${anchor}, ${anchor})
+      on conflict (id) do update set
+        org_id = excluded.org_id, produto_id = excluded.produto_id,
+        channel_account_id = excluded.channel_account_id,
+        produto_canal_id = excluded.produto_canal_id,
+        saldo = excluded.saldo, verificado_em = excluded.verificado_em
+    `;
+  }
+
   for (const item of catalog.funnelStages) {
     item.id = await upsertFunnelStage(tx, orgId, item);
   }

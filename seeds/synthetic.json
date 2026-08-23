@@ -1056,6 +1056,18 @@
         "synthetic": true
       },
       "daysAgo": 3
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000004",
+      "brand": "karzi",
+      "author": "admin",
+      "entity": "cliente",
+      "entityRef": "alice",
+      "action": "synthetic_seed.created",
+      "after": {
+        "synthetic": true
+      },
+      "daysAgo": 0
     }
   ]
 }
