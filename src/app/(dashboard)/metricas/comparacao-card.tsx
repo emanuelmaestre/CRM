@@ -13,6 +13,7 @@ import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primitives";
+import { ScopeRow, type CardFiltro, type ScopeCanal } from "./painel/scope-row";
 import { tint } from "@/shared/design-system/color";
 import { inteiro, moeda, moedaCompacta } from "@/shared/design-system/format";
 import { RefreshCw } from "lucide-react";
@@ -453,7 +454,7 @@ function CumprimentoPedidos({ pv }: { pv: PosVendaMarcaComTaxa }) {
 
 type PosVendaMarcaComTaxa = PosVendaResultado["marcas"][number];
 
-export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posVenda }: {
+export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posVenda, canais, filtro, onChangeFiltro }: {
   dados: SaudeLojaResultado | null;
   carregando: boolean;
   acaoSlot?: HTMLElement | null;
@@ -465,6 +466,13 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
   atualizadoEm?: Date | null;
   /** Ex-card "Pós-venda" — ver CumprimentoPedidos acima. */
   posVenda?: PosVendaResultado | null;
+  /** Filtro de canal (Mercado Livre/Shopee/TikTok Shop) na mesma linha das
+   *  abas de critério — este card compara TODAS as marcas ativas sempre
+   *  (não filtra por marca, ver `chips` em mosaico.tsx), só o canal é
+   *  filtrável aqui. Sem marca nenhuma: `ScopeRow` recebe `marcas={[]}`. */
+  canais?: ScopeCanal[];
+  filtro?: CardFiltro;
+  onChangeFiltro?: (filtro: CardFiltro) => void;
 }) {
   const [criterio, setCriterio] = useState<Criterio>("score");
   const reduzir = useReducedMotion();
@@ -522,10 +530,21 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
     </div>
   );
 
+  // Filtro de canal, na mesma linha das abas de critério (e do Período, que
+  // já mora ao lado no cabeçalho do painel — ver Foco em bloco.tsx), com um
+  // traço separando os dois grupos. Sem marca aqui: este card já compara
+  // todas as marcas ativas de uma vez, então `marcas` fica vazio.
+  const filtroCanal = canais && canais.length > 0 && filtro && onChangeFiltro ? (
+    <>
+      <ScopeRow marcas={[]} canais={canais} filtro={filtro} onChange={onChangeFiltro} />
+      <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+    </>
+  ) : null;
+
   return (
     <Card>
       <CardHead />
-      {acaoSlot && createPortal(abasCriterio, acaoSlot)}
+      {acaoSlot && createPortal(<>{filtroCanal}{abasCriterio}</>, acaoSlot)}
 
       {carregando && !dados ? (
         <div className="space-y-3 px-5 pb-5 pt-4">

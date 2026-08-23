@@ -569,9 +569,10 @@ function EntendaStatusBotao() {
         <AnimatedInfoTrigger
           title="Entenda os status do anúncio no Mercado Livre"
           iconSize={13}
-          className="press-feedback inline-flex h-11 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          className="press-feedback inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
         >
-          Entenda os status
+          <span className="sm:hidden">Status</span>
+          <span className="hidden sm:inline">Entenda os status</span>
         </AnimatedInfoTrigger>
       )}
       align="end"

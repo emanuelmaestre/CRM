@@ -106,6 +106,13 @@ export interface BlocoDef {
    *  Ausente = tile sem preview (ex.: Publicações, que não tem agregado
    *  calculado fora do próprio card aberto). */
   preview?: React.ReactNode;
+  /** Alinhamento vertical do preview na fileira número/preview do tile
+   *  "grande". Default "center" (o de sempre, na maioria dos cards). Só o
+   *  card Marca usa "start": o preview dele (`BarrasMarca`) é curto e
+   *  centralizado sobrava vazio embaixo enquanto a legenda ("WUWU lidera")
+   *  ficava perto do topo — alinhar os dois pelo topo aproxima o preview
+   *  do número, como pedido. */
+  previewAlinhamento?: "center" | "start";
   /** Marcas ativas no filtro deste card — vira chip pequeno no rodapé do
    *  tile, o único lugar (fora do card aberto) onde a cor de marca aparece
    *  no mosaico. */
@@ -471,12 +478,14 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                     </span>
                   )}
                 </span>
-                {/* `self-center`, não o `items-end` da linha: a fileira é
-                    alinhada pela base pro número/legenda ficarem colados
-                    embaixo, mas isso empurrava o gráfico junto — ele fica
-                    melhor centralizado na própria altura. */}
+                {/* `self-center` por padrão, não o `items-end` da linha: a
+                    fileira é alinhada pela base pro número/legenda ficarem
+                    colados embaixo, mas isso empurrava o gráfico junto —
+                    ele fica melhor centralizado na própria altura. Marca é
+                    exceção (`self-start`, ver `previewAlinhamento`): ali o
+                    preview fica perto do número, não da legenda. */}
                 {tam.comPreview && def.preview && (
-                  <span className="block shrink-0 self-center overflow-hidden">{def.preview}</span>
+                  <span className={`block shrink-0 overflow-hidden ${def.previewAlinhamento === "start" ? "self-start" : "self-center"}`}>{def.preview}</span>
                 )}
               </span>
 

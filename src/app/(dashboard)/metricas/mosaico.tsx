@@ -215,13 +215,18 @@ const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 // atualização é sempre "agora", não porque falte informação relevante).
 const apenasHora = new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
-function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent }: {
+function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent, semHoje }: {
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;
   periodoLabel?: string;
   /** Acento do card em foco — o calendário e o "Hoje" pintam com a mesma
    *  cor do ícone do card, em vez de um teal genérico igual para todos. */
   accent?: string;
+  /** Some com o botão "Hoje" avulso — o popover de Período já tem o mesmo
+   *  atalho lá dentro (ver CalendarioPopoverRange), então é redundante.
+   *  Hoje só o card Marca/Comparação usa isto: ali o espaço economizado
+   *  vira lugar pro filtro de canal, que entrou na mesma linha. */
+  semHoje?: boolean;
 }) {
   return (
     <>
@@ -232,15 +237,17 @@ function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent }: {
         onChange={({ inicio, fim }) => trocarDatas(inicio, fim)}
         accent={accent}
       />
-      <BotaoHoje
-        ativo={periodo.inicio === hoje && periodo.fim === hoje}
-        onClick={() => {
-          const jaEstaEmHoje = periodo.inicio === hoje && periodo.fim === hoje;
-          trocarDatas(jaEstaEmHoje ? "" : hoje, jaEstaEmHoje ? "" : hoje);
-        }}
-        className="hidden sm:inline-flex"
-        accent={accent}
-      />
+      {!semHoje && (
+        <BotaoHoje
+          ativo={periodo.inicio === hoje && periodo.fim === hoje}
+          onClick={() => {
+            const jaEstaEmHoje = periodo.inicio === hoje && periodo.fim === hoje;
+            trocarDatas(jaEstaEmHoje ? "" : hoje, jaEstaEmHoje ? "" : hoje);
+          }}
+          className="hidden sm:inline-flex"
+          accent={accent}
+        />
+      )}
       <span className="text-[11px] text-muted-foreground">
         {periodoLabel ?? ""}
       </span>
@@ -588,6 +595,7 @@ export function Mosaico({
     preview: saude.dados && saude.dados.marcas.length > 0
       ? <BarrasMarca dados={saude.dados.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel, valor: marca.faturamento }))} />
       : undefined,
+    previewAlinhamento: "start",
     // As marcas que ESTE card compara — vêm de saude.dados (todas as
     // ativas), não do filtro global, porque comparar é justamente pôr
     // todas lado a lado.
@@ -599,9 +607,12 @@ export function Mosaico({
         acaoSlot={acaoSlot}
         atualizadoEm={carregadoEm}
         posVenda={posVenda.dados}
+        canais={canais}
+        filtro={filtroGlobal}
+        onChangeFiltro={setFiltroGlobal}
       />
     ),
-  }), [saude.dados, carregandoSaude, carregadoEm, posVenda.dados]);
+  }), [saude.dados, carregandoSaude, carregadoEm, posVenda.dados, canais, filtroGlobal]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",
@@ -898,9 +909,18 @@ export function Mosaico({
      novo a page.tsx inteira (incluindo as buscas do mosaico) antes de montar
      o painel; por isso o clique parecia morto por alguns segundos. A History
      API é integrada ao useSearchParams no App Router e atualiza a URL sem
-     pedir um novo payload ao servidor. */
+     pedir um novo payload ao servidor.
+
+     `abrir` usa `pushState`, não `replaceState`: sem uma entrada própria no
+     histórico, o botão/gesto de voltar do celular pulava o card aberto
+     inteiro e saía da tela de Métricas (achado real — "acesso o card e
+     volto, ele some"). Com `pushState`, voltar fecha só o card (dispara
+     `popstate`, o App Router relê a URL sem `?card=` e a grade volta a
+     aparecer) — mesmo comportamento de qualquer modal com deep link.
+     `fechar` continua com `replaceState`: fechar pelo X/Esc não deve
+     empilhar mais uma entrada de histórico. */
   const abrir = useCallback((id: string) => {
-    window.history.replaceState(null, "", `/metricas?card=${encodeURIComponent(id)}`);
+    window.history.pushState(null, "", `/metricas?card=${encodeURIComponent(id)}`);
   }, []);
 
   const fechar = useCallback(() => {
@@ -910,8 +930,12 @@ export function Mosaico({
   const pular = useCallback((passo: number) => {
     if (blocos.length === 0 || indiceAberto < 0) return;
     const proximo = (indiceAberto + passo + blocos.length) % blocos.length;
-    abrir(blocos[proximo].id);
-  }, [blocos, indiceAberto, abrir]);
+    // `replaceState`, não `abrir` (que empilha): trocar de card com as setas
+    // é navegação DENTRO do mesmo painel aberto, não uma nova abertura — se
+    // empilhasse, voltar uma vez só fecharia o card anterior da sequência
+    // em vez da grade inteira.
+    window.history.replaceState(null, "", `/metricas?card=${encodeURIComponent(blocos[proximo].id)}`);
+  }, [blocos, indiceAberto]);
 
   // Um ?card= que não existe (link antigo, bloco que sumiu com o filtro) fica
   // como um parâmetro morto na URL em vez de abrir nada — limpa sozinho.
@@ -1117,6 +1141,7 @@ export function Mosaico({
             trocarDatas={trocarDatas}
             periodoLabel={saude.dados?.periodoLabel}
             accent={blocoAberto?.accent}
+            semHoje={blocoAberto?.id === "comparacao"}
           />
         }
       />
