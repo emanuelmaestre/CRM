@@ -11,16 +11,10 @@ import {
   produto,
   produtoCanal,
 } from "@/shared/lib/db/schema";
-import { brandEnvSuffix } from "@/shared/config/brands";
+import { brandEnvSuffix, canaisDaMarca } from "@/shared/config/brands";
 import { isCredencialConfigurada } from "@/shared/config/env-credentials";
 import { shopeeAppEnvSuffix } from "@/shared/config/shopee-env";
 import { criarProduto } from "@/modules/estoque/application/estoque.service";
-
-const CANAIS_PRIORITARIOS = [
-  "mercadolivre",
-  "shopee",
-  "tiktokshop",
-] as const;
 
 const CANAL_LABEL: Record<string, string> = {
   mercadolivre: "Mercado Livre",
@@ -186,7 +180,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
     skusPorConta.set(item.channelAccountId, (skusPorConta.get(item.channelAccountId) ?? 0) + 1);
   }
 
-  return marcas.flatMap((marca) => CANAIS_PRIORITARIOS.map((canal) => {
+  return marcas.flatMap((marca) => canaisDaMarca(marca.slug).map((canal) => {
     const conta = contas.find((item) => item.brandId === marca.id && item.tipo === canal);
     const envAusentes = envPorCanal(canal)
       .map((template) => envName(template, marca.slug))

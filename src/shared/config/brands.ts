@@ -1,4 +1,5 @@
 import brandsConfig from "@/config/brands.json";
+import { CANAIS_VENDA, type CanalVenda } from "./canais-venda";
 
 export type BrandSlug = keyof typeof brandsConfig;
 
@@ -10,6 +11,19 @@ export function isBrandSlug(value: string): value is BrandSlug {
 
 export function brandEnvSuffix(slug: string): string {
   return slug.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+}
+
+/** Canais de venda que a marca realmente opera. Nem toda marca vende em todo
+ *  canal — a KARZI não tem Shopee, por exemplo — e antes disso as telas
+ *  montavam marcas × todos os canais, criando linha para loja que não existe
+ *  e que ficava "pendente" pra sempre. Marca sem a chave cai no conjunto
+ *  completo, que era o comportamento anterior. */
+export function canaisDaMarca(slug: string): readonly CanalVenda[] {
+  const config = getBrandConfig(slug);
+  const canais = config && "canais" in config ? config.canais : null;
+  if (!Array.isArray(canais)) return CANAIS_VENDA;
+  return canais.filter((canal): canal is CanalVenda =>
+    (CANAIS_VENDA as readonly string[]).includes(canal));
 }
 
 export function getBrandConfig(slug: string) {

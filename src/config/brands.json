@@ -11,6 +11,7 @@
       "text": "text-[#6F6F6E]",
       "border": "border-[#6F6F6E]/20"
     },
+    "canais": ["mercadolivre", "shopee", "tiktokshop"],
     "environmentKey": "NEXT_PUBLIC_BRAND_ID_ARMARINHOS_LIMA"
   },
   "karzi": {
@@ -25,6 +26,7 @@
       "text": "text-[#E3131B]",
       "border": "border-[#E3131B]/20"
     },
+    "canais": ["mercadolivre", "tiktokshop"],
     "environmentKey": "NEXT_PUBLIC_BRAND_ID_KARZI"
   },
   "wuwu": {
@@ -39,6 +41,7 @@
       "text": "text-[#9B30D9]",
       "border": "border-[#9B30D9]/20"
     },
+    "canais": ["mercadolivre", "shopee", "tiktokshop"],
     "environmentKey": "NEXT_PUBLIC_BRAND_ID_WUWU"
   }
 }
