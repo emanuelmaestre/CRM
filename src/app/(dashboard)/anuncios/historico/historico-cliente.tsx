@@ -182,7 +182,7 @@ export function HistoricoClienteDetalhe() {
           à fileira única de sempre (marca, canal, Período). */}
       <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
         <div className="order-1 flex w-full justify-center gap-1.5 md:order-none md:contents">
-          <SeletorCanalAnuncios totalCampanhas={marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
+          <SeletorCanalAnuncios />
         </div>
         <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
           <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />

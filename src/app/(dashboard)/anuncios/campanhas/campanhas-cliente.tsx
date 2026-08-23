@@ -320,7 +320,7 @@ export function CampanhasClienteDetalhe() {
           daqui, ver acima). */}
       <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
         <div className="order-1 flex w-full justify-center gap-1.5 md:order-none md:contents">
-          <SeletorCanalAnuncios totalCampanhas={dados.marcas.reduce((soma, item) => soma + item.campanhas.length, 0)} />
+          <SeletorCanalAnuncios />
         </div>
         <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={(brandId) => { setMarcaAtiva(brandId); setExpandida(null); }} />

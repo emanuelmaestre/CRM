@@ -206,7 +206,6 @@ function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; on
       {temIdentidade
         ? <BrandLogo brand={slug} height={17} />
         : <span className="text-sm font-semibold text-foreground">{marca.nome}</span>}
-      <span className="text-xs tabular-nums text-muted-foreground">{marca.total}</span>
     </motion.button>
   );
 }
@@ -237,7 +236,6 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
     >
       <HaloSelecao ativo={ativo} cor={channelAccent(canal.tipo)} reduzir={reduzir} />
       <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
-      <span className="text-xs tabular-nums text-muted-foreground">{canal.total}</span>
     </motion.button>
   );
 }

@@ -34,7 +34,7 @@ function HaloSelecao({ cor }: { cor: string }) {
   );
 }
 
-function Pilula({ ativo, desabilitado, onClick, rotulo, accent, total, children }: {
+function Pilula({ ativo, desabilitado, onClick, rotulo, accent, children }: {
   ativo: boolean;
   desabilitado?: boolean;
   onClick: () => void;
@@ -42,7 +42,6 @@ function Pilula({ ativo, desabilitado, onClick, rotulo, accent, total, children 
   /** Cor de identidade (marca ou canal) usada quando selecionado — cada pílula
    *  tinge com a própria cor em vez de todas ficarem roxas. */
   accent?: string;
-  total?: number;
   children: React.ReactNode;
 }) {
   const reduzMovimento = useReducedMotion();
@@ -67,9 +66,6 @@ function Pilula({ ativo, desabilitado, onClick, rotulo, accent, total, children 
     >
       {ativo && !desabilitado && accent && <HaloSelecao cor={accent} />}
       {children}
-      {typeof total === "number" && (
-        <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
-      )}
     </motion.button>
   );
 }
@@ -113,7 +109,6 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
             onClick={() => onChange({ ...filtro, canal: alternar(filtro.canal, canal.tipo) })}
             rotulo={canalLabel(canal.tipo)}
             accent={channelAccent(canal.tipo)}
-            total={canal.total}
           >
             <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
           </Pilula>
@@ -136,7 +131,6 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
             ativo={filtro.brandId.includes(marca.brandId)}
             onClick={() => onChange({ ...filtro, brandId: alternar(filtro.brandId, marca.brandId) })}
             accent={isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined}
-            total={marca.total}
           >
             {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={17} /> : marca.nome}
           </Pilula>

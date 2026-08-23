@@ -306,7 +306,6 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
             {isBrandSlug(marca.brandSlug)
               ? <BrandLogo brand={marca.brandSlug} height={17} />
               : <span className="text-sm font-semibold text-foreground">{marca.brandLabel}</span>}
-            <span className="text-xs tabular-nums text-muted-foreground">{marca.campanhas.length}</span>
           </motion.button>
         );
       })}
@@ -321,7 +320,7 @@ const CANAIS_ANUNCIOS = ["mercadolivre", "shopee", "tiktokshop"] as const;
  *  deixar claro que a tela é sobre canais de venda (mesma leitura de
  *  Vendas/Estoque), mas Shopee/TikTok ficam travados como "ainda não
  *  disponível" em vez de fingir que dá pra filtrar por eles. */
-export function SeletorCanalAnuncios({ totalCampanhas }: { totalCampanhas: number }) {
+export function SeletorCanalAnuncios() {
   const reduzir = useReducedMotion();
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -346,9 +345,7 @@ export function SeletorCanalAnuncios({ totalCampanhas }: { totalCampanhas: numbe
           >
             <HaloSelecao ativo={disponivel} cor="var(--selecionado)" reduzir={reduzir} />
             <ChannelLogo canal={canal} size="sm" variant="logo" />
-            {disponivel
-              ? <span className="text-xs tabular-nums text-muted-foreground">{totalCampanhas}</span>
-              : <PlugZap2 size={14} className="text-muted-foreground" />}
+            {!disponivel && <PlugZap2 size={14} className="text-muted-foreground" />}
           </motion.button>
         );
       })}
@@ -530,7 +527,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
-          <SeletorCanalAnuncios totalCampanhas={dados.marcas.reduce((soma, m) => soma + m.campanhas.length, 0)} />
+          <SeletorCanalAnuncios />
         </div>
         {/* Risco separador só no mobile empilhado — do sm em diante os dois
             grupos já ficam lado a lado na mesma linha, com o traço abaixo

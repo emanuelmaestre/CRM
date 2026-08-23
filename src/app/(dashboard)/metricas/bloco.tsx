@@ -684,9 +684,17 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                   Repor em breve foge da regra no mobile: o Status subiu pra
                   linha do título (ver acaoTopoSlot acima), então esta linha
                   fica só com "Atualizado às" — `justify-center` no lugar de
-                  `justify-between` centraliza esse texto sozinho. */}
-              <div className={`flex flex-row flex-wrap items-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2 ${def.id === "reposicao" ? "justify-center" : "justify-between"}`}>
-                <div className="order-2 flex min-w-0 flex-wrap items-center justify-center gap-2 sm:order-none sm:justify-start">
+                  `justify-between` centraliza esse texto sozinho.
+                  Marca/Comparação também foge: o acaoSlot ali carrega o
+                  filtro de canal E a grade de 7 critérios — um bloco grande
+                  que precisa da própria linha. Com a ordem invertida, o
+                  Período acabava empurrado pro final, depois da grade
+                  inteira. Ordem natural aqui: Período primeiro, filtro de
+                  canal logo depois (cabem juntos numa linha curta), critério
+                  força a própria linha por conta própria (ver
+                  comparacao-card.tsx). */}
+              <div className={`flex flex-row flex-wrap items-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2 ${def.id === "reposicao" ? "justify-center" : def.id === "comparacao" ? "justify-start" : "justify-between"}`}>
+                <div className={`flex min-w-0 flex-wrap items-center justify-center gap-2 sm:order-none sm:justify-start ${def.id === "comparacao" ? "" : "order-2"}`}>
                   {barraPeriodo}
                 </div>
                 {/* Alvo do portal: sempre presente no DOM, mesmo vazio — um
@@ -703,7 +711,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                     centralizar em relação a. Cards de um botão só (Score,
                     Reclamações) não mudam de lugar: `justify-end` continua
                     empurrando o conteúdo pro fim, seja a caixa larga ou não. */}
-                <div ref={setAcaoSlot} className="order-1 flex min-w-0 flex-wrap items-center justify-center gap-2 empty:hidden sm:order-none sm:ml-auto sm:flex-1 sm:justify-end" />
+                <div ref={setAcaoSlot} className={`flex min-w-0 flex-wrap items-center justify-center gap-2 empty:hidden sm:order-none sm:ml-auto sm:flex-1 sm:justify-end ${def.id === "comparacao" ? "" : "order-1"}`} />
               </div>
             </motion.div>
 

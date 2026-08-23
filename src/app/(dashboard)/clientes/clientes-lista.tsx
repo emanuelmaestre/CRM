@@ -116,9 +116,8 @@ function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; red
 /* ── Seletor de canal ─────────────────────────────────────────
    Mesmo componente/visual do seletor de canal do Estoque: canal sem conta
    conectada aparece travado, com o motivo à vista. */
-function CanalPill({ tipo, total, conectado, ativo, onClick }: {
+function CanalPill({ tipo, conectado, ativo, onClick }: {
   tipo: CanalVenda;
-  total: number;
   conectado: boolean;
   ativo: boolean;
   onClick: () => void;
@@ -148,11 +147,7 @@ function CanalPill({ tipo, total, conectado, ativo, onClick }: {
     >
       <HaloSelecao ativo={ativo} cor={channelAccent(tipo)} reduzir={reduzir} />
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
-      {conectado ? (
-        <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
-      ) : (
-        <PlugZap2 size={14} className="text-muted-foreground" />
-      )}
+      {!conectado && <PlugZap2 size={14} className="text-muted-foreground" />}
     </motion.button>
   );
 }
@@ -197,7 +192,6 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
       {temIdentidade
         ? <BrandLogo brand={slug} height={17} />
         : <span className="text-sm font-semibold text-foreground">{nome}</span>}
-      <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
     </motion.button>
   );
 }
@@ -341,7 +335,6 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
             <CanalPill
               key={item.tipo}
               tipo={item.tipo}
-              total={item.total}
               conectado={item.conectado}
               ativo={canaisSelecionados.has(item.tipo)}
               onClick={() => alternarCanal(item.tipo)}

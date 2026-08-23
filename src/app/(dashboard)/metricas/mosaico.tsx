@@ -555,6 +555,9 @@ export function Mosaico({
       // da loja" bem acima) sem precisar repetir dentro do círculo.
       ? <AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} />
       : undefined,
+    // Mesmo alinhamento do card Marca: o anel sobe pra perto do número em
+    // vez de centralizar na altura toda da fileira.
+    previewAlinhamento: "start",
     chips: chipsDoFiltro,
     temLegendaStatus: true,
     render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,

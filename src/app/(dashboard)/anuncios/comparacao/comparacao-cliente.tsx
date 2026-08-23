@@ -81,7 +81,7 @@ export function ComparacaoClienteDetalhe() {
             <h1 className="text-base font-bold text-foreground">{copy.title}</h1>
             <p className="mt-0.5 text-[12px] text-muted-foreground">{copy.description}</p>
           </div>
-          <SeletorCanalAnuncios totalCampanhas={marcasOrdenadas.reduce((soma, marca) => soma + marca.campanhas.length, 0)} />
+          <SeletorCanalAnuncios />
         </div>
         <div className="divide-y divide-border px-4 py-2 md:hidden">
           {marcasOrdenadas.map((marca) => {

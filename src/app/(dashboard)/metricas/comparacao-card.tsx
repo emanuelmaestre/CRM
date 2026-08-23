@@ -503,6 +503,11 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
     // 3, depois 1 item por linha); grid alinha as bordas certinho mesmo com
     // 7 opções de texto de tamanhos bem diferentes. Desktop mantém a fileira
     // única de sempre, com espaço de sobra pra não precisar de grade.
+    // `basis-full` no mobile: força a própria linha (nunca tenta dividir
+    // espaço com o filtro de canal/Período acima). A borda + respiro fica
+    // num wrapper por fora da caixa cinza — dentro dela a borda cortaria o
+    // próprio fundo `bg-muted` a meio caminho, ficando estranho.
+    <div className="mt-3 basis-full border-t border-border pt-3 sm:mt-0 sm:basis-auto sm:border-t-0 sm:pt-0">
     <div className="grid grid-cols-2 gap-1 rounded-[0.75rem] bg-muted p-1 sm:flex sm:flex-wrap sm:gap-0.5" role="tablist" aria-label={copy.ordenarPor}>
       {copy.criterios.map((opcao) => {
         const ativo = opcao.chave === criterio;
@@ -527,6 +532,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
           </button>
         );
       })}
+    </div>
     </div>
   );
 

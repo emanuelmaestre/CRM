@@ -30,8 +30,8 @@ function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; red
   );
 }
 
-function EmpresaPill({ nome, slug, total, ativo, onClick }: {
-  nome: string; slug: string; total: number; ativo: boolean; onClick: () => void;
+function EmpresaPill({ nome, slug, ativo, onClick }: {
+  nome: string; slug: string; ativo: boolean; onClick: () => void;
 }) {
   const reduzir = useReducedMotion();
   const temIdentidade = isBrandSlug(slug);
@@ -50,13 +50,12 @@ function EmpresaPill({ nome, slug, total, ativo, onClick }: {
     >
       <HaloSelecao ativo={ativo} cor={cor} reduzir={reduzir} />
       {temIdentidade ? <BrandLogo brand={slug} height={17} /> : <span className="text-sm font-semibold text-foreground">{nome}</span>}
-      <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
     </motion.button>
   );
 }
 
-function CanalFiltroPill({ tipo, total, ativo, onClick }: {
-  tipo: string; total: number; ativo: boolean; onClick: () => void;
+function CanalFiltroPill({ tipo, ativo, onClick }: {
+  tipo: string; ativo: boolean; onClick: () => void;
 }) {
   const reduzir = useReducedMotion();
   const label = (channelsConfig.items as Record<string, { label?: string }>)[tipo]?.label ?? tipo;
@@ -77,7 +76,6 @@ function CanalFiltroPill({ tipo, total, ativo, onClick }: {
     >
       <HaloSelecao ativo={ativo} cor={cor} reduzir={reduzir} />
       <ChannelLogo canal={tipo} size="sm" variant="logo" />
-      <span className="text-xs tabular-nums text-muted-foreground">{total}</span>
     </motion.button>
   );
 }
@@ -99,7 +97,6 @@ export function EmpresasRow({ marcasAtivas, onToggleMarca, contagemMarca }: Pick
           key={slug}
           nome={getBrandConfig(slug)?.label ?? slug}
           slug={slug}
-          total={contagemMarca[slug] ?? 0}
           ativo={marcasAtivas.has(slug)}
           onClick={() => onToggleMarca(slug)}
         />
@@ -115,7 +112,6 @@ export function CanaisRow({ canaisAtivos, onToggleCanal, contagemCanal }: Pick<F
         <CanalFiltroPill
           key={tipo}
           tipo={tipo}
-          total={contagemCanal[tipo] ?? 0}
           ativo={canaisAtivos.has(tipo)}
           onClick={() => onToggleCanal(tipo)}
         />
