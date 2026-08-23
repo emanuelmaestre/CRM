@@ -71,8 +71,12 @@ export function BarrasMarca({ dados }: { dados: { slug: string; label: string; v
   return (
     /* Largura fixa, não `w-full`: o preview mora num container `shrink-0`
        dentro do tile, que não tem largura própria — com `w-full` as barras
-       colapsavam pra zero e sobravam só as bolinhas. */
-    <div className="flex w-24 flex-col gap-1">
+       colapsavam pra zero e sobravam só as bolinhas. Mais estreito no
+       celular (mesmo ajuste que o `MiniRanking` já tem): a legenda ao lado
+       (ex. "WUWU lidera") divide a mesma linha com este preview, e 96px
+       fixos cortavam o texto em "WUWU li...". 64px de sobra pro texto no
+       mobile, voltando aos 96px de sempre a partir do lg. */
+    <div className="flex w-16 flex-col gap-1 lg:w-24">
       {dados.map((item) => {
         const cor = isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined;
         return (
