@@ -678,7 +678,7 @@ export function Mosaico({
         ? <MiniRanking itens={comCobertura.map((item) => ({ nome: item.nome, valor: item.coberturaDias, slug: item.marca }))} />
         : undefined;
     })(),
-    previewAlinhamento: "start",
+    previewAlinhamento: "sobrepor",
     temLegendaStatus: true,
     chips: chipsDoFiltro,
     render: (acaoSlot, acaoTopoSlot) => (
@@ -723,7 +723,7 @@ export function Mosaico({
     preview: maisVendidos.dados && maisVendidos.dados.maisVendidos.length > 0
       ? <MiniRanking itens={maisVendidos.dados.maisVendidos.slice(0, 3).map((item) => ({ nome: item.nome, valor: item.quantidade, slug: item.marca }))} />
       : undefined,
-    previewAlinhamento: "start",
+    previewAlinhamento: "sobrepor",
     temLegendaStatus: true,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
@@ -788,7 +788,7 @@ export function Mosaico({
         />
       )
       : undefined,
-    previewAlinhamento: "start",
+    previewAlinhamento: "sobrepor",
     temLegendaStatus: true,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
@@ -902,7 +902,7 @@ export function Mosaico({
           <span className="hidden lg:inline-block"><AnelScore valor={63} cor="var(--acento-3)" tamanho={56} /></span>
         </>
       ),
-      previewAlinhamento: "start",
+      previewAlinhamento: "sobrepor",
       chips: marcasPublicacoes.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })),
       render: (acaoSlot) => (
         <PublicacoesCard

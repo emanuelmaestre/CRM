@@ -106,13 +106,17 @@ export interface BlocoDef {
    *  Ausente = tile sem preview (ex.: Publicações, que não tem agregado
    *  calculado fora do próprio card aberto). */
   preview?: React.ReactNode;
-  /** Alinhamento vertical do preview na fileira número/preview do tile
-   *  "grande". Default "center" (o de sempre, na maioria dos cards). Só o
-   *  card Marca usa "start": o preview dele (`BarrasMarca`) é curto e
-   *  centralizado sobrava vazio embaixo enquanto a legenda ("WUWU lidera")
-   *  ficava perto do topo — alinhar os dois pelo topo aproxima o preview
-   *  do número, como pedido. */
-  previewAlinhamento?: "center" | "start";
+  /** Alinhamento do preview na fileira número/preview do tile "grande".
+   *  Default "center" (o de sempre, na maioria dos cards).
+   *  "start": Marca/Pontuação da loja — o preview fica perto do número,
+   *  não centralizado na altura toda da fileira.
+   *  "sobrepor": Giro baixo, Vendem mais, Repor em breve, Publicações —
+   *  o preview sai do fluxo do flex (`position: absolute`, canto superior
+   *  direito) pra legenda abaixo do número nunca mais cortar; o preview
+   *  flutua por cima e pode encostar/sobrepor o fim do texto quando o
+   *  espaço aperta — decisão explícita do usuário (texto nunca corta,
+   *  ilustração cede o lugar). */
+  previewAlinhamento?: "center" | "start" | "sobrepor";
   /** Marcas ativas no filtro deste card — vira chip pequeno no rodapé do
    *  tile, o único lugar (fora do card aberto) onde a cor de marca aparece
    *  no mosaico. */
@@ -466,8 +470,12 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                   na mesma linha de base do número — e só depois a legenda.
                   Três linhas, não duas; era essa diferença de estrutura
                   que fazia o corpo do card parecer mais baixo. */}
-              <span className="mt-4 flex items-end justify-between gap-3">
-                <span className="min-w-0 flex-1">
+              <span className={`mt-4 flex items-end justify-between gap-3 ${def.previewAlinhamento === "sobrepor" ? "relative" : ""}`}>
+                {/* `pr-16`/`pr-11` só no modo "sobrepor": abre um respiro à
+                    direita do texto do tamanho do preview flutuante (ver
+                    abaixo), pra legenda não ficar ESCONDIDA atrás dele —
+                    só encosta perto, sem cobrir. */}
+                <span className={`min-w-0 flex-1 ${def.previewAlinhamento === "sobrepor" ? "pr-11 lg:pr-16" : ""}`}>
                   <span className="flex items-baseline gap-1">
                     <span className={`whitespace-nowrap font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
                       {resumo.valor ?? "—"}
@@ -483,11 +491,28 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                 {/* `self-center` por padrão, não o `items-end` da linha: a
                     fileira é alinhada pela base pro número/legenda ficarem
                     colados embaixo, mas isso empurrava o gráfico junto —
-                    ele fica melhor centralizado na própria altura. Marca é
-                    exceção (`self-start`, ver `previewAlinhamento`): ali o
-                    preview fica perto do número, não da legenda. */}
+                    ele fica melhor centralizado na própria altura. Marca/
+                    Pontuação usam `self-start` (ver `previewAlinhamento`):
+                    o preview fica perto do número, não da legenda.
+                    "sobrepor" (Giro baixo, Vendem mais, Repor em breve,
+                    Publicações): tira o preview do fluxo do flex — a
+                    legenda ganha a largura inteira da coluna pra nunca mais
+                    cortar, e o preview flutua por cima, no canto
+                    superior direito, encostando nela quando o espaço aperta
+                    (a pedido do usuário: preview pode sobrepor, texto
+                    nunca corta). */}
                 {tam.comPreview && def.preview && (
-                  <span className={`block shrink-0 overflow-hidden ${def.previewAlinhamento === "start" ? "self-start" : "self-center"}`}>{def.preview}</span>
+                  <span
+                    className={`block shrink-0 overflow-hidden ${
+                      def.previewAlinhamento === "sobrepor"
+                        ? "absolute right-0 top-0"
+                        : def.previewAlinhamento === "start"
+                          ? "self-start"
+                          : "self-center"
+                    }`}
+                  >
+                    {def.preview}
+                  </span>
                 )}
               </span>
 
