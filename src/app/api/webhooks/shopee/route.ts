@@ -7,6 +7,7 @@ import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 import { brandEnvSuffix } from "@/shared/config/brands";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
+import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -39,7 +40,7 @@ const ShopeeMessageDataSchema = z.object({
 });
 
 function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
-  const partnerKey = process.env.SHOPEE_PARTNER_KEY;
+  const { partnerKey } = obterShopeeAppCredenciais();
   if (!partnerKey) return false;
 
   const assinatura = req.headers.get("authorization") ?? "";
@@ -80,7 +81,7 @@ async function buscarDetalheShopee(
     response_optional_fields: "item_list,recipient_address,total_amount",
   });
 
-  const res = await shopeeFetch(`https://partner.shopeemobile.com${path}?${qs}`, {
+  const res = await shopeeFetch(`${obterShopeeBaseUrl()}${path}?${qs}`, {
     signal: AbortSignal.timeout(10000),
   });
 
@@ -186,8 +187,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const conta = await resolverContaWebhookMarketplace("shopee", String(shop_id));
 
     const upper = brandEnvSuffix(conta.brandSlug);
-    const partnerId = process.env.SHOPEE_PARTNER_ID ?? "";
-    const partnerKey = process.env.SHOPEE_PARTNER_KEY ?? "";
+    const { partnerId = "", partnerKey = "" } = obterShopeeAppCredenciais();
     const shopId = process.env[`SHOPEE_SHOP_ID_${upper}`] ?? "";
     const accessToken = process.env[`SHOPEE_ACCESS_TOKEN_${upper}`] ?? "";
 

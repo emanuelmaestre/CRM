@@ -13,6 +13,7 @@ import {
 } from "@/shared/lib/db/schema";
 import { brandEnvSuffix } from "@/shared/config/brands";
 import { isCredencialConfigurada } from "@/shared/config/env-credentials";
+import { shopeeAppEnvSuffix } from "@/shared/config/shopee-env";
 import { criarProduto } from "@/modules/estoque/application/estoque.service";
 
 const CANAIS_PRIORITARIOS = [
@@ -27,9 +28,19 @@ const CANAL_LABEL: Record<string, string> = {
   tiktokshop: "TikTok Shop",
 };
 
+// Shopee tem um par de partner_id/partner_key por ambiente (SHOPEE_ENV) — a
+// função lê qual sufixo (TEST/LIVE) vale agora, então essa lista não pode ser
+// estática como as dos outros canais.
+function envPorCanal(canal: string): string[] {
+  if (canal === "shopee") {
+    const sufixo = shopeeAppEnvSuffix();
+    return [`SHOPEE_PARTNER_ID_${sufixo}`, `SHOPEE_PARTNER_KEY_${sufixo}`, "SHOPEE_SHOP_ID_{BRAND}", "SHOPEE_ACCESS_TOKEN_{BRAND}"];
+  }
+  return ENV_POR_CANAL[canal] ?? [];
+}
+
 const ENV_POR_CANAL: Record<string, string[]> = {
   mercadolivre: ["ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_SELLER_ID_{BRAND}"],
-  shopee: ["SHOPEE_PARTNER_ID", "SHOPEE_PARTNER_KEY", "SHOPEE_SHOP_ID_{BRAND}", "SHOPEE_ACCESS_TOKEN_{BRAND}"],
   tiktokshop: ["TIKTOK_APP_KEY", "TIKTOK_APP_SECRET", "TIKTOK_SHOP_ID_{BRAND}", "TIKTOK_SHOP_CIPHER_{BRAND}", "TIKTOK_ACCESS_TOKEN_{BRAND}"],
 };
 
@@ -177,7 +188,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
 
   return marcas.flatMap((marca) => CANAIS_PRIORITARIOS.map((canal) => {
     const conta = contas.find((item) => item.brandId === marca.id && item.tipo === canal);
-    const envAusentes = (ENV_POR_CANAL[canal] ?? [])
+    const envAusentes = envPorCanal(canal)
       .map((template) => envName(template, marca.slug))
       .filter((name) => !configured(name));
     const skusMapeados = conta ? skusPorConta.get(conta.id) ?? 0 : 0;
