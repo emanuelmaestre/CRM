@@ -650,8 +650,14 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                 linha, período e ação própria do card na linha de baixo. Antes
                 disto, o painel mostrava este cabeçalho E o cabeçalho que cada
                 card desenhava por conta própria (ícone e título de novo,
-                subtítulo de novo): duas telas empilhadas em vez de uma. */}
-            <motion.div layout="position" className="flex shrink-0 flex-col gap-2 border-b border-border px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+                subtítulo de novo): duas telas empilhadas em vez de uma.
+                Sem a linha embaixo (`border-b`) só no mobile do Estoque
+                Parado: sem a segunda linha do cabeçalho ali (Período saiu,
+                ver acima), o traço ficava colado direto sob o título/Status,
+                lendo como uma divisória solta em vez de fechar um cabeçalho
+                de verdade. Volta a partir do sm, onde a segunda linha existe
+                de novo. */}
+            <motion.div layout="position" className={`flex shrink-0 flex-col gap-2 border-border px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] ${def.id === "parados" ? "sm:border-b" : "border-b"}`}>
               <div className="flex items-center gap-2">
                 <span
                   className="flex h-8 w-8 shrink-0 items-center justify-center"
