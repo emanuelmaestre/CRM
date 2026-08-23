@@ -10,7 +10,6 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
-import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { stagger } from "@/shared/design-system/motion-variants";
 import { tint } from "@/shared/design-system/color";
@@ -551,18 +550,6 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
             valor={periodo}
             max={hojeISO}
             onChange={setPeriodo}
-            accent={acentoMarca}
-          />
-          <BotaoHoje
-            ativo={periodo.inicio === hojeISO && periodo.fim === hojeISO}
-            onClick={() =>
-              setPeriodo((atual) =>
-                atual.inicio === hojeISO && atual.fim === hojeISO
-                  ? { inicio: "", fim: "" }
-                  : { inicio: hojeISO, fim: hojeISO }
-              )
-            }
-            className="hidden sm:inline-flex"
             accent={acentoMarca}
           />
           <button type="button" onClick={exportar} disabled={exportando}
