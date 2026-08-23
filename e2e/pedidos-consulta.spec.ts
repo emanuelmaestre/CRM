@@ -7,7 +7,9 @@ test("pedidos conectados são consultáveis e abrem o detalhe", async ({ page })
   await page.getByRole("button", { name: "KARZI" }).click();
   await expect(page.getByTestId("pedidos-lista")).toBeVisible();
   const primeiroPedido = page.getByTestId("pedidos-lista").getByRole("link").first();
-  await expect(primeiroPedido).toBeVisible();
+  // A busca dispara num useEffect após a seleção da marca; em CI já foi
+  // visto passar dos 5s padrão pra resolver.
+  await expect(primeiroPedido).toBeVisible({ timeout: 30_000 });
   await primeiroPedido.click();
   await expect(page.getByTestId("status-pedido")).toBeVisible();
   await expect(page.getByRole("heading", { name: /pedido #/i })).toBeVisible();

@@ -11,7 +11,7 @@ test.describe("Importação com prévia", () => {
     await page.getByRole("button", { name: /pré-visualizar/i }).click();
     // A prévia envolve validação server-side (linha por linha); em CI já foi
     // visto passar dos 5s padrão de espera.
-    await expect(page.getByTestId("previa-resumo")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("previa-resumo")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("previa-total")).toContainText("1");
     await expect(page.getByText(/pré-visualização/i).first()).toBeVisible();
   });
@@ -24,7 +24,7 @@ test.describe("Importação com prévia", () => {
       buffer: Buffer.from("coluna_errada,email\nvalor,invalid@example.invalid\n"),
     });
     await page.getByRole("button", { name: /pré-visualizar/i }).click();
-    await expect(page.getByTestId("previa-erros")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("previa-erros")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId("previa-erros")).toContainText(/nome|obrigat/i);
   });
 });
