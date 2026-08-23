@@ -1,15 +1,14 @@
+-- A tabela "estoque_canal_saldo" NAO e criada aqui de proposito: ela ja foi
+-- criada na 0026 (estoque_por_canal) e recebeu as chaves compostas na 0029
+-- (estoque_canal_saldo_tenant_fk). O drizzle-kit gerou esta migration com um
+-- CREATE TABLE duplicado (provavel dessincronia de snapshot na epoca), que
+-- so falhava ao aplicar a sequencia inteira num banco limpo do zero — em
+-- qualquer banco que ja rodou a 0026 (todo ambiente real) esse CREATE TABLE
+-- nunca chegava a executar de fato, porque a migration inteira ja tinha
+-- sido registrada como aplicada antes desta correcao existir. Os ALTER
+-- TABLE/CREATE INDEX abaixo (que sao mudanca real, nao duplicada) continuam
+-- intactos.
 CREATE TYPE "public"."sincronizacao_modulo_status" AS ENUM('pendente', 'em_andamento', 'concluido', 'erro');--> statement-breakpoint
-CREATE TABLE "estoque_canal_saldo" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"org_id" uuid NOT NULL,
-	"produto_id" uuid NOT NULL,
-	"channel_account_id" uuid NOT NULL,
-	"produto_canal_id" uuid NOT NULL,
-	"saldo" integer NOT NULL,
-	"verificado_em" timestamp with time zone DEFAULT now() NOT NULL,
-	"criado_em" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "sincronizacao_execucao" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"org_id" uuid NOT NULL,
