@@ -457,7 +457,14 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                   na mesma linha de base do número — e só depois a legenda.
                   Três linhas, não duas; era essa diferença de estrutura
                   que fazia o corpo do card parecer mais baixo. */}
-              <span className="mt-4 flex items-end justify-between gap-3">
+              {/* `flex-col` até o lg: o card mobile é estreito (grade de 2
+                  colunas) e o preview ao lado do texto sobrava pouco espaço
+                  pra legenda, cortando frases como "No topo do ranking" ou
+                  o nome de uma marca no meio da palavra. Preview desce pra
+                  baixo do texto no mobile — largura cheia pra legenda, sem
+                  cortar nada — e só volta a ficar lado a lado a partir do
+                  lg, onde o card já tem largura de sobra. */}
+              <span className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline gap-1">
                     <span className={`whitespace-nowrap font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
@@ -466,17 +473,17 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                   </span>
                   <span className="mt-1.5 block"><Sinal resumo={resumo} /></span>
                   {(resumo.rodape ?? resumo.legenda) && (
-                    <span className="mt-1 block truncate text-[11.5px]" style={{ color: corSub }}>
+                    <span className="mt-1 block text-[11.5px] leading-snug lg:truncate" style={{ color: corSub }}>
                       {resumo.rodape ?? resumo.legenda}
                     </span>
                   )}
                 </span>
-                {/* `self-center`, não o `items-end` da linha: a fileira é
-                    alinhada pela base pro número/legenda ficarem colados
-                    embaixo, mas isso empurrava o gráfico junto — ele fica
-                    melhor centralizado na própria altura. */}
+                {/* `lg:self-center`, não `items-end`: a fileira (só a partir
+                    do lg, ver acima) é alinhada pela base pro número/legenda
+                    ficarem colados embaixo, mas isso empurrava o gráfico
+                    junto — ele fica melhor centralizado na própria altura. */}
                 {tam.comPreview && def.preview && (
-                  <span className="block shrink-0 self-center overflow-hidden">{def.preview}</span>
+                  <span className="block shrink-0 overflow-hidden lg:self-center">{def.preview}</span>
                 )}
               </span>
 

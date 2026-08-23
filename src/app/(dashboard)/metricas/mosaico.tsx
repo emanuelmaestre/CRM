@@ -969,35 +969,45 @@ export function Mosaico({
         {marcas.length > 0 && <CoachMarks storageKey="crm-leo:coachmarks:mosaico:v1" steps={TOUR} />}
 
         {/* Barra de escopo única — marca/canal (com as logos reais, via
-            ScopeRow) + Período/Hoje, valendo pra todos os previews ao
-            mesmo tempo. Fica sempre visível (mesmo com um card aberto por
-            cima, ver Foco), então trocar marca ou data não exige fechar
-            o painel primeiro.
+            ScopeRow) + Período/Hoje, valendo pra todos os previews ao mesmo
+            tempo. Fica sempre visível (mesmo com um card aberto por cima,
+            ver Foco), então trocar marca ou data não exige fechar o painel
+            primeiro.
 
-            Ordem visual via `order` (mesmo mecanismo que o ScopeRow já usa
-            pra reordenar canal/marca no mobile): canal → marca → Período
-            (com "Atualizado às" na mesma linha) — o filtro de escopo (o
-            que decide QUAIS dados aparecem) vem antes do filtro de tempo
-            (QUANDO), e "Atualizado às" cola no Período por ser sobre a
-            mesma coisa: até quando esse recorte está valendo. */}
-        <div className="flex flex-wrap items-center justify-center gap-2 rounded-[1.25rem] border border-border bg-card/70 px-3 py-2.5 shadow-[0_2px_12px_rgba(14,15,19,.04)] sm:justify-start">
-          {escopo}
-          <span aria-hidden="true" className="order-[3] hidden h-6 w-px shrink-0 bg-border sm:block" />
-          <div className="order-[4] flex items-center gap-2">
-            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} />
+            Duas fileiras de verdade só no mobile (flex-col, onde a largura
+            obriga tudo a empilhar de qualquer forma): canal + marca em cima
+            (o filtro de ESCOPO — quais dados aparecem) e Período +
+            "Atualizado às" embaixo, sempre juntos na mesma linha (o filtro
+            de TEMPO — quando; "Atualizado às" é sobre esse mesmo recorte,
+            por isso cola nele). A partir do sm, onde sobra largura, os dois
+            grupos voltam a viver numa fileira única (`sm:contents` devolve
+            os filhos à sequência natural do flex pai) — igual sempre foi
+            no desktop, só com canal/marca na ordem corrigida (ver
+            ScopeRow). Sem fundo card/sombra: a barra vira só estrutura
+            (borda + separadores), no mesmo nível visual do resto da tela,
+            em vez de competir como se fosse mais um card. */}
+        <div className="flex flex-col gap-2 rounded-[1.25rem] border border-border px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
+            {escopo}
           </div>
 
-          {/* Cantinho discreto que alterna entre "atualizado às" (parado)
-              e o progresso real do carregamento — mora na mesma linha do
-              Período (ver ordem acima), alinhado à direita dela. */}
-          {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
-            <span className="order-[5] ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
-              <RefreshCw size={11} className={emCarregamento ? "animate-spin" : undefined} />
-              {emCarregamento && mostrarProgresso
-                ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
-                : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
-            </span>
-          )}
+          <span aria-hidden="true" className="h-px w-full shrink-0 bg-border sm:hidden" />
+
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
+            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} />
+
+            {/* Cantinho discreto que alterna entre "atualizado às" (parado)
+                e o progresso real do carregamento — mesma linha do Período,
+                alinhado à direita dela. */}
+            {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
+              <span className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
+                <RefreshCw size={11} className={emCarregamento ? "animate-spin" : undefined} />
+                {emCarregamento && mostrarProgresso
+                  ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
+                  : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Permanece dentro do container compartilhado de 1440px para que a
