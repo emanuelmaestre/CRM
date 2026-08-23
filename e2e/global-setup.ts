@@ -23,7 +23,7 @@ async function globalSetup(config: FullConfig) {
     await page.getByLabel(/e-mail/i).fill(email);
     await page.getByLabel(/senha/i).fill(password);
     await page.getByRole("button", { name: /entrar/i }).click();
-    await page.waitForURL(/\/(dashboard|clientes|vendas)/, { timeout: 15_000 });
+    await page.waitForURL(/\/(dashboard|metricas|clientes|vendas)/, { timeout: 15_000 });
 
     await mkdir(dirname(STORAGE_STATE_PATH), { recursive: true });
     await page.context().storageState({ path: STORAGE_STATE_PATH });
