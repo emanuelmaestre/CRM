@@ -514,17 +514,25 @@ export function Mosaico({
        linha nunca fica vazia e continua dizendo a mesma verdade.
        Verde subindo / vermelho descendo, mesma leitura semântica do Delta. */
     preview: dadosFaturamento
-      ? (
-        <Linha
-          dados={dadosFaturamento.serie.length > 1
+      ? (() => {
+          const pontos = dadosFaturamento.serie.length > 1
             ? dadosFaturamento.serie.map((ponto) => ponto.valor)
-            : [dadosFaturamento.totalAnteriorNumerico, dadosFaturamento.totalNumerico]}
-          cor={(dadosFaturamento.variacaoPercentual ?? 0) < 0 ? "var(--destructive)" : "var(--success)"}
-          largura={180}
-          altura={60}
-          espessura={2.5}
-        />
-      )
+            : [dadosFaturamento.totalAnteriorNumerico, dadosFaturamento.totalNumerico];
+          const cor = (dadosFaturamento.variacaoPercentual ?? 0) < 0 ? "var(--destructive)" : "var(--success)";
+          // Duas instâncias, mesmo padrão do Anel de Score/Publicações: o
+          // SVG tem largura FIXA em pixels (não responsiva), então os
+          // mesmos 180×60 que cabem folgados no card em destaque (linha
+          // inteira, telas largas) ficavam espremidos no card mobile
+          // (metade da largura da tela, "grande" empilha número em cima
+          // do gráfico em vez de lado a lado) — cortados pelo
+          // `overflow-hidden` do card. Menor no mobile em vez de cortado.
+          return (
+            <>
+              <span className="lg:hidden"><Linha dados={pontos} cor={cor} largura={104} altura={42} espessura={2} /></span>
+              <span className="hidden lg:block"><Linha dados={pontos} cor={cor} largura={180} altura={60} espessura={2.5} /></span>
+            </>
+          );
+        })()
       : undefined,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
