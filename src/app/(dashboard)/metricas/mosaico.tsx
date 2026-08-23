@@ -928,23 +928,37 @@ export function Mosaico({
     [grupos],
   );
 
-  /* Dois cards em destaque, linha inteira, maiores que os demais: Faturamento
-   *  sempre abre a grade (métrica primária de qualquer marca) e Estoque
-   *  Parado sempre a fecha (o alerta mais grave de estoque, o que mais
-   *  justifica ação). Já foi dinâmico ("o mais urgente do momento sobe"),
-   *  mas isso fazia o topo trocar de card sozinho conforme o dado do dia —
-   *  a urgência continua sinalizada onde ela nasce: o ponto colorido e a
-   *  borda de alerta no próprio card, dentro da grade. Grade final:
-   *  1 (Faturamento) × 2 × 2 × 2 × 1 (Parados). */
+  /* Faturamento sempre abre a grade em destaque, linha inteira — a métrica
+   *  primária de qualquer marca. Já foi dinâmico ("o mais urgente do
+   *  momento sobe"), mas isso fazia o topo trocar de card sozinho conforme
+   *  o dado do dia — a urgência continua sinalizada onde ela nasce: o
+   *  ponto colorido e a borda de alerta no próprio card, dentro da grade.
+   *
+   *  Estoque Parado tem dois tratamentos por tamanho de tela:
+   *  · Mobile (1x2x2x2x1): fecha a grade sozinho, linha inteira — mesmo
+   *    tratamento do Faturamento — porque no mobile os cards já empilham
+   *    em pares e um fechamento largo lê melhor que um par quebrado.
+   *  · Desktop/tablet: fica DENTRO da grade normal, na posição natural que
+   *    já tinha (último item de Estoque, logo antes de Marketing/
+   *    Publicações) — a pedido do usuário, ao lado de Marketing em vez de
+   *    virar uma segunda linha em destaque. `resto` mantém Parados pra
+   *    isso; só o `destaqueFinal` (usado só no bloco mobile) o extrai. */
   const { destaque, resto, destaqueFinal } = useMemo(() => {
     const escolhido = blocosComSecao.find((item) => item.bloco.id === "faturamento") ?? blocosComSecao[0];
     const final = blocosComSecao.find((item) => item.bloco.id === "parados" && item.bloco.id !== escolhido?.bloco.id);
     return {
       destaque: escolhido,
       destaqueFinal: final,
-      resto: blocosComSecao.filter((item) => item.bloco.id !== escolhido?.bloco.id && item.bloco.id !== final?.bloco.id),
+      resto: blocosComSecao.filter((item) => item.bloco.id !== escolhido?.bloco.id),
     };
   }, [blocosComSecao]);
+
+  // Versão do `resto` só pro mobile: sem Parados, que ali sai da grade e
+  // fecha sozinho em destaque (ver `destaqueFinal`, usado só no bloco lg:hidden).
+  const restoMobile = useMemo(
+    () => resto.filter((item) => item.bloco.id !== destaqueFinal?.bloco.id),
+    [resto, destaqueFinal],
+  );
 
   /* ── Progresso real do carregamento ──────────────────────────────
    *  Não é um timer decorativo: é literalmente quantos dos blocos atuais
@@ -991,7 +1005,7 @@ export function Mosaico({
             {escopo}
           </div>
 
-          <span aria-hidden="true" className="h-px w-full shrink-0 bg-border sm:hidden" />
+          <span aria-hidden="true" className="h-px w-full shrink-0 bg-border sm:h-6 sm:w-px sm:self-stretch" />
 
           <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
             <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} />
@@ -1030,7 +1044,7 @@ export function Mosaico({
                 className="col-span-2"
               />
             )}
-            {resto.map(({ bloco }) => (
+            {restoMobile.map(({ bloco }) => (
               <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} variante="grande" />
             ))}
             {destaqueFinal && (
@@ -1046,9 +1060,10 @@ export function Mosaico({
           </ul>
 
           {/* Tablet/desktop: um card em destaque no topo (Faturamento, linha
-              inteira), os demais numa grade de 2 colunas (4 a partir de xl)
-              e Estoque Parado fechando em outra linha inteira, no mesmo
-              estilo "destaque" do topo. */}
+              inteira) e os demais numa grade de 2 colunas (4 a partir de
+              xl) — Estoque Parado fica dentro dessa grade, na posição
+              natural (último item de Estoque, logo antes de Marketing),
+              em vez de virar uma segunda linha em destaque só aqui. */}
           <div className="hidden lg:flex lg:flex-col lg:gap-3">
             {destaque && (
               <ul>
@@ -1072,18 +1087,6 @@ export function Mosaico({
                 <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} secaoLabel={secaoLabel} variante="grande" />
               ))}
             </ul>
-            {destaqueFinal && (
-              <ul>
-                <Bloco
-                  key={destaqueFinal.bloco.id}
-                  def={destaqueFinal.bloco}
-                  focado={destaqueFinal.bloco.id === cardAberto}
-                  onAbrir={() => abrir(destaqueFinal.bloco.id)}
-                  secaoLabel={destaqueFinal.secaoLabel}
-                  variante="destaque"
-                />
-              </ul>
-            )}
           </div>
         </div>
       </motion.div>

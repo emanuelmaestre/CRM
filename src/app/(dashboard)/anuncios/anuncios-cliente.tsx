@@ -71,11 +71,11 @@ const periodoAnteriorTexto = (dias: number) => dias === 1 ? "o dia anterior" : `
 const periodoAnteriorComPreposicao = (dias: number) => dias === 1 ? "no dia anterior" : `nos ${dias} dias anteriores`;
 const paraISO = (data: Date) => `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 const hojeISO = paraISO(new Date());
+// Pré-selecionado em Hoje, igual ao resto do app (Métricas, Publicidade e
+// as demais listas) — antes vinha em 30 dias, um recorte diferente do
+// padrão adotado nos outros módulos.
 function periodoInicial() {
-  const fim = new Date();
-  const inicio = new Date();
-  inicio.setDate(inicio.getDate() - 29);
-  return { inicio: paraISO(inicio), fim: paraISO(fim) };
+  return { inicio: hojeISO, fim: hojeISO };
 }
 
 function descricaoComparacaoRoas({

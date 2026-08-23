@@ -25,11 +25,10 @@ function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Pré-selecionado em Hoje, igual ao resto do app — antes vinha em 30 dias.
 function periodoPadrao(): RangeDatas {
-  const fim = new Date();
-  const inicio = new Date();
-  inicio.setDate(inicio.getDate() - 30);
-  return { inicio: inicio.toISOString().slice(0, 10), fim: fim.toISOString().slice(0, 10) };
+  const hoje = hojeISO();
+  return { inicio: hoje, fim: hoje };
 }
 
 function Esqueleto() {

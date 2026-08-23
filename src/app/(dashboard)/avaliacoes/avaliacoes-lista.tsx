@@ -379,10 +379,9 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
   const [buscadoEm, setBuscadoEm] = useState<number | null>(() => cacheAvaliacoes?.buscadoEm ?? null);
   const [busca, setBusca] = useState("");
   const [nota, setNota] = useState<FiltroNota>("todas");
-  // Vazio dos dois lados = sem recorte, mostra o histórico inteiro — mesmo
-  // padrão dos filtros De:/Até: do resto do sistema (ver Métricas).
-  const [dataInicio, setDataInicio] = useState("");
-  const [dataFim, setDataFim] = useState("");
+  // Pré-selecionado em Hoje, igual ao resto do app.
+  const [dataInicio, setDataInicio] = useState(hoje);
+  const [dataFim, setDataFim] = useState(hoje);
   const [abertos, setAbertos] = useState<ReadonlySet<string>>(new Set());
   const [identificacoes, setIdentificacoes] = useState<Record<string, Comprador>>({});
 

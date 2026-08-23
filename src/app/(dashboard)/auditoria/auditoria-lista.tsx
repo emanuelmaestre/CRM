@@ -13,6 +13,13 @@ import { CalendarioPopoverRange } from "@/shared/design-system/primitives/Calend
 const copy = pagesConfig.auditoria;
 type AuditItem = Awaited<ReturnType<typeof actionListarAuditoria>>["data"][number];
 
+// toISOString() converte pro fuso UTC — perto da meia-noite local isso troca
+// o dia. Montar a string a partir de getFullYear/Month/Date mantém o dia local.
+function hojeISO(): string {
+  const agora = new Date();
+  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+}
+
 function formatarData(value: Date | string) {
   return new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short", timeStyle: "medium", timeZone: "America/Sao_Paulo",
@@ -39,8 +46,9 @@ export function AuditoriaLista() {
   const [busca, setBusca] = useState("");
   const [entidade, setEntidade] = useState("");
   const [autorTipo, setAutorTipo] = useState("");
-  const [inicio, setInicio] = useState("");
-  const [fim, setFim] = useState("");
+  // Pré-selecionado em Hoje, igual ao resto do app.
+  const [inicio, setInicio] = useState(hojeISO);
+  const [fim, setFim] = useState(hojeISO);
   const [loading, setLoading] = useState(true);
   const [, startTransition] = useTransition();
   const requestId = useRef(0);

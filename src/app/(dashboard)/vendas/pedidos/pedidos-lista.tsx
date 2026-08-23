@@ -59,6 +59,11 @@ function fimDoDia(data: string): string | undefined {
 
 // toISOString() converte pro fuso UTC — perto da meia-noite local isso troca
 // o dia. Montar a string a partir de getFullYear/Month/Date mantém o dia local.
+function hojeISO(): string {
+  const agora = new Date();
+  return `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+}
+
 const CORES_STATUS: Record<string, string> = {
   criado: "var(--muted-foreground)",
   pago: "var(--info)",
@@ -334,8 +339,10 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const statusesAtivos = GRUPOS_STATUS.find((grupo) => grupo.chave === statusGrupo)?.statuses ?? [];
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
-  const [dataInicial, setDataInicial] = useState("");
-  const [dataFinal, setDataFinal] = useState("");
+  // Pré-selecionado em Hoje, igual ao resto do app — antes vinha sem filtro
+  // (mostrando todos os pedidos).
+  const [dataInicial, setDataInicial] = useState(hojeISO);
+  const [dataFinal, setDataFinal] = useState(hojeISO);
   const [exportando, setExportando] = useState(false);
   const [marcas, setMarcas] = useState<Marca[]>(marcasIniciais);
   const [canais, setCanais] = useState<Canal[]>(canaisIniciais);
