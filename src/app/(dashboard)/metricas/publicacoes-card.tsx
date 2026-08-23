@@ -666,14 +666,21 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
               {totalSemVeiculacao > 0 && (
                 <div className="mt-4 border-t border-border pt-4">
                   <div className="flex items-center gap-1">
+                    {/* `flex-wrap` no botão (não nos spans): quando não cabe
+                        lado a lado, "Ver publicações"/"Ocultar" desce pra
+                        própria linha inteiro — nunca quebra no meio da
+                        palavra. `shrink-0 whitespace-nowrap` no rótulo da
+                        direita é o que garante isso; sem eles, o flex
+                        espremia esse span até ele estourar em 3 linhas com
+                        um "s" órfão sozinho. */}
                     <button
                       type="button"
                       aria-expanded={mostrarSemVeiculacao}
                       onClick={() => setMostrarSemVeiculacao((atual) => !atual)}
-                      className="press-feedback flex min-h-11 flex-1 items-center justify-between gap-3 rounded-xl bg-muted/40 px-3 py-2 text-left text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                      className="press-feedback flex min-h-11 flex-1 flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-muted/40 px-3 py-2 text-left text-xs font-semibold text-foreground transition-colors hover:bg-muted"
                     >
-                      <span>{totalSemVeiculacao} {totalSemVeiculacao === 1 ? "publicação sem veiculação" : "publicações sem veiculação"} no período</span>
-                      <span className="text-muted-foreground">{mostrarSemVeiculacao ? "Ocultar" : "Ver publicações"}</span>
+                      <span className="min-w-0">{totalSemVeiculacao} {totalSemVeiculacao === 1 ? "publicação sem veiculação" : "publicações sem veiculação"} no período</span>
+                      <span className="shrink-0 whitespace-nowrap text-muted-foreground">{mostrarSemVeiculacao ? "Ocultar" : "Ver publicações"}</span>
                     </button>
                     <CalculoPopover
                       compacto

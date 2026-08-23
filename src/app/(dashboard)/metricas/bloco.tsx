@@ -735,8 +735,15 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                   inteira. Ordem natural aqui: Período primeiro, filtro de
                   canal logo depois (cabem juntos numa linha curta), critério
                   força a própria linha por conta própria (ver
-                  comparacao-card.tsx). */}
-              <div className={`flex flex-row flex-wrap items-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2 ${def.id === "reposicao" ? "justify-center" : def.id === "comparacao" ? "justify-start" : "justify-between"}`}>
+                  comparacao-card.tsx).
+                  Estoque Parado foge de um jeito diferente, só no mobile:
+                  a linha inteira some (`hidden sm:flex`). A janela de 15
+                  dias é fixa, não muda com o período escolhido — o botão
+                  não fazia sentido ali (pedido explícito) — e o Status já
+                  subiu pra linha do título (acaoTopoSlot), então não sobra
+                  nada pra mostrar aqui embaixo no mobile. A partir do sm a
+                  linha volta, com Período e Status normalmente. */}
+              <div className={`${def.id === "parados" ? "hidden sm:flex" : "flex"} flex-row flex-wrap items-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2 ${def.id === "reposicao" ? "justify-center" : def.id === "comparacao" ? "justify-start" : "justify-between"}`}>
                 <div className={`flex min-w-0 flex-wrap items-center justify-center gap-2 sm:order-none sm:justify-start ${def.id === "comparacao" ? "" : "order-2"}`}>
                   {barraPeriodo}
                 </div>

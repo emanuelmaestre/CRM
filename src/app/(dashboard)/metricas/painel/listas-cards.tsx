@@ -612,14 +612,22 @@ function EntendaStatusBotao() {
   );
 }
 
-export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
+export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
   itens: ProdutoParado[] | null;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
-  /** Nó do cabeçalho do Foco onde o botão "Entenda os status" é portado —
-   *  mesmo mecanismo que o "Entenda o score" do Score da loja, ver bloco.tsx. */
+  /** Nó do cabeçalho do Foco (desktop) onde o botão "Entenda os status" é
+   *  portado, junto do filtro de marca/canal — ver `AcaoSlotFiltro`, que já
+   *  é `hidden sm:flex` por conta própria. */
   acaoSlot?: HTMLElement | null;
+  /** No mobile o Status sobe pra linha do título em vez de ficar na linha
+   *  de baixo — mesmo pedido já atendido em Repor em breve (ver
+   *  ReposicaoCard). Aqui a linha de baixo nem existe mais no mobile: o
+   *  Período foi removido pro Estoque Parado (a janela de 15 dias é fixa,
+   *  não muda com o período escolhido — o botão não fazia sentido ali),
+   *  então sem o Status subindo pra cá a linha de baixo ficaria vazia. */
+  acaoTopoSlot?: HTMLElement | null;
 }) {
   const lista = itens ?? [];
   return (
@@ -630,7 +638,7 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
           nenhum visível em lugar nenhum no desktop) até o usuário escolher uma
           marca, só que não tinha como escolher porque o filtro tinha sumido. */}
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
-      {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusBotao /></div>, acaoSlot)}
+      {acaoTopoSlot && createPortal(<EntendaStatusBotao />, acaoTopoSlot)}
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}

@@ -896,13 +896,14 @@ export function Mosaico({
     })(),
     temLegendaStatus: true,
     chips: chipsDoFiltro,
-    render: (acaoSlot) => (
+    render: (acaoSlot, acaoTopoSlot) => (
       <ParadosCard
         itens={parados.dados?.parados ?? null}
         carregando={parados.carregando}
         semFiltro={parados.semFiltro}
         scope={escopo}
         acaoSlot={acaoSlot}
+        acaoTopoSlot={acaoTopoSlot}
       />
     ),
   }), [parados, escopo, chipsDoFiltro, snapshotOntem]);
