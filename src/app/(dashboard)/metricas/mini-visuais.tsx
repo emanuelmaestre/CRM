@@ -116,10 +116,12 @@ export function BarrasMarca({ dados }: { dados: { slug: string; label: string; v
  *  chama (o serviço já ordena a lista original). */
 export function MiniRanking({ itens, largo = false }: {
   itens: { nome: string; valor: number; slug?: string }[];
-  /** Card que ocupa a linha inteira (Estoque parado no mobile) tem espaço
-   *  de sobra entre o número e a lista — ali o nome do produto pode
-   *  aparecer bem mais, em vez de truncar em 2-3 caracteres como nos
-   *  cards da grade de 2 colunas. */
+  /** Só no MOBILE: o card de Estoque Parado ocupa a linha inteira lá (fecha
+   *  a grade sozinho), com espaço de sobra entre o número e a lista — o
+   *  nome do produto pode aparecer bem mais, em vez de truncar em 2-3
+   *  caracteres como nos cards da grade de 2 colunas. No desktop este
+   *  card volta pra grade normal de 2/4 colunas, então a largura de lá
+   *  não muda — só a do mobile (76px → 150px). */
   largo?: boolean;
 }) {
   if (itens.length === 0) return null;
@@ -133,7 +135,7 @@ export function MiniRanking({ itens, largo = false }: {
        mínimo", "no topo do período") dividia a linha com este preview e
        cortava; 76px é o mínimo que ainda mostra 2-3 caracteres do nome do
        item antes de truncar, liberando o resto pra legenda. */
-    <div className={`flex min-w-0 flex-col gap-1 ${largo ? "w-[150px] lg:w-[180px]" : "w-[76px] lg:w-[136px]"}`}>
+    <div className={`flex min-w-0 flex-col gap-1 ${largo ? "w-[150px] lg:w-[136px]" : "w-[76px] lg:w-[136px]"}`}>
       {itens.map((item, indice) => {
         const cor = item.slug && isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined;
         return (

@@ -1105,7 +1105,11 @@ export function Mosaico({
           <span aria-hidden="true" className="h-px w-full shrink-0 bg-border sm:h-6 sm:w-px sm:self-stretch" />
 
           <div className="flex flex-nowrap items-center justify-center gap-2 sm:contents">
-            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} />
+            {/* semHoje: o botão avulso era redundante com o atalho "Hoje"
+                que já existe dentro do próprio popover de Período (ver
+                CalendarioPopoverRange) — pedido explícito pra tirar da
+                barra de escopo global. */}
+            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} semHoje />
 
             {/* Cantinho discreto que alterna entre "atualizado às" (parado)
                 e o progresso real do carregamento — mesma linha do Período,
