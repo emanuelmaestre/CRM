@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:phase-c": "playwright test e2e/metricas.spec.ts e2e/sugestao-aprovacao-disparo.spec.ts",
+    "test:e2e:phase-c": "playwright test e2e/metricas.spec.ts",
     "test:e2e:phase-b": "playwright test e2e/importacao-previa.spec.ts e2e/pedidos-consulta.spec.ts e2e/automacoes-historico.spec.ts",
     "test:e2e:phase-a": "playwright test e2e/navegacao-responsiva.spec.ts e2e/auth-perfis.spec.ts e2e/core-crm.spec.ts e2e/operacao-comercial.spec.ts",
     "test:e2e:staging": "node scripts/verify-staging-e2e.mjs",
