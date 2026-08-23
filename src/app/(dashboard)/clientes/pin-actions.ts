@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   CLIENTES_PIN_COOKIE,
   getClientesPinHash,
@@ -19,10 +19,17 @@ export async function verificarPinClientes(
     return { ok: false, erro: "PIN incorreto." };
   }
 
+  // NODE_ENV=production não implica HTTPS: o CI serve o build de produção
+  // sobre localhost puro, e um cookie Secure ali é descartado em silêncio
+  // pelo navegador (o PIN nunca "gruda" — sem erro, só o gate voltando
+  // sempre). x-forwarded-proto é o que o proxy real (Vercel/etc.) manda.
+  const requestHeaders = await headers();
+  const https = requestHeaders.get("x-forwarded-proto") === "https";
+
   const store = await cookies();
   store.set(CLIENTES_PIN_COOKIE, getClientesPinHash(), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: https,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 12,
