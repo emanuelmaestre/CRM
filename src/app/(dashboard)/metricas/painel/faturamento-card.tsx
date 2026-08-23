@@ -110,7 +110,7 @@ function EsqueletoFaturamento() {
   );
 }
 
-export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope, acaoSlot }: {
+export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope, acaoSlot, liquido, aoTrocarLiquido }: {
   dados: FaturamentoResumo | null;
   carregando: boolean;
   semFiltro: boolean;
@@ -120,13 +120,18 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   /** Nó do cabeçalho do Foco onde o filtro de marca/canal é portado no
    *  desktop — mesmo mecanismo do Estoque Parado/Repor em breve. */
   acaoSlot?: HTMLElement | null;
+  /** Controlado pelo mosaico — o título do card no cabeçalho do Foco também
+   *  muda entre "Faturamento bruto"/"Faturamento líquido" junto com o toggle. */
+  liquido: boolean;
+  aoTrocarLiquido: (liquido: boolean) => void;
 }) {
   const [focado, setFocado] = useState<number | null>(null);
-  const valorAnimado = useContagem(dados?.totalNumerico ?? 0);
+  const valorAnimado = useContagem((liquido ? dados?.totalLiquidoNumerico : dados?.totalNumerico) ?? 0);
   const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
-  const variacao = dados?.variacaoPercentual ?? null;
+  const variacao = (liquido ? dados?.variacaoPercentualLiquido : dados?.variacaoPercentual) ?? null;
   const positiva = (variacao ?? 0) >= 0;
-  const pontoFocado = dados && focado !== null ? dados.serie[focado] : null;
+  const serieAtiva = dados ? (liquido ? dados.serieLiquido : dados.serie) : [];
+  const pontoFocado = focado !== null ? serieAtiva[focado] ?? null : null;
 
   return (
     <Card>
@@ -156,7 +161,28 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
             </motion.div>
           ) : (
             <motion.div key="conteudo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast} className="px-5 pb-5">
-              <div className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+              <div className="mt-4 flex justify-end">
+                <div role="tablist" aria-label="Tipo de faturamento" className="inline-flex rounded-full bg-muted p-0.5 text-xs font-semibold">
+                  {(["bruto", "liquido"] as const).map((opcao) => (
+                    <button
+                      key={opcao}
+                      type="button"
+                      role="tab"
+                      aria-selected={liquido === (opcao === "liquido")}
+                      onClick={() => aoTrocarLiquido(opcao === "liquido")}
+                      className="rounded-full px-3 py-1 transition-colors"
+                      style={
+                        liquido === (opcao === "liquido")
+                          ? { background: "var(--card)", color: "var(--foreground)", boxShadow: "var(--shadow-sm)" }
+                          : { color: "var(--muted-foreground)" }
+                      }
+                    >
+                      {opcao === "bruto" ? "Bruto" : "Líquido"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-2">
                 <p className="text-stat-lg text-foreground">{moeda.format(valorAnimado)}</p>
                 {variacao !== null && (
                   <span
@@ -174,16 +200,20 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" title={`${copy.comparisonLabel}: ${dados.janelaAnteriorLabel}`}>
                     vs. {dados.janelaAnteriorLabel}
                     <CalculoPopover
-                      titulo="Variação de faturamento"
+                      titulo={`Variação de faturamento ${liquido ? "líquido" : "bruto"}`}
                       significado="Mostra se a receita cresceu ou caiu em comparação com uma janela anterior de mesma duração. Valor positivo representa crescimento; negativo, queda."
                       formula="quanto o faturamento do período atual variou em relação ao período anterior, em porcentagem"
                       resultado={`${positiva ? "+" : ""}${variacao}%`}
                       periodoLabel={`${dados.janelaLabel} em comparação com ${dados.janelaAnteriorLabel}`}
                       itens={[
-                        { label: "Período atual", valor: dados.total },
-                        { label: "Período anterior", valor: dados.totalAnterior },
+                        { label: "Período atual", valor: liquido ? dados.totalLiquido : dados.total },
+                        { label: "Período anterior", valor: liquido ? dados.totalAnteriorLiquido : dados.totalAnterior },
                       ]}
-                      nota="O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
+                      nota={
+                        liquido
+                          ? "Líquido descontando taxa de marketplace (por item, quando o canal informa) e frete pago pelo vendedor. Não desconta desconto/acréscimo nem custo do produto. O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
+                          : "O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
+                      }
                     />
                   </span>
                 )}
@@ -196,7 +226,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Receipt size={13} strokeWidth={2} className="shrink-0 opacity-70" />
-                  <span className="font-semibold tabular-nums text-foreground">{dados?.ticketMedio}</span> {copy.ticketLabel}
+                  <span className="font-semibold tabular-nums text-foreground">{liquido ? dados?.ticketMedioLiquido : dados?.ticketMedio}</span> {copy.ticketLabel}
                 </span>
               </div>
 
@@ -206,7 +236,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 <p className="mb-2 h-4 text-xs font-semibold tabular-nums text-muted-foreground">
                   {pontoFocado ? `${pontoFocado.label} · ${moeda.format(pontoFocado.valor)}` : ""}
                 </p>
-                {dados && <GraficoSerie serie={dados.serie} aoFocar={setFocado} cores={cores} />}
+                {dados && <GraficoSerie serie={serieAtiva} aoFocar={setFocado} cores={cores} />}
               </div>
             </motion.div>
           )}

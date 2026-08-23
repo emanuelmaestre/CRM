@@ -78,6 +78,16 @@ export interface FaturamentoResumo {
   ticketMedio: string;
   serie: SeriePonto[];
   janelaLabel: string;
+  /** Faturamento líquido: total menos taxa de marketplace conhecida (por item)
+   *  e frete pago pelo vendedor. Não desconta desconto/acréscimo nem custo do
+   *  produto — mesmo critério já usado no detalhe do pedido (`valorLiquido`). */
+  totalLiquidoNumerico: number;
+  totalLiquido: string;
+  totalAnteriorLiquidoNumerico: number;
+  totalAnteriorLiquido: string;
+  variacaoPercentualLiquido: number | null;
+  ticketMedioLiquido: string;
+  serieLiquido: SeriePonto[];
 }
 
 interface ProdutoBase {
@@ -401,11 +411,23 @@ export async function obterDashboardData(
   if (brandFiltro.length > 0) condicoesProduto.push(inArray(produto.brandId, brandFiltro));
   if (canalFiltro.length > 0) condicoesProduto.push(condicaoCanalProduto(ctx.orgId, canalFiltro));
 
-  const [pedidosJanela, itensVendidos, produtosAtivos, ultimasSaidas] = await Promise.all([
+  const [pedidosJanela, taxasPorPedido, itensVendidos, produtosAtivos, ultimasSaidas] = await Promise.all([
     ctx.db
-      .select({ id: pedido.id, total: pedido.total, createdAt: pedido.createdAt })
+      .select({ id: pedido.id, total: pedido.total, frete: pedido.frete, createdAt: pedido.createdAt })
       .from(pedido)
       .where(and(...condicoesPedido)),
+    // Soma da taxa de marketplace por pedido, na mesma janela de busca dos
+    // pedidos acima — usada para o faturamento líquido (ver `valorLiquido`
+    // no detalhe do pedido, mesmo critério: total - taxas - frete).
+    ctx.db
+      .select({
+        pedidoId: pedidoItem.pedidoId,
+        taxa: sql<string>`coalesce(sum(${pedidoItem.taxaMarketplace}), 0)`,
+      })
+      .from(pedidoItem)
+      .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
+      .where(and(...condicoesPedido))
+      .groupBy(pedidoItem.pedidoId),
     ctx.db
       .select({
         produtoId: pedidoItem.produtoId,
@@ -444,21 +466,31 @@ export async function obterDashboardData(
   const baldes = serieHoraria
     ? montarBaldesHora(inicioJanela, fimJanela > agora ? agora : fimJanela)
     : montarBaldes(fimJanela, granularidadeSerie, personalizado ? pontosSerie : undefined);
+  const baldesLiquido = serieHoraria
+    ? montarBaldesHora(inicioJanela, fimJanela > agora ? agora : fimJanela)
+    : montarBaldes(fimJanela, granularidadeSerie, personalizado ? pontosSerie : undefined);
+  const taxaPorPedido = new Map(taxasPorPedido.map((t) => [t.pedidoId, parseMoney(t.taxa)]));
   let totalJanela = 0;
   let pedidosNaJanela = 0;
   let totalJanelaAnterior = 0;
+  let totalJanelaLiquido = 0;
+  let totalJanelaAnteriorLiquido = 0;
 
   for (const item of pedidosJanela) {
     const valor = parseMoney(item.total);
+    const liquido = valor - (taxaPorPedido.get(item.id) ?? 0) - parseMoney(item.frete);
     const chave = (serieHoraria ? startOfHour(item.createdAt) : inicioDoBalde(item.createdAt, granularidadeSerie)).getTime();
     if (baldes.has(chave)) baldes.set(chave, (baldes.get(chave) ?? 0) + valor);
+    if (baldesLiquido.has(chave)) baldesLiquido.set(chave, (baldesLiquido.get(chave) ?? 0) + liquido);
 
     if (item.createdAt >= inicioJanela && item.createdAt <= fimJanela) {
       totalJanela += valor;
+      totalJanelaLiquido += liquido;
       pedidosNaJanela += 1;
     }
     if (item.createdAt >= inicioJanelaAnterior && item.createdAt <= fimJanelaAnterior) {
       totalJanelaAnterior += valor;
+      totalJanelaAnteriorLiquido += liquido;
     }
   }
 
@@ -468,6 +500,14 @@ export async function obterDashboardData(
     label: serieHoraria ? `${horaCurta.format(new Date(chave))}h` : rotuloDoBalde(new Date(chave), granularidadeSerie),
     valor,
     altura: maiorValor > 0 ? Math.max(2, Math.round((valor / maiorValor) * 100)) : 0,
+  }));
+
+  const valoresSerieLiquido = [...baldesLiquido.values()];
+  const maiorValorLiquido = Math.max(...valoresSerieLiquido, 0);
+  const serieLiquido: SeriePonto[] = [...baldesLiquido.entries()].map(([chave, valor]) => ({
+    label: serieHoraria ? `${horaCurta.format(new Date(chave))}h` : rotuloDoBalde(new Date(chave), granularidadeSerie),
+    valor,
+    altura: maiorValorLiquido > 0 ? Math.max(2, Math.round((valor / maiorValorLiquido) * 100)) : 0,
   }));
 
   const faturamento: FaturamentoResumo = {
@@ -486,6 +526,15 @@ export async function obterDashboardData(
     janelaLabel: personalizado
       ? `${diaMes.format(inicioJanela)} – ${diaMes.format(fimJanela)}`
       : GRANULARIDADE_LABEL[granularidade],
+    totalLiquidoNumerico: totalJanelaLiquido,
+    totalLiquido: formatCurrency(totalJanelaLiquido),
+    totalAnteriorLiquidoNumerico: totalJanelaAnteriorLiquido,
+    totalAnteriorLiquido: formatCurrency(totalJanelaAnteriorLiquido),
+    variacaoPercentualLiquido: totalJanelaAnteriorLiquido > 0
+      ? Math.round(((totalJanelaLiquido - totalJanelaAnteriorLiquido) / totalJanelaAnteriorLiquido) * 100)
+      : null,
+    ticketMedioLiquido: formatCurrency(pedidosNaJanela > 0 ? totalJanelaLiquido / pedidosNaJanela : 0),
+    serieLiquido,
   };
 
   /* ── Agregação de vendas por produto ── */

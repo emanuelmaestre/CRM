@@ -454,6 +454,10 @@ export function Mosaico({
     setPeriodo({ inicio: novoInicio, fim: novoFim });
   }, []);
 
+  // Sobe pro mosaico porque o título do card (no cabeçalho do Foco, fora do
+  // FaturamentoCard) também precisa saber se a visão é bruta ou líquida.
+  const [visaoLiquida, setVisaoLiquida] = useState(false);
+
   /* ── Blocos ───────────────────────────────────────────────────────
      Um bloco (ou grupo de blocos vizinhos) por memo, cada um com a própria
      lista de dependências — pequena o bastante para o linter conferir
@@ -480,7 +484,7 @@ export function Mosaico({
   const blocoFaturamento = useMemo<BlocoDef>(() => ({
     id: "faturamento",
     secao: "financeiro",
-    titulo: blocosCopy.faturamento.titulo,
+    titulo: visaoLiquida ? "Faturamento líquido" : blocosCopy.faturamento.titulo,
     icone: TrendingUp,
     accent: "var(--acento-2)",
     largura: 2,
@@ -496,7 +500,9 @@ export function Mosaico({
         : blocosCopy.faturamento.legenda,
     },
     explicacao: {
-      resumo: "Faturamento bruto: quanto entrou de dinheiro em pedidos válidos no período, sem descontar taxa do canal, frete, custo do produto ou imposto. É a soma que resta depois de excluir cancelamentos e devoluções.",
+      resumo: visaoLiquida
+        ? "Faturamento líquido: o valor bruto menos a taxa de marketplace (por item, quando o canal informa) e o frete pago pelo vendedor. Não desconta desconto/acréscimo do pedido, custo do produto nem imposto."
+        : "Faturamento bruto: quanto entrou de dinheiro em pedidos válidos no período, sem descontar taxa do canal, frete, custo do produto ou imposto. É a soma que resta depois de excluir cancelamentos e devoluções.",
       pontos: [
         { titulo: "O que entra na soma", texto: "Todo pedido aprovado dentro do período escolhido, somado pelo valor pago pelo cliente." },
         { titulo: "O que fica de fora", texto: "Pedidos cancelados ou devolvidos não entram nesta soma. Eles são medidos separadamente em Cancelamento." },
@@ -543,9 +549,11 @@ export function Mosaico({
         cores={coresFaturamento}
         scope={escopo}
         acaoSlot={acaoSlot}
+        liquido={visaoLiquida}
+        aoTrocarLiquido={setVisaoLiquida}
       />
     ),
-  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, coresFaturamento, escopo, chipsDoFiltro]);
+  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, coresFaturamento, escopo, chipsDoFiltro, visaoLiquida]);
 
   const blocoScore = useMemo<BlocoDef>(() => ({
     id: "score",
@@ -1237,7 +1245,7 @@ export function Mosaico({
               trocarDatas={trocarDatas}
               periodoLabel={saude.dados?.periodoLabel}
               accent={blocoAberto?.accent}
-              semHoje={blocoAberto?.id === "comparacao"}
+              semHoje={blocoAberto?.id === "comparacao" || blocoAberto?.id === "faturamento"}
             />
           )
         }
