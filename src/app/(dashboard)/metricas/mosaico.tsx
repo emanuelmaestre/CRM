@@ -669,13 +669,14 @@ export function Mosaico({
     })(),
     temLegendaStatus: true,
     chips: chipsDoFiltro,
-    render: (acaoSlot) => (
+    render: (acaoSlot, acaoTopoSlot) => (
       <ReposicaoCard
         itens={reposicao.dados?.reposicao ?? null}
         carregando={reposicao.carregando}
         semFiltro={reposicao.semFiltro}
         scope={escopo}
         acaoSlot={acaoSlot}
+        acaoTopoSlot={acaoTopoSlot}
       />
     ),
   }), [reposicao, escopo, chipsDoFiltro, snapshotOntem]);

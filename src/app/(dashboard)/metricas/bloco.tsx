@@ -127,8 +127,10 @@ export interface BlocoDef {
    *  `acaoSlot` é o nó do DOM que o Foco reserva na própria barra de
    *  cabeçalho — um card com uma ação própria (aba, botão "como é
    *  calculado") a `createPortal` ali dentro, em vez de desenhar um segundo
-   *  cabeçalho por conta própria. Cards sem ação ignoram o parâmetro. */
-  render: (acaoSlot: HTMLElement | null) => React.ReactNode;
+   *  cabeçalho por conta própria. Cards sem ação ignoram o parâmetro.
+   *  `acaoTopoSlot` é um segundo alvo, na linha do título (só mobile) —
+   *  hoje só Repor em breve usa, pro botão Status. */
+  render: (acaoSlot: HTMLElement | null, acaoTopoSlot?: HTMLElement | null) => React.ReactNode;
 }
 
 const PESO_ALERTA: Record<NivelAlerta, number> = { critico: 2, atencao: 1 };
@@ -541,6 +543,9 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
   // do primeiro commit, e `render(acaoSlot)` precisa disparar de novo quando
   // ele aparece.
   const [acaoSlot, setAcaoSlot] = useState<HTMLDivElement | null>(null);
+  // Segundo alvo, na linha do título — só Repor em breve usa (ver comentário
+  // mais abaixo, perto do X). Mesmo motivo de ser state, não ref direta.
+  const [acaoTopoSlot, setAcaoTopoSlot] = useState<HTMLDivElement | null>(null);
 
   // Prende o Tab dentro do painel e devolve o foco a quem abriu o bloco ao
   // fechar — sem isso, Tab escapa para trás do modal em tela cheia e fechar
@@ -651,6 +656,13 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                     </AnimatedInfoPopover>
                   )}
                 </div>
+                {/* Alvo de portal só pro mobile, entre o título e o X — hoje só
+                    Repor em breve usa isto: pedido que o botão Status suba pra
+                    esta linha em vez de morar na linha de baixo (ver
+                    ReposicaoCard, que decide o que portar aqui). Em qualquer
+                    outro card fica sempre vazio (`empty:hidden`), sem ocupar
+                    espaço. */}
+                <div ref={setAcaoTopoSlot} className="empty:hidden sm:hidden" />
                 {/* Sem botões de seta: pular de card continua valendo pelo
                     teclado (← →, ver o efeito de atalhos acima), mas dois
                     botões a mais no cabeçalho competiam com o fechar e com a
@@ -668,8 +680,12 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                   agrupados no centro, mais fácil de escanear numa tela
                   estreita. A partir do sm volta ao normal (`sm:justify-start`
                   + `sm:order-none` nos dois, já correto: barraPeriodo à
-                  esquerda, acaoSlot empurrado pro fim via `sm:ml-auto`). */}
-              <div className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:justify-start sm:gap-2">
+                  esquerda, acaoSlot empurrado pro fim via `sm:ml-auto`).
+                  Repor em breve foge da regra no mobile: o Status subiu pra
+                  linha do título (ver acaoTopoSlot acima), então esta linha
+                  fica só com "Atualizado às" — `justify-center` no lugar de
+                  `justify-between` centraliza esse texto sozinho. */}
+              <div className={`flex flex-row flex-wrap items-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2 ${def.id === "reposicao" ? "justify-center" : "justify-between"}`}>
                 <div className="order-2 flex min-w-0 flex-wrap items-center justify-center gap-2 sm:order-none sm:justify-start">
                   {barraPeriodo}
                 </div>
@@ -711,7 +727,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                   apagar a borda por CSS nunca funcionou — `.card-surface`
                   está fora de @layer e vencia os utilitários do Tailwind. */}
               <div className="mx-auto w-full max-w-[1440px]">
-                {def.render(acaoSlot)}
+                {def.render(acaoSlot, acaoTopoSlot)}
               </div>
             </motion.div>
           </motion.div>

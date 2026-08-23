@@ -53,7 +53,12 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
     <motion.li variants={listItem} className="border-b border-border px-5 py-3 last:border-0">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-tight text-foreground">{nome}</p>
+          {/* Nome completo, sem cortar: quebra em quantas linhas precisar
+              em vez de reticências — é o dado que mais importa pra
+              identificar o produto certo entre vários parecidos, e um
+              "..." no meio do nome escondia justamente a parte que
+              diferenciava um do outro (tamanho, cor, variação). */}
+          <p className="text-sm font-semibold leading-snug text-foreground [overflow-wrap:anywhere]">{nome}</p>
           {/* SKU/Empresa/Status formam um bloco só de metadado sobre o mesmo
               produto — ficam coladas entre si (leading-tight, mt mínimo) e com
               mais respiro só em relação ao nome acima, que é a info principal. */}
@@ -293,23 +298,26 @@ function statusAnuncioInfoReposicao(item: ProdutoReposicao): { label: string; cl
   return MAPA[item.statusAnuncio];
 }
 
-export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
+export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
   itens: ProdutoReposicao[] | null;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
-  /** Nó do cabeçalho do Foco onde o botão Status é portado. Sozinho aqui —
-   *  este card não tem Período (ver mosaico.tsx), então o slot da barra de
-   *  período à esquerda leva o "Atualizado às" no lugar (ver mosaico.tsx),
-   *  e este, à direita, fica só com Status, embaixo do X de fechar. */
+  /** Nó do cabeçalho do Foco (desktop) onde o botão Status é portado, junto
+   *  do filtro de marca/canal — ver `AcaoSlotFiltro`, que já é `hidden
+   *  sm:flex` por conta própria. */
   acaoSlot?: HTMLElement | null;
+  /** No mobile o Status sobe pra linha do título em vez de ficar na linha
+   *  de baixo (que aqui só tem "Atualizado às", ver mosaico.tsx) — pedido
+   *  explícito, pra ficar entre "Repor em breve" e o X de fechar. */
+  acaoTopoSlot?: HTMLElement | null;
 }) {
   const lista = itens ?? [];
   return (
     <>
       {/* Fora do ListaCard de propósito — ver comentário maior em ParadosCard. */}
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaStatusBotao />} />
-      {acaoSlot && createPortal(<div className="sm:hidden"><EntendaStatusBotao /></div>, acaoSlot)}
+      {acaoTopoSlot && createPortal(<EntendaStatusBotao />, acaoTopoSlot)}
       <ListaCard
         vazio={lista.length === 0}
         carregando={carregando}
@@ -517,10 +525,12 @@ const LEGENDA_STATUS: Array<{ titulo: string; texto: string; cor: string }> = [
 /** Selo de status por item — mesmo visual em qualquer card que mostre a
  *  situação do anúncio no ML (Estoque Parado, Repor em breve, ...). */
 function SeloStatus({ status }: { status: { label: string; className: string; hint: string } }) {
-  // Só a cor do texto (ex.: "text-success"), sem o fundo — o pill colorido
-  // ("bg-success/10" etc.) ficava grande demais do lado do resto da linha.
-  // Negrito é o que carrega a ênfase agora, em qualquer tamanho de tela.
-  const corTexto = status.className.split(" ").find((classe) => classe.startsWith("text-")) ?? "text-muted-foreground";
+  // Fundo leve (ex.: "bg-success/10") de volta, além da cor do texto: só o
+  // negrito (mesmo extrabold) não estava dando destaque suficiente — em
+  // fontes de sistema (a tela não carrega um arquivo de fonte próprio) o
+  // peso 800 costuma cair no mesmo 700 do bold comum, sem diferença visível.
+  // Um pill pequeno (padding mínimo, não o pill grande de antes) resolve
+  // isso sem competir com o resto da linha.
   return (
     <AnimatedInfoPopover
       trigger={(
@@ -528,7 +538,7 @@ function SeloStatus({ status }: { status: { label: string; className: string; hi
           type="button"
           aria-label={`Entenda o status ${status.label}`}
           onClick={(event) => event.stopPropagation()}
-          className={`press-feedback cursor-pointer text-[10.5px] font-extrabold uppercase tracking-wide transition-opacity hover:opacity-80 ${corTexto}`}
+          className={`press-feedback cursor-pointer whitespace-nowrap rounded-full px-1.5 py-[1px] text-[10.5px] font-extrabold uppercase tracking-wide transition-opacity hover:opacity-80 ${status.className}`}
         >
           {status.label}
         </button>
