@@ -3,6 +3,10 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
+  // Default (30s) colidia com o timeout de 30s que algumas asserções
+  // precisam sob carga do runner de CI — o teste inteiro estourava antes da
+  // asserção ter a chance de esperar.
+  timeout: 60_000,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   reporter: "html",
