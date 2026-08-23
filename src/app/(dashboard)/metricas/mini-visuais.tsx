@@ -9,6 +9,7 @@
    FaturamentoCard) não usam nada daqui — são maiores, com hover/foco, e
    continuam como estão. */
 
+import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 
@@ -113,6 +114,37 @@ export function MiniRanking({ itens }: { itens: { nome: string; valor: number; s
         );
       })}
     </div>
+  );
+}
+
+/** Flecha de tendência grande (o zigue-zague do lucide) — para o tile em
+ *  destaque, onde uma linha de série fina sumia e, em período curto, virava
+ *  um traço reto sem leitura. Lê a mesma variação do `Delta`, só que como
+ *  imagem: sobe verde, desce vermelha, estável neutra. */
+export function FlechaTendencia({ valor, subirEhRuim, tamanho = 72 }: {
+  valor: number | null | undefined;
+  subirEhRuim?: boolean;
+  tamanho?: number;
+}) {
+  const semBase = valor === null || valor === undefined;
+  const subiu = !semBase && valor > 0;
+  const estavel = !semBase && valor === 0;
+  const bom = subirEhRuim ? !subiu : subiu;
+  const cor = semBase || estavel ? "var(--muted-foreground)" : bom ? "var(--success)" : "var(--destructive)";
+  const Icone = semBase || estavel ? Minus : subiu ? TrendingUp : TrendingDown;
+  return (
+    // Sem fundo tingido nem moldura: a flecha sozinha, no tamanho cheio do
+    // espaço. O selo quadrado que existia aqui competia com o ícone-badge
+    // do próprio card, logo à esquerda — dois quadradinhos arredondados na
+    // mesma linha liam como se fossem dois botões.
+    <span
+      className="grid shrink-0 place-items-center"
+      style={{ width: tamanho, height: tamanho, color: cor }}
+      role="img"
+      aria-label={semBase ? "Sem base de comparação" : estavel ? "Estável" : `${subiu ? "Subiu" : "Caiu"} ${Math.abs(valor)}%`}
+    >
+      <Icone size={tamanho} strokeWidth={1.75} />
+    </span>
   );
 }
 

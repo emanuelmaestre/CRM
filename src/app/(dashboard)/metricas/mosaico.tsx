@@ -18,7 +18,7 @@ import metricasConfig from "@/config/metricas.json";
 import { agruparPorSecao, Bloco, Foco, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo, AnelScore } from "./metricas-primitives";
-import { Linha, BarrasMarca, MiniRanking, BarraSplit } from "./mini-visuais";
+import { Linha, BarrasMarca, FlechaTendencia, MiniRanking, BarraSplit } from "./mini-visuais";
 import { actionObterDashboardData, actionObterReclamacoes } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
@@ -523,15 +523,13 @@ export function Mosaico({
     // alimenta o Delta ao lado do nome, então a linha nunca some. Verde
     // subindo / vermelho descendo, maior que a linha fina de antes (140×64
     // em vez de 96×36) pra não sumir no card grande.
+    // Flecha de tendência (o zigue-zague do lucide) em vez da linha da
+    // série: a linha dependia de ter vários pontos pra dizer alguma coisa e
+    // virava um traço reto — ou sumia — nos períodos curtos. A flecha lê a
+    // mesma variação que já aparece ao lado do número, então nunca fica
+    // vazia: sobe verde, desce vermelha.
     preview: dadosFaturamento
-      ? <Linha
-          dados={dadosFaturamento.serie.length > 1
-            ? dadosFaturamento.serie.map((ponto) => ponto.valor)
-            : [dadosFaturamento.totalAnteriorNumerico, dadosFaturamento.totalNumerico]}
-          cor={dadosFaturamento.totalNumerico >= dadosFaturamento.totalAnteriorNumerico ? "var(--success)" : "var(--destructive)"}
-          largura={140}
-          altura={64}
-        />
+      ? <FlechaTendencia valor={dadosFaturamento.variacaoPercentual} />
       : undefined,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (

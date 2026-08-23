@@ -1,5 +1,5 @@
 import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "drizzle-orm";
-import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subHours, subMonths, subWeeks } from "date-fns";
+import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
@@ -199,14 +199,19 @@ const horaCurta = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", timeZone: 
 /** Baldes por HORA — só para quando a janela pedida é 1 dia só (ex.:
  *  filtro "Hoje"). Nesse caso, baldear por dia dá 1 ponto só e a série
  *  não tem como desenhar uma linha de verdade; por hora usa os
- *  `pedido.createdAt` reais do próprio dia — 24 baldes, sem inventar
- *  nenhum dado, só numa resolução mais fina que a diária. */
-function montarBaldesHora(inicioDia: Date, fimDia: Date): Map<number, number> {
+ *  `pedido.createdAt` reais do próprio dia, sem inventar nenhum dado, só
+ *  numa resolução mais fina que a diária.
+ *
+ *  Anda pra FRENTE a partir de `inicio` (em vez de pra trás a partir de
+ *  `fim`): andando pra trás a partir de 23:59 sobrava um balde do dia
+ *  anterior no começo da série. E quem chama corta `fim` no horário atual
+ *  — hora que ainda não aconteceu não é "faturou zero", é "ainda não
+ *  chegou"; incluí-la desenhava uma queda a zero que não existe. */
+function montarBaldesHora(inicio: Date, fim: Date): Map<number, number> {
   const baldes = new Map<number, number>();
-  const totalHoras = Math.max(1, Math.round((fimDia.getTime() - inicioDia.getTime()) / (60 * 60 * 1000)) + 1);
-  for (let i = 0; i < totalHoras; i++) {
-    const inicio = startOfHour(subHours(fimDia, totalHoras - 1 - i));
-    baldes.set(inicio.getTime(), 0);
+  const ultimo = startOfHour(fim).getTime();
+  for (let cursor = startOfHour(inicio).getTime(); cursor <= ultimo; cursor += 60 * 60 * 1000) {
+    baldes.set(cursor, 0);
   }
   return baldes;
 }
@@ -435,8 +440,11 @@ export async function obterDashboardData(
   ]);
 
   /* ── Faturamento ── */
+  // `fimJanela` de um dia inteiro é 23:59:59 — pra "hoje" isso projeta a
+  // série até o fim do dia, com todas as horas futuras em zero. Corta em
+  // `agora` pra série terminar na última hora que de fato existiu.
   const baldes = serieHoraria
-    ? montarBaldesHora(inicioJanela, fimJanela)
+    ? montarBaldesHora(inicioJanela, fimJanela > agora ? agora : fimJanela)
     : montarBaldes(fimJanela, granularidadeSerie, personalizado ? pontosSerie : undefined);
   let totalJanela = 0;
   let pedidosNaJanela = 0;
