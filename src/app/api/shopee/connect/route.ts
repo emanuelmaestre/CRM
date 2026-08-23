@@ -3,6 +3,7 @@ import { createHmac, randomBytes } from "crypto";
 import { obterUrlCallbackShopee } from "@/shared/config/app-url";
 import { authorizeRoute } from "@/shared/lib/auth/session";
 import { isBrandSlug } from "@/shared/config/brands";
+import { obterShopeeBaseUrl, obterShopeeAppCredenciais } from "@/shared/config/shopee-env";
 
 /* ── Autorização Shopee (Open Platform v2) ─────────────────────────
    Diferente do OAuth "clássico" do Mercado Livre (PKCE, client_id +
@@ -33,10 +34,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Marca não suportada." }, { status: 400 });
   }
 
-  const partnerId = process.env.SHOPEE_PARTNER_ID;
-  const partnerKey = process.env.SHOPEE_PARTNER_KEY;
+  const { partnerId, partnerKey } = obterShopeeAppCredenciais();
   if (!partnerId || !partnerKey) {
-    return NextResponse.json({ error: "SHOPEE_PARTNER_ID/SHOPEE_PARTNER_KEY não configurados" }, { status: 500 });
+    return NextResponse.json({ error: "SHOPEE_PARTNER_ID_TEST/LIVE e SHOPEE_PARTNER_KEY_TEST/LIVE não configurados" }, { status: 500 });
   }
 
   const path = "/api/v2/shop/auth_partner";
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     redirect,
   });
 
-  const authUrl = `https://partner.shopeemobile.com${path}?${params}`;
+  const authUrl = `${obterShopeeBaseUrl()}${path}?${params}`;
 
   const res = NextResponse.redirect(authUrl);
   res.cookies.set("shopee_oauth_state", state, { httpOnly: true, sameSite: "lax", maxAge: 600 });

@@ -12,6 +12,7 @@ import { getBrandConfig, isBrandSlug, compararPorOrdemDeMarca } from "@/shared/c
 import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
 import { actionAtualizarContaCanal, actionRemoverContaCanal } from "./actions";
 import { MLChannelActions } from "./MLChannelActions";
+import { ShopeeChannelActions } from "./ShopeeChannelActions";
 import type { MercadoLivreStatus } from "./useMercadoLivreStatus";
 
 const cascataLinhas = { hidden: {}, show: { transition: { staggerChildren: 0.035 } } };
@@ -271,6 +272,10 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
 
       {item.canal === "mercadolivre" && isBrandSlug(item.brand) ? (
         <MLChannelActions slug={item.brand} brandLabel={item.brandLabel} status={mlStatus} />
+      ) : null}
+
+      {item.canal === "shopee" && isBrandSlug(item.brand) ? (
+        <ShopeeChannelActions slug={item.brand} conectado={item.status === "conectado"} />
       ) : null}
 
       {item.channelAccountId && !editando && (

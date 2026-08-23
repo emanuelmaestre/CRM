@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { obterAppUrl } from "@/shared/config/app-url";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
+import { obterShopeeBaseUrl, obterShopeeAppCredenciais } from "@/shared/config/shopee-env";
 import { createClient } from "@supabase/supabase-js";
 import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
@@ -100,15 +101,18 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
   const brand = rawBrand;
 
-  const partnerId = process.env.SHOPEE_PARTNER_ID!;
-  const partnerKey = process.env.SHOPEE_PARTNER_KEY!;
+  const { partnerId, partnerKey } = obterShopeeAppCredenciais();
+  if (!partnerId || !partnerKey) {
+    console.error("[shopee/callback] SHOPEE_PARTNER_ID_TEST/LIVE e SHOPEE_PARTNER_KEY_TEST/LIVE não configurados");
+    return NextResponse.redirect(`${appUrl}/configuracoes?shopee_error=missing_credentials`);
+  }
 
   const path = "/api/v2/auth/token/get";
   const timestamp = Math.floor(Date.now() / 1000);
   const sign = assinar(partnerId, partnerKey, path, timestamp);
 
   const tokenRes = await shopeeFetch(
-    `https://partner.shopeemobile.com${path}?${new URLSearchParams({
+    `${obterShopeeBaseUrl()}${path}?${new URLSearchParams({
       partner_id: partnerId,
       timestamp: String(timestamp),
       sign,

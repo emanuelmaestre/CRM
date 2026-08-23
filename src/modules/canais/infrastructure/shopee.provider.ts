@@ -2,6 +2,7 @@ import crypto from "crypto";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
+import { obterShopeeBaseUrl, obterShopeeAppCredenciais } from "@/shared/config/shopee-env";
 
 interface ShopeeCredentials {
   partnerId: string;
@@ -11,7 +12,7 @@ interface ShopeeCredentials {
 }
 
 export class ShopeeProvider implements ChannelProvider {
-  private readonly baseUrl = "https://partner.shopeemobile.com/api/v2";
+  private readonly baseUrl = `${obterShopeeBaseUrl()}/api/v2`;
   private creds: ShopeeCredentials;
 
   constructor(creds: ShopeeCredentials) {
@@ -171,8 +172,7 @@ export class ShopeeProvider implements ChannelProvider {
 
 export function criarShopeeProvider(brandSlug: BrandSlug): ShopeeProvider {
   const upper = brandEnvSuffix(brandSlug);
-  const partnerId = process.env.SHOPEE_PARTNER_ID;
-  const partnerKey = process.env.SHOPEE_PARTNER_KEY;
+  const { partnerId, partnerKey } = obterShopeeAppCredenciais();
   const shopId = process.env[`SHOPEE_SHOP_ID_${upper}`];
   const accessToken = process.env[`SHOPEE_ACCESS_TOKEN_${upper}`];
 
