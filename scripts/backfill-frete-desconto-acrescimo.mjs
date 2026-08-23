@@ -110,16 +110,29 @@ async function processarMarca(marca) {
   const accessToken = await obterAccessToken(marca.id, marca.slug);
   const auth = { Authorization: `Bearer ${accessToken}` };
 
-  let query = supabase
-    .from("pedido")
-    .select("id, provider_order_id, frete, desconto, acrescimo, pedido_item(id, quantidade, taxa_marketplace, produto:produto_id(sku))")
-    .eq("org_id", orgId)
-    .eq("brand_id", marca.id)
-    .eq("canal", "mercadolivre")
-    .not("provider_order_id", "is", null);
-
-  const { data: todosPedidos, error } = await query;
-  if (error) throw new Error(`Falha ao listar pedidos de ${marca.slug}: ${error.message}`);
+  // PostgREST corta em 1000 linhas por padrão — sem paginar aqui, marcas com
+  // mais de 1000 pedidos ML (ex.: wuwu, com 3039) tinham a maioria dos
+  // pedidos simplesmente nunca lida, silenciosamente, em toda execução
+  // anterior (nenhum erro, só um resultado incompleto). Confirmado ao vivo
+  // em 23/08/2026: wuwu ficou com 1922 itens sem taxaMarketplace mesmo após
+  // duas rodadas do backfill, enquanto marcas abaixo de 1000 pedidos (karzi,
+  // armarinhos_lima) chegaram a 100% de cobertura nas mesmas rodadas.
+  const PAGINA = 1000;
+  const todosPedidos = [];
+  for (let inicio = 0; ; inicio += PAGINA) {
+    const { data: pagina, error } = await supabase
+      .from("pedido")
+      .select("id, provider_order_id, frete, desconto, acrescimo, pedido_item(id, quantidade, taxa_marketplace, produto:produto_id(sku))")
+      .eq("org_id", orgId)
+      .eq("brand_id", marca.id)
+      .eq("canal", "mercadolivre")
+      .not("provider_order_id", "is", null)
+      .order("id")
+      .range(inicio, inicio + PAGINA - 1);
+    if (error) throw new Error(`Falha ao listar pedidos de ${marca.slug}: ${error.message}`);
+    todosPedidos.push(...(pagina ?? []));
+    if (!pagina || pagina.length < PAGINA) break;
+  }
 
   // Filtrado em JS, não no PostgREST: "algum item sem taxaMarketplace" é uma
   // condição sobre a tabela relacionada (pedido_item), que o PostgREST não
