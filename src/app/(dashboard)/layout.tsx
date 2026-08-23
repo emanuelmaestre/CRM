@@ -23,13 +23,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </main>
 
-      {/* Bottom nav — visível só em mobile. Um respiro extra (6px) além do
-          próprio safe-area-inset-bottom: no iPhone com Dynamic Island/Face
-          ID (Pro Max e afins), o ícone mais perto da borda inferior às vezes
-          coincidia com a faixa de gesto do sistema (trocar de app), abrindo
-          isso em vez de navegar. Só sobe o conteúdo — o fundo continua
-          colado no rodapé, sem barra branca sobrando embaixo. */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)_+_6px)] md:hidden [@media_(min-width:768px)_and_(max-height:500px)]:block">
+      {/* Bottom nav — visível só em mobile. Respiro extra além do próprio
+          safe-area-inset-bottom: no iPhone com Dynamic Island/Face ID (Pro
+          Max e afins), o ícone mais perto da borda inferior coincidia com a
+          faixa de gesto do sistema, abrindo o app switcher (ou o atalho do
+          assistente de voz, dependendo do aparelho/gesto) em vez de navegar.
+          6px não bastava — relato real de toque acertando o gesto do
+          sistema mesmo assim; subiu pra 14px. Só sobe o conteúdo — o fundo
+          continua colado no rodapé, sem barra branca sobrando embaixo. */}
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)_+_14px)] md:hidden [@media_(min-width:768px)_and_(max-height:500px)]:block">
         <BottomNav modulosVisiveis={contexto.modulosVisiveis} />
       </nav>
     </div>
