@@ -110,9 +110,12 @@ describe("Estoque — escopo por empresa", () => {
   it("mostra as três empresas com a contagem cruzada pelo canal", async () => {
     render(<EstoqueLista />);
 
+    // A pílula não mostra mais a contagem em texto (ver componente de
+    // filtro) — o que resta observável é o efeito dela: quem tem produto
+    // no canal fica clicável, quem não tem fica travado (abaixo).
     const karzi = await screen.findByRole("button", { name: "KARZI" });
-    expect(karzi).toHaveTextContent("312");
-    expect(await screen.findByRole("button", { name: "WUWU" })).toHaveTextContent("148");
+    expect(karzi).not.toBeDisabled();
+    expect(await screen.findByRole("button", { name: "WUWU" })).not.toBeDisabled();
 
     // Empresa sem produto no canal ativo fica travada, com o motivo no title.
     const vazia = await screen.findByRole("button", { name: "ARMARINHOS LIMA" });
@@ -219,7 +222,13 @@ describe("Estoque — escopo por empresa", () => {
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
 
-    await waitFor(() => expect(wuwu).toHaveTextContent("0"));
+    // A pílula não mostra mais a contagem (ver componente de filtro) —
+    // espera o refetch de produtos (é ele quem recalcula `marcas` com o
+    // canal aplicado, ver `carregar` em estoque-lista.tsx) terminar pela
+    // própria chamada mockada, não por texto na tela.
+    await waitFor(() => expect(listarProdutos).toHaveBeenCalledWith(
+      expect.objectContaining({ canalTipos: ["mercadolivre"] }),
+    ));
     // Zerou, mas segue selecionada: continua clicável para poder desmarcar.
     expect(wuwu).not.toBeDisabled();
     expect(wuwu).toHaveAttribute("aria-pressed", "true");

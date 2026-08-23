@@ -129,16 +129,19 @@ function CanalPill({ tipo, conectado, ativo, onClick }: {
     <motion.button
       type="button"
       variants={entradaExagerada}
-      onClick={conectado ? onClick : undefined}
-      disabled={!conectado}
-      whileHover={conectado && !reduzir ? { y: -2, scale: 1.04 } : undefined}
-      whileTap={conectado && !reduzir ? { scale: 0.92 } : undefined}
+      // Continua tocável mesmo desconectado — o toque mostra o motivo (toast),
+      // porque `title` (tooltip) não aparece no toque em celular; mesmo
+      // padrão de Estoque/Publicidade/Métricas/Vendas.
+      onClick={conectado ? onClick : () => toast.info(copy.channelSelector.disconnectedHint.replace("{canal}", label))}
+      aria-disabled={!conectado}
+      whileHover={!reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={!reduzir ? { scale: conectado ? 0.92 : 0.97 } : undefined}
       aria-pressed={ativo}
       aria-label={label}
       title={conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
       className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         !conectado
-          ? "border border-border opacity-50 cursor-not-allowed"
+          ? "border border-border opacity-50"
           : ativo
             ? "border-2 bg-card/70"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
@@ -325,7 +328,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
           ))}
         </motion.div>
 
-        <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border lg:block" />
+        <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border lg:block" />
 
         <motion.div
           variants={staggerExagerado}
@@ -342,7 +345,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
           ))}
         </motion.div>
 
-        <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border lg:block" />
+        <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border lg:block" />
 
         <motion.input
           variants={entradaExagerada}

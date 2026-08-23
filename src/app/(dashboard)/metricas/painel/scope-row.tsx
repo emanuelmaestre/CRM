@@ -1,6 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { PlugZap2 } from "lucide-react";
+import { toast } from "sonner";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -18,18 +20,23 @@ function canalLabel(tipo: string) {
   return (channelsConfig.items as Record<string, { label?: string }>)[tipo]?.label ?? tipo;
 }
 
-function HaloSelecao({ cor }: { cor: string }) {
-  const reduzMovimento = useReducedMotion();
+// Mesmo halo (pisca uma vez e some) usado em Vendas/Estoque/Clientes/
+// Publicidade — antes este arquivo tinha uma versão própria, um anel que
+// respirava sem parar enquanto a pílula ficava selecionada.
+function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; reduzir: boolean | null }) {
   return (
     <AnimatePresence>
-      <motion.span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 rounded-full"
-        style={{ boxShadow: `0 0 0 1px ${cor}` }}
-        initial={{ opacity: 0, scale: 1 }}
-        animate={reduzMovimento ? { opacity: 0.35 } : { opacity: [0.35, 0, 0.35], scale: [1, 1.18, 1] }}
-        transition={reduzMovimento ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-      />
+      {ativo && !reduzir && (
+        <motion.span
+          key="halo"
+          initial={{ opacity: 0.55, scale: 0.82 }}
+          animate={{ opacity: 0, scale: 1.4 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.55, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{ border: `2px solid ${cor}` }}
+        />
+      )}
     </AnimatePresence>
   );
 }
@@ -48,24 +55,28 @@ function Pilula({ ativo, desabilitado, onClick, rotulo, accent, children }: {
   return (
     <motion.button
       type="button"
-      onClick={desabilitado ? undefined : onClick}
-      disabled={desabilitado}
+      // Continua tocável mesmo desabilitada — o toque mostra o motivo (toast),
+      // porque `title` (tooltip) não aparece no toque em celular; mesmo
+      // padrão de Estoque/Publicidade.
+      onClick={desabilitado ? () => toast.info(`${rotulo ?? "Este canal"} ainda não está conectado.`) : onClick}
+      aria-disabled={desabilitado}
       aria-pressed={ativo}
       aria-label={rotulo}
       title={rotulo}
-      whileHover={desabilitado ? undefined : { scale: reduzMovimento ? 1 : 1.03 }}
-      whileTap={desabilitado ? undefined : { scale: reduzMovimento ? 1 : 0.97 }}
-      style={ativo && !desabilitado && accent ? { borderColor: accent, color: accent } : undefined}
+      whileHover={!reduzMovimento ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={!reduzMovimento ? { scale: desabilitado ? 0.97 : 0.92 } : undefined}
+      style={ativo && !desabilitado && accent ? { borderColor: accent } : undefined}
       className={`relative inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-card/70 px-3.5 transition-colors text-[13px] font-semibold ${
         desabilitado
-          ? "cursor-not-allowed border border-border text-muted-foreground opacity-40"
+          ? "border border-border text-muted-foreground opacity-50"
           : ativo
             ? "border-2 font-bold"
             : "border border-border/80 bg-card/40 text-muted-foreground hover:bg-card/70"
       }`}
     >
-      {ativo && !desabilitado && accent && <HaloSelecao cor={accent} />}
+      <HaloSelecao ativo={ativo && !desabilitado && Boolean(accent)} cor={accent ?? "var(--foreground)"} reduzir={reduzMovimento} />
       {children}
+      {desabilitado && <PlugZap2 size={14} className="text-muted-foreground" />}
     </motion.button>
   );
 }

@@ -526,8 +526,8 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
           formam um grupo só, que quebra (ou não) como unidade. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
-          <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
           <SeletorCanalAnuncios />
+          <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
         </div>
         {/* Risco separador só no mobile empilhado — do sm em diante os dois
             grupos já ficam lado a lado na mesma linha, com o traço abaixo

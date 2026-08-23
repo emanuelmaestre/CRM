@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, Ban, RefreshCw, Clock3 } from "lucide-react";
+import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, Ban, RefreshCw, Clock3, PlugZap2 } from "lucide-react";
 import { actionListarPedidosDetalhados, actionListarPedidosParaPdf } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -218,16 +218,19 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
     <motion.button
       type="button"
       variants={entradaExagerada}
-      onClick={canal.conectado ? onClick : undefined}
-      disabled={!canal.conectado}
-      whileHover={canal.conectado && !reduzir ? { y: -2, scale: 1.04 } : undefined}
-      whileTap={canal.conectado && !reduzir ? { scale: 0.92 } : undefined}
+      // Continua tocável mesmo desconectado — o toque mostra o motivo (toast),
+      // porque `title` (tooltip) não aparece no toque em celular; mesmo
+      // padrão de Estoque/Publicidade/Métricas.
+      onClick={canal.conectado ? onClick : () => toast.info(copy.channelSelector.disconnectedHint.replace("{canal}", label))}
+      aria-disabled={!canal.conectado}
+      whileHover={!reduzir ? { y: -2, scale: 1.04 } : undefined}
+      whileTap={!reduzir ? { scale: canal.conectado ? 0.92 : 0.97 } : undefined}
       aria-pressed={ativo}
       aria-label={label}
       title={canal.conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
       className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         !canal.conectado
-          ? "border border-border opacity-50 cursor-not-allowed"
+          ? "border border-border opacity-50"
           : ativo
             ? "border-2 bg-card/70"
             : "border border-border/80 bg-card/40 hover:bg-card/70"
@@ -236,6 +239,7 @@ function CanalPill({ canal, ativo, onClick }: { canal: Canal; ativo: boolean; on
     >
       <HaloSelecao ativo={ativo} cor={channelAccent(canal.tipo)} reduzir={reduzir} />
       <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
+      {!canal.conectado && <PlugZap2 size={14} className="text-muted-foreground" />}
     </motion.button>
   );
 }

@@ -13,7 +13,17 @@ import { Minus, TrendingDown, TrendingUp } from "lucide-react";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 
-export function Linha({ dados, cor, largura = 96, altura = 36 }: { dados: number[]; cor: string; largura?: number; altura?: number }) {
+export function Linha({ dados, cor, largura = 96, altura = 36, classeResponsiva }: {
+  dados: number[];
+  cor: string;
+  largura?: number;
+  altura?: number;
+  /** Classes Tailwind que sobrescrevem o tamanho renderizado (ex.: mais
+   *  estreito no mobile) sem recalcular os pontos do traço — o SVG usa
+   *  `largura`/`altura` só pro viewBox/matemática interna; o navegador
+   *  escala o desenho pro tamanho de tela real definido em CSS. */
+  classeResponsiva?: string;
+}) {
   if (dados.length < 2) return null;
   const max = Math.max(...dados);
   const min = Math.min(...dados);
@@ -36,7 +46,14 @@ export function Linha({ dados, cor, largura = 96, altura = 36 }: { dados: number
   const [ux, uy] = pontos[pontos.length - 1];
   const id = `mv-area-${cor.replace(/[^a-z0-9]/gi, "")}`;
   return (
-    <svg width={largura} height={altura} viewBox={`0 0 ${largura} ${altura}`} aria-hidden="true" className="overflow-visible">
+    <svg
+      width={largura}
+      height={altura}
+      viewBox={`0 0 ${largura} ${altura}`}
+      aria-hidden="true"
+      className={`overflow-visible ${classeResponsiva ?? ""}`}
+      preserveAspectRatio="xMidYMid meet"
+    >
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={cor} stopOpacity="0.18" />
@@ -100,10 +117,12 @@ export function MiniRanking({ itens }: { itens: { nome: string; valor: number; s
     /* Largura fixa pelo mesmo motivo de `BarrasMarca` (container sem
        largura própria); `min-w-0` mantém o `truncate` do nome funcionando.
        Mais estreito no celular (grade de 2 colunas espreme o card) e volta
-       aos 136px de sempre a partir de lg — era o único preview "grande" (os
-       demais são anel/linha/barras, bem mais compactos) que não cabia
-       junto do número+legenda numa coluna só, e amassava tudo. */
-    <div className="flex w-[92px] min-w-0 flex-col gap-1 lg:w-[136px]">
+       aos 136px de sempre a partir de lg. 76px, não mais 92px: mesmo
+       ajuste do card Marca — a legenda abaixo do número (ex. "itens no
+       mínimo", "no topo do período") dividia a linha com este preview e
+       cortava; 76px é o mínimo que ainda mostra 2-3 caracteres do nome do
+       item antes de truncar, liberando o resto pra legenda. */
+    <div className="flex w-[76px] min-w-0 flex-col gap-1 lg:w-[136px]">
       {itens.map((item, indice) => {
         const cor = item.slug && isBrandSlug(item.slug) ? getBrandConfig(item.slug)?.color : undefined;
         return (

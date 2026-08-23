@@ -39,7 +39,7 @@ export function AvaliacoesCliente({ itensIniciais }: {
           canal embaixo; uma linha só no desktop. */}
       <div className="flex flex-col items-center gap-2 lg:flex-row lg:justify-center lg:gap-3">
         <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none flex justify-center lg:hidden">
-          <CanaisRow canaisAtivos={canaisAtivos} onToggleCanal={alternarCanal} contagemCanal={contagens.canais} />
+          <CanaisRow canaisAtivos={canaisAtivos} onToggleCanal={alternarCanal} />
         </div>
         <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none flex justify-center lg:hidden">
           <EmpresasRow marcasAtivas={marcasAtivas} onToggleMarca={alternarMarca} contagemMarca={contagens.marcas} />
@@ -52,7 +52,6 @@ export function AvaliacoesCliente({ itensIniciais }: {
             onToggleMarca={alternarMarca}
             onToggleCanal={alternarCanal}
             contagemMarca={contagens.marcas}
-            contagemCanal={contagens.canais}
           />
         </div>
       </div>

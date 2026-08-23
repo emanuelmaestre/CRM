@@ -553,7 +553,15 @@ export function Mosaico({
       // Sem faixaLabel: "pontos" apertava demais dentro do anel do tile.
       // A mesma informação já está clara pelo contexto (título "Pontuação
       // da loja" bem acima) sem precisar repetir dentro do círculo.
-      ? <AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} />
+      ? (
+        <>
+          {/* Menor no mobile: o anel dividia a linha com o número/legenda
+              ("WUWU lidera" cortava do mesmo jeito aqui) — 40px no lugar de
+              56px libera espaço sem perder legibilidade do "89" dentro. */}
+          <span className="lg:hidden"><AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={40} /></span>
+          <span className="hidden lg:inline-block"><AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} /></span>
+        </>
+      )
       : undefined,
     // Mesmo alinhamento do card Marca: o anel sobe pra perto do número em
     // vez de centralizar na altura toda da fileira.
@@ -670,6 +678,7 @@ export function Mosaico({
         ? <MiniRanking itens={comCobertura.map((item) => ({ nome: item.nome, valor: item.coberturaDias, slug: item.marca }))} />
         : undefined;
     })(),
+    previewAlinhamento: "start",
     temLegendaStatus: true,
     chips: chipsDoFiltro,
     render: (acaoSlot, acaoTopoSlot) => (
@@ -714,6 +723,7 @@ export function Mosaico({
     preview: maisVendidos.dados && maisVendidos.dados.maisVendidos.length > 0
       ? <MiniRanking itens={maisVendidos.dados.maisVendidos.slice(0, 3).map((item) => ({ nome: item.nome, valor: item.quantidade, slug: item.marca }))} />
       : undefined,
+    previewAlinhamento: "start",
     temLegendaStatus: true,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
@@ -768,8 +778,17 @@ export function Mosaico({
     // dar pra desenhar assim que o job A30 acumular uns dias de
     // `giroBaixoQtd` — precisa apagar isto NA MÃO quando isso acontecer.
     preview: giroBaixo.dados && giroBaixo.dados.giroBaixo.length > 0
-      ? <Linha dados={[9, 8, 8, 7, 7, 6, giroBaixo.dados.giroBaixo.length]} cor="var(--info)" largura={96} altura={36} />
+      ? (
+        <Linha
+          dados={[9, 8, 8, 7, 7, 6, giroBaixo.dados.giroBaixo.length]}
+          cor="var(--info)"
+          largura={96}
+          altura={36}
+          classeResponsiva="w-14 h-6 lg:w-24 lg:h-9"
+        />
+      )
       : undefined,
+    previewAlinhamento: "start",
     temLegendaStatus: true,
     chips: chipsDoFiltro,
     render: (acaoSlot) => (
@@ -877,7 +896,13 @@ export function Mosaico({
       },
       // Preview fictício (mesma ressalva do resumo acima) — vira real no
       // dia em que existir um percentual de verdade pra desenhar.
-      preview: <AnelScore valor={63} cor="var(--acento-3)" tamanho={56} />,
+      preview: (
+        <>
+          <span className="lg:hidden"><AnelScore valor={63} cor="var(--acento-3)" tamanho={40} /></span>
+          <span className="hidden lg:inline-block"><AnelScore valor={63} cor="var(--acento-3)" tamanho={56} /></span>
+        </>
+      ),
+      previewAlinhamento: "start",
       chips: marcasPublicacoes.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })),
       render: (acaoSlot) => (
         <PublicacoesCard
