@@ -34,8 +34,14 @@ const authContextCache = new Map<string, { contexto: AuthContext; expiraEm: numb
 async function carregarAuthContext(): Promise<AuthContext> {
   const orgId = OrgIdSchema.parse(process.env.DEFAULT_ORG_ID);
   const supabase = await createClient();
-  const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims;
+  // getClaims() lança (não retorna null) quando o refresh token do cookie
+  // está inválido/expirado — sessão velha, troca de dispositivo, etc. Sem
+  // isso, o erro cru do SDK do Supabase subia até quebrar a página inteira
+  // em vez de cair no fluxo normal de "sem sessão" abaixo.
+  const claims = await supabase.auth
+    .getClaims()
+    .then(({ data }) => data?.claims)
+    .catch(() => undefined);
   const userId = claims?.sub;
 
   if (!userId) {
