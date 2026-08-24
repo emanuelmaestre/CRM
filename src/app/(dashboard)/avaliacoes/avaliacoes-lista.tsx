@@ -24,6 +24,7 @@ type CatalogItem = {
   reviewsTotal: number | null;
   ratingLevels: MLDistribuicaoNotas | null;
   opinioes: MLOpiniao[];
+  canal?: "mercadolivre" | "shopee";
 };
 
 type CatalogResponse = {
@@ -268,7 +269,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
                 : <span className="font-semibold" style={{ color: getBrandConfig(item.brand)?.color ?? "var(--muted-foreground)" }}>{item.brandLabel}</span>}
             </span>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              Canal: <ChannelLogo canal="mercadolivre" size="xs" variant="logo" />
+              Canal: <ChannelLogo canal={item.canal ?? "mercadolivre"} size="xs" variant="logo" />
             </span>
             {ultimaOpiniaoEm && (
               <span className="text-xs text-muted-foreground">Última opinião: {ultimaOpiniaoEm}</span>
@@ -458,11 +459,16 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
   }, []);
 
   // Reporta as contagens pra barra de escopo compartilhada (page.tsx), que
-  // soma com as outras abas. Avaliações só existe pro canal Mercado Livre.
+  // soma com as outras abas.
   useEffect(() => {
     const marcasCount: Record<string, number> = {};
-    for (const item of itens) marcasCount[item.brand] = (marcasCount[item.brand] ?? 0) + 1;
-    onContagens({ marcas: marcasCount, canais: { mercadolivre: itens.length } });
+    const canaisCount: Record<string, number> = {};
+    for (const item of itens) {
+      marcasCount[item.brand] = (marcasCount[item.brand] ?? 0) + 1;
+      const canal = item.canal ?? "mercadolivre";
+      canaisCount[canal] = (canaisCount[canal] ?? 0) + 1;
+    }
+    onContagens({ marcas: marcasCount, canais: canaisCount });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itens]);
 
@@ -485,7 +491,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     const resultado = itens
       .filter((item) => {
         if (marcasAtivas.size > 0 && !marcasAtivas.has(item.brand)) return false;
-        if (canaisAtivos.size > 0 && !canaisAtivos.has("mercadolivre")) return false;
+        if (canaisAtivos.size > 0 && !canaisAtivos.has(item.canal ?? "mercadolivre")) return false;
         const termo = busca.trim().toLocaleLowerCase("pt-BR");
         if (termo && !item.title.toLocaleLowerCase("pt-BR").includes(termo) && !item.listingId.toLowerCase().includes(termo)) return false;
         if (nota === "com_avaliacao" && item.ratingAverage === null) return false;
@@ -556,7 +562,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
               {!carregando && (
                 <CalculoPopover
                   titulo="Nota média"
-                  significado="Resume a experiência de quem comprou em uma nota de 1 a 5, direto do Mercado Livre."
+                  significado="Resume a experiência de quem comprou em uma nota de 1 a 5, direto do canal de venda."
                   formula="soma de (quantidade de opiniões × nota), dividida pelo total de opiniões"
                   resultado={media === null ? "Sem avaliação" : media.toFixed(1).replace(".", ",")}
                   itens={ESTRELAS.map(({ chave, rotulo }) => ({
@@ -566,8 +572,8 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                   }))}
                   nota={
                     periodoAtivo
-                      ? "A nota média e a distribuição por estrela representam todo o histórico do Mercado Livre, pois o canal não permite filtrar esses dados por data. O período escolhido acima filtra somente os comentários com texto na lista abaixo."
-                      : "A nota média e a distribuição por estrela representam todo o histórico do Mercado Livre, sem recorte por período, pois o canal não permite esse filtro. Somente os comentários com texto podem ser filtrados por data; veja o filtro abaixo."
+                      ? "A nota média e a distribuição por estrela representam todo o histórico do canal, que não permite filtrar esses dados por data. O período escolhido acima filtra somente os comentários com texto na lista abaixo."
+                      : "A nota média e a distribuição por estrela representam todo o histórico do canal, sem recorte por período, que não permite esse filtro. Somente os comentários com texto podem ser filtrados por data; veja o filtro abaixo."
                   }
                 />
               )}

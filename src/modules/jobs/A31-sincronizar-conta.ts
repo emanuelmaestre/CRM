@@ -9,7 +9,7 @@ import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.
 import { emitirEvento } from "@/shared/events";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { sincronizarAnunciosMercadoLivreConta } from "@/modules/anuncios/application/sincronizacao.service";
-import { sincronizarAvaliacoesMercadoLivreConta } from "@/modules/canais/application/avaliacoes.service";
+import { sincronizarAvaliacoesMercadoLivreConta, sincronizarAvaliacoesShopeeConta } from "@/modules/canais/application/avaliacoes.service";
 import { sincronizarConversasMercadoLivreConta } from "@/modules/inbox/application/inbox.service";
 import { obterReclamacoesAbertas } from "@/modules/metricas/application/reclamacoes.service";
 import { obterReputacao } from "@/modules/metricas/application/reputacao.service";
@@ -147,7 +147,9 @@ export const A31_sincronizarConta = inngest.createFunction(
     await executarModulo("avaliacoes", async () => (
       conta.tipo === "mercadolivre"
         ? sincronizarAvaliacoesMercadoLivreConta(orgId, channelAccountId)
-        : semSuporte("Avaliações", conta.tipo)
+        : conta.tipo === "shopee"
+          ? sincronizarAvaliacoesShopeeConta(orgId, channelAccountId)
+          : semSuporte("Avaliações", conta.tipo)
     ));
 
     await executarModulo("reputacao", async () => {

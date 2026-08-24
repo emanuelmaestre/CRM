@@ -12,6 +12,23 @@ interface ShopeeCredentials {
   accessToken: string;
 }
 
+export interface ShopeeOpiniao {
+  id: string;
+  titulo: string | null;
+  conteudo: string | null;
+  nota: number;
+  criadaEm: string | null;
+}
+
+export interface ShopeeAnuncioAvaliacao {
+  itemId: string;
+  title: string;
+  ratingAverage: number | null;
+  reviewsTotal: number;
+  ratingLevels: Record<string, number>;
+  opinioes: ShopeeOpiniao[];
+}
+
 // O app "Elisa Lima CRM" (Product Management, o único aprovado/ativo hoje)
 // não tem permissão pra API de Pedidos — confirmado em produção em 24/08/2026
 // com erro real da Shopee: error_api_permission, "This app type has no
@@ -191,6 +208,104 @@ export class ShopeeProvider implements ChannelProvider {
       throw new Error(`Shopee retornou saldo inválido para anúncio ${referencia.listingId}.`);
     }
     return saldo;
+  }
+
+  /** Comentários/avaliações da loja inteira, paginados por cursor — a Shopee
+   *  não devolve nota agregada por item como o ML devolve; a gente calcula
+   *  aqui a partir dos comentários coletados (get_comment não exige item_id,
+   *  lista a loja toda, diferente do ML que é 1 requisição por anúncio).
+   *  Título do item vem de um get_item_base_info em lote, à parte.
+   *
+   *  Limite de 10 páginas (até 1000 comentários) por chamada — loja não vai
+   *  ter mais que isso de comentário recente, e evita gastar cota do proxy
+   *  à toa numa loja com histórico muito grande. */
+  async listarAvaliacoes(): Promise<ShopeeAnuncioAvaliacao[]> {
+    type ShopeeComentario = {
+      comment_id?: number | string;
+      item_id: number;
+      comment?: string;
+      rating_star?: number;
+      create_time?: number;
+      buyer_username?: string;
+    };
+
+    const comentarios: ShopeeComentario[] = [];
+    let cursor = "";
+    for (let pagina = 0; pagina < 10; pagina++) {
+      const res = await shopeeFetch(this.url("/product/get_comment", {
+        cursor,
+        page_size: 100,
+      }), { signal: AbortSignal.timeout(10000) });
+
+      if (!res.ok) {
+        const detalhe = (await res.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+        throw new Error(`Shopee HTTP ${res.status} em get_comment: ${detalhe}`);
+      }
+      const data = await res.json() as {
+        error?: string;
+        message?: string;
+        response?: { item_comment_list?: ShopeeComentario[]; next_cursor?: string; more?: boolean };
+      };
+      if (data.error) throw new Error(`Shopee get_comment: ${data.message ?? data.error}`);
+
+      const lote = data.response?.item_comment_list ?? [];
+      comentarios.push(...lote);
+      if (!data.response?.more || lote.length === 0) break;
+      cursor = data.response.next_cursor ?? "";
+      if (!cursor) break;
+    }
+
+    if (comentarios.length === 0) return [];
+
+    const itemIds = [...new Set(comentarios.map((c) => c.item_id))];
+    const titulos = new Map<number, string>();
+    for (let i = 0; i < itemIds.length; i += 50) {
+      const lote = itemIds.slice(i, i + 50);
+      const res = await shopeeFetch(this.url("/product/get_item_base_info", {
+        item_id_list: lote.join(","),
+        response_optional_fields: "item_name",
+      }), { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) continue; // título é cosmético — não derruba a sincronização inteira por isso
+      const data = await res.json().catch(() => null) as {
+        response?: { item_list?: Array<{ item_id: number; item_name?: string }> };
+      } | null;
+      for (const item of data?.response?.item_list ?? []) {
+        if (item.item_name) titulos.set(item.item_id, item.item_name);
+      }
+    }
+
+    const porItem = new Map<number, ShopeeComentario[]>();
+    for (const c of comentarios) {
+      const lista = porItem.get(c.item_id) ?? [];
+      lista.push(c);
+      porItem.set(c.item_id, lista);
+    }
+
+    return [...porItem.entries()].map(([itemId, lista]) => {
+      const notas = lista.map((c) => c.rating_star).filter((n): n is number => typeof n === "number" && n >= 1 && n <= 5);
+      const ratingLevels: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
+      for (const n of notas) ratingLevels[String(n)] += 1;
+      const ratingAverage = notas.length > 0 ? notas.reduce((a, b) => a + b, 0) / notas.length : null;
+
+      return {
+        itemId: String(itemId),
+        title: titulos.get(itemId) ?? String(itemId),
+        ratingAverage,
+        reviewsTotal: lista.length,
+        ratingLevels,
+        opinioes: lista
+          .filter((c) => c.comment)
+          .sort((a, b) => (b.create_time ?? 0) - (a.create_time ?? 0))
+          .slice(0, 20)
+          .map((c) => ({
+            id: String(c.comment_id ?? `${itemId}-${c.create_time}`),
+            titulo: null,
+            conteudo: c.comment ?? null,
+            nota: c.rating_star ?? 0,
+            criadaEm: c.create_time ? new Date(c.create_time * 1000).toISOString() : null,
+          })),
+      };
+    });
   }
 
   async saude(): Promise<SaudeConector> {

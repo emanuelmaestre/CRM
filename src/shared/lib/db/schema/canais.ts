@@ -110,3 +110,27 @@ export const mlAvaliacaoAnuncio = pgTable("ml_avaliacao_anuncio", {
   uniqueIndex("uq_ml_avaliacao_org_listing").on(t.orgId, t.listingId),
   index("idx_ml_avaliacao_brand").on(t.brandId),
 ]);
+
+/** Mesma ideia do cache de avaliações do ML (mlAvaliacaoAnuncio) só que pra
+ *  Shopee — tabela separada, não reaproveitada, porque listingId (item_id
+ *  da Shopee) pode colidir com o do ML sob o mesmo org_id, e os dois canais
+ *  têm ciclo de sincronização e formato de opinião próprios. get_comment da
+ *  Shopee não devolve nota média agregada por item como o ML devolve — ela é
+ *  calculada aqui a partir dos comentários coletados (ver
+ *  sincronizarAvaliacoesShopeeConta). */
+export const shopeeAvaliacaoAnuncio = pgTable("shopee_avaliacao_anuncio", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  brandId: uuid("brand_id").notNull().references(() => brand.id),
+  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
+  itemId: text("item_id").notNull(),
+  title: text("title").notNull(),
+  ratingAverage: real("rating_average"),
+  reviewsTotal: integer("reviews_total"),
+  ratingLevels: jsonb("rating_levels"),
+  opinioes: jsonb("opinioes").notNull().default([]),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_shopee_avaliacao_org_item").on(t.orgId, t.itemId),
+  index("idx_shopee_avaliacao_brand").on(t.brandId),
+]);

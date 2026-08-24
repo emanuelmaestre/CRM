@@ -1,7 +1,8 @@
 import { and, eq, notInArray, sql } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { brand, channelAccount, mlAvaliacaoAnuncio } from "@/shared/lib/db/schema";
+import { brand, channelAccount, mlAvaliacaoAnuncio, shopeeAvaliacaoAnuncio } from "@/shared/lib/db/schema";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
 
 async function listarContasMercadoLivreAvaliacoes(orgId: string, channelAccountId?: string) {
@@ -114,6 +115,90 @@ async function sincronizarAvaliacoesMercadoLivrePorConta(orgId: string, channelA
       console.error(`[avaliacoes] sincronização falhou para ${conta.brandSlug}`, error);
     }
   }
+
+  return { contasVerificadas: contas.length, anunciosSincronizados };
+}
+
+async function listarContasShopeeAvaliacoes(orgId: string, channelAccountId?: string) {
+  const condicoes = [
+    eq(channelAccount.orgId, orgId),
+    eq(channelAccount.tipo, "shopee"),
+    eq(channelAccount.status, "conectado"),
+  ];
+  if (channelAccountId) condicoes.push(eq(channelAccount.id, channelAccountId));
+
+  return db
+    .select({
+      channelAccountId: channelAccount.id,
+      brandId: channelAccount.brandId,
+      brandSlug: brand.slug,
+    })
+    .from(channelAccount)
+    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
+    .where(and(...condicoes));
+}
+
+export async function sincronizarAvaliacoesShopeeConta(orgId: string, channelAccountId: string): Promise<{
+  contasVerificadas: number;
+  anunciosSincronizados: number;
+}> {
+  const contas = await listarContasShopeeAvaliacoes(orgId, channelAccountId);
+  let anunciosSincronizados = 0;
+  let ultimoErro: unknown;
+
+  for (const conta of contas) {
+    if (!isBrandSlug(conta.brandSlug)) continue;
+    try {
+      const provider = await criarShopeeProvider(conta.brandSlug);
+      const itens = await provider.listarAvaliacoes();
+
+      const linhas = itens.map((item) => ({
+        orgId,
+        brandId: conta.brandId,
+        channelAccountId: conta.channelAccountId,
+        itemId: item.itemId,
+        title: item.title,
+        ratingAverage: item.ratingAverage,
+        reviewsTotal: item.reviewsTotal,
+        ratingLevels: item.ratingLevels,
+        opinioes: item.opinioes,
+        atualizadoEm: new Date(),
+      }));
+      if (linhas.length > 0) {
+        await db.insert(shopeeAvaliacaoAnuncio).values(linhas).onConflictDoUpdate({
+          target: [shopeeAvaliacaoAnuncio.orgId, shopeeAvaliacaoAnuncio.itemId],
+          set: {
+            brandId: sql`excluded.brand_id`,
+            channelAccountId: sql`excluded.channel_account_id`,
+            title: sql`excluded.title`,
+            ratingAverage: sql`excluded.rating_average`,
+            reviewsTotal: sql`excluded.reviews_total`,
+            ratingLevels: sql`excluded.rating_levels`,
+            opinioes: sql`excluded.opinioes`,
+            atualizadoEm: sql`excluded.atualizado_em`,
+          },
+        });
+      }
+      anunciosSincronizados += linhas.length;
+
+      const itemIdsAtivos = itens.map((i) => i.itemId);
+      if (itemIdsAtivos.length > 0) {
+        await db.delete(shopeeAvaliacaoAnuncio).where(and(
+          eq(shopeeAvaliacaoAnuncio.orgId, orgId),
+          eq(shopeeAvaliacaoAnuncio.brandId, conta.brandId),
+          notInArray(shopeeAvaliacaoAnuncio.itemId, itemIdsAtivos),
+        ));
+      }
+    } catch (error) {
+      console.error(`[avaliacoes] sincronização Shopee falhou para ${conta.brandSlug}`, error);
+      ultimoErro = error;
+    }
+  }
+
+  // Deixa o erro subir (depois de tentar todas as contas) pra ferramenta de
+  // Sincronização mostrar o motivo real na tela, em vez de "0 sincronizados"
+  // silencioso — importa saber se falhou por permissão, IP, token, etc.
+  if (ultimoErro && anunciosSincronizados === 0) throw ultimoErro;
 
   return { contasVerificadas: contas.length, anunciosSincronizados };
 }

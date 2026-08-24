@@ -68,9 +68,9 @@ function EmpresaPill({ nome, slug, total, ativo, onClick }: {
   );
 }
 
-// Avaliações só existe pro canal Mercado Livre — a API não devolve opinião
-// de comprador pra Shopee/TikTok Shop. Os outros dois aparecem travados
-// ("ainda não disponível", mesmo padrão de Publicidade) em vez de sumirem,
+// Avaliações existe pra Mercado Livre e Shopee — a API do TikTok Shop ainda
+// não foi integrada (nem a conexão de canal em si). TikTok aparece travado
+// ("ainda não disponível", mesmo padrão de Publicidade) em vez de sumir,
 // pra deixar claro que a tela é sobre canais de venda, só que esse canal
 // específico ainda não dá pra filtrar — não é sobre a conta estar
 // desconectada, como em Vendas/Estoque/Clientes.
@@ -78,7 +78,7 @@ function CanalFiltroPill({ tipo, ativo, onClick }: {
   tipo: string; ativo: boolean; onClick: () => void;
 }) {
   const reduzir = useReducedMotion();
-  const disponivel = tipo === "mercadolivre";
+  const disponivel = tipo === "mercadolivre" || tipo === "shopee";
   const label = (channelsConfig.items as Record<string, { label?: string }>)[tipo]?.label ?? tipo;
   const cor = channelAccent(tipo);
   return (

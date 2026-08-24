@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { brand, mlAvaliacaoAnuncio } from "@/shared/lib/db/schema";
+import { brand, mlAvaliacaoAnuncio, shopeeAvaliacaoAnuncio } from "@/shared/lib/db/schema";
 import settingsConfig from "@/config/settings.json";
 import type { MLDistribuicaoNotas, MLOpiniao } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
@@ -18,6 +18,7 @@ export interface AvaliacaoCache {
   opinioes: MLOpiniao[];
   brand: string;
   brandLabel: string;
+  canal: "mercadolivre" | "shopee";
 }
 
 /** Lê o cache mantido pelo cron A28 — nunca chama a API do Mercado Livre na
@@ -32,7 +33,7 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
   items: AvaliacaoCache[];
   atualizadoEm: string | null;
 }> {
-  const linhas = await db
+  const linhasMl = await db
     .select({
       listingId: mlAvaliacaoAnuncio.listingId,
       title: mlAvaliacaoAnuncio.title,
@@ -48,7 +49,7 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
     .innerJoin(brand, and(eq(brand.id, mlAvaliacaoAnuncio.brandId), eq(brand.orgId, orgId)))
     .where(eq(mlAvaliacaoAnuncio.orgId, orgId));
 
-  const items = linhas.map((linha) => ({
+  const itemsMl = linhasMl.map((linha) => ({
     listingId: linha.listingId,
     title: linha.title,
     permalink: linha.permalink,
@@ -62,9 +63,39 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
     opinioes: linha.opinioes as MLOpiniao[],
     brand: linha.brandSlug,
     brandLabel: rotulosPorSlug.get(linha.brandSlug) ?? linha.brandSlug,
+    canal: "mercadolivre" as const,
   }));
 
-  const atualizadoEm = linhas.reduce<string | null>((maisRecente, linha) => {
+  const linhasShopee = await db
+    .select({
+      itemId: shopeeAvaliacaoAnuncio.itemId,
+      title: shopeeAvaliacaoAnuncio.title,
+      ratingAverage: shopeeAvaliacaoAnuncio.ratingAverage,
+      reviewsTotal: shopeeAvaliacaoAnuncio.reviewsTotal,
+      ratingLevels: shopeeAvaliacaoAnuncio.ratingLevels,
+      opinioes: shopeeAvaliacaoAnuncio.opinioes,
+      atualizadoEm: shopeeAvaliacaoAnuncio.atualizadoEm,
+      brandSlug: brand.slug,
+    })
+    .from(shopeeAvaliacaoAnuncio)
+    .innerJoin(brand, and(eq(brand.id, shopeeAvaliacaoAnuncio.brandId), eq(brand.orgId, orgId)))
+    .where(eq(shopeeAvaliacaoAnuncio.orgId, orgId));
+
+  const itemsShopee = linhasShopee.map((linha) => ({
+    listingId: linha.itemId,
+    title: linha.title,
+    permalink: null,
+    ratingAverage: linha.ratingAverage,
+    reviewsTotal: linha.reviewsTotal,
+    ratingLevels: linha.ratingLevels as MLDistribuicaoNotas | null,
+    opinioes: linha.opinioes as MLOpiniao[],
+    brand: linha.brandSlug,
+    brandLabel: rotulosPorSlug.get(linha.brandSlug) ?? linha.brandSlug,
+    canal: "shopee" as const,
+  }));
+
+  const items = [...itemsMl, ...itemsShopee];
+  const atualizadoEm = [...linhasMl, ...linhasShopee].reduce<string | null>((maisRecente, linha) => {
     const iso = linha.atualizadoEm.toISOString();
     return maisRecente === null || iso > maisRecente ? iso : maisRecente;
   }, null);
