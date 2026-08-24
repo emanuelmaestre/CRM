@@ -210,6 +210,40 @@ export class ShopeeProvider implements ChannelProvider {
     return saldo;
   }
 
+  /** Todos os itens ativos (à venda) da loja, paginados por offset — a
+   *  Shopee só devolve 100 por página. Necessário porque `get_comment` (ver
+   *  `listarAvaliacoes`) só lista quem TEM comentário; sem este catálogo,
+   *  um anúncio nunca avaliado nunca apareceria nem como "sem avaliação",
+   *  simplesmente sumiria da tela inteira. */
+  private async listarItemIdsAtivos(): Promise<number[]> {
+    const itemIds: number[] = [];
+    let offset = 0;
+    for (let pagina = 0; pagina < 20; pagina++) {
+      const res = await shopeeFetch(this.url("/product/get_item_list", {
+        offset,
+        page_size: 100,
+        item_status: "NORMAL",
+      }), { signal: AbortSignal.timeout(10000) });
+
+      if (!res.ok) {
+        const detalhe = (await res.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+        throw new Error(`Shopee HTTP ${res.status} em get_item_list: ${detalhe}`);
+      }
+      const data = await res.json() as {
+        error?: string;
+        message?: string;
+        response?: { item?: Array<{ item_id: number }>; next_offset?: number; has_next_page?: boolean };
+      };
+      if (data.error) throw new Error(`Shopee get_item_list: ${data.message ?? data.error}`);
+
+      const lote = data.response?.item ?? [];
+      itemIds.push(...lote.map((i) => i.item_id));
+      if (!data.response?.has_next_page || lote.length === 0) break;
+      offset = data.response.next_offset ?? offset + lote.length;
+    }
+    return itemIds;
+  }
+
   /** Comentários/avaliações da loja inteira, paginados por cursor — a Shopee
    *  não devolve nota agregada por item como o ML devolve; a gente calcula
    *  aqui a partir dos comentários coletados (get_comment não exige item_id,
@@ -218,7 +252,11 @@ export class ShopeeProvider implements ChannelProvider {
    *
    *  Limite de 10 páginas (até 1000 comentários) por chamada — loja não vai
    *  ter mais que isso de comentário recente, e evita gastar cota do proxy
-   *  à toa numa loja com histórico muito grande. */
+   *  à toa numa loja com histórico muito grande.
+   *
+   *  Comentário sozinho não basta: quem nunca foi avaliado também precisa
+   *  aparecer (com nota nula) pra tela poder filtrar "sem avaliações" —
+   *  por isso o catálogo ativo (`listarItemIdsAtivos`) entra no cruzamento. */
   async listarAvaliacoes(): Promise<ShopeeAnuncioAvaliacao[]> {
     type ShopeeComentario = {
       comment_id?: number | string;
@@ -255,9 +293,10 @@ export class ShopeeProvider implements ChannelProvider {
       if (!cursor) break;
     }
 
-    if (comentarios.length === 0) return [];
+    const itemIdsAtivos = await this.listarItemIdsAtivos();
+    if (itemIdsAtivos.length === 0 && comentarios.length === 0) return [];
 
-    const itemIds = [...new Set(comentarios.map((c) => c.item_id))];
+    const itemIds = [...new Set([...itemIdsAtivos, ...comentarios.map((c) => c.item_id)])];
     const titulos = new Map<number, string>();
     for (let i = 0; i < itemIds.length; i += 50) {
       const lote = itemIds.slice(i, i + 50);
@@ -281,7 +320,15 @@ export class ShopeeProvider implements ChannelProvider {
       porItem.set(c.item_id, lista);
     }
 
-    return [...porItem.entries()].map(([itemId, lista]) => {
+    // União: item ativo sem comentário nenhum entra com lista vazia (nota
+    // nula); item com comentário mas já fora do catálogo ativo (removido/
+    // pausado) fica de fora — mesma regra que o ML aplica aos anúncios dele.
+    const itemIdsResultado = itemIdsAtivos.length > 0
+      ? itemIdsAtivos
+      : [...porItem.keys()];
+
+    return itemIdsResultado.map((itemId) => {
+      const lista = porItem.get(itemId) ?? [];
       const notas = lista.map((c) => c.rating_star).filter((n): n is number => typeof n === "number" && n >= 1 && n <= 5);
       const ratingLevels: Record<string, number> = { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0 };
       for (const n of notas) ratingLevels[String(n)] += 1;
