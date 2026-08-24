@@ -22,6 +22,7 @@ import {
   removerContaCanalConfiguracao,
   salvarMapeamentoCanalConfiguracao,
 } from "@/modules/canais/application/configuracao-canais.service";
+import { obterUsoApiShopee } from "@/modules/canais/application/shopee-uso.service";
 import { listarProdutos } from "@/modules/estoque/application/estoque.service";
 import {
   confirmarLoteHistorico,
@@ -155,6 +156,12 @@ export async function actionListarRotinasAgendadas() {
 
 export async function actionObterResumoConfiguracoes() {
   return obterResumoConfiguracoes(await getCrudContext());
+}
+
+export async function actionObterUsoApiShopee() {
+  const ctx = await getCrudContext();
+  assertPerfil(ctx, ["admin", "gestor"]);
+  return obterUsoApiShopee(ctx);
 }
 
 export async function actionListarProdutosConfiguracao() {

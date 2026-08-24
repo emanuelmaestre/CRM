@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, real, integer,
+  pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, real, integer, boolean,
 } from "drizzle-orm/pg-core";
 import { org, brand } from "./org";
 
@@ -70,6 +70,23 @@ export const sincronizacaoExecucao = pgTable("sincronizacao_execucao", {
 }, (t) => [
   index("idx_sincronizacao_org").on(t.orgId),
   index("idx_sincronizacao_channel_account").on(t.channelAccountId),
+]);
+
+/** Uma linha por chamada feita via shopeeFetch (único ponto de saída pra
+ *  Shopee no sistema — provider, webhook e renovação de token passam todos
+ *  por ele). Existe só pra acompanhar consumo da cota do proxy de IP fixo
+ *  (Webshare, antes Fixie — trocado em 24/08/2026 depois que a cota do
+ *  Fixie estourou e derrubou a integração), que é limitado por mês — ver
+ *  Configurações > Uso da API Shopee. */
+export const shopeeApiCall = pgTable("shopee_api_call", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  caminho: text("caminho").notNull(),
+  statusCode: integer("status_code"),
+  ok: boolean("ok").notNull(),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("idx_shopee_api_call_org_criado").on(t.orgId, t.criadoEm),
 ]);
 
 /** Cache de notas/opiniões do Mercado Livre por anúncio ativo, mantido por um

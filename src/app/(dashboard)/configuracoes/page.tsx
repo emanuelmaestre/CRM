@@ -18,12 +18,14 @@ import { BackupSection } from "./BackupSection";
 import { SincronizacaoSection } from "./SincronizacaoSection";
 import { UsuariosSection } from "./UsuariosSection";
 import { RotinasAgendadasSection } from "./RotinasAgendadasSection";
+import { ShopeeUsoSection } from "./ShopeeUsoSection";
 import settingsConfig from "@/config/settings.json";
 import {
   actionListarConfiguracaoCanais,
   actionListarRotinasAgendadas,
   actionListarUsuarios,
   actionObterResumoConfiguracoes,
+  actionObterUsoApiShopee,
 } from "./actions";
 import { toast } from "sonner";
 
@@ -34,6 +36,7 @@ type UsuarioResumo = Awaited<ReturnType<typeof actionListarUsuarios>>[number];
 type CanalConfiguracao = Awaited<ReturnType<typeof actionListarConfiguracaoCanais>>[number];
 type ResumoConfiguracoes = Awaited<ReturnType<typeof actionObterResumoConfiguracoes>>;
 type RotinasAgendadas = Awaited<ReturnType<typeof actionListarRotinasAgendadas>>;
+type UsoApiShopee = Awaited<ReturnType<typeof actionObterUsoApiShopee>>;
 
 /** Título que separa os blocos temáticos da página, no lugar da pilha de cards. */
 function SectionHeading({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
@@ -121,9 +124,11 @@ export default function ConfiguracoesPage() {
   const [canais, setCanais] = useState<CanalConfiguracao[]>([]);
   const [resumo, setResumo] = useState<ResumoConfiguracoes | null>(null);
   const [rotinasAgendadas, setRotinasAgendadas] = useState<RotinasAgendadas | null>(null);
+  const [usoShopee, setUsoShopee] = useState<UsoApiShopee | null>(null);
   const [carregandoUsuarios, setCarregandoUsuarios] = useState(true);
   const [carregandoCanais, setCarregandoCanais] = useState(true);
   const [carregandoRotinas, setCarregandoRotinas] = useState(true);
+  const [carregandoUsoShopee, setCarregandoUsoShopee] = useState(true);
 
   const recarregarCanais = useCallback(async () => {
     setCarregandoCanais(true);
@@ -157,6 +162,12 @@ export default function ConfiguracoesPage() {
         setCarregandoCanais(false);
         setCarregandoRotinas(false);
       });
+
+    // Card separado (não bloqueia o restante da página se falhar ou demorar).
+    actionObterUsoApiShopee()
+      .then(setUsoShopee)
+      .catch(() => toast.error("Não foi possível carregar o uso da API Shopee."))
+      .finally(() => setCarregandoUsoShopee(false));
   }, []);
 
   const ordenarUsuarios = useCallback((items: UsuarioResumo[]) =>
@@ -226,6 +237,14 @@ export default function ConfiguracoesPage() {
           ) : (
             <SincronizacaoSection canais={canais} />
           )}
+        </Card>
+
+        <Card
+          title="Uso da API Shopee"
+          icon={getIcon("Gauge")}
+          actions={<InfoBotao rotulo="Sobre o uso da API">Quantidade de chamadas feitas à Shopee através do proxy de IP fixo — esse proxy tem cota mensal, e estourá-la derruba a integração inteira até o mês virar ou o plano subir.</InfoBotao>}
+        >
+          <ShopeeUsoSection data={usoShopee} loading={carregandoUsoShopee} />
         </Card>
 
         <Card title={settingsConfig.integrations.title} icon={getIcon(settingsConfig.integrations.icon)}>
