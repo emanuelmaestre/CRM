@@ -45,5 +45,6 @@ next-env.d.ts
 /playwright-report/
 /test-results/
 e2e/.auth/
+.playwright-mcp/
 /.codex-runtime/
 .codex-responsive-audit/
