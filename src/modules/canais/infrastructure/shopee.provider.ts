@@ -60,7 +60,10 @@ export class ShopeeProvider implements ChannelProvider {
       response_optional_fields: "buyer_username,total_amount",
     }), { signal: AbortSignal.timeout(10000) });
 
-    if (!listRes.ok) throw new Error(`Shopee HTTP ${listRes.status} em get_order_list`);
+    if (!listRes.ok) {
+      const detalhe = (await listRes.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+      throw new Error(`Shopee HTTP ${listRes.status} em get_order_list: ${detalhe}`);
+    }
     const listData = await listRes.json() as {
       error?: string;
       message?: string;
@@ -85,7 +88,10 @@ export class ShopeeProvider implements ChannelProvider {
       item_list?: ShopeeItem[];
     };
 
-    if (!detailRes.ok) throw new Error(`Shopee HTTP ${detailRes.status} em get_order_detail`);
+    if (!detailRes.ok) {
+      const detalhe = (await detailRes.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+      throw new Error(`Shopee HTTP ${detailRes.status} em get_order_detail: ${detalhe}`);
+    }
     const detailData = await detailRes.json() as { error?: string; message?: string; response?: { order_list?: ShopeeDetail[] } };
     if (detailData.error) throw new Error(`Shopee get_order_detail: ${detailData.message ?? detailData.error}`);
     const detailMap = new Map<string, ShopeeDetail>();
