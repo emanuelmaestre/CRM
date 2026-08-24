@@ -4,7 +4,7 @@ import type { CrudContext } from "@/shared/lib/crud-factory";
 import { shopeeApiCall } from "@/shared/lib/db/schema";
 
 /** Quantidade de chamadas feitas via shopeeFetch — provider, webhook e
- *  renovação de token, tudo que sai pro proxy de IP fixo (Fixie), que é
+ *  renovação de token, tudo que sai pro proxy de IP fixo (Webshare), que é
  *  limitado por mês. Existe pra dar visibilidade da cota antes dela estourar
  *  de novo (ver Configurações > Uso da API Shopee). */
 export async function obterUsoApiShopee(ctx: CrudContext): Promise<{

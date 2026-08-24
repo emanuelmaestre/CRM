@@ -18,7 +18,7 @@ function Metrica({ label, valor }: { label: string; valor: number }) {
   );
 }
 
-/** Consumo da cota do proxy de IP fixo (Fixie) usado nas chamadas à Shopee —
+/** Consumo da cota do proxy de IP fixo (Webshare) usado nas chamadas à Shopee —
  *  existe porque a cota do plano grátis (500 requisições/mês) já estourou
  *  uma vez e derrubou a integração inteira sem aviso nenhum. */
 export function ShopeeUsoSection({ data, loading }: { data: UsoApiShopee | null; loading: boolean }) {
