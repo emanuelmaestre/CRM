@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { obterShopeeBaseUrl } from "@/shared/config/shopee-env";
+import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 
 // Token da Shopee dura bem menos que o do ML (expire_in típico é 4h, contra
 // ~6h do ML) — cron mais frequente (15 em 15 min, igual ao A18) e margem
@@ -72,7 +73,11 @@ export async function solicitarRenovacaoTokenShopee(
     partnerKey?: string;
   } = {},
 ): Promise<ShopeeTokenRenovado> {
-  const request = opcoes.request ?? fetch;
+  // shopeeFetch por padrão (não fetch nativo): sem isso, o refresh sai pelo
+  // IP efêmero do Vercel em vez do proxy de IP fixo, e a Shopee rejeita com
+  // 403 source_ip_undeclared — foi exatamente o que quebrou o job A33 em
+  // produção (achado investigando o toast de erro em Métricas em 23/08).
+  const request = opcoes.request ?? shopeeFetch;
   const partnerId = opcoes.partnerId ?? envObrigatoria(`SHOPEE_PARTNER_ID_${process.env.SHOPEE_ENV?.trim().toLowerCase() === "test" ? "TEST" : "LIVE"}`);
   const partnerKey = opcoes.partnerKey ?? envObrigatoria(`SHOPEE_PARTNER_KEY_${process.env.SHOPEE_ENV?.trim().toLowerCase() === "test" ? "TEST" : "LIVE"}`);
 
