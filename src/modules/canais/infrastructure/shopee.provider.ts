@@ -12,6 +12,26 @@ interface ShopeeCredentials {
   accessToken: string;
 }
 
+// O app "Elisa Lima CRM" (Product Management, o único aprovado/ativo hoje)
+// não tem permissão pra API de Pedidos — confirmado em produção em 24/08/2026
+// com erro real da Shopee: error_api_permission, "This app type has no
+// permission to this API". Essa API pertence à categoria Order Management,
+// que é o app "Elisa Lima Pedidos", ainda em análise (Go Live process
+// Review) no Shopee Open Platform Console.
+//
+// Sem esse freio, buscarPedidos() era chamado a cada 4 minutos pelo A24
+// (e a cada sincronização manual) e falhava sempre do mesmo jeito — 50
+// tentativas malsucedidas em poucas horas, todas gastando cota do proxy de
+// IP fixo (banda limitada por mês). Falhar aqui, antes de qualquer chamada
+// de rede, custa zero cota.
+//
+// Reverter quando "Elisa Lima Pedidos" for aprovado: virar `true` (e nesse
+// ponto também revisar se as chamadas de pedido devem passar a usar as
+// credenciais desse app novo, já que permissão é por app na Shopee — ver
+// memória "shopee-proxy-webshare"). Mesmo freio usado pelo webhook
+// (src/app/api/webhooks/shopee/route.ts) — um só lugar pra destravar.
+export const SHOPEE_PEDIDOS_LIBERADO = false;
+
 export class ShopeeProvider implements ChannelProvider {
   private readonly host = obterShopeeBaseUrl();
   private creds: ShopeeCredentials;

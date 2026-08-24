@@ -7,7 +7,7 @@ import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
-import { obterTokenShopee } from "@/modules/canais/infrastructure/shopee.provider";
+import { obterTokenShopee, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -175,6 +175,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (code !== 3) {
     return NextResponse.json({ ok: true, ignorado: true, code });
+  }
+
+  // App "Elisa Lima CRM" (Product Management) não tem permissão pra API de
+  // Pedidos — get_order_detail abaixo sempre falharia. Responder 200 aqui
+  // evita a Shopee reenviar o mesmo push em loop.
+  if (!SHOPEE_PEDIDOS_LIBERADO) {
+    return NextResponse.json({ ok: true, ignorado: true, motivo: "pedidos_api_nao_liberada" });
   }
 
   const pedidoResultado = ShopeeOrderDataSchema.safeParse(envelope.data.data);

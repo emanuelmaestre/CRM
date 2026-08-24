@@ -3,6 +3,7 @@ import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
+import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
 import { inngest } from "@/shared/lib/inngest/client";
 import { finalizarJob, iniciarJob } from "./job-monitor";
@@ -54,6 +55,14 @@ export const A24_pollPedidos = inngest.createFunction(
       const resultados: Array<{ contaId: string; encontrados: number; novos: number; erro?: string }> = [];
 
       for (const conta of contas) {
+        // App Shopee aprovado (Product Management) não tem permissão pra API
+        // de Pedidos — sem esse freio, essa conta falhava a cada 4 minutos,
+        // gastando cota do proxy de IP fixo à toa. Reverter junto com
+        // SHOPEE_PEDIDOS_LIBERADO em shopee.provider.ts.
+        if (conta.tipo === "shopee" && !SHOPEE_PEDIDOS_LIBERADO) {
+          resultados.push({ contaId: conta.id, encontrados: 0, novos: 0 });
+          continue;
+        }
         try {
           const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug);
           if (!provider) {

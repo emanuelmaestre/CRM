@@ -5,6 +5,7 @@ import { brand, channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/sc
 import { importarCatalogoContaMercadoLivre } from "@/modules/estoque/application/importar-catalogo.service";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
+import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { emitirEvento } from "@/shared/events";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { sincronizarAnunciosMercadoLivreConta } from "@/modules/anuncios/application/sincronizacao.service";
@@ -109,6 +110,11 @@ export const A31_sincronizarConta = inngest.createFunction(
     ));
 
     const resultadoPedidos = await executarModulo("pedidos", async () => {
+      // Mesmo freio do A24: app Shopee aprovado não tem permissão pra API de
+      // Pedidos, reverter junto com SHOPEE_PEDIDOS_LIBERADO.
+      if (conta.tipo === "shopee" && !SHOPEE_PEDIDOS_LIBERADO) {
+        return { encontrados: 0, novos: 0, ...semSuporte("Pedidos", conta.tipo) };
+      }
       const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug ?? "");
       if (!provider) return { encontrados: 0, novos: 0, ...semSuporte("Pedidos", conta.tipo) };
       const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
