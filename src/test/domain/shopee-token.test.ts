@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  appDoCanalShopee,
+  CANAIS_TOKEN_SHOPEE,
   SHOPEE_TOKEN_REFRESH_CRON,
   SHOPEE_TOKEN_REFRESH_MARGIN_MS,
   solicitarRenovacaoTokenShopee,
@@ -55,5 +57,25 @@ describe("renovação OAuth da Shopee", () => {
       partnerId: "2042574",
       partnerKey: "chave-secreta",
     })).rejects.toThrow(/invalid refresh_token/);
+  });
+});
+
+/* São dois apps no Open Platform, cada um com sua autorização OAuth e seu
+   token — a Shopee autoriza por APP, não por loja. O A33 renovava só o token
+   de catálogo; o de pedidos vencia de 4 em 4 horas sem ninguém renovar, e a
+   sincronização de Pedidos falhava com "App Shopee Pedidos não conectado para
+   esta marca" mesmo com o token presente no banco (25/08/2026). */
+describe("renovação cobre os dois apps Shopee", () => {
+  it("lista os dois canais de token", () => {
+    expect([...CANAIS_TOKEN_SHOPEE]).toEqual(["shopee", "shopee_pedidos"]);
+  });
+
+  it("mapeia cada canal para o app que assina a renovação", () => {
+    expect(appDoCanalShopee("shopee")).toBe("catalogo");
+    expect(appDoCanalShopee("shopee_pedidos")).toBe("pedidos");
+  });
+
+  it("trata canal desconhecido como catálogo, o comportamento anterior ao segundo app", () => {
+    expect(appDoCanalShopee("")).toBe("catalogo");
   });
 });

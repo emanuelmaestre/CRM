@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { obterShopeeBaseUrl } from "@/shared/config/shopee-env";
+import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 
 // Token da Shopee dura bem menos que o do ML (expire_in típico é 4h, contra
@@ -17,12 +17,29 @@ const TokenResponseSchema = z.object({
   shop_id: z.number().int().positive().optional(),
 });
 
+/** Canais da tabela `canal_tokens` que guardam token OAuth da Shopee — um por
+ *  app do Open Platform, porque a autorização é por APP e não por loja. Os dois
+ *  precisam de renovação; renovar só "shopee" deixava o de pedidos vencer
+ *  silenciosamente a cada 4 horas (erro real em 25/08/2026: "App Shopee Pedidos
+ *  não conectado para esta marca" numa sincronização, com o token presente no
+ *  banco mas expirado 36 minutos antes). */
+export const CANAIS_TOKEN_SHOPEE = ["shopee", "shopee_pedidos"] as const;
+export type CanalTokenShopee = (typeof CANAIS_TOKEN_SHOPEE)[number];
+
+/** Qual app assina a renovação daquele token. Errar aqui não é falha silenciosa
+ *  — a Shopee valida a assinatura HMAC contra o partner_key do app dono do
+ *  partner_id, então usar o par errado devolve "Wrong sign". */
+export function appDoCanalShopee(canal: string): "catalogo" | "pedidos" {
+  return canal === "shopee_pedidos" ? "pedidos" : "catalogo";
+}
+
 export interface ShopeeTokenRow {
   id: string;
   refresh_token: string;
   seller_id: string;
   expires_at?: string | null;
   brand_id?: string;
+  canal?: string;
 }
 
 export interface ShopeeTokenRenovado {
@@ -123,8 +140,8 @@ export async function listarTokensShopeeParaRenovacao(opcoes: {
   const ate = opcoes.ate ?? new Date(Date.now() + SHOPEE_TOKEN_REFRESH_MARGIN_MS).toISOString();
   let consulta = clienteSupabase()
     .from("canal_tokens")
-    .select("id, refresh_token, seller_id, expires_at, brand_id")
-    .eq("canal", "shopee")
+    .select("id, refresh_token, seller_id, expires_at, brand_id, canal")
+    .in("canal", CANAIS_TOKEN_SHOPEE)
     .not("refresh_token", "is", null)
     .lte("expires_at", ate);
 
@@ -135,7 +152,20 @@ export async function listarTokensShopeeParaRenovacao(opcoes: {
 }
 
 export async function renovarTokenShopee(row: ShopeeTokenRow): Promise<{ expiresAt: string }> {
-  const tokens = await solicitarRenovacaoTokenShopee(row.refresh_token, row.seller_id);
+  // Cada token é renovado com as credenciais do app que o emitiu — ver
+  // appDoCanalShopee. `canal` ausente cai em "catalogo", que era o único
+  // comportamento antes de existir o segundo app.
+  const app = appDoCanalShopee(row.canal ?? "shopee");
+  const { partnerId, partnerKey } = obterShopeeAppCredenciais(app);
+  // Falha explícita em vez de deixar o default de solicitarRenovacaoTokenShopee
+  // cair nas credenciais de catálogo: assinar o token de pedidos com o app
+  // errado só devolveria "Wrong sign", um erro que não aponta pra causa.
+  if (!partnerId || !partnerKey) {
+    throw new Error(
+      `Credenciais do app Shopee "${app}" não configuradas — renovação do canal "${row.canal ?? "shopee"}" não pode ser assinada.`,
+    );
+  }
+  const tokens = await solicitarRenovacaoTokenShopee(row.refresh_token, row.seller_id, { partnerId, partnerKey });
   const { data, error } = await clienteSupabase()
     .from("canal_tokens")
     .update({
