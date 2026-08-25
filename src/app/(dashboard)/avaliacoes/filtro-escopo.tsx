@@ -148,23 +148,3 @@ export function CanaisRow({ canaisAtivos, onToggleCanal }: Pick<FiltroEscopoProp
     </div>
   );
 }
-
-/** Barra de escopo Empresa/Canal do módulo Avaliações. Já foi compartilhada
- *  com as abas Conversas/Perguntas do Inbox — essas duas telas não existem
- *  mais no app, então hoje isso é usado só aqui. Usada como uma linha só a
- *  partir do breakpoint lg; abaixo disso a tela monta EmpresasRow/CanaisRow
- *  separadas, empilhadas, porque numa tela estreita as duas listas de
- *  pílulas não cabem lado a lado sem empurrar uma pra fora da viewport.
- *  Canal primeiro, empresa depois — mesma ordem fixa do resto do sistema
- *  (ver comentário em scope-row.tsx) e a mesma que o mobile desta tela
- *  já usava (ver avaliacoes-cliente.tsx); antes só a versão desktop
- *  invertia. */
-export function FiltroEscopoBar(props: FiltroEscopoProps) {
-  return (
-    <div className="flex flex-nowrap items-center gap-2 w-fit">
-      <CanaisRow canaisAtivos={props.canaisAtivos} onToggleCanal={props.onToggleCanal} />
-      <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
-      <EmpresasRow marcasAtivas={props.marcasAtivas} onToggleMarca={props.onToggleMarca} contagemMarca={props.contagemMarca} />
-    </div>
-  );
-}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ExternalLink, Loader2, Search, Star, UserCheck } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
@@ -10,10 +10,9 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
-import { springs, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
+import { springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
-import settingsConfig from "@/config/settings.json";
 import type { MLDistribuicaoNotas, MLOpiniao } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
 type CatalogItem = {
@@ -27,14 +26,6 @@ type CatalogItem = {
   canal?: "mercadolivre" | "shopee";
 };
 
-type CatalogResponse = {
-  brand: string;
-  totalListings: number;
-  offset: number;
-  limit: number;
-  items: CatalogItem[];
-};
-
 export type Avaliacao = CatalogItem & { brand: string; brandLabel: string };
 /** Quantos comentários deste anúncio existem mas caem fora do período
  *  escolhido — 0 quando não há filtro de data ativo. `opinioes` já vem
@@ -43,7 +34,7 @@ type AvaliacaoFiltrada = Avaliacao & { ocultasPorPeriodo: number };
 type FiltroNota = "todas" | "com_avaliacao" | "sem_avaliacao";
 type Comprador = { clienteId: string; clienteNome: string; pedidoId: string; pedidoCriadoEm: string };
 
-const marcas = settingsConfig.mercadoLivre.brands;
+const ITENS_POR_LOTE = 30;
 
 const ESTRELAS: Array<{ chave: keyof MLDistribuicaoNotas; rotulo: string }> = [
   { chave: "cinco", rotulo: "5" },
@@ -101,35 +92,6 @@ function formatarData(iso: string | null): string {
   if (!iso) return "";
   const data = new Date(iso);
   return Number.isNaN(data.getTime()) ? "" : dataCurta.format(data);
-}
-
-async function buscarPagina(slug: string, label: string, offset: number): Promise<CatalogResponse> {
-  const response = await fetch(`/api/ml/catalog?brand=${slug}&offset=${offset}&limit=50`);
-  const body = await response.json() as CatalogResponse | { error?: string };
-  if (!response.ok || !("items" in body)) {
-    throw new Error("error" in body && body.error ? body.error : `Falha ao consultar ${label}.`);
-  }
-  return body;
-}
-
-/* A primeira página sai sozinha pra saber o total de anúncios; as páginas
-   seguintes já são conhecidas de antemão, então saem todas em paralelo em
-   vez de uma esperando a outra — corta o tempo de carregamento à metade
-   ou mais quando a marca tem muitos anúncios. */
-async function carregarMarca(slug: string, label: string): Promise<Avaliacao[]> {
-  const primeira = await buscarPagina(slug, label, 0);
-  const acumulado: CatalogItem[] = [...primeira.items];
-
-  if (primeira.items.length > 0 && primeira.totalListings > primeira.limit) {
-    const offsets: number[] = [];
-    for (let offset = primeira.limit; offset < primeira.totalListings; offset += primeira.limit) offsets.push(offset);
-    const paginas = await Promise.all(offsets.map((offset) => buscarPagina(slug, label, offset)));
-    for (const pagina of paginas) acumulado.push(...pagina.items);
-  }
-
-  const anuncios = new Map<string, CatalogItem>();
-  for (const item of acumulado) if (!anuncios.has(item.listingId)) anuncios.set(item.listingId, item);
-  return [...anuncios.values()].map((item) => ({ ...item, brand: slug, brandLabel: label }));
 }
 
 /* ── Estrelas ──────────────────────────────────────────────────
@@ -241,7 +203,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
   const ultimaOpiniaoEm = temOpinioes ? formatarData(item.opinioes[0].criadaEm) : "";
 
   return (
-    <motion.div variants={entradaExagerada} className="border-b border-border last:border-0">
+    <div className="border-b border-border last:border-0">
       <button
         type="button"
         onClick={onAlternar}
@@ -348,7 +310,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
 
@@ -365,21 +327,27 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
   // leem `cacheAvaliacoes` já semeado. `buscadoEm` é agora mesmo porque foi
   // agora que o servidor leu o cache, na mesma requisição desta página.
   const [itens, setItens] = useState<Avaliacao[]>(() => {
-    if (cacheAvaliacoes) return cacheAvaliacoes.itens;
-    if (itensIniciais && itensIniciais.length > 0) {
+    // Props do servidor são mais novas que o cache de módulo. A ordem antiga
+    // preferia o cache local e podia mostrar uma coleta anterior após navegar.
+    if (itensIniciais !== undefined) {
       cacheAvaliacoes = { itens: itensIniciais, buscadoEm: Date.now() };
       return itensIniciais;
     }
+    if (cacheAvaliacoes) return cacheAvaliacoes.itens;
     return [];
   });
   const [carregando, setCarregando] = useState(() => !cacheValido());
   const [busca, setBusca] = useState("");
+  // A digitação continua imediata mesmo quando há centenas de avaliações
+  // para pesquisar; a lista acompanha no próximo quadro disponível.
+  const buscaAdiada = useDeferredValue(busca);
   const [nota, setNota] = useState<FiltroNota>("todas");
   // Pré-selecionado em Hoje, igual ao resto do app.
   const [dataInicio, setDataInicio] = useState(hoje);
   const [dataFim, setDataFim] = useState(hoje);
   const [abertos, setAbertos] = useState<ReadonlySet<string>>(new Set());
   const [identificacoes, setIdentificacoes] = useState<Record<string, Comprador>>({});
+  const [paginacao, setPaginacao] = useState({ assinatura: "", limite: ITENS_POR_LOTE });
 
   // Cruzamento com pedidos é uma chamada à parte, depois que as opiniões já
   // estão na tela — não pode atrasar a primeira renderização (que já espera
@@ -387,10 +355,17 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
   // sem o selo de comprador, só sem essa informação a mais.
   useEffect(() => {
     if (itens.length === 0) return;
-    const corpo = { itens: itens.map((item) => ({ listingId: item.listingId, opinioes: item.opinioes.map((o) => ({ id: o.id, criadaEm: o.criadaEm })) })) };
-    if (corpo.itens.every((item) => item.opinioes.length === 0)) return;
+    // Não serializa os centenas de anúncios sem comentário: eles não podem
+    // produzir identificação e só ocupavam CPU/rede logo após a hidratação.
+    const itensComOpinioes = itens
+      .filter((item) => item.opinioes.length > 0)
+      .map((item) => ({
+        listingId: item.listingId,
+        opinioes: item.opinioes.map((o) => ({ id: o.id, criadaEm: o.criadaEm })),
+      }));
+    if (itensComOpinioes.length === 0) return;
     let ativo = true;
-    fetch("/api/ml/avaliacoes/identificar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) })
+    fetch("/api/ml/avaliacoes/identificar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itens: itensComOpinioes }) })
       .then((response) => response.ok ? response.json() : null)
       .then((body: { identificacoes?: Record<string, Comprador> } | null) => {
         if (ativo && body?.identificacoes) setIdentificacoes(body.identificacoes);
@@ -399,10 +374,9 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     return () => { ativo = false; };
   }, [itens]);
 
-  /* Carregamento normal lê o cache mantido pelo cron A28 no banco — uma
-     consulta só, sem tocar na API do ML, por isso é instantâneo. O botão
-     "Atualizar" é a exceção: aí sim vale a pena esperar a consulta ao vivo,
-     porque a pessoa está pedindo o dado mais fresco possível. */
+  /* O fallback lê somente o cache mantido pelo cron A28 no banco. A tela não
+     consulta marketplaces diretamente: além de mais rápido, isso preserva a
+     franquia do proxy e evita travar os filtros por uma conta lenta. */
   const carregarDoCache = useCallback(async () => {
     const response = await fetch("/api/ml/avaliacoes");
     const body = await response.json() as { items?: Avaliacao[]; error?: string };
@@ -410,24 +384,15 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     return body.items;
   }, []);
 
-  const carregarAoVivo = useCallback(async () => {
-    const resultados = await Promise.allSettled(marcas.map((item) => carregarMarca(item.slug, item.label)));
-    const sucesso = resultados.flatMap((resultado) => resultado.status === "fulfilled" ? resultado.value : []);
-    const falhas = resultados.filter((resultado) => resultado.status === "rejected").length;
-    if (falhas === resultados.length) throw new Error("Nenhuma conta do Mercado Livre respondeu.");
-    if (falhas > 0) toast.warning(`${falhas} conta(s) não puderam ser consultadas.`);
-    return sucesso;
-  }, []);
-
-  const carregar = useCallback(async (forcar = false) => {
-    if (!forcar && cacheValido() && cacheAvaliacoes) {
+  const carregar = useCallback(async () => {
+    if (cacheValido() && cacheAvaliacoes) {
       setItens(cacheAvaliacoes.itens);
       setCarregando(false);
       return;
     }
     setCarregando(true);
     try {
-      const itens = forcar ? await carregarAoVivo() : await carregarDoCache();
+      const itens = await carregarDoCache();
       setItens(itens);
       const agora = Date.now();
       cacheAvaliacoes = { itens, buscadoEm: agora };
@@ -436,7 +401,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     } finally {
       setCarregando(false);
     }
-  }, [carregarAoVivo, carregarDoCache]);
+  }, [carregarDoCache]);
 
   useEffect(() => {
     const task = window.setTimeout(() => void carregar(), 0);
@@ -482,11 +447,11 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
   }, [dataInicio, dataFim]);
 
   const filtrados = useMemo(() => {
+    const termo = buscaAdiada.trim().toLocaleLowerCase("pt-BR");
     const resultado = itens
       .filter((item) => {
         if (marcasAtivas.size > 0 && !marcasAtivas.has(item.brand)) return false;
         if (canaisAtivos.size > 0 && !canaisAtivos.has(item.canal ?? "mercadolivre")) return false;
-        const termo = busca.trim().toLocaleLowerCase("pt-BR");
         if (termo && !item.title.toLocaleLowerCase("pt-BR").includes(termo) && !item.listingId.toLowerCase().includes(termo)) return false;
         if (nota === "com_avaliacao" && item.ratingAverage === null) return false;
         if (nota === "sem_avaliacao" && item.ratingAverage !== null) return false;
@@ -515,7 +480,25 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
       });
     }
     return resultado;
-  }, [itens, busca, nota, marcasAtivas, canaisAtivos, periodoAtivo, dentroDoPeriodo]);
+  }, [itens, buscaAdiada, nota, marcasAtivas, canaisAtivos, periodoAtivo, dentroDoPeriodo]);
+
+  const assinaturaFiltro = useMemo(() => [
+    [...marcasAtivas].sort().join(","),
+    [...canaisAtivos].sort().join(","),
+    buscaAdiada,
+    nota,
+    dataInicio,
+    dataFim,
+  ].join("|"), [marcasAtivas, canaisAtivos, buscaAdiada, nota, dataInicio, dataFim]);
+  // Ao trocar qualquer filtro o primeiro lote é usado já neste render, sem
+  // esperar um effect (que só rodaria depois de montar a lista antiga inteira).
+  const limiteVisivel = paginacao.assinatura === assinaturaFiltro
+    ? paginacao.limite
+    : ITENS_POR_LOTE;
+  const visiveis = useMemo(
+    () => filtrados.slice(0, limiteVisivel),
+    [filtrados, limiteVisivel],
+  );
 
   // O resumo acompanha o filtro: senão o topo diz uma coisa e a lista outra.
   const distribuicao = useMemo(() => somarDistribuicoes(filtrados), [filtrados]);
@@ -527,9 +510,8 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
   );
   const atencao = filtrados.filter((item) => item.ratingAverage !== null && item.ratingAverage < 4).length;
 
-  /* ── Sem filtro ── A busca ao Mercado Livre já roda em segundo plano desde
-     a entrada na página; só o resultado fica escondido até uma marca ou
-     canal ser escolhido acima. */
+  /* ── Sem filtro ── O cache dos dois canais já está em memória; só o
+     resultado fica escondido até uma marca ou canal ser escolhido acima. */
   if (semFiltro) {
     return (
       <div className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.06)]">
@@ -575,7 +557,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
             <RatingStars nota={media} size={18} />
             <p className="mt-1 text-xs text-muted-foreground">
               {carregando
-                ? "Consultando…"
+                ? "Carregando…"
                 : `${totalOpinioes.toLocaleString("pt-BR")} opiniões · ${comentadas.toLocaleString("pt-BR")} com texto`}
             </p>
             {!carregando && atencao > 0 && (
@@ -611,7 +593,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
           {/* "Hoje" saiu como botão avulso — o próprio popover de Período já
               tem um atalho "Hoje" lá dentro (ver CalendarioPopoverRange), o
               botão daqui fora só duplicava a mesma ação e tomava espaço.
-              Sem ele, Notas/Atualizar/Período cabem numa linha só, inclusive
+              Sem ele, Notas/Período cabem numa linha só, inclusive
               no mobile (o par que sobrava forçava a quebra em 2 duplas
               antes); flex-wrap continua de garantia pra telas bem estreitas. */}
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
@@ -638,7 +620,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
 
         {carregando ? (
           <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={17} className="animate-spin" /> Consultando Mercado Livre…
+            <Loader2 size={17} className="animate-spin" /> Carregando avaliações…
           </div>
         ) : filtrados.length === 0 ? (
           <EmptyState
@@ -647,8 +629,8 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
             description="Ajuste a busca, a marca ou a faixa de nota para ver as opiniões."
           />
         ) : (
-          <motion.div variants={staggerExagerado} initial="hidden" animate="show">
-            {filtrados.map((item) => {
+          <div>
+            {visiveis.map((item) => {
               const chave = `${item.brand}:${item.listingId}`;
               return (
                 <LinhaAnuncio
@@ -661,7 +643,24 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                 />
               );
             })}
-          </motion.div>
+            {visiveis.length < filtrados.length && (
+              <div className="flex flex-col items-center gap-2 border-t border-border px-4 py-4">
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {visiveis.length.toLocaleString("pt-BR")} de {filtrados.length.toLocaleString("pt-BR")} anúncios
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPaginacao({
+                    assinatura: assinaturaFiltro,
+                    limite: Math.min(filtrados.length, limiteVisivel + ITENS_POR_LOTE),
+                  })}
+                  className="press-feedback min-h-11 rounded-xl border border-border bg-background px-4 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
+                  Ver mais {Math.min(ITENS_POR_LOTE, filtrados.length - visiveis.length).toLocaleString("pt-BR")}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </section>
     </div>

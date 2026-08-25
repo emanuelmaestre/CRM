@@ -102,3 +102,27 @@ manter o saldo operacional dos anúncios consistente com o CRM.
 
 Validação do complemento: typecheck, lint, 50 arquivos/349 testes, build de
 produção e verificação do esquema do banco aprovados.
+
+## Complemento — desempenho dos filtros de Avaliações
+
+A tela carregava 765 anúncios (620 Mercado Livre e 145 Shopee) e tentava montar
+e animar todos os resultados correspondentes a cada toque. Os filtros também
+existiam duas vezes no DOM, em versões separadas para mobile e desktop. Isso
+causava trabalho duplicado na hidratação, nomes acessíveis repetidos e atraso na
+troca entre canal e empresa.
+
+Correções aplicadas:
+
+- consultas aos caches de Mercado Livre e Shopee executadas em paralelo;
+- uma única árvore responsiva de botões para canal e empresa;
+- resultados montados em lotes de 30, com carregamento progressivo;
+- retirada da animação escalonada de centenas de anúncios;
+- busca textual adiada para não bloquear a digitação;
+- cruzamento opcional de compradores restrito a anúncios com comentários;
+- dados novos entregues pelo servidor passam a prevalecer sobre o cache antigo
+  do navegador;
+- removido do cliente o código morto de consulta direta ao marketplace.
+
+Na primeira rodada da medição local, a leitura sequencial das duas tabelas levou
+323 ms; em paralelo, 140 ms. A validação passou com 51 arquivos/351 testes,
+typecheck, lint, build de produção e verificação do esquema do banco.

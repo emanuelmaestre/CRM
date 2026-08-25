@@ -33,21 +33,39 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
   items: AvaliacaoCache[];
   atualizadoEm: string | null;
 }> {
-  const linhasMl = await db
-    .select({
-      listingId: mlAvaliacaoAnuncio.listingId,
-      title: mlAvaliacaoAnuncio.title,
-      permalink: mlAvaliacaoAnuncio.permalink,
-      ratingAverage: mlAvaliacaoAnuncio.ratingAverage,
-      reviewsTotal: mlAvaliacaoAnuncio.reviewsTotal,
-      ratingLevels: mlAvaliacaoAnuncio.ratingLevels,
-      opinioes: mlAvaliacaoAnuncio.opinioes,
-      atualizadoEm: mlAvaliacaoAnuncio.atualizadoEm,
-      brandSlug: brand.slug,
-    })
-    .from(mlAvaliacaoAnuncio)
-    .innerJoin(brand, and(eq(brand.id, mlAvaliacaoAnuncio.brandId), eq(brand.orgId, orgId)))
-    .where(eq(mlAvaliacaoAnuncio.orgId, orgId));
+  // As duas tabelas são independentes. Consultá-las em paralelo reduz pela
+  // metade o caminho crítico da página em conexões frias com o banco.
+  const [linhasMl, linhasShopee] = await Promise.all([
+    db
+      .select({
+        listingId: mlAvaliacaoAnuncio.listingId,
+        title: mlAvaliacaoAnuncio.title,
+        permalink: mlAvaliacaoAnuncio.permalink,
+        ratingAverage: mlAvaliacaoAnuncio.ratingAverage,
+        reviewsTotal: mlAvaliacaoAnuncio.reviewsTotal,
+        ratingLevels: mlAvaliacaoAnuncio.ratingLevels,
+        opinioes: mlAvaliacaoAnuncio.opinioes,
+        atualizadoEm: mlAvaliacaoAnuncio.atualizadoEm,
+        brandSlug: brand.slug,
+      })
+      .from(mlAvaliacaoAnuncio)
+      .innerJoin(brand, and(eq(brand.id, mlAvaliacaoAnuncio.brandId), eq(brand.orgId, orgId)))
+      .where(eq(mlAvaliacaoAnuncio.orgId, orgId)),
+    db
+      .select({
+        itemId: shopeeAvaliacaoAnuncio.itemId,
+        title: shopeeAvaliacaoAnuncio.title,
+        ratingAverage: shopeeAvaliacaoAnuncio.ratingAverage,
+        reviewsTotal: shopeeAvaliacaoAnuncio.reviewsTotal,
+        ratingLevels: shopeeAvaliacaoAnuncio.ratingLevels,
+        opinioes: shopeeAvaliacaoAnuncio.opinioes,
+        atualizadoEm: shopeeAvaliacaoAnuncio.atualizadoEm,
+        brandSlug: brand.slug,
+      })
+      .from(shopeeAvaliacaoAnuncio)
+      .innerJoin(brand, and(eq(brand.id, shopeeAvaliacaoAnuncio.brandId), eq(brand.orgId, orgId)))
+      .where(eq(shopeeAvaliacaoAnuncio.orgId, orgId)),
+  ]);
 
   const itemsMl = linhasMl.map((linha) => ({
     listingId: linha.listingId,
@@ -65,21 +83,6 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
     brandLabel: rotulosPorSlug.get(linha.brandSlug) ?? linha.brandSlug,
     canal: "mercadolivre" as const,
   }));
-
-  const linhasShopee = await db
-    .select({
-      itemId: shopeeAvaliacaoAnuncio.itemId,
-      title: shopeeAvaliacaoAnuncio.title,
-      ratingAverage: shopeeAvaliacaoAnuncio.ratingAverage,
-      reviewsTotal: shopeeAvaliacaoAnuncio.reviewsTotal,
-      ratingLevels: shopeeAvaliacaoAnuncio.ratingLevels,
-      opinioes: shopeeAvaliacaoAnuncio.opinioes,
-      atualizadoEm: shopeeAvaliacaoAnuncio.atualizadoEm,
-      brandSlug: brand.slug,
-    })
-    .from(shopeeAvaliacaoAnuncio)
-    .innerJoin(brand, and(eq(brand.id, shopeeAvaliacaoAnuncio.brandId), eq(brand.orgId, orgId)))
-    .where(eq(shopeeAvaliacaoAnuncio.orgId, orgId));
 
   const itemsShopee = linhasShopee.map((linha) => ({
     listingId: linha.itemId,

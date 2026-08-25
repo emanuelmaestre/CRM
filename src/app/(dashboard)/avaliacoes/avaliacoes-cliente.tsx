@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AvaliacoesLista, type Avaliacao } from "./avaliacoes-lista";
-import { FiltroEscopoBar, EmpresasRow, CanaisRow } from "./filtro-escopo";
+import { EmpresasRow, CanaisRow } from "./filtro-escopo";
 
 export function AvaliacoesCliente({ itensIniciais }: {
   /** Avaliações já lidas do cache no servidor (ver page.tsx) — chegam dentro
@@ -48,24 +48,15 @@ export function AvaliacoesCliente({ itensIniciais }: {
       {/* Barra de escopo — empresa e canal. Antes dividia espaço com a barra
           de abas (Conversas/Perguntas/Avaliações); com só Avaliações
           sobrando, não há mais abas pra caber ao lado, então ela ocupa a
-          linha inteira e centraliza sozinha. No mobile, empresa em cima e
-          canal embaixo; uma linha só no desktop. */}
-      <div className="flex flex-col items-center gap-2 lg:flex-row lg:justify-center lg:gap-3">
-        <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none flex justify-center lg:hidden">
+          linha inteira e centraliza sozinha. No mobile, canal em cima e
+          empresa embaixo; uma linha só no desktop. */}
+      <div className="flex flex-col items-center gap-2 lg:flex-row lg:justify-center lg:gap-2">
+        <div className="flex w-full justify-center overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none lg:w-auto lg:justify-start">
           <CanaisRow canaisAtivos={canaisAtivos} onToggleCanal={alternarCanal} />
         </div>
-        <div className="w-full overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none flex justify-center lg:hidden">
+        <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border lg:block" />
+        <div className="flex w-full justify-center overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none lg:w-auto lg:justify-start">
           <EmpresasRow marcasAtivas={marcasAtivas} onToggleMarca={alternarMarca} contagemMarca={contagens.marcas} />
-        </div>
-
-        <div className="hidden lg:block min-w-0 overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none">
-          <FiltroEscopoBar
-            marcasAtivas={marcasAtivas}
-            canaisAtivos={canaisAtivos}
-            onToggleMarca={alternarMarca}
-            onToggleCanal={alternarCanal}
-            contagemMarca={contagens.marcas}
-          />
         </div>
       </div>
 
