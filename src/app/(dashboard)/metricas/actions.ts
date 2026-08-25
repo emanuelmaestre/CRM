@@ -15,7 +15,6 @@ import { assertPerfil } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { obterSaudeLoja, type SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import { obterAtendimento, type AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
-import { obterReclamacoesMetricasComCache } from "./reclamacoes-cache";
 import { obterPosVenda, type PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 import { obterSnapshotAnterior, type SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import {
@@ -115,8 +114,7 @@ export async function actionObterSaudeLoja(filtros: MetricasFiltros = {}): Promi
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
   const filtrosValidos = FiltrosSchema.parse(filtros);
-  const reclamacoes = filtrosValidos.leve ? undefined : obterReclamacoesMetricasComCache(ctx.orgId);
-  return medirTempo("metricas/saude-loja", () => obterSaudeLoja(ctx, filtrosValidos, { reclamacoes }));
+  return medirTempo("metricas/saude-loja", () => obterSaudeLoja(ctx, filtrosValidos));
 }
 
 /** Consulta separada do score porque o funil não depende de nenhum canal

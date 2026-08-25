@@ -54,20 +54,6 @@ const MODULOS = [
     label: "Termômetro",
     descricao: "Faixa de reputação, Mercado Líder e taxas que afetam a saúde da loja.",
   },
-  {
-    chave: "reclamacoesStatus",
-    resultado: "reclamacoesResultado",
-    erro: "reclamacoesErro",
-    label: "Reclamações",
-    descricao: "Reclamações abertas e mediações que exigem atenção no pós-venda.",
-  },
-  {
-    chave: "mensagensStatus",
-    resultado: "mensagensResultado",
-    erro: "mensagensErro",
-    label: "Mensagens",
-    descricao: "Conversas pós-venda recentes que podem não ter chegado pela notificação automática do canal.",
-  },
 ] as const;
 
 function resultadoSemSuporte(resultado: unknown): boolean {
@@ -240,7 +226,7 @@ function rotuloUltima(execucao: Execucao | null) {
 function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; execucao: Execucao | null }) {
   const mercadoLivre = conta.canal === "mercadolivre";
   const descricaoCanal = mercadoLivre
-    ? "No Mercado Livre, este clique força a fila completa: catálogo, pedidos, anúncios patrocinados, avaliações, termômetro, reclamações e mensagens."
+    ? "No Mercado Livre, este clique atualiza catálogo, pedidos, anúncios patrocinados, avaliações e termômetro. Mensagens e reclamações foram removidas para evitar chamadas sem uso."
     : `Para ${conta.canalLabel}, o botão executa os módulos que o conector já suporta e marca o restante como sem suporte, sem travar a tela.`;
 
   return (
@@ -359,8 +345,6 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
         anunciosResultado: null,
         avaliacoesResultado: null,
         reputacaoResultado: null,
-        reclamacoesResultado: null,
-        mensagensResultado: null,
       } as Execucao);
       pararPolling();
       iniciarPolling();

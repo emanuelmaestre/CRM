@@ -163,8 +163,9 @@ describe("cards de Métricas", () => {
     render(<ComparacaoCard dados={resultado()} carregando={false} />);
     const nota = screen.getByText("Nota").closest("div");
     expect(within(nota as HTMLElement).getByText("Sem avaliação")).toBeInTheDocument();
-    // Reclamação em mediação continua visível ao lado do total.
-    expect(screen.getByText("2 (1 em mediação)")).toBeInTheDocument();
+    // Reclamações foram removidas do produto e não devem reaparecer por
+    // dados legados ainda presentes no contrato de saúde.
+    expect(screen.queryByText("2 (1 em mediação)")).not.toBeInTheDocument();
   });
 
   it("resume o funil de atendimento pelas faixas de espera", () => {

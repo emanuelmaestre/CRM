@@ -10,9 +10,22 @@ export function AvaliacoesCliente({ itensIniciais }: {
    *  JavaScript ligar e só então pedir os dados de volta. */
   itensIniciais?: Avaliacao[];
 }) {
+  const contagensIniciais = () => {
+    const marcas: Record<string, number> = {};
+    const canais: Record<string, number> = {};
+    for (const item of itensIniciais ?? []) {
+      marcas[item.brand] = (marcas[item.brand] ?? 0) + 1;
+      const canal = item.canal ?? "mercadolivre";
+      canais[canal] = (canais[canal] ?? 0) + 1;
+    }
+    return { marcas, canais };
+  };
   const [marcasAtivas, setMarcasAtivas] = useState<ReadonlySet<string>>(new Set());
   const [canaisAtivos, setCanaisAtivos] = useState<ReadonlySet<string>>(new Set());
-  const [contagens, setContagens] = useState<{ marcas: Record<string, number>; canais: Record<string, number> }>({ marcas: {}, canais: {} });
+  // As pílulas já nascem habilitadas com o cache entregue no HTML. Antes a
+  // contagem só chegava num useEffect depois da hidratação, deixando os
+  // botões visíveis porém intocáveis por alguns instantes.
+  const [contagens, setContagens] = useState(contagensIniciais);
 
   function alternarMarca(slug: string) {
     setMarcasAtivas((atual) => {

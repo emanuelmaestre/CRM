@@ -18,6 +18,8 @@ import metricasConfig from "@/config/metricas.json";
 import { agruparPorSecao, Bloco, Foco, type BlocoDef } from "./bloco";
 import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./painel/scope-row";
 import { type Periodo, AnelScore } from "./metricas-primitives";
+import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
+import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
 import { Linha, BarrasMarca, MiniRanking } from "./mini-visuais";
 import { actionObterDashboardData } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
@@ -37,8 +39,6 @@ function PainelCarregando() {
 }
 
 
-const CalendarioPopoverRange = dynamic(() => import("@/shared/design-system/primitives/CalendarioPopoverRange").then((modulo) => modulo.CalendarioPopoverRange));
-const BotaoHoje = dynamic(() => import("@/shared/design-system/primitives/BotaoHoje").then((modulo) => modulo.BotaoHoje));
 const FaturamentoCard = dynamic(() => import("./painel/faturamento-card").then((modulo) => modulo.FaturamentoCard), { loading: PainelCarregando });
 const ComparacaoCard = dynamic(() => import("./comparacao-card").then((modulo) => modulo.ComparacaoCard), { loading: PainelCarregando });
 const PublicacoesCard = dynamic(() => import("./publicacoes-card").then((modulo) => modulo.PublicacoesCard), { loading: PainelCarregando });

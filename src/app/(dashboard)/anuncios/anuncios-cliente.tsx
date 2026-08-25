@@ -16,7 +16,6 @@ import { tint } from "@/shared/design-system/color";
 import anunciosConfig from "@/config/anuncios.json";
 import channelsConfig from "@/config/channels.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
-import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
 import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
 import { OrganicoCard } from "./organico-card";
@@ -331,7 +330,7 @@ function Esqueleto() {
   );
 }
 
-export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais = [] }: {
+export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
   /** Janela de 30 dias calculada no servidor. Vem como prop em vez de ser
    *  recalculada aqui para que a chave do período bata exatamente com a dos
    *  dados pré-buscados — recalcular no navegador poderia cair em outro dia
@@ -339,7 +338,6 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
   periodoServidor?: { inicio: string; fim: string };
   /** Visão geral do período atual e do anterior, já resolvidas no servidor. */
   dadosIniciais?: { dados: VisaoGeralResultado | null; anterior: VisaoGeralResultado | null } | null;
-  contasIniciais?: CanalConfiguracao[];
 }) {
   const [periodo, setPeriodo] = useState(() => periodoServidor ?? periodoInicial());
   // "Limpar" no calendário volta o período pra "" — sem isso, o resto do

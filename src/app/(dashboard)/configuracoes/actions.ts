@@ -131,7 +131,6 @@ export async function actionListarConfiguracaoCanais() {
 export async function actionDispararSincronizacaoConta(channelAccountId: string) {
   const ctx = await getCrudContext();
   const execucao = await dispararSincronizacaoConta(ctx, channelAccountId);
-  revalidateTag(`reclamacoes-${ctx.orgId}`, "max");
   revalidateTag(REPUTACAO_CACHE_TAG, "max");
   revalidateTag(PUBLICACOES_CACHE_TAG, "max");
   revalidatePath("/metricas");

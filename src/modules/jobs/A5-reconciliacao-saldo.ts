@@ -106,12 +106,18 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
 
     for (const [indice, lote] of lotes.entries()) {
       const resultado = await step.run(`coletar-lote-${indice}`, async () => {
+        const providers = new Map<string, ReturnType<typeof resolverChannelProvider>>();
         // Em paralelo dentro do lote: o provider do Mercado Livre já limita as
         // chamadas simultâneas e faz backoff pelo Retry-After, então não há
         // risco de estourar o teto disparando o lote de uma vez.
         const saldos = await Promise.all(lote.map(async (item) => {
           try {
-            const provider = await resolverChannelProvider(item.tipo, item.brandSlug);
+            let providerPromise = providers.get(item.channelAccountId);
+            if (!providerPromise) {
+              providerPromise = resolverChannelProvider(item.tipo, item.brandSlug);
+              providers.set(item.channelAccountId, providerPromise);
+            }
+            const provider = await providerPromise;
             if (!provider) throw new Error(`Provider ${item.tipo}/${item.brandSlug} não suportado.`);
             const saldo = await provider.consultarEstoque({
               listingId: item.externalListingId,

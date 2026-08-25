@@ -3,7 +3,6 @@ import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { criarMLProvider, obterTokenMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { receberMensagem, resolverClientePorIdentidade } from "@/modules/inbox/application/inbox.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { iniciarSyncTrace } from "@/shared/lib/observability/sync-trace";
 
@@ -20,59 +19,6 @@ const MLNotificationSchema = z.object({
   attempts: z.number().optional(),
   received: z.string().optional(),
 });
-
-async function buscarRecursoML<T>(resource: string, accessToken: string): Promise<T> {
-  const path = resource.startsWith("/") ? resource : `/messages/${resource}`;
-  const tag = path.startsWith("/messages/") ? `${path.includes("?") ? "&" : "?"}tag=post_sale` : "";
-  const res = await fetch(`https://api.mercadolibre.com${path}${tag}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!res.ok) throw new Error(`Mercado Livre API ${res.status} em ${path}`);
-  return res.json() as Promise<T>;
-}
-
-// Fallback de identificação: quando o comprador ainda não tem cliente
-// vinculado (nenhum pedido sincronizado ainda), buscamos o nome dele
-// diretamente na API pública do ML pra não deixar o Inbox mostrando só o
-// ID técnico do pacote/pergunta. Best-effort — se falhar, segue sem nome.
-async function buscarNomeCompradorML(userId: number | undefined, accessToken: string): Promise<string | undefined> {
-  if (!userId) return undefined;
-  try {
-    const usuario = await buscarRecursoML<{
-      nickname?: string;
-      first_name?: string;
-      last_name?: string;
-      address?: { city?: string; state?: string };
-    }>(`/users/${userId}`, accessToken);
-    const nomeCompleto = [usuario.first_name, usuario.last_name].filter(Boolean).join(" ").trim();
-    if (nomeCompleto) return nomeCompleto;
-    // Pré-venda (sem pedido ainda): a API pública do ML não expõe nome real
-    // por privacidade, só o apelido — por isso ele vem rotulado, e a
-    // cidade/estado (também público) entra como complemento pra identificar
-    // melhor. Assim que um pedido for sincronizado, isso é substituído pelo
-    // nome completo real do destinatário da entrega.
-    if (!usuario.nickname) return undefined;
-    const estado = usuario.address?.state?.replace(/^BR-/, "");
-    const local = [usuario.address?.city, estado].filter(Boolean).join("/");
-    return local ? `${usuario.nickname} (apelido) · ${local}` : `${usuario.nickname} (apelido)`;
-  } catch {
-    return undefined;
-  }
-}
-
-// Identifica o(s) produto(s) do pedido pra exibir no Inbox no lugar do
-// número de pacote cru (ver seller_sku ↔ produto.sku em ingestao-pedido.service).
-// Best-effort — se falhar, a conversa cai de volta pro "Pacote X".
-async function buscarProdutosPedidoML(orderId: string | number | undefined, accessToken: string): Promise<string[]> {
-  if (!orderId) return [];
-  try {
-    const order = await buscarRecursoML<{ order_items?: Array<{ item?: { title?: string } }> }>(`/orders/${orderId}`, accessToken);
-    return (order.order_items ?? []).map((i) => i.item?.title).filter((t): t is string => !!t);
-  } catch {
-    return [];
-  }
-}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const bloqueio = await verificarRateLimit(req, "webhook");
@@ -113,7 +59,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { topic, resource, user_id: sellerId } = resultado.data;
-  if (!["orders_v2", "messages", "questions"].includes(topic)) {
+  if (topic !== "orders_v2") {
+    // Mensagens/perguntas não fazem mais parte do produto. Responder 200 aqui
+    // impede repetição do webhook e, sobretudo, evita as chamadas de detalhe
+    // que esse fluxo fazia ao Mercado Livre.
     return NextResponse.json({ ok: true, ignorado: true, topic });
   }
 
@@ -129,102 +78,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const token = await obterTokenMercadoLivre(c.brandSlug);
       return { ...c, accessToken: token.accessToken, refreshToken: token.refreshToken };
     });
-    const { accessToken } = conta;
-
-    if (topic === "messages") {
-      const message = await trace.etapa("ml_api", () => buscarRecursoML<{
-        message_id?: string;
-        id?: string;
-        date?: string;
-        from?: { user_id?: number };
-        text?: { plain?: string };
-        subject?: string;
-        conversation_id?: string;
-        pack_id?: string | number;
-        order_id?: string | number;
-        to?: { user_id?: number };
-        message_resources?: Array<{ id?: string | number; name?: string }>;
-      }>(resource, accessToken));
-      const messageId = message.message_id ?? message.id ?? resultado.data.id ?? resource;
-      const conteudo = message.text?.plain ?? message.subject;
-      if (!conteudo) {
-        return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem-sem-texto" });
-      }
-      const packResource = message.message_resources?.find((item) => item.name === "packs");
-      const packId = String(message.pack_id ?? packResource?.id ?? message.order_id ?? "");
-      if (!packId) {
-        return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem-sem-pack-id" });
-      }
-      // Notificações também podem refletir mensagens enviadas pelo próprio vendedor.
-      if (String(message.from?.user_id ?? "") === sellerId) {
-        return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem-de-saida" });
-      }
-      const clienteId = await resolverClientePorIdentidade(conta.orgId, "mercadolivre", message.from?.user_id);
-      const remetenteNome = clienteId ? undefined : await buscarNomeCompradorML(message.from?.user_id, accessToken);
-      const produtos = await buscarProdutosPedidoML(message.order_id, accessToken);
-      const inbox = await trace.etapa("database", () => receberMensagem({
-        orgId: conta.orgId,
-        brandId: conta.brandId,
-        channelAccountId: conta.channelAccountId,
-        clienteId,
-        externalConversaId: message.conversation_id ?? `ml-pack:${packId}`,
-        providerMessageId: `ml-message:${messageId}`,
-        conteudo,
-        tipo: "texto",
-        meta: {
-          canal: "mercadolivre",
-          topic,
-          remetenteId: message.from?.user_id,
-          remetenteNome,
-          produtos: produtos.length ? produtos : undefined,
-          destinatarioId: message.from?.user_id === undefined ? undefined : String(message.from.user_id),
-          sellerId,
-          packId,
-          orderId: message.order_id === undefined ? undefined : String(message.order_id),
-          recebidaEm: message.date,
-        },
-      }));
-      trace.finalizar("ok");
-      return NextResponse.json({ ok: true, ...inbox });
-    }
-
-    if (topic === "questions") {
-      const question = await trace.etapa("ml_api", () => buscarRecursoML<{
-        id?: number;
-        text?: string;
-        date_created?: string;
-        item_id?: string;
-        from?: { id?: number };
-      }>(resource, accessToken));
-      const textoPergunta = question.text;
-      if (!textoPergunta) {
-        return NextResponse.json({ ok: true, ignorado: true, motivo: "pergunta-sem-texto" });
-      }
-      const clienteIdPergunta = await resolverClientePorIdentidade(conta.orgId, "mercadolivre", question.from?.id);
-      const remetenteNomePergunta = clienteIdPergunta ? undefined : await buscarNomeCompradorML(question.from?.id, accessToken);
-      const inbox = await trace.etapa("database", () => receberMensagem({
-        orgId: conta.orgId,
-        brandId: conta.brandId,
-        channelAccountId: conta.channelAccountId,
-        clienteId: clienteIdPergunta,
-        externalConversaId: `ml-question:${question.id ?? resource}`,
-        providerMessageId: `ml-question:${question.id ?? resource}`,
-        conteudo: textoPergunta,
-        tipo: "texto",
-        meta: {
-          canal: "mercadolivre",
-          topic,
-          itemId: question.item_id,
-          questionId: String(question.id ?? resource.split("/").filter(Boolean).at(-1) ?? ""),
-          remetenteId: question.from?.id,
-          remetenteNome: remetenteNomePergunta,
-          recebidaEm: question.date_created,
-        },
-      }));
-      trace.finalizar("ok");
-      return NextResponse.json({ ok: true, ...inbox });
-    }
-
     const orderId = resource.split("/orders/")[1];
     if (!orderId) return NextResponse.json({ ok: true, ignorado: true, motivo: "sem-order-id" });
 

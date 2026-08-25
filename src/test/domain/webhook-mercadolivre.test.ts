@@ -185,7 +185,7 @@ describe("webhook Mercado Livre", () => {
     expect(mocks.ingerirPedido).not.toHaveBeenCalled();
   });
 
-  it("processa notificação de mensagem (messages) e chama receberMensagem", async () => {
+  it("ignora notificações de mensagens sem fazer chamadas externas", async () => {
     mocks.resolverContaWebhookMarketplace.mockResolvedValue(CONTA);
     mocks.obterTokenMercadoLivre.mockResolvedValue({ accessToken: "token-abc" });
     mocks.receberMensagem.mockResolvedValue({ conversaId: "conversa-1" });
@@ -206,11 +206,9 @@ describe("webhook Mercado Livre", () => {
     const res = await POST(req);
     const json = await res.json();
     expect(res.status).toBe(200);
-    expect(json).toMatchObject({ ok: true, conversaId: "conversa-1" });
-    expect(mocks.receberMensagem).toHaveBeenCalledWith(expect.objectContaining({
-      conteudo: "Olá, chegou meu pedido?",
-      providerMessageId: "ml-message:msg-1",
-    }));
+    expect(json).toMatchObject({ ok: true, ignorado: true, topic: "messages" });
+    expect(mocks.receberMensagem).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("ignora mensagem sem texto/subject", async () => {
@@ -225,11 +223,11 @@ describe("webhook Mercado Livre", () => {
     const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
-    expect(json).toMatchObject({ ok: true, ignorado: true, motivo: "mensagem-sem-texto" });
+    expect(json).toMatchObject({ ok: true, ignorado: true, topic: "messages" });
     expect(mocks.receberMensagem).not.toHaveBeenCalled();
   });
 
-  it("processa notificação de pergunta (questions) e chama receberMensagem", async () => {
+  it("ignora notificações de perguntas junto com o inbox removido", async () => {
     mocks.resolverContaWebhookMarketplace.mockResolvedValue(CONTA);
     mocks.obterTokenMercadoLivre.mockResolvedValue({ accessToken: "token-abc" });
     mocks.receberMensagem.mockResolvedValue({ conversaId: "conversa-2" });
@@ -249,12 +247,9 @@ describe("webhook Mercado Livre", () => {
     const res = await POST(req);
     const json = await res.json();
     expect(res.status).toBe(200);
-    expect(json).toMatchObject({ ok: true, conversaId: "conversa-2" });
-    expect(mocks.receberMensagem).toHaveBeenCalledWith(expect.objectContaining({
-      externalConversaId: "ml-question:77",
-      conteudo: "Tem em outra cor?",
-      meta: expect.objectContaining({ questionId: "77", itemId: "MLB123" }),
-    }));
+    expect(json).toMatchObject({ ok: true, ignorado: true, topic: "questions" });
+    expect(mocks.receberMensagem).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("retorna 500 e não vaza detalhes quando a conta do webhook não é resolvida", async () => {

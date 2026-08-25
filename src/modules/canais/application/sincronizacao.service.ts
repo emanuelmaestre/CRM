@@ -22,6 +22,12 @@ export async function dispararSincronizacaoConta(ctx: CrudContext, channelAccoun
   const [execucao] = await ctx.db.insert(sincronizacaoExecucao).values({
     orgId: ctx.orgId,
     channelAccountId,
+    // Compatibilidade com o histórico: as colunas continuam no banco, mas
+    // novas execuções não chamam mais endpoints sem uso.
+    reclamacoesStatus: "concluido",
+    reclamacoesResultado: { desativado: true },
+    mensagensStatus: "concluido",
+    mensagensResultado: { desativado: true },
   }).returning();
 
   await inngest.send({
@@ -34,7 +40,7 @@ export async function dispararSincronizacaoConta(ctx: CrudContext, channelAccoun
 }
 
 const MODULOS_SINCRONIZACAO = [
-  "catalogo", "pedidos", "anuncios", "avaliacoes", "reputacao", "reclamacoes", "mensagens",
+  "catalogo", "pedidos", "anuncios", "avaliacoes", "reputacao",
 ] as const;
 
 /** Depois disto, uma execução sem `finalizado_em` é considerada abandonada.

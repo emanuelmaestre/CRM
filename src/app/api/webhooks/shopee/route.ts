@@ -4,7 +4,6 @@ import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
-import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
 import { obterTokenShopee, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
@@ -28,15 +27,6 @@ const ShopeeOrderDataSchema = z.object({
   ordersn: z.string(),
   status: z.string().optional(),
   buyer_username: z.string().optional(),
-});
-
-const ShopeeMessageDataSchema = z.object({
-  conversation_id: z.union([z.string(), z.number()]).transform(String),
-  message_id: z.union([z.string(), z.number()]).transform(String),
-  message_type: z.string().optional(),
-  content: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
-  from_id: z.union([z.string(), z.number()]).optional(),
-  to_id: z.union([z.string(), z.number()]).optional(),
 });
 
 // Um só endpoint recebe webhook dos dois apps (catálogo/CRM manda push de
@@ -145,36 +135,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const { code, shop_id } = envelope.data;
 
   if (code === 20) {
-    const mensagem = ShopeeMessageDataSchema.safeParse(envelope.data.data);
-    if (!mensagem.success) {
-      return NextResponse.json({ error: "Mensagem Shopee incompleta" }, { status: 422 });
-    }
-    const msgData = mensagem.data;
-    let conteudo = typeof msgData.content === "string" ? msgData.content : JSON.stringify(msgData.content ?? "");
-    if (typeof msgData.content === "object" && msgData.content && "text" in msgData.content && typeof msgData.content.text === "string") {
-      conteudo = msgData.content.text;
-    }
-    if (!conteudo) {
-      return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagem_sem_conteudo" });
-    }
-
-    try {
-      const conta = await resolverContaWebhookMarketplace("shopee", String(shop_id));
-      const inbox = await receberMensagem({
-        orgId: conta.orgId,
-        brandId: conta.brandId,
-        channelAccountId: conta.channelAccountId,
-        externalConversaId: msgData.conversation_id,
-        providerMessageId: `shopee:${msgData.message_id}`,
-        conteudo,
-        tipo: (msgData.message_type ?? "text").toLowerCase(),
-        meta: { canal: "shopee", fromId: msgData.from_id, toId: msgData.to_id },
-      });
-      return NextResponse.json({ ok: true, ...inbox });
-    } catch (error) {
-      console.error("[webhook/shopee/inbox]", error);
-      return NextResponse.json({ error: "Erro interno" }, { status: 500 });
-    }
+    // Inbox/mensagens foi removido. Confirmar o recebimento evita retentativas
+    // da Shopee sem consultar token, pedido ou qualquer outro endpoint.
+    return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagens_desativadas" });
   }
 
   if (code !== 3) {

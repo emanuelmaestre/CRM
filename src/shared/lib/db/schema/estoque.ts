@@ -20,7 +20,11 @@ export const produto = pgTable("produto", {
 }, (t) => [
   index("idx_produto_org_brand").on(t.orgId, t.brandId),
   index("idx_produto_sku").on(t.orgId, t.sku),
-  uniqueIndex("uq_produto_org_sku_active").on(t.orgId, t.sku)
+  // O mesmo código pode existir em marcas diferentes (ex.: uma conta vende
+  // um SKU originado de outra linha). A identidade do produto é marca+SKU;
+  // manter a unicidade só na organização fazia o catálogo da segunda marca
+  // cair silenciosamente como "ignorado".
+  uniqueIndex("uq_produto_org_brand_sku_active").on(t.orgId, t.brandId, t.sku)
     .where(sql`${t.deletedAt} is null`),
 ]);
 

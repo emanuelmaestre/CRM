@@ -4,6 +4,7 @@ import {
   brand,
   estoqueCanalSaldo,
   mlAvaliacaoAnuncio,
+  shopeeAvaliacaoAnuncio,
   pedido,
   produto,
 } from "@/shared/lib/db/schema";
@@ -17,8 +18,8 @@ import {
   type ReputacaoMarca,
   type ReputacaoResultado,
 } from "./reputacao.service";
-import { obterReclamacoesAbertas, type ReclamacoesResultado } from "./reclamacoes.service";
 import { obterCrescimentoPorMarca } from "./crescimento.service";
+import type { ReclamacoesResultado } from "./reclamacoes.service";
 
 /* ── Score de Saúde da Loja ──────────────────────────────────────
    Cálculo 100% nosso — nenhuma chamada nova a canal nenhum, só a
@@ -246,7 +247,7 @@ export interface SaudeLojaFiltros {
   inicio?: string;
   fim?: string;
   brandIds?: string[];
-  /** Pula reputação/reclamações (API do ML, lentas), atendimento por marca e
+  /** Pula reputação (API do ML, lenta), atendimento por marca e
    *  pilares de score. Para quando só se precisa de faturamento/pedidos/ticket/
    *  cancelamento — rodar a consulta inteira só pra descartar quase tudo
    *  dobra o tempo de carregamento à toa. */
@@ -286,7 +287,6 @@ function resolverJanela(filtros?: SaudeLojaFiltros) {
 export async function obterSaudeLoja(
   ctx: CrudContext,
   filtros?: SaudeLojaFiltros,
-  dependencias?: { reclamacoes?: Promise<ReclamacoesResultado> },
 ): Promise<SaudeLojaResultado> {
   const { inicio, fim } = resolverJanela(filtros);
   const brandIds = (filtros?.brandIds ?? []).filter(Boolean);
@@ -315,11 +315,9 @@ export async function obterSaudeLoja(
   const idsVisiveis = marcas.map((item) => item.id);
   const leve = filtros?.leve ?? false;
 
-  // Tudo em paralelo: nenhuma dessas consultas depende do resultado da outra, e
-  // as duas que saem para o Mercado Livre (reputação e reclamações) são as
-  // lentas — esperá-las em série dobraria o tempo da página à toa. No modo
-  // `leve` elas nem entram: quem só quer faturamento/pedidos/cancelamento
-  // não precisa pagar por elas.
+  // Tudo em paralelo: nenhuma dessas consultas depende do resultado da outra.
+  // A reputação é a única chamada externa ao Mercado Livre e fica fora do modo
+  // `leve`; reclamações permanecem vazias apenas por compatibilidade do contrato.
   const [
     vendasPorMarca,
     avaliacoesPorMarca,
@@ -346,28 +344,44 @@ export async function obterSaudeLoja(
         ne(pedido.status, "devolvido"),
       ))
       .groupBy(pedido.brandId),
-    leve ? Promise.resolve([]) : ctx.db
-      .select({
-        brandId: mlAvaliacaoAnuncio.brandId,
-        // Média ponderada pelo número de opiniões, não média das médias: um
-        // anúncio com 1 opinião nota 1,0 não pode pesar o mesmo que outro com
-        // 500 opiniões nota 4,9. Anúncio sem opinião fica de fora da conta em
-        // vez de entrar como zero.
-        nota: sql<number | null>`
-          case when sum(coalesce(${mlAvaliacaoAnuncio.reviewsTotal}, 0)) > 0
-            then sum(${mlAvaliacaoAnuncio.ratingAverage} * ${mlAvaliacaoAnuncio.reviewsTotal})
-                 / sum(${mlAvaliacaoAnuncio.reviewsTotal})
-          end
-        `,
-        avaliacoes: sum(mlAvaliacaoAnuncio.reviewsTotal),
-      })
-      .from(mlAvaliacaoAnuncio)
-      .where(and(
-        eq(mlAvaliacaoAnuncio.orgId, ctx.orgId),
-        inArray(mlAvaliacaoAnuncio.brandId, idsVisiveis),
-        gt(mlAvaliacaoAnuncio.reviewsTotal, 0),
-      ))
-      .groupBy(mlAvaliacaoAnuncio.brandId),
+    leve ? Promise.resolve([]) : Promise.all([
+      ctx.db
+        .select({
+          brandId: mlAvaliacaoAnuncio.brandId,
+          nota: sql<number | null>`
+            case when sum(coalesce(${mlAvaliacaoAnuncio.reviewsTotal}, 0)) > 0
+              then sum(${mlAvaliacaoAnuncio.ratingAverage} * ${mlAvaliacaoAnuncio.reviewsTotal})
+                   / sum(${mlAvaliacaoAnuncio.reviewsTotal})
+            end
+          `,
+          avaliacoes: sum(mlAvaliacaoAnuncio.reviewsTotal),
+        })
+        .from(mlAvaliacaoAnuncio)
+        .where(and(
+          eq(mlAvaliacaoAnuncio.orgId, ctx.orgId),
+          inArray(mlAvaliacaoAnuncio.brandId, idsVisiveis),
+          gt(mlAvaliacaoAnuncio.reviewsTotal, 0),
+        ))
+        .groupBy(mlAvaliacaoAnuncio.brandId),
+      ctx.db
+        .select({
+          brandId: shopeeAvaliacaoAnuncio.brandId,
+          nota: sql<number | null>`
+            case when sum(coalesce(${shopeeAvaliacaoAnuncio.reviewsTotal}, 0)) > 0
+              then sum(${shopeeAvaliacaoAnuncio.ratingAverage} * ${shopeeAvaliacaoAnuncio.reviewsTotal})
+                   / sum(${shopeeAvaliacaoAnuncio.reviewsTotal})
+            end
+          `,
+          avaliacoes: sum(shopeeAvaliacaoAnuncio.reviewsTotal),
+        })
+        .from(shopeeAvaliacaoAnuncio)
+        .where(and(
+          eq(shopeeAvaliacaoAnuncio.orgId, ctx.orgId),
+          inArray(shopeeAvaliacaoAnuncio.brandId, idsVisiveis),
+          gt(shopeeAvaliacaoAnuncio.reviewsTotal, 0),
+        ))
+        .groupBy(shopeeAvaliacaoAnuncio.brandId),
+    ]).then(([mercadoLivre, shopee]) => [...mercadoLivre, ...shopee]),
     leve ? Promise.resolve([]) : ctx.db
       .select({
         brandId: produto.brandId,
@@ -389,14 +403,9 @@ export async function obterSaudeLoja(
         marcasComFalha: [],
         semContaConectada: true,
       })),
-    leve ? Promise.resolve<ReclamacoesResultado>({ itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: true })
-      : (dependencias?.reclamacoes ?? obterReclamacoesAbertas(ctx)).catch((): ReclamacoesResultado => ({
-        itens: [],
-        total: 0,
-        pendentes: 0,
-        marcasComFalha: [],
-        semContaConectada: true,
-      })),
+    Promise.resolve<ReclamacoesResultado>({
+      itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: true,
+    }),
     // Duas consultas agrupadas (janela atual/anterior), não duas por marca.
     leve
       ? Promise.resolve(new Map<string, AtendimentoResumo>())
@@ -406,7 +415,21 @@ export async function obterSaudeLoja(
   ]);
 
   const vendas = new Map(vendasPorMarca.map((linha) => [linha.brandId, linha]));
-  const avaliacoes = new Map(avaliacoesPorMarca.map((linha) => [linha.brandId, linha]));
+  const avaliacoes = new Map<string, { nota: number | null; avaliacoes: number }>();
+  for (const linha of avaliacoesPorMarca) {
+    const quantidade = paraNumero(linha.avaliacoes);
+    const nota = linha.nota === null ? null : paraNumero(linha.nota);
+    const atual = avaliacoes.get(linha.brandId);
+    if (!atual) {
+      avaliacoes.set(linha.brandId, { nota, avaliacoes: quantidade });
+      continue;
+    }
+    const total = atual.avaliacoes + quantidade;
+    const ponderada = total > 0
+      ? ((atual.nota ?? 0) * atual.avaliacoes + (nota ?? 0) * quantidade) / total
+      : null;
+    avaliacoes.set(linha.brandId, { nota: ponderada, avaliacoes: total });
+  }
   const catalogo = new Map(catalogoPorMarca.map((linha) => [linha.brandId, linha]));
   const reputacaoPorMarca = new Map(reputacao.marcas.map((linha) => [linha.brandId, linha]));
   const atendimento = atendimentoPorMarca;

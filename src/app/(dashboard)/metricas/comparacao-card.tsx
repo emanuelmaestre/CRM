@@ -187,24 +187,6 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
           : "Considera todas as avaliações recebidas no período, não só as 5 estrelas.",
       },
     },
-    {
-      label: "Reclamações",
-      valor: marca.emMediacao > 0
-        ? `${marca.reclamacoesAbertas} (${marca.emMediacao} em mediação)`
-        : String(marca.reclamacoesAbertas),
-      alerta: marca.emMediacao > 0,
-      calculo: {
-        titulo: "Reclamações",
-        significado: "Reclamações abertas pelo cliente no Mercado Livre contra pedidos da marca no período. \"Em mediação\" é quando o próprio Mercado Livre já entrou na conversa.",
-        formula: "contagem de reclamações abertas no período, com destaque para as que evoluíram para mediação",
-        resultado: marca.emMediacao > 0 ? `${marca.reclamacoesAbertas} (${marca.emMediacao} em mediação)` : String(marca.reclamacoesAbertas),
-        itens: [
-          { label: "Reclamações abertas", valor: String(marca.reclamacoesAbertas) },
-          { label: "Em mediação", valor: String(marca.emMediacao) },
-        ],
-        nota: "Mediação é o estágio mais sério: o Mercado Livre passa a decidir o caso em vez de só mediar a conversa entre marca e cliente.",
-      },
-    },
     // "Resposta" só entra quando existe mediana de verdade — um "—" solto
     // não é informação, é um buraco no meio da grade.
     ...(marca.atendimento?.medianaLabel ? [{

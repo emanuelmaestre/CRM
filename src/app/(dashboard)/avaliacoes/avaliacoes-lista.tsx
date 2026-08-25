@@ -373,7 +373,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     return [];
   });
   const [carregando, setCarregando] = useState(() => !cacheValido());
-  const [buscadoEm, setBuscadoEm] = useState<number | null>(() => cacheAvaliacoes?.buscadoEm ?? null);
   const [busca, setBusca] = useState("");
   const [nota, setNota] = useState<FiltroNota>("todas");
   // Pré-selecionado em Hoje, igual ao resto do app.
@@ -432,7 +431,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
       setItens(itens);
       const agora = Date.now();
       cacheAvaliacoes = { itens, buscadoEm: agora };
-      setBuscadoEm(agora);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Não foi possível carregar as avaliações.");
     } finally {

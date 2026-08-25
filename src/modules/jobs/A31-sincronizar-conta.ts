@@ -22,8 +22,6 @@ import {
   sincronizarAvaliacoesShopeeConta,
   sincronizarPaginaAvaliacoesMercadoLivre,
 } from "@/modules/canais/application/avaliacoes.service";
-import { sincronizarConversasMercadoLivreConta } from "@/modules/inbox/application/inbox.service";
-import { obterReclamacoesAbertas } from "@/modules/metricas/application/reclamacoes.service";
 import { obterReputacao } from "@/modules/metricas/application/reputacao.service";
 
 type ExecucaoPatch = Partial<typeof sincronizacaoExecucao.$inferInsert>;
@@ -32,9 +30,7 @@ type ModuloSincronizacao =
   | "pedidos"
   | "anuncios"
   | "avaliacoes"
-  | "reputacao"
-  | "reclamacoes"
-  | "mensagens";
+  | "reputacao";
 
 const COLUNAS: Record<ModuloSincronizacao, { status: keyof ExecucaoPatch; resultado: keyof ExecucaoPatch; erro: keyof ExecucaoPatch }> = {
   catalogo: { status: "catalogoStatus", resultado: "catalogoResultado", erro: "catalogoErro" },
@@ -42,8 +38,6 @@ const COLUNAS: Record<ModuloSincronizacao, { status: keyof ExecucaoPatch; result
   anuncios: { status: "anunciosStatus", resultado: "anunciosResultado", erro: "anunciosErro" },
   avaliacoes: { status: "avaliacoesStatus", resultado: "avaliacoesResultado", erro: "avaliacoesErro" },
   reputacao: { status: "reputacaoStatus", resultado: "reputacaoResultado", erro: "reputacaoErro" },
-  reclamacoes: { status: "reclamacoesStatus", resultado: "reclamacoesResultado", erro: "reclamacoesErro" },
-  mensagens: { status: "mensagensStatus", resultado: "mensagensResultado", erro: "mensagensErro" },
 };
 
 function erroLegivel(error: unknown): string {
@@ -331,23 +325,6 @@ export const A31_sincronizarConta = inngest.createFunction(
         semContaConectada: resultado.semContaConectada,
       };
     });
-
-    await executarModulo("reclamacoes", async () => {
-      if (conta.tipo !== "mercadolivre") return semSuporte("Reclamações", conta.tipo);
-      const resultado = await obterReclamacoesAbertas(ctx, { channelAccountId });
-      return {
-        total: resultado.total,
-        emMediacao: resultado.itens.filter((item) => item.emMediacao).length,
-        marcasComFalha: resultado.marcasComFalha,
-        semContaConectada: resultado.semContaConectada,
-      };
-    });
-
-    await executarModulo("mensagens", async () => (
-      conta.tipo === "mercadolivre"
-        ? sincronizarConversasMercadoLivreConta(orgId, channelAccountId, 90)
-        : semSuporte("Mensagens", conta.tipo)
-    ));
 
     await step.run("finalizar-execucao", () =>
       atualizarExecucao({ finalizadoEm: new Date() }),

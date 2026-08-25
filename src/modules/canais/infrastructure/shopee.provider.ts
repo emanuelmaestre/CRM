@@ -169,6 +169,15 @@ export class ShopeeProvider implements ChannelProvider {
   // Opcional porque nem toda marca vai ter o app de Pedidos conectado ainda
   // — ver SHOPEE_PEDIDOS_LIBERADO.
   private credsPedidos?: ShopeeCredentials;
+  // Uma coleta pode pedir várias variações do mesmo anúncio. Todas usam o
+  // mesmo get_model_list; compartilhar a Promise evita pagar a mesma chamada
+  // uma vez por SKU durante a própria execução.
+  private readonly modelosPorItem = new Map<number, Promise<Array<{
+    model_id: number;
+    model_sku?: string;
+    price_info?: ShopeePriceInfo;
+    stock_info_v2?: ShopeeStockInfo;
+  }>>>();
 
   constructor(creds: ShopeeCredentials, credsPedidos?: ShopeeCredentials) {
     this.creds = creds;
@@ -608,21 +617,32 @@ export class ShopeeProvider implements ChannelProvider {
     price_info?: ShopeePriceInfo;
     stock_info_v2?: ShopeeStockInfo;
   }>> {
-    const res = await shopeeFetch(this.url("/product/get_model_list", {
-      item_id: itemId,
-      response_optional_fields: "price_info,tier_index",
-    }), { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) {
-      const detalhe = (await res.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
-      throw new Error(`Shopee HTTP ${res.status} em get_model_list: ${detalhe}`);
+    const existente = this.modelosPorItem.get(itemId);
+    if (existente) return existente;
+    const consulta = (async () => {
+      const res = await shopeeFetch(this.url("/product/get_model_list", {
+        item_id: itemId,
+        response_optional_fields: "price_info,tier_index",
+      }), { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) {
+        const detalhe = (await res.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+        throw new Error(`Shopee HTTP ${res.status} em get_model_list: ${detalhe}`);
+      }
+      const data = await res.json() as {
+        error?: string;
+        message?: string;
+        response?: { model?: Array<{ model_id: number; model_sku?: string; price_info?: ShopeePriceInfo; stock_info_v2?: ShopeeStockInfo }> };
+      };
+      if (data.error) throw new Error(`Shopee get_model_list: ${data.message ?? data.error}`);
+      return data.response?.model ?? [];
+    })();
+    this.modelosPorItem.set(itemId, consulta);
+    try {
+      return await consulta;
+    } catch (error) {
+      this.modelosPorItem.delete(itemId);
+      throw error;
     }
-    const data = await res.json() as {
-      error?: string;
-      message?: string;
-      response?: { model?: Array<{ model_id: number; model_sku?: string; price_info?: ShopeePriceInfo; stock_info_v2?: ShopeeStockInfo }> };
-    };
-    if (data.error) throw new Error(`Shopee get_model_list: ${data.message ?? data.error}`);
-    return data.response?.model ?? [];
   }
 
   /** Catálogo inteiro da loja (ativo à venda), pro importador do Estoque —

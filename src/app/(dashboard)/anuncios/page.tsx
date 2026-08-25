@@ -1,18 +1,31 @@
 import { AnunciosCliente } from "./anuncios-cliente";
-import { actionListarConfiguracaoCanais } from "../configuracoes/actions";
+import { actionObterVisaoGeralAnuncios } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
 export const metadata = { title: pagesConfig.anuncios.metadataTitle };
 
-/* Só a lista de contas é resolvida aqui: é uma consulta curta.
-   A visão geral NÃO entra — `obterVisaoGeral` percorre marca por marca
-   disparando três consultas dentro do laço (ver visao-geral.service.ts), e a
-   tela precisa dela duas vezes (período atual e anterior). Buscá-la aqui
-   prendia a navegação inteira atrás de ~50 consultas em fila: ao clicar em
-   Publicidade nada aparecia até tudo terminar. No navegador, a página abre na
-   hora e cada bloco preenche quando chega. */
-export default async function AnunciosPage() {
-  const contas = await actionListarConfiguracaoCanais().catch(() => []);
+function paraISO(data: Date) {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+}
 
-  return <AnunciosCliente contasIniciais={contas} />;
+/* `obterVisaoGeral` hoje faz consultas agregadas para todas as marcas, sem o
+   antigo N+1. Resolver a primeira janela no servidor elimina a ida adicional
+   de Server Action depois da hidratação: filtros e números chegam juntos. */
+export default async function AnunciosPage() {
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+  const periodoServidor = { inicio: paraISO(hoje), fim: paraISO(hoje) };
+  const periodoAnterior = { inicio: paraISO(ontem), fim: paraISO(ontem) };
+  const [dados, anterior] = await Promise.all([
+    actionObterVisaoGeralAnuncios(periodoServidor).catch(() => null),
+    actionObterVisaoGeralAnuncios(periodoAnterior).catch(() => null),
+  ]);
+
+  return (
+    <AnunciosCliente
+      periodoServidor={periodoServidor}
+      dadosIniciais={dados ? { dados, anterior } : null}
+    />
+  );
 }
