@@ -30,6 +30,16 @@ import { A31_sincronizarConta } from "@/modules/jobs/A31-sincronizar-conta";
 import { A32_syncAnunciosAds } from "@/modules/jobs/A32-sync-anuncios-ads";
 import { A33_refreshShopeeTokens } from "@/modules/jobs/A33-refresh-shopee-tokens";
 
+/* Cada `step.run` é uma invocação HTTP própria desta rota, então o limite vale
+   por step, não pelo job inteiro. Sem declarar nada, a Vercel aplica o padrão
+   do plano — e um step que passasse disso era morto no meio, fazendo o Inngest
+   reexecutar o job do zero. Foi o que aconteceu em 25/08/2026 com a
+   sincronização de Pedidos (ver A31): a conta refazia a varredura de 90 dias a
+   cada ~6 minutos, sem nunca terminar, queimando a cota do proxy Shopee.
+   Declarar o teto deixa o orçamento explícito; a correção de verdade é manter
+   cada step pequeno. */
+export const maxDuration = 60;
+
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [

@@ -93,9 +93,31 @@ export const A31_sincronizarConta = inngest.createFunction(
     }
 
     async function executarModulo(modulo: ModuloSincronizacao, trabalho: () => Promise<unknown>): Promise<{ ok: true; resultado: unknown } | { ok: false; erro: string }> {
+      return executarModuloEm(modulo, (corpo) => step.run(modulo, corpo), trabalho);
+    }
+
+    /** Variante para módulo que se divide em vários `step.run` por dentro: o
+     *  corpo roda FORA de um step (Inngest não permite step aninhado), então
+     *  cada pedaço vira seu próprio step, com seu próprio orçamento de tempo.
+     *
+     *  Existe por causa de um loop real em produção (25/08/2026): "pedidos"
+     *  fazia a varredura de 90 dias e a ingestão de 50+ pedidos dentro de UM
+     *  step só. O step estourava o tempo máximo da função (Vercel), o Inngest
+     *  reexecutava do zero, e a conta ficava refazendo a busca inteira a cada
+     *  ~6 minutos — sem nunca terminar e queimando a cota do proxy de IP fixo.
+     *  Em step pequeno o que já concluiu fica memoizado e não é refeito. */
+    async function executarModuloEmSteps(modulo: ModuloSincronizacao, trabalho: () => Promise<unknown>) {
+      return executarModuloEm(modulo, (corpo) => corpo(), trabalho);
+    }
+
+    async function executarModuloEm(
+      modulo: ModuloSincronizacao,
+      executar: (corpo: () => Promise<unknown>) => Promise<unknown>,
+      trabalho: () => Promise<unknown>,
+    ): Promise<{ ok: true; resultado: unknown } | { ok: false; erro: string }> {
       await step.run(`${modulo}-em-andamento`, () => atualizarExecucao(patchStatus(modulo, "em_andamento")));
       try {
-        const resultado = await step.run(modulo, trabalho);
+        const resultado = await executar(trabalho);
         await step.run(`${modulo}-concluido`, () => atualizarExecucao(patchResultado(modulo, resultado)));
         return { ok: true, resultado };
       } catch (error) {
@@ -112,7 +134,7 @@ export const A31_sincronizarConta = inngest.createFunction(
           : { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) }
     ));
 
-    const resultadoPedidos = await executarModulo("pedidos", async () => {
+    const resultadoPedidos = await executarModuloEmSteps("pedidos", async () => {
       // Mesmo freio do A24: app Shopee aprovado não tem permissão pra API de
       // Pedidos, reverter junto com SHOPEE_PEDIDOS_LIBERADO.
       if (conta.tipo === "shopee" && !SHOPEE_PEDIDOS_LIBERADO) {
@@ -121,7 +143,10 @@ export const A31_sincronizarConta = inngest.createFunction(
       const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug ?? "");
       if (!provider) return { encontrados: 0, novos: 0, ...semSuporte("Pedidos", conta.tipo) };
       const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
-      const pedidos = await provider.buscarPedidos(desde);
+      // Um step só para a busca: uma vez concluída, o Inngest memoiza o
+      // resultado e uma reexecução não repete as chamadas ao canal — que é o
+      // que estava queimando a cota do proxy em loop.
+      const pedidos = await step.run(`pedidos-buscar-${channelAccountId}`, () => provider.buscarPedidos(desde));
       let novos = 0;
       // Falha de UM pedido não derruba a leva. Um pedido ruim é sempre
       // possível — anúncio removido depois da venda (ErroSkuSemProduto),
@@ -135,15 +160,29 @@ export const A31_sincronizarConta = inngest.createFunction(
       let ignorados = 0;
       for (const pedidoBruto of pedidos) {
         const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
-        try {
-          const resultado = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
-          if (resultado.novo) novos += 1;
-        } catch (error) {
+        // Um step por pedido, como o A24 já fazia: cada ingestão tem seu
+        // próprio orçamento de tempo e fica memoizada ao concluir.
+        const resultado = await step.run(
+          `pedidos-ingerir-${channelAccountId}-${pedidoBruto.providerOrderId}`,
+          async () => {
+            try {
+              const ingerido = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
+              return { novo: ingerido.novo, motivo: null as string | null, skus: [] as string[] };
+            } catch (error) {
+              return {
+                novo: false,
+                motivo: erroLegivel(error).slice(0, 200),
+                skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
+              };
+            }
+          },
+        );
+        if (resultado.motivo) {
           ignorados += 1;
-          if (ehErroSkuSemProduto(error)) {
-            for (const sku of error.skus ?? []) skusSemProduto.add(sku);
-          }
-          motivosDeFalha.add(erroLegivel(error).slice(0, 200));
+          motivosDeFalha.add(resultado.motivo);
+          for (const sku of resultado.skus) skusSemProduto.add(sku);
+        } else if (resultado.novo) {
+          novos += 1;
         }
       }
       // Se NENHUM pedido entrou e todos falharam, o problema não é "um pedido
