@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
-import { ErroSkuSemProduto, ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
@@ -80,7 +81,7 @@ export const A24_pollPedidos = inngest.createFunction(
               try {
                 return await ingerirPedido(conta.orgId, conta.brandId, conta.id, pedidoNormalizado);
               } catch (error) {
-                if (!(error instanceof ErroSkuSemProduto)) throw error;
+                if (!ehErroSkuSemProduto(error)) throw error;
                 console.warn(`[A24] pedido ${pedido.providerOrderId} pulado: ${error.message}`);
                 return { pedidoId: "", novo: false };
               }

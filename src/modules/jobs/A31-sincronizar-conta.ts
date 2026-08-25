@@ -3,7 +3,8 @@ import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
 import { importarCatalogoContaMercadoLivre, importarCatalogoContaShopee } from "@/modules/estoque/application/importar-catalogo.service";
-import { ErroSkuSemProduto, ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { emitirEvento } from "@/shared/events";
@@ -133,9 +134,9 @@ export const A31_sincronizarConta = inngest.createFunction(
           const resultado = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
           if (resultado.novo) novos += 1;
         } catch (error) {
-          if (!(error instanceof ErroSkuSemProduto)) throw error;
+          if (!ehErroSkuSemProduto(error)) throw error;
           ignorados += 1;
-          for (const sku of error.skus) skusSemProduto.add(sku);
+          for (const sku of error.skus ?? []) skusSemProduto.add(sku);
         }
       }
       return {

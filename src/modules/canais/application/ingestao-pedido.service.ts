@@ -15,27 +15,10 @@ import {
   type PersistedDomainEvent,
 } from "@/shared/events";
 import type { PedidoNormalizado } from "../domain/ports";
+import { ErroSkuSemProduto } from "../domain/errors";
 import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, mapearStatusPedido } from "../domain/order-status";
 
 type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop";
-
-/** Pedido que veio do canal com um SKU que não existe na marca — anúncio
- *  despublicado depois da venda, ou produto que nunca foi importado.
- *
- *  É um erro *daquele pedido*, não da conta: quem faz o polling (A24) e a
- *  sincronização manual (A31) pulam o pedido e seguem para os próximos, em vez
- *  de derrubar a leva inteira. Uma venda antiga de um anúncio removido
- *  impedia, sozinha, que qualquer pedido da conta entrasse. Mesma ideia das
- *  "pendências" da importação histórica, que já registra `sku_nao_mapeado` por
- *  item em vez de abortar o lote. */
-export class ErroSkuSemProduto extends Error {
-  readonly skus: string[];
-  constructor(skus: string[]) {
-    super(`Pedido não importado: SKUs sem produto na marca: ${skus.join(", ")}.`);
-    this.name = "ErroSkuSemProduto";
-    this.skus = skus;
-  }
-}
 
 function toCanal(canal: string): CanalSuportado {
   if (canal === "shopee" || canal === "mercadolivre" || canal === "tiktokshop") return canal;
