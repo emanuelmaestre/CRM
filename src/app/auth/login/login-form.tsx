@@ -64,7 +64,7 @@ export function LoginForm() {
             aria-describedby={erro ? "login-error" : undefined}
             value={email}
             onChange={(e) => { setEmail(e.target.value); if (erro) setErro(null); }}
-            className="w-full h-12 rounded-[0.75rem] border border-border bg-background/60 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring focus:bg-card"
+            className="w-full h-12 rounded-[0.75rem] border border-foreground/20 bg-background/60 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring focus:bg-card"
             placeholder={copy.fields.email.placeholder}
           />
         </div>
@@ -85,7 +85,7 @@ export function LoginForm() {
             aria-describedby={erro ? "login-error" : undefined}
             value={senha}
             onChange={(e) => { setSenha(e.target.value); if (erro) setErro(null); }}
-            className="w-full h-12 rounded-[0.75rem] border border-border bg-background/60 pl-10 pr-11 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring focus:bg-card"
+            className="w-full h-12 rounded-[0.75rem] border border-foreground/20 bg-background/60 pl-10 pr-11 text-sm text-foreground placeholder:text-muted-foreground transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring focus:bg-card"
             placeholder={copy.fields.password.placeholder}
           />
           <button
