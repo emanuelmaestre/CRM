@@ -2,7 +2,13 @@ import { eq } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
-import { importarCatalogoContaMercadoLivre, importarCatalogoContaShopee } from "@/modules/estoque/application/importar-catalogo.service";
+import {
+  importarFatiaCatalogoShopee,
+  importarPaginaCatalogoMercadoLivre,
+  listarCatalogoShopeeParaImportar,
+  resolverContaParaImportar,
+  TAMANHO_FATIA_CATALOGO,
+} from "@/modules/estoque/application/importar-catalogo.service";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
@@ -127,13 +133,48 @@ export const A31_sincronizarConta = inngest.createFunction(
       }
     }
 
-    await executarModulo("catalogo", async () => (
-      conta.tipo === "mercadolivre"
-        ? importarCatalogoContaMercadoLivre(ctx, channelAccountId)
-        : conta.tipo === "shopee"
-          ? importarCatalogoContaShopee(ctx, channelAccountId)
-          : { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) }
-    ));
+    // Em fatias, uma por step: catálogo grande não cabe num step só e era morto
+    // pelo tempo limite, reexecutando do zero pra sempre — ver o comentário em
+    // importar-catalogo.service.ts (KARZI concluía, WUWU e ARMARINHOS não).
+    await executarModuloEmSteps("catalogo", async () => {
+      if (conta.tipo !== "mercadolivre" && conta.tipo !== "shopee") {
+        return { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) };
+      }
+      const contaImport = await step.run("catalogo-conta", () =>
+        resolverContaParaImportar(ctx, channelAccountId, conta.tipo as "mercadolivre" | "shopee"),
+      );
+      let produtosCriados = 0;
+      let ignorados = 0;
+
+      if (conta.tipo === "mercadolivre") {
+        let offset = 0;
+        // Teto de segurança: 200 páginas de 50 = 10.000 anúncios. Sem isso, uma
+        // paginação que nunca sinalize fim viraria laço infinito de steps.
+        for (let pagina = 0; pagina < 200; pagina++) {
+          const parcial = await step.run(`catalogo-ml-${offset}`, () =>
+            importarPaginaCatalogoMercadoLivre(ctx, contaImport, offset),
+          );
+          produtosCriados += parcial.produtosCriados;
+          ignorados += parcial.ignorados;
+          if (parcial.fim) break;
+          offset = parcial.proximoOffset;
+        }
+        return { produtosCriados, ignorados };
+      }
+
+      const itens = await step.run("catalogo-shopee-listar", () =>
+        listarCatalogoShopeeParaImportar(contaImport),
+      );
+      for (let i = 0; i < itens.length; i += TAMANHO_FATIA_CATALOGO) {
+        const fatia = itens.slice(i, i + TAMANHO_FATIA_CATALOGO);
+        const parcial = await step.run(`catalogo-shopee-${i}`, () =>
+          importarFatiaCatalogoShopee(ctx, contaImport, fatia),
+        );
+        produtosCriados += parcial.produtosCriados;
+        ignorados += parcial.ignorados;
+      }
+      return { produtosCriados, ignorados };
+    });
 
     const resultadoPedidos = await executarModuloEmSteps("pedidos", async () => {
       // Mesmo freio do A24: app Shopee aprovado não tem permissão pra API de

@@ -13,10 +13,109 @@ import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
  *  pra quem ainda não tem: o saldo inicial vem do "available_quantity" do
  *  próprio anúncio, e a partir daí a baixa automática (A2) assume. Anúncio
  *  já mapeado não é tocado — evita sobrescrever ajuste manual. */
-interface ContaParaImportar {
+export interface ContaParaImportar {
   channelAccountId: string;
   brandId: string;
   brandSlug: BrandSlug;
+}
+
+/* ── Importação em fatias, para caber no tempo de um step ────────────
+   `importarCatalogoConta*` percorre o catálogo inteiro numa chamada só. Isso
+   funciona para uma marca pequena e falha em silêncio para uma grande: dentro
+   de um `step.run` do Inngest, cada step é uma invocação HTTP com tempo
+   limitado, e o step é morto no meio.
+
+   Aconteceu em produção em 25/08/2026 — KARZI (16 produtos) concluiu em 91s,
+   enquanto WUWU (183) e ARMARINHOS LIMA (513) ficaram mais de 35 minutos sem
+   nunca terminar, reexecutando do zero a cada tentativa. Mesma causa que já
+   tinha derrubado a sincronização de Pedidos, e mesmo remédio: a A31 usa as
+   funções abaixo, uma fatia por step, e o que já concluiu fica memoizado.
+
+   `importarCatalogoContaMercadoLivre`/`...Shopee` continuam exportadas e
+   percorrendo tudo de uma vez. Hoje ninguém as chama — são o caminho para uso
+   fora de um job (script, rota síncrona), onde não existe limite de step. Se
+   voltarem a ser usadas de dentro do Inngest, o problema volta junto. */
+
+/** Tamanho de fatia, no mesmo espírito do A5 (TAMANHO_DO_LOTE): grande o
+ *  bastante para não explodir o número de steps, pequeno o bastante para uma
+ *  fatia caber folgado no tempo limite. */
+export const TAMANHO_FATIA_CATALOGO = 50;
+
+export async function resolverContaParaImportar(
+  ctx: CrudContext,
+  channelAccountId: string,
+  tipo: "mercadolivre" | "shopee",
+): Promise<ContaParaImportar> {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  const conta = await ctx.db
+    .select({
+      channelAccountId: channelAccount.id,
+      brandId: channelAccount.brandId,
+      brandSlug: brand.slug,
+    })
+    .from(channelAccount)
+    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
+    .where(and(
+      eq(channelAccount.orgId, ctx.orgId),
+      eq(channelAccount.id, channelAccountId),
+      eq(channelAccount.tipo, tipo),
+      eq(channelAccount.status, "conectado"),
+    ))
+    .then((rows) => rows[0]);
+
+  if (!conta || !isBrandSlug(conta.brandSlug)) {
+    throw new Error(`Conta ${tipo} não encontrada ou não conectada.`);
+  }
+  return { ...conta, brandSlug: conta.brandSlug };
+}
+
+/** Uma página do Mercado Livre. Devolve `fim` para o chamador parar sem
+ *  precisar conhecer a paginação do ML. */
+export async function importarPaginaCatalogoMercadoLivre(
+  ctx: CrudContext,
+  conta: ContaParaImportar,
+  offset: number,
+): Promise<{ produtosCriados: number; ignorados: number; total: number; proximoOffset: number; fim: boolean }> {
+  const provider = await criarMLProvider(conta.brandSlug);
+  const pagina = await provider.listarAnunciosAtivos({ offset, limit: TAMANHO_FATIA_CATALOGO });
+  let produtosCriados = 0;
+  let ignorados = 0;
+  for (const item of pagina.items) {
+    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-mercadolivre", "ml");
+    if (resultado === "criado") produtosCriados += 1;
+    else ignorados += 1;
+  }
+  const proximoOffset = offset + pagina.limit;
+  return {
+    produtosCriados,
+    ignorados,
+    total: pagina.totalListings,
+    proximoOffset,
+    fim: pagina.items.length === 0 || proximoOffset >= pagina.totalListings,
+  };
+}
+
+/** A Shopee entrega o catálogo inteiro de uma vez, então a divisão é feita
+ *  sobre a lista já baixada — listar num step, gravar em fatias nos seguintes. */
+export async function listarCatalogoShopeeParaImportar(conta: ContaParaImportar) {
+  const provider = await criarShopeeProvider(conta.brandSlug);
+  return provider.listarCatalogoAtivo();
+}
+
+export async function importarFatiaCatalogoShopee(
+  ctx: CrudContext,
+  conta: ContaParaImportar,
+  itens: Awaited<ReturnType<typeof listarCatalogoShopeeParaImportar>>,
+): Promise<{ produtosCriados: number; ignorados: number }> {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  let produtosCriados = 0;
+  let ignorados = 0;
+  for (const item of itens) {
+    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-shopee", "shopee");
+    if (resultado === "criado") produtosCriados += 1;
+    else ignorados += 1;
+  }
+  return { produtosCriados, ignorados };
 }
 
 /** Formato mínimo que o gravador precisa, comum aos dois canais — ML e
