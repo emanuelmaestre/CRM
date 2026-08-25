@@ -6,7 +6,8 @@ import { importarCatalogoContaMercadoLivre, importarCatalogoContaShopee } from "
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
-import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
+import { criarShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
+import { isBrandSlug } from "@/shared/config/brands";
 import { emitirEvento } from "@/shared/events";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { sincronizarAnunciosMercadoLivreConta } from "@/modules/anuncios/application/sincronizacao.service";
@@ -231,6 +232,30 @@ export const A31_sincronizarConta = inngest.createFunction(
     ));
 
     await executarModulo("reputacao", async () => {
+      // Shopee tem saúde de loja própria (account_health), com permissão já
+      // concedida ao app de catálogo — confirmado ao vivo em 25/08/2026. O
+      // formato é diferente do termômetro do ML (métricas com alvo próprio, em
+      // vez de faixa de 1 a 5), então é reportado no vocabulário da Shopee, sem
+      // traduzir uma escala na outra.
+      if (conta.tipo === "shopee") {
+        if (!conta.brandSlug || !isBrandSlug(conta.brandSlug)) {
+          return semSuporte("Reputação/Termômetro", conta.tipo);
+        }
+        const provider = await criarShopeeProvider(conta.brandSlug);
+        const desempenho = await provider.obterDesempenhoLoja();
+        const foraDaMeta = desempenho.metricas.filter((m) => m.foraDaMeta);
+        return {
+          rating: desempenho.rating,
+          metricas: desempenho.metricas.length,
+          metricasForaDaMeta: foraDaMeta.length,
+          piores: foraDaMeta.map((m) => `${m.nome}: ${m.valor}${m.ehPercentual ? "%" : ""} (meta ${m.comparador} ${m.alvo}${m.ehPercentual ? "%" : ""})`),
+          falhas: {
+            entrega: desempenho.falhasEntrega,
+            anuncio: desempenho.falhasAnuncio,
+            atendimento: desempenho.falhasAtendimento,
+          },
+        };
+      }
       if (conta.tipo !== "mercadolivre") return semSuporte("Reputação/Termômetro", conta.tipo);
       const resultado = await obterReputacao(ctx, { channelAccountId, ignorarCache: true });
       const marca = resultado.marcas[0];

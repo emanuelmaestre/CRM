@@ -41,6 +41,41 @@ export interface ShopeeAnuncioCatalogo {
   price: string;
 }
 
+export interface ShopeeMetricaDesempenho {
+  /** Nome cru da Shopee (ex.: "late_shipment_rate") — a tradução é da camada
+   *  de apresentação, não daqui. */
+  nome: string;
+  valor: number | null;
+  valorAnterior: number | null;
+  alvo: number | null;
+  /** "<", "<=", ">", ">=" — quem define é a Shopee, por métrica. */
+  comparador: string | null;
+  ehPercentual: boolean;
+  foraDaMeta: boolean;
+}
+
+export interface ShopeeDesempenhoLoja {
+  /** Nota geral da Shopee, repassada sem tradução — ver obterDesempenhoLoja. */
+  rating: number | null;
+  falhasEntrega: number;
+  falhasAnuncio: number;
+  falhasAtendimento: number;
+  metricas: ShopeeMetricaDesempenho[];
+}
+
+/** Aplica o comparador que a própria Shopee mandou. Sem valor ou sem alvo, não
+ *  dá para afirmar que está fora — e "não sei" nunca deve virar alerta. */
+function forcaDaMeta(valor: number | null, alvo: number | null, comparador?: string): boolean {
+  if (valor === null || alvo === null || !comparador) return false;
+  switch (comparador) {
+    case "<": return !(valor < alvo);
+    case "<=": return !(valor <= alvo);
+    case ">": return !(valor > alvo);
+    case ">=": return !(valor >= alvo);
+    default: return false;
+  }
+}
+
 type ShopeeStockInfo = {
   summary_info?: { total_available_stock?: number };
   seller_stock?: Array<{ stock?: number }>;
@@ -387,6 +422,77 @@ export class ShopeeProvider implements ChannelProvider {
    *  Comentário sozinho não basta: quem nunca foi avaliado também precisa
    *  aparecer (com nota nula) pra tela poder filtrar "sem avaliações" —
    *  por isso o catálogo ativo (`listarItemIdsAtivos`) entra no cruzamento. */
+  /** Saúde da loja (o "Termômetro" da Shopee), de
+   *  `account_health/get_shop_performance`.
+   *
+   *  Confirmado ao vivo em 25/08/2026 contra as duas lojas: o app de catálogo
+   *  (Product Management) JÁ tem permissão nesse endpoint — diferente de
+   *  `/ads/*`, que responde error_api_permission nos dois apps e exigiria um
+   *  terceiro app aprovado pela Shopee.
+   *
+   *  Cada métrica vem com o próprio alvo (`target.value` + `target.comparator`),
+   *  então "está fora da meta" é decidido pelo que a Shopee informa, sem tabela
+   *  de limites nossa — ao contrário do Mercado Livre, onde os cortes são
+   *  estimados (ver LIMITE_TAXA em reputacao.service.ts).
+   *
+   *  `overall_performance.rating` é repassado cru de propósito: a Shopee não
+   *  publica o significado de cada número, e traduzir isso em "Bom/Ruim" seria
+   *  invenção nossa. O sinal confiável são as métricas que furam o próprio
+   *  alvo, e é isso que a tela usa. */
+  async obterDesempenhoLoja(): Promise<ShopeeDesempenhoLoja> {
+    garantirNaoPausado();
+    const res = await shopeeFetch(this.url("/account_health/get_shop_performance"), {
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      const detalhe = (await res.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+      throw new Error(`Shopee HTTP ${res.status} em get_shop_performance: ${detalhe}`);
+    }
+    const data = await res.json() as {
+      error?: string;
+      message?: string;
+      response?: {
+        overall_performance?: {
+          rating?: number;
+          fulfillment_failed?: number;
+          listing_failed?: number;
+          custom_service_failed?: number;
+        };
+        metric_list?: Array<{
+          metric_name?: string;
+          current_period?: number | null;
+          last_period?: number | null;
+          unit?: number;
+          target?: { value?: number | null; comparator?: string };
+        }>;
+      };
+    };
+    if (data.error) throw new Error(`Shopee get_shop_performance: ${data.message ?? data.error}`);
+
+    const geral = data.response?.overall_performance ?? {};
+    return {
+      rating: geral.rating ?? null,
+      falhasEntrega: geral.fulfillment_failed ?? 0,
+      falhasAnuncio: geral.listing_failed ?? 0,
+      falhasAtendimento: geral.custom_service_failed ?? 0,
+      metricas: (data.response?.metric_list ?? []).map((m) => {
+        const valor = typeof m.current_period === "number" ? m.current_period : null;
+        const alvo = typeof m.target?.value === "number" ? m.target.value : null;
+        return {
+          nome: m.metric_name ?? "",
+          valor,
+          valorAnterior: typeof m.last_period === "number" ? m.last_period : null,
+          alvo,
+          comparador: m.target?.comparator ?? null,
+          // unit 2 é percentual nos dados reais das duas lojas; qualquer outro
+          // valor fica como "não sabemos a unidade" em vez de virar % errado.
+          ehPercentual: m.unit === 2,
+          foraDaMeta: forcaDaMeta(valor, alvo, m.target?.comparator),
+        };
+      }),
+    };
+  }
+
   async listarAvaliacoes(): Promise<ShopeeAnuncioAvaliacao[]> {
     garantirNaoPausado();
     type ShopeeComentario = {
