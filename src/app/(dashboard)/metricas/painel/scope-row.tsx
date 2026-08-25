@@ -126,15 +126,6 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
         ))}
       </div>
 
-      {/* Separador entre os dois grupos — só no mobile, onde canal e marca
-          empilham em fileiras distintas e a linha sinaliza a troca de
-          grupo. A partir do sm os dois vivem numa fileira só e cada
-          pílula já tem a própria borda — mais uma linha ali era ruído,
-          não separação. */}
-      {marcas.length > 0 && canais.length > 0 && (
-        <span aria-hidden="true" className="my-0.5 h-px w-full shrink-0 bg-border sm:hidden" />
-      )}
-
       <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
         {marcas.map((marca) => (
           <Pilula

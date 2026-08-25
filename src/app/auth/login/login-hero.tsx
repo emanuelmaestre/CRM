@@ -3,37 +3,31 @@
 import { motion } from "framer-motion";
 import { eases } from "@/shared/design-system/motion-variants";
 import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
+import pagesConfig from "@/config/pages.json";
+
+const copy = pagesConfig.login;
 
 export function LoginHero() {
   return (
-    <div className="mb-10 flex flex-col items-center relative">
+    <div className="mb-8 flex flex-col items-center text-center">
       <h1 className="sr-only">Entrar no CRM Elisa Lima</h1>
-      {/* Ilustração — esferas decorativas de fundo */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.6 }}
-          animate={{ opacity: 0.18, scale: 1 }}
-          transition={{ duration: 0.4, ease: eases.standard }}
-          className="absolute -top-16 -left-24 w-64 h-64 rounded-full"
-          style={{ background: "var(--gradient-signature)", filter: "blur(56px)" }}
-        />
-        <motion.div
-          initial={{ opacity: 0, scale: 0.6 }}
-          animate={{ opacity: 0.13, scale: 1 }}
-          transition={{ duration: 0.4, ease: eases.standard, delay: 0.05 }}
-          className="absolute -bottom-20 -right-20 w-56 h-56 rounded-full"
-          style={{ background: "var(--gradient-signature)", filter: "blur(64px)" }}
-        />
-      </div>
 
-      {/* Logo */}
       <motion.div
-        initial={false}
+        initial={{ opacity: 0, y: -6, scale: 0.94 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.3, ease: eases.emphasized }}
+        transition={{ duration: 0.45, ease: eases.emphasized }}
       >
         <ElisaLimaLogo variant="login" />
       </motion.div>
+
+      <motion.p
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: eases.standard, delay: 0.15 }}
+        className="mt-3 text-sm text-muted-foreground"
+      >
+        {copy.subtitle ?? "Entre para acessar o painel"}
+      </motion.p>
     </div>
   );
 }
