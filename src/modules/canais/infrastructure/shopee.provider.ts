@@ -177,12 +177,16 @@ export class ShopeeProvider implements ChannelProvider {
     const timeFrom = Math.floor(inicioMs / 1000);
     const timeTo = Math.floor(fimMs / 1000);
 
+    // get_order_list devolve só order_sn/order_status — os demais campos do
+    // pedido (buyer_username, total_amount, create_time) NÃO são aceitos aqui
+    // em response_optional_fields; a Shopee responde "Wrong parameters,
+    // response_optional_field does not support [buyer_username]" e a chamada
+    // inteira falha. Todo o resto vem do get_order_detail abaixo.
     const listRes = await shopeeFetch(this.urlPedidos("/order/get_order_list", {
       time_range_field: "create_time",
       time_from: timeFrom,
       time_to: timeTo,
       page_size: 50,
-      response_optional_fields: "buyer_username,total_amount",
     }), { signal: AbortSignal.timeout(10000) });
 
     if (!listRes.ok) {
@@ -192,7 +196,7 @@ export class ShopeeProvider implements ChannelProvider {
     const listData = await listRes.json() as {
       error?: string;
       message?: string;
-      response?: { order_list?: { order_sn: string; order_status: string; total_amount: number; buyer_username: string; create_time: number }[] };
+      response?: { order_list?: { order_sn: string }[] };
     };
     if (listData.error) throw new Error(`Shopee get_order_list: ${listData.message ?? listData.error}`);
 
@@ -203,12 +207,16 @@ export class ShopeeProvider implements ChannelProvider {
     const sns = orders.map((o) => o.order_sn).join(",");
     const detailRes = await shopeeFetch(this.urlPedidos("/order/get_order_detail", {
       order_sn_list: sns,
-      response_optional_fields: "item_list,recipient_address,buyer_user_id",
+      response_optional_fields: "item_list,recipient_address,buyer_user_id,buyer_username,total_amount",
     }), { signal: AbortSignal.timeout(15000) });
 
     type ShopeeItem = { item_sku: string; model_quantity_purchased: number; model_discounted_price: number };
     type ShopeeDetail = {
       order_sn: string;
+      order_status?: string;
+      buyer_username?: string;
+      total_amount?: number;
+      create_time?: number;
       recipient_address?: { name: string; phone?: string };
       item_list?: ShopeeItem[];
     };
@@ -231,20 +239,21 @@ export class ShopeeProvider implements ChannelProvider {
 
     return orders.map((o) => {
       const detail = detailMap.get(o.order_sn);
+      const comprador = detail?.buyer_username ?? o.order_sn;
       return {
         providerOrderId: o.order_sn,
         canal: "shopee",
-        clienteExternalId: o.buyer_username,
-        clienteNome: detail?.recipient_address?.name ?? o.buyer_username,
+        clienteExternalId: comprador,
+        clienteNome: detail?.recipient_address?.name ?? comprador,
         clienteTelefone: detail?.recipient_address?.phone,
-        status: o.order_status.toLowerCase(),
-        total: String(o.total_amount),
+        status: (detail?.order_status ?? "").toLowerCase(),
+        total: String(detail?.total_amount ?? 0),
         itens: (detail?.item_list ?? []).map((i) => ({
           skuExterno: i.item_sku,
           quantidade: i.model_quantity_purchased,
           precoUnitario: String(i.model_discounted_price),
         })),
-        criadoEm: new Date(o.create_time * 1000),
+        criadoEm: new Date((detail?.create_time ?? 0) * 1000),
       };
     });
   }
