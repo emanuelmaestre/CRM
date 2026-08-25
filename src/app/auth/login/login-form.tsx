@@ -161,10 +161,7 @@ export function LoginForm() {
           whileHover={reduzir || travado ? undefined : { scale: 1.01 }}
           whileTap={reduzir || travado ? undefined : { scale: 0.98 }}
           className="group relative flex h-12 items-center justify-center gap-2 overflow-hidden font-semibold text-sm text-primary-foreground disabled:cursor-default"
-          style={{
-            background: sucesso ? "var(--success)" : "var(--primary)",
-            transition: "background-color 0.4s ease",
-          }}
+          style={{ background: "var(--primary)" }}
         >
           {/* Brilho diagonal que atravessa o botão no hover — só decoração, some com movimento reduzido ou após o sucesso. */}
           {!reduzir && !sucesso && (
@@ -181,7 +178,7 @@ export function LoginForm() {
               animate={{ scale: 2.6, opacity: 0 }}
               transition={{ duration: 0.6, ease: eases.standard }}
               className="pointer-events-none absolute inset-0 rounded-full"
-              style={{ background: "var(--success)" }}
+              style={{ background: "var(--primary)" }}
             />
           )}
           <AnimatePresence mode="wait" initial={false}>
@@ -230,20 +227,6 @@ export function LoginForm() {
             )}
           </AnimatePresence>
         </motion.button>
-
-        <AnimatePresence>
-          {sucesso && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: reduzir ? 0 : 0.3, delay: reduzir ? 0 : 0.3 }}
-              className="text-sm font-medium"
-              style={{ color: "var(--success)" }}
-            >
-              Login efetuado — entrando...
-            </motion.p>
-          )}
-        </AnimatePresence>
       </motion.div>
     </motion.form>
   );
