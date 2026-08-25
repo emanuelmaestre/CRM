@@ -19,14 +19,21 @@ export function obterShopeeBaseUrl(env = process.env.SHOPEE_ENV): string {
   return ehTeste(env) ? BASE_URL_TEST : BASE_URL_LIVE;
 }
 
-/** App da Shopee (partner_id/partner_key) é um só por ambiente, não por
- *  marca — diferente de shop_id/access_token, que são por marca. Guardamos
- *  os dois pares (test e live) lado a lado no .env pra trocar de ambiente
- *  só mudando SHOPEE_ENV, sem reescrever credencial nenhuma. */
-export function obterShopeeAppCredenciais(env = process.env.SHOPEE_ENV): { partnerId?: string; partnerKey?: string } {
+/** Há dois apps Shopee, categorias diferentes no Open Platform: "catalogo"
+ *  (app "Elisa Lima CRM", Product Management — catálogo/estoque/avaliações)
+ *  e "pedidos" (app "Elisa Lima Pedidos", Order Management). Cada um tem seu
+ *  próprio par partner_id/partner_key, não intercambiável — a Shopee valida
+ *  a assinatura HMAC contra o partner_key do app dono do partner_id usado.
+ *  Guardamos os dois pares (test e live) lado a lado no .env pra trocar de
+ *  ambiente só mudando SHOPEE_ENV, sem reescrever credencial nenhuma. */
+export function obterShopeeAppCredenciais(
+  app: "catalogo" | "pedidos" = "catalogo",
+  env = process.env.SHOPEE_ENV,
+): { partnerId?: string; partnerKey?: string } {
   const sufixo = shopeeAppEnvSuffix(env);
+  const infixo = app === "pedidos" ? "PEDIDOS_" : "";
   return {
-    partnerId: process.env[`SHOPEE_PARTNER_ID_${sufixo}`],
-    partnerKey: process.env[`SHOPEE_PARTNER_KEY_${sufixo}`],
+    partnerId: process.env[`SHOPEE_PARTNER_ID_${infixo}${sufixo}`],
+    partnerKey: process.env[`SHOPEE_PARTNER_KEY_${infixo}${sufixo}`],
   };
 }

@@ -275,7 +275,11 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
       ) : null}
 
       {item.canal === "shopee" && isBrandSlug(item.brand) ? (
-        <ShopeeChannelActions slug={item.brand} conectado={item.status === "conectado"} />
+        <ShopeeChannelActions
+          slug={item.brand}
+          conectado={item.status === "conectado"}
+          pedidosConectado={item.shopeePedidosConectado}
+        />
       ) : null}
 
       {item.channelAccountId && !editando && (

@@ -95,15 +95,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!savedState) {
     return NextResponse.redirect(`${appUrl}/configuracoes?shopee_error=state_mismatch`);
   }
-  const rawBrand = savedState.split(":")[0];
+  const [rawBrand, rawApp] = savedState.split(":");
   if (!isBrandSlug(rawBrand)) {
     return NextResponse.redirect(`${appUrl}/configuracoes?shopee_error=invalid_brand`);
   }
   const brand = rawBrand;
+  const app: "catalogo" | "pedidos" = rawApp === "pedidos" ? "pedidos" : "catalogo";
+  const canal = app === "pedidos" ? "shopee_pedidos" : "shopee";
 
-  const { partnerId, partnerKey } = obterShopeeAppCredenciais();
+  const { partnerId, partnerKey } = obterShopeeAppCredenciais(app);
   if (!partnerId || !partnerKey) {
-    console.error("[shopee/callback] SHOPEE_PARTNER_ID_TEST/LIVE e SHOPEE_PARTNER_KEY_TEST/LIVE não configurados");
+    console.error(`[shopee/callback] credenciais Shopee (${app}) não configuradas`);
     return NextResponse.redirect(`${appUrl}/configuracoes?shopee_error=missing_credentials`);
   }
 
@@ -162,7 +164,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       {
         org_id: orgId,
         brand_id: brandId,
-        canal: "shopee",
+        canal,
         seller_id: String(tokens.shop_id ?? shopId),
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token ?? null,
@@ -178,24 +180,30 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(`${appUrl}/configuracoes?shopee_error=db_failed`);
   }
 
-  const contaResult = await sincronizarContaCanal({
-    orgId,
-    brandId,
-    brand,
-    shopId: String(tokens.shop_id ?? shopId),
-  });
-  if (contaResult.error) {
-    console.error("[shopee/callback] channel_account sync failed", contaResult.error);
-    await supabase
-      .from("canal_tokens")
-      .delete()
-      .eq("org_id", orgId)
-      .eq("brand_id", brandId)
-      .eq("canal", "shopee");
-    return NextResponse.redirect(`${appUrl}/configuracoes?shopee_error=db_failed`);
+  // channel_account (status "conectado" exibido em Configurações) representa
+  // o canal Shopee da marca como um todo — só o app catálogo (CRM) atualiza
+  // esse status hoje; Pedidos é a segunda autorização da mesma loja, o token
+  // já foi salvo acima independente disso.
+  if (app === "catalogo") {
+    const contaResult = await sincronizarContaCanal({
+      orgId,
+      brandId,
+      brand,
+      shopId: String(tokens.shop_id ?? shopId),
+    });
+    if (contaResult.error) {
+      console.error("[shopee/callback] channel_account sync failed", contaResult.error);
+      await supabase
+        .from("canal_tokens")
+        .delete()
+        .eq("org_id", orgId)
+        .eq("brand_id", brandId)
+        .eq("canal", canal);
+      return NextResponse.redirect(`${appUrl}/configuracoes?shopee_error=db_failed`);
+    }
   }
 
-  const res = NextResponse.redirect(`${appUrl}/configuracoes?shopee_connected=${brand}`);
+  const res = NextResponse.redirect(`${appUrl}/configuracoes?shopee_connected=${brand}${app === "pedidos" ? "_pedidos" : ""}`);
   res.cookies.delete("shopee_oauth_state");
   return res;
 }

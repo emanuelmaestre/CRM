@@ -61,25 +61,21 @@ function precoDoItem(priceInfo?: ShopeePriceInfo): string {
   return String(info?.current_price ?? info?.original_price ?? 0);
 }
 
-// O app "Elisa Lima CRM" (Product Management, o único aprovado/ativo hoje)
-// não tem permissão pra API de Pedidos — confirmado em produção em 24/08/2026
-// com erro real da Shopee: error_api_permission, "This app type has no
-// permission to this API". Essa API pertence à categoria Order Management,
-// que é o app "Elisa Lima Pedidos", ainda em análise (Go Live process
-// Review) no Shopee Open Platform Console.
+// O app "Elisa Lima CRM" (Product Management) não tem permissão pra API de
+// Pedidos — confirmado em produção em 24/08/2026 com erro real da Shopee:
+// error_api_permission, "This app type has no permission to this API". Essa
+// API pertence à categoria Order Management, que é o app "Elisa Lima
+// Pedidos" — aprovado pela Shopee em 25/08/2026 (Go Live concluído).
 //
-// Sem esse freio, buscarPedidos() era chamado a cada 4 minutos pelo A24
-// (e a cada sincronização manual) e falhava sempre do mesmo jeito — 50
-// tentativas malsucedidas em poucas horas, todas gastando cota do proxy de
-// IP fixo (banda limitada por mês). Falhar aqui, antes de qualquer chamada
-// de rede, custa zero cota.
+// Liberado de novo em 25/08/2026: buscarPedidos()/urlPedidos() agora assinam
+// com as credenciais do app Pedidos (obterShopeeAppCredenciais("pedidos") +
+// token OAuth próprio em canal_tokens, canal "shopee_pedidos" — ver
+// criarShopeeProvider). Se uma marca ainda não autorizou esse app (sem token
+// salvo), a chamada falha na hora (urlPedidos lança erro) em vez de bater na
+// Shopee com credencial errada — não precisa deste freio global pra isso.
 //
-// Reverter quando "Elisa Lima Pedidos" for aprovado: virar `true` (e nesse
-// ponto também revisar se as chamadas de pedido devem passar a usar as
-// credenciais desse app novo, já que permissão é por app na Shopee — ver
-// memória "shopee-proxy-webshare"). Mesmo freio usado pelo webhook
-// (src/app/api/webhooks/shopee/route.ts) — um só lugar pra destravar.
-export const SHOPEE_PEDIDOS_LIBERADO = false;
+// Reverter pra `false` só se a Shopee suspender/revogar o app de novo.
+export const SHOPEE_PEDIDOS_LIBERADO = true;
 
 // PAUSA MANUAL (pedido do usuário, 25/08/2026): nenhuma chamada de rede deve
 // sair pra Shopee por enquanto — catálogo, avaliações, saldo, health check.
@@ -106,9 +102,18 @@ function garantirNaoPausado(): void {
 export class ShopeeProvider implements ChannelProvider {
   private readonly host = obterShopeeBaseUrl();
   private creds: ShopeeCredentials;
+  // App "Elisa Lima Pedidos" (Order Management) — autorização OAuth própria,
+  // shop_id/access_token diferentes dos do app "Elisa Lima CRM" (Product
+  // Management, usado por `creds` no resto do provider), porque a Shopee
+  // autoriza por APP, não só por loja: mesma loja pode conceder acesso pra
+  // dois apps diferentes, cada autorização gera seu próprio access_token.
+  // Opcional porque nem toda marca vai ter o app de Pedidos conectado ainda
+  // — ver SHOPEE_PEDIDOS_LIBERADO.
+  private credsPedidos?: ShopeeCredentials;
 
-  constructor(creds: ShopeeCredentials) {
+  constructor(creds: ShopeeCredentials, credsPedidos?: ShopeeCredentials) {
     this.creds = creds;
+    this.credsPedidos = credsPedidos;
   }
 
   // A Shopee assina o CAMINHO COMPLETO da chamada (com /api/v2), o mesmo que
@@ -119,19 +124,19 @@ export class ShopeeProvider implements ChannelProvider {
   // reprovar a request em si, só a assinatura), então nenhum request feito
   // por este provider — get_shop_info, get_order_list, update_stock, etc. —
   // jamais funcionou até este fix, mesmo com token válido.
-  private assinar(apiPath: string, timestamp: number): string {
-    const base = `${this.creds.partnerId}${apiPath}${timestamp}${this.creds.accessToken}${this.creds.shopId}`;
-    return crypto.createHmac("sha256", this.creds.partnerKey).update(base).digest("hex");
+  private assinar(apiPath: string, timestamp: number, creds: ShopeeCredentials): string {
+    const base = `${creds.partnerId}${apiPath}${timestamp}${creds.accessToken}${creds.shopId}`;
+    return crypto.createHmac("sha256", creds.partnerKey).update(base).digest("hex");
   }
 
-  private url(path: string, params: Record<string, string | number> = {}): string {
+  private url(path: string, params: Record<string, string | number> = {}, creds: ShopeeCredentials = this.creds): string {
     const apiPath = `/api/v2${path}`;
     const ts = Math.floor(Date.now() / 1000);
-    const sign = this.assinar(apiPath, ts);
+    const sign = this.assinar(apiPath, ts, creds);
     const qs = new URLSearchParams({
-      partner_id: this.creds.partnerId,
-      shop_id: this.creds.shopId,
-      access_token: this.creds.accessToken,
+      partner_id: creds.partnerId,
+      shop_id: creds.shopId,
+      access_token: creds.accessToken,
       timestamp: String(ts),
       sign,
       ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
@@ -139,11 +144,21 @@ export class ShopeeProvider implements ChannelProvider {
     return `${this.host}${apiPath}?${qs}`;
   }
 
+  /** Pedidos assina com o par + token do app "Elisa Lima Pedidos", não o de
+   *  catálogo — são apps diferentes na Shopee, autorização (e portanto
+   *  access_token) não é intercambiável entre eles. */
+  private urlPedidos(path: string, params: Record<string, string | number> = {}): string {
+    if (!this.credsPedidos) {
+      throw new Error("App Shopee Pedidos não conectado para esta marca (ver SHOPEE_PARTNER_ID_PEDIDOS_* e OAuth em /configuracoes).");
+    }
+    return this.url(path, params, this.credsPedidos);
+  }
+
   async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
     const timeFrom = Math.floor(desde.getTime() / 1000);
     const timeTo = Math.floor(Date.now() / 1000);
 
-    const listRes = await shopeeFetch(this.url("/order/get_order_list", {
+    const listRes = await shopeeFetch(this.urlPedidos("/order/get_order_list", {
       time_range_field: "create_time",
       time_from: timeFrom,
       time_to: timeTo,
@@ -167,7 +182,7 @@ export class ShopeeProvider implements ChannelProvider {
 
     // Busca detalhes (itens de linha) em lote — máx 50 por chamada
     const sns = orders.map((o) => o.order_sn).join(",");
-    const detailRes = await shopeeFetch(this.url("/order/get_order_detail", {
+    const detailRes = await shopeeFetch(this.urlPedidos("/order/get_order_detail", {
       order_sn_list: sns,
       response_optional_fields: "item_list,recipient_address,buyer_user_id",
     }), { signal: AbortSignal.timeout(15000) });
@@ -556,17 +571,26 @@ interface LinhaTokenShopee {
   expires_at?: string;
 }
 
-export async function obterTokenShopee(brandSlug: BrandSlug): Promise<{
+/** canal na tabela canal_tokens: "shopee" pro app CRM (catálogo), "shopee_pedidos"
+ *  pro app Pedidos — linhas independentes porque cada app tem sua própria
+ *  autorização/access_token na Shopee, mesmo pra a mesma loja. */
+function canalTokenShopee(app: "catalogo" | "pedidos"): string {
+  return app === "pedidos" ? "shopee_pedidos" : "shopee";
+}
+
+export async function obterTokenShopee(brandSlug: BrandSlug, app: "catalogo" | "pedidos" = "catalogo"): Promise<{
   shopId: string;
   accessToken: string;
 }> {
   const upper = brandEnvSuffix(brandSlug);
+  const sufixoEnv = app === "pedidos" ? `PEDIDOS_${upper}` : upper;
+  const canal = canalTokenShopee(app);
   const orgId = process.env.DEFAULT_ORG_ID;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   let tokenRow: LinhaTokenShopee | null = null;
-  const cacheKey = `${orgId}:${brandSlug}`;
+  const cacheKey = `${orgId}:${brandSlug}:${canal}`;
   const emCache = cacheTokenPorMarca.get(cacheKey);
   if (emCache && emCache.expiraEm > Date.now()) {
     tokenRow = emCache.valor;
@@ -586,7 +610,7 @@ export async function obterTokenShopee(brandSlug: BrandSlug): Promise<{
         .select("access_token, seller_id, expires_at")
         .eq("org_id", orgId)
         .eq("brand_id", marca.data.id)
-        .eq("canal", "shopee")
+        .eq("canal", canal)
         .maybeSingle();
       tokenRow = result.data;
     }
@@ -597,22 +621,22 @@ export async function obterTokenShopee(brandSlug: BrandSlug): Promise<{
     ? new Date(tokenRow.expires_at).getTime() <= Date.now() + 60_000
     : false;
   const accessToken = tokenBancoExpirado
-    ? process.env[`SHOPEE_ACCESS_TOKEN_${upper}`]
-    : tokenRow?.access_token ?? process.env[`SHOPEE_ACCESS_TOKEN_${upper}`];
+    ? process.env[`SHOPEE_ACCESS_TOKEN_${sufixoEnv}`]
+    : tokenRow?.access_token ?? process.env[`SHOPEE_ACCESS_TOKEN_${sufixoEnv}`];
   const shopId = (tokenBancoExpirado ? undefined : tokenRow?.seller_id)
-    ?? process.env[`SHOPEE_SHOP_ID_${upper}`];
+    ?? process.env[`SHOPEE_SHOP_ID_${sufixoEnv}`];
 
   if (accessToken && (!tokenRow || tokenBancoExpirado)) {
     const motivo = tokenRow ? "token OAuth em canal_tokens expirado" : "nenhum token persistido em canal_tokens";
     console.warn(
-      `[shopee] usando SHOPEE_ACCESS_TOKEN_${upper} do ambiente (${motivo}). ` +
+      `[shopee] usando SHOPEE_ACCESS_TOKEN_${sufixoEnv} do ambiente (${motivo}). ` +
       "Reconecte via OAuth em /configuracoes assim que possível.",
     );
   }
 
   if (!accessToken || !shopId) {
     const motivo = tokenBancoExpirado ? "token OAuth expirado" : "token ausente";
-    throw new Error(`Credencial Shopee indisponível para ${upper}: ${motivo}.`);
+    throw new Error(`Credencial Shopee (${app}) indisponível para ${upper}: ${motivo}.`);
   }
 
   return { shopId, accessToken };
@@ -620,11 +644,30 @@ export async function obterTokenShopee(brandSlug: BrandSlug): Promise<{
 
 export async function criarShopeeProvider(brandSlug: BrandSlug): Promise<ShopeeProvider> {
   const upper = brandEnvSuffix(brandSlug);
-  const { partnerId, partnerKey } = obterShopeeAppCredenciais();
+  const { partnerId, partnerKey } = obterShopeeAppCredenciais("catalogo");
   if (!partnerId || !partnerKey) {
-    throw new Error(`Credenciais Shopee não configuradas para ${upper}.`);
+    throw new Error(`Credenciais Shopee (catálogo) não configuradas para ${upper}.`);
   }
 
-  const { shopId, accessToken } = await obterTokenShopee(brandSlug);
-  return new ShopeeProvider({ partnerId, partnerKey, shopId, accessToken });
+  const { shopId, accessToken } = await obterTokenShopee(brandSlug, "catalogo");
+
+  // App de Pedidos é opcional aqui de propósito: SHOPEE_PEDIDOS_LIBERADO
+  // continua sendo o freio de verdade pra chamar `buscarPedidos` — faltar
+  // essa credencial/token não pode impedir catálogo/estoque/avaliações de
+  // funcionar. Se a marca ainda não autorizou o app Pedidos (ou faltar
+  // partner_id/key dele), credsPedidos fica undefined e urlPedidos() lança
+  // erro só se/quando alguém tentar chamá-la.
+  const credsAppPedidos = obterShopeeAppCredenciais("pedidos");
+  let credsPedidos: { partnerId: string; partnerKey: string; shopId: string; accessToken: string } | undefined;
+  if (credsAppPedidos.partnerId && credsAppPedidos.partnerKey) {
+    try {
+      const tokenPedidos = await obterTokenShopee(brandSlug, "pedidos");
+      credsPedidos = { partnerId: credsAppPedidos.partnerId, partnerKey: credsAppPedidos.partnerKey, ...tokenPedidos };
+    } catch {
+      // Marca ainda não autorizou o app Pedidos — sem token, sem problema,
+      // ver comentário acima.
+    }
+  }
+
+  return new ShopeeProvider({ partnerId, partnerKey, shopId, accessToken }, credsPedidos);
 }

@@ -11,6 +11,7 @@ import {
   produto,
   produtoCanal,
 } from "@/shared/lib/db/schema";
+import { createClient } from "@supabase/supabase-js";
 import { brandEnvSuffix, canaisDaMarca } from "@/shared/config/brands";
 import { isCredencialConfigurada } from "@/shared/config/env-credentials";
 import { shopeeAppEnvSuffix } from "@/shared/config/shopee-env";
@@ -75,6 +76,10 @@ export interface CanalConfiguracao {
   externalAccountId: string | null;
   externalAccountIdSource: "database" | "environment" | null;
   externalAccountIdMismatch: boolean;
+  /** Só para canal "shopee": app "Elisa Lima Pedidos" (Order Management) já
+   *  autorizado via OAuth pra esta marca — autorização independente da do
+   *  app de catálogo (`status`/`pronto` acima refletem só o catálogo). */
+  shopeePedidosConectado: boolean;
 }
 
 const ContaCanalInputSchema = z.object({
@@ -155,8 +160,21 @@ export async function obterResumoConfiguracoes(ctx: CrudContext) {
   };
 }
 
+async function brandIdsComShopeePedidosConectado(ctx: CrudContext): Promise<Set<string>> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) return new Set();
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const { data } = await supabase
+    .from("canal_tokens")
+    .select("brand_id")
+    .eq("org_id", ctx.orgId)
+    .eq("canal", "shopee_pedidos");
+  return new Set((data ?? []).map((row) => row.brand_id as string));
+}
+
 export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalConfiguracao[]> {
-  const [marcas, contas, mapeamentos] = await Promise.all([
+  const [marcas, contas, mapeamentos, brandIdsPedidos] = await Promise.all([
     ctx.db
       .select({ id: brand.id, slug: brand.slug, name: brand.name })
       .from(brand)
@@ -180,6 +198,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
       })
       .from(produtoCanal)
       .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.ativo, true))),
+    brandIdsComShopeePedidosConectado(ctx),
   ]);
 
   const skusPorConta = new Map<string, number>();
@@ -222,6 +241,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
       skusMapeados,
       envAusentes,
       pronto: status === "conectado" && envAusentes.length === 0 && skusMapeados > 0,
+      shopeePedidosConectado: canal === "shopee" && brandIdsPedidos.has(marca.id),
     };
   }));
 }

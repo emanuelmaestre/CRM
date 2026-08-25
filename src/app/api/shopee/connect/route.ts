@@ -34,19 +34,25 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Marca não suportada." }, { status: 400 });
   }
 
-  const { partnerId, partnerKey } = obterShopeeAppCredenciais();
+  // "catalogo" (app Elisa Lima CRM) por padrão; "pedidos" (app Elisa Lima
+  // Pedidos) quando o botão de conectar Pedidos manda ?app=pedidos — cada um
+  // é uma autorização OAuth própria na Shopee, mesmo pra mesma loja/marca.
+  const appParam = req.nextUrl.searchParams.get("app");
+  const app = appParam === "pedidos" ? "pedidos" : "catalogo";
+
+  const { partnerId, partnerKey } = obterShopeeAppCredenciais(app);
   if (!partnerId || !partnerKey) {
-    return NextResponse.json({ error: "SHOPEE_PARTNER_ID_TEST/LIVE e SHOPEE_PARTNER_KEY_TEST/LIVE não configurados" }, { status: 500 });
+    return NextResponse.json({ error: `Credenciais Shopee (${app}) não configuradas.` }, { status: 500 });
   }
 
   const path = "/api/v2/shop/auth_partner";
   const timestamp = Math.floor(Date.now() / 1000);
   const sign = assinar(partnerId, partnerKey, path, timestamp);
 
-  // A Shopee não tem parâmetro "state" nativo no auth_partner — a marca
-  // viaja num cookie httpOnly de curta duração, igual ao verifier do ML,
-  // e é conferida no callback antes de gravar qualquer token.
-  const state = `${brand}:${randomBytes(16).toString("hex")}`;
+  // A Shopee não tem parâmetro "state" nativo no auth_partner — marca e app
+  // viajam num cookie httpOnly de curta duração, igual ao verifier do ML,
+  // e são conferidos no callback antes de gravar qualquer token.
+  const state = `${brand}:${app}:${randomBytes(16).toString("hex")}`;
   const redirect = obterUrlCallbackShopee();
 
   const params = new URLSearchParams({

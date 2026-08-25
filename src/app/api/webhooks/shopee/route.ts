@@ -39,19 +39,23 @@ const ShopeeMessageDataSchema = z.object({
   to_id: z.union([z.string(), z.number()]).optional(),
 });
 
+// Um só endpoint recebe webhook dos dois apps (catálogo/CRM manda push de
+// chat, pedidos/Order Management manda push de status de pedido) — cada app
+// assina com seu próprio partner_key, então valida contra os dois; qualquer
+// um batendo confirma que a chamada é legítima.
 function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
-  const { partnerKey } = obterShopeeAppCredenciais();
-  if (!partnerKey) return false;
-
   const assinatura = req.headers.get("authorization") ?? "";
-  const url = req.nextUrl.toString();
-  const esperado = crypto
-    .createHmac("sha256", partnerKey)
-    .update(`${url}|${rawBody}`)
-    .digest("hex");
+  if (!/^[a-f0-9]{64}$/i.test(assinatura)) return false;
+  const assinaturaBuf = Buffer.from(assinatura, "hex");
 
-  return /^[a-f0-9]{64}$/i.test(assinatura)
-    && crypto.timingSafeEqual(Buffer.from(assinatura, "hex"), Buffer.from(esperado, "hex"));
+  const url = req.nextUrl.toString();
+  const chaves = [obterShopeeAppCredenciais("catalogo").partnerKey, obterShopeeAppCredenciais("pedidos").partnerKey]
+    .filter((k): k is string => Boolean(k));
+
+  return chaves.some((partnerKey) => {
+    const esperado = crypto.createHmac("sha256", partnerKey).update(`${url}|${rawBody}`).digest("hex");
+    return crypto.timingSafeEqual(assinaturaBuf, Buffer.from(esperado, "hex"));
+  });
 }
 
 async function buscarDetalheShopee(
@@ -193,8 +197,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const conta = await resolverContaWebhookMarketplace("shopee", String(shop_id));
 
-    const { partnerId = "", partnerKey = "" } = obterShopeeAppCredenciais();
-    const { shopId, accessToken } = await obterTokenShopee(conta.brandSlug);
+    const { partnerId = "", partnerKey = "" } = obterShopeeAppCredenciais("pedidos");
+    const { shopId, accessToken } = await obterTokenShopee(conta.brandSlug, "pedidos");
 
     const detalhe = await buscarDetalheShopee(data.ordersn, partnerId, partnerKey, shopId, accessToken);
 
