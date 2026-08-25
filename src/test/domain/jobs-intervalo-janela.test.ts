@@ -61,3 +61,30 @@ describe("A24 — janela de busca cobre o intervalo do cron", () => {
     expect(fonte).toContain("new Date(Date.now() - JANELA_BUSCA_MS)");
   });
 });
+
+/* Mesmo cuidado no A5, por outro motivo: lá o cron não tem janela pareada, mas
+   a desativação de anúncio encerrado espera HORAS_PARA_DESATIVAR de status
+   "closed" ININTERRUPTO. Como a checagem só acontece quando o job roda, um
+   intervalo maior que essa espera faria a condição nunca se confirmar — o
+   produto jamais seria desativado. */
+describe("A5 — intervalo da coleta cabe na janela de desativação", () => {
+  const fonteA5 = fs.readFileSync(
+    path.join(process.cwd(), "src/modules/jobs/A5-reconciliacao-saldo.ts"),
+    "utf8",
+  );
+  const numeroA5 = (nome: string) => {
+    const achado = fonteA5.match(new RegExp(`const ${nome} = (\\d+);`));
+    if (!achado) throw new Error(`Constante ${nome} não encontrada em A5-reconciliacao-saldo.ts`);
+    return Number(achado[1]);
+  };
+  const intervaloHoras = numeroA5("INTERVALO_COLETA_HORAS");
+  const horasParaDesativar = numeroA5("HORAS_PARA_DESATIVAR");
+
+  it("roda mais de uma vez dentro da janela de desativação", () => {
+    expect(intervaloHoras).toBeLessThan(horasParaDesativar);
+  });
+
+  it("o cron declarado deriva do intervalo, não é escrito à mão", () => {
+    expect(fonteA5).toContain("cron: `0 */${INTERVALO_COLETA_HORAS} * * *`");
+  });
+});

@@ -10,8 +10,28 @@ import { isBrandSlug } from "@/shared/config/brands";
 /** Quanto tempo o anúncio precisa ficar "closed"/não encontrado, sem
  *  interrupção, antes do produto ser desativado de verdade. Uma execução
  *  isolada não conta — API do ML pode ter um soluço, ou o vendedor reabre
- *  o anúncio horas depois. 24h cobre várias rodadas horárias do A5. */
+ *  o anúncio horas depois.
+ *
+ *  A comparação é contra tempo real decorrido (`mlEncerradoDesde`), não contra
+ *  número de rodadas, então continua valendo se o intervalo do A5 mudar — só
+ *  precisa caber mais de uma rodada em 24h, o que INTERVALO_COLETA_HORAS
+ *  garante com folga. */
 const HORAS_PARA_DESATIVAR = 24;
+
+/** De quantas em quantas horas a varredura completa roda.
+ *
+ *  Era de hora em hora. O que mudou o cálculo foi a cota do proxy de IP fixo
+ *  da Shopee (Webshare, 1GB/mês), que é o recurso escasso da integração: cada
+ *  varredura gasta ~83 chamadas de `get_model_list` só de Shopee, o que dava
+ *  ~2.000 chamadas por dia — de longe o maior consumidor depois que o A24 foi
+ *  espaçado em 25/08/2026.
+ *
+ *  Quatro vezes ao dia é rede de segurança, não o caminho principal: mudança
+ *  de saldo por venda já é recoletada na hora pelo A29 (recoleta-por-venda).
+ *  O que esta varredura pega é o que muda fora de venda — edição de estoque
+ *  feita direto no painel do canal — e aí algumas horas de atraso é aceitável.
+ *  O custo de aumentar de novo é só trocar este número. */
+const INTERVALO_COLETA_HORAS = 6;
 
 /** Quantos mapeamentos cada passo do Inngest processa de uma vez.
  *
@@ -32,13 +52,14 @@ type FalhaColeta = {
 export const A5_coletaSaldoCanais = inngest.createFunction(
   {
     id: "A5-reconciliacao-saldo",
-    name: "A5 — Coleta de saldo de estoque por canal",
+    name: `A5 — Coleta de saldo de estoque por canal (a cada ${INTERVALO_COLETA_HORAS}h)`,
     concurrency: { limit: 1 },
-    // De hora em hora, e não uma vez por dia: a operação vende o dia inteiro,
-    // e uma varredura completa custa ~20s e ~550 chamadas — perto de 3% do teto
-    // horário da aplicação no Mercado Livre. O alerta de mínimo passa a ter, no
-    // pior caso, uma hora de atraso em vez de um dia.
-    triggers: [{ cron: "0 * * * *" }],
+    // Uma varredura completa custa ~20s e ~550 chamadas somando os canais.
+    // Pelo lado do Mercado Livre isso nunca foi o problema (perto de 3% do teto
+    // horário da aplicação); o limite que pesa é a cota do proxy da Shopee —
+    // ver INTERVALO_COLETA_HORAS. Consequência a ter em mente: o alerta de
+    // mínimo passa a ter, no pior caso, o intervalo de atraso.
+    triggers: [{ cron: `0 */${INTERVALO_COLETA_HORAS} * * *` }],
   },
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";

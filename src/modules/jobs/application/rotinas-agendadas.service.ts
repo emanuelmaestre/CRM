@@ -38,9 +38,12 @@ const ROTINAS_AGENDADAS = [
     nome: "A5-reconciliacao-saldo",
     titulo: "Reconciliação de saldo",
     categoria: "Estoque",
-    agenda: "a cada hora",
-    cron: "0 * * * *",
-    atrasoLimiteMinutos: 180,
+    // Rede de segurança do estoque, não o caminho principal — ver
+    // INTERVALO_COLETA_HORAS em A5-reconciliacao-saldo.ts, fonte da verdade do
+    // cron. O limite de atraso dá uma volta inteira de folga.
+    agenda: "a cada 6 horas",
+    cron: "0 */6 * * *",
+    atrasoLimiteMinutos: 12 * 60,
   },
   {
     nome: "A12-conversa-parada",

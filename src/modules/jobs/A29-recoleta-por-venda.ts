@@ -6,12 +6,14 @@ import { resolverChannelProvider } from "@/modules/canais/infrastructure/provide
 
 /** Recoleta o saldo dos produtos de um pedido assim que ele é pago.
  *
- *  A varredura completa (A5) roda de hora em hora e serve de rede de segurança,
- *  inclusive para alterações feitas à mão no painel do canal. Mas venda é o
- *  momento em que o estoque de fato muda, e esperar até uma hora para refletir
- *  isso deixa o alerta de mínimo sempre atrasado justamente nos itens que estão
- *  girando. Aqui só os produtos daquele pedido são consultados — dois ou três
- *  anúncios, custo irrisório perto dos ~550 de uma varredura.
+ *  A varredura completa (A5) é a rede de segurança, inclusive para alterações
+ *  feitas à mão no painel do canal, mas roda espaçada (ver
+ *  INTERVALO_COLETA_HORAS) porque é cara. Venda é o momento em que o estoque de
+ *  fato muda, e esperar a próxima varredura deixaria o alerta de mínimo
+ *  atrasado justamente nos itens que estão girando — é este job que mantém o
+ *  saldo fresco no caso que importa. Aqui só os produtos daquele pedido são
+ *  consultados: dois ou três anúncios, custo irrisório perto dos ~550 de uma
+ *  varredura.
  *
  *  Consulta o canal em vez de subtrair a quantidade vendida do saldo guardado:
  *  o mesmo lote é anunciado em mais de um canal, então quem sabe o número certo
