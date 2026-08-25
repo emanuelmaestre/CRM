@@ -27,7 +27,9 @@ export function MobileHeader() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between px-4 backdrop-blur-md md:hidden">
+    <header
+      className="fixed-header-stable fixed inset-x-0 top-0 z-30 flex h-[calc(3.5rem_+_env(safe-area-inset-top))] items-center justify-between px-4 pt-[env(safe-area-inset-top)] backdrop-blur-md md:hidden"
+    >
       <button
         type="button"
         onClick={handleLogoClick}

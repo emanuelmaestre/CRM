@@ -42,7 +42,7 @@ export function TopNav({ perfil, cargo, nome, email, modulosVisiveis }: { perfil
       initial={false}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.28, ease: [0, 0, 0.2, 1] }}
-      className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 overflow-hidden border-b border-border bg-card/90 px-[clamp(1rem,2vw,1.5rem)] backdrop-blur-md xl:gap-4"
+      className="fixed-header-stable fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 overflow-hidden border-b border-border bg-card/90 px-[clamp(1rem,2vw,1.5rem)] backdrop-blur-md xl:gap-4"
     >
       {/* Logo */}
       <Link href={navigationConfig.homeHref} className="flex items-center shrink-0 group" aria-label={appConfig.logo.homeAriaLabel}>

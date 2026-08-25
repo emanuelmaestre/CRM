@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <MobileHeader />
 
       {/* Conteúdo principal */}
-      <main className="pt-14 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-0 [@media_(min-width:768px)_and_(max-height:500px)]:pb-[calc(5rem_+_env(safe-area-inset-bottom))] [@media_(min-width:768px)_and_(max-height:500px)]:pt-0">
+      <main className="pt-[calc(3.5rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pt-14 md:pb-0 [@media_(min-width:768px)_and_(max-height:500px)]:pb-[calc(5rem_+_env(safe-area-inset-bottom))] [@media_(min-width:768px)_and_(max-height:500px)]:pt-0">
         <div className="mx-auto w-full max-w-[1440px] px-[clamp(1rem,2.2vw,2rem)] py-[clamp(1rem,2vw,1.5rem)]">
           {children}
         </div>
@@ -31,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           6px não bastava — relato real de toque acertando o gesto do
           sistema mesmo assim; subiu pra 14px. Só sobe o conteúdo — o fundo
           continua colado no rodapé, sem barra branca sobrando embaixo. */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)_+_14px)] md:hidden [@media_(min-width:768px)_and_(max-height:500px)]:block">
+      <nav className="fixed-header-stable fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)_+_14px)] md:hidden [@media_(min-width:768px)_and_(max-height:500px)]:block">
         <BottomNav modulosVisiveis={contexto.modulosVisiveis} />
       </nav>
     </div>

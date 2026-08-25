@@ -340,6 +340,20 @@ button, input, select, textarea {
   animation: shimmer 1.4s infinite linear;
 }
 
+/* ── Header fixo estável no Safari iOS ──
+   `position: fixed` + `backdrop-filter: blur()` sem promoção pra própria
+   camada de composição faz o Safari "descolar" o elemento por um frame
+   durante scroll com inércia — ele parece flutuar/reposicionar em vez de
+   ficar realmente colado no topo. `translateZ(0)` força o elemento pra sua
+   própria camada de GPU, que o compositor do Safari trata como estática
+   independente do scroll do documento. */
+.fixed-header-stable {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 /* ── Resposta instantânea ──
    Feedback ao toque começa no pointerdown (:active), não no release.
    Duração curta para não competir com a percepção de "grudado no dedo". */

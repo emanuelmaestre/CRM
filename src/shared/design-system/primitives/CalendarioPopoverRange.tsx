@@ -277,9 +277,15 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
     if (gatilhoRef.current) setPosicao(calcularPosicao(gatilhoRef.current));
     window.addEventListener("scroll", atualizar, true);
     window.addEventListener("resize", atualizar);
+    // Safari iOS dispara "scroll" de forma irregular durante rolagem com
+    // inércia — o painel pode ficar um frame atrás do botão até o dedo
+    // soltar. "scrollend" (quando suportado) garante um recálculo final
+    // exato assim que a rolagem realmente parar.
+    window.addEventListener("scrollend", atualizar, true);
     return () => {
       window.removeEventListener("scroll", atualizar, true);
       window.removeEventListener("resize", atualizar);
+      window.removeEventListener("scrollend", atualizar, true);
     };
   }, [aberto]);
 
