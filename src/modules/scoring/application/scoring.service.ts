@@ -4,7 +4,7 @@ import {
   scoreCliente, scoreProduto, scoreHistorico, pedido, pedidoItem,
   estoqueCanalSaldo, produto,
 } from "@/shared/lib/db/schema";
-import { emitirEvento } from "@/shared/events";
+import { emitirEvento, emitirEventoUnico } from "@/shared/events";
 import { calcularScoreCliente } from "../domain/rfm";
 import { calcularScoreProduto } from "../domain/encalhe";
 import { addDays } from "date-fns";
@@ -217,13 +217,13 @@ export async function recalcularScoreProduto(orgId: string, produtoId: string): 
   });
 
   if (resultado.riscoEncalhe >= 70) {
-    await emitirEvento({
+    await emitirEventoUnico({
       tipo: "estoque.parado_detectado",
       orgId,
       entidade: "score_produto",
       entidadeId: produtoId,
       payload: { sku: produtoRow.sku, riscoEncalhe: resultado.riscoEncalhe, capitalParado: resultado.capitalParado },
-    });
+    }, 7 * 24 * 60);
   }
 }
 

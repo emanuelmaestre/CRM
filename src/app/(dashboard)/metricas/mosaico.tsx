@@ -288,7 +288,7 @@ const TOUR: CoachMarkStep[] = [
 
 export function Mosaico({
   marcasIniciais = [], canaisIniciais = [], saudeInicial = null,
-  posVendaInicial = null,
+  posVendaInicial = null, snapshotInicial,
 }: {
   /* O mosaico é a soma de seis buscas independentes, todas resolvidas no
      servidor e entregues dentro do HTML (ver page.tsx). */
@@ -296,6 +296,7 @@ export function Mosaico({
   canaisIniciais?: ScopeCanal[];
   saudeInicial?: SaudeLojaResultado | null;
   posVendaInicial?: PosVendaResultado | null;
+  snapshotInicial?: SnapshotMetricas | null;
 }) {
   const params = useSearchParams();
   const cardAberto = params.get("card");
@@ -421,8 +422,10 @@ export function Mosaico({
      comparação simplesmente não existia no banco (ver job A30, que passou
      a gravar 1 foto por dia a partir de hoje). Busca uma vez, não depende
      de filtro nem de período — é sempre "ontem vs. hoje". */
-  const [snapshotOntem, setSnapshotOntem] = useState<SnapshotMetricas | null>(null);
+  const [snapshotOntem, setSnapshotOntem] = useState<SnapshotMetricas | null>(snapshotInicial ?? null);
+  const primeiroSnapshot = useRef(snapshotInicial !== undefined);
   useEffect(() => {
+    if (primeiroSnapshot.current) { primeiroSnapshot.current = false; return; }
     let ativo = true;
     actionObterSnapshotAnterior(1)
       .then((snapshot) => { if (ativo) setSnapshotOntem(snapshot); })

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
@@ -28,6 +28,8 @@ import {
   actionObterUsoApiShopee,
 } from "./actions";
 import { toast } from "sonner";
+import { useConfiguracoesIniciais } from "./configuracoes-iniciais";
+import type { BrandSlug } from "@/shared/config/brands";
 
 const PendingIcon = getIcon(settingsConfig.status.pendingIcon);
 const ExternalIcon = getIcon(settingsConfig.openAction.icon);
@@ -120,15 +122,16 @@ function IntegrationRow({ name, description, href, color, connected = false }: {
 }
 
 export default function ConfiguracoesPage() {
-  const [usuarios, setUsuarios] = useState<UsuarioResumo[]>([]);
-  const [canais, setCanais] = useState<CanalConfiguracao[]>([]);
-  const [resumo, setResumo] = useState<ResumoConfiguracoes | null>(null);
-  const [rotinasAgendadas, setRotinasAgendadas] = useState<RotinasAgendadas | null>(null);
-  const [usoShopee, setUsoShopee] = useState<UsoApiShopee | null>(null);
-  const [carregandoUsuarios, setCarregandoUsuarios] = useState(true);
-  const [carregandoCanais, setCarregandoCanais] = useState(true);
-  const [carregandoRotinas, setCarregandoRotinas] = useState(true);
-  const [carregandoUsoShopee, setCarregandoUsoShopee] = useState(true);
+  const iniciais = useConfiguracoesIniciais();
+  const [usuarios, setUsuarios] = useState<UsuarioResumo[]>(iniciais.usuarios ?? []);
+  const [canais, setCanais] = useState<CanalConfiguracao[]>(iniciais.canais ?? []);
+  const [resumo, setResumo] = useState<ResumoConfiguracoes | null>(iniciais.resumo);
+  const [rotinasAgendadas, setRotinasAgendadas] = useState<RotinasAgendadas | null>(iniciais.rotinas);
+  const [usoShopee, setUsoShopee] = useState<UsoApiShopee | null>(iniciais.usoShopee);
+  const [carregandoUsuarios, setCarregandoUsuarios] = useState(iniciais.usuarios === null);
+  const [carregandoCanais, setCarregandoCanais] = useState(iniciais.canais === null);
+  const [carregandoRotinas, setCarregandoRotinas] = useState(iniciais.rotinas === null);
+  const [carregandoUsoShopee, setCarregandoUsoShopee] = useState(iniciais.usoShopee === null);
 
   const recarregarCanais = useCallback(async () => {
     setCarregandoCanais(true);
@@ -141,14 +144,25 @@ export default function ConfiguracoesPage() {
     }
   }, []);
 
-  const mlStatus = useMercadoLivreStatus(recarregarCanais);
+  const mlInicial = useMemo(() => Object.fromEntries(
+    canais
+      .filter((item) => item.canal === "mercadolivre")
+      .map((item) => [item.brand as BrandSlug, {
+        conectado: item.status === "conectado" || item.pronto,
+        sellerId: item.externalAccountId ?? undefined,
+        contaConfere: !item.externalAccountIdMismatch,
+      }]),
+  ), [canais]);
+  const mlStatus = useMercadoLivreStatus(recarregarCanais, iniciais.canais === null ? undefined : mlInicial);
 
   useEffect(() => {
-    Promise.all([
-      actionListarUsuarios(),
-      actionListarConfiguracaoCanais(),
-      actionObterResumoConfiguracoes(),
-      actionListarRotinasAgendadas(),
+    const pendentes = iniciais.usuarios === null || iniciais.canais === null
+      || iniciais.resumo === null || iniciais.rotinas === null;
+    if (pendentes) Promise.all([
+      iniciais.usuarios ?? actionListarUsuarios(),
+      iniciais.canais ?? actionListarConfiguracaoCanais(),
+      iniciais.resumo ?? actionObterResumoConfiguracoes(),
+      iniciais.rotinas ?? actionListarRotinasAgendadas(),
     ])
       .then(([usuariosIniciais, canaisIniciais, resumoInicial, rotinasIniciais]) => {
         setUsuarios(usuariosIniciais);
@@ -164,11 +178,11 @@ export default function ConfiguracoesPage() {
       });
 
     // Card separado (não bloqueia o restante da página se falhar ou demorar).
-    actionObterUsoApiShopee()
+    if (iniciais.usoShopee === null) actionObterUsoApiShopee()
       .then(setUsoShopee)
       .catch(() => toast.error("Não foi possível carregar o uso da API Shopee."))
       .finally(() => setCarregandoUsoShopee(false));
-  }, []);
+  }, [iniciais]);
 
   const ordenarUsuarios = useCallback((items: UsuarioResumo[]) =>
     [...items].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })),

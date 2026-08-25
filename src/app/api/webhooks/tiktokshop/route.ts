@@ -5,7 +5,6 @@ import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.serv
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
-import { receberMensagem } from "@/modules/inbox/application/inbox.service";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -66,58 +65,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Schema inválido" }, { status: 422 });
   }
 
-  const { event, data, shop_id, type, tts_notification_id } = resultado.data;
+  const { event, data, shop_id, type } = resultado.data;
 
   // Evento de ping/teste — responde 200 sem processar.
   if (event === "tiktok.ping") {
     return NextResponse.json({ ok: true, ignorado: true, event });
   }
 
-  // Tipos 14 e 33 são notificações oficiais de nova mensagem. A deduplicação
-  // definitiva ocorre por providerMessageId na tabela mensagem.
+  // Inbox/mensagens foi removido. Confirmar o recebimento evita retentativas
+  // do TikTok sem resolver conta nem gravar conversa/evento no banco.
   if (type === 14 || type === 33) {
-    const message = data as {
-      message_id?: string;
-      conversation_id?: string;
-      content?: string;
-      msg_type?: string;
-      type?: string;
-      create_time?: string | number;
-      sender?: Record<string, unknown>;
-    };
-    if (!message.message_id || !message.conversation_id || !message.content) {
-      return NextResponse.json({ error: "Mensagem TikTok incompleta" }, { status: 422 });
-    }
-    let conteudo = message.content;
-    try {
-      const parsed = JSON.parse(message.content) as { content?: unknown };
-      if (typeof parsed.content === "string") conteudo = parsed.content;
-    } catch {
-      // Algumas versões enviam texto simples; ele já está pronto para persistência.
-    }
-
-    try {
-      const conta = await resolverContaWebhookMarketplace("tiktokshop", shop_id);
-      const inbox = await receberMensagem({
-        orgId: conta.orgId,
-        brandId: conta.brandId,
-        channelAccountId: conta.channelAccountId,
-        externalConversaId: message.conversation_id,
-        providerMessageId: `tiktok:${message.message_id}`,
-        conteudo,
-        tipo: (message.msg_type ?? message.type ?? "TEXT").toLowerCase(),
-        meta: {
-          canal: "tiktokshop",
-          notificationId: tts_notification_id,
-          recebidaEm: message.create_time,
-          sender: message.sender,
-        },
-      });
-      return NextResponse.json({ ok: true, ...inbox });
-    } catch (error) {
-      console.error("[webhook/tiktokshop/inbox]", error);
-      return NextResponse.json({ error: "Erro interno" }, { status: 500 });
-    }
+    return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagens_desativadas" });
   }
 
   // Extrai campos do data com cast seguro

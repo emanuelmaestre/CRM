@@ -5,10 +5,10 @@ import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/s
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 
 // Token da Shopee dura bem menos que o do ML (expire_in típico é 4h, contra
-// ~6h do ML) — cron mais frequente (15 em 15 min, igual ao A18) e margem
-// generosa evitam qualquer corrida com a expiração real.
+// ~6h do ML). A margem de 1h permite verificar uma vez por hora sem risco:
+// mesmo no pior caso ainda há uma execução antes da expiração real.
 export const SHOPEE_TOKEN_REFRESH_MARGIN_MS = 60 * 60 * 1000;
-export const SHOPEE_TOKEN_REFRESH_CRON = "*/15 * * * *";
+export const SHOPEE_TOKEN_REFRESH_CRON = "12 * * * *";
 
 const TokenResponseSchema = z.object({
   access_token: z.string().min(1),

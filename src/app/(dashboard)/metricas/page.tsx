@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Mosaico } from "./mosaico";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
+import { actionObterPosVenda, actionObterSnapshotAnterior } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
 export const metadata = { title: pagesConfig.metricas.metadataTitle };
@@ -9,13 +10,18 @@ export const metadata = { title: pagesConfig.metricas.metadataTitle };
    necessários para tornar o mosaico clicável e carregam no próprio ritmo
    depois da hidratação, junto dos demais conteúdos de cada painel. */
 async function ConteudoMetricas() {
-  const { marcas, canais } = await actionObterFiltrosPedidos()
-    .catch(() => ({ marcas: [], canais: [] }));
+  const [{ marcas, canais }, posVenda, snapshotOntem] = await Promise.all([
+    actionObterFiltrosPedidos().catch(() => ({ marcas: [], canais: [] })),
+    actionObterPosVenda().catch(() => null),
+    actionObterSnapshotAnterior(1).catch(() => null),
+  ]);
 
   return (
     <Mosaico
       marcasIniciais={marcas}
       canaisIniciais={canais}
+      posVendaInicial={posVenda}
+      snapshotInicial={snapshotOntem}
     />
   );
 }

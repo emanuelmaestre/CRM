@@ -7,8 +7,6 @@ import { A8_reguaAvaliacao } from "@/modules/jobs/A8-regua-avaliacao";
 import { A9_reguaAniversario } from "@/modules/jobs/A9-regua-aniversario";
 import { A10_reguaReativacao } from "@/modules/jobs/A10-regua-reativacao";
 import { A11_cancelarOptout } from "@/modules/jobs/A11-cancelar-optout";
-import { A7_encalhe } from "@/modules/jobs/A7-encalhe";
-import { A12_conversaParada } from "@/modules/jobs/A12-conversa-parada";
 import { A13_scoresCliente } from "@/modules/jobs/A13-scores-cliente";
 import { A17_documentosAutomaticos } from "@/modules/jobs/A17-documentos-automaticos";
 import { A20_backupVerificacao } from "@/modules/jobs/A20-backup-verificacao";
@@ -46,12 +44,10 @@ export const { GET, POST, PUT } = serve({
     A1_ingestaoPedidos,
     A5_coletaSaldoCanais,
     A6_alertaMinimo,
-    A7_encalhe,
     A8_reguaAvaliacao,
     A9_reguaAniversario,
     A10_reguaReativacao,
     A11_cancelarOptout,
-    A12_conversaParada,
     A13_scoresCliente,
     A14_scoresProduto,
     A15_insightsFunil,

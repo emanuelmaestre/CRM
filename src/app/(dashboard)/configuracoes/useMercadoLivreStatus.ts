@@ -26,9 +26,12 @@ export interface MercadoLivreStatus {
  * porque a faixa-resumo e os cards de canal mostram a mesma informação: manter
  * dois fetches separados era o que deixava os dois blocos divergirem.
  */
-export function useMercadoLivreStatus(aoMudar?: () => void): MercadoLivreStatus {
-  const [detalhes, setDetalhes] = useState<Partial<Record<BrandSlug, DetalheMarcaML>>>({});
-  const [carregando, setCarregando] = useState(true);
+export function useMercadoLivreStatus(
+  aoMudar?: () => void,
+  detalhesIniciais?: Partial<Record<BrandSlug, DetalheMarcaML>>,
+): MercadoLivreStatus {
+  const [detalhes, setDetalhes] = useState<Partial<Record<BrandSlug, DetalheMarcaML>>>(detalhesIniciais ?? {});
+  const [carregando, setCarregando] = useState(detalhesIniciais === undefined);
   const [desconectando, setDesconectando] = useState<BrandSlug | null>(null);
 
   // Sem setState síncrono: o primeiro render já nasce com carregando = true.
@@ -48,7 +51,9 @@ export function useMercadoLivreStatus(aoMudar?: () => void): MercadoLivreStatus 
     await buscar();
   }, [buscar]);
 
-  useEffect(() => { void buscar(); }, [buscar]);
+  useEffect(() => {
+    if (detalhesIniciais === undefined) void buscar();
+  }, [buscar, detalhesIniciais]);
 
   const desconectar = useCallback(async (slug: BrandSlug, label: string) => {
     if (!window.confirm(labels.confirmDisconnect.replace("{brand}", label))) return;

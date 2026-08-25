@@ -11,7 +11,6 @@ export const A27_syncAnuncio = inngest.createFunction(
   {
     id: "A27-sync-anuncio",
     name: "A27 — Sincronização de título/preço de anúncio para canais",
-    idempotency: "event.data.orgId + '-' + event.data.produtoId",
     triggers: [{ event: "produto/atualizado" }],
   },
   async ({ event, step }) => {
@@ -86,7 +85,7 @@ export const A27_syncAnuncio = inngest.createFunction(
       }
       const sincronizarAnuncio = provider.sincronizarAnuncio.bind(provider);
 
-      await step.run(`sync-${m.channelAccountId}`, async () => {
+      await step.run(`sync-${m.produtoCanalId}`, async () => {
         try {
           await executarComRetry(
             () => sincronizarAnuncio({

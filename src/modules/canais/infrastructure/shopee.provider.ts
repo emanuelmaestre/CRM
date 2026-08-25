@@ -352,31 +352,19 @@ export class ShopeeProvider implements ChannelProvider {
 
   async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
     garantirNaoPausado();
-    const res = await shopeeFetch(this.url("/product/get_model_list", {
-      item_id: Number(referencia.listingId),
-    }), { signal: AbortSignal.timeout(8000) });
-    const data = await res.json().catch(() => null) as {
-      error?: string;
-      message?: string;
-      response?: {
-        model?: Array<{
-          model_id?: number;
-          stock_info_v2?: { seller_stock?: Array<{ stock?: number }> };
-          normal_stock?: number;
-        }>;
-      };
-    } | null;
-    if (!res.ok || data?.error) {
-      throw new Error(`Shopee consulta de estoque falhou para anúncio ${referencia.listingId}: ${data?.message ?? data?.error ?? `HTTP ${res.status}`}`);
-    }
-
-    const modelos = (data?.response?.model ?? []).filter((modelo) => !referencia.skuId || String(modelo.model_id) === referencia.skuId);
+    const modelosDoItem = await this.listarModelosItem(Number(referencia.listingId));
+    const modelos = modelosDoItem.filter((modelo) => !referencia.skuId || String(modelo.model_id) === referencia.skuId);
     if (referencia.skuId && modelos.length === 0) {
       throw new Error(`Shopee não retornou o modelo ${referencia.skuId} do anúncio ${referencia.listingId}.`);
     }
     const saldo = modelos.reduce((total, modelo) => {
-      const sellerStock = modelo.stock_info_v2?.seller_stock?.reduce((sum, item) => sum + Number(item.stock ?? 0), 0);
-      return total + (sellerStock ?? Number(modelo.normal_stock ?? 0));
+      const temEstoqueV2 = Boolean(
+        modelo.stock_info_v2?.summary_info
+        || modelo.stock_info_v2?.seller_stock,
+      );
+      return total + (temEstoqueV2
+        ? saldoDoEstoque(modelo.stock_info_v2)
+        : Number(modelo.normal_stock ?? 0));
     }, 0);
     if (!Number.isInteger(saldo) || saldo < 0) {
       throw new Error(`Shopee retornou saldo inválido para anúncio ${referencia.listingId}.`);
@@ -616,6 +604,7 @@ export class ShopeeProvider implements ChannelProvider {
     model_sku?: string;
     price_info?: ShopeePriceInfo;
     stock_info_v2?: ShopeeStockInfo;
+    normal_stock?: number;
   }>> {
     const existente = this.modelosPorItem.get(itemId);
     if (existente) return existente;
@@ -631,7 +620,7 @@ export class ShopeeProvider implements ChannelProvider {
       const data = await res.json() as {
         error?: string;
         message?: string;
-        response?: { model?: Array<{ model_id: number; model_sku?: string; price_info?: ShopeePriceInfo; stock_info_v2?: ShopeeStockInfo }> };
+        response?: { model?: Array<{ model_id: number; model_sku?: string; price_info?: ShopeePriceInfo; stock_info_v2?: ShopeeStockInfo; normal_stock?: number }> };
       };
       if (data.error) throw new Error(`Shopee get_model_list: ${data.message ?? data.error}`);
       return data.response?.model ?? [];

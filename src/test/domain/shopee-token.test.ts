@@ -9,9 +9,9 @@ import {
 } from "@/modules/canais/application/shopee-token.service";
 
 describe("renovação OAuth da Shopee", () => {
-  it("executa a cada 15 minutos e seleciona tokens dentro da margem segura", () => {
+  it("executa uma vez por hora e seleciona tokens dentro da margem segura", () => {
     const agora = Date.parse("2026-08-23T12:00:00.000Z");
-    expect(SHOPEE_TOKEN_REFRESH_CRON).toBe("*/15 * * * *");
+    expect(SHOPEE_TOKEN_REFRESH_CRON).toBe("12 * * * *");
     expect(SHOPEE_TOKEN_REFRESH_MARGIN_MS).toBe(60 * 60 * 1000);
     expect(tokenShopeePrecisaRenovar("2026-08-23T12:59:59.000Z", agora)).toBe(true);
     expect(tokenShopeePrecisaRenovar("2026-08-23T13:01:00.000Z", agora)).toBe(false);

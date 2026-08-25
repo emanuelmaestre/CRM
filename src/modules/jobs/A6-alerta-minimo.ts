@@ -2,7 +2,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { estoqueCanalSaldo, produto } from "@/shared/lib/db/schema";
-import { emitirEvento } from "@/shared/events";
+import { emitirEventoUnico } from "@/shared/events";
 
 /** Alerta de estoque mínimo.
  *
@@ -43,17 +43,20 @@ export const A6_alertaMinimo = inngest.createFunction(
         .having(sql`max(${estoqueCanalSaldo.saldo}) <= ${produto.estoqueMinimo}`),
     );
 
-    for (const item of abaixoDoMinimo) {
-      await emitirEvento({
-        tipo: "estoque.minimo_atingido",
-        orgId,
-        brandId: item.brandId,
-        entidade: "produto",
-        entidadeId: item.produtoId,
-        payload: { sku: item.sku, saldoAtual: item.saldo, minimo: item.minimo },
-      });
-    }
+    const alertados = await step.run("emitir-alertas", async () => {
+      for (const item of abaixoDoMinimo) {
+        await emitirEventoUnico({
+          tipo: "estoque.minimo_atingido",
+          orgId,
+          brandId: item.brandId,
+          entidade: "produto",
+          entidadeId: item.produtoId,
+          payload: { sku: item.sku, saldoAtual: item.saldo, minimo: item.minimo },
+        }, 24 * 60);
+      }
+      return abaixoDoMinimo.length;
+    });
 
-    return { alertados: abaixoDoMinimo.length };
+    return { alertados };
   },
 );
