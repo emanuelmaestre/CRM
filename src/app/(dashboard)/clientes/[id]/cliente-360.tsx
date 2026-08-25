@@ -4,13 +4,12 @@ import { tint } from "@/shared/design-system/color";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarDays, Check, CircleDot, Download, History, MapPin, Package, Pencil, ShoppingBag, Star, Truck, WalletCards, X, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarDays, Check, CircleDot, History, MapPin, Package, Pencil, ShoppingBag, Star, Truck, WalletCards, X, XCircle } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { isBrandSlug } from "@/shared/config/brands";
 import { actionAtualizarCliente } from "../actions";
-import { exportarClientePDF } from "../exportar-pdf";
 import pagesConfig from "@/config/pages.json";
 
 const copy = pagesConfig.clientes.detail;
@@ -192,15 +191,6 @@ export function Cliente360({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => exportarClientePDF(data).catch(() => toast.error("Não foi possível gerar o PDF."))}
-            title="Exportar ficha em PDF"
-            aria-label="Exportar ficha em PDF"
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground shadow-[0_2px_10px_rgba(14,15,19,.05)] transition-colors hover:bg-muted"
-          >
-            <Download size={17} /><span className="hidden sm:inline">PDF</span>
-          </button>
           <button
             type="button"
             onClick={() => setEditing((value) => !value)}

@@ -133,7 +133,7 @@ describe("contratos dos providers de marketplace", () => {
     const provider = new MercadoLivreProvider({
       clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
     });
-    const catalog = await provider.listarAnunciosAtivos();
+    const catalog = await provider.listarAnunciosAtivos({ comAvaliacoes: true });
 
     expect(catalog.items).toHaveLength(2);
     expect(catalog.items[0]).toMatchObject({ ratingAverage: 4.8, reviewsTotal: 27 });
@@ -160,7 +160,7 @@ describe("contratos dos providers de marketplace", () => {
     const provider = new MercadoLivreProvider({
       clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
     });
-    const catalog = await provider.listarAnunciosAtivos();
+    const catalog = await provider.listarAnunciosAtivos({ comAvaliacoes: true });
 
     expect(catalog.items).toHaveLength(1);
     expect(catalog.items[0]).toMatchObject({ ratingAverage: null, reviewsTotal: null, title: "Produto sem avaliação" });

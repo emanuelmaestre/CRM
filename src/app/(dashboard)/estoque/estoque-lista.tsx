@@ -6,13 +6,12 @@ import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle, Check, Clock3, Eye, Hourglass, Link2, Loader2, PackageX, PlugZap2,
-  RefreshCw, Search,
+  Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CanalModal } from "./canal-modal";
 import {
   actionListarProdutos, actionListarProdutosParados,
-  actionImportarCatalogoEstoque,
   actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote,
   actionObterFiltrosEstoque,
 } from "./actions";
@@ -625,7 +624,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [, startTransition]       = useTransition();
   const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
   const [marcas, setMarcas] = useState<ContagemMarcasEstoque>(marcasIniciais);
-  const [sincronizando, setSincronizando] = useState(false);
   const [indicadores, setIndicadores] = useState<Indicadores | null>(null);
   const [erroIndicadores, setErroIndicadores] = useState(false);
   const [parados, setParados] = useState<Map<string, ProdutoParado>>(new Map());
@@ -768,24 +766,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
       toast.error(copy.messages.loadError);
     } finally {
       setCarregandoMais(false);
-    }
-  }
-
-  async function sincronizar() {
-    setSincronizando(true);
-    try {
-      const resultado = await actionImportarCatalogoEstoque();
-      if (resultado.produtosCriados > 0) {
-        toast.success(copy.syncSuccess.replace("{criados}", String(resultado.produtosCriados)));
-        carregar(brandIdsArray, busca, filtro, canaisArray);
-        carregarIndicadores(brandIdsArray, canaisArray);
-      } else {
-        toast.info(copy.syncNothingNew);
-      }
-    } catch {
-      toast.error(copy.syncError);
-    } finally {
-      setSincronizando(false);
     }
   }
 
@@ -1035,16 +1015,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                 <span className="hidden sm:inline">{dataHora.format(ultimaAtualizacao)}</span>
               </span>
             )}
-            <button
-              type="button"
-              onClick={() => carregar(brandIdsArray, busca, filtro, canaisArray)}
-              disabled={loading || !escopoDefinido}
-              aria-label="Atualizar lista de produtos"
-              title="Atualizar"
-              className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado disabled:opacity-50"
-            >
-              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-            </button>
             {/* Sem key: o total é dado crítico e não deve re-animar a cada
                 filtro (PRD §14.5 — "número não dança depois de carregado"). */}
             <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
@@ -1071,21 +1041,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                 illustration={ilustracaoVazio}
                 title={filtrando ? copy.emptyFiltered.title : copy.empty.title}
                 description={filtrando ? copy.emptyFiltered.description : copy.empty.description}
-                action={
-                  canManage && !filtrando ? (
-                    <motion.button
-                      whileHover={reduzir ? undefined : { scale: 1.02 }}
-                      whileTap={reduzir ? undefined : { scale: 0.97 }}
-                      onClick={sincronizar}
-                      disabled={sincronizando}
-                      className="h-10 px-5 inline-flex items-center gap-2 rounded-[0.75rem] text-sm font-semibold text-white disabled:opacity-60"
-                      style={{ background: "var(--gradient-signature)" }}
-                    >
-                      <RefreshCw size={15} className={sincronizando ? "animate-spin" : ""} />
-                      {sincronizando ? copy.syncingAction : copy.syncAction}
-                    </motion.button>
-                  ) : undefined
-                }
+                action={undefined}
               />
             </div>
           ) : (

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { BarChart3, FileText, GitCompare, History, Package, PlugZap2, RefreshCw } from "lucide-react";
+import { BarChart3, GitCompare, History, Package, PlugZap2 } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
@@ -16,13 +16,11 @@ import { tint } from "@/shared/design-system/color";
 import anunciosConfig from "@/config/anuncios.json";
 import channelsConfig from "@/config/channels.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
-import { actionDispararSincronizacaoConta, actionListarConfiguracaoCanais, actionObterUltimaSincronizacaoConta } from "../configuracoes/actions";
 import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
 import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
 import { OrganicoCard } from "./organico-card";
 import { RotuloComInfo, SectionLabel } from "./anuncios-primitives";
-import { exportarAnunciosPDF } from "./exportar-pdf";
 import type { VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
 
 const copy = anunciosConfig;
@@ -31,38 +29,6 @@ const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const inteiro = new Intl.NumberFormat("pt-BR");
 const decimal1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const decimal2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-// Só para "última sincronização" — diferente de diaMesAno (usado no rótulo
-// do período), essa precisa da hora: dataSnapshot é só o dia, sincronizadoEm
-// é o instante real em que o job rodou.
-const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-// Dia/mês sem ano, mais hora — cabe ao lado do botão de PDF no mobile sem
-// quebrar; a data completa com ano só aparece a partir do sm.
-// Só a hora — no botão de sincronizar, junto com Período/Hoje/PDF na mesma
-// linha, nem "21/07 23:55" cabia sem esse grupo quebrar pra uma 4ª linha.
-const horaCurta = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
-type ExecucaoSync = NonNullable<Awaited<ReturnType<typeof actionObterUltimaSincronizacaoConta>>>;
-type ModuloStatusSync = "pendente" | "em_andamento" | "concluido" | "erro";
-// Mesmos 7 módulos que a Central de Sincronização (Configurações) acompanha —
-// duplicado aqui de propósito (páginas irmãs, não uma dependendo da outra,
-// ver comentário em anuncios-primitives.tsx) só para calcular uma
-// porcentagem simples; a tela de Configurações é quem mostra o detalhe por
-// módulo, aqui basta um número só.
-const CHAVES_MODULOS_SYNC = [
-  "catalogoStatus", "pedidosStatus", "anunciosStatus", "avaliacoesStatus",
-  "reputacaoStatus", "reclamacoesStatus", "mensagensStatus",
-] as const;
-
-function percentualSync(execucao: ExecucaoSync | null): number {
-  if (!execucao) return 0;
-  const pontos = CHAVES_MODULOS_SYNC.reduce((total, chave) => {
-    const status = execucao[chave] as ModuloStatusSync;
-    if (status === "concluido" || status === "erro") return total + 1;
-    if (status === "em_andamento") return total + 0.45;
-    return total;
-  }, 0);
-  return Math.round((pontos / CHAVES_MODULOS_SYNC.length) * 100);
-}
 
 const roasTexto = (valor: number | null) => valor === null ? "sem dado" : `${decimal2.format(valor)}x`;
 const variacaoTexto = (valor: number) => `${valor >= 0 ? "+" : ""}${decimal1.format(valor)}%`;
@@ -392,11 +358,6 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
       ? { chave: chaveInicial, dados: dadosIniciais.dados, anterior: dadosIniciais.anterior }
       : { chave: "", dados: null, anterior: null },
   );
-  const [exportando, setExportando] = useState(false);
-  const [contas, setContas] = useState<CanalConfiguracao[]>(contasIniciais);
-  const [sincronizando, setSincronizando] = useState(false);
-  const [execucaoSync, setExecucaoSync] = useState<ExecucaoSync | null>(null);
-  const intervaloSync = useRef<ReturnType<typeof setInterval> | null>(null);
   const dados = consulta.dados;
   const chavePeriodo = `${periodoEfetivo.inicio}:${periodoEfetivo.fim}`;
   const carregando = consulta.chave !== chavePeriodo;
@@ -426,21 +387,11 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
   // que acabou de chegar dentro do HTML. Trocar o período depois continua
   // caindo aqui normalmente.
   const primeiraBusca = useRef(Boolean(dadosIniciais?.dados));
-  const primeirasContas = useRef(contasIniciais.length > 0);
 
   useEffect(() => {
     if (primeiraBusca.current) { primeiraBusca.current = false; return; }
     return buscar();
   }, [buscar]);
-
-  useEffect(() => {
-    if (primeirasContas.current) { primeirasContas.current = false; return; }
-    actionListarConfiguracaoCanais().then(setContas).catch(() => setContas([]));
-  }, []);
-
-  useEffect(() => () => {
-    if (intervaloSync.current) clearInterval(intervaloSync.current);
-  }, []);
 
   if (carregando) return <Esqueleto />;
 
@@ -458,63 +409,6 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
   // aparece na logo dela na pílula de seleção, em vez de um teal genérico.
   const acentoMarca = isBrandSlug(marca.brandSlug) ? getBrandConfig(marca.brandSlug)?.color : undefined;
 
-  const contaMercadoLivre = contas.find((conta) => conta.brandId === marca.brandId && conta.canal === "mercadolivre");
-
-  function pararPollingSync() {
-    if (intervaloSync.current) clearInterval(intervaloSync.current);
-    intervaloSync.current = null;
-  }
-
-  // A fila roda em background (catálogo, Product Ads, avaliações etc. — ver
-  // Central de Sincronização em Configurações, que segue o mesmo padrão). O
-  // disparo em si responde em menos de 1s, bem antes do trabalho de verdade
-  // terminar; parar o spinner nesse instante e reler o banco (ainda com o
-  // dado antigo) fazia o botão voltar ao normal sem que nada tivesse
-  // realmente atualizado — parecia travado ou que o clique não fez nada.
-  // Agora o spinner com % fica até `finalizadoEm` aparecer de verdade.
-  async function verificarSync(channelAccountId: string) {
-    const execucao = await actionObterUltimaSincronizacaoConta(channelAccountId);
-    setExecucaoSync(execucao);
-    if (execucao && !execucao.finalizadoEm) return;
-    pararPollingSync();
-    setSincronizando(false);
-    if (execucao) {
-      toast.success("Sincronização concluída. Números atualizados.");
-      buscar();
-    }
-  }
-
-  async function sincronizarAgora() {
-    if (!contaMercadoLivre?.channelAccountId) {
-      toast.error("Nenhuma conta do Mercado Livre conectada para esta marca.");
-      return;
-    }
-    const channelAccountId = contaMercadoLivre.channelAccountId;
-    setSincronizando(true);
-    setExecucaoSync(null);
-    try {
-      await actionDispararSincronizacaoConta(channelAccountId);
-      toast.success("Sincronização iniciada — acompanhando o progresso.");
-      pararPollingSync();
-      intervaloSync.current = setInterval(() => void verificarSync(channelAccountId), 5_000);
-    } catch {
-      toast.error("Não foi possível iniciar a sincronização.");
-      setSincronizando(false);
-    }
-  }
-
-  async function exportar() {
-    setExportando(true);
-    try {
-      await exportarAnunciosPDF(marca, `${diaMesAno.format(new Date(`${periodoEfetivo.inicio}T12:00:00`))} a ${diaMesAno.format(new Date(`${periodoEfetivo.fim}T12:00:00`))}`);
-      toast.success("PDF de Anúncios gerado.");
-    } catch {
-      toast.error("Não foi possível gerar o PDF de Anúncios.");
-    } finally {
-      setExportando(false);
-    }
-  }
-
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       {/* Header — marca + última sincronização, sempre visível: nunca deixar
@@ -528,18 +422,6 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
           <SeletorCanalAnuncios />
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
         </div>
-        {/* Risco separador só no mobile empilhado — do sm em diante os dois
-            grupos já ficam lado a lado na mesma linha, com o traço abaixo
-            fazendo esse papel (ver `flex-1` dele, sm:block). Esmaece nas
-            pontas em vez de ir de ponta a ponta — ao lado de pílulas
-            arredondadas, uma linha sólida cortando a largura inteira ficava
-            pesada; o gradiente lê como divisor sem competir com elas. */}
-        <span
-          aria-hidden="true"
-          className="h-px w-full sm:hidden"
-          style={{ background: "linear-gradient(to right, transparent, var(--border) 15%, var(--border) 85%, transparent)" }}
-        />
-        <span className="hidden h-px flex-1 bg-border sm:block" />
         {/* Período, Hoje, PDF e sincronizar viram um grupo só — antes o
             período ficava colado nas pílulas de marca/canal, empurrando
             PDF/sincronizar pra outra linha por conta própria. Juntos aqui,
@@ -552,29 +434,6 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais, contasIniciais
             onChange={setPeriodo}
             accent={acentoMarca}
           />
-          <button type="button" onClick={exportar} disabled={exportando}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50">
-            <FileText size={14} /> {exportando ? "Gerando…" : "PDF"}
-          </button>
-          <button
-            type="button"
-            onClick={sincronizarAgora}
-            disabled={sincronizando || !contaMercadoLivre?.channelAccountId}
-            aria-label="Sincronizar agora com o Mercado Livre"
-            title={contaMercadoLivre?.channelAccountId ? "Sincronizar agora" : "Nenhuma conta do Mercado Livre conectada para esta marca"}
-            className="press-feedback inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
-            style={sincronizando ? { color: "var(--acento-2)", borderColor: "var(--acento-2)" } : undefined}
-          >
-            <RefreshCw size={13} className={sincronizando ? "animate-spin" : ""} />
-            {sincronizando ? (
-              `Sincronizando… ${percentualSync(execucaoSync)}%`
-            ) : marca.sincronizadoEm ? (
-              <>
-                <span className="sm:hidden">{horaCurta.format(new Date(marca.sincronizadoEm))}</span>
-                <span className="hidden sm:inline">{dataHora.format(new Date(marca.sincronizadoEm))}</span>
-              </>
-            ) : "Nunca sincronizado"}
-          </button>
         </div>
       </div>
 

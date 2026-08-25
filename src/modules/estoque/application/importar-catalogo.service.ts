@@ -3,6 +3,7 @@ import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo } from "@/shared/lib/db/schema";
 import { persistirEvento, despacharEvento } from "@/shared/events";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 /** Cadastro manual de produto, um a um, não dá conta de um catálogo com
@@ -18,6 +19,141 @@ interface ContaParaImportar {
   brandSlug: BrandSlug;
 }
 
+/** Formato mínimo que o gravador precisa, comum aos dois canais — ML e
+ *  Shopee normalizam pra isto antes de chegar aqui (ver `MLAnuncioCatalogo`
+ *  e `ShopeeAnuncioCatalogo`), cada um com sua própria lógica de busca. */
+interface ItemCatalogoGenerico {
+  listingId: string;
+  variationId: string | null;
+  externalSku: string | null;
+  title: string;
+  price: string;
+  availableQuantity: number;
+}
+
+/** Grava (ou ignora, se já mapeado) um item de catálogo — produto +
+ *  vínculo produto_canal + saldo inicial. Extraído de propósito pra ser
+ *  neutro de canal: ML e Shopee chamam isto do próprio loop de paginação
+ *  deles, que tem formato de página diferente entre os dois. `origem` só
+ *  vira metadado no evento `produto.criado`, pra auditoria saber de onde
+ *  veio cada produto criado automaticamente. */
+async function mapearItemCatalogo(
+  ctx: CrudContext,
+  conta: ContaParaImportar,
+  item: ItemCatalogoGenerico,
+  origem: "importacao-mercadolivre" | "importacao-shopee",
+  prefixoSkuGerado: string,
+): Promise<"criado" | "vinculado" | "ignorado"> {
+  const jaMapeado = await ctx.db
+    .select({ id: produtoCanal.id })
+    .from(produtoCanal)
+    .where(and(
+      eq(produtoCanal.orgId, ctx.orgId),
+      eq(produtoCanal.channelAccountId, conta.channelAccountId),
+      eq(produtoCanal.externalListingId, item.listingId),
+      item.variationId
+        ? eq(produtoCanal.externalWarehouseId, item.variationId)
+        : isNull(produtoCanal.externalWarehouseId),
+    ))
+    .then((rows) => rows[0]);
+  if (jaMapeado) return "ignorado";
+
+  const sku = item.externalSku?.trim() || `${prefixoSkuGerado}-${item.listingId}${item.variationId ? `-${item.variationId}` : ""}`;
+
+  try {
+    const mapeado = await ctx.db.transaction(async (tx) => {
+      const existente = await tx
+        .select({ id: produto.id })
+        .from(produto)
+        .where(and(
+          eq(produto.orgId, ctx.orgId),
+          eq(produto.brandId, conta.brandId),
+          eq(produto.sku, sku),
+          isNull(produto.deletedAt),
+        ))
+        .then((rows) => rows[0]);
+
+      const criado = existente ? null : await tx
+        .insert(produto)
+        .values({
+          orgId: ctx.orgId,
+          brandId: conta.brandId,
+          sku,
+          nome: item.title,
+          preco: item.price,
+          estoqueMinimo: 0,
+          ativo: true,
+        })
+        .returning()
+        .then((rows) => rows[0]);
+      const produtoId = existente?.id ?? criado!.id;
+
+      const vinculoDoProduto = await tx
+        .select({ id: produtoCanal.id })
+        .from(produtoCanal)
+        .where(and(
+          eq(produtoCanal.orgId, ctx.orgId),
+          eq(produtoCanal.produtoId, produtoId),
+          eq(produtoCanal.channelAccountId, conta.channelAccountId),
+        ))
+        .then((rows) => rows[0]);
+      if (vinculoDoProduto) return false;
+
+      const [vinculo] = await tx.insert(produtoCanal).values({
+        orgId: ctx.orgId,
+        produtoId,
+        channelAccountId: conta.channelAccountId,
+        externalListingId: item.listingId,
+        externalSkuId: item.externalSku,
+        externalWarehouseId: item.variationId,
+        ativo: true,
+      }).returning();
+
+      // O anúncio já traz o saldo do canal — semeia aqui para o produto
+      // não nascer zerado esperando a coleta noturna (A5).
+      await tx.insert(estoqueCanalSaldo).values({
+        orgId: ctx.orgId,
+        produtoId,
+        channelAccountId: conta.channelAccountId,
+        produtoCanalId: vinculo.id,
+        saldo: item.availableQuantity,
+      });
+
+      if (criado) {
+        await tx.insert(auditLog).values({
+          orgId: ctx.orgId,
+          brandId: conta.brandId,
+          autorId: ctx.userId,
+          autorTipo: ctx.userId ? "usuario" : "sistema",
+          entidade: "produto",
+          entidadeId: criado.id,
+          acao: "create",
+          depois: criado,
+        });
+
+        const evento = await persistirEvento({
+          tipo: "produto.criado",
+          orgId: ctx.orgId,
+          brandId: conta.brandId,
+          entidade: "produto",
+          entidadeId: criado.id,
+          payload: { sku: criado.sku, nome: criado.nome, origem },
+        }, tx);
+        await despacharEvento(evento);
+      }
+
+      return true;
+    });
+    return mapeado ? "criado" : "ignorado";
+  } catch (error) {
+    // SKU duplicado (unique por org) é o caso esperado quando o
+    // mesmo produto já existe sob outro anúncio/canal — segue o
+    // catálogo em vez de abortar a importação inteira.
+    console.error(`[estoque] falha ao importar anúncio ${item.listingId}`, error);
+    return "ignorado";
+  }
+}
+
 /** O trabalho de verdade, isolado por conta — extraído pra poder rodar tanto
  *  em lote (todas as contas ML da org, ver importarCatalogoMercadoLivre)
  *  quanto disparado sozinho por uma única conta (Central de Sincronização). */
@@ -29,121 +165,40 @@ async function importarCatalogoDaConta(ctx: CrudContext, conta: ContaParaImporta
   let offset = 0;
   let total = 1;
   while (offset < total) {
+    // Sem `comAvaliacoes`: import de catálogo nunca leu nota/opinião do
+    // retorno (só nome, preço e saldo), então não vale gastar a chamada
+    // extra de /reviews/item por SKU — quem precisa disso é o módulo de
+    // Avaliações, que já pede explicitamente (ver avaliacoes.service.ts).
     const pagina = await provider.listarAnunciosAtivos({ offset, limit: 50 });
     for (const item of pagina.items) {
-      const jaMapeado = await ctx.db
-        .select({ id: produtoCanal.id })
-        .from(produtoCanal)
-        .where(and(
-          eq(produtoCanal.orgId, ctx.orgId),
-          eq(produtoCanal.channelAccountId, conta.channelAccountId),
-          eq(produtoCanal.externalListingId, item.listingId),
-          item.variationId
-            ? eq(produtoCanal.externalWarehouseId, item.variationId)
-            : isNull(produtoCanal.externalWarehouseId),
-        ))
-        .then((rows) => rows[0]);
-      if (jaMapeado) { ignorados += 1; continue; }
-
-      const sku = item.externalSku?.trim() || `ml-${item.listingId}${item.variationId ? `-${item.variationId}` : ""}`;
-
-      try {
-        const mapeado = await ctx.db.transaction(async (tx) => {
-          const existente = await tx
-            .select({ id: produto.id })
-            .from(produto)
-            .where(and(
-              eq(produto.orgId, ctx.orgId),
-              eq(produto.brandId, conta.brandId),
-              eq(produto.sku, sku),
-              isNull(produto.deletedAt),
-            ))
-            .then((rows) => rows[0]);
-
-          const criado = existente ? null : await tx
-            .insert(produto)
-            .values({
-              orgId: ctx.orgId,
-              brandId: conta.brandId,
-              sku,
-              nome: item.title,
-              preco: item.price,
-              estoqueMinimo: 0,
-              ativo: true,
-            })
-            .returning()
-            .then((rows) => rows[0]);
-          const produtoId = existente?.id ?? criado!.id;
-
-          const vinculoDoProduto = await tx
-            .select({ id: produtoCanal.id })
-            .from(produtoCanal)
-            .where(and(
-              eq(produtoCanal.orgId, ctx.orgId),
-              eq(produtoCanal.produtoId, produtoId),
-              eq(produtoCanal.channelAccountId, conta.channelAccountId),
-            ))
-            .then((rows) => rows[0]);
-          if (vinculoDoProduto) return false;
-
-          const [vinculo] = await tx.insert(produtoCanal).values({
-            orgId: ctx.orgId,
-            produtoId,
-            channelAccountId: conta.channelAccountId,
-            externalListingId: item.listingId,
-            externalSkuId: item.externalSku,
-            externalWarehouseId: item.variationId,
-            ativo: true,
-          }).returning();
-
-          // O anúncio já traz o saldo do canal — semeia aqui para o produto
-          // não nascer zerado esperando a coleta noturna (A5).
-          await tx.insert(estoqueCanalSaldo).values({
-            orgId: ctx.orgId,
-            produtoId,
-            channelAccountId: conta.channelAccountId,
-            produtoCanalId: vinculo.id,
-            saldo: item.availableQuantity,
-          });
-
-          if (criado) {
-            await tx.insert(auditLog).values({
-              orgId: ctx.orgId,
-              brandId: conta.brandId,
-              autorId: ctx.userId,
-              autorTipo: ctx.userId ? "usuario" : "sistema",
-              entidade: "produto",
-              entidadeId: criado.id,
-              acao: "create",
-              depois: criado,
-            });
-
-            const evento = await persistirEvento({
-              tipo: "produto.criado",
-              orgId: ctx.orgId,
-              brandId: conta.brandId,
-              entidade: "produto",
-              entidadeId: criado.id,
-              payload: { sku: criado.sku, nome: criado.nome, origem: "importacao-mercadolivre" },
-            }, tx);
-            await despacharEvento(evento);
-          }
-
-          return true;
-        });
-        if (mapeado) produtosCriados += 1;
-        else ignorados += 1;
-      } catch (error) {
-        // SKU duplicado (unique por org) é o caso esperado quando o
-        // mesmo produto já existe sob outro anúncio/canal — segue o
-        // catálogo em vez de abortar a importação inteira.
-        console.error(`[estoque] falha ao importar anúncio ${item.listingId}`, error);
-        ignorados += 1;
-      }
+      const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-mercadolivre", "ml");
+      if (resultado === "criado") produtosCriados += 1;
+      else ignorados += 1;
     }
     total = pagina.totalListings;
     offset += pagina.limit;
     if (pagina.items.length === 0) break;
+  }
+
+  return { produtosCriados, ignorados };
+}
+
+/** Mesma ideia do ML (ver `importarCatalogoDaConta`), implementação própria
+ *  porque o formato de paginação/resposta da Shopee é outro — mas grava na
+ *  MESMA tabela `produto`/`produtoCanal`, que já é multi-canal de origem,
+ *  reaproveitando `mapearItemCatalogo`. `listarCatalogoAtivo` já devolve o
+ *  catálogo inteiro de uma vez (pagina por dentro), então não tem loop de
+ *  offset aqui como no ML. */
+async function importarCatalogoDaContaShopee(ctx: CrudContext, conta: ContaParaImportar): Promise<{ produtosCriados: number; ignorados: number }> {
+  let produtosCriados = 0;
+  let ignorados = 0;
+
+  const provider = await criarShopeeProvider(conta.brandSlug);
+  const itens = await provider.listarCatalogoAtivo();
+  for (const item of itens) {
+    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-shopee", "shopee");
+    if (resultado === "criado") produtosCriados += 1;
+    else ignorados += 1;
   }
 
   return { produtosCriados, ignorados };
@@ -223,4 +278,36 @@ export async function importarCatalogoContaMercadoLivre(ctx: CrudContext, channe
   }
 
   return importarCatalogoDaConta(ctx, { ...conta, brandSlug: conta.brandSlug });
+}
+
+/** Mesma função da Central de Sincronização (Configurações), só que pra
+ *  Shopee — disparada por conta, junto de Avaliações no mesmo botão
+ *  "Sincronizar" (ver A31-sincronizar-conta.ts). */
+export async function importarCatalogoContaShopee(ctx: CrudContext, channelAccountId: string): Promise<{
+  produtosCriados: number;
+  ignorados: number;
+}> {
+  assertPerfil(ctx, ["admin", "gestor"]);
+
+  const conta = await ctx.db
+    .select({
+      channelAccountId: channelAccount.id,
+      brandId: channelAccount.brandId,
+      brandSlug: brand.slug,
+    })
+    .from(channelAccount)
+    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
+    .where(and(
+      eq(channelAccount.orgId, ctx.orgId),
+      eq(channelAccount.id, channelAccountId),
+      eq(channelAccount.tipo, "shopee"),
+      eq(channelAccount.status, "conectado"),
+    ))
+    .then((rows) => rows[0]);
+
+  if (!conta || !isBrandSlug(conta.brandSlug)) {
+    throw new Error("Conta da Shopee não encontrada ou não conectada.");
+  }
+
+  return importarCatalogoDaContaShopee(ctx, { ...conta, brandSlug: conta.brandSlug });
 }

@@ -57,7 +57,7 @@ async function sincronizarAvaliacoesMercadoLivrePorConta(orgId: string, channelA
       let offset = 0;
       let total = 1;
       while (offset < total) {
-        const pagina = await provider.listarAnunciosAtivos({ offset, limit: 50 });
+        const pagina = await provider.listarAnunciosAtivos({ offset, limit: 50, comAvaliacoes: true });
         for (const item of pagina.items) if (!anuncios.has(item.listingId)) anuncios.set(item.listingId, item);
         total = pagina.totalListings;
         offset += pagina.limit;

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, FileText, ShoppingBag, CircleDollarSign, Ban, RefreshCw, Clock3, PlugZap2 } from "lucide-react";
-import { actionListarPedidosDetalhados, actionListarPedidosParaPdf } from "../actions";
+import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, Clock3, PlugZap2 } from "lucide-react";
+import { actionListarPedidosDetalhados } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -19,7 +19,6 @@ import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
-import { exportarPedidosPdf } from "./exportar-pdf";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
@@ -345,7 +344,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   // (mostrando todos os pedidos).
   const [dataInicial, setDataInicial] = useState(hojeISO);
   const [dataFinal, setDataFinal] = useState(hojeISO);
-  const [exportando, setExportando] = useState(false);
   const [marcas, setMarcas] = useState<Marca[]>(marcasIniciais);
   const [canais, setCanais] = useState<Canal[]>(canaisIniciais);
   const [expandido, setExpandido] = useState<string | null>(null);
@@ -419,32 +417,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
     }
   }
 
-  function atualizar() {
-    if (!escopoDefinido) return;
-    carregar(brandIds, canaisSel, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
-  }
-
   const filtrando = brandIds.length > 0 || canaisSel.length > 0 || statusGrupo !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
-
-  async function exportarPdf() {
-    if (pedidos.length === 0) return;
-    setExportando(true);
-    try {
-      const relatorio = await actionListarPedidosParaPdf({
-        brandIds: brandIds.length ? brandIds : undefined,
-        canais: canaisSel.length ? canaisSel : undefined,
-        statuses: statusesAtivos.length ? [...statusesAtivos] : undefined,
-        busca: buscaAplicada || undefined,
-        inicio: inicioDoDia(dataInicial),
-        fim: fimDoDia(dataFinal),
-      });
-      await exportarPedidosPdf({ pedidos: relatorio.data, resumo: relatorio.resumo, total: relatorio.total, periodo: { inicio: dataInicial, fim: dataFinal } });
-    } catch {
-      toast.error("Não foi possível gerar o PDF de vendas.");
-    } finally {
-      setExportando(false);
-    }
-  }
 
   return (
     <div>
@@ -616,29 +589,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                 <span className="hidden sm:inline">Atualizado às {dataHora.format(atualizadoEm)}</span>
               </span>
             )}
-            <div className="flex shrink-0 items-center gap-2.5 sm:gap-3">
-              <button
-                type="button"
-                onClick={atualizar}
-                disabled={loading}
-                aria-label="Atualizar lista de pedidos"
-                title="Atualizar"
-                className="press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:border-selecionado/30 hover:bg-selecionado/5 hover:text-selecionado disabled:opacity-50"
-              >
-                <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-              </button>
-              {/* PDF exporta o resultado filtrado atual — mora aqui, ao lado
-                  do que ele exporta, em vez de competir por espaço lá em cima
-                  com os controles de filtro. */}
-              <button
-                type="button"
-                onClick={exportarPdf}
-                disabled={pedidos.length === 0 || exportando}
-                className="press-feedback inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
-              >
-                {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />} PDF
-              </button>
-            </div>
           </div>
         </div>
 

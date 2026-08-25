@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
-import { importarCatalogoContaMercadoLivre } from "@/modules/estoque/application/importar-catalogo.service";
+import { importarCatalogoContaMercadoLivre, importarCatalogoContaShopee } from "@/modules/estoque/application/importar-catalogo.service";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
@@ -106,7 +106,9 @@ export const A31_sincronizarConta = inngest.createFunction(
     await executarModulo("catalogo", async () => (
       conta.tipo === "mercadolivre"
         ? importarCatalogoContaMercadoLivre(ctx, channelAccountId)
-        : { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) }
+        : conta.tipo === "shopee"
+          ? importarCatalogoContaShopee(ctx, channelAccountId)
+          : { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) }
     ));
 
     const resultadoPedidos = await executarModulo("pedidos", async () => {

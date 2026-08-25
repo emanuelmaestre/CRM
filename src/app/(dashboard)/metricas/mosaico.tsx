@@ -1130,21 +1130,23 @@ export function Mosaico({
             {/* Cantinho discreto que alterna entre "atualizado às" (parado)
                 e o progresso real do carregamento — mesma linha do Período,
                 alinhado à direita dela. `flex-nowrap` no container acima +
-                texto curto aqui no mobile (só a hora, sem "Atualizado às" +
-                data) garantem que nunca quebra pra uma segunda linha ali —
-                a versão completa volta a partir do sm, onde sobra largura. */}
+                texto curto no mobile ("Atualizado" + só a hora, sem a data)
+                garantem que nunca quebra pra uma segunda linha ali — a
+                versão completa (com data) volta a partir do sm, onde sobra
+                largura. `truncate` é rede de segurança: numa tela muito
+                estreita, corta com reticências em vez de estourar a barra. */}
             {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
-              <span className="ml-auto inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
+              <span className="ml-auto inline-flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] text-muted-foreground">
                 <RefreshCw size={11} className={`shrink-0 ${emCarregamento ? "animate-spin" : ""}`} />
-                <span className="hidden sm:inline">
+                <span className="hidden truncate sm:inline">
                   {emCarregamento && mostrarProgresso
                     ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
                     : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
                 </span>
-                <span className="sm:hidden">
+                <span className="truncate sm:hidden">
                   {emCarregamento && mostrarProgresso
                     ? `${painesProntos}/${totalPaineis}`
-                    : carregadoEm && apenasHora.format(carregadoEm)}
+                    : carregadoEm && `Atualizado ${apenasHora.format(carregadoEm)}`}
                 </span>
               </span>
             )}

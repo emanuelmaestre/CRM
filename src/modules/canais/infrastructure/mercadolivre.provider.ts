@@ -302,10 +302,6 @@ interface MLReviewsResponse {
   }>;
 }
 
-/** Quantas opiniões guardamos por anúncio. A API devolve as mais relevantes;
- *  além disso o payload cresce sem o operador conseguir ler tudo. */
-const MAX_OPINIOES_POR_ANUNCIO = 20;
-
 function contar(valor: unknown): number {
   return typeof valor === "number" && Number.isFinite(valor) ? valor : 0;
 }
@@ -330,8 +326,7 @@ export function normalizarAvaliacoesItem(data: MLReviewsResponse): MLRating {
       criadaEm: textoOuNulo(review.date_created),
     }))
     .filter((opiniao) => opiniao.id && (opiniao.titulo || opiniao.conteudo))
-    .sort((a, b) => (b.criadaEm ?? "").localeCompare(a.criadaEm ?? ""))
-    .slice(0, MAX_OPINIOES_POR_ANUNCIO);
+    .sort((a, b) => (b.criadaEm ?? "").localeCompare(a.criadaEm ?? ""));
 
   // O Mercado Livre devolve `rating_average: 0` — não `null` — para anúncio
   // sem nenhuma opinião. Sem checar `reviewsTotal`, um anúncio sem avaliação
@@ -725,11 +720,37 @@ export class MercadoLivreProvider implements ChannelProvider {
   // A mesma resposta traz a média, a distribuição por estrela e os textos das
   // opiniões, então lê-los é de graça. Falha por item não derruba o catálogo
   // inteiro: fica sem nota, o resto segue normal.
+  //
+  // Sem `limit`/`offset`, o endpoint devolve só as 5 primeiras (default da
+  // API — não é "as mais relevantes" como se pensava antes, ver histórico).
+  // Aqui pagina de verdade com `limit=100` por página até bater `paging.total`,
+  // igual ao cursor do get_comment da Shopee — mesmo teto de segurança (10
+  // páginas, ~1000 opiniões) pra não sair pedindo página infinita num anúncio
+  // com histórico gigante.
+  private async buscarReviewsItem(id: string): Promise<MLReviewsResponse> {
+    const reviews: NonNullable<MLReviewsResponse["reviews"]> = [];
+    let primeira: MLReviewsResponse | null = null;
+    for (let pagina = 0; pagina < 10; pagina++) {
+      const data = await this.get<MLReviewsResponse>(
+        `/reviews/item/${encodeURIComponent(id)}?limit=100&offset=${pagina * 100}`,
+      );
+      if (!primeira) primeira = data;
+      const lote = data.reviews ?? [];
+      reviews.push(...lote);
+      const total = data.paging?.total ?? reviews.length;
+      if (lote.length === 0 || reviews.length >= total) break;
+    }
+    // rating_average/rating_levels são agregados do anúncio inteiro, iguais
+    // em qualquer página — só `reviews` muda entre elas, por isso a resposta
+    // final reaproveita o resto da primeira página e troca só a lista.
+    return { ...(primeira ?? {}), reviews };
+  }
+
   private async buscarAvaliacoes(itemIds: string[]): Promise<MLRatings> {
     const unicos = [...new Set(itemIds)];
     const resultados = await Promise.all(unicos.map(async (id) => {
       try {
-        const data = await this.get<MLReviewsResponse>(`/reviews/item/${encodeURIComponent(id)}`);
+        const data = await this.buscarReviewsItem(id);
         return [id, normalizarAvaliacoesItem(data)] as const;
       } catch {
         return [id, SEM_AVALIACAO] as const;
@@ -738,7 +759,13 @@ export class MercadoLivreProvider implements ChannelProvider {
     return new Map(resultados);
   }
 
-  async listarAnunciosAtivos(opcoes: { offset?: number; limit?: number } = {}): Promise<{
+  /** `comAvaliacoes` liga a busca de nota/opiniões por item — custa 1 chamada
+   *  extra de `/reviews/item/{id}` POR SKU da página, então só vale a pena
+   *  pra quem de fato usa isso (avaliacoes.service.ts). O Estoque (importação
+   *  de catálogo) nunca lê nota nenhuma do retorno, então chamava essa busca
+   *  à toa em toda importação — puro desperdício de cota da API. Default
+   *  `false`: quem precisa da nota pede explicitamente. */
+  async listarAnunciosAtivos(opcoes: { offset?: number; limit?: number; comAvaliacoes?: boolean } = {}): Promise<{
     items: MLAnuncioCatalogo[];
     totalListings: number;
     offset: number;
@@ -767,7 +794,7 @@ export class MercadoLivreProvider implements ChannelProvider {
       .filter((response) => response.code === 200 && response.body)
       .map((response) => response.body as MLItemDetail);
 
-    const ratings = await this.buscarAvaliacoes(details.map((item) => item.id));
+    const ratings = opcoes.comAvaliacoes ? await this.buscarAvaliacoes(details.map((item) => item.id)) : undefined;
 
     return {
       items: normalizarCatalogoMercadoLivre(details, ratings),

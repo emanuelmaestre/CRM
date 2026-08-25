@@ -29,6 +29,38 @@ export interface ShopeeAnuncioAvaliacao {
   opinioes: ShopeeOpiniao[];
 }
 
+/** Mesmo formato mínimo que `MLAnuncioCatalogo` precisa pro importador de
+ *  Estoque (ver importar-catalogo.service.ts) — sem status/permalink porque
+ *  o próprio ML também não usa esses campos hoje, mesma decisão dos dois lados. */
+export interface ShopeeAnuncioCatalogo {
+  listingId: string;
+  variationId: string | null;
+  externalSku: string | null;
+  title: string;
+  availableQuantity: number;
+  price: string;
+}
+
+type ShopeeStockInfo = {
+  summary_info?: { total_available_stock?: number };
+  seller_stock?: Array<{ stock?: number }>;
+};
+
+type ShopeePriceInfo = Array<{ current_price?: number; original_price?: number }>;
+
+function saldoDoEstoque(stockInfo?: ShopeeStockInfo): number {
+  if (typeof stockInfo?.summary_info?.total_available_stock === "number") return stockInfo.summary_info.total_available_stock;
+  return stockInfo?.seller_stock?.reduce((total, s) => total + Number(s.stock ?? 0), 0) ?? 0;
+}
+
+// current_price já reflete promoção ativa; cai pro original_price quando
+// não há price_info nenhum (item sem preço configurado é caso raro, mas
+// não pode quebrar a importação inteira por causa disso).
+function precoDoItem(priceInfo?: ShopeePriceInfo): string {
+  const info = priceInfo?.[0];
+  return String(info?.current_price ?? info?.original_price ?? 0);
+}
+
 // O app "Elisa Lima CRM" (Product Management, o único aprovado/ativo hoje)
 // não tem permissão pra API de Pedidos — confirmado em produção em 24/08/2026
 // com erro real da Shopee: error_api_permission, "This app type has no
@@ -48,6 +80,28 @@ export interface ShopeeAnuncioAvaliacao {
 // memória "shopee-proxy-webshare"). Mesmo freio usado pelo webhook
 // (src/app/api/webhooks/shopee/route.ts) — um só lugar pra destravar.
 export const SHOPEE_PEDIDOS_LIBERADO = false;
+
+// PAUSA MANUAL (pedido do usuário, 25/08/2026): nenhuma chamada de rede deve
+// sair pra Shopee por enquanto — catálogo, avaliações, saldo, health check.
+// Pedidos já estavam travados à parte (SHOPEE_PEDIDOS_LIBERADO acima); isto
+// aqui cobre o resto. Checado dentro de cada método que de fato chama
+// `shopeeFetch`, não em `criarShopeeProvider`: aquele só lê token do banco
+// (não é rede), travar ali faria a Central de Sincronização e o painel de
+// saúde mostrarem a conta como "desconectada" — errado, ela continua
+// conectada, só estamos escolhendo não usar por enquanto. Reverter: virar
+// `false` de novo.
+export const SHOPEE_REQUISICOES_PAUSADAS = false;
+
+class ErroShopeePausado extends Error {
+  constructor() {
+    super("Requisições à Shopee pausadas manualmente — ver SHOPEE_REQUISICOES_PAUSADAS.");
+    this.name = "ErroShopeePausado";
+  }
+}
+
+function garantirNaoPausado(): void {
+  if (SHOPEE_REQUISICOES_PAUSADAS) throw new ErroShopeePausado();
+}
 
 export class ShopeeProvider implements ChannelProvider {
   private readonly host = obterShopeeBaseUrl();
@@ -162,6 +216,7 @@ export class ShopeeProvider implements ChannelProvider {
   }
 
   async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {
+    garantirNaoPausado();
     const item = referencia.skuId
       ? { item_id: Number(referencia.listingId), model_list: [{ model_id: Number(referencia.skuId), normal_stock: saldo }] }
       : { item_id: Number(referencia.listingId), normal_stock: saldo };
@@ -178,6 +233,7 @@ export class ShopeeProvider implements ChannelProvider {
   }
 
   async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
+    garantirNaoPausado();
     const res = await shopeeFetch(this.url("/product/get_model_list", {
       item_id: Number(referencia.listingId),
     }), { signal: AbortSignal.timeout(8000) });
@@ -258,6 +314,7 @@ export class ShopeeProvider implements ChannelProvider {
    *  aparecer (com nota nula) pra tela poder filtrar "sem avaliações" —
    *  por isso o catálogo ativo (`listarItemIdsAtivos`) entra no cruzamento. */
   async listarAvaliacoes(): Promise<ShopeeAnuncioAvaliacao[]> {
+    garantirNaoPausado();
     type ShopeeComentario = {
       comment_id?: number | string;
       item_id: number;
@@ -340,10 +397,16 @@ export class ShopeeProvider implements ChannelProvider {
         ratingAverage,
         reviewsTotal: lista.length,
         ratingLevels,
+        // Sem corte de quantidade aqui de propósito, diferente do ML
+        // (MAX_OPINIOES_POR_ANUNCIO): lá o corte existe porque a API só
+        // devolve por padrão um punhado por vez (limit=5) e cortar depois
+        // não economiza nada. Aqui o get_comment já paginou a loja inteira
+        // por cursor antes de chegar neste ponto — o custo da chamada já foi
+        // pago, então descartar comentário com texto depois seria perder
+        // dado que já está em mãos sem motivo.
         opinioes: lista
           .filter((c) => c.comment)
           .sort((a, b) => (b.create_time ?? 0) - (a.create_time ?? 0))
-          .slice(0, 20)
           .map((c) => ({
             id: String(c.comment_id ?? `${itemId}-${c.create_time}`),
             titulo: null,
@@ -355,8 +418,118 @@ export class ShopeeProvider implements ChannelProvider {
     });
   }
 
+  /** Variação real (preço/estoque por SKU) não vem no `get_item_base_info`
+   *  — mesmo motivo pelo qual `consultarEstoque` já consulta esse endpoint
+   *  à parte pra saldo. Reaproveita o mesmo endpoint, só que sem o filtro
+   *  por `skuId` (aqui queremos todas as variações do item, não uma só). */
+  private async listarModelosItem(itemId: number): Promise<Array<{
+    model_id: number;
+    model_sku?: string;
+    price_info?: ShopeePriceInfo;
+    stock_info_v2?: ShopeeStockInfo;
+  }>> {
+    const res = await shopeeFetch(this.url("/product/get_model_list", {
+      item_id: itemId,
+      response_optional_fields: "price_info,tier_index",
+    }), { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) {
+      const detalhe = (await res.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+      throw new Error(`Shopee HTTP ${res.status} em get_model_list: ${detalhe}`);
+    }
+    const data = await res.json() as {
+      error?: string;
+      message?: string;
+      response?: { model?: Array<{ model_id: number; model_sku?: string; price_info?: ShopeePriceInfo; stock_info_v2?: ShopeeStockInfo }> };
+    };
+    if (data.error) throw new Error(`Shopee get_model_list: ${data.message ?? data.error}`);
+    return data.response?.model ?? [];
+  }
+
+  /** Catálogo inteiro da loja (ativo à venda), pro importador do Estoque —
+   *  equivalente Shopee do `listarAnunciosAtivos` do Mercado Livre. Reusa
+   *  `listarItemIdsAtivos` (já existente pra Avaliações) pra descobrir os
+   *  IDs, depois busca detalhe em lote de 50 via `get_item_base_info`.
+   *  Item sem variação vira 1 entrada; item com variação (`tier_variation`
+   *  não vazio) busca `get_model_list` à parte, uma entrada por SKU real —
+   *  mesma chamada extra que `consultarEstoque` já paga hoje pra esse caso. */
+  async listarCatalogoAtivo(): Promise<ShopeeAnuncioCatalogo[]> {
+    garantirNaoPausado();
+    const itemIds = await this.listarItemIdsAtivos();
+    if (itemIds.length === 0) return [];
+
+    type ShopeeItemBase = {
+      item_id: number;
+      item_name?: string;
+      item_sku?: string;
+      item_status?: string;
+      price_info?: ShopeePriceInfo;
+      stock_info_v2?: ShopeeStockInfo;
+      tier_variation?: unknown[];
+    };
+
+    const itens: ShopeeAnuncioCatalogo[] = [];
+    for (let i = 0; i < itemIds.length; i += 50) {
+      const lote = itemIds.slice(i, i + 50);
+      const res = await shopeeFetch(this.url("/product/get_item_base_info", {
+        item_id_list: lote.join(","),
+        response_optional_fields: "item_name,item_sku,item_status,price_info,stock_info_v2,tier_variation",
+      }), { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) {
+        const detalhe = (await res.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+        throw new Error(`Shopee HTTP ${res.status} em get_item_base_info: ${detalhe}`);
+      }
+      const data = await res.json() as { error?: string; message?: string; response?: { item_list?: ShopeeItemBase[] } };
+      if (data.error) throw new Error(`Shopee get_item_base_info: ${data.message ?? data.error}`);
+
+      for (const item of data.response?.item_list ?? []) {
+        // NORMAL é o único status "à venda" — pausado/banido/deletado não
+        // deve virar produto novo no Estoque (mesmo filtro que o `active`
+        // do Mercado Livre já aplica na busca de anúncios).
+        if (item.item_status && item.item_status !== "NORMAL") continue;
+
+        const temVariacao = Array.isArray(item.tier_variation) && item.tier_variation.length > 0;
+        if (!temVariacao) {
+          itens.push({
+            listingId: String(item.item_id),
+            variationId: null,
+            externalSku: item.item_sku || null,
+            title: item.item_name ?? String(item.item_id),
+            availableQuantity: saldoDoEstoque(item.stock_info_v2),
+            price: precoDoItem(item.price_info),
+          });
+          continue;
+        }
+
+        try {
+          const modelos = await this.listarModelosItem(item.item_id);
+          for (const modelo of modelos) {
+            itens.push({
+              listingId: String(item.item_id),
+              variationId: String(modelo.model_id),
+              externalSku: modelo.model_sku || item.item_sku || null,
+              title: item.item_name ?? String(item.item_id),
+              availableQuantity: saldoDoEstoque(modelo.stock_info_v2),
+              price: precoDoItem(modelo.price_info),
+            });
+          }
+        } catch (error) {
+          // Mesma filosofia do resto do importador: falha num item não pode
+          // derrubar o catálogo inteiro, só esse item fica de fora dessa vez.
+          console.error(`[shopee] falha ao buscar variações do item ${item.item_id}`, error);
+        }
+      }
+    }
+    return itens;
+  }
+
   async saude(): Promise<SaudeConector> {
     const inicio = Date.now();
+    // "degradado", não "erro": a conta continua conectada de verdade, só
+    // estamos escolhendo não chamar a API por enquanto (ver
+    // SHOPEE_REQUISICOES_PAUSADAS). "erro" sugeriria algo quebrado.
+    if (SHOPEE_REQUISICOES_PAUSADAS) {
+      return { status: "degradado", latenciaMs: 0, mensagem: "Requisições pausadas manualmente", verificadoEm: new Date() };
+    }
     try {
       const res = await shopeeFetch(this.url("/shop/get_shop_info"), { signal: AbortSignal.timeout(5000) });
       const latenciaMs = Date.now() - inicio;

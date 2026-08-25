@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, ShoppingBag, TrendingDown, TrendingUp } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { BarChart3, Check, CircleSlash, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Trophy, Wallet } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
-import { springs } from "@/shared/design-system/motion-variants";
+import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
+import { springs, stagger, fadeUp } from "@/shared/design-system/motion-variants";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { AcaoSlotFiltro } from "./listas-cards";
@@ -100,6 +101,95 @@ function GraficoSerie({ serie, aoFocar, cores }: {
   );
 }
 
+/* ── Entenda o faturamento ────────────────────────────────────────
+   Mesmo padrão do "Entenda os status" (ver EntendaStatusBotao em
+   listas-cards.tsx): popover animado, portado pro cabeçalho do Foco no
+   desktop via AcaoSlotFiltro. Bruto e Líquido lado a lado, cada um com o
+   que entra (check) e o que fica de fora (traço) — a mesma leitura usada
+   pra explicar taxa/frete no popover de variação (CalculoPopover, mais
+   abaixo), só que aqui o foco é o valor em si, não a variação dele. */
+function ItemRegra({ tipo, children }: { tipo: "entra" | "fora"; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2 text-[12.5px] leading-relaxed text-muted-foreground">
+      <span
+        className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
+        style={
+          tipo === "entra"
+            ? { background: tint("var(--success)", 16), color: "var(--success)" }
+            : { background: "var(--muted)", color: "var(--muted-foreground)" }
+        }
+      >
+        {tipo === "entra" ? <Check size={11} strokeWidth={3} /> : <Minus size={11} strokeWidth={3} />}
+      </span>
+      <span>{children}</span>
+    </li>
+  );
+}
+
+function EntendaFaturamentoBotao() {
+  return (
+    <AnimatedInfoPopover
+      trigger={(
+        <AnimatedInfoTrigger
+          title="Entenda como o faturamento é calculado"
+          iconSize={13}
+          className="press-feedback inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+        >
+          <span className="sm:hidden">Faturamento</span>
+          <span className="hidden sm:inline">Entenda o faturamento</span>
+        </AnimatedInfoTrigger>
+      )}
+      align="end"
+      sideOffset={8}
+      collisionPadding={12}
+      className="z-[100] w-[min(24rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)] lg:w-[min(38rem,calc(100vw-1.5rem))]"
+    >
+      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como o faturamento é calculado</p>
+
+      <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("var(--selecionado)", 14), color: "var(--selecionado)" }}>
+              <Wallet size={14} strokeWidth={2} />
+            </span>
+            <p className="text-sm font-bold text-foreground">Bruto</p>
+          </div>
+          <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+            É a soma do valor total de cada pedido concluído dentro do período escolhido, sem nenhum desconto aplicado.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            <ItemRegra tipo="entra">Valor completo do pedido: produto e frete cobrado do cliente</ItemRegra>
+            <ItemRegra tipo="fora">Pedidos cancelados</ItemRegra>
+            <ItemRegra tipo="fora">Pedidos devolvidos</ItemRegra>
+          </ul>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}>
+              <Receipt size={14} strokeWidth={2} />
+            </span>
+            <p className="text-sm font-bold text-foreground">Líquido</p>
+          </div>
+          <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+            É o valor bruto depois de descontar o que sai do bolso do vendedor em cada venda.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            <ItemRegra tipo="entra">Desconta a taxa do marketplace por item, quando o canal informa esse valor</ItemRegra>
+            <ItemRegra tipo="entra">Desconta o frete pago pelo vendedor</ItemRegra>
+            <ItemRegra tipo="fora">Não desconta desconto ou acréscimo aplicado ao pedido</ItemRegra>
+            <ItemRegra tipo="fora">Não desconta o custo do produto</ItemRegra>
+          </ul>
+        </div>
+      </div>
+
+      <p className="mt-4 rounded-[0.85rem] px-3 py-2.5 text-[12px] font-medium leading-relaxed" style={{ background: tint("var(--selecionado)", 8), color: "var(--foreground)" }}>
+        Cancelamento e devolução nunca entram em nenhum dos dois valores, bruto ou líquido, em nenhuma hipótese.
+      </p>
+    </AnimatedInfoPopover>
+  );
+}
+
 function EsqueletoFaturamento() {
   return (
     <div className="px-5 pb-5">
@@ -125,6 +215,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   liquido: boolean;
   aoTrocarLiquido: (liquido: boolean) => void;
 }) {
+  const reduzir = useReducedMotion();
   const [focado, setFocado] = useState<number | null>(null);
   const valorAnimado = useContagem((liquido ? dados?.totalLiquidoNumerico : dados?.totalNumerico) ?? 0);
   const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
@@ -133,9 +224,21 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   const serieAtiva = dados ? (liquido ? dados.serieLiquido : dados.serie) : [];
   const pontoFocado = focado !== null ? serieAtiva[focado] ?? null : null;
 
+  // Resumo do período: só faz sentido com mais de 1 dia (mesmo limiar do
+  // próprio gráfico, ver `GraficoSerie` — 1 dia só não tem "melhor dia" pra
+  // comparar). Reaproveita `serieAtiva` em vez de pedir outra métrica ao
+  // servidor: os 3 números já estão implícitos na série que o gráfico usa.
+  const melhorDia = serieAtiva.length > 1
+    ? serieAtiva.reduce((melhor, ponto) => (ponto.valor > melhor.valor ? ponto : melhor), serieAtiva[0])
+    : null;
+  const diasSemVenda = serieAtiva.filter((ponto) => ponto.valor === 0).length;
+  const mediaDiaria = serieAtiva.length > 0
+    ? serieAtiva.reduce((soma, ponto) => soma + ponto.valor, 0) / serieAtiva.length
+    : 0;
+
   return (
     <Card>
-      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} />
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaFaturamentoBotao />} />
       <CardHead scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>} />
 
       {/* Troca por crossfade, nunca desmontando o Card — evita o "piscar"
@@ -238,6 +341,64 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 </p>
                 {dados && <GraficoSerie serie={serieAtiva} aoFocar={setFocado} cores={cores} />}
               </div>
+
+              {/* Resumo do período: preenche o respiro que sobrava abaixo do
+                  gráfico com 3 leituras que já moram na série (melhor dia,
+                  média diária, dias sem venda) — em vez de espaço em branco,
+                  vira contexto que ajuda a explicar a curva acima. Só some
+                  quando o próprio gráfico também some (1 dia só ou sem série). */}
+              {melhorDia && (
+                <motion.div
+                  variants={reduzir ? undefined : stagger}
+                  initial={reduzir ? undefined : "hidden"}
+                  animate={reduzir ? undefined : "show"}
+                  className="mt-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 border-t border-border pt-5 sm:justify-between"
+                >
+                  <motion.div variants={reduzir ? undefined : fadeUp} className="flex items-center gap-2.5">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: tint("var(--success)", 12), color: "var(--success)" }}
+                    >
+                      <Trophy size={14} strokeWidth={2} />
+                    </span>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Melhor dia</p>
+                      <p className="text-sm font-bold tabular-nums text-foreground">
+                        {melhorDia.label} <span className="text-muted-foreground font-semibold">·</span> {moeda.format(melhorDia.valor)}
+                      </p>
+                    </div>
+                  </motion.div>
+
+                  <motion.div variants={reduzir ? undefined : fadeUp} className="flex items-center gap-2.5">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                      style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
+                    >
+                      <BarChart3 size={14} strokeWidth={2} />
+                    </span>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Média diária</p>
+                      <p className="text-sm font-bold tabular-nums text-foreground">{moeda.format(mediaDiaria)}</p>
+                    </div>
+                  </motion.div>
+
+                  <motion.div variants={reduzir ? undefined : fadeUp} className="flex items-center gap-2.5">
+                    <span
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                      style={{
+                        background: diasSemVenda > 0 ? tint("var(--destructive)", 12) : "var(--muted)",
+                        color: diasSemVenda > 0 ? "var(--destructive)" : "var(--muted-foreground)",
+                      }}
+                    >
+                      <CircleSlash size={14} strokeWidth={2} />
+                    </span>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dias sem venda</p>
+                      <p className="text-sm font-bold tabular-nums text-foreground">{diasSemVenda} de {serieAtiva.length}</p>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
