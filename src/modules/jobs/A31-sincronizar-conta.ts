@@ -123,10 +123,15 @@ export const A31_sincronizarConta = inngest.createFunction(
       const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
       const pedidos = await provider.buscarPedidos(desde);
       let novos = 0;
-      // Pedido de anúncio já removido do catálogo é pulado, não aborta a leva
-      // — ver ErroSkuSemProduto. Os SKUs vão no resultado pra ficar visível na
-      // Central de Sincronização o que não entrou e por quê.
+      // Falha de UM pedido não derruba a leva. Um pedido ruim é sempre
+      // possível — anúncio removido depois da venda (ErroSkuSemProduto),
+      // comprador que colide com um cadastro existente, dado que o canal
+      // devolveu fora do formato. Abortar tudo no primeiro erro fazia nenhum
+      // pedido entrar, inclusive os bons, e escondia os demais problemas: cada
+      // sincronização revelava só o próximo erro da fila, um de cada vez.
+      // Agora a leva termina e o que falhou vai no resultado, junto.
       const skusSemProduto = new Set<string>();
+      const motivosDeFalha = new Set<string>();
       let ignorados = 0;
       for (const pedidoBruto of pedidos) {
         const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
@@ -134,15 +139,31 @@ export const A31_sincronizarConta = inngest.createFunction(
           const resultado = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
           if (resultado.novo) novos += 1;
         } catch (error) {
-          if (!ehErroSkuSemProduto(error)) throw error;
           ignorados += 1;
-          for (const sku of error.skus ?? []) skusSemProduto.add(sku);
+          if (ehErroSkuSemProduto(error)) {
+            for (const sku of error.skus ?? []) skusSemProduto.add(sku);
+          }
+          motivosDeFalha.add(erroLegivel(error).slice(0, 200));
         }
+      }
+      // Se NENHUM pedido entrou e todos falharam, o problema não é "um pedido
+      // ruim" — é sistêmico (credencial, banco, formato do canal). Aí sim o
+      // módulo falha, pra não reportar sucesso em cima de uma leva vazia.
+      if (pedidos.length > 0 && ignorados === pedidos.length) {
+        throw new Error(
+          `Nenhum dos ${pedidos.length} pedido(s) pôde ser importado: ${[...motivosDeFalha].join(" | ")}`,
+        );
       }
       return {
         encontrados: pedidos.length,
         novos,
-        ...(ignorados > 0 ? { ignorados, skusSemProduto: [...skusSemProduto] } : {}),
+        ...(ignorados > 0
+          ? {
+            ignorados,
+            motivos: [...motivosDeFalha],
+            ...(skusSemProduto.size > 0 ? { skusSemProduto: [...skusSemProduto] } : {}),
+          }
+          : {}),
       };
     });
     if (!resultadoPedidos.ok) {

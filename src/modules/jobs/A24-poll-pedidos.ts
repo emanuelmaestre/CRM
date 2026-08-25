@@ -2,7 +2,6 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
-import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
@@ -53,7 +52,7 @@ export const A24_pollPedidos = inngest.createFunction(
       );
 
       const desde = new Date(Date.now() - 10 * 60 * 1_000);
-      const resultados: Array<{ contaId: string; encontrados: number; novos: number; erro?: string }> = [];
+      const resultados: Array<{ contaId: string; encontrados: number; novos: number; ignorados?: number; erro?: string }> = [];
 
       for (const conta of contas) {
         // App Shopee aprovado (Product Management) não tem permissão pra API
@@ -71,24 +70,35 @@ export const A24_pollPedidos = inngest.createFunction(
           }
           const pedidos = await step.run(`buscar-${conta.id}`, () => provider.buscarPedidos(desde));
           let novos = 0;
+          let ignorados = 0;
           for (const pedido of pedidos) {
             const pedidoNormalizado = { ...pedido, criadoEm: new Date(pedido.criadoEm) };
-            // Mesma regra do A31: SKU sem produto na marca é problema daquele
-            // pedido (anúncio removido depois da venda), não da conta — pular
-            // e seguir, senão uma venda antiga trava a volta inteira a cada
-            // quatro minutos, pra sempre. Ver ErroSkuSemProduto.
+            // Mesma regra do A31: um pedido ruim é problema daquele pedido, não
+            // da conta — anúncio removido depois da venda (ErroSkuSemProduto),
+            // comprador colidindo com cadastro existente, dado torto do canal.
+            // Sem isso, uma única venda antiga travava a volta inteira a cada
+            // quatro minutos, pra sempre, e nenhum pedido bom entrava.
             const resultado = await step.run(`ingerir-${conta.id}-${pedido.providerOrderId}`, async () => {
               try {
                 return await ingerirPedido(conta.orgId, conta.brandId, conta.id, pedidoNormalizado);
               } catch (error) {
-                if (!ehErroSkuSemProduto(error)) throw error;
-                console.warn(`[A24] pedido ${pedido.providerOrderId} pulado: ${error.message}`);
-                return { pedidoId: "", novo: false };
+                const motivo = error instanceof Error ? error.message : String(error);
+                console.warn(
+                  `[A24] pedido ${pedido.providerOrderId} (${conta.tipo}/${conta.brandSlug}) pulado: ${motivo}`,
+                );
+                return { pedidoId: "", novo: false, falhou: true };
               }
             });
             if (resultado.novo) novos++;
+            if ("falhou" in resultado && resultado.falhou) ignorados++;
           }
-          resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos });
+          // Todos os pedidos falharem não é "pedido ruim", é problema
+          // sistêmico da conta — cai no catch abaixo, que já marca a conta como
+          // degradada e registra o motivo.
+          if (pedidos.length > 0 && ignorados === pedidos.length) {
+            throw new Error(`Nenhum dos ${pedidos.length} pedido(s) pôde ser importado — ver logs [A24].`);
+          }
+          resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos, ignorados });
         } catch (error) {
           resultados.push({ contaId: conta.id, encontrados: 0, novos: 0, erro: String(error) });
           // Uma vez por hora por conta, não uma vez por execução do cron.

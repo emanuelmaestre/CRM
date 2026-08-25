@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, isNull, sql } from "drizzle-orm";
+import { eq, and, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/shared/lib/db";
 import { cliente, clienteIdentidade } from "@/shared/lib/db/schema/clientes";
@@ -212,26 +212,79 @@ export async function ingerirPedido(
           .where(and(eq(cliente.id, clienteId), eq(cliente.orgId, orgId), isNull(cliente.enderecoCep)));
       }
     } else {
-      const [novoCliente] = await tx
-        .insert(cliente)
-        .values({
-          orgId,
-          nome: p.clienteNome,
-          email: p.clienteEmail,
-          telefone: p.clienteTelefone,
-          nomeCompleto: p.clienteEndereco?.nomeDestinatario,
-          enderecoRua: p.clienteEndereco?.rua,
-          enderecoNumero: p.clienteEndereco?.numero,
-          enderecoComplemento: p.clienteEndereco?.complemento,
-          enderecoBairro: p.clienteEndereco?.bairro,
-          enderecoCidade: p.clienteEndereco?.cidade,
-          enderecoEstado: p.clienteEndereco?.estado,
-          enderecoCep: p.clienteEndereco?.cep,
-          enderecoLatitude: p.clienteEndereco?.latitude,
-          enderecoLongitude: p.clienteEndereco?.longitude,
-        })
-        .returning({ id: cliente.id });
-      clienteId = novoCliente.id;
+      // Antes de criar, procura um cliente ativo da org com o mesmo e-mail ou
+      // telefone. A mesma pessoa comprando em canais diferentes (ou com duas
+      // contas no mesmo canal) não tem `cliente_identidade` para este canal,
+      // mas é o mesmo cliente — e `uq_cliente_org_telefone_active` /
+      // `uq_cliente_org_email_active` garantem isso no banco. Sem esta busca o
+      // insert violava a constraint e derrubava a sincronização inteira (erro
+      // real em 25/08/2026, nas duas marcas da Shopee e também no Mercado
+      // Livre). É o mesmo tratamento que a importação histórica já fazia; só o
+      // fluxo em tempo real estava sem. Reaproveitar o cadastro é também o
+      // comportamento certo: `cliente_identidade` existe exatamente para
+      // pendurar várias identidades de canal num único cliente.
+      const contatos = [
+        p.clienteEmail ? eq(cliente.email, p.clienteEmail) : undefined,
+        p.clienteTelefone ? eq(cliente.telefone, p.clienteTelefone) : undefined,
+      ].filter((condicao): condicao is NonNullable<typeof condicao> => Boolean(condicao));
+      const clientePorContato = contatos.length > 0
+        ? await tx
+            .select({ id: cliente.id })
+            .from(cliente)
+            .where(and(eq(cliente.orgId, orgId), isNull(cliente.deletedAt), or(...contatos)))
+            .then((rows) => rows[0]?.id)
+        : undefined;
+
+      if (clientePorContato) {
+        clienteId = clientePorContato;
+        // Cadastro que já existia pode estar sem endereço/nome completo — o
+        // mesmo backfill conservador do ramo do comprador recorrente acima:
+        // só preenche o que está vazio, nunca sobrescreve.
+        if (p.clienteEndereco?.nomeDestinatario) {
+          await tx
+            .update(cliente)
+            .set({ nomeCompleto: p.clienteEndereco.nomeDestinatario, updatedAt: new Date() })
+            .where(and(eq(cliente.id, clienteId), eq(cliente.orgId, orgId), isNull(cliente.nomeCompleto)));
+        }
+        if (p.clienteEndereco?.cep) {
+          await tx
+            .update(cliente)
+            .set({
+              enderecoRua: p.clienteEndereco.rua,
+              enderecoNumero: p.clienteEndereco.numero,
+              enderecoComplemento: p.clienteEndereco.complemento,
+              enderecoBairro: p.clienteEndereco.bairro,
+              enderecoCidade: p.clienteEndereco.cidade,
+              enderecoEstado: p.clienteEndereco.estado,
+              enderecoCep: p.clienteEndereco.cep,
+              enderecoLatitude: p.clienteEndereco.latitude,
+              enderecoLongitude: p.clienteEndereco.longitude,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(cliente.id, clienteId), eq(cliente.orgId, orgId), isNull(cliente.enderecoCep)));
+        }
+      } else {
+        const [novoCliente] = await tx
+          .insert(cliente)
+          .values({
+            orgId,
+            nome: p.clienteNome,
+            email: p.clienteEmail,
+            telefone: p.clienteTelefone,
+            nomeCompleto: p.clienteEndereco?.nomeDestinatario,
+            enderecoRua: p.clienteEndereco?.rua,
+            enderecoNumero: p.clienteEndereco?.numero,
+            enderecoComplemento: p.clienteEndereco?.complemento,
+            enderecoBairro: p.clienteEndereco?.bairro,
+            enderecoCidade: p.clienteEndereco?.cidade,
+            enderecoEstado: p.clienteEndereco?.estado,
+            enderecoCep: p.clienteEndereco?.cep,
+            enderecoLatitude: p.clienteEndereco?.latitude,
+            enderecoLongitude: p.clienteEndereco?.longitude,
+          })
+          .returning({ id: cliente.id });
+        clienteId = novoCliente.id;
+      }
 
       await tx.insert(clienteIdentidade).values({
         clienteId,
