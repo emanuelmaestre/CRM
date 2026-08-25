@@ -154,9 +154,28 @@ export class ShopeeProvider implements ChannelProvider {
     return this.url(path, params, this.credsPedidos);
   }
 
+  // get_order_list rejeita qualquer janela (time_to - time_from) maior que
+  // 15 dias — "Start time must be earlier than end time and diff in 15days."
+  // Achado em produção em 25/08/2026: a sincronização manual pede 90 dias de
+  // uma vez (ver A31-sincronizar-conta.ts) e falhava 100% das vezes. Aqui
+  // fatiamos o intervalo pedido em janelas de até 15 dias e concatenamos.
+  private static readonly JANELA_MAX_PEDIDOS_MS = 15 * 24 * 60 * 60 * 1000;
+
   async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
-    const timeFrom = Math.floor(desde.getTime() / 1000);
-    const timeTo = Math.floor(Date.now() / 1000);
+    const agora = Date.now();
+    const pedidos: PedidoNormalizado[] = [];
+    let inicioJanela = desde.getTime();
+    while (inicioJanela < agora) {
+      const fimJanela = Math.min(inicioJanela + ShopeeProvider.JANELA_MAX_PEDIDOS_MS, agora);
+      pedidos.push(...await this.buscarPedidosJanela(inicioJanela, fimJanela));
+      inicioJanela = fimJanela;
+    }
+    return pedidos;
+  }
+
+  private async buscarPedidosJanela(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]> {
+    const timeFrom = Math.floor(inicioMs / 1000);
+    const timeTo = Math.floor(fimMs / 1000);
 
     const listRes = await shopeeFetch(this.urlPedidos("/order/get_order_list", {
       time_range_field: "create_time",
