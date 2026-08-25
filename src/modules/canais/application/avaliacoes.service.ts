@@ -42,6 +42,92 @@ export async function sincronizarAvaliacoesMercadoLivreConta(orgId: string, chan
   return sincronizarAvaliacoesMercadoLivrePorConta(orgId, channelAccountId);
 }
 
+/* ── Avaliações em fatias, para caber no tempo de um step ────────────
+   A API do Mercado Livre não tem endpoint de nota em lote: `comAvaliacoes`
+   custa uma requisição por anúncio. Numa marca com 500 anúncios isso é meio
+   milhar de chamadas sequenciais, e dentro de um único `step.run` do Inngest o
+   step é morto pelo tempo limite e o job reexecuta do zero.
+
+   Aconteceu em produção em 25/08/2026, logo depois de o mesmo problema ser
+   corrigido em Catálogo e Pedidos: ARMARINHOS LIMA (464 anúncios) parou em
+   "avaliacoes: em_andamento". As funções abaixo processam uma página por
+   chamada, para a A31 rodar cada uma no seu próprio step. */
+
+/** Uma página de anúncios com avaliações, já gravada. Devolve os listingIds
+ *  vistos para o chamador acumular e, no fim, limpar o que saiu do catálogo. */
+export async function sincronizarPaginaAvaliacoesMercadoLivre(
+  orgId: string,
+  channelAccountId: string,
+  offset: number,
+): Promise<{ listingIds: string[]; sincronizados: number; proximoOffset: number; fim: boolean }> {
+  const [conta] = await listarContasMercadoLivreAvaliacoes(orgId, channelAccountId);
+  if (!conta || !isBrandSlug(conta.brandSlug)) {
+    return { listingIds: [], sincronizados: 0, proximoOffset: offset, fim: true };
+  }
+  const provider = await criarMLProvider(conta.brandSlug);
+  const pagina = await provider.listarAnunciosAtivos({ offset, limit: 50, comAvaliacoes: true });
+
+  const vistos = new Map<string, (typeof pagina.items)[number]>();
+  for (const item of pagina.items) if (!vistos.has(item.listingId)) vistos.set(item.listingId, item);
+
+  const linhas = [...vistos.values()].map((item) => ({
+    orgId,
+    brandId: conta.brandId,
+    channelAccountId: conta.channelAccountId,
+    listingId: item.listingId,
+    title: item.title,
+    permalink: item.permalink,
+    ratingAverage: item.ratingAverage,
+    reviewsTotal: item.reviewsTotal,
+    ratingLevels: item.ratingLevels,
+    opinioes: item.opinioes,
+    atualizadoEm: new Date(),
+  }));
+  if (linhas.length > 0) {
+    await db.insert(mlAvaliacaoAnuncio).values(linhas).onConflictDoUpdate({
+      target: [mlAvaliacaoAnuncio.orgId, mlAvaliacaoAnuncio.listingId],
+      set: {
+        brandId: sql`excluded.brand_id`,
+        channelAccountId: sql`excluded.channel_account_id`,
+        title: sql`excluded.title`,
+        permalink: sql`excluded.permalink`,
+        ratingAverage: sql`excluded.rating_average`,
+        reviewsTotal: sql`excluded.reviews_total`,
+        ratingLevels: sql`excluded.rating_levels`,
+        opinioes: sql`excluded.opinioes`,
+        atualizadoEm: sql`excluded.atualizado_em`,
+      },
+    });
+  }
+
+  const proximoOffset = offset + pagina.limit;
+  return {
+    listingIds: [...vistos.keys()],
+    sincronizados: linhas.length,
+    proximoOffset,
+    fim: pagina.items.length === 0 || proximoOffset >= pagina.totalListings,
+  };
+}
+
+/** Anúncio pausado/removido some da lista ativa — tira do cache pra não mostrar
+ *  nota de algo que não está mais à venda. Só roda depois que TODAS as páginas
+ *  entraram: com a lista incompleta, isto apagaria anúncio válido. */
+export async function limparAvaliacoesForaDoCatalogoMercadoLivre(
+  orgId: string,
+  channelAccountId: string,
+  listingIdsAtivos: string[],
+): Promise<{ removidos: number }> {
+  if (listingIdsAtivos.length === 0) return { removidos: 0 };
+  const [conta] = await listarContasMercadoLivreAvaliacoes(orgId, channelAccountId);
+  if (!conta) return { removidos: 0 };
+  const removidos = await db.delete(mlAvaliacaoAnuncio).where(and(
+    eq(mlAvaliacaoAnuncio.orgId, orgId),
+    eq(mlAvaliacaoAnuncio.brandId, conta.brandId),
+    notInArray(mlAvaliacaoAnuncio.listingId, listingIdsAtivos),
+  )).returning({ id: mlAvaliacaoAnuncio.id });
+  return { removidos: removidos.length };
+}
+
 async function sincronizarAvaliacoesMercadoLivrePorConta(orgId: string, channelAccountId?: string): Promise<{
   contasVerificadas: number;
   anunciosSincronizados: number;

@@ -17,7 +17,11 @@ import { isBrandSlug } from "@/shared/config/brands";
 import { emitirEvento } from "@/shared/events";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { sincronizarAnunciosMercadoLivreConta } from "@/modules/anuncios/application/sincronizacao.service";
-import { sincronizarAvaliacoesMercadoLivreConta, sincronizarAvaliacoesShopeeConta } from "@/modules/canais/application/avaliacoes.service";
+import {
+  limparAvaliacoesForaDoCatalogoMercadoLivre,
+  sincronizarAvaliacoesShopeeConta,
+  sincronizarPaginaAvaliacoesMercadoLivre,
+} from "@/modules/canais/application/avaliacoes.service";
 import { sincronizarConversasMercadoLivreConta } from "@/modules/inbox/application/inbox.service";
 import { obterReclamacoesAbertas } from "@/modules/metricas/application/reclamacoes.service";
 import { obterReputacao } from "@/modules/metricas/application/reputacao.service";
@@ -264,13 +268,32 @@ export const A31_sincronizarConta = inngest.createFunction(
         : semSuporte("Anúncios patrocinados", conta.tipo)
     ));
 
-    await executarModulo("avaliacoes", async () => (
-      conta.tipo === "mercadolivre"
-        ? sincronizarAvaliacoesMercadoLivreConta(orgId, channelAccountId)
-        : conta.tipo === "shopee"
-          ? sincronizarAvaliacoesShopeeConta(orgId, channelAccountId)
-          : semSuporte("Avaliações", conta.tipo)
-    ));
+    await executarModuloEmSteps("avaliacoes", async () => {
+      // Shopee pagina por cursor sobre a loja inteira (teto de 10 páginas), é
+      // barato e cabe num step. O ML custa uma requisição por anúncio, então vai
+      // fatiado — ver o comentário em avaliacoes.service.ts.
+      if (conta.tipo === "shopee") {
+        return step.run("avaliacoes-shopee", () => sincronizarAvaliacoesShopeeConta(orgId, channelAccountId));
+      }
+      if (conta.tipo !== "mercadolivre") return semSuporte("Avaliações", conta.tipo);
+
+      const listingIds: string[] = [];
+      let anunciosSincronizados = 0;
+      let offset = 0;
+      for (let pagina = 0; pagina < 200; pagina++) {
+        const parcial = await step.run(`avaliacoes-ml-${offset}`, () =>
+          sincronizarPaginaAvaliacoesMercadoLivre(orgId, channelAccountId, offset),
+        );
+        listingIds.push(...parcial.listingIds);
+        anunciosSincronizados += parcial.sincronizados;
+        if (parcial.fim) break;
+        offset = parcial.proximoOffset;
+      }
+      const limpeza = await step.run("avaliacoes-ml-limpar", () =>
+        limparAvaliacoesForaDoCatalogoMercadoLivre(orgId, channelAccountId, listingIds),
+      );
+      return { contasVerificadas: 1, anunciosSincronizados, removidos: limpeza.removidos };
+    });
 
     await executarModulo("reputacao", async () => {
       // Shopee tem saúde de loja própria (account_health), com permissão já
