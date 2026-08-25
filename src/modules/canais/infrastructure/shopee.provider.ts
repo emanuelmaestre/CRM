@@ -531,7 +531,7 @@ export class ShopeeProvider implements ChannelProvider {
       return { status: "degradado", latenciaMs: 0, mensagem: "Requisições pausadas manualmente", verificadoEm: new Date() };
     }
     try {
-      const res = await shopeeFetch(this.url("/shop/get_shop_info"), { signal: AbortSignal.timeout(5000) });
+      const res = await shopeeFetch(this.url("/shop/get_shop_info"), { signal: AbortSignal.timeout(20000) });
       const latenciaMs = Date.now() - inicio;
       if (!res.ok) return { status: "degradado", latenciaMs, mensagem: `HTTP ${res.status}`, verificadoEm: new Date() };
       return { status: "ok", latenciaMs, mensagem: "Conectado", verificadoEm: new Date() };

@@ -52,6 +52,15 @@ function registrarChamada(input: string | URL, statusCode: number | null, ok: bo
   });
 }
 
+// Cada tentativa (proxy principal, depois backup) ganha seu próprio relógio
+// de timeout — se reaproveitássemos o `init.signal` do chamador entre as
+// duas, um primeiro proxy lento estouraria o abort e a segunda tentativa
+// nasceria já abortada, mesmo que o backup estivesse saudável e rápido.
+// AbortSignal.any combina esse timeout por tentativa com o signal do
+// chamador (se houver), então um cancelamento explícito do lado de fora
+// ainda propaga normalmente.
+const TIMEOUT_POR_TENTATIVA_MS = 8000;
+
 /** Mesma assinatura do fetch nativo — só acrescenta o proxy quando
  *  SHOPEE_PROXY_URL está definida. Sem a variável, é um fetch comum. Se
  *  SHOPEE_PROXY_URL_BACKUP também estiver definida, tenta o segundo proxy
@@ -66,8 +75,10 @@ export async function shopeeFetch(input: string | URL, init: RequestInit = {}): 
 
   let ultimoErro: unknown;
   for (const dispatcher of agentes) {
+    const timeoutTentativa = AbortSignal.timeout(TIMEOUT_POR_TENTATIVA_MS);
+    const signal = init.signal ? AbortSignal.any([init.signal, timeoutTentativa]) : timeoutTentativa;
     try {
-      const res = await fetch(input, { ...init, dispatcher } as RequestInit & { dispatcher: ProxyAgent });
+      const res = await fetch(input, { ...init, signal, dispatcher } as RequestInit & { dispatcher: ProxyAgent });
       registrarChamada(input, res.status, res.ok);
       return res;
     } catch (error) {
