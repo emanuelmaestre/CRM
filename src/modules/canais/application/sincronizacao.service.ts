@@ -33,14 +33,53 @@ export async function dispararSincronizacaoConta(ctx: CrudContext, channelAccoun
   return execucao;
 }
 
+const MODULOS_SINCRONIZACAO = [
+  "catalogo", "pedidos", "anuncios", "avaliacoes", "reputacao", "reclamacoes", "mensagens",
+] as const;
+
+/** Depois disto, uma execução sem `finalizado_em` é considerada abandonada.
+ *
+ *  Uma execução normal leva poucos minutos. Se o job morre sem gravar o
+ *  desfecho — função morta pelo limite de tempo, deploy no meio, Inngest
+ *  desistindo depois das tentativas — a linha fica "em andamento" para
+ *  sempre e a tela gira sem fim, sem nenhuma forma de a pessoa saber que
+ *  já acabou. Aconteceu em 25/08/2026: uma execução ficou girando 45+
+ *  minutos depois de o job ter parado. A folga é generosa de propósito:
+ *  errar marcando como falha uma execução que ainda vive é pior do que
+ *  demorar um pouco pra desistir de uma morta. */
+const LIMITE_EXECUCAO_ABANDONADA_MS = 30 * 60 * 1_000;
+
+const MOTIVO_ABANDONADA = "Execução interrompida: o job parou de responder. Sincronize de novo.";
+
 /** Última execução (em andamento ou concluída) de uma conta — o que a tela
- *  faz polling pra desenhar o progresso por módulo. */
+ *  faz polling pra desenhar o progresso por módulo.
+ *
+ *  Execução parada além do limite é apresentada como falha. A linha no banco
+ *  não é reescrita aqui de propósito: leitura não deveria ter efeito colateral,
+ *  e o job pode acordar e retomar (os steps já concluídos ficam memoizados no
+ *  Inngest). O que a pessoa vê passa a ser honesto — "isso não vai terminar" —
+ *  sem impedir que a execução real termine se ainda estiver viva. */
 export async function obterUltimaSincronizacaoConta(ctx: CrudContext, channelAccountId: string) {
-  return ctx.db
+  const execucao = await ctx.db
     .select()
     .from(sincronizacaoExecucao)
     .where(and(eq(sincronizacaoExecucao.orgId, ctx.orgId), eq(sincronizacaoExecucao.channelAccountId, channelAccountId)))
     .orderBy(desc(sincronizacaoExecucao.iniciadoEm))
     .limit(1)
     .then((rows) => rows[0] ?? null);
+
+  if (!execucao || execucao.finalizadoEm) return execucao;
+  const parada = Date.now() - execucao.iniciadoEm.getTime() > LIMITE_EXECUCAO_ABANDONADA_MS;
+  if (!parada) return execucao;
+
+  const abandonada = { ...execucao, finalizadoEm: new Date() };
+  for (const modulo of MODULOS_SINCRONIZACAO) {
+    const chaveStatus = `${modulo}Status` as const;
+    const chaveErro = `${modulo}Erro` as const;
+    if (abandonada[chaveStatus] === "pendente" || abandonada[chaveStatus] === "em_andamento") {
+      abandonada[chaveStatus] = "erro";
+      abandonada[chaveErro] = abandonada[chaveErro] ?? MOTIVO_ABANDONADA;
+    }
+  }
+  return abandonada;
 }
