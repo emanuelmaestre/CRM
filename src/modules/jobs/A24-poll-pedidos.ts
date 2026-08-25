@@ -8,12 +8,30 @@ import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
 import { inngest } from "@/shared/lib/inngest/client";
 import { finalizarJob, iniciarJob } from "./job-monitor";
 
+/* Intervalo do cron e janela de busca andam juntos: a cada volta o job pede os
+   pedidos da janela, então uma janela menor que o intervalo abre um buraco por
+   onde pedidos somem para sempre. Ficavam separados (cron de 4 em 4 minutos,
+   janela de 10 minutos) e era fácil mexer num sem o outro — por isso a janela
+   agora é derivada do intervalo, com folga deliberada de sobreposição.
+
+   A sobreposição não duplica nada: a ingestão é idempotente por
+   providerOrderId (ver ingerirPedido), então reprocessar o mesmo pedido é uma
+   consulta a mais e nenhum registro a mais.
+
+   Três horas, e não minutos, porque este job é CONTINGÊNCIA: o caminho normal
+   de um pedido novo é o webhook do canal (api/webhooks/*), que chega na hora.
+   O polling existe para cobrir webhook perdido, e a cada 4 minutos custava
+   ~720 chamadas por dia no proxy de IP fixo — cota que é o gargalo real aqui —
+   mesmo em dia sem nenhuma venda. */
+const INTERVALO_POLL_HORAS = 3;
+const JANELA_BUSCA_MS = (INTERVALO_POLL_HORAS + 1) * 60 * 60 * 1_000;
+
 export const A24_pollPedidos = inngest.createFunction(
   {
     id: "A24-poll-pedidos",
-    name: "A24 — Contingência de ingestão de pedidos (SLA 5 min)",
+    name: `A24 — Contingência de ingestão de pedidos (a cada ${INTERVALO_POLL_HORAS}h)`,
     concurrency: { limit: 1 },
-    triggers: [{ cron: "*/4 * * * *" }],
+    triggers: [{ cron: `0 */${INTERVALO_POLL_HORAS} * * *` }],
   },
   async ({ step, attempt }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
@@ -51,7 +69,7 @@ export const A24_pollPedidos = inngest.createFunction(
           )),
       );
 
-      const desde = new Date(Date.now() - 10 * 60 * 1_000);
+      const desde = new Date(Date.now() - JANELA_BUSCA_MS);
       const resultados: Array<{ contaId: string; encontrados: number; novos: number; ignorados?: number; erro?: string }> = [];
 
       for (const conta of contas) {

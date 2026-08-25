@@ -204,7 +204,7 @@
       "id": "A24",
       "nome": "Contingência de pedidos",
       "disparo": "Agendamento",
-      "cron": "*/4 * * * *"
+      "cron": "0 */3 * * *"
     },
     {
       "id": "A25",

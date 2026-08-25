@@ -11,9 +11,12 @@ const ROTINAS_AGENDADAS = [
     nome: "A24-poll-pedidos",
     titulo: "Pedidos dos canais de vendas",
     categoria: "Pedidos",
-    agenda: "a cada 4 minutos",
-    cron: "*/4 * * * *",
-    atrasoLimiteMinutos: 12,
+    // Contingência do webhook, não o caminho principal de um pedido novo — ver
+    // INTERVALO_POLL_HORAS em A24-poll-pedidos.ts, que é a fonte da verdade do
+    // cron. Este limite de atraso dá uma volta inteira de folga.
+    agenda: "a cada 3 horas",
+    cron: "0 */3 * * *",
+    atrasoLimiteMinutos: 6 * 60,
   },
   {
     nome: "A18-saude-conectores",
