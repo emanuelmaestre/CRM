@@ -52,21 +52,13 @@ export interface SaudeConector {
   verificadoEm: Date;
 }
 
-export interface AnuncioCanalDados {
-  titulo: string;
-  preco: string;
-}
-
 export interface ChannelProvider {
   buscarPedidos(desde: Date): Promise<PedidoNormalizado[]>;
   sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void>;
   consultarEstoque(referencia: EstoqueCanalRef): Promise<number>;
   saude(): Promise<SaudeConector>;
-  // Opcional: nem todo canal expõe atualização de título/preço via API própria
-  // do jeito que expõe estoque. Implementado hoje só no Mercado Livre.
-  sincronizarAnuncio?(referencia: EstoqueCanalRef, dados: AnuncioCanalDados): Promise<void>;
-  /** Status real do anúncio (active/paused/closed) — opcional pelo mesmo motivo
-   *  de `sincronizarAnuncio`: só o Mercado Livre expõe isso hoje. Usado pelo A5
+  /** Status real do anúncio (active/paused/closed). Só o Mercado Livre expõe
+   *  isso hoje. Usado pelo A5
    *  pra desativar produtos cujo anúncio some do canal, sem depender só do
    *  saldo (que fica congelado, não "avisa" que o anúncio acabou). */
   consultarStatusAnuncio?(referencia: EstoqueCanalRef): Promise<{ status: string; subStatus: string[] } | null>;

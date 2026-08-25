@@ -20,7 +20,6 @@ import { A18_saudeConectores } from "@/modules/jobs/A18-saude-conectores";
 import { A24_pollPedidos } from "@/modules/jobs/A24-poll-pedidos";
 import { A25_prepararImportacaoHistorica } from "@/modules/jobs/A25-importacao-historica";
 import { A26_importarHistorico } from "@/modules/jobs/A26-importar-historico";
-import { A27_syncAnuncio } from "@/modules/jobs/A27-sync-anuncio";
 import { A28_syncAvaliacoesML } from "@/modules/jobs/A28-sync-avaliacoes-ml";
 import { A29_recoletaPorVenda } from "@/modules/jobs/A29-recoleta-por-venda";
 import { A30_snapshotMetricas } from "@/modules/jobs/A30-snapshot-metricas";
@@ -61,7 +60,6 @@ export const { GET, POST, PUT } = serve({
     A24_pollPedidos,
     A25_prepararImportacaoHistorica,
     A26_importarHistorico,
-    A27_syncAnuncio,
     A28_syncAvaliacoesML,
     A29_recoletaPorVenda,
     A30_snapshotMetricas,

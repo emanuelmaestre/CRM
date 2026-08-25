@@ -82,3 +82,23 @@ Essa execução consumirá algum tráfego Webshare, mas é necessária uma únic
 - Lint: aprovado.
 - Testes: 50 arquivos e 353 testes aprovados.
 - Build de produção do Next.js: aprovado.
+
+## Complemento — remoção de publicação externa
+
+Após a auditoria, foi decidido que o CRM será usado para consulta e controle de
+estoque, sem publicar alterações de título ou preço nos marketplaces. O job A27,
+seu evento de disparo e o método de escrita de anúncio do Mercado Livre foram
+removidos. Shopee e TikTok Shop já não implementavam esse tipo de publicação.
+
+Foram preservados intencionalmente:
+
+- leitura de catálogo e anúncios;
+- métricas de publicações e publicidade;
+- pedidos, avaliações e saúde dos canais;
+- consulta e atualização de saldo de estoque.
+
+A atualização de estoque não é publicação de conteúdo: ela continua ativa para
+manter o saldo operacional dos anúncios consistente com o CRM.
+
+Validação do complemento: typecheck, lint, 50 arquivos/349 testes, build de
+produção e verificação do esquema do banco aprovados.

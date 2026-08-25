@@ -3,7 +3,7 @@ import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import {
   auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo, pedido, pedidoItem,
 } from "@/shared/lib/db/schema";
-import { despacharEvento, persistirEvento } from "@/shared/events";
+import { persistirEvento } from "@/shared/events";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
 import { compararPorOrdemDeMarca } from "@/shared/config/brands";
@@ -61,10 +61,8 @@ export async function criarProduto(ctx: CrudContext, input: unknown) {
   return novo;
 }
 
-// Só nome/preço mudam o que é anunciado nos canais — estoqueMinimo é interno
-// e não dispara sincronização de anúncio.
-const CAMPOS_SINCRONIZAVEIS = ["nome", "preco"] as const;
-
+// A edição permanece interna ao CRM. Título e preço não são publicados nos
+// marketplaces; somente as rotinas específicas de estoque escrevem nos canais.
 export async function editarProduto(ctx: CrudContext, produtoId: string, input: unknown) {
   assertPerfil(ctx, ["admin", "gestor"]);
   const data = UpdateProdutoSchema.parse(input);
@@ -96,23 +94,10 @@ export async function editarProduto(ctx: CrudContext, produtoId: string, input: 
       depois,
     });
 
-    const mudouAnuncio = CAMPOS_SINCRONIZAVEIS.some((campo) => antes[campo] !== depois[campo]);
-    const eventoProduto = mudouAnuncio
-      ? await persistirEvento({
-          tipo: "produto.atualizado",
-          orgId: ctx.orgId,
-          brandId: antes.brandId,
-          entidade: "produto",
-          entidadeId: produtoId,
-          payload: { produtoId, nome: depois.nome, preco: depois.preco },
-        }, tx)
-      : null;
-
-    return { produto: depois, eventoProduto };
+    return depois;
   });
 
-  if (resultado.eventoProduto) await despacharEvento(resultado.eventoProduto);
-  return resultado.produto;
+  return resultado;
 }
 
 /** Estados que a tela de Estoque usa como filtro e como contador de alerta.

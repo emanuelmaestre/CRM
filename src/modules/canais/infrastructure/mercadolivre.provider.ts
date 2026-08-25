@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
-  AnuncioCanalDados, ChannelProvider, EnderecoEntregaNormalizado, EstoqueCanalRef, PedidoNormalizado, SaudeConector,
+  ChannelProvider, EnderecoEntregaNormalizado, EstoqueCanalRef, PedidoNormalizado, SaudeConector,
 } from "../domain/ports";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 
@@ -891,34 +891,6 @@ export class MercadoLivreProvider implements ChannelProvider {
     });
     if (!res.ok) {
       throw new Error(`Mercado Livre sync estoque HTTP ${res.status} para anúncio ${referencia.listingId}`);
-    }
-  }
-
-  async sincronizarAnuncio(referencia: EstoqueCanalRef, dados: AnuncioCanalDados): Promise<void> {
-    const variationId = referencia.warehouseId ? Number(referencia.warehouseId) : null;
-    if (referencia.warehouseId && !Number.isSafeInteger(variationId)) {
-      throw new Error(`Variação Mercado Livre inválida: ${referencia.warehouseId}.`);
-    }
-    const precoCentavos = Number(dados.preco);
-    if (!Number.isFinite(precoCentavos) || precoCentavos <= 0) {
-      throw new Error(`Preço inválido para sincronizar anúncio ${referencia.listingId}: ${dados.preco}.`);
-    }
-    // O título é sempre do anúncio (item), não da variação — o Mercado Livre
-    // não permite título por variação. O preço vai na variação quando existe.
-    const body = variationId
-      ? { title: dados.titulo, variations: [{ id: variationId, price: precoCentavos }] }
-      : { title: dados.titulo, price: precoCentavos };
-    const res = await fetch(`${this.baseUrl}/items/${referencia.listingId}`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${this.creds.accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!res.ok) {
-      throw new Error(`Mercado Livre sync anúncio HTTP ${res.status} para anúncio ${referencia.listingId}`);
     }
   }
 

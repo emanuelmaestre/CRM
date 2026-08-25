@@ -54,7 +54,7 @@ function semSuporte(modulo: string, tipo: string) {
 /** Disparo manual da Central de Sincronização (Configurações) — fila completa
  *  de UMA conta, cada módulo atualizando sua própria coluna de
  *  status em sincronizacao_execucao pra tela poder mostrar progresso real
- *  (não é lote noturno como A24/A27: é "clicou, quero ver andando agora"). */
+ *  (não é lote noturno como A24: é "clicou, quero ver andando agora"). */
 export const A31_sincronizarConta = inngest.createFunction(
   {
     id: "A31-sincronizar-conta",

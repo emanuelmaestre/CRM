@@ -40,7 +40,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   for (const id of produtosParaLimpar) {
-    await db.delete(eventoDominio).where(eq(eventoDominio.entidadeId, id)).catch(() => undefined);
     await db.delete(auditLog).where(eq(auditLog.entidadeId, id)).catch(() => undefined);
     await db.delete(produto).where(eq(produto.id, id));
   }
@@ -54,7 +53,7 @@ describe.sequential("edição de produto", () => {
     })).rejects.toThrow();
   });
 
-  it("atualiza nome e preço, registra auditoria e emite produto.atualizado", async () => {
+  it("atualiza nome e preço e registra auditoria sem publicar no canal", async () => {
     const produtoRow = await criarProdutoTeste();
 
     const atualizado = await editarProduto(ctxAdmin, produtoRow.id, {
@@ -69,28 +68,20 @@ describe.sequential("edição de produto", () => {
     ));
     expect(auditoria).toBeDefined();
 
-    const eventos = await db.select().from(eventoDominio).where(and(
+    const eventosPublicacao = await db.select().from(eventoDominio).where(and(
       eq(eventoDominio.entidade, "produto"),
       eq(eventoDominio.entidadeId, produtoRow.id),
       eq(eventoDominio.tipo, "produto.atualizado"),
     ));
-    expect(eventos).toHaveLength(1);
-    expect(eventos[0].payload).toMatchObject({ nome: "Produto renomeado", preco: "15.50" });
+    expect(eventosPublicacao).toHaveLength(0);
   });
 
-  it("não emite produto.atualizado quando só estoqueMinimo muda (nome e preço iguais)", async () => {
+  it("atualiza somente o estoque mínimo", async () => {
     const produtoRow = await criarProdutoTeste();
 
     await editarProduto(ctxAdmin, produtoRow.id, {
       nome: produtoRow.nome, preco: produtoRow.preco, estoqueMinimo: 10,
     });
-
-    const eventos = await db.select().from(eventoDominio).where(and(
-      eq(eventoDominio.entidade, "produto"),
-      eq(eventoDominio.entidadeId, produtoRow.id),
-      eq(eventoDominio.tipo, "produto.atualizado"),
-    ));
-    expect(eventos).toHaveLength(0);
 
     const [linha] = await db.select().from(produto).where(eq(produto.id, produtoRow.id));
     expect(linha).toMatchObject({ estoqueMinimo: 10 });

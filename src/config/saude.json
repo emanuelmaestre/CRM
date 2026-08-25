@@ -219,16 +219,10 @@
       "cron": null
     },
     {
-      "id": "A27",
-      "nome": "Sincronização de título/preço do anúncio",
-      "disparo": "produto/atualizado",
-      "cron": null
-    },
-    {
       "id": "A28",
-      "nome": "Sincronização de avaliações do Mercado Livre",
+      "nome": "Sincronização de avaliações dos marketplaces",
       "disparo": "Agendamento",
-      "cron": "*/20 * * * *"
+      "cron": "17 */6 * * *"
     },
     {
       "id": "A29",
