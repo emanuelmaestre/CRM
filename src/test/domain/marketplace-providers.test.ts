@@ -249,19 +249,73 @@ describe("contratos dos providers de marketplace", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ response: { order_list: [] } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const provider = new ShopeeProvider({
-      partnerId: "1",
-      partnerKey: "secret",
-      shopId: "2",
-      accessToken: "token",
-    });
-    await expect(provider.buscarPedidos(new Date("2026-07-23T05:00:00.000Z")))
+    // Pedidos assinam com as credenciais do app "Elisa Lima Pedidos", não com
+    // as de catálogo — sem o segundo par, urlPedidos() nem chega a sair.
+    const provider = new ShopeeProvider(
+      { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" },
+      { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" },
+    );
+    // `desde` precisa ser anterior ao Date.now() mockado (2026-07-23T04:13Z):
+    // uma janela que começa no futuro não tem o que buscar e a chamada nem sai.
+    await expect(provider.buscarPedidos(new Date("2026-07-20T05:00:00.000Z")))
       .rejects.toThrow("não retornou detalhes");
 
     const url = new URL(String(fetchMock.mock.calls[0][0]));
     expect(url.searchParams.get("partner_id")).toBe("1");
     expect(url.searchParams.get("shop_id")).toBe("2");
     expect(url.searchParams.get("sign")).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  // Vendedor que não preenche SKU na Shopee é comum, e nesse caso o importador
+  // de catálogo cria o produto com um SKU sintético `shopee-{item}[-{model}]`.
+  // O item do pedido tem que chegar com a mesma chave, senão a ingestão recusa
+  // por SKU vazio e o pedido nunca entra.
+  it("gera SKU sintético igual ao do catálogo quando o anúncio não tem SKU", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: { order_list: [{ order_sn: "SHP-1" }, { order_sn: "SHP-2" }] },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: {
+          order_list: [
+            {
+              order_sn: "SHP-1",
+              order_status: "READY_TO_SHIP",
+              total_amount: 20,
+              buyer_username: "comprador",
+              create_time: 1_784_779_900,
+              item_list: [
+                // Sem SKU e com variação → sintético com sufixo do model_id.
+                { item_id: 111, model_id: 222, item_sku: "", model_sku: "", model_quantity_purchased: 1, model_discounted_price: 20 },
+              ],
+            },
+            {
+              order_sn: "SHP-2",
+              order_status: "READY_TO_SHIP",
+              total_amount: 35,
+              buyer_username: "comprador",
+              create_time: 1_784_779_950,
+              item_list: [
+                // model_id 0 = anúncio sem variação → sintético sem sufixo.
+                { item_id: 333, model_id: 0, model_quantity_purchased: 1, model_discounted_price: 15 },
+                // model_sku tem precedência sobre item_sku, igual ao catálogo.
+                { item_id: 444, model_id: 555, item_sku: "PAI", model_sku: "VARIACAO", model_quantity_purchased: 2, model_discounted_price: 10 },
+              ],
+            },
+          ],
+        },
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const creds = { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" };
+    const provider = new ShopeeProvider(creds, creds);
+    const pedidos = await provider.buscarPedidos(new Date("2026-07-20T05:00:00.000Z"));
+
+    expect(pedidos.map((p) => p.itens.map((i) => i.skuExterno))).toEqual([
+      ["shopee-111-222"],
+      ["shopee-333", "VARIACAO"],
+    ]);
   });
 
 });

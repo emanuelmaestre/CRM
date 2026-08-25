@@ -61,6 +61,30 @@ function precoDoItem(priceInfo?: ShopeePriceInfo): string {
   return String(info?.current_price ?? info?.original_price ?? 0);
 }
 
+/** Chave usada pra casar um item de pedido com o produto já importado.
+ *
+ *  Precisa bater com o que `importar-catalogo.service.ts` gravou: lá o SKU do
+ *  produto é `externalSku` quando o anúncio tem um, senão um SKU sintético
+ *  `shopee-{item_id}[-{model_id}]`. Vendedor que não preenche SKU na Shopee
+ *  (comum) fazia o pedido chegar com `skuExterno: ""`, reprovado na validação
+ *  da ingestão ("expected string to have >=1 characters") — erro real em
+ *  produção em 25/08/2026, com os pedidos já vindo certos da Shopee.
+ *
+ *  Ordem igual à do catálogo: model_sku (variação) → item_sku (anúncio) →
+ *  sintético. `model_id` vem 0 em anúncio sem variação, mesmo caso em que o
+ *  catálogo grava `variationId: null` e não sufixa o SKU gerado. */
+function skuDoItemPedido(item: {
+  item_id?: number;
+  model_id?: number;
+  item_sku?: string;
+  model_sku?: string;
+}): string {
+  const informado = item.model_sku?.trim() || item.item_sku?.trim();
+  if (informado) return informado;
+  const sufixoVariacao = item.model_id ? `-${item.model_id}` : "";
+  return `shopee-${item.item_id ?? ""}${sufixoVariacao}`;
+}
+
 // O app "Elisa Lima CRM" (Product Management) não tem permissão pra API de
 // Pedidos — confirmado em produção em 24/08/2026 com erro real da Shopee:
 // error_api_permission, "This app type has no permission to this API". Essa
@@ -210,7 +234,14 @@ export class ShopeeProvider implements ChannelProvider {
       response_optional_fields: "item_list,recipient_address,buyer_user_id,buyer_username,total_amount",
     }), { signal: AbortSignal.timeout(15000) });
 
-    type ShopeeItem = { item_sku: string; model_quantity_purchased: number; model_discounted_price: number };
+    type ShopeeItem = {
+      item_id?: number;
+      model_id?: number;
+      item_sku?: string;
+      model_sku?: string;
+      model_quantity_purchased: number;
+      model_discounted_price: number;
+    };
     type ShopeeDetail = {
       order_sn: string;
       order_status?: string;
@@ -249,7 +280,7 @@ export class ShopeeProvider implements ChannelProvider {
         status: (detail?.order_status ?? "").toLowerCase(),
         total: String(detail?.total_amount ?? 0),
         itens: (detail?.item_list ?? []).map((i) => ({
-          skuExterno: i.item_sku,
+          skuExterno: skuDoItemPedido(i),
           quantidade: i.model_quantity_purchased,
           precoUnitario: String(i.model_discounted_price),
         })),
