@@ -19,6 +19,24 @@ import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, mapearSt
 
 type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop";
 
+/** Pedido que veio do canal com um SKU que não existe na marca — anúncio
+ *  despublicado depois da venda, ou produto que nunca foi importado.
+ *
+ *  É um erro *daquele pedido*, não da conta: quem faz o polling (A24) e a
+ *  sincronização manual (A31) pulam o pedido e seguem para os próximos, em vez
+ *  de derrubar a leva inteira. Uma venda antiga de um anúncio removido
+ *  impedia, sozinha, que qualquer pedido da conta entrasse. Mesma ideia das
+ *  "pendências" da importação histórica, que já registra `sku_nao_mapeado` por
+ *  item em vez de abortar o lote. */
+export class ErroSkuSemProduto extends Error {
+  readonly skus: string[];
+  constructor(skus: string[]) {
+    super(`Pedido não importado: SKUs sem produto na marca: ${skus.join(", ")}.`);
+    this.name = "ErroSkuSemProduto";
+    this.skus = skus;
+  }
+}
+
 function toCanal(canal: string): CanalSuportado {
   if (canal === "shopee" || canal === "mercadolivre" || canal === "tiktokshop") return canal;
   throw new Error(`Canal de pedido não suportado: ${canal}.`);
@@ -93,33 +111,51 @@ export async function ingerirPedido(
     if (pedidoConcorrente) return { pedidoId: pedidoConcorrente.id, eventos: [], novo: false };
 
     const skus = [...new Set(p.itens.map((item) => item.skuExterno))];
-    const produtos = await tx
-      .select({
-        id: produto.id,
-        sku: produto.sku,
-        externalSkuId: produtoCanal.externalSkuId,
-      })
-      .from(produtoCanal)
-      .innerJoin(produto, and(
-        eq(produto.id, produtoCanal.produtoId),
-        eq(produto.orgId, produtoCanal.orgId),
-      ))
-      .where(and(
-        eq(produtoCanal.orgId, orgId),
-        eq(produtoCanal.channelAccountId, channelAccountId),
-        eq(produtoCanal.ativo, true),
-        eq(produto.orgId, orgId),
-        eq(produto.brandId, brandId),
-        isNull(produto.deletedAt),
-      ));
+    // Duas chaves resolvem um item de pedido, nesta ordem de precedência:
+    //
+    // 1. `produto.sku` de qualquer produto ativo da marca — o vendedor usa o
+    //    mesmo SKU interno nos vários marketplaces, então um produto que hoje
+    //    só tem vínculo com o Mercado Livre ainda é o produto certo pra um
+    //    pedido da Shopee com aquele SKU. Antes a busca partia de
+    //    `produto_canal` filtrado por channelAccountId, o que descartava esses
+    //    produtos antes de chegar no map e derrubava a ingestão inteira
+    //    (erro real em 25/08/2026: "SKUs sem produto na marca: KIT3_ICONIC,
+    //    KIT4_HERITAGE" — os dois existiam na marca, só que vinculados ao ML).
+    // 2. `produto_canal.external_sku_id` desta conta de canal, que vence em
+    //    caso de conflito: é o mapeamento explícito daquele canal.
+    const [produtosDaMarca, vinculosDoCanal] = await Promise.all([
+      tx
+        .select({ id: produto.id, sku: produto.sku })
+        .from(produto)
+        .where(and(
+          eq(produto.orgId, orgId),
+          eq(produto.brandId, brandId),
+          isNull(produto.deletedAt),
+        )),
+      tx
+        .select({ produtoId: produtoCanal.produtoId, externalSkuId: produtoCanal.externalSkuId })
+        .from(produtoCanal)
+        .innerJoin(produto, and(
+          eq(produto.id, produtoCanal.produtoId),
+          eq(produto.orgId, produtoCanal.orgId),
+        ))
+        .where(and(
+          eq(produtoCanal.orgId, orgId),
+          eq(produtoCanal.channelAccountId, channelAccountId),
+          eq(produtoCanal.ativo, true),
+          eq(produto.orgId, orgId),
+          eq(produto.brandId, brandId),
+          isNull(produto.deletedAt),
+        )),
+    ]);
     const produtoPorSku = new Map<string, string>();
-    for (const item of produtos) {
-      produtoPorSku.set(item.sku, item.id);
-      if (item.externalSkuId) produtoPorSku.set(item.externalSkuId, item.id);
+    for (const item of produtosDaMarca) produtoPorSku.set(item.sku, item.id);
+    for (const vinculo of vinculosDoCanal) {
+      if (vinculo.externalSkuId) produtoPorSku.set(vinculo.externalSkuId, vinculo.produtoId);
     }
     const skusAusentes = skus.filter((sku) => !produtoPorSku.has(sku));
     if (skusAusentes.length > 0) {
-      throw new Error(`Pedido nÃ£o importado: SKUs sem produto na marca: ${skusAusentes.join(", ")}.`);
+      throw new ErroSkuSemProduto(skusAusentes);
     }
 
     let clienteId: string;

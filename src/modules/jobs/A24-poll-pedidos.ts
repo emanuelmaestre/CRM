@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
-import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { ErroSkuSemProduto, ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
@@ -72,9 +72,19 @@ export const A24_pollPedidos = inngest.createFunction(
           let novos = 0;
           for (const pedido of pedidos) {
             const pedidoNormalizado = { ...pedido, criadoEm: new Date(pedido.criadoEm) };
-            const resultado = await step.run(`ingerir-${conta.id}-${pedido.providerOrderId}`, () =>
-              ingerirPedido(conta.orgId, conta.brandId, conta.id, pedidoNormalizado),
-            );
+            // Mesma regra do A31: SKU sem produto na marca é problema daquele
+            // pedido (anúncio removido depois da venda), não da conta — pular
+            // e seguir, senão uma venda antiga trava a volta inteira a cada
+            // quatro minutos, pra sempre. Ver ErroSkuSemProduto.
+            const resultado = await step.run(`ingerir-${conta.id}-${pedido.providerOrderId}`, async () => {
+              try {
+                return await ingerirPedido(conta.orgId, conta.brandId, conta.id, pedidoNormalizado);
+              } catch (error) {
+                if (!(error instanceof ErroSkuSemProduto)) throw error;
+                console.warn(`[A24] pedido ${pedido.providerOrderId} pulado: ${error.message}`);
+                return { pedidoId: "", novo: false };
+              }
+            });
             if (resultado.novo) novos++;
           }
           resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos });

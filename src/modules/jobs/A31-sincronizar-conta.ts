@@ -3,7 +3,7 @@ import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
 import { importarCatalogoContaMercadoLivre, importarCatalogoContaShopee } from "@/modules/estoque/application/importar-catalogo.service";
-import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { ErroSkuSemProduto, ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { emitirEvento } from "@/shared/events";
@@ -122,12 +122,27 @@ export const A31_sincronizarConta = inngest.createFunction(
       const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
       const pedidos = await provider.buscarPedidos(desde);
       let novos = 0;
+      // Pedido de anúncio já removido do catálogo é pulado, não aborta a leva
+      // — ver ErroSkuSemProduto. Os SKUs vão no resultado pra ficar visível na
+      // Central de Sincronização o que não entrou e por quê.
+      const skusSemProduto = new Set<string>();
+      let ignorados = 0;
       for (const pedidoBruto of pedidos) {
         const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
-        const resultado = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
-        if (resultado.novo) novos += 1;
+        try {
+          const resultado = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
+          if (resultado.novo) novos += 1;
+        } catch (error) {
+          if (!(error instanceof ErroSkuSemProduto)) throw error;
+          ignorados += 1;
+          for (const sku of error.skus) skusSemProduto.add(sku);
+        }
       }
-      return { encontrados: pedidos.length, novos };
+      return {
+        encontrados: pedidos.length,
+        novos,
+        ...(ignorados > 0 ? { ignorados, skusSemProduto: [...skusSemProduto] } : {}),
+      };
     });
     if (!resultadoPedidos.ok) {
       await emitirEvento({
