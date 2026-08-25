@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, Loader2, RefreshCw, Search, Star, UserCheck } from "lucide-react";
+import { ChevronDown, ExternalLink, Loader2, Search, Star, UserCheck } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -61,10 +61,6 @@ function paraDataInput(data: Date): string {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 }
 const hoje = paraDataInput(new Date());
-const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-// Só a hora — o botão de atualizar mostra o horário junto com o ícone no
-// mobile, sem precisar do texto completo "Atualizado em DD/MM/AAAA, HH:MM".
-const horaCurta = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
 /* Trocar de aba desmonta este componente. Sem guardar o resultado, cada volta
    refaz a consulta inteira ao Mercado Livre — que é 1 requisição por anúncio,
@@ -630,21 +626,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                 { value: "sem_avaliacao", label: "Sem avaliações" },
               ]}
             />
-            <button
-              type="button"
-              onClick={() => void carregar(true)}
-              disabled={carregando}
-              className="press-feedback inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
-              title="Atualizar avaliações"
-            >
-              <RefreshCw size={15} className={carregando ? "animate-spin" : ""} />
-              {buscadoEm && !carregando && (
-                <>
-                  <span className="sm:hidden">{horaCurta.format(new Date(buscadoEm))}</span>
-                  <span className="hidden sm:inline">{dataHora.format(new Date(buscadoEm))}</span>
-                </>
-              )}
-            </button>
             {/* Filtra só os comentários com texto (ver aviso no ícone de
                 info acima) — a nota média e a distribuição não têm como ser
                 recortadas por data, o Mercado Livre não expõe isso. */}
