@@ -14,7 +14,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
 
       {/* Cabeçalho mínimo (logo + sair) — só mobile, onde o TopNav não existe */}
-      <MobileHeader />
+      <MobileHeader modulosVisiveis={contexto.modulosVisiveis} />
 
       {/* Conteúdo principal */}
       <main className="pt-[calc(3.5rem_+_env(safe-area-inset-top))] pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pt-14 md:pb-0 [@media_(min-width:768px)_and_(max-height:500px)]:pb-[calc(5rem_+_env(safe-area-inset-bottom))] [@media_(min-width:768px)_and_(max-height:500px)]:pt-0">
