@@ -3,9 +3,6 @@
 import { motion } from "framer-motion";
 import { eases } from "@/shared/design-system/motion-variants";
 import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
-import pagesConfig from "@/config/pages.json";
-
-const copy = pagesConfig.login;
 
 export function LoginHero() {
   return (
@@ -19,15 +16,6 @@ export function LoginHero() {
       >
         <ElisaLimaLogo variant="login" />
       </motion.div>
-
-      <motion.p
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: eases.standard, delay: 0.15 }}
-        className="mt-3 text-sm text-muted-foreground"
-      >
-        {copy.subtitle ?? "Entre para acessar o painel"}
-      </motion.p>
     </div>
   );
 }
