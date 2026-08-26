@@ -122,6 +122,14 @@ function IntegrationRow({ name, description, href, color, connected = false }: {
   );
 }
 
+/** Âncoras da barra de atalhos mobile — precisa bater com os `id` dos
+ *  wrappers de seção abaixo. */
+const NAV_SECOES = [
+  { id: "secao-usuarios", rotulo: "Usuários" },
+  { id: "secao-canais", rotulo: "Canais" },
+  { id: "secao-administracao", rotulo: "Administração" },
+] as const;
+
 export default function ConfiguracoesPage() {
   const iniciais = useConfiguracoesIniciais();
   const [usuarios, setUsuarios] = useState<UsuarioResumo[]>(iniciais.usuarios ?? []);
@@ -189,123 +197,176 @@ export default function ConfiguracoesPage() {
     [...items].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR", { sensitivity: "base" })),
   []);
 
+  const canaisConectados = canais.filter((item) => item.status === "conectado").length;
+  const integracoesRelevantes = settingsConfig.integrations.items.filter((i) => i.name !== settingsConfig.mercadoLivre.title);
+  const integracoesConectadas = integracoesRelevantes.filter((integration) => {
+    const [source, value] = integration.statusSource.split(":");
+    return source === "channel"
+      ? canais.some((item) => item.canal === value && item.status === "conectado")
+      : value === "inngest" ? resumo?.inngestConfigured === true : resumo?.openAiConfigured === true;
+  }).length;
+
   return (
     <div>
       <PageHeader title={settingsConfig.header.title} />
 
+      {/* Atalho só no mobile: a página tem 9 cards empilhados, então em vez
+          de exigir rolar tudo pra chegar em "Cópia de segurança", 3 pílulas
+          pulam direto pra cada área — mesma ideia da barra de filtros do
+          resto do app, aplicada à navegação da própria página. */}
+      {/* `top` casa com o padding-top do <main> do layout (MobileHeader é
+          `fixed`, então `sticky top-0` puro ficaria escondido atrás dele). */}
+      <nav
+        aria-label="Ir para seção"
+        className="sticky top-[calc(3.5rem_+_env(safe-area-inset-top))] z-10 -mx-4 mb-4 flex gap-2 overflow-x-auto border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur sm:hidden [&::-webkit-scrollbar]:hidden"
+      >
+        {NAV_SECOES.map((secao) => (
+          <a
+            key={secao.id}
+            href={`#${secao.id}`}
+            className="press-feedback shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold text-foreground"
+          >
+            {secao.rotulo}
+          </a>
+        ))}
+      </nav>
+
       <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-5">
 
-        <Card
-          title="Usuários"
-          icon={getIcon("UsersRound")}
-          actions={<InfoBotao rotulo="Sobre os usuários">Acessos, perfis e senhas temporárias da organização.</InfoBotao>}
-        >
-          <UsuariosSection
-            usuarios={usuarios}
-            loading={carregandoUsuarios}
-            organizationName={resumo?.organizationName ?? null}
-            marcasAtivas={resumo?.activeBrands.length ?? 0}
-            canaisConectados={canais.filter((item) => item.status === "conectado").length}
-            canaisTotal={canais.length}
-            onUsuarioCriado={(usuario) => setUsuarios((atuais) => ordenarUsuarios([...atuais, usuario]))}
-            onUsuarioAtualizado={(usuario) =>
-              setUsuarios((atuais) => ordenarUsuarios(atuais.map((item) => item.id === usuario.id ? usuario : item)))
-            }
-            onUsuarioExcluido={(userId) =>
-              setUsuarios((atuais) => atuais.filter((item) => item.id !== userId))
-            }
-          />
-        </Card>
+        <div id="secao-usuarios" className="scroll-mt-28">
+          <Card
+            title="Usuários"
+            icon={getIcon("UsersRound")}
+            actions={<InfoBotao rotulo="Sobre os usuários">Acessos, perfis e senhas temporárias da organização.</InfoBotao>}
+          >
+            <UsuariosSection
+              usuarios={usuarios}
+              loading={carregandoUsuarios}
+              organizationName={resumo?.organizationName ?? null}
+              marcasAtivas={resumo?.activeBrands.length ?? 0}
+              canaisConectados={canaisConectados}
+              canaisTotal={canais.length}
+              onUsuarioCriado={(usuario) => setUsuarios((atuais) => ordenarUsuarios([...atuais, usuario]))}
+              onUsuarioAtualizado={(usuario) =>
+                setUsuarios((atuais) => ordenarUsuarios(atuais.map((item) => item.id === usuario.id ? usuario : item)))
+              }
+              onUsuarioExcluido={(userId) =>
+                setUsuarios((atuais) => atuais.filter((item) => item.id !== userId))
+              }
+            />
+          </Card>
+        </div>
 
-        <SectionHeading title={settingsConfig.sections.canais.title} icon={getIcon(settingsConfig.sections.canais.icon)} />
+        <div id="secao-canais" className="scroll-mt-28 space-y-5">
+          <SectionHeading title={settingsConfig.sections.canais.title} icon={getIcon(settingsConfig.sections.canais.icon)} />
 
-        <Card title="Canais por marca" icon={getIcon("Wifi")}>
-          {/* Faixas-resumo por marketplace acima do grid: status num relance, ação no card. */}
-          <div className="mb-4 divide-y divide-border rounded-xl border border-border bg-background/60 [&>*]:px-4 [&>*]:py-3">
-            <div>
-              <Suspense fallback={null}>
-                <MLOAuthFeedback onConectado={mlStatus.atualizar} />
-              </Suspense>
-              <MLConnectionStrip status={mlStatus} />
+          <Card title="Canais por marca" icon={getIcon("Wifi")} resumo={`${canaisConectados} de ${canais.length} conectados`}>
+            {/* Faixas-resumo por marketplace acima do grid: status num relance, ação no card. */}
+            <div className="mb-4 divide-y divide-border rounded-xl border border-border bg-background/60 [&>*]:px-4 [&>*]:py-3">
+              <div>
+                <Suspense fallback={null}>
+                  <MLOAuthFeedback onConectado={mlStatus.atualizar} />
+                </Suspense>
+                <MLConnectionStrip status={mlStatus} />
+              </div>
+              <div>
+                <ChannelConnectionStrip canal="shopee" items={canais.filter((item) => item.canal === "shopee")} />
+              </div>
+              <div>
+                <ChannelConnectionStrip canal="tiktokshop" items={canais.filter((item) => item.canal === "tiktokshop")} />
+              </div>
             </div>
-            <div>
-              <ChannelConnectionStrip canal="shopee" items={canais.filter((item) => item.canal === "shopee")} />
-            </div>
-            <div>
-              <ChannelConnectionStrip canal="tiktokshop" items={canais.filter((item) => item.canal === "tiktokshop")} />
-            </div>
-          </div>
-          <CanaisPorMarca
-            items={canais}
-            loading={carregandoCanais}
-            onChanged={recarregarCanais}
-            mlStatus={mlStatus}
-          />
-        </Card>
+            <CanaisPorMarca
+              items={canais}
+              loading={carregandoCanais}
+              onChanged={recarregarCanais}
+              mlStatus={mlStatus}
+            />
+          </Card>
 
-        <Card
-          title="Central de sincronização"
-          icon={getIcon("Repeat")}
-        >
-          {carregandoCanais ? (
-            <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>
-          ) : (
-            <SincronizacaoSection canais={canais} />
-          )}
-        </Card>
+          <Card
+            title="Central de sincronização"
+            icon={getIcon("Repeat")}
+            colapsavelMobile
+            abertoInicialMobile={false}
+          >
+            {carregandoCanais ? (
+              <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>
+            ) : (
+              <SincronizacaoSection canais={canais} />
+            )}
+          </Card>
 
-        <Card
-          title="Uso da API Shopee"
-          icon={getIcon("Gauge")}
-          actions={<InfoBotao rotulo="Sobre o uso da API">Quantidade de chamadas feitas à Shopee através do proxy de IP fixo — esse proxy tem cota mensal, e estourá-la derruba a integração inteira até o mês virar ou o plano subir.</InfoBotao>}
-        >
-          <ShopeeUsoSection data={usoShopee} loading={carregandoUsoShopee} />
-        </Card>
+          <Card
+            title="Uso da API Shopee"
+            icon={getIcon("Gauge")}
+            actions={<InfoBotao rotulo="Sobre o uso da API">Quantidade de chamadas feitas à Shopee através do proxy de IP fixo — esse proxy tem cota mensal, e estourá-la derruba a integração inteira até o mês virar ou o plano subir.</InfoBotao>}
+            colapsavelMobile
+            abertoInicialMobile={false}
+          >
+            <ShopeeUsoSection data={usoShopee} loading={carregandoUsoShopee} />
+          </Card>
 
-        <Card
-          title="Endpoints e frequências"
-          description="Chamadas externas ativas, organizadas por canal e módulo"
-          icon={getIcon("Network")}
-          actions={<InfoBotao rotulo="Sobre os endpoints">Referência operacional do que o sistema chama, quando chama e quais ações podem consumir as APIs dos marketplaces.</InfoBotao>}
-        >
-          <EndpointsFrequenciasSection />
-        </Card>
+          <Card
+            title="Endpoints e frequências"
+            description="Chamadas externas ativas, organizadas por canal e módulo"
+            icon={getIcon("Network")}
+            actions={<InfoBotao rotulo="Sobre os endpoints">Referência operacional do que o sistema chama, quando chama e quais ações podem consumir as APIs dos marketplaces.</InfoBotao>}
+            colapsavelMobile
+            abertoInicialMobile={false}
+          >
+            <EndpointsFrequenciasSection />
+          </Card>
 
-        <Card title={settingsConfig.integrations.title} icon={getIcon(settingsConfig.integrations.icon)}>
-          {settingsConfig.integrations.items
-            .filter((i) => i.name !== settingsConfig.mercadoLivre.title)
-            .map((integration) => {
+          <Card
+            title={settingsConfig.integrations.title}
+            icon={getIcon(settingsConfig.integrations.icon)}
+            resumo={`${integracoesConectadas} de ${integracoesRelevantes.length} conectadas`}
+            colapsavelMobile
+            abertoInicialMobile={false}
+          >
+            {integracoesRelevantes.map((integration) => {
               const [source, value] = integration.statusSource.split(":");
               const connected = source === "channel"
                 ? canais.some((item) => item.canal === value && item.status === "conectado")
                 : value === "inngest" ? resumo?.inngestConfigured === true : resumo?.openAiConfigured === true;
               return <IntegrationRow key={integration.name} {...integration} connected={connected} />;
             })}
-        </Card>
+          </Card>
+        </div>
 
-        <SectionHeading title={settingsConfig.sections.administracao.title} icon={getIcon(settingsConfig.sections.administracao.icon)} />
+        <div id="secao-administracao" className="scroll-mt-28 space-y-5">
+          <SectionHeading title={settingsConfig.sections.administracao.title} icon={getIcon(settingsConfig.sections.administracao.icon)} />
 
-        <Card
-          title={settingsConfig.automacoes.title}
-          icon={getIcon(settingsConfig.automacoes.icon)}
-        >
-          <AutomacoesSection />
-        </Card>
+          <Card
+            title={settingsConfig.automacoes.title}
+            icon={getIcon(settingsConfig.automacoes.icon)}
+            colapsavelMobile
+            abertoInicialMobile={false}
+          >
+            <AutomacoesSection />
+          </Card>
 
-        <Card
-          title="Rotinas agendadas"
-          icon={getIcon("Clock")}
-        >
-          <RotinasAgendadasSection data={rotinasAgendadas} loading={carregandoRotinas} />
-        </Card>
+          <Card
+            title="Rotinas agendadas"
+            icon={getIcon("Clock")}
+            resumo={rotinasAgendadas ? `${rotinasAgendadas.itens.length} rotinas` : undefined}
+            colapsavelMobile
+            abertoInicialMobile={false}
+          >
+            <RotinasAgendadasSection data={rotinasAgendadas} loading={carregandoRotinas} />
+          </Card>
 
-        <Card
-          title="Cópia de segurança"
-          description="Exportação sob demanda dos dados da organização, em JSON e CSV"
-          icon={getIcon("DatabaseBackup")}
-        >
-          <BackupSection />
-        </Card>
+          <Card
+            title="Cópia de segurança"
+            description="Exportação sob demanda dos dados da organização, em JSON e CSV"
+            icon={getIcon("DatabaseBackup")}
+            colapsavelMobile
+            abertoInicialMobile={false}
+          >
+            <BackupSection />
+          </Card>
+        </div>
 
       </motion.div>
     </div>
