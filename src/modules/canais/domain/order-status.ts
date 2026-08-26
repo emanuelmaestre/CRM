@@ -21,7 +21,19 @@ export function mapearStatusPedido(statusExterno: string): PedidoStatus {
     to_pay: "criado",
     paid: "pago",
     ready_to_ship: "separado",
+    // Shopee: depois de READY_TO_SHIP o pedido passa por PROCESSED (envio já
+    // agendado, aguardando a coleta) e, se a coleta falha, por RETRY_SHIP —
+    // nenhum dos dois estava neste mapa, então caíam no fallback "criado" e
+    // ficavam presos ali (9 pedidos da WUWU parados desde 09/08/2026).
+    processed: "separado",
+    retry_ship: "separado",
     shipped: "enviado",
+    // Entregue ao comprador, aguardando ele confirmar o recebimento.
+    to_confirm_receive: "entregue",
+    // Devolução pedida pelo comprador; "devolvido" é o estágio mais próximo
+    // que o domínio tem — só se aplica a pedido já enviado (ver
+    // deveAplicarStatusMarketplace).
+    to_return: "devolvido",
     in_cancel: "cancelado",
     cancelled: "cancelado",
     completed: "concluido",
@@ -38,8 +50,24 @@ export function mapearStatusPedido(statusExterno: string): PedidoStatus {
     awaiting_shipment: "pago",
     awaiting_collection: "separado",
   };
-  return mapa[statusExterno.toLowerCase()] ?? "criado";
+  const chave = statusExterno.toLowerCase();
+  const conhecido = mapa[chave];
+  if (conhecido) return conhecido;
+
+  // O fallback silencioso é o que escondeu `processed` por semanas: pedido
+  // real entrava como "criado" e nada denunciava a lacuna. Continua caindo em
+  // "criado" (é o estágio mais conservador — não avança nada que não deva),
+  // mas agora deixa rastro no log da sincronização.
+  if (chave && !statusDesconhecidoJaAvisado.has(chave)) {
+    statusDesconhecidoJaAvisado.add(chave);
+    console.warn(`[pedidos] status externo desconhecido "${statusExterno}" — tratado como "criado". Ver mapearStatusPedido.`);
+  }
+  return "criado";
 }
+
+/** Um aviso por valor, não um por pedido: uma sincronização de 15 dias
+ *  passaria centenas de pedidos com o mesmo status pelo mapa. */
+const statusDesconhecidoJaAvisado = new Set<string>();
 
 const progressao: Record<Exclude<PedidoStatus, "cancelado" | "devolvido">, number> = {
   criado: 0,
