@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { BarChart3, Check, CircleSlash, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Trophy, Wallet } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -190,6 +191,35 @@ function EntendaFaturamentoBotao() {
   );
 }
 
+/** Bruto/Líquido: no mobile porta pra mesma linha do "Período" (acaoSlot no
+ *  cabeçalho do painel, ver AcaoSlotFiltro) — antes ficava numa linha própria
+ *  logo abaixo do filtro de canal, uma linha a mais só pra um toggle curto
+ *  que cabe de sobra ao lado do período. No desktop segue no lugar de sempre,
+ *  dentro do corpo do card. */
+function TipoToggle({ liquido, aoTrocarLiquido }: { liquido: boolean; aoTrocarLiquido: (liquido: boolean) => void }) {
+  return (
+    <div role="tablist" aria-label="Tipo de faturamento" className="inline-flex rounded-full bg-muted p-0.5 text-xs font-semibold">
+      {(["bruto", "liquido"] as const).map((opcao) => (
+        <button
+          key={opcao}
+          type="button"
+          role="tab"
+          aria-selected={liquido === (opcao === "liquido")}
+          onClick={() => aoTrocarLiquido(opcao === "liquido")}
+          className="rounded-full px-3 py-1 transition-colors"
+          style={
+            liquido === (opcao === "liquido")
+              ? { background: "var(--card)", color: "var(--foreground)", boxShadow: "var(--shadow-sm)" }
+              : { color: "var(--muted-foreground)" }
+          }
+        >
+          {opcao === "bruto" ? "Bruto" : "Líquido"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function EsqueletoFaturamento() {
   return (
     <div className="px-5 pb-5">
@@ -239,7 +269,13 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   return (
     <Card>
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaFaturamentoBotao />} />
-      <CardHead scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>} />
+      {acaoSlot && createPortal(
+        <div className="flex sm:hidden">
+          <TipoToggle liquido={liquido} aoTrocarLiquido={aoTrocarLiquido} />
+        </div>,
+        acaoSlot,
+      )}
+      <CardHead scope={<div className="mt-3 flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>} />
 
       {/* Troca por crossfade, nunca desmontando o Card — evita o "piscar"
           ao mudar de filtro. Com conteúdo anterior na tela, uma busca em
@@ -264,26 +300,8 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
             </motion.div>
           ) : (
             <motion.div key="conteudo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast} className="px-5 pb-5">
-              <div className="mt-4 flex justify-end">
-                <div role="tablist" aria-label="Tipo de faturamento" className="inline-flex rounded-full bg-muted p-0.5 text-xs font-semibold">
-                  {(["bruto", "liquido"] as const).map((opcao) => (
-                    <button
-                      key={opcao}
-                      type="button"
-                      role="tab"
-                      aria-selected={liquido === (opcao === "liquido")}
-                      onClick={() => aoTrocarLiquido(opcao === "liquido")}
-                      className="rounded-full px-3 py-1 transition-colors"
-                      style={
-                        liquido === (opcao === "liquido")
-                          ? { background: "var(--card)", color: "var(--foreground)", boxShadow: "var(--shadow-sm)" }
-                          : { color: "var(--muted-foreground)" }
-                      }
-                    >
-                      {opcao === "bruto" ? "Bruto" : "Líquido"}
-                    </button>
-                  ))}
-                </div>
+              <div className="mt-4 hidden justify-end sm:flex">
+                <TipoToggle liquido={liquido} aoTrocarLiquido={aoTrocarLiquido} />
               </div>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-2">
                 <p className="text-stat-lg text-foreground">{moeda.format(valorAnimado)}</p>
