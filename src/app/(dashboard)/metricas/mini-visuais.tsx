@@ -12,56 +12,67 @@
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 
-/** Colunas + linha de tendência por cima — não é o sparkline de linha fina
- *  de sempre (esse virava um fio quase reto quando o período só tinha 2
- *  pontos, ver a versão anterior no histórico). Colunas leem como "gráfico
- *  estatístico" no primeiro olhar, mesmo com poucos pontos — cada uma é o
- *  valor real do dia, sem inventar oscilação que o dado não tem. A cor de
- *  cada coluna reage à direção real dela (sobe/desce/estável frente à
- *  anterior), não só à tendência geral — é aí que aparece o "vermelho,
- *  verde e outras cores" pra situações diferentes dentro da mesma série,
- *  em vez de uma cor só pintando tudo. */
-export function ColunasTendencia({ dados, cor, largura = 96, altura = 36, classeResponsiva }: {
+/** Zigue-zague com ponta de flecha — a leitura de "tendência" antes de ler
+ *  número nenhum. Substituiu duas tentativas anteriores que degeneravam no
+ *  período curto: a linha fina virava um fio quase reto, e as colunas
+ *  viravam uma barra gorda sozinha com um tracejado solto ao lado (é o que
+ *  acontece quando a série tem só 2 pontos, caso do período "Hoje").
+ *
+ *  A flecha resolve os dois extremos com o mesmo desenho: série longa vira
+ *  o zigue-zague de verdade, série de 2 pontos vira uma diagonal limpa
+ *  apontando pra onde foi. Nos dois casos é o dado real — nada de oscilação
+ *  fabricada só pra "parecer gráfico".
+ *
+ *  Polilinha crua de propósito (sem curva de Bézier): o canto vivo É o
+ *  zigue-zague. Suavizar arredondaria justamente o que dá o caráter. */
+export function LinhaTendencia({ dados, cor, largura = 96, altura = 36, espessura = 2.5, classeResponsiva }: {
   dados: number[];
-  /** Cor "oficial" da tendência do período inteiro (o `cor` de sempre,
-   *  verde/vermelho/neutro) — usada na linha por cima e como cor única
-   *  quando só há 2 pontos (não dá pra falar em "coluna que caiu" com um
-   *  segmento só). */
+  /** Cor da tendência do período (verde/vermelho/neutro, ver mosaico.tsx). */
   cor: string;
   largura?: number;
   altura?: number;
+  espessura?: number;
   classeResponsiva?: string;
 }) {
   if (dados.length < 2) return null;
   const max = Math.max(...dados);
   const min = Math.min(...dados);
-  const margemV = 7;
-  const margemH = 3;
-  const areaUtil = largura - margemH * 2;
-  const n = dados.length;
-  const colunaLargura = Math.min((areaUtil / n) * 0.62, 14);
-  const gap = areaUtil / n;
-  const xCentro = (i: number) => margemH + gap * i + gap / 2;
-  const yValor = (v: number) => altura - ((v - min) / (max - min || 1)) * (altura - margemV * 2) - margemV;
+  // Folga vertical generosa: a ponta da flecha extrapola o último ponto, e
+  // num pico colado no topo ela sairia da viewBox — cortada pelo
+  // `overflow-hidden` do card em volta.
+  const margemV = 10;
+  const margemH = 4;
+  // Espaço reservado à direita pro corpo da flecha caber depois do último
+  // ponto, em vez de a ponta nascer já fora da caixa.
+  const espacoPonta = espessura * 3.8;
+  const fimTraco = largura - margemH - espacoPonta;
 
-  const subiu = "var(--success)";
-  const desceu = "var(--destructive)";
-  const estavel = "var(--muted-foreground)";
-  // Só 2 pontos: é a mesma comparação que já vira o "+9%" ao lado do
-  // número, então usa a cor oficial da tendência em vez de recalcular uma
-  // leitura própria pros 2 segmentos.
-  const corDaColuna = (i: number) => {
-    if (n <= 2) return cor;
-    if (i === 0) return estavel;
-    const delta = dados[i] - dados[i - 1];
-    if (Math.abs(delta) < (max - min || 1) * 0.02) return estavel;
-    return delta > 0 ? subiu : desceu;
-  };
+  const pontos = dados.map((v, i) => {
+    const x = margemH + (i / (dados.length - 1)) * (fimTraco - margemH);
+    const y = altura - ((v - min) / (max - min || 1)) * (altura - margemV * 2) - margemV;
+    return [x, y] as const;
+  });
+  const d = pontos.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [ux, uy] = pontos[pontos.length - 1];
+  const [px, py] = pontos[pontos.length - 2];
+  const area = `${d} L${ux.toFixed(1)},${altura} L${margemH},${altura} Z`;
 
-  const topos = dados.map((v, i) => [xCentro(i), yValor(v)] as const);
-  const linhaTendencia = topos.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const [ux, uy] = topos[topos.length - 1];
+  // Flecha alinhada ao ÚLTIMO trecho: aponta pra direção que a série tomou
+  // de fato no fim, não pra uma diagonal fixa decorativa.
+  const angulo = Math.atan2(uy - py, ux - px);
+  const comprimento = espessura * 3.2;
+  const abertura = 0.45;
+  const pontaX = ux + Math.cos(angulo) * comprimento * 0.5;
+  const pontaY = uy + Math.sin(angulo) * comprimento * 0.5;
+  const flecha = [
+    [pontaX, pontaY],
+    [pontaX - Math.cos(angulo - abertura) * comprimento, pontaY - Math.sin(angulo - abertura) * comprimento],
+    [pontaX - Math.cos(angulo + abertura) * comprimento, pontaY - Math.sin(angulo + abertura) * comprimento],
+  ]
+    .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
+    .join(" ");
 
+  const id = `mv-tend-${cor.replace(/[^a-z0-9]/gi, "")}`;
   return (
     <svg
       width={largura}
@@ -71,29 +82,15 @@ export function ColunasTendencia({ dados, cor, largura = 96, altura = 36, classe
       className={`overflow-visible ${classeResponsiva ?? ""}`}
       preserveAspectRatio="xMidYMid meet"
     >
-      {dados.map((v, i) => {
-        const x = xCentro(i) - colunaLargura / 2;
-        const y = yValor(v);
-        const corColuna = corDaColuna(i);
-        return (
-          <rect
-            key={i}
-            x={x}
-            y={y}
-            width={colunaLargura}
-            height={Math.max(altura - margemV - y, 2)}
-            rx={colunaLargura / 2.6}
-            fill={corColuna}
-            opacity={i === n - 1 ? 0.9 : 0.28}
-          />
-        );
-      })}
-      {/* Linha tracejada conectando o topo de cada coluna — o "combo chart"
-          que lê como estatística de verdade (colunas = valor do dia, linha
-          = tendência), e o traço tracejado (não sólido) evita competir
-          visualmente com as próprias colunas por baixo. */}
-      <path d={linhaTendencia} fill="none" stroke={cor} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1.5 3.5" opacity={0.9} />
-      <circle cx={ux} cy={uy} r={3.4} fill="var(--card)" stroke={cor} strokeWidth={2} />
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={cor} stopOpacity="0.20" />
+          <stop offset="100%" stopColor={cor} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${id})`} />
+      <path d={d} fill="none" stroke={cor} strokeWidth={espessura} strokeLinecap="round" strokeLinejoin="round" />
+      <polygon points={flecha} fill={cor} />
     </svg>
   );
 }
