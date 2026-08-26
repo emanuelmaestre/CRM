@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
+import { shopeeFetch } from "@/shared/lib/shopee-proxy";
+import { createClient } from "@supabase/supabase-js";
 
 interface TikTokCredentials {
   appKey: string;
@@ -49,7 +51,11 @@ export class TikTokShopProvider implements ChannelProvider {
       ...options.query,
     };
     params.sign = this.assinar(path, params, options.body);
-    const res = await fetch(`${this.baseUrl}${path}?${new URLSearchParams(params)}`, {
+    // Mesmo proxy de IP fixo da Shopee (shopeeFetch): o IP cadastrado na
+    // "Lista de permissões de IP" do app TikTok no Partner Center é o mesmo
+    // IP do proxy Webshare já usado pela Shopee — sem ele, a chamada sai pelo
+    // IP efêmero da Vercel e o TikTok recusa.
+    const res = await shopeeFetch(`${this.baseUrl}${path}?${new URLSearchParams(params)}`, {
       method: options.method ?? "GET",
       headers: {
         "Content-Type": "application/json",
@@ -159,12 +165,55 @@ export class TikTokShopProvider implements ChannelProvider {
   }
 }
 
-export function criarTikTokShopProvider(brandSlug: BrandSlug): TikTokShopProvider {
+let supabaseTokenClient: ReturnType<typeof createClient> | undefined;
+
+/** Access token do canal_tokens (canal "tiktokshop", gravado pelo fluxo OAuth
+ *  em /api/tiktok/connect + /api/tiktok/callback) tem prioridade sobre
+ *  TIKTOK_ACCESS_TOKEN_{BRAND} — mesmo padrão do fallback estático do ML
+ *  (ver memória "ML env token placeholders"): só é lido quando não existe
+ *  token persistido pra marca, nunca atualizado automaticamente. */
+async function obterAccessTokenTikTok(brandSlug: BrandSlug): Promise<string | undefined> {
+  const orgId = process.env.DEFAULT_ORG_ID;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const upper = brandEnvSuffix(brandSlug);
+  const fallbackEnv = process.env[`TIKTOK_ACCESS_TOKEN_${upper}`];
+
+  if (!orgId || !supabaseUrl || !serviceRoleKey) return fallbackEnv;
+
+  supabaseTokenClient ??= createClient(supabaseUrl, serviceRoleKey);
+  const supabase = supabaseTokenClient;
+
+  const marca = await supabase
+    .from("brand")
+    .select("id")
+    .eq("org_id", orgId)
+    .eq("slug", brandSlug)
+    .eq("active", true)
+    .maybeSingle() as { data: { id: string } | null };
+  if (!marca.data?.id) return fallbackEnv;
+
+  const tokenRow = await supabase
+    .from("canal_tokens")
+    .select("access_token, expires_at")
+    .eq("org_id", orgId)
+    .eq("brand_id", marca.data.id)
+    .eq("canal", "tiktokshop")
+    .maybeSingle() as { data: { access_token: string; expires_at: string | null } | null };
+
+  const expirado = tokenRow.data?.expires_at
+    ? new Date(tokenRow.data.expires_at).getTime() <= Date.now() + 60_000
+    : true;
+
+  return expirado ? fallbackEnv : tokenRow.data?.access_token ?? fallbackEnv;
+}
+
+export async function criarTikTokShopProvider(brandSlug: BrandSlug): Promise<TikTokShopProvider> {
   const upper = brandEnvSuffix(brandSlug);
   const appKey = process.env.TIKTOK_APP_KEY;
   const appSecret = process.env.TIKTOK_APP_SECRET;
-  const accessToken = process.env[`TIKTOK_ACCESS_TOKEN_${upper}`];
   const shopCipher = process.env[`TIKTOK_SHOP_CIPHER_${upper}`];
+  const accessToken = await obterAccessTokenTikTok(brandSlug);
 
   if (!appKey || !appSecret || !accessToken || !shopCipher) {
     throw new Error(`Credenciais TikTok Shop não configuradas para ${upper}.`);

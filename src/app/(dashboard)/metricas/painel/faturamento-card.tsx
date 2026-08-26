@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Check, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
@@ -8,7 +8,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
-import { springs } from "@/shared/design-system/motion-variants";
+import { springs, fadeUp } from "@/shared/design-system/motion-variants";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { AcaoSlotFiltro } from "./listas-cards";
@@ -220,6 +220,64 @@ function TipoToggle({ liquido, aoTrocarLiquido }: { liquido: boolean; aoTrocarLi
   );
 }
 
+/* ── Digitação da leitura guiada ──────────────────────────────────
+   O bloco "leitura guiada" (logo abaixo do gráfico) entra digitando, não
+   surgindo pronto — cada trecho do texto (`Chunk`) mantém sua formatação
+   (negrito, cor) enquanto é revelado caractere a caractere. */
+type Chunk = { text: string; bold?: boolean; color?: string };
+
+function somarChunks(chunks: Chunk[]): number {
+  return chunks.reduce((soma, c) => soma + c.text.length, 0);
+}
+
+function renderDigitado(chunks: Chunk[], visivel: number) {
+  let restante = visivel;
+  return chunks.map((chunk, indice) => {
+    const parte = chunk.text.slice(0, Math.max(0, restante));
+    restante -= chunk.text.length;
+    if (!parte) return null;
+    return chunk.bold ? (
+      <strong key={indice} className="font-semibold text-foreground" style={chunk.color ? { color: chunk.color } : undefined}>
+        {parte}
+      </strong>
+    ) : (
+      <span key={indice} style={chunk.color ? { color: chunk.color } : undefined}>
+        {parte}
+      </span>
+    );
+  });
+}
+
+/** Cursor piscante mostrado ao fim do trecho sendo digitado no momento. */
+function CursorDigitando() {
+  return <span aria-hidden className="ml-0.5 inline-block h-3 w-[2px] -translate-y-[1px] animate-pulse bg-current align-middle" />;
+}
+
+/** Revela `total` caracteres progressivamente em ~55 passos, independente do
+ *  tamanho do texto — textos curtos e longos "digitam" na mesma duração
+ *  aproximada. Reinicia sempre que `resetKey` muda (troca de filtro/toggle).
+ *  Pula direto pro texto completo quando `ativo` é falso (reduced motion). */
+function useDigitacao(total: number, ativo: boolean, resetKey: string): number {
+  const [visivel, setVisivel] = useState(ativo ? 0 : total);
+  useEffect(() => {
+    if (!ativo || total === 0) {
+      setVisivel(total);
+      return;
+    }
+    setVisivel(0);
+    const passo = Math.max(1, Math.round(total / 55));
+    let atual = 0;
+    const id = setInterval(() => {
+      atual += passo;
+      setVisivel(Math.min(atual, total));
+      if (atual >= total) clearInterval(id);
+    }, 16);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey, ativo, total]);
+  return visivel;
+}
+
 function EsqueletoFaturamento() {
   return (
     <div className="px-5 pb-5">
@@ -253,6 +311,61 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   const positiva = (variacao ?? 0) >= 0;
   const serieAtiva = dados ? (liquido ? dados.serieLiquido : dados.serie) : [];
   const pontoFocado = focado !== null ? serieAtiva[focado] ?? null : null;
+
+  /* Leitura guiada (bloco abaixo do gráfico): montada como texto+formatação
+     (chunks) mesmo quando não há dado ainda, pra manter os hooks (useState/
+     useEffect dentro de useDigitacao) sempre chamados na mesma ordem — só o
+     JSX é condicional, não os hooks. */
+  const temResumo = Boolean(dados) && variacao !== null;
+  const corTendenciaResumo = positiva ? "var(--success)" : "var(--destructive)";
+  const valorAtualResumo = liquido ? (dados?.totalLiquidoNumerico ?? 0) : (dados?.totalNumerico ?? 0);
+  const valorAnteriorResumoNumerico = liquido ? (dados?.totalAnteriorLiquidoNumerico ?? 0) : (dados?.totalAnteriorNumerico ?? 0);
+  const valorAnteriorResumoLabel = liquido ? (dados?.totalAnteriorLiquido ?? "") : (dados?.totalAnterior ?? "");
+  const ticketResumoLabel = liquido ? (dados?.ticketMedioLiquido ?? "") : (dados?.ticketMedio ?? "");
+  const diferencaResumo = Math.abs(valorAtualResumo - valorAnteriorResumoNumerico);
+
+  const headlineChunks: Chunk[] = temResumo && dados ? [
+    { text: `Faturamento ${liquido ? "líquido" : "bruto"} ${positiva ? "cresceu" : "caiu"} ` },
+    { text: `${Math.abs(variacao ?? 0)}%`, bold: true, color: corTendenciaResumo },
+    { text: ` em ${dados.janelaLabel}, na comparação com ${dados.janelaAnteriorLabel}.` },
+  ] : [];
+
+  const detailChunks: Chunk[] = temResumo && dados ? [
+    { text: "Foi de " },
+    { text: valorAnteriorResumoLabel, bold: true },
+    { text: " para " },
+    { text: moeda.format(valorAtualResumo), bold: true },
+    { text: ` (${positiva ? "+" : "-"}${moeda.format(diferencaResumo)}), somando ` },
+    { text: `${dados.pedidos} pedido${dados.pedidos === 1 ? "" : "s"}`, bold: true },
+    { text: " no período, com ticket médio de " },
+    { text: ticketResumoLabel, bold: true },
+    { text: "." },
+  ] : [];
+
+  const obsChunks: Chunk[] = temResumo
+    ? liquido
+      ? [
+        { text: "OBS: ", bold: true },
+        { text: "faturamento " },
+        { text: "líquido", bold: true },
+        { text: " é o valor bruto do pedido menos a taxa do marketplace por item (quando o canal informa esse valor) e o frete pago por você como vendedor. Não desconta desconto ou acréscimo aplicado ao pedido, nem o custo do produto." },
+      ]
+      : [
+        { text: "OBS: ", bold: true },
+        { text: "faturamento " },
+        { text: "bruto", bold: true },
+        { text: " é a soma do valor total de cada pedido concluído no período, incluindo produto e frete cobrado do cliente, sem nenhum desconto aplicado. Pedidos cancelados e devolvidos nunca entram em nenhum dos dois valores." },
+      ]
+    : [];
+
+  const totalHeadline = somarChunks(headlineChunks);
+  const totalDetail = somarChunks(detailChunks);
+  const totalObs = somarChunks(obsChunks);
+  const totalResumo = totalHeadline + totalDetail + totalObs;
+  const visivelResumo = useDigitacao(totalResumo, !reduzir, `${dados?.janelaLabel ?? ""}-${liquido}`);
+  const visivelHeadline = Math.max(0, Math.min(totalHeadline, visivelResumo));
+  const visivelDetail = Math.max(0, Math.min(totalDetail, visivelResumo - totalHeadline));
+  const visivelObs = Math.max(0, Math.min(totalObs, visivelResumo - totalHeadline - totalDetail));
 
   return (
     <Card>
@@ -348,6 +461,59 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 {dados && <GraficoSerie serie={serieAtiva} aoFocar={setFocado} cores={cores} />}
               </div>
 
+              {/* Leitura guiada da comparação acima — traduz os números do
+                  cabeçalho (valor, variação, pedidos) num bloco organizado
+                  em 3 partes (manchete, detalhamento, base de cálculo) que
+                  entra "digitando" — cada trecho é revelado caractere a
+                  caractere (ver `useDigitacao`), como se estivesse sendo
+                  escrito na hora em vez de aparecer pronto. */}
+              {temResumo && dados && (
+                <motion.div
+                  key={`${dados.janelaLabel}-${liquido}`}
+                  variants={reduzir ? undefined : fadeUp}
+                  initial={reduzir ? undefined : "hidden"}
+                  animate={reduzir ? undefined : "show"}
+                  className="mt-5 flex items-start gap-3 overflow-hidden rounded-[0.85rem] border border-border p-4"
+                  style={{ background: tint(corTendenciaResumo, 5) }}
+                >
+                  <motion.span
+                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                    style={{ background: tint(corTendenciaResumo, 14), color: corTendenciaResumo }}
+                    animate={reduzir ? undefined : { scale: [1, 1.12, 1] }}
+                    transition={reduzir ? undefined : { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                  >
+                    <motion.span
+                      initial={reduzir ? undefined : { y: positiva ? 3 : -3, opacity: 0 }}
+                      animate={reduzir ? undefined : { y: 0, opacity: 1 }}
+                      transition={reduzir ? undefined : { ...springs.settleFast, delay: 0.15 }}
+                      className="flex"
+                    >
+                      {positiva ? <TrendingUp size={15} strokeWidth={2.4} /> : <TrendingDown size={15} strokeWidth={2.4} />}
+                    </motion.span>
+                  </motion.span>
+                  <div>
+                    <p className="text-[13.5px] font-bold leading-snug text-foreground">
+                      {renderDigitado(headlineChunks, visivelHeadline)}
+                      {!reduzir && visivelHeadline > 0 && visivelHeadline < totalHeadline && <CursorDigitando />}
+                    </p>
+                    <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
+                      {renderDigitado(detailChunks, visivelDetail)}
+                      {!reduzir && visivelDetail > 0 && visivelDetail < totalDetail && <CursorDigitando />}
+                    </p>
+                    {/* Nota de rodapé explicando a base de cálculo do valor
+                        exibido — troca de texto junto com o toggle Bruto/
+                        Líquido, sem precisar abrir o popover completo
+                        "Entenda o faturamento" pra entender o que compõe o
+                        número. Mesmo tamanho de fonte do parágrafo acima,
+                        separado só pela borda, pra não parecer nota de
+                        rodapé secundária e sim parte da mesma explicação. */}
+                    <p className="mt-2 border-t border-border/60 pt-2 text-[12.5px] leading-relaxed text-muted-foreground">
+                      {renderDigitado(obsChunks, visivelObs)}
+                      {!reduzir && visivelObs > 0 && visivelObs < totalObs && <CursorDigitando />}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

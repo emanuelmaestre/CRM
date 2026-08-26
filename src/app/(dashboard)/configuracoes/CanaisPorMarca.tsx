@@ -13,6 +13,7 @@ import type { CanalConfiguracao } from "@/modules/canais/application/configuraca
 import { actionAtualizarContaCanal, actionRemoverContaCanal } from "./actions";
 import { MLChannelActions } from "./MLChannelActions";
 import { ShopeeChannelActions } from "./ShopeeChannelActions";
+import { TikTokChannelActions } from "./TikTokChannelActions";
 import type { MercadoLivreStatus } from "./useMercadoLivreStatus";
 
 const cascataLinhas = { hidden: {}, show: { transition: { staggerChildren: 0.035 } } };
@@ -280,6 +281,10 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
           conectado={item.status === "conectado"}
           pedidosConectado={item.shopeePedidosConectado}
         />
+      ) : null}
+
+      {item.canal === "tiktokshop" && isBrandSlug(item.brand) ? (
+        <TikTokChannelActions slug={item.brand} conectado={item.status === "conectado"} />
       ) : null}
 
       {item.channelAccountId && !editando && (

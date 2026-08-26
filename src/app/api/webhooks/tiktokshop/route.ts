@@ -93,7 +93,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const conta = await resolverContaWebhookMarketplace("tiktokshop", shop_id);
 
-    const provider = criarTikTokShopProvider(conta.brandSlug);
+    const provider = await criarTikTokShopProvider(conta.brandSlug);
     const pedido = (await provider.buscarPedidosPorIds([d.order_id]))[0];
     if (!pedido) throw new Error(`TikTok Shop não retornou o pedido ${d.order_id}.`);
 

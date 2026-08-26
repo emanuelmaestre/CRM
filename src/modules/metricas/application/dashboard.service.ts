@@ -166,6 +166,7 @@ function brandLabel(slug: string): string {
 }
 
 const diaMes = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
+const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 const mesAno = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" });
 
 /* ── Séries temporais ─────────────────────────────────────────── */
@@ -498,12 +499,12 @@ export async function obterDashboardData(
       : null,
     totalAnteriorNumerico: totalJanelaAnterior,
     totalAnterior: formatCurrency(totalJanelaAnterior),
-    janelaAnteriorLabel: `${diaMes.format(inicioJanelaAnterior)} – ${diaMes.format(subDays(fimJanelaAnterior, 1))}`,
+    janelaAnteriorLabel: `${diaMesAno.format(inicioJanelaAnterior)} – ${diaMesAno.format(subDays(fimJanelaAnterior, 1))}`,
     pedidos: pedidosNaJanela,
     ticketMedio: formatCurrency(pedidosNaJanela > 0 ? totalJanela / pedidosNaJanela : 0),
     serie,
     janelaLabel: personalizado
-      ? `${diaMes.format(inicioJanela)} – ${diaMes.format(fimJanela)}`
+      ? `${diaMesAno.format(inicioJanela)} – ${diaMesAno.format(fimJanela)}`
       : GRANULARIDADE_LABEL[granularidade],
     totalLiquidoNumerico: totalJanelaLiquido,
     totalLiquido: formatCurrency(totalJanelaLiquido),

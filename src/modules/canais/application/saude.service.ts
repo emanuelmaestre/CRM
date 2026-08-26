@@ -13,7 +13,7 @@ async function resolverProvider(tipo: string, brandSlug: BrandSlug): Promise<Cha
     switch (tipo) {
       case "shopee":       return await criarShopeeProvider(brandSlug);
       case "mercadolivre": return await criarMLProvider(brandSlug);
-      case "tiktokshop":   return criarTikTokShopProvider(brandSlug);
+      case "tiktokshop":   return await criarTikTokShopProvider(brandSlug);
       default:             return null;
     }
   } catch {

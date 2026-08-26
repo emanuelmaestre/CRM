@@ -19,6 +19,6 @@ export async function resolverChannelProvider(
   switch (tipo) {
     case "mercadolivre": return criarMLProvider(brandSlug);
     case "shopee": return await criarShopeeProvider(brandSlug);
-    case "tiktokshop": return criarTikTokShopProvider(brandSlug);
+    case "tiktokshop": return await criarTikTokShopProvider(brandSlug);
   }
 }

@@ -15,3 +15,7 @@ export function obterUrlCallbackMercadoLivre(envUrl = process.env.NEXT_PUBLIC_AP
 export function obterUrlCallbackShopee(envUrl = process.env.NEXT_PUBLIC_APP_URL): string {
   return `${obterAppUrl(envUrl)}/api/shopee/callback`;
 }
+
+export function obterUrlCallbackTikTok(envUrl = process.env.NEXT_PUBLIC_APP_URL): string {
+  return `${obterAppUrl(envUrl)}/api/tiktok/callback`;
+}
