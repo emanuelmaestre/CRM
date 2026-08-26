@@ -20,7 +20,7 @@ import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./p
 import { type Periodo, AnelScore } from "./metricas-primitives";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
-import { Linha, BarrasMarca, MiniRanking } from "./mini-visuais";
+import { ColunasTendencia, BarrasMarca, MiniRanking } from "./mini-visuais";
 import { actionObterDashboardData } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
@@ -513,21 +513,27 @@ export function Mosaico({
       ],
       dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
     },
-    /* Gráfico da série, grande — a curva do faturamento no tempo, que é o
-       que o card do topo tem de mais característico pra mostrar.
-       Já foi uma flecha de ícone por um tempo, porque a linha "sumia" nos
-       períodos curtos; a causa real era a série vir com menos de 2 pontos
-       (ex.: período "Hoje"), e não o tamanho. O fallback abaixo resolve
-       isso na origem: sem 2 pontos na série, desenha [anterior, atual] —
-       o mesmo par que já alimenta o "+9%" ao lado do número —, então a
-       linha nunca fica vazia e continua dizendo a mesma verdade.
-       Verde subindo / vermelho descendo, mesma leitura semântica do Delta. */
+    /* Gráfico da série, grande — colunas diárias + linha de tendência por
+       cima, que é o que o card do topo tem de mais característico pra
+       mostrar. Já foi uma flecha de ícone, e depois uma linha fina — as
+       duas sumiam ou liam como decoração nos períodos curtos; a causa real
+       era a série vir com menos de 2 pontos (ex.: período "Hoje"), não o
+       tamanho do desenho. O fallback abaixo resolve isso na origem: sem 2
+       pontos na série, desenha [anterior, atual] — o mesmo par que já
+       alimenta o "+9%" ao lado do número —, então o gráfico nunca fica
+       vazio e continua dizendo a mesma verdade.
+       Verde subindo / vermelho descendo / cinza estável, mesma leitura
+       semântica do Delta — só que aqui cada coluna pode ter a própria cor
+       além da tendência geral (ver `corDaColuna` em ColunasTendencia). */
     preview: dadosFaturamento
       ? (() => {
           const pontos = dadosFaturamento.serie.length > 1
             ? dadosFaturamento.serie.map((ponto) => ponto.valor)
             : [dadosFaturamento.totalAnteriorNumerico, dadosFaturamento.totalNumerico];
-          const cor = (dadosFaturamento.variacaoPercentual ?? 0) < 0 ? "var(--destructive)" : "var(--success)";
+          const variacaoTraco = dadosFaturamento.variacaoPercentual;
+          const cor = variacaoTraco === null || Math.abs(variacaoTraco) < 0.5
+            ? "var(--muted-foreground)"
+            : variacaoTraco < 0 ? "var(--destructive)" : "var(--success)";
           // Duas instâncias, mesmo padrão do Anel de Score/Publicações: o
           // SVG tem largura FIXA em pixels (não responsiva), então os
           // mesmos 180×60 que cabem folgados no card em destaque (linha
@@ -537,8 +543,8 @@ export function Mosaico({
           // `overflow-hidden` do card. Menor no mobile em vez de cortado.
           return (
             <>
-              <span className="lg:hidden"><Linha dados={pontos} cor={cor} largura={104} altura={42} espessura={2} /></span>
-              <span className="hidden lg:block"><Linha dados={pontos} cor={cor} largura={180} altura={60} espessura={2.5} /></span>
+              <span className="lg:hidden"><ColunasTendencia dados={pontos} cor={cor} largura={104} altura={42} /></span>
+              <span className="hidden lg:block"><ColunasTendencia dados={pontos} cor={cor} largura={180} altura={60} /></span>
             </>
           );
         })()
@@ -832,7 +838,7 @@ export function Mosaico({
     // `giroBaixoQtd` — precisa apagar isto NA MÃO quando isso acontecer.
     preview: giroBaixo.dados && giroBaixo.dados.giroBaixo.length > 0
       ? (
-        <Linha
+        <ColunasTendencia
           dados={[9, 8, 8, 7, 7, 6, giroBaixo.dados.giroBaixo.length]}
           cor="var(--info)"
           largura={96}

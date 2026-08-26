@@ -12,41 +12,56 @@
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 
-export function Linha({ dados, cor, largura = 96, altura = 36, espessura = 1.75, classeResponsiva }: {
+/** Colunas + linha de tendência por cima — não é o sparkline de linha fina
+ *  de sempre (esse virava um fio quase reto quando o período só tinha 2
+ *  pontos, ver a versão anterior no histórico). Colunas leem como "gráfico
+ *  estatístico" no primeiro olhar, mesmo com poucos pontos — cada uma é o
+ *  valor real do dia, sem inventar oscilação que o dado não tem. A cor de
+ *  cada coluna reage à direção real dela (sobe/desce/estável frente à
+ *  anterior), não só à tendência geral — é aí que aparece o "vermelho,
+ *  verde e outras cores" pra situações diferentes dentro da mesma série,
+ *  em vez de uma cor só pintando tudo. */
+export function ColunasTendencia({ dados, cor, largura = 96, altura = 36, classeResponsiva }: {
   dados: number[];
+  /** Cor "oficial" da tendência do período inteiro (o `cor` de sempre,
+   *  verde/vermelho/neutro) — usada na linha por cima e como cor única
+   *  quando só há 2 pontos (não dá pra falar em "coluna que caiu" com um
+   *  segmento só). */
   cor: string;
   largura?: number;
   altura?: number;
-  /** Espessura do traço. O card em destaque usa mais grosso — no tamanho
-   *  grande dele, o traço fino de 1.75 lia como um fio solto. */
-  espessura?: number;
-  /** Classes Tailwind que sobrescrevem o tamanho renderizado (ex.: mais
-   *  estreito no mobile) sem recalcular os pontos do traço — o SVG usa
-   *  `largura`/`altura` só pro viewBox/matemática interna; o navegador
-   *  escala o desenho pro tamanho de tela real definido em CSS. */
   classeResponsiva?: string;
 }) {
   if (dados.length < 2) return null;
   const max = Math.max(...dados);
   const min = Math.min(...dados);
-  // Margem vertical de 7px (não 3): o traço e a bolinha do ponto final
-  // (raio 2.75 + contorno) chegavam quase colados na borda da caixa.
-  // Margem HORIZONTAL de 3px: sem ela, o último ponto cai exatamente em
-  // x = largura — metade da bolinha fica fora da viewBox e é cortada pelo
-  // `overflow-hidden` do card em volta. Isso é o que lia como "cortado",
-  // não a folga vertical.
   const margemV = 7;
   const margemH = 3;
-  const ponto = (v: number, i: number) => {
-    const x = margemH + (i / (dados.length - 1)) * (largura - margemH * 2);
-    const y = altura - ((v - min) / (max - min || 1)) * (altura - margemV * 2) - margemV;
-    return [x, y] as const;
+  const areaUtil = largura - margemH * 2;
+  const n = dados.length;
+  const colunaLargura = Math.min((areaUtil / n) * 0.62, 14);
+  const gap = areaUtil / n;
+  const xCentro = (i: number) => margemH + gap * i + gap / 2;
+  const yValor = (v: number) => altura - ((v - min) / (max - min || 1)) * (altura - margemV * 2) - margemV;
+
+  const subiu = "var(--success)";
+  const desceu = "var(--destructive)";
+  const estavel = "var(--muted-foreground)";
+  // Só 2 pontos: é a mesma comparação que já vira o "+9%" ao lado do
+  // número, então usa a cor oficial da tendência em vez de recalcular uma
+  // leitura própria pros 2 segmentos.
+  const corDaColuna = (i: number) => {
+    if (n <= 2) return cor;
+    if (i === 0) return estavel;
+    const delta = dados[i] - dados[i - 1];
+    if (Math.abs(delta) < (max - min || 1) * 0.02) return estavel;
+    return delta > 0 ? subiu : desceu;
   };
-  const pontos = dados.map(ponto);
-  const d = pontos.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const area = `${d} L${largura - margemH},${altura} L${margemH},${altura} Z`;
-  const [ux, uy] = pontos[pontos.length - 1];
-  const id = `mv-area-${cor.replace(/[^a-z0-9]/gi, "")}`;
+
+  const topos = dados.map((v, i) => [xCentro(i), yValor(v)] as const);
+  const linhaTendencia = topos.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const [ux, uy] = topos[topos.length - 1];
+
   return (
     <svg
       width={largura}
@@ -56,17 +71,29 @@ export function Linha({ dados, cor, largura = 96, altura = 36, espessura = 1.75,
       className={`overflow-visible ${classeResponsiva ?? ""}`}
       preserveAspectRatio="xMidYMid meet"
     >
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={cor} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={cor} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#${id})`} />
-      <path d={d} fill="none" stroke={cor} strokeWidth={espessura} strokeLinecap="round" strokeLinejoin="round" />
-      {/* Ponto final acompanha a espessura do traço — num traço grosso, a
-          bolinha de raio fixo somia dentro dele. */}
-      <circle cx={ux} cy={uy} r={espessura * 1.6} fill="var(--card)" stroke={cor} strokeWidth={espessura} />
+      {dados.map((v, i) => {
+        const x = xCentro(i) - colunaLargura / 2;
+        const y = yValor(v);
+        const corColuna = corDaColuna(i);
+        return (
+          <rect
+            key={i}
+            x={x}
+            y={y}
+            width={colunaLargura}
+            height={Math.max(altura - margemV - y, 2)}
+            rx={colunaLargura / 2.6}
+            fill={corColuna}
+            opacity={i === n - 1 ? 0.9 : 0.28}
+          />
+        );
+      })}
+      {/* Linha tracejada conectando o topo de cada coluna — o "combo chart"
+          que lê como estatística de verdade (colunas = valor do dia, linha
+          = tendência), e o traço tracejado (não sólido) evita competir
+          visualmente com as próprias colunas por baixo. */}
+      <path d={linhaTendencia} fill="none" stroke={cor} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="1.5 3.5" opacity={0.9} />
+      <circle cx={ux} cy={uy} r={3.4} fill="var(--card)" stroke={cor} strokeWidth={2} />
     </svg>
   );
 }
