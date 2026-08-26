@@ -268,23 +268,27 @@ function CursorDigitando() {
  *  aproximada. Reinicia sempre que `resetKey` muda (troca de filtro/toggle).
  *  Pula direto pro texto completo quando `ativo` é falso (reduced motion). */
 function useDigitacao(total: number, ativo: boolean, resetKey: string): number {
-  const [visivel, setVisivel] = useState(ativo ? 0 : total);
+  const chave = `${resetKey}:${ativo ? "animado" : "imediato"}:${total}`;
+  const [progresso, setProgresso] = useState(() => ({ chave, visivel: ativo ? 0 : total }));
+  const visivel = progresso.chave === chave
+    ? progresso.visivel
+    : ativo
+      ? 0
+      : total;
+
   useEffect(() => {
-    if (!ativo || total === 0) {
-      setVisivel(total);
-      return;
-    }
-    setVisivel(0);
+    if (!ativo || total === 0) return;
+
     const passo = Math.max(1, Math.round(total / 55));
     let atual = 0;
     const id = setInterval(() => {
       atual += passo;
-      setVisivel(Math.min(atual, total));
+      setProgresso({ chave, visivel: Math.min(atual, total) });
       if (atual >= total) clearInterval(id);
     }, 16);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, ativo, total]);
+  }, [chave, ativo, total]);
+
   return visivel;
 }
 

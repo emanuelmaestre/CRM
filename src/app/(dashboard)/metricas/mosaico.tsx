@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
   BarChart3, Gauge, Hourglass, Megaphone,
-  Package, RefreshCw, ShoppingBag, TrendingDown, TrendingUp,
+  Package, ShoppingBag, TrendingDown, TrendingUp,
 } from "lucide-react";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { stagger } from "@/shared/design-system/motion-variants";
@@ -232,11 +232,6 @@ function useDadosDoCard(
    Exportar em PDF saiu por completo (o botão exportava sempre o mesmo
    resumo Score+Atendimento+Pós-venda, sem relação com o card em foco —
    decisão tomada com o usuário). */
-const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-// Só a hora — usado no mobile pra "Atualizado às" caber na mesma linha do
-// Período sem forçar quebra (a data completa some ali, mas some porque a
-// atualização é sempre "agora", não porque falte informação relevante).
-
 function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent, semHoje }: {
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;
