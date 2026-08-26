@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ScoreCard } from "@/app/(dashboard)/metricas/score-card";
-import { AtendimentoCard } from "@/app/(dashboard)/metricas/atendimento-card";
 import { ComparacaoCard } from "@/app/(dashboard)/metricas/comparacao-card";
 import { PublicacoesCard } from "@/app/(dashboard)/metricas/publicacoes-card";
 import { ReputacaoCard } from "@/app/(dashboard)/metricas/reputacao-card";
 import { BarraComLimite } from "@/app/(dashboard)/metricas/metricas-primitives";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
-import type { AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
 import type { DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 
@@ -41,10 +39,9 @@ function marca(parcial: Partial<SaudeMarca> = {}): SaudeMarca {
       { chave: "reputacao", label: "Reputação", descricao: "d", peso: 30, nota: 100, detalhe: "Termômetro Verde" },
       { chave: "posVenda", label: "Pós-venda", descricao: "d", peso: 25, nota: 80, detalhe: "Dentro do limite" },
       { chave: "satisfacao", label: "Satisfação", descricao: "d", peso: 20, nota: null, detalhe: "Nenhum anúncio avaliado ainda" },
-      { chave: "atendimento", label: "Atendimento", descricao: "d", peso: 15, nota: 60, detalhe: "90% respondidas" },
       { chave: "estoque", label: "Estoque", descricao: "d", peso: 10, nota: 55, detalhe: "5 de 10 com saldo" },
     ],
-    pilaresMedidos: 4,
+    pilaresMedidos: 3,
     faturamento: 12000,
     faturamentoLabel: "R$ 12.000,00",
     pedidos: 40,
@@ -55,7 +52,6 @@ function marca(parcial: Partial<SaudeMarca> = {}): SaudeMarca {
     reclamacoesAbertas: 2,
     emMediacao: 1,
     reputacao: null,
-    atendimento: null,
     taxaCancelamento: null,
     totalPedidosBrutos: 0,
     pedidosCanceladosOuDevolvidos: 0,
@@ -127,9 +123,9 @@ describe("cards de Métricas", () => {
 
     expect(screen.getByRole("img", { name: /pontuação 78 de 100, saudável/i })).toBeInTheDocument();
 
-    // Abrir a marca revela os pilares — e o aviso de que só 4 dos 5 têm dado.
+    // Abrir a marca revela os pilares — e o aviso de que só 3 dos 4 têm dado.
     screen.getByRole("tab", { name: /karzi/i }).click();
-    expect(await screen.findByText(/de 5 pilares com dado/i)).toBeInTheDocument();
+    expect(await screen.findByText(/de 4 pilares com dado/i)).toBeInTheDocument();
     // A troca de escopo passa por AnimatePresence mode="wait": a lista de
     // pilares só monta depois de a visão consolidada sair, então espera-se por
     // ela em vez de exigi-la no mesmo tick.
@@ -166,43 +162,6 @@ describe("cards de Métricas", () => {
     // Reclamações foram removidas do produto e não devem reaparecer por
     // dados legados ainda presentes no contrato de saúde.
     expect(screen.queryByText("2 (1 em mediação)")).not.toBeInTheDocument();
-  });
-
-  it("resume o funil de atendimento pelas faixas de espera", () => {
-    const atendimento: AtendimentoResumo = {
-      perguntas: 10,
-      respondidas: 8,
-      taxaResposta: 80,
-      medianaSegundos: 5400,
-      medianaLabel: "1h30",
-      variacaoTaxaResposta: 5,
-      taxaRespostaAnterior: 75,
-      faixas: [
-        { chave: "ate1h", label: "Até 1 hora", cor: "var(--success)", quantidade: 4, participacao: 40 },
-        { chave: "ate4h", label: "1 a 4 horas", cor: "var(--escala-4)", quantidade: 3, participacao: 30 },
-        { chave: "ate24h", label: "4 a 24 horas", cor: "var(--warning)", quantidade: 1, participacao: 10 },
-        { chave: "acima24h", label: "Mais de 24 horas", cor: "var(--escala-2)", quantidade: 0, participacao: 0 },
-        { chave: "semResposta", label: "Sem resposta", cor: "var(--destructive)", quantidade: 2, participacao: 20 },
-      ],
-      porCanal: [
-        { canal: "mercadolivre", perguntas: 6, taxaResposta: 70, medianaSegundos: 7200, medianaLabel: "2h" },
-        { canal: "whatsapp", perguntas: 4, taxaResposta: 95, medianaSegundos: 1200, medianaLabel: "20min" },
-      ],
-    };
-    render(<AtendimentoCard dados={atendimento} carregando={false} />);
-
-    expect(screen.getByText("1h30")).toBeInTheDocument();
-    expect(screen.getByText("Sem resposta")).toBeInTheDocument();
-    // Só o Mercado Livre carrega a badge de reputação — WhatsApp não deveria.
-    expect(screen.getAllByText(/afeta reputação/i)).toHaveLength(1);
-    // A variação vem em pontos percentuais, não em "%": confundir os dois é o
-    // erro clássico de leitura de taxa sobre taxa.
-    expect(screen.getByText(/\+5 p\.p\./)).toBeInTheDocument();
-  });
-
-  it("diz que não há dado em vez de desenhar um funil vazio", () => {
-    render(<AtendimentoCard dados={null} carregando={false} />);
-    expect(screen.getByText(/nenhuma mensagem de cliente no período/i)).toBeInTheDocument();
   });
 
   it("mostra somente métricas patrocinadas do período e separa publicações sem veiculação", async () => {
@@ -281,9 +240,8 @@ describe("cards de Métricas", () => {
     expect(screen.queryByLabelText("Contagem ainda não consultada")).not.toBeInTheDocument();
     expect(obterPublicacoes).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("switch", { name: /karzi/i }));
-    expect(obterPublicacoes).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("switch", { name: /mercado livre/i }));
+    expect(screen.getByRole("switch", { name: /karzi/i })).toHaveAttribute("aria-checked", "true");
     expect(await screen.findAllByText("Impressões")).not.toHaveLength(0);
     expect(screen.getAllByText("Cliques").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Investimento").length).toBeGreaterThan(0);

@@ -347,7 +347,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   const detailChunks: Chunk[] = temResumo && dados ? [
     { text: "Resultado de " },
     { text: `${dados.pedidos} pedido${dados.pedidos === 1 ? "" : "s"}`, bold: true },
-    { text: " no período, com ticket médio de " },
+    { text: " no período, com valor médio por pedido de " },
     { text: ticketResumoLabel, bold: true },
     { text: "." },
   ] : [];
@@ -358,7 +358,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
         { text: "OBS: ", bold: true },
         { text: "faturamento " },
         { text: "líquido", bold: true },
-        { text: " é o valor bruto do pedido menos a taxa do marketplace por item (quando o canal informa esse valor) e o frete pago por você como vendedor. Não desconta desconto ou acréscimo aplicado ao pedido, nem o custo do produto." },
+        { text: " é o valor bruto do pedido menos a taxa do canal de venda por item (quando o canal informa esse valor) e o frete pago por você como vendedor. Não desconta desconto ou acréscimo aplicado ao pedido, nem o custo do produto." },
       ]
       : [
         { text: "OBS: ", bold: true },
@@ -447,7 +447,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                       ]}
                       nota={
                         liquido
-                          ? "Líquido descontando taxa de marketplace (por item, quando o canal informa) e frete pago pelo vendedor. Não desconta desconto/acréscimo nem custo do produto. O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
+                          ? "Líquido descontando a taxa do canal de venda (por item, quando o canal informa) e o frete pago pelo vendedor. Não desconta desconto/acréscimo nem custo do produto. O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
                           : "O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
                       }
                     />

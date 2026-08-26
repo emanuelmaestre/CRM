@@ -15,8 +15,11 @@ import { useAtualizacao } from "./atualizacao-contexto";
 import type { PainelAtualizacao, TelaAtualizavel } from "@/modules/canais/application/painel-atualizacao.service";
 import type { ModuloSincronizacao } from "@/modules/canais/domain/sincronizacao-progresso";
 
+/** Uma palavra por aba. Nome curto é o que faz as 5 caberem em duas linhas
+ *  no celular sem rolagem lateral — e "Catálogo e estoque" não dizia nada
+ *  que "Estoque" já não diga no contexto de um painel de atualização. */
 const ROTULO_MODULO: Record<ModuloSincronizacao, string> = {
-  catalogo: "Catálogo e estoque",
+  catalogo: "Estoque",
   pedidos: "Pedidos",
   anuncios: "Anúncios",
   avaliacoes: "Avaliações",
@@ -34,16 +37,6 @@ const ICONE_MODULO: Record<ModuloSincronizacao, typeof ShoppingCart> = {
   reputacao: ThumbsUp,
 };
 
-/** Uma frase por tipo de dado, em português comum: o que a pessoa ganha ao
- *  mandar buscar aquilo. Nada de "sincronizar módulo" — diz o que muda na
- *  tela dela. */
-const EXPLICACAO_MODULO: Record<ModuloSincronizacao, string> = {
-  catalogo: "Quanto você tem de cada produto à venda no canal.",
-  pedidos: "Vendas novas, pagamentos e mudanças de entrega.",
-  anuncios: "Quanto seus anúncios pagos gastaram e renderam.",
-  avaliacoes: "Estrelas e comentários que os clientes deixaram.",
-  reputacao: "Sua nota de vendedor e reclamações no canal.",
-};
 
 /** Nome da tela como a pessoa a conhece no menu. O painel é sempre da tela
  *  em que ela está — dizer qual é, por extenso, é o que faltava para não
@@ -228,16 +221,31 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                   animate={reduzir ? undefined : { opacity: [1, 0.25, 1] }}
                   transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
                 />
-              : <Check size={13} strokeWidth={2.8} style={{ color: cor }} />}
+              /* Parado e sem falha: disco cheio da cor do estado com o
+                 tique branco dentro. Antes era só o tique verde solto no
+                 vazio do anel — lia como "faltando algo" em vez de
+                 "está tudo certo". */
+              : <motion.span
+                  className="grid h-6 w-6 place-items-center rounded-full"
+                  style={{ background: cor }}
+                  initial={reduzir ? false : { scale: 0.7, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={transicao(reduzir, springs.settle)}
+                >
+                  <Check size={13} strokeWidth={3.2} className="text-white" />
+                </motion.span>}
           </Anel>
           {/* Slot de largura fixa: o conteúdo muda, o cabeçalho não anda.
               Enquanto o painel exibido ainda é o da rota anterior, o rótulo
               fica esmaecido em vez de sumir — o valor continua verdadeiro,
-              só não foi confirmado para esta tela ainda. Aparece a partir de
-              `sm` (antes só em `lg`): no tablet sobrava espaço de sobra e a
-              informação mais útil do botão ficava escondida à toa. */}
+              só não foi confirmado para esta tela ainda.
+
+              No celular só aparece enquanto está buscando, mostrando a
+              porcentagem: é a informação que a pessoa quer acompanhar ao
+              vivo. Parado, o disco cheio já diz "está tudo certo" sem gastar
+              a largura escassa dali. De `sm` pra cima aparece sempre. */}
           <span
-            className="hidden w-[3.75rem] text-left text-[11px] tabular-nums transition-opacity sm:block lg:w-[4.25rem]"
+            className={`text-left text-[11px] tabular-nums transition-opacity sm:block sm:w-[3.75rem] lg:w-[4.25rem] ${emAndamento ? "block" : "hidden"}`}
             style={{ opacity: desatualizado ? 0.5 : 1 }}
           >
             <span className="block truncate">{rotulo}</span>
@@ -359,17 +367,14 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                     disabled={atualizandoLocal}
                     className="press-feedback mt-4 flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 text-left transition-colors hover:bg-muted disabled:opacity-60"
                   >
+                    {/* Uma linha só. A distinção que importa ("não vai nos
+                        canais") já está dita no próprio texto, sem precisar
+                        de uma segunda linha explicando o que é banco local. */}
                     <span className="flex items-center gap-2.5">
                       <Database size={16} className="shrink-0 text-muted-foreground" />
-                      {/* "Só o banco local · sem Webshare" não dizia nada para
-                          quem não é da área. O que importa: é rápido e não
-                          gasta consulta nos canais. */}
-                      <span>
-                        <strong className="block text-xs font-bold text-foreground">Recarregar esta tela</strong>
-                        <small className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                          Rápido. Mostra o que já foi salvo, sem consultar os canais.
-                        </small>
-                      </span>
+                      <strong className="text-xs font-bold text-foreground">
+                        Recarregar sem buscar nos canais
+                      </strong>
                     </span>
                     <motion.span
                       animate={atualizandoLocal && !reduzir ? { rotate: 360 } : { rotate: 0 }}
@@ -417,13 +422,16 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                       </p>
                       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                         {painel.modulosDisponiveis.length > 1
-                          ? <>Esta tela usa <strong className="font-bold text-foreground">{painel.modulosDisponiveis.length} tipos de dado</strong>. Escolha um e busque o que mudou direto no canal.</>
-                          : <>Busque no canal o que mudou desde a última vez.</>}
-                        {" "}O que já está na tela continua aparecendo enquanto isso.
+                          ? "Escolha o que buscar no canal."
+                          : "Busque no canal o que mudou."}
                       </p>
 
+                      {/* `flex-wrap`, não rolagem lateral: com 5 tipos de dado,
+                          a barra rolável escondia metade das opções atrás de um
+                          gesto que ninguém adivinha. Quebrando em duas linhas,
+                          tudo fica visível de uma vez. */}
                       {painel.modulosDisponiveis.length > 1 && (
-                        <div className="scrollbar-none mt-2.5 flex gap-1.5 overflow-x-auto pb-1">
+                        <div className="mt-2.5 flex flex-wrap gap-1.5">
                           {painel.modulosDisponiveis.map((item) => {
                             const ativo = modulo === item;
                             const Icone = ICONE_MODULO[item];
@@ -454,23 +462,6 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                         </div>
                       )}
 
-                      {/* Explica em uma frase o que é o tipo de dado escolhido
-                          — troca junto com a aba, com fade curto pra leitura
-                          acompanhar a mudança sem susto. */}
-                      {modulo && (
-                        <AnimatePresence mode="wait" initial={false}>
-                          <motion.p
-                            key={modulo}
-                            initial={reduzir ? false : { opacity: 0, y: 3 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={reduzir ? { opacity: 0 } : { opacity: 0, y: -3 }}
-                            transition={transicao(reduzir, { duration: 0.16 })}
-                            className="mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
-                          >
-                            {EXPLICACAO_MODULO[modulo]}
-                          </motion.p>
-                        </AnimatePresence>
-                      )}
 
                       <div className="mt-2.5 space-y-2">
                         {contasVisiveis.map((conta, indice) => (

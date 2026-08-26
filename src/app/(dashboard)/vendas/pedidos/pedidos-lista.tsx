@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, Clock3, PlugZap2 } from "lucide-react";
+import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, PlugZap2 } from "lucide-react";
 import { actionListarPedidosDetalhados } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -18,7 +18,13 @@ import { springs, variantes, staggerExagerado, entradaExagerada } from "@/shared
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import {
+  ajustarMarcasSelecionadasAosCanais,
+  getBrandConfig,
+  isBrandSlug,
+  marcaDisponivelNosCanais,
+  marcaFixadaPelosCanais,
+} from "@/shared/config/brands";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
@@ -35,7 +41,6 @@ const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 // Dia/mês sem ano, mais hora — no mobile a hora sozinha parecia "hoje"
 // mesmo quando não era; precisa da data, só não cabe com o ano junto.
-const dataHoraCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const resumoInicial: Resumo = {
   totalPedidos: 0,
   faturamento: 0,
@@ -175,7 +180,13 @@ function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; red
    lado a lado, ao contrário do card duplo empilhado que existia antes — pra
    ocupar menos altura de tela sem perder a separação visual das duas
    perguntas (uma linha vertical entre os grupos já basta). */
-function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; onClick: () => void }) {
+function MarcaPill({ marca, ativo, indisponivelPeloCanal, fixadaPeloCanal, onClick }: {
+  marca: Marca;
+  ativo: boolean;
+  indisponivelPeloCanal: boolean;
+  fixadaPeloCanal: boolean;
+  onClick: () => void;
+}) {
   const reduzir = useReducedMotion();
   const { slug } = marca;
   // Zero pedido no canal escolhido = pílula travada, mesmo que a marca
@@ -184,20 +195,31 @@ function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; on
   // exemplo, que nunca teve um pedido) — a seleção seguia valendo e entrava na
   // consulta sem nunca poder trazer nada. Quem desmarca é a lista (ver
   // `sanearMarcasSelecionadas`); esta pílula só precisa não voltar a ligar.
-  const bloqueada = marca.total === 0;
+  const bloqueadaPorDados = marca.total === 0 && !ativo;
+  const bloqueada = bloqueadaPorDados || indisponivelPeloCanal;
+  const motivoIndisponivel = `${marca.nome} não opera nos canais selecionados.`;
   const temIdentidade = isBrandSlug(slug);
 
   return (
     <motion.button
       type="button"
       variants={entradaExagerada}
-      onClick={bloqueada ? undefined : onClick}
-      disabled={bloqueada}
+      onClick={indisponivelPeloCanal
+        ? () => toast.info(motivoIndisponivel)
+        : fixadaPeloCanal
+          ? () => toast.info(`${marca.nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`)
+          : bloqueadaPorDados ? undefined : onClick}
+      disabled={bloqueadaPorDados}
+      aria-disabled={indisponivelPeloCanal || fixadaPeloCanal}
       whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={marca.nome}
-      title={bloqueada ? copy.brandSelector.emptyHint.replace("{marca}", marca.nome) : undefined}
+      title={indisponivelPeloCanal
+        ? motivoIndisponivel
+        : fixadaPeloCanal
+          ? `${marca.nome} é incluída pelo filtro do Mercado Livre.`
+          : bloqueadaPorDados ? copy.brandSelector.emptyHint.replace("{marca}", marca.nome) : undefined}
       className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
@@ -211,6 +233,7 @@ function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; on
       {temIdentidade
         ? <BrandLogo brand={slug} height={17} />
         : <span className="text-sm font-semibold text-foreground">{marca.nome}</span>}
+      {indisponivelPeloCanal && <PlugZap2 size={14} className="text-muted-foreground" />}
     </motion.button>
   );
 }
@@ -356,7 +379,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [marcas, setMarcas] = useState<Marca[]>(marcasIniciais);
   const [canais, setCanais] = useState<Canal[]>(canaisIniciais);
   const [expandido, setExpandido] = useState<string | null>(null);
-  const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null);
   const requestId = useRef(0);
   const [, startTransition] = useTransition();
 
@@ -390,7 +412,10 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
            não tem como trazer nada; agora ela se desmarca sozinha, com aviso
            do motivo. A pílula fica travada em seguida (ver MarcaPill), então
            não religa enquanto o canal for esse. */
-        const invalidas = res.marcas.filter((marca) => marca.total === 0 && (marcas ?? []).includes(marca.brandId));
+        const invalidas = res.marcas.filter((marca) =>
+          marca.total === 0
+          && (marcas ?? []).includes(marca.brandId)
+          && !marcaFixadaPelosCanais(marca.slug, canaisAtual ?? []));
         if (invalidas.length > 0) {
           setBrandIds((atual) => atual.filter((id) => !invalidas.some((marca) => marca.brandId === id)));
           for (const marca of invalidas) {
@@ -398,7 +423,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           }
         }
         setCanais(res.canais);
-        setAtualizadoEm(new Date());
       } catch {
         if (currentRequest !== requestId.current) return;
         toast.error(copy.loadError);
@@ -445,6 +469,32 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
     }
   }
 
+  function alternarMarca(marca: Marca) {
+    if (marcaFixadaPelosCanais(marca.slug, canaisSel)) {
+      toast.info(`${marca.nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
+      return;
+    }
+    if (!marcaDisponivelNosCanais(marca.slug, canaisSel)) {
+      toast.info(`${marca.nome} não opera nos canais selecionados.`);
+      return;
+    }
+    setBrandIds((atual) => atual.includes(marca.brandId)
+      ? atual.filter((id) => id !== marca.brandId)
+      : [...atual, marca.brandId]);
+  }
+
+  function alternarCanal(tipo: CanalVenda) {
+    const proximosCanais = canaisSel.includes(tipo)
+      ? canaisSel.filter((canal) => canal !== tipo)
+      : [...canaisSel, tipo];
+    setCanaisSel(proximosCanais);
+    setBrandIds((atuais) => ajustarMarcasSelecionadasAosCanais(
+      atuais,
+      proximosCanais,
+      marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
+    ));
+  }
+
   const filtrando = brandIds.length > 0 || canaisSel.length > 0 || statusGrupo !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
 
   return (
@@ -469,9 +519,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                 key={marca.brandId}
                 marca={marca}
                 ativo={brandIds.includes(marca.brandId)}
-                onClick={() => setBrandIds((atual) => atual.includes(marca.brandId)
-                  ? atual.filter((id) => id !== marca.brandId)
-                  : [...atual, marca.brandId])}
+                indisponivelPeloCanal={!marcaDisponivelNosCanais(marca.slug, canaisSel)}
+                fixadaPeloCanal={marcaFixadaPelosCanais(marca.slug, canaisSel)}
+                onClick={() => alternarMarca(marca)}
               />
             ))}
           </motion.div>
@@ -487,9 +537,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                 key={item.tipo}
                 canal={item}
                 ativo={canaisSel.includes(item.tipo as CanalVenda)}
-                onClick={() => setCanaisSel((atual) => atual.includes(item.tipo as CanalVenda)
-                  ? atual.filter((tipo) => tipo !== item.tipo)
-                  : [...atual, item.tipo as CanalVenda])}
+                onClick={() => alternarCanal(item.tipo as CanalVenda)}
               />
             ))}
           </motion.div>
@@ -608,15 +656,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
               <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "pedido" : "pedidos"}
             </span>
-          </div>
-          <div className="flex items-center justify-between gap-3 sm:justify-end">
-            {atualizadoEm && (
-              <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium text-muted-foreground">
-                <Clock3 size={12} className="shrink-0" />
-                <span className="sm:hidden">Atualizado {dataHoraCurta.format(atualizadoEm)}</span>
-                <span className="hidden sm:inline">Atualizado às {dataHora.format(atualizadoEm)}</span>
-              </span>
-            )}
           </div>
         </div>
 

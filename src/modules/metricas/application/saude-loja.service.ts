@@ -9,7 +9,6 @@ import {
   produto,
 } from "@/shared/lib/db/schema";
 import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
-import { obterAtendimentoPorMarca, type AtendimentoResumo } from "./atendimento.service";
 import {
   LIMITE_TAXA,
   obterContasDesconectadas,
@@ -30,7 +29,7 @@ import type { ReclamacoesResultado } from "./reclamacoes.service";
    entraram (`pilaresMedidos`), para a tela poder dizer "parcial" em
    vez de fingir precisão que não existe. */
 
-export type ChavePilar = "reputacao" | "posVenda" | "satisfacao" | "atendimento" | "estoque";
+export type ChavePilar = "reputacao" | "posVenda" | "satisfacao" | "estoque";
 
 interface PilarConfig {
   chave: ChavePilar;
@@ -40,12 +39,19 @@ interface PilarConfig {
   descricao: string;
 }
 
+/* "Atendimento" (resposta a mensagens, peso 15) saiu daqui: o CRM não tem mais
+   tela de mensagens/perguntas, então o pilar nunca recebia dado e vivia como
+   "sem informação" na tela.
+
+   Os 15 pontos dele foram redistribuídos entre os quatro que sobraram, na
+   mesma proporção que já tinham entre si (30/25/20/10 sobre 85) — a nota
+   resultante continua praticamente idêntica, e os pesos voltam a somar 100,
+   que é o que deixa "Reputação vale 35% da nota" legível sem calculadora. */
 export const PILARES: PilarConfig[] = [
-  { chave: "reputacao", label: "Reputação", peso: 30, descricao: "Termômetro do Mercado Livre" },
-  { chave: "posVenda", label: "Pós-venda", peso: 25, descricao: "Reclamações, cancelamentos e atrasos" },
-  { chave: "satisfacao", label: "Satisfação", peso: 20, descricao: "Nota média dos anúncios" },
-  { chave: "atendimento", label: "Atendimento", peso: 15, descricao: "Resposta às mensagens" },
-  { chave: "estoque", label: "Estoque", peso: 10, descricao: "Catálogo disponível e girando" },
+  { chave: "reputacao", label: "Reputação", peso: 35, descricao: "Termômetro do Mercado Livre" },
+  { chave: "posVenda", label: "Pós-venda", peso: 29, descricao: "Reclamações, cancelamentos e atrasos" },
+  { chave: "satisfacao", label: "Satisfação", peso: 24, descricao: "Nota média dos anúncios" },
+  { chave: "estoque", label: "Estoque", peso: 12, descricao: "Catálogo disponível e girando" },
 ];
 
 export interface Pilar {
@@ -95,7 +101,6 @@ export interface SaudeMarca {
   reclamacoesAbertas: number;
   emMediacao: number;
   reputacao: ReputacaoMarca | null;
-  atendimento: AtendimentoResumo | null;
   /** 0–100: fração dos pedidos do período cancelada ou devolvida. Conta sobre
    *  TODOS os pedidos (ao contrário do resto do módulo, que os exclui) —
    *  aqui é exatamente o que se quer medir. Null sem nenhum pedido no período. */
@@ -186,29 +191,6 @@ function pilarSatisfacao(notaMedia: number | null, total: number): { nota: numbe
   return {
     nota: escala(notaMedia, 3, 5),
     detalhe: `${notaMedia.toFixed(1)} ★ em ${total} avaliaç${total === 1 ? "ão" : "ões"}`,
-  };
-}
-
-/** Mistura o quanto foi respondido com a rapidez: responder tudo em três dias
- *  não é atendimento bom, e responder em minutos só um terço também não. */
-function pilarAtendimento(atendimento: AtendimentoResumo | null): { nota: number | null; detalhe: string } {
-  if (!atendimento || atendimento.perguntas === 0 || atendimento.taxaResposta === null) {
-    return { nota: null, detalhe: "Nenhuma mensagem de cliente no período" };
-  }
-  const notaCobertura = escala(atendimento.taxaResposta, 60, 100);
-  // 24h vale 0, resposta imediata vale 100. Sem mediana (nada respondido),
-  // o pilar fica só com a cobertura — que nesse caso já é baixa.
-  const notaVelocidade = atendimento.medianaSegundos === null
-    ? null
-    : escala(atendimento.medianaSegundos, 86_400, 0);
-  const nota = notaVelocidade === null
-    ? notaCobertura
-    : Math.round(notaCobertura * 0.5 + notaVelocidade * 0.5);
-  return {
-    nota,
-    detalhe: atendimento.medianaLabel
-      ? `${atendimento.taxaResposta}% respondidas · mediana ${atendimento.medianaLabel}`
-      : `${atendimento.taxaResposta}% respondidas`,
   };
 }
 
@@ -324,7 +306,6 @@ export async function obterSaudeLoja(
     catalogoPorMarca,
     reputacao,
     reclamacoes,
-    atendimentoPorMarca,
     contasDesconectadas,
     crescimentoPorMarca,
   ] = await Promise.all([
@@ -406,10 +387,6 @@ export async function obterSaudeLoja(
     Promise.resolve<ReclamacoesResultado>({
       itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: true,
     }),
-    // Duas consultas agrupadas (janela atual/anterior), não duas por marca.
-    leve
-      ? Promise.resolve(new Map<string, AtendimentoResumo>())
-      : obterAtendimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis }),
     leve ? Promise.resolve<ContaDesconectada[]>([]) : obterContasDesconectadas(ctx).catch((): ContaDesconectada[] => []),
     obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis }),
   ]);
@@ -432,7 +409,6 @@ export async function obterSaudeLoja(
   }
   const catalogo = new Map(catalogoPorMarca.map((linha) => [linha.brandId, linha]));
   const reputacaoPorMarca = new Map(reputacao.marcas.map((linha) => [linha.brandId, linha]));
-  const atendimento = atendimentoPorMarca;
 
   const resultado: SaudeMarca[] = marcas.map((item) => {
     const venda = vendas.get(item.id);
@@ -452,7 +428,6 @@ export async function obterSaudeLoja(
     const abaixoDoMinimo = paraNumero(catalogoMarca?.abaixoDoMinimo);
 
     const reputacaoMarca = reputacaoPorMarca.get(item.id) ?? null;
-    const atendimentoMarca = atendimento.get(item.id) ?? null;
 
     const reclamacoesDaMarca = reclamacoes.itens.filter((linha) => linha.marca === item.slug);
     const crescimentoMarca = crescimentoPorMarca.get(item.id) ?? null;
@@ -461,7 +436,6 @@ export async function obterSaudeLoja(
       reputacao: pilarReputacao(reputacaoMarca),
       posVenda: pilarPosVenda(reputacaoMarca),
       satisfacao: pilarSatisfacao(notaMedia, totalAvaliacoes),
-      atendimento: pilarAtendimento(atendimentoMarca),
       estoque: pilarEstoque(ativos, comSaldo, abaixoDoMinimo),
     };
 
@@ -496,7 +470,6 @@ export async function obterSaudeLoja(
       reclamacoesAbertas: reclamacoesDaMarca.length,
       emMediacao: reclamacoesDaMarca.filter((linha) => linha.emMediacao).length,
       reputacao: reputacaoMarca,
-      atendimento: atendimentoMarca,
       taxaCancelamento: crescimentoMarca?.taxaCancelamento ?? null,
       totalPedidosBrutos: crescimentoMarca?.totalPedidosBrutos ?? 0,
       pedidosCanceladosOuDevolvidos: crescimentoMarca?.pedidosCanceladosOuDevolvidos ?? 0,

@@ -187,19 +187,6 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
           : "Considera todas as avaliações recebidas no período, não só as 5 estrelas.",
       },
     },
-    // "Resposta" só entra quando existe mediana de verdade — um "—" solto
-    // não é informação, é um buraco no meio da grade.
-    ...(marca.atendimento?.medianaLabel ? [{
-      label: "Resposta", valor: marca.atendimento.medianaLabel,
-      calculo: {
-        titulo: "Tempo de resposta",
-        significado: "Mediana do tempo que a marca levou para responder as perguntas dos clientes no período.",
-        formula: "mediana do tempo entre a pergunta do cliente e a primeira resposta, no período",
-        resultado: marca.atendimento.medianaLabel,
-        itens: [{ label: "Mediana de resposta", valor: marca.atendimento.medianaLabel }],
-        nota: "Mediana, não média: uma conversa esquecida por semanas não distorce o número de todo mundo.",
-      },
-    }] : []),
     {
       label: "Cancelamento",
       valor: marca.taxaCancelamento === null ? "Sem dado" : `${marca.taxaCancelamento}%`,

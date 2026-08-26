@@ -11,7 +11,7 @@ import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system
 import { springs } from "@/shared/design-system/motion-variants";
 import { isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
-import type { Pilar, SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
+import { PILARES, type Pilar, type SaudeLojaResultado, type SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import { AnelScore, AvisoParcial, BarraComLimite, Card, CardHead } from "./metricas-primitives";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 
@@ -81,7 +81,6 @@ function explicacaoPilar(pilar: Pilar) {
     reputacao: "Reputação da marca como vendedora, direto do termômetro público do Mercado Livre (a cor que qualquer comprador vê na página do anúncio), somada ao selo de Mercado Líder quando a marca tem.",
     posVenda: "Quantidade de taxas de problemas no pós-venda, como reclamações, cancelamentos e atrasos no envio, que ultrapassaram o limite considerado saudável no período.",
     satisfacao: "Nota média (1 a 5 estrelas) que os clientes deixaram nos pedidos da marca no período.",
-    atendimento: "Velocidade com que a marca respondeu às mensagens de clientes no período. Quanto mais rápida a resposta, melhor o pilar.",
     estoque: "Quantidade de produtos ativos do catálogo que possuem saldo disponível para venda e quantidade dos que já estão abaixo do mínimo configurado.",
   };
 
@@ -89,7 +88,6 @@ function explicacaoPilar(pilar: Pilar) {
     reputacao: "conversão direta do termômetro de reputação do Mercado Livre para uma escala de 0 a 100",
     posVenda: "parte de 100 e desconta conforme as taxas de reclamação, cancelamento e atraso passam do limite saudável",
     satisfacao: "nota média das avaliações recebidas no período, na mesma escala de 0 a 100",
-    atendimento: "mediana do tempo de resposta às mensagens, convertida pra escala de 0 a 100 (resposta rápida pontua mais)",
     estoque: "proporção de produtos ativos com saldo disponível, descontando quem está abaixo do mínimo configurado",
   };
 
@@ -100,8 +98,8 @@ function explicacaoPilar(pilar: Pilar) {
     resultado,
     itens: [{ label: "Nesta marca e período", valor: pilar.detalhe }],
     nota: semDado
-      ? "Não há dados neste período. Este pilar sai do cálculo do score, e seu peso é redistribuído entre os pilares que possuem dados."
-      : `Peso ${pilar.peso} de 100 na composição do score. Quanto maior o peso, maior a influência deste pilar no resultado final.`,
+      ? "Não há dados neste período. Este pilar sai do cálculo da pontuação, e seu peso é redistribuído entre os pilares que possuem dados."
+      : `Peso ${pilar.peso} de 100 na composição da pontuação. Quanto maior o peso, maior a influência deste pilar no resultado final.`,
   };
 }
 
@@ -201,7 +199,7 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
     <CalculoPopover
       compacto
       titulo={`Pontuação, ${marcaSelecionada.marcaLabel}`}
-      significado="Resume a saúde desta marca em uma nota de 0 a 100, combinando reputação, pós-venda, satisfação, atendimento e catálogo."
+      significado="Resume a saúde desta marca em uma nota de 0 a 100, combinando reputação, pós-venda, satisfação e catálogo."
       formula="média ponderada das notas dos pilares medidos, cada uma em uma escala de 0 a 100"
       resultado={String(score)}
       itens={medidos.map((pilar) => ({
@@ -390,12 +388,16 @@ export function ScoreCard({ dados, carregando, acaoSlot }: {
                 )}
               </AnimatePresence>
 
-              {!consolidado && marcaSelecionada && marcaSelecionada.pilaresMedidos < 5 && (
+              {/* O total vem de `PILARES.length`, não de um número escrito à
+                  mão: quando um pilar entra ou sai da lista (ver
+                  saude-loja.service), a frase acompanha sozinha. */}
+              {!consolidado && marcaSelecionada && marcaSelecionada.pilaresMedidos < PILARES.length && (
                 <div className="mt-4">
                   <AvisoParcial>
                     <AlertTriangle aria-hidden="true" size={13} className="mt-[1px] shrink-0" />
                     <span>
-                      {copy.parcialPrefixo} <strong className="font-semibold text-foreground">{marcaSelecionada.pilaresMedidos}</strong> {copy.parcialSufixo}.
+                      {copy.parcialPrefixo} <strong className="font-semibold text-foreground">{marcaSelecionada.pilaresMedidos}</strong>{" "}
+                      {copy.parcialSufixo.replace("{total}", String(PILARES.length))}.
                     </span>
                   </AvisoParcial>
                 </div>

@@ -14,7 +14,6 @@ import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { obterSaudeLoja, type SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
-import { obterAtendimento, type AtendimentoResumo } from "@/modules/metricas/application/atendimento.service";
 import { obterPosVenda, type PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 import { obterSnapshotAnterior, type SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import {
@@ -115,16 +114,6 @@ export async function actionObterSaudeLoja(filtros: MetricasFiltros = {}): Promi
   assertPerfil(ctx, [...PERFIS]);
   const filtrosValidos = FiltrosSchema.parse(filtros);
   return medirTempo("metricas/saude-loja", () => obterSaudeLoja(ctx, filtrosValidos));
-}
-
-/** Consulta separada do score porque o funil não depende de nenhum canal
- *  externo — ele pinta na hora, enquanto o score ainda espera o Mercado Livre. */
-export async function actionObterAtendimento(filtros: MetricasFiltros = {}): Promise<AtendimentoResumo> {
-  const ctx = await getCrudContext();
-  assertPerfil(ctx, [...PERFIS]);
-  const { inicio, fim, brandIds } = FiltrosSchema.parse(filtros);
-  const janela = resolverJanela(inicio, fim);
-  return obterAtendimento(ctx, { ...janela, brandIds });
 }
 
 export async function actionObterPosVenda(filtros: MetricasFiltros = {}): Promise<PosVendaResultado> {

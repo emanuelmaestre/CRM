@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, Check, Clock3, Eye, Hourglass, Loader2, PackageX, PlugZap2,
+  AlertTriangle, Check, Eye, Hourglass, Loader2, PackageX, PlugZap2,
   Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -25,7 +25,13 @@ import { springs, variantes, staggerExagerado, entradaExagerada } from "@/shared
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import {
+  ajustarMarcasSelecionadasAosCanais,
+  getBrandConfig,
+  isBrandSlug,
+  marcaDisponivelNosCanais,
+  marcaFixadaPelosCanais,
+} from "@/shared/config/brands";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
 type SaldoCanal = { canal: string; saldo: number; verificadoEm: string };
@@ -53,11 +59,6 @@ const PAGINA = 50;
 const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var(--success)", info: "var(--info)", neutro: "var(--info)" };
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-// Dia/mês sem ano, mais hora — mobile precisa da data (não só da hora,
-// que sozinha parece "hoje" mesmo quando não é), mas a data completa com
-// ano não cabe do lado do resto do cabeçalho sem quebrar.
-const dataHoraCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
 function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
@@ -550,11 +551,13 @@ function CanalPill({ tipo, conectado, ativo, onClick }: {
 
    Não existe pílula "Todas": a tela abre sem escopo e clicar na empresa ativa
    volta para esse estado — a mesma regra de toggle do trilho de filtros. */
-function MarcaPill({ nome, slug, total, ativo, onClick }: {
+function MarcaPill({ nome, slug, total, ativo, indisponivelPeloCanal, fixadaPeloCanal, onClick }: {
   nome: string;
   slug: string;
   total: number;
   ativo: boolean;
+  indisponivelPeloCanal: boolean;
+  fixadaPeloCanal: boolean;
   onClick: () => void;
 }) {
   const reduzir = useReducedMotion();
@@ -562,7 +565,9 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
   // Uma empresa já selecionada pode zerar depois — quando o canal marcado
   // junto não tem nenhum SKU dela. Ela continua clicável para dar para
   // desmarcar; só quem nunca foi selecionada fica de fato travada em zero.
-  const bloqueada = vazia && !ativo;
+  const bloqueadaPorDados = vazia && !ativo;
+  const bloqueada = bloqueadaPorDados || indisponivelPeloCanal;
+  const motivoIndisponivel = `${nome} não opera nos canais selecionados.`;
   // Marca cadastrada no banco pode não ter identidade visual no config; nesse
   // caso a pílula cai no nome em texto em vez de quebrar por logo faltando.
   const temIdentidade = isBrandSlug(slug);
@@ -571,13 +576,22 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
     <motion.button
       type="button"
       variants={entradaExagerada}
-      onClick={bloqueada ? undefined : onClick}
-      disabled={bloqueada}
+      onClick={indisponivelPeloCanal
+        ? () => toast.info(motivoIndisponivel)
+        : fixadaPeloCanal
+          ? () => toast.info(`${nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`)
+          : bloqueadaPorDados ? undefined : onClick}
+      disabled={bloqueadaPorDados}
+      aria-disabled={indisponivelPeloCanal || fixadaPeloCanal}
       whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={nome}
-      title={bloqueada ? copy.brandSelector.emptyHint.replace("{marca}", nome) : undefined}
+      title={indisponivelPeloCanal
+        ? motivoIndisponivel
+        : fixadaPeloCanal
+          ? `${nome} é incluída pelo filtro do Mercado Livre.`
+          : bloqueadaPorDados ? copy.brandSelector.emptyHint.replace("{marca}", nome) : undefined}
       className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
@@ -591,6 +605,7 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
       {temIdentidade
         ? <BrandLogo brand={slug} height={17} />
         : <span className="text-sm font-semibold text-foreground">{nome}</span>}
+      {indisponivelPeloCanal && <PlugZap2 size={14} className="text-muted-foreground" />}
     </motion.button>
   );
 }
@@ -816,6 +831,15 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   }
 
   function alternarMarca(brandId: string) {
+    const marca = marcas.find((item) => item.brandId === brandId);
+    if (marca && marcaFixadaPelosCanais(marca.slug, canaisArray)) {
+      toast.info(`${marca.name} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
+      return;
+    }
+    if (marca && !marcaDisponivelNosCanais(marca.slug, canaisArray)) {
+      toast.info(`${marca.name} não opera nos canais selecionados.`);
+      return;
+    }
     setBrandIds((atual) => {
       const proximo = new Set(atual);
       if (proximo.has(brandId)) proximo.delete(brandId);
@@ -825,28 +849,17 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   }
 
   function alternarCanal(tipo: CanalVenda) {
-    setCanaisSelecionados((atual) => {
-      const proximo = new Set(atual);
-      if (proximo.has(tipo)) proximo.delete(tipo);
-      else proximo.add(tipo);
-      return proximo;
-    });
+    const proximosCanais = new Set(canaisSelecionados);
+    if (proximosCanais.has(tipo)) proximosCanais.delete(tipo);
+    else proximosCanais.add(tipo);
+    const canaisLista = [...proximosCanais];
+    setCanaisSelecionados(proximosCanais);
+    setBrandIds((atuais) => new Set(ajustarMarcasSelecionadasAosCanais(
+      [...atuais],
+      canaisLista,
+      marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
+    )));
   }
-
-  // Cada linha carrega o horário em que o saldo daquele canal foi conferido
-  // pela última vez (`verificadoEm`) — o mais recente entre os produtos
-  // carregados é a resposta honesta para "quando isso foi atualizado?",
-  // sem precisar de uma busca extra só para essa data.
-  const ultimaAtualizacao = useMemo(() => {
-    let maisRecente: Date | null = null;
-    for (const produto of produtos) {
-      for (const canal of produto.saldosCanais ?? []) {
-        const data = new Date(canal.verificadoEm);
-        if (!Number.isNaN(data.getTime()) && (!maisRecente || data > maisRecente)) maisRecente = data;
-      }
-    }
-    return maisRecente;
-  }, [produtos]);
 
   const filtrando = filtro !== "todos" || busca.trim() !== "" || brandIds.size > 0 || canaisSelecionados.size > 0;
 
@@ -881,6 +894,8 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
               slug={marca.slug}
               total={marca.total}
               ativo={brandIds.has(marca.brandId)}
+              indisponivelPeloCanal={!marcaDisponivelNosCanais(marca.slug, canaisArray)}
+              fixadaPeloCanal={marcaFixadaPelosCanais(marca.slug, canaisArray)}
               onClick={() => alternarMarca(marca.brandId)}
             />
           ))}
@@ -1013,13 +1028,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-            {ultimaAtualizacao && (
-              <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
-                <Clock3 size={11} />
-                <span className="sm:hidden">{dataHoraCurta.format(ultimaAtualizacao)}</span>
-                <span className="hidden sm:inline">{dataHora.format(ultimaAtualizacao)}</span>
-              </span>
-            )}
             {/* Sem key: o total é dado crítico e não deve re-animar a cada
                 filtro (PRD §14.5 — "número não dança depois de carregado"). */}
             <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">

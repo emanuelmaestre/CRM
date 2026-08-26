@@ -236,7 +236,6 @@ const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 // Só a hora — usado no mobile pra "Atualizado às" caber na mesma linha do
 // Período sem forçar quebra (a data completa some ali, mas some porque a
 // atualização é sempre "agora", não porque falte informação relevante).
-const apenasHora = new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent, semHoje }: {
   periodo: Periodo;
@@ -533,7 +532,7 @@ export function Mosaico({
     },
     explicacao: {
       resumo: visaoLiquida
-        ? "Faturamento líquido: o valor bruto menos a taxa de marketplace (por item, quando o canal informa) e o frete pago pelo vendedor. Não desconta desconto/acréscimo do pedido, custo do produto nem imposto."
+        ? "Faturamento líquido: o valor bruto menos a taxa do canal de venda (por item, quando o canal informa) e o frete pago pelo vendedor. Não desconta desconto/acréscimo do pedido, custo do produto nem imposto."
         : "Faturamento bruto: quanto entrou de dinheiro em pedidos válidos no período, sem descontar taxa do canal, frete, custo do produto ou imposto. É a soma que resta depois de excluir cancelamentos e devoluções.",
       pontos: [
         { titulo: "O que entra na soma", texto: "Todo pedido aprovado dentro do período escolhido, somado pelo valor pago pelo cliente." },
@@ -624,11 +623,11 @@ export function Mosaico({
     explicacao: {
       resumo: "Uma nota de 0 a 100 que resume a saúde da operação: reputação, pós-venda, satisfação, atendimento e catálogo, numa média ponderada.",
       pontos: [
-        { titulo: "Cinco pilares, pesos diferentes", texto: "Reputação e pós-venda pesam mais que catálogo. Um problema de entrega reduz o score mais do que um item sem foto." },
+        { titulo: "Cinco pilares, pesos diferentes", texto: "Reputação e pós-venda pesam mais que catálogo. Um problema de entrega reduz a pontuação mais do que um item sem foto." },
         { titulo: "Pilar sem dado sai da conta", texto: "Se um pilar não tiver informação suficiente no período, o peso será redistribuído entre os demais, em vez de virar zero." },
         { titulo: "Consolidado pesa por faturamento", texto: "Ao visualizar todas as marcas juntas, as que faturam mais influenciam mais o resultado. Não se trata de uma média simples entre marcas." },
       ],
-      dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso, para o score que está na tela.",
+      dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso na pontuação exibida.",
     },
     preview: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
       // "PONTOS" no lugar da faixa ("EXCELENTE" etc.): a faixa não cabe
@@ -686,7 +685,7 @@ export function Mosaico({
         { titulo: "Ponto de alerta ao lado do número", texto: "Pontuação, Nota e Cancelamento possuem faixas objetivas. Um ponto colorido indica quando o valor requer atenção." },
         { titulo: "Cumprimento de pedidos", texto: "A barra embaixo de cada marca mostra o que aconteceu com os pedidos do período: entregues, em andamento, cancelados, devolvidos." },
       ],
-      dica: "Cancelamento é o único critério em que o menor valor lidera. Por isso, 0% aparece no topo do ranking, e não no fim.",
+      dica: "Cancelamento é o único critério em que o menor valor lidera. Por isso, 0% aparece no topo da classificação, e não no fim.",
     },
     preview: saude.dados && saude.dados.marcas.length > 0
       ? <BarrasMarca dados={saude.dados.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel, valor: marca.faturamento }))} />
@@ -798,7 +797,7 @@ export function Mosaico({
       variacao: maisVendidos.dados ? FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.vendemMais : null,
     },
     explicacao: {
-      resumo: "Os produtos com mais unidades vendidas no período selecionado. É um ranking de volume de vendas, e não de faturamento.",
+      resumo: "Os produtos com mais unidades vendidas no período selecionado. A ordem considera o volume de vendas, e não o faturamento.",
       pontos: [
         { titulo: "Ordena por unidades, não por dinheiro", texto: "Um produto barato vendido em volume pode aparecer na frente de um produto caro vendido poucas vezes." },
         { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel. Um campeão de vendas com o anúncio pausado ou em revisão é o caso mais urgente, pois as vendas estavam acontecendo e foram interrompidas." },
@@ -857,7 +856,7 @@ export function Mosaico({
         { titulo: "Só quem ainda tem saldo", texto: "Produto com saldo zerado não conta como giro baixo. Quando também não vende há muito tempo, ele pertence à categoria Parados." },
         { titulo: "Menos de 10 vendas por semana", texto: "O corte é uma taxa semanal: entra quem vende, em média, menos de 10 unidades por semana no período — o limite escala junto quando o período é maior que uma semana." },
         { titulo: "Ordenado pelo que mais impacta", texto: "Em caso de empate na quantidade vendida, o valor imobilizado em estoque define a ordem. O produto que retém mais dinheiro aparece primeiro." },
-        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do card. Giro baixo com o anúncio pausado ou em revisão pode não ser sobre demanda — pode ser o anúncio fora do ar." },
+        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel. Giro baixo com o anúncio pausado ou em revisão pode não ser sobre demanda — pode ser o anúncio fora do ar." },
       ],
       dica: "Vale cruzar com o preço de venda: giro baixo em item caro imobiliza mais capital que giro baixo em item barato, mesmo com a mesma quantidade parada.",
     },
@@ -1111,23 +1110,6 @@ export function Mosaico({
     [resto, destaqueFinal],
   );
 
-  /* ── Progresso real do carregamento ──────────────────────────────
-   *  Não é um timer decorativo: é literalmente quantos dos blocos atuais
-   *  já pararam de carregar (`!bloco.carregando`), a mesma soma de buscas
-   *  independentes que os tiles já refletem um a um. Só faz sentido
-   *  enquanto existe escopo selecionado — sem marca/canal nenhum card
-   *  busca nada, então não há "progresso" pra medir. 250ms de atraso antes
-   *  de aparecer evita o pisca-pisca quando tudo responde rápido. */
-  const totalPaineis = blocos.length;
-  const painesProntos = blocos.filter((bloco) => !bloco.carregando).length;
-  const emCarregamento = !semFiltroDefinido(filtroGlobal) && painesProntos < totalPaineis;
-  const [mostrarProgresso, setMostrarProgresso] = useState(false);
-  useEffect(() => {
-    if (!emCarregamento) return undefined;
-    const espera = setTimeout(() => setMostrarProgresso(true), 250);
-    return () => { clearTimeout(espera); setMostrarProgresso(false); };
-  }, [emCarregamento]);
-
   return (
     <>
       <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-3">
@@ -1151,43 +1133,28 @@ export function Mosaico({
             ScopeRow). Sem fundo card/sombra: a barra vira só estrutura
             (borda + separadores), no mesmo nível visual do resto da tela,
             em vez de competir como se fosse mais um card. */}
-        <div className="flex flex-col gap-2 rounded-[1.25rem] border border-border px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-col gap-2 rounded-[1.25rem] border border-border px-3 py-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-center">
           <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
             {escopo}
           </div>
 
-          <span aria-hidden="true" className="h-px w-full shrink-0 bg-border sm:h-6 sm:w-px sm:self-stretch" />
+          {/* No mobile o traço horizontal cortava a barra em duas e pesava a
+              leitura — some ali, mas o elemento fica: é ele que garante o
+              respiro entre escopo e período. No desktop segue como o
+              divisor vertical de sempre. */}
+          <span aria-hidden="true" className="h-px w-full shrink-0 sm:h-6 sm:w-px sm:self-stretch sm:bg-border" />
 
-          <div className="flex flex-nowrap items-center justify-center gap-2 sm:contents">
+          {/* No mobile empilha (`flex-col`): o botão Período fica sozinho na
+              sua linha, perfeitamente centralizado, e o intervalo escolhido
+              desce pra linha de baixo. Lado a lado, o texto do intervalo
+              puxava o botão pra esquerda do centro. A partir do sm,
+              `sm:contents` devolve os dois à fileira única de sempre. */}
+          <div className="flex flex-col items-center gap-1 sm:contents">
             {/* semHoje: o botão avulso era redundante com o atalho "Hoje"
                 que já existe dentro do próprio popover de Período (ver
                 CalendarioPopoverRange) — pedido explícito pra tirar da
                 barra de escopo global. */}
             <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} semHoje />
-
-            {/* Cantinho discreto que alterna entre "atualizado às" (parado)
-                e o progresso real do carregamento — mesma linha do Período,
-                alinhado à direita dela. `flex-nowrap` no container acima +
-                texto curto no mobile ("Atualizado" + só a hora, sem a data)
-                garantem que nunca quebra pra uma segunda linha ali — a
-                versão completa (com data) volta a partir do sm, onde sobra
-                largura. `truncate` é rede de segurança: numa tela muito
-                estreita, corta com reticências em vez de estourar a barra. */}
-            {(carregadoEm || (emCarregamento && mostrarProgresso)) && (
-              <span className="ml-auto inline-flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[11px] text-muted-foreground">
-                <RefreshCw size={11} className={`shrink-0 ${emCarregamento ? "animate-spin" : ""}`} />
-                <span className="hidden truncate sm:inline">
-                  {emCarregamento && mostrarProgresso
-                    ? `Consultando os canais · ${painesProntos} de ${totalPaineis} painéis prontos`
-                    : carregadoEm && `Atualizado às ${dataHora.format(carregadoEm)}`}
-                </span>
-                <span className="truncate sm:hidden">
-                  {emCarregamento && mostrarProgresso
-                    ? `${painesProntos}/${totalPaineis}`
-                    : carregadoEm && `Atualizado ${apenasHora.format(carregadoEm)}`}
-                </span>
-              </span>
-            )}
           </div>
         </div>
 
@@ -1269,17 +1236,10 @@ export function Mosaico({
         onProximo={() => pular(1)}
         barraPeriodo={
           // Repor em breve não tem Período (ver semPeriodo em BarraPeriodo) —
-          // no lugar, à esquerda, mostra quando o saldo foi lido. O botão
-          // Status, sozinho no slot da direita (ver ReposicaoCard), acaba
-          // embaixo do X de fechar.
-          blocoAberto?.id === "reposicao" ? (
-            carregadoEm && (
-              <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-muted-foreground">
-                <RefreshCw size={11} />
-                Atualizado às {dataHora.format(carregadoEm)}
-              </span>
-            )
-          ) : (
+          // e também não mostra mais "atualizado às": a idade do dado agora
+          // vive só no painel de Atualizações do cabeçalho, um lugar só em
+          // vez de repetida em cada canto da tela.
+          blocoAberto?.id === "reposicao" ? null : (
             <BarraPeriodo
               periodo={periodo}
               trocarDatas={trocarDatas}
