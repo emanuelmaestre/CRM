@@ -64,31 +64,38 @@ export function SectionCard({
         className
       )}
     >
+      {/* Título e ações sempre na MESMA linha, inclusive no celular. Antes o
+          cabeçalho era `flex-col` abaixo de `sm`, o que jogava o ⓘ para uma
+          linha só dele embaixo do título — um ícone solto no vazio, ocupando
+          altura à toa em toda seção da página. */}
       {(title || actions) && (
         colapsavelMobile ? (
-          <div className="flex flex-col items-stretch gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-center gap-2 border-b border-border px-4 py-4 sm:gap-3 sm:px-6">
             <button
               type="button"
               onClick={() => setAbertoMobile((atual) => !atual)}
               aria-expanded={abertoMobile}
               aria-controls={conteudoId}
-              className="press-feedback flex min-h-11 min-w-0 items-center justify-between gap-2 text-left sm:pointer-events-none sm:min-h-0"
+              className="press-feedback flex min-h-11 min-w-0 flex-1 items-center text-left sm:pointer-events-none sm:min-h-0"
             >
               {cabecalho}
-              <motion.span
-                animate={{ rotate: abertoMobile ? 180 : 0 }}
-                transition={transicao(reduzir, springs.settleFast)}
-                className="shrink-0 text-muted-foreground sm:hidden"
-              >
-                <ChevronDown size={16} strokeWidth={2} />
-              </motion.span>
             </button>
-            {actions && <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div>}
+            {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+            {/* Decorativo: quem anuncia o estado é o botão do título acima,
+                que já carrega aria-expanded/aria-controls. */}
+            <motion.span
+              aria-hidden="true"
+              animate={{ rotate: abertoMobile ? 180 : 0 }}
+              transition={transicao(reduzir, springs.settleFast)}
+              className="shrink-0 text-muted-foreground sm:hidden"
+            >
+              <ChevronDown size={16} strokeWidth={2} />
+            </motion.span>
           </div>
         ) : (
-          <div className="flex flex-col items-stretch gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-4 sm:gap-3 sm:px-6">
             {cabecalho}
-            {actions && <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">{actions}</div>}
+            {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
           </div>
         )
       )}

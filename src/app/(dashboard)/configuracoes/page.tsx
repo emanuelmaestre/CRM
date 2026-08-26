@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { type LucideIcon } from "lucide-react";
-import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { SectionCard as Card } from "@/shared/design-system/primitives/SectionCard";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { fadeUp, stagger } from "@/shared/design-system/motion-variants";
@@ -208,23 +207,28 @@ export default function ConfiguracoesPage() {
 
   return (
     <div>
-      <PageHeader title={settingsConfig.header.title} />
+      {/* Sem PageHeader: o título "Configurações" repetia o que a engrenagem
+          do cabeçalho e a própria URL já dizem, gastando altura no topo de
+          uma página que já é longa. */}
 
       {/* Atalho só no mobile: a página tem 9 cards empilhados, então em vez
           de exigir rolar tudo pra chegar em "Cópia de segurança", 3 pílulas
           pulam direto pra cada área — mesma ideia da barra de filtros do
           resto do app, aplicada à navegação da própria página. */}
       {/* `top` casa com o padding-top do <main> do layout (MobileHeader é
-          `fixed`, então `sticky top-0` puro ficaria escondido atrás dele). */}
+          `fixed`, então `sticky top-0` puro ficaria escondido atrás dele).
+          `justify-center` + `flex-1` nas pílulas: com rótulos de larguras
+          bem diferentes ("Canais" x "Administração"), encostá-las à esquerda
+          deixava a fileira torta; agora dividem o espaço em partes iguais. */}
       <nav
         aria-label="Ir para seção"
-        className="sticky top-[calc(3.5rem_+_env(safe-area-inset-top))] z-10 -mx-4 mb-4 flex gap-2 overflow-x-auto border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur sm:hidden [&::-webkit-scrollbar]:hidden"
+        className="sticky top-[calc(3.5rem_+_env(safe-area-inset-top))] z-10 -mx-4 mb-4 flex justify-center gap-2 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur sm:hidden"
       >
         {NAV_SECOES.map((secao) => (
           <a
             key={secao.id}
             href={`#${secao.id}`}
-            className="press-feedback shrink-0 whitespace-nowrap rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold text-foreground"
+            className="press-feedback flex-1 whitespace-nowrap rounded-full border border-border bg-card px-2 py-1.5 text-center text-xs font-semibold text-foreground"
           >
             {secao.rotulo}
           </a>
@@ -309,7 +313,6 @@ export default function ConfiguracoesPage() {
 
           <Card
             title="Endereços e frequências"
-            description="Chamadas externas ativas, organizadas por canal e módulo"
             icon={getIcon("Network")}
             actions={<InfoBotao rotulo="Sobre os endereços">Referência operacional do que o sistema chama, quando chama e quais ações podem consumir as integrações dos canais de venda.</InfoBotao>}
             colapsavelMobile

@@ -116,7 +116,10 @@ function Anel({ progresso, cor, ativo, children }: {
   return (
     <span className="relative grid h-7 w-7 shrink-0 place-items-center">
       <svg viewBox="0 0 28 28" className="absolute inset-0 h-full w-full -rotate-90" aria-hidden>
-        <circle cx="14" cy="14" r={raio} fill="none" stroke="var(--border)" strokeWidth={ativo ? 2.5 : 1.5} />
+        {/* A trilha cinza só existe enquanto há progresso pra medir. Parado,
+            o disco cheio já ocupa esse espaço — a trilha virava um segundo
+            anel em volta dele, sem significar nada. */}
+        {ativo && <circle cx="14" cy="14" r={raio} fill="none" stroke="var(--border)" strokeWidth={2.5} />}
         {ativo && (
           <motion.circle
             cx="14" cy="14" r={raio} fill="none" stroke={cor} strokeWidth={2.5} strokeLinecap="round"
@@ -204,12 +207,10 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
           aria-label={emAndamento
             ? `Atualização em ${progresso} por cento`
             : referencia ? `Dados atualizados ${idade(referencia)}` : "Atualizações"}
-          /* Contorno e fundo próprios: antes era só um ícone solto de cor
-             apagada, que não lia como algo clicável. A borda ganha a cor do
-             estado (verde/vermelho/azul) — o botão vira o próprio indicador,
-             visível de relance sem precisar ler o texto. */
-          className="press-feedback inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border bg-card px-2 font-semibold text-foreground shadow-[0_1px_2px_rgba(14,15,19,.06)] transition-colors hover:bg-muted sm:gap-2 sm:px-2.5"
-          style={{ borderColor: primeiraCarga ? "var(--border)" : `color-mix(in srgb, ${cor} 45%, var(--border))` }}
+          /* Sem moldura: o disco colorido já é o indicador e já lê como algo
+             clicável sozinho. A borda + fundo em volta dele viravam um anel
+             branco desenhando um segundo círculo em torno do primeiro. */
+          className="press-feedback inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-1 font-semibold text-foreground transition-colors hover:bg-muted sm:gap-2 sm:px-1.5"
         >
           <Anel progresso={progresso} cor={cor} ativo={emAndamento}>
             {falhas.length > 0 && !emAndamento
@@ -431,7 +432,7 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                           gesto que ninguém adivinha. Quebrando em duas linhas,
                           tudo fica visível de uma vez. */}
                       {painel.modulosDisponiveis.length > 1 && (
-                        <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
                           {painel.modulosDisponiveis.map((item) => {
                             const ativo = modulo === item;
                             const Icone = ICONE_MODULO[item];

@@ -379,12 +379,12 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
     // não como o resumo de UMA conta. `xl:` desliga o cartão e volta pro
     // layout em colunas de sempre, onde a tabela inteira já dá o
     // agrupamento visual.
-    <div className="flex flex-col gap-3 rounded-[0.9rem] border border-border bg-muted/20 p-3 xl:flex-row xl:items-center xl:justify-between xl:rounded-none xl:border-x-0 xl:border-t-0 xl:border-b xl:border-border xl:bg-transparent xl:p-0 xl:py-3 xl:last:border-b-0">
-      <div className="flex items-center gap-2.5">
+    <div className="flex flex-wrap items-center gap-3 rounded-[0.9rem] border border-border bg-muted/20 p-3 xl:flex-nowrap xl:justify-between xl:rounded-none xl:border-x-0 xl:border-t-0 xl:border-b xl:border-border xl:bg-transparent xl:p-0 xl:py-3 xl:last:border-b-0">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 xl:flex-none">
         <ChannelLogo canal={conta.canal} size="md" variant="badge" />
-        <div>
-          <p className="text-sm font-semibold text-foreground">{conta.canalLabel}</p>
-          <p className="text-xs" style={{ color: corMarca }}>{conta.brandLabel}</p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-foreground">{conta.canalLabel}</p>
+          <p className="truncate text-xs" style={{ color: corMarca }}>{conta.brandLabel}</p>
         </div>
       </div>
 
@@ -398,8 +398,14 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           travando a largura de cada coluna é que "Sincronizar", o status e
           o relógio caem exatamente no mesmo x em toda linha, com ou sem
           alerta. */}
-      <div className="flex flex-col gap-2 xl:grid xl:grid-cols-[13rem_minmax(0,13rem)_2rem_auto] xl:items-center">
-        <div className="flex min-h-9 items-center justify-start xl:justify-center">
+      {/* `contents` no celular: dissolve este agrupador para que o status e a
+          linha de hora/ações virem filhos diretos do cartão. É o que deixa o
+          status ("Sincronização completa") subir para a mesma linha do canal,
+          com hora e botões quebrando para baixo — antes ele descia sozinho
+          para uma linha própria, e o cartão gastava três linhas onde cabiam
+          duas. A partir de xl volta a ser a grade de colunas fixas. */}
+      <div className="contents xl:grid xl:grid-cols-[13rem_minmax(0,13rem)_2rem_auto] xl:items-center">
+        <div className="flex min-h-9 shrink-0 items-center justify-start xl:justify-center">
           <AnimatePresence mode="popLayout">
             {execucao && (
               <motion.div
@@ -449,7 +455,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           </AnimatePresence>
         </div>
 
-        <div className="flex items-center justify-between gap-2 xl:contents">
+        <div className="flex basis-full items-center justify-between gap-2 xl:contents">
           <span className="inline-flex min-h-8 min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground xl:justify-end xl:text-right">
             <Clock3 size={12} className="shrink-0" />
             <span className="truncate">{rotuloUltima(execucao)}</span>

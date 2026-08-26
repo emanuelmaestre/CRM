@@ -25,7 +25,15 @@ export function ChannelConnectionStrip({ canal, items }: Props) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
       <ChannelLogo canal={canal} variant="pill" size="sm" />
 
-      <div className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:basis-auto">
+      {/* No celular o contador sobe para a linha do canal (`order-1`, antes
+          das marcas): sozinho numa terceira linha ele gastava altura para
+          dizer uma coisa curta que cabia de sobra ao lado do nome. No
+          desktop volta ao fim da fileira, como sempre esteve. */}
+      <span className="order-1 text-[11px] font-semibold tabular-nums text-muted-foreground sm:order-last">
+        {conectadas}/{items.length} conectadas
+      </span>
+
+      <div className="order-2 flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:order-none sm:basis-auto">
         {items.map((item, index) => {
           const conectado = item.pronto || item.status === "conectado";
           return (
@@ -46,10 +54,6 @@ export function ChannelConnectionStrip({ canal, items }: Props) {
           );
         })}
       </div>
-
-      <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">
-        {conectadas}/{items.length} conectadas
-      </span>
     </div>
   );
 }

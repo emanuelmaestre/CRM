@@ -399,7 +399,11 @@ export function UsuariosSection({
     <>
       <div className="space-y-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {/* Centralizado no celular: são selos de larguras irregulares que,
+              encostados à esquerda, deixavam a segunda linha visivelmente
+              torta. A partir de `xl` a fileira volta a alinhar à esquerda,
+              onde divide a linha com a busca. */}
+          <div className="flex min-w-0 flex-wrap items-center justify-center gap-1.5 xl:justify-start">
             <span className="inline-flex items-center gap-1.5 pr-1 text-xs font-semibold text-foreground">
               <UsersRound size={13} />
               {organizationName ?? "Organização"}
