@@ -130,17 +130,24 @@ function ItemRegra({ tipo, children }: { tipo: "entra" | "fora"; children: React
   );
 }
 
-function EntendaFaturamentoBotao() {
+/** `compacto` é a versão de mobile: só a bolinha do ⓘ, sem texto nenhum.
+ *  O botão com rótulo não cabia na largura do celular junto do toggle
+ *  Bruto/Líquido — ali ele vira um ícone redondo à esquerda do toggle. */
+function EntendaFaturamentoBotao({ compacto = false }: { compacto?: boolean }) {
   return (
     <AnimatedInfoPopover
       trigger={(
         <AnimatedInfoTrigger
           title="Entenda como o faturamento é calculado"
-          iconSize={13}
-          className="press-feedback inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          aria-label="Entenda como o faturamento é calculado"
+          iconSize={compacto ? 15 : 13}
+          className={
+            compacto
+              ? "press-feedback inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              : "press-feedback inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          }
         >
-          <span className="sm:hidden">Faturamento</span>
-          <span className="hidden sm:inline">Entenda o faturamento</span>
+          {!compacto && <span>Entenda o faturamento</span>}
         </AnimatedInfoTrigger>
       )}
       align="end"
@@ -327,18 +334,18 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   const ticketResumoLabel = liquido ? (dados?.ticketMedioLiquido ?? "") : (dados?.ticketMedio ?? "");
   const diferencaResumo = Math.abs(valorAtualResumo - valorAnteriorResumoNumerico);
 
+  /* Manchete curta: só o que aconteceu e de quanto. O período comparado
+     saiu daqui pra uma linha própria (era o que fazia a frase virar um
+     parágrafo de duas linhas), e os valores viraram a grade abaixo. */
   const headlineChunks: Chunk[] = temResumo && dados ? [
     { text: `Faturamento ${liquido ? "líquido" : "bruto"} ${positiva ? "cresceu" : "caiu"} ` },
     { text: `${Math.abs(variacao ?? 0)}%`, bold: true, color: corTendenciaResumo },
-    { text: ` em ${dados.janelaLabel}, na comparação com ${dados.janelaAnteriorLabel}.` },
   ] : [];
 
+  /* Fecha o raciocínio da manchete em uma frase — os números crus ficam na
+     grade, aqui vai só a leitura ("é o resultado de N pedidos"). */
   const detailChunks: Chunk[] = temResumo && dados ? [
-    { text: "Foi de " },
-    { text: valorAnteriorResumoLabel, bold: true },
-    { text: " para " },
-    { text: moeda.format(valorAtualResumo), bold: true },
-    { text: ` (${positiva ? "+" : "-"}${moeda.format(diferencaResumo)}), somando ` },
+    { text: "Resultado de " },
     { text: `${dados.pedidos} pedido${dados.pedidos === 1 ? "" : "s"}`, bold: true },
     { text: " no período, com ticket médio de " },
     { text: ticketResumoLabel, bold: true },
@@ -373,8 +380,12 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   return (
     <Card>
       <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaFaturamentoBotao />} />
+      {/* Mobile: ⓘ como bolinha à esquerda do toggle Bruto/Líquido, na mesma
+          linha. O botão com rótulo ("Entenda o faturamento") só existe de
+          `sm` pra cima, via `extra` do AcaoSlotFiltro acima. */}
       {acaoSlot && createPortal(
-        <div className="flex sm:hidden">
+        <div className="flex items-center gap-2 sm:hidden">
+          <EntendaFaturamentoBotao compacto />
           <TipoToggle liquido={liquido} aoTrocarLiquido={aoTrocarLiquido} />
         </div>,
         acaoSlot,
@@ -503,7 +514,43 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                       {renderDigitado(headlineChunks, visivelHeadline)}
                       {!reduzir && visivelHeadline > 0 && visivelHeadline < totalHeadline && <CursorDigitando />}
                     </p>
-                    <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground sm:text-[12.5px]">
+                    {/* Os dois períodos comparados, fora da manchete: viram
+                        um par "de → para" que se lê de relance, em vez de uma
+                        frase longa cheia de data no meio. */}
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                      <span>{dados.janelaLabel}</span>
+                      <span className="text-muted-foreground/60">vs.</span>
+                      <span>{dados.janelaAnteriorLabel}</span>
+                    </p>
+
+                    {/* Grade dos 3 números que sustentam a manchete. Fora do
+                        texto corrido de propósito: alinhados em coluna, o
+                        olho compara "antes x agora" sem reler a frase. */}
+                    <dl className="mt-2 grid grid-cols-3 gap-px overflow-hidden rounded-[0.6rem] border border-border/70 bg-border/70">
+                      {[
+                        { rotulo: "Antes", valor: valorAnteriorResumoLabel, cor: undefined },
+                        { rotulo: "Agora", valor: moeda.format(valorAtualResumo), cor: undefined },
+                        { rotulo: "Diferença", valor: `${positiva ? "+" : "-"}${moeda.format(diferencaResumo)}`, cor: corTendenciaResumo },
+                      ].map((item, indice) => (
+                        <motion.div
+                          key={item.rotulo}
+                          initial={reduzir ? undefined : { opacity: 0, y: 4 }}
+                          animate={reduzir ? undefined : { opacity: 1, y: 0 }}
+                          transition={reduzir ? undefined : { ...springs.settleFast, delay: 0.12 + indice * 0.07 }}
+                          className="bg-card px-2 py-1.5"
+                        >
+                          <dt className="text-[9.5px] font-bold uppercase tracking-wide text-muted-foreground">{item.rotulo}</dt>
+                          <dd
+                            className="mt-0.5 truncate text-[12px] font-bold tabular-nums sm:text-[12.5px]"
+                            style={{ color: item.cor ?? "var(--foreground)" }}
+                          >
+                            {item.valor}
+                          </dd>
+                        </motion.div>
+                      ))}
+                    </dl>
+
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground sm:text-[12.5px]">
                       {renderDigitado(detailChunks, visivelDetail)}
                       {!reduzir && visivelDetail > 0 && visivelDetail < totalDetail && <CursorDigitando />}
                     </p>
@@ -511,7 +558,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                     {/* Base de cálculo (bruto/líquido) sempre visível — troca de
                         texto junto com o toggle Bruto/Líquido, sem exigir clique
                         pra ler o que compõe o valor exibido acima. */}
-                    <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[12px] leading-relaxed text-muted-foreground sm:text-[12.5px]">
+                    <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
                       {renderDigitado(obsChunks, visivelObs)}
                       {!reduzir && visivelObs > 0 && visivelObs < totalObs && <CursorDigitando />}
                     </p>

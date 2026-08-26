@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { AlertTriangle, Check, Database, RefreshCw, Server, X } from "lucide-react";
+import {
+  AlertTriangle, Check, Database, Megaphone, Package, RefreshCw,
+  ShoppingCart, Star, ThumbsUp, X,
+} from "lucide-react";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { GenericIllustration } from "@/shared/design-system/primitives/illustrations";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { useAtualizacao } from "./atualizacao-contexto";
-import type { PainelAtualizacao } from "@/modules/canais/application/painel-atualizacao.service";
+import type { PainelAtualizacao, TelaAtualizavel } from "@/modules/canais/application/painel-atualizacao.service";
 import type { ModuloSincronizacao } from "@/modules/canais/domain/sincronizacao-progresso";
 
 const ROTULO_MODULO: Record<ModuloSincronizacao, string> = {
@@ -20,11 +23,51 @@ const ROTULO_MODULO: Record<ModuloSincronizacao, string> = {
   reputacao: "Reputação",
 };
 
+/** Um ícone por tipo de dado. Quem não é da área reconhece o desenho antes
+ *  de ler a palavra — e é o mesmo vocabulário visual do menu lateral, então
+ *  "carrinho = pedidos" já vem aprendido de outra tela. */
+const ICONE_MODULO: Record<ModuloSincronizacao, typeof ShoppingCart> = {
+  catalogo: Package,
+  pedidos: ShoppingCart,
+  anuncios: Megaphone,
+  avaliacoes: Star,
+  reputacao: ThumbsUp,
+};
+
+/** Uma frase por tipo de dado, em português comum: o que a pessoa ganha ao
+ *  mandar buscar aquilo. Nada de "sincronizar módulo" — diz o que muda na
+ *  tela dela. */
+const EXPLICACAO_MODULO: Record<ModuloSincronizacao, string> = {
+  catalogo: "Quanto você tem de cada produto à venda no canal.",
+  pedidos: "Vendas novas, pagamentos e mudanças de entrega.",
+  anuncios: "Quanto seus anúncios pagos gastaram e renderam.",
+  avaliacoes: "Estrelas e comentários que os clientes deixaram.",
+  reputacao: "Sua nota de vendedor e reclamações no canal.",
+};
+
+/** Nome da tela como a pessoa a conhece no menu. O painel é sempre da tela
+ *  em que ela está — dizer qual é, por extenso, é o que faltava para não
+ *  parecer que ali se mistura dado de outros módulos. */
+const ROTULO_TELA: Record<TelaAtualizavel, string> = {
+  vendas: "Vendas",
+  avaliacoes: "Avaliações",
+  estoque: "Estoque",
+  metricas: "Métricas",
+  anuncios: "Publicidade",
+  configuracoes: "Configurações",
+  clientes: "Clientes",
+  importacao: "Importação",
+  auditoria: "Auditoria",
+};
+
 const hora = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo",
 });
 const dataHora = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo",
+});
+const dataCompleta = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo",
 });
 
 /** "agora", "há 4 min", "há 2 h", "12/08 10:42" — a idade do dado dita a
@@ -39,6 +82,21 @@ function idade(iso: string | null | undefined): string {
   if (ms < 21_600_000) return `há ${Math.floor(ms / 3_600_000)} h`;
   if (ms < 86_400_000) return hora.format(new Date(iso));
   return dataHora.format(new Date(iso));
+}
+
+/** Data e hora por extenso, com "hoje"/"ontem" quando cabe: "hoje às 14:13".
+ *  O relativo ("há 8 min") responde "está fresco?"; este responde "de quando
+ *  exatamente?" — as duas perguntas aparecem juntas no painel de propósito. */
+function quandoExato(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return null;
+  const dia = dataCompleta.format(data);
+  const agora = new Date();
+  const hojeLabel = dataCompleta.format(agora);
+  const ontemLabel = dataCompleta.format(new Date(agora.getTime() - 86_400_000));
+  const prefixo = dia === hojeLabel ? "hoje" : dia === ontemLabel ? "ontem" : dia;
+  return `${prefixo} às ${hora.format(data)}`;
 }
 
 function corDoStatus(status: "pendente" | "em_andamento" | "concluido" | "erro") {
@@ -153,7 +211,12 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
           aria-label={emAndamento
             ? `Atualização em ${progresso} por cento`
             : referencia ? `Dados atualizados ${idade(referencia)}` : "Atualizações"}
-          className="press-feedback inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-2"
+          /* Contorno e fundo próprios: antes era só um ícone solto de cor
+             apagada, que não lia como algo clicável. A borda ganha a cor do
+             estado (verde/vermelho/azul) — o botão vira o próprio indicador,
+             visível de relance sem precisar ler o texto. */
+          className="press-feedback inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border bg-card px-2 font-semibold text-foreground shadow-[0_1px_2px_rgba(14,15,19,.06)] transition-colors hover:bg-muted sm:gap-2 sm:px-2.5"
+          style={{ borderColor: primeiraCarga ? "var(--border)" : `color-mix(in srgb, ${cor} 45%, var(--border))` }}
         >
           <Anel progresso={progresso} cor={cor} ativo={emAndamento}>
             {falhas.length > 0 && !emAndamento
@@ -170,9 +233,11 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
           {/* Slot de largura fixa: o conteúdo muda, o cabeçalho não anda.
               Enquanto o painel exibido ainda é o da rota anterior, o rótulo
               fica esmaecido em vez de sumir — o valor continua verdadeiro,
-              só não foi confirmado para esta tela ainda. */}
+              só não foi confirmado para esta tela ainda. Aparece a partir de
+              `sm` (antes só em `lg`): no tablet sobrava espaço de sobra e a
+              informação mais útil do botão ficava escondida à toa. */}
           <span
-            className="hidden w-[4.25rem] text-left text-[11px] font-semibold tabular-nums transition-opacity lg:block"
+            className="hidden w-[3.75rem] text-left text-[11px] tabular-nums transition-opacity sm:block lg:w-[4.25rem]"
             style={{ opacity: desatualizado ? 0.5 : 1 }}
           >
             <span className="block truncate">{rotulo}</span>
@@ -208,15 +273,29 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
 
                 <header className="flex items-start justify-between gap-3 border-b border-border px-4 pb-3 pt-3">
                   <div className="min-w-0">
-                    <Dialog.Title className="text-sm font-bold text-foreground">Atualizações</Dialog.Title>
-                    <p aria-live="polite" className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+                    {/* O nome da tela no título, não só "Atualizações": o
+                        painel sempre foi só desta tela, mas isso nunca estava
+                        escrito em lugar nenhum — dava a impressão de ser um
+                        painel global do sistema. */}
+                    <Dialog.Title className="flex flex-wrap items-center gap-x-1.5 text-sm font-bold text-foreground">
+                      Atualizações
+                      {tela && (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[11px] font-bold"
+                          style={{ background: "color-mix(in srgb, var(--primary) 12%, transparent)", color: "var(--primary)" }}
+                        >
+                          {ROTULO_TELA[tela]}
+                        </span>
+                      )}
+                    </Dialog.Title>
+                    <p aria-live="polite" className="mt-1 text-[11px] leading-snug text-muted-foreground">
                       {primeiraCarga
-                        ? "Lendo o banco local…"
+                        ? "Carregando…"
                         : emAndamento
-                        ? `Atualizando em segundo plano · ${progresso}%`
+                        ? `Buscando dados novos agora · ${progresso}%`
                         : referencia
-                        ? `Dados de ${dataHora.format(new Date(referencia))}`
-                        : "Nada sincronizado ainda"}
+                        ? <>Você está vendo os dados de <strong className="font-bold text-foreground">{quandoExato(referencia) ?? dataHora.format(new Date(referencia))}</strong></>
+                        : "Nenhum dado buscado ainda"}
                     </p>
                   </div>
                   <Dialog.Close asChild>
@@ -282,9 +361,14 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                   >
                     <span className="flex items-center gap-2.5">
                       <Database size={16} className="shrink-0 text-muted-foreground" />
+                      {/* "Só o banco local · sem Webshare" não dizia nada para
+                          quem não é da área. O que importa: é rápido e não
+                          gasta consulta nos canais. */}
                       <span>
-                        <strong className="block text-xs font-bold text-foreground">Atualizar dados da tela</strong>
-                        <small className="mt-0.5 block text-[11px] text-muted-foreground">Só o banco local · sem Webshare</small>
+                        <strong className="block text-xs font-bold text-foreground">Recarregar esta tela</strong>
+                        <small className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                          Rápido. Mostra o que já foi salvo, sem consultar os canais.
+                        </small>
                       </span>
                     </span>
                     <motion.span
@@ -312,8 +396,8 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                             </p>
                             <p className="mt-0.5 text-muted-foreground">
                               {falha.ultimoDadoBom
-                                ? <>Exibindo os últimos dados salvos {idade(falha.ultimoDadoBom)}. Nada foi apagado.</>
-                                : <>Ainda não há dado salvo deste canal.</>}
+                                ? <>Fique tranquilo: nada foi perdido. Você está vendo os dados de {quandoExato(falha.ultimoDadoBom) ?? idade(falha.ultimoDadoBom)}.</>
+                                : <>Este canal ainda não trouxe nenhum dado.</>}
                             </p>
                             {falha.erro && <p className="mt-1 truncate text-muted-foreground/80" title={falha.erro}>{falha.erro}</p>}
                           </div>
@@ -324,27 +408,32 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
 
                   {painel?.podeSincronizar && (painel.modulosDisponiveis.length ?? 0) > 0 && (
                     <section className="mt-4 border-t border-border pt-4">
-                      <div className="flex items-center gap-2">
-                        <Server size={14} className="text-muted-foreground" />
-                        <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">
-                          Verificar canal agora
-                        </p>
-                      </div>
+                      {/* Antes: "Verificar canal agora" + "Ação explícita e
+                          incremental". Agora o título diz de quem é o dado
+                          (esta tela) e a frase explica, sem jargão, o que o
+                          botão faz e que nada some enquanto isso. */}
+                      <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">
+                        De onde {tela ? ROTULO_TELA[tela] : "esta tela"} tira os dados
+                      </p>
                       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                        Ação explícita e incremental — busca só o que mudou.
+                        {painel.modulosDisponiveis.length > 1
+                          ? <>Esta tela usa <strong className="font-bold text-foreground">{painel.modulosDisponiveis.length} tipos de dado</strong>. Escolha um e busque o que mudou direto no canal.</>
+                          : <>Busque no canal o que mudou desde a última vez.</>}
+                        {" "}O que já está na tela continua aparecendo enquanto isso.
                       </p>
 
                       {painel.modulosDisponiveis.length > 1 && (
                         <div className="scrollbar-none mt-2.5 flex gap-1.5 overflow-x-auto pb-1">
                           {painel.modulosDisponiveis.map((item) => {
                             const ativo = modulo === item;
+                            const Icone = ICONE_MODULO[item];
                             return (
                               <button
                                 key={item}
                                 type="button"
                                 onClick={() => setModulo(item)}
                                 aria-pressed={ativo}
-                                className="press-feedback relative min-h-9 shrink-0 rounded-full px-3 text-[11px] font-bold transition-colors"
+                                className="press-feedback relative inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11px] font-bold transition-colors"
                               >
                                 {ativo && (
                                   <motion.span
@@ -353,6 +442,9 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                                     transition={transicao(reduzir, springs.settleFast)}
                                   />
                                 )}
+                                {/* Ícone junto do nome: quem bate o olho
+                                    identifica "carrinho = pedidos" sem ler. */}
+                                <Icone size={12} strokeWidth={2.4} className={`relative shrink-0 ${ativo ? "text-primary-foreground" : "text-muted-foreground"}`} />
                                 <span className={`relative ${ativo ? "text-primary-foreground" : "text-muted-foreground"}`}>
                                   {ROTULO_MODULO[item]}
                                 </span>
@@ -360,6 +452,24 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                             );
                           })}
                         </div>
+                      )}
+
+                      {/* Explica em uma frase o que é o tipo de dado escolhido
+                          — troca junto com a aba, com fade curto pra leitura
+                          acompanhar a mudança sem susto. */}
+                      {modulo && (
+                        <AnimatePresence mode="wait" initial={false}>
+                          <motion.p
+                            key={modulo}
+                            initial={reduzir ? false : { opacity: 0, y: 3 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={reduzir ? { opacity: 0 } : { opacity: 0, y: -3 }}
+                            transition={transicao(reduzir, { duration: 0.16 })}
+                            className="mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                          >
+                            {EXPLICACAO_MODULO[modulo]}
+                          </motion.p>
+                        </AnimatePresence>
                       )}
 
                       <div className="mt-2.5 space-y-2">
@@ -387,8 +497,16 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                     </div>
                   )}
 
-                  <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
-                    Abrir páginas, filtrar ou paginar nunca inicia chamada externa.
+                  {/* Tranquiliza: mexer na tela não gasta nada nem dispara
+                      busca sem querer. Antes dizia "nunca inicia chamada
+                      externa" — a pessoa não sabe o que é uma chamada. */}
+                  <p className="mt-4 flex items-start gap-1.5 rounded-xl bg-muted/50 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                    <Check size={13} strokeWidth={2.6} className="mt-0.5 shrink-0" style={{ color: "var(--success)" }} />
+                    <span>
+                      Pode navegar à vontade: abrir telas, filtrar ou trocar de página
+                      <strong className="font-semibold text-foreground"> nunca</strong> consulta os canais.
+                      Só os botões acima fazem isso.
+                    </span>
                   </p>
                 </div>
               </motion.div>
@@ -412,6 +530,7 @@ function LinhaConta({ conta, modulo, indice, ocupada, onVerificar }: {
   const atualidade = conta.atualidade.find((item) => item.modulo === modulo);
   const espera = atualidade?.esperarSegundos ?? 0;
   const bloqueada = ocupada || espera > 0 || !modulo;
+  const exato = quandoExato(atualidade?.ultimoSucesso);
 
   return (
     <motion.div
@@ -432,18 +551,28 @@ function LinhaConta({ conta, modulo, indice, ocupada, onVerificar }: {
         </p>
         <p className="truncate text-[11px]" style={{ color: corMarca }}>{conta.brandLabel}</p>
         {/* A idade do dado — a pergunta que a porcentagem sozinha nunca
-            respondeu ("o estoque da Shopee é de quando?"). */}
-        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-          {atualidade?.ultimoSucesso
-            ? `Última verificação ${idade(atualidade.ultimoSucesso)}`
-            : "Nunca verificado"}
-        </p>
+            respondeu ("o estoque da Shopee é de quando?"). O relativo diz se
+            está fresco; a data exata ao lado diz de quando, sem precisar
+            calcular de cabeça. */}
+        {atualidade?.ultimoSucesso ? (
+          <p className="mt-0.5 text-[11px] leading-snug text-muted-foreground">
+            Buscado <strong className="font-bold text-foreground">{idade(atualidade.ultimoSucesso)}</strong>
+            {exato && <span className="text-muted-foreground/80"> · {exato}</span>}
+          </p>
+        ) : (
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+            <AlertTriangle size={11} className="shrink-0" />
+            Nunca buscado
+          </p>
+        )}
       </div>
       <button
         type="button"
         disabled={bloqueada}
         onClick={onVerificar}
-        title={espera > 0 ? `Verificado há pouco. Liberado em ${Math.ceil(espera / 60)} min.` : undefined}
+        title={espera > 0
+          ? `Buscado há pouco. Para não sobrecarregar o canal, você pode buscar de novo em ${Math.ceil(espera / 60)} min.`
+          : "Buscar agora o que mudou neste canal"}
         className="press-feedback inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 text-[11px] font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-45"
       >
         <motion.span
@@ -455,7 +584,7 @@ function LinhaConta({ conta, modulo, indice, ocupada, onVerificar }: {
         </motion.span>
         {ocupada
           ? `${conta.execucao?.progresso ?? 0}%`
-          : espera > 0 ? `${Math.ceil(espera / 60)} min` : "Verificar"}
+          : espera > 0 ? `${Math.ceil(espera / 60)} min` : "Buscar"}
       </button>
     </motion.div>
   );

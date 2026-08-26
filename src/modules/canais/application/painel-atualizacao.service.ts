@@ -49,11 +49,18 @@ export const FONTES_POR_TELA: Record<TelaAtualizavel, readonly FonteVersao[]> = 
   auditoria: ["auditoria"],
 };
 
+/** O que cada tela deixa a pessoa mandar buscar no canal.
+ *
+ *  Tem que cobrir tudo que a tela mostra — ou seja, espelhar
+ *  `FONTES_POR_TELA` acima. Métricas ficava com 3 módulos enquanto lia 5
+ *  fontes: os cards de estoque ("Estoque parado", "Repor em breve") e o ROAS
+ *  de Publicações apareciam com dado velho e sem nenhum botão ali para
+ *  renovar — a pessoa tinha que sair para Estoque ou Publicidade e voltar. */
 export const MODULOS_EXTERNOS_POR_TELA: Record<TelaAtualizavel, readonly ModuloSincronizacao[]> = {
   vendas: ["pedidos"],
   avaliacoes: ["avaliacoes"],
   estoque: ["catalogo"],
-  metricas: ["pedidos", "avaliacoes", "reputacao"],
+  metricas: ["pedidos", "catalogo", "avaliacoes", "anuncios", "reputacao"],
   anuncios: ["anuncios"],
   configuracoes: MODULOS_SINCRONIZACAO,
   clientes: ["pedidos"],
