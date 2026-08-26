@@ -418,10 +418,10 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                           incremental". Agora o título diz de quem é o dado
                           (esta tela) e a frase explica, sem jargão, o que o
                           botão faz e que nada some enquanto isso. */}
-                      <p className="text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">
+                      <p className="text-center text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">
                         De onde {tela ? ROTULO_TELA[tela] : "esta tela"} tira os dados
                       </p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                      <p className="mt-1 text-center text-[11px] leading-relaxed text-muted-foreground">
                         {painel.modulosDisponiveis.length > 1
                           ? "Escolha o que buscar no canal."
                           : "Busque no canal o que mudou."}
