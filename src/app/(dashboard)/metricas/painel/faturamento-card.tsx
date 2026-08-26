@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { BarChart3, Check, CircleSlash, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Trophy, Wallet } from "lucide-react";
+import { Check, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
-import { springs, stagger, fadeUp } from "@/shared/design-system/motion-variants";
+import { springs } from "@/shared/design-system/motion-variants";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { AcaoSlotFiltro } from "./listas-cards";
@@ -191,76 +191,6 @@ function EntendaFaturamentoBotao() {
   );
 }
 
-/** Explica os 3 números do resumo do período (melhor dia, média diária,
- *  dias sem venda) — mesmo padrão do "Entenda o faturamento" acima: ícone ⓘ
- *  que abre um popover didático, em vez de deixar o significado implícito
- *  nos rótulos curtos das pílulas. */
-function EntendaResumoBotao() {
-  return (
-    <AnimatedInfoPopover
-      trigger={(
-        <AnimatedInfoTrigger
-          title="Entenda o resumo do período"
-          aria-label="Entenda o resumo do período"
-          iconSize={13}
-          className="press-feedback inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-      )}
-      align="start"
-      sideOffset={8}
-      collisionPadding={12}
-      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
-    >
-      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Como o resumo do período é calculado</p>
-
-      <dl className="mt-4 flex flex-col gap-3.5">
-        <div className="flex items-start gap-2.5">
-          <span
-            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-            style={{ background: tint("var(--success)", 14), color: "var(--success)" }}
-          >
-            <Trophy size={13} strokeWidth={2} />
-          </span>
-          <div>
-            <dt className="text-[12.5px] font-bold text-foreground">Melhor dia</dt>
-            <dd className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">O dia com o maior faturamento dentro do período escolhido.</dd>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2.5">
-          <span
-            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-            style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
-          >
-            <BarChart3 size={13} strokeWidth={2} />
-          </span>
-          <div>
-            <dt className="text-[12.5px] font-bold text-foreground">Média diária</dt>
-            <dd className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">O faturamento total do período dividido pelo número de dias dele — inclui os dias sem venda no cálculo.</dd>
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2.5">
-          <span
-            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-            style={{ background: tint("var(--destructive)", 12), color: "var(--destructive)" }}
-          >
-            <CircleSlash size={13} strokeWidth={2} />
-          </span>
-          <div>
-            <dt className="text-[12.5px] font-bold text-foreground">Dias sem venda</dt>
-            <dd className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">Quantos dias do período fecharam sem nenhum pedido concluído.</dd>
-          </div>
-        </div>
-      </dl>
-
-      <p className="mt-4 rounded-[0.85rem] px-3 py-2.5 text-[12px] font-medium leading-relaxed" style={{ background: tint("var(--selecionado)", 8), color: "var(--foreground)" }}>
-        Os 3 números usam sempre o valor <strong>bruto ou líquido</strong> que está selecionado no card, e o mesmo período dos filtros no topo.
-      </p>
-    </AnimatedInfoPopover>
-  );
-}
-
 /** Bruto/Líquido: no mobile porta pra mesma linha do "Período" (acaoSlot no
  *  cabeçalho do painel, ver AcaoSlotFiltro) — antes ficava numa linha própria
  *  logo abaixo do filtro de canal, uma linha a mais só pra um toggle curto
@@ -323,18 +253,6 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   const positiva = (variacao ?? 0) >= 0;
   const serieAtiva = dados ? (liquido ? dados.serieLiquido : dados.serie) : [];
   const pontoFocado = focado !== null ? serieAtiva[focado] ?? null : null;
-
-  // Resumo do período: só faz sentido com mais de 1 dia (mesmo limiar do
-  // próprio gráfico, ver `GraficoSerie` — 1 dia só não tem "melhor dia" pra
-  // comparar). Reaproveita `serieAtiva` em vez de pedir outra métrica ao
-  // servidor: os 3 números já estão implícitos na série que o gráfico usa.
-  const melhorDia = serieAtiva.length > 1
-    ? serieAtiva.reduce((melhor, ponto) => (ponto.valor > melhor.valor ? ponto : melhor), serieAtiva[0])
-    : null;
-  const diasSemVenda = serieAtiva.filter((ponto) => ponto.valor === 0).length;
-  const mediaDiaria = serieAtiva.length > 0
-    ? serieAtiva.reduce((soma, ponto) => soma + ponto.valor, 0) / serieAtiva.length
-    : 0;
 
   return (
     <Card>
@@ -430,72 +348,6 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 {dados && <GraficoSerie serie={serieAtiva} aoFocar={setFocado} cores={cores} />}
               </div>
 
-              {/* Resumo do período: preenche o respiro que sobrava abaixo do
-                  gráfico com 3 leituras que já moram na série (melhor dia,
-                  média diária, dias sem venda) — em vez de espaço em branco,
-                  vira contexto que ajuda a explicar a curva acima. Só some
-                  quando o próprio gráfico também some (1 dia só ou sem série).
-                  O ⓘ ao lado do título abre um popover explicando cada
-                  número — mesmo padrão do "Entenda o faturamento" acima,
-                  em vez de deixar o significado implícito nos rótulos. */}
-              {melhorDia && (
-                <div className="mt-6 border-t border-border pt-5">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Resumo do período</p>
-                    <EntendaResumoBotao />
-                  </div>
-                  <motion.div
-                    variants={reduzir ? undefined : stagger}
-                    initial={reduzir ? undefined : "hidden"}
-                    animate={reduzir ? undefined : "show"}
-                    className="mt-3 flex flex-wrap items-center justify-center gap-x-8 gap-y-4 sm:justify-between"
-                  >
-                    <motion.div variants={reduzir ? undefined : fadeUp} className="flex items-center gap-2.5">
-                      <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                        style={{ background: tint("var(--success)", 12), color: "var(--success)" }}
-                      >
-                        <Trophy size={14} strokeWidth={2} />
-                      </span>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Melhor dia</p>
-                        <p className="text-sm font-bold tabular-nums text-foreground">
-                          {melhorDia.label} <span className="text-muted-foreground font-semibold">·</span> {moeda.format(melhorDia.valor)}
-                        </p>
-                      </div>
-                    </motion.div>
-
-                    <motion.div variants={reduzir ? undefined : fadeUp} className="flex items-center gap-2.5">
-                      <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                        style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
-                      >
-                        <BarChart3 size={14} strokeWidth={2} />
-                      </span>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Média diária</p>
-                        <p className="text-sm font-bold tabular-nums text-foreground">{moeda.format(mediaDiaria)}</p>
-                      </div>
-                    </motion.div>
-
-                    <motion.div variants={reduzir ? undefined : fadeUp} className="flex items-center gap-2.5">
-                      <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-                        style={{
-                          background: diasSemVenda > 0 ? tint("var(--destructive)", 12) : "var(--muted)",
-                          color: diasSemVenda > 0 ? "var(--destructive)" : "var(--muted-foreground)",
-                        }}
-                      >
-                        <CircleSlash size={14} strokeWidth={2} />
-                      </span>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Dias sem venda</p>
-                        <p className="text-sm font-bold tabular-nums text-foreground">{diasSemVenda} de {serieAtiva.length}</p>
-                      </div>
-                    </motion.div>
-                  </motion.div>
-                </div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
