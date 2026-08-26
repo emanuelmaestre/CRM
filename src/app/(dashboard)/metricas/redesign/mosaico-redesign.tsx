@@ -355,7 +355,7 @@ const CARDS: CardDef[] = [
   {
     id: "score", secao: "Placar geral", titulo: "Pontuação da loja", icone: Gauge, tom: "var(--sd-ok)",
     metrica: "87", sufixo: "/100", legenda: "reputação saudável", delta: 2,
-    preview: <Anel pct={87} cor="var(--sd-ok)" centro="87" legenda="score" />,
+    preview: <Anel pct={87} cor="var(--sd-ok)" centro="87" legenda="pontos" />,
   },
   {
     id: "reclamacoes", secao: "Atendimento ao cliente", titulo: "Reclamações", icone: AlertTriangle, tom: "var(--sd-err)",
@@ -395,7 +395,7 @@ const HERO = {
   titulo: "Faturamento",
   metrica: "R$ 128.940",
   delta: 9,
-  legenda: "1.284 pedidos · ticket médio R$ 100,42",
+  legenda: "1.284 pedidos · valor médio R$ 100,42",
   serie: [70, 82, 76, 95, 88, 110, 104, 129],
 };
 

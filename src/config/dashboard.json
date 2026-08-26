@@ -22,7 +22,7 @@
       "accent": "var(--acento-1)",
       "unitLabel": "un.",
       "emptyTitle": "Sem vendas no período",
-      "emptyDescription": "O ranking de produtos aparece aqui assim que houver pedidos."
+      "emptyDescription": "A lista dos produtos mais vendidos aparece aqui assim que houver pedidos."
     },
     "reposicao": {
       "icon": "Package",

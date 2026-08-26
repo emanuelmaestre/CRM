@@ -41,7 +41,7 @@
     ],
     "labels": {
       "loading": "Verificando…",
-      "connected": "Token ativo",
+      "connected": "Conexão autorizada",
       "disconnected": "Não conectado",
       "refresh": "Atualizar status",
       "connect": "Conectar",
@@ -52,8 +52,8 @@
       "pending": "Pendente",
       "closeFeedback": "Fechar",
       "sellerPrefix": "Conta",
-      "mismatch": "Token salvo é de outra conta do Mercado Livre. Desconecte e conecte novamente com a conta desta marca.",
-      "confirmDisconnect": "Desconectar a conta {brand} do Mercado Livre? O token será apagado e a sincronização para nesta marca até você reconectar.",
+      "mismatch": "A credencial salva pertence a outra conta do Mercado Livre. Desconecte e conecte novamente com a conta desta marca.",
+      "confirmDisconnect": "Desconectar a conta {brand} do Mercado Livre? A autorização será apagada e a sincronização ficará interrompida nesta marca até você reconectar.",
       "disconnected_ok": "Conta {brand} desconectada.",
       "disconnect_error": "Não foi possível desconectar."
     },
@@ -147,9 +147,9 @@
     "feedback": {
       "success": "Mercado Livre ({brand}) conectado com sucesso!",
       "errors": {
-        "state_mismatch": "Falha de segurança (state inválido). Tente novamente.",
-        "token_exchange_failed": "Erro ao trocar o código por token. Tente novamente.",
-        "db_failed": "Erro ao salvar o token. Contate o suporte.",
+        "state_mismatch": "Falha na validação de segurança. Tente novamente.",
+        "token_exchange_failed": "Não foi possível autorizar a conexão. Tente novamente.",
+        "db_failed": "Não foi possível salvar a autorização. Contate o suporte.",
         "missing_params": "Parâmetros ausentes no retorno do ML.",
         "invalid_brand": "Marca inválida no retorno do ML.",
         "conta_incorreta": "Conta do Mercado Livre não corresponde a esta marca."
@@ -184,7 +184,7 @@
       "environment": "configurado no ambiente",
       "mismatch": "O ID salvo no banco diverge do ID configurado no ambiente.",
       "required": "Obrigatório para canais de vendas",
-      "placeholder": "Seller, shop ou conta externa"
+      "placeholder": "Vendedor, loja ou conta externa"
     }
   }
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { BadgeDollarSign, Eye, Gauge, LayoutGrid, Megaphone, MousePointerClick, Package, ShieldCheck, TriangleAlert, Wallet } from "lucide-react";
 import { actionObterDesempenhoPublicacoes } from "./actions";
 import { Card, CardHead, AvisoParcial } from "./metricas-primitives";
@@ -14,7 +15,7 @@ import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system
 import { traduzirNivelQualidade, traduzirPendenciaPublicacao } from "@/shared/lib/pt-br";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug, marcaFixadaPelosCanais } from "@/shared/config/brands";
 import { inteiro, moeda } from "@/shared/design-system/format";
 import { springs, staggerExagerado, entradaExagerada, variantes } from "@/shared/design-system/motion-variants";
 
@@ -212,9 +213,22 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
   }
 
   function alternarMarca(id: string) {
+    const marca = marcas.find((item) => item.brandId === id);
+    if (marca && marcaFixadaPelosCanais(marca.slug, canalAtivo ? ["mercadolivre"] : [])) {
+      toast.info(`${marca.marcaLabel} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
+      return;
+    }
     setBrandIds((atual) => (
       atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]
     ));
+  }
+
+  function alternarMercadoLivre() {
+    const proximoCanalAtivo = !canalAtivo;
+    setCanalAtivo(proximoCanalAtivo);
+    if (!proximoCanalAtivo) return;
+    const karzi = marcas.find((marca) => marca.slug === "karzi");
+    if (karzi) setBrandIds((atuais) => atuais.includes(karzi.brandId) ? atuais : [...atuais, karzi.brandId]);
   }
 
   const CANAIS_FUTUROS = [
@@ -226,7 +240,7 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
     <div className="flex items-center gap-1" role="group" aria-label="Canal das publicações">
       <motion.button type="button" role="switch" aria-checked={canalAtivo}
         title={canalAtivo ? "Anúncios patrocinados do Mercado Livre, clique para ocultar" : "Anúncios patrocinados do Mercado Livre ocultos, clique para mostrar"}
-        onClick={() => setCanalAtivo((v) => !v)}
+        onClick={alternarMercadoLivre}
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.88, rotate: -4 }}
         transition={springs.settleFast}
@@ -258,9 +272,12 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
     <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Marcas das publicações">
       {marcas.map((marca) => {
         const ativo = brandIds.includes(marca.brandId);
+        const fixadaPeloCanal = marcaFixadaPelosCanais(marca.slug, canalAtivo ? ["mercadolivre"] : []);
         const accent = isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined;
         return (
           <motion.button key={marca.brandId} type="button" role="switch" aria-checked={ativo} aria-label={marca.marcaLabel}
+            aria-disabled={fixadaPeloCanal}
+            title={fixadaPeloCanal ? `${marca.marcaLabel} é incluída pelo filtro do Mercado Livre.` : undefined}
             onClick={() => alternarMarca(marca.brandId)}
             whileHover={{ y: -2, scale: 1.04 }}
             whileTap={{ scale: 0.92 }}
@@ -520,7 +537,7 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
                               { label: "Pendências abertas", valor: String(item.pendencias.length) },
                             ]}
                             nota={item.qualidadeStatus === "nao_consultada"
-                              ? "As métricas de publicidade já estão disponíveis. Qualidade e pendências estão sendo consultadas separadamente para não atrasar o restante do card."
+                              ? "As métricas de publicidade já estão disponíveis. Qualidade e pendências estão sendo consultadas separadamente para não atrasar o restante do painel."
                               : item.qualidadeStatus === "nao_aplicavel" || item.qualidadeStatus === "indisponivel"
                               ? motivoQualidadeIndisponivel(item.status, item.qualidadeStatus)
                               : "A pontuação e as pendências representam a avaliação atual da publicação e não variam com o período selecionado. Uma nota alta não garante cliques ou vendas."}

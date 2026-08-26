@@ -38,7 +38,7 @@ const canais: Canal[] = [
     descricao: "Pedidos, catálogo, avaliações, métricas, publicidade e manutenção da conexão.",
     linhas: [
       {
-        modulo: "Vendas · webhook",
+        modulo: "Vendas · notificação automática",
         endpoints: ["GET /orders/{order_id}", "GET /shipments/{shipping_id}", "GET /shipments/{shipping_id}/costs"],
         frequencia: "Imediatamente após a notificação de uma venda.",
         tipo: "evento",
@@ -88,19 +88,19 @@ const canais: Canal[] = [
       {
         modulo: "Métricas · reputação",
         endpoints: ["GET /users/me"],
-        frequencia: "Ao abrir ou filtrar Métricas, com cache de 90 segundos; também na sincronização manual.",
+        frequencia: "Ao abrir ou filtrar Métricas, com reaproveitamento dos dados por 90 segundos; também na sincronização manual.",
         tipo: "interface",
       },
       {
         modulo: "Métricas · status",
-        endpoints: ["Sem chamada externa · snapshot local em produto_canal"],
+        endpoints: ["Sem chamada externa · dados locais em produto_canal"],
         frequencia: "Leitura local ao abrir ou alterar filtros; o status é atualizado pela coleta automática de 6 horas.",
         tipo: "interface",
       },
       {
         modulo: "Publicações patrocinadas",
         endpoints: ["GET /advertising/advertisers?product_id=PADS", "GET /marketplace/advertising/{site}/advertisers/{advertiser}/product_ads/ads/search"],
-        frequencia: "Ao abrir ou filtrar Publicações, com cache de 120 segundos; também diariamente.",
+        frequencia: "Ao abrir ou filtrar Publicações, com reaproveitamento dos dados por 120 segundos; também diariamente.",
         tipo: "interface",
       },
       {
@@ -118,7 +118,7 @@ const canais: Canal[] = [
       {
         modulo: "Qualidade da publicação",
         endpoints: ["GET /item/{listing_id}/performance", "GET /items?ids=...&attributes=id,date_created"],
-        frequencia: "Ao consultar até 20 anúncios exibidos, com cache de 120 segundos.",
+        frequencia: "Ao consultar até 20 anúncios exibidos, com reaproveitamento dos dados por 120 segundos.",
         tipo: "interface",
       },
       {
@@ -128,7 +128,7 @@ const canais: Canal[] = [
         tipo: "automatico",
       },
       {
-        modulo: "Token OAuth",
+        modulo: "Autorização OAuth",
         endpoints: ["POST /oauth/token"],
         frequencia: "Verificado a cada hora; renova somente se faltar até 90 minutos para expirar.",
         tipo: "automatico",
@@ -141,7 +141,7 @@ const canais: Canal[] = [
     descricao: "Pedidos, catálogo, avaliações, estoque, saúde da loja e renovação da conexão.",
     linhas: [
       {
-        modulo: "Vendas · webhook",
+        modulo: "Vendas · notificação automática",
         endpoints: ["GET /api/v2/order/get_order_detail"],
         frequencia: "Imediatamente após a notificação de uma venda.",
         tipo: "evento",
@@ -189,7 +189,7 @@ const canais: Canal[] = [
         tipo: "automatico",
       },
       {
-        modulo: "Token OAuth",
+        modulo: "Autorização OAuth",
         endpoints: ["POST /api/v2/auth/access_token/get"],
         frequencia: "Verificado a cada hora, no minuto 12; renova somente se faltar até 1 hora para expirar.",
         tipo: "automatico",
@@ -245,7 +245,7 @@ function TabelaCanal({ canal }: { canal: Canal }) {
 
       <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[780px] table-fixed border-collapse text-left">
-          <caption className="sr-only">Endpoints e frequência de chamadas do canal {canal.nome}</caption>
+          <caption className="sr-only">Endereços e frequência de chamadas do canal {canal.nome}</caption>
           <colgroup>
             <col className="w-[22%]" />
             <col className="w-[43%]" />
@@ -254,7 +254,7 @@ function TabelaCanal({ canal }: { canal: Canal }) {
           <thead>
             <tr className="border-b border-border bg-muted/35 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
               <th scope="col" className="px-4 py-2.5 sm:px-5">Módulo</th>
-              <th scope="col" className="px-4 py-2.5">Endpoint chamado</th>
+              <th scope="col" className="px-4 py-2.5">Endereço chamado</th>
               <th scope="col" className="px-4 py-2.5 sm:px-5">Quando/frequência</th>
             </tr>
           </thead>
@@ -285,7 +285,7 @@ function TabelaCanal({ canal }: { canal: Canal }) {
               <EtiquetaFrequencia tipo={linha.tipo} />
             </div>
             <div>
-              <p className="mb-1.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Endpoint chamado</p>
+              <p className="mb-1.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Endereço chamado</p>
               <Endpoints valores={linha.endpoints} />
             </div>
             <div>
@@ -310,7 +310,7 @@ export function EndpointsFrequenciasSection() {
       </div>
       {canais.map((canal) => <TabelaCanal key={canal.id} canal={canal} />)}
       <p className="px-1 text-[10.5px] leading-relaxed text-muted-foreground">
-        Os endpoints de alteração de estoque existem na integração, mas não aparecem aqui porque nenhum fluxo ativo os chama atualmente.
+        Os endereços de alteração de estoque existem na integração, mas não aparecem aqui porque nenhum fluxo ativo os chama atualmente.
       </p>
     </div>
   );

@@ -381,12 +381,12 @@
       "changeAccount": "Trocar",
       "accountPlaceholder": "Selecione a conta de canal…",
       "disconnectedSuffix": "- desconectado",
-      "listingFieldLabel": "ID do anúncio (listingId)",
-      "listingPlaceholder": "ID do anúncio no canal (listingId)",
+      "listingFieldLabel": "ID do anúncio",
+      "listingPlaceholder": "ID do anúncio no canal",
       "skuFieldLabel": "SKU / modelo externo",
       "skuPlaceholder": "ID externo do SKU / modelo",
-      "warehouseFieldLabel": "Warehouse (TikTok Shop)",
-      "warehousePlaceholder": "ID do warehouse no TikTok Shop",
+      "warehouseFieldLabel": "Depósito (TikTok Shop)",
+      "warehousePlaceholder": "ID do depósito no TikTok Shop",
       "save": "Salvar mapeamento",
       "saving": "Salvando…",
       "allMapped": "Todos os canais disponíveis já estão mapeados para este produto.",
@@ -394,7 +394,7 @@
         "loadError": "Erro ao carregar mapeamentos.",
         "accountRequired": "Selecione uma conta de canal.",
         "listingRequired": "Informe o ID do anúncio no canal.",
-        "tiktokIdsRequired": "TikTok Shop exige os IDs de SKU e warehouse.",
+        "tiktokIdsRequired": "O TikTok Shop exige os IDs do SKU e do depósito.",
         "saveSuccess": "Mapeamento salvo.",
         "saveError": "Erro ao salvar mapeamento.",
         "removeSuccess": "Mapeamento removido.",
@@ -503,7 +503,7 @@
     ],
     "origins": {
       "usuario": "Manual",
-      "usuario_sintetico": "Seed sintético",
+      "usuario_sintetico": "Dados sintéticos",
       "sistema": "Sistema",
       "job": "Tarefa automática",
       "ia": "IA",
@@ -542,6 +542,6 @@
   "anuncios": {
     "metadataTitle": "Publicidade",
     "title": "Publicidade",
-    "description": "Performance, investimento e oportunidades no Mercado Livre"
+    "description": "Desempenho, investimento e oportunidades no Mercado Livre"
   }
 }

@@ -26,6 +26,42 @@ export function canaisDaMarca(slug: string): readonly CanalVenda[] {
     (CANAIS_VENDA as readonly string[]).includes(canal));
 }
 
+/** Uma marca continua disponível quando nenhum canal foi escolhido ou quando
+ *  opera em ao menos um dos canais ativos. Os filtros de canal são uma união
+ *  (Mercado Livre + Shopee), portanto basta uma combinação válida. */
+export function marcaDisponivelNosCanais(slug: string, canais: readonly string[]): boolean {
+  if (canais.length === 0) return true;
+  const canaisOperados = canaisDaMarca(slug) as readonly string[];
+  return canais.some((canal) => canaisOperados.includes(canal));
+}
+
+/** Regra comercial do filtro: Mercado Livre sempre traz a KARZI junto. */
+export function marcaFixadaPelosCanais(slug: string, canais: readonly string[]): boolean {
+  return slug === "karzi" && canais.includes("mercadolivre");
+}
+
+/** Remove seleções incompatíveis com os canais e inclui as marcas obrigatórias
+ *  pela regra comercial. Os identificadores podem ser UUIDs ou slugs. */
+export function ajustarMarcasSelecionadasAosCanais(
+  selecionadas: readonly string[],
+  canais: readonly string[],
+  marcas: readonly { id: string; slug: string }[],
+): string[] {
+  const marcaPorId = new Map(marcas.map((marca) => [marca.id, marca]));
+  const proximo = selecionadas.filter((id) => {
+    const marca = marcaPorId.get(id);
+    return !marca || marcaDisponivelNosCanais(marca.slug, canais);
+  });
+
+  for (const marca of marcas) {
+    if (marcaFixadaPelosCanais(marca.slug, canais) && !proximo.includes(marca.id)) {
+      proximo.push(marca.id);
+    }
+  }
+
+  return proximo;
+}
+
 export function getBrandConfig(slug: string) {
   return isBrandSlug(slug) ? brandsConfig[slug] : null;
 }

@@ -220,7 +220,7 @@
     },
     {
       "id": "A28",
-      "nome": "Sincronização de avaliações dos marketplaces",
+      "nome": "Sincronização de avaliações dos canais de venda",
       "disparo": "Agendamento",
       "cron": "17 */6 * * *"
     },

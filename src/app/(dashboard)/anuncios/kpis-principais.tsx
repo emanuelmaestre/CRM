@@ -29,7 +29,7 @@ function descricaoReceita(resumo: VisaoGeralResumo) {
     const vendasTexto = vendas === 1 ? "1 venda atribuída aos anúncios" : `${inteiro.format(vendas)} vendas atribuídas aos anúncios`;
     leitura = `Receita atribuída atual: ${valor}. A plataforma associou esse faturamento a ${vendasTexto}, com média de ${moeda.format(ticketMedio)} por venda.`;
   } else {
-    leitura = `Receita atribuída atual: ${valor}. A plataforma associou esse faturamento aos anúncios, mas não informou quantidade de vendas para calcular o ticket médio.`;
+    leitura = `Receita atribuída atual: ${valor}. A plataforma associou esse faturamento aos anúncios, mas não informou a quantidade de vendas para calcular o valor médio por venda.`;
   }
 
   return {
@@ -57,7 +57,7 @@ function descricaoRoas(valor: number | null) {
 }
 
 function descricaoAcos(resumo: VisaoGeralResumo) {
-  const observacao = "ACOS olha só a receita atribuída aos anúncios. TACOS olha a receita total, somando ads e orgânico. ACOS baixo ajuda na eficiência, mas não é lucro: ainda não desconta custo do produto, taxas, frete ou impostos.";
+  const observacao = "ACOS considera apenas a receita atribuída aos anúncios. TACOS considera a receita total, somando anúncios pagos e vendas orgânicas. ACOS baixo ajuda na eficiência, mas não é lucro: ainda não desconta custo do produto, taxas, frete ou impostos.";
 
   if (resumo.acosMedio === null || resumo.receitaTotal <= 0) {
     return {

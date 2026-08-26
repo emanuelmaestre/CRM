@@ -5,7 +5,13 @@ import { PlugZap2 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import {
+  ajustarMarcasSelecionadasAosCanais,
+  getBrandConfig,
+  isBrandSlug,
+  marcaDisponivelNosCanais,
+  marcaFixadaPelosCanais,
+} from "@/shared/config/brands";
 import channelsConfig from "@/config/channels.json";
 
 export type ScopeMarca = { brandId: string; nome: string; slug: string; total: number };
@@ -41,9 +47,10 @@ function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; red
   );
 }
 
-function Pilula({ ativo, desabilitado, onClick, rotulo, accent, children }: {
+function Pilula({ ativo, desabilitado, motivoDesabilitado, onClick, rotulo, accent, children }: {
   ativo: boolean;
   desabilitado?: boolean;
+  motivoDesabilitado?: string;
   onClick: () => void;
   rotulo?: string;
   /** Cor de identidade (marca ou canal) usada quando selecionado — cada pílula
@@ -58,11 +65,11 @@ function Pilula({ ativo, desabilitado, onClick, rotulo, accent, children }: {
       // Continua tocável mesmo desabilitada — o toque mostra o motivo (toast),
       // porque `title` (tooltip) não aparece no toque em celular; mesmo
       // padrão de Estoque/Publicidade.
-      onClick={desabilitado ? () => toast.info(`${rotulo ?? "Este canal"} ainda não está conectado.`) : onClick}
+      onClick={desabilitado ? () => toast.info(motivoDesabilitado ?? `${rotulo ?? "Este canal"} ainda não está conectado.`) : onClick}
       aria-disabled={desabilitado}
       aria-pressed={ativo}
       aria-label={rotulo}
-      title={rotulo}
+      title={desabilitado ? motivoDesabilitado ?? rotulo : rotulo}
       whileHover={!reduzMovimento ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!reduzMovimento ? { scale: desabilitado ? 0.97 : 0.92 } : undefined}
       style={ativo && !desabilitado && accent ? { borderColor: accent } : undefined}
@@ -94,6 +101,24 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
 }) {
   if (marcas.length === 0 && canais.length === 0) return null;
 
+  function alternarCanal(tipo: string) {
+    const proximosCanais = alternar(filtro.canal, tipo);
+    const proximasMarcas = ajustarMarcasSelecionadasAosCanais(
+      filtro.brandId,
+      proximosCanais,
+      marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
+    );
+    onChange({ brandId: proximasMarcas, canal: proximosCanais });
+  }
+
+  function alternarMarca(marca: ScopeMarca) {
+    if (marcaFixadaPelosCanais(marca.slug, filtro.canal)) {
+      toast.info(`${marca.nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
+      return;
+    }
+    onChange({ ...filtro, brandId: alternar(filtro.brandId, marca.brandId) });
+  }
+
   // No mobile, marca e canal já quebravam em duas fileiras por falta de
   // espaço (empresas em cima, canais embaixo) — formaliza isso em dois
   // grupos de verdade (em vez de uma sequência só) pra poder inverter a
@@ -117,7 +142,7 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
             key={canal.tipo}
             ativo={filtro.canal.includes(canal.tipo)}
             desabilitado={!canal.conectado}
-            onClick={() => onChange({ ...filtro, canal: alternar(filtro.canal, canal.tipo) })}
+            onClick={() => alternarCanal(canal.tipo)}
             rotulo={canalLabel(canal.tipo)}
             accent={channelAccent(canal.tipo)}
           >
@@ -127,16 +152,22 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
-        {marcas.map((marca) => (
-          <Pilula
-            key={marca.brandId}
-            ativo={filtro.brandId.includes(marca.brandId)}
-            onClick={() => onChange({ ...filtro, brandId: alternar(filtro.brandId, marca.brandId) })}
-            accent={isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined}
-          >
-            {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={17} /> : marca.nome}
-          </Pilula>
-        ))}
+        {marcas.map((marca) => {
+          const disponivel = marcaDisponivelNosCanais(marca.slug, filtro.canal);
+          return (
+            <Pilula
+              key={marca.brandId}
+              ativo={disponivel && filtro.brandId.includes(marca.brandId)}
+              desabilitado={!disponivel}
+              motivoDesabilitado={`${marca.nome} não opera nos canais selecionados.`}
+              rotulo={marca.nome}
+              onClick={() => alternarMarca(marca)}
+              accent={isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined}
+            >
+              {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={17} /> : marca.nome}
+            </Pilula>
+          );
+        })}
       </div>
     </>
   );

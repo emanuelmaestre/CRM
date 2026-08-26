@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { AvaliacoesLista, type Avaliacao } from "./avaliacoes-lista";
 import { EmpresasRow, CanaisRow } from "./filtro-escopo";
+import {
+  BRAND_SLUGS,
+  ajustarMarcasSelecionadasAosCanais,
+  marcaDisponivelNosCanais,
+  marcaFixadaPelosCanais,
+} from "@/shared/config/brands";
 
 export function AvaliacoesCliente({ itensIniciais }: {
   /** Avaliações já lidas do cache no servidor (ver page.tsx) — chegam dentro
@@ -28,6 +34,8 @@ export function AvaliacoesCliente({ itensIniciais }: {
   const [contagens, setContagens] = useState(contagensIniciais);
 
   function alternarMarca(slug: string) {
+    if (marcaFixadaPelosCanais(slug, [...canaisAtivos])) return;
+    if (!marcaDisponivelNosCanais(slug, [...canaisAtivos])) return;
     setMarcasAtivas((atual) => {
       const proximo = new Set(atual);
       if (proximo.has(slug)) proximo.delete(slug); else proximo.add(slug);
@@ -36,11 +44,15 @@ export function AvaliacoesCliente({ itensIniciais }: {
   }
 
   function alternarCanal(tipo: string) {
-    setCanaisAtivos((atual) => {
-      const proximo = new Set(atual);
-      if (proximo.has(tipo)) proximo.delete(tipo); else proximo.add(tipo);
-      return proximo;
-    });
+    const proximosCanais = new Set(canaisAtivos);
+    if (proximosCanais.has(tipo)) proximosCanais.delete(tipo); else proximosCanais.add(tipo);
+    const canaisLista = [...proximosCanais];
+    setCanaisAtivos(proximosCanais);
+    setMarcasAtivas((atuais) => new Set(ajustarMarcasSelecionadasAosCanais(
+      [...atuais],
+      canaisLista,
+      BRAND_SLUGS.map((slug) => ({ id: slug, slug })),
+    )));
   }
 
   return (
@@ -56,7 +68,7 @@ export function AvaliacoesCliente({ itensIniciais }: {
         </div>
         <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border lg:block" />
         <div className="flex w-full justify-center overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none lg:w-auto lg:justify-start">
-          <EmpresasRow marcasAtivas={marcasAtivas} onToggleMarca={alternarMarca} contagemMarca={contagens.marcas} />
+          <EmpresasRow marcasAtivas={marcasAtivas} canaisAtivos={canaisAtivos} onToggleMarca={alternarMarca} contagemMarca={contagens.marcas} />
         </div>
       </div>
 

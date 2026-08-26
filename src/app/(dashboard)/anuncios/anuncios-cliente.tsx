@@ -101,7 +101,7 @@ function descricaoComparacaoInvestimento({
 
   if (anterior === null) {
     return {
-      descricao: `Investimento atual: ${atualTexto}. Ainda não há período anterior carregado para comparar com ${periodoAnteriorTexto(dias)}. Use este valor junto com Receita Ads e ROAS para entender se o gasto está trazendo retorno.`,
+      descricao: `Investimento atual: ${atualTexto}. Ainda não há período anterior carregado para comparar com ${periodoAnteriorTexto(dias)}. Use este valor junto com a receita dos anúncios e o ROAS para entender se o gasto está trazendo retorno.`,
       observacao,
     };
   }
@@ -152,7 +152,7 @@ function descricaoComparacaoReceitaAds({
 
   if (variacao === null) {
     return {
-      descricao: `Receita Ads atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. Sem base percentual confiável porque o período anterior ficou zerado. Compare o valor absoluto, mas evite ler como crescimento percentual.`,
+      descricao: `Receita dos anúncios atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. Sem base percentual confiável porque o período anterior ficou zerado. Compare o valor absoluto, mas evite ler como crescimento percentual.`,
       observacao,
     };
   }
@@ -164,7 +164,7 @@ function descricaoComparacaoReceitaAds({
       : "A receita atribuída aos anúncios ficou praticamente estável em relação ao período anterior.";
 
   return {
-    descricao: `Receita Ads atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. A variação foi de ${variacaoTexto(variacao)}. ${leitura}`,
+    descricao: `Receita dos anúncios atual: ${atualTexto}. ${periodoAnteriorComPreposicao(dias)}, era ${anteriorTexto}. A variação foi de ${variacaoTexto(variacao)}. ${leitura}`,
     observacao,
   };
 }

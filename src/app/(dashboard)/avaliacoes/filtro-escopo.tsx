@@ -5,7 +5,13 @@ import { PlugZap2 } from "lucide-react";
 import { toast } from "sonner";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
-import { getBrandConfig, isBrandSlug, BRAND_SLUGS } from "@/shared/config/brands";
+import {
+  BRAND_SLUGS,
+  getBrandConfig,
+  isBrandSlug,
+  marcaDisponivelNosCanais,
+  marcaFixadaPelosCanais,
+} from "@/shared/config/brands";
 import channelsConfig from "@/config/channels.json";
 
 export const CANAIS_VENDA = ["mercadolivre", "shopee", "tiktokshop"] as const;
@@ -32,8 +38,13 @@ function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; red
   );
 }
 
-function EmpresaPill({ nome, slug, total, ativo, onClick }: {
-  nome: string; slug: string; total: number; ativo: boolean; onClick: () => void;
+function EmpresaPill({ nome, slug, total, ativo, canaisAtivos, onClick }: {
+  nome: string;
+  slug: string;
+  total: number;
+  ativo: boolean;
+  canaisAtivos: ReadonlySet<string>;
+  onClick: () => void;
 }) {
   const reduzir = useReducedMotion();
   const temIdentidade = isBrandSlug(slug);
@@ -41,16 +52,29 @@ function EmpresaPill({ nome, slug, total, ativo, onClick }: {
   // Mesma regra de Vendas/Estoque/Clientes: marca sem nenhuma avaliação
   // fica travada (com o motivo à vista), a não ser que já esteja marcada —
   // aí continua clicável só pra dar pra desmarcar.
-  const vazia = total === 0;
-  const bloqueada = vazia && !ativo;
+  const canaisLista = [...canaisAtivos];
+  const indisponivelPeloCanal = !marcaDisponivelNosCanais(slug, canaisLista);
+  const fixadaPeloCanal = marcaFixadaPelosCanais(slug, canaisLista);
+  const bloqueadaPorDados = total === 0 && !ativo;
+  const bloqueada = bloqueadaPorDados || indisponivelPeloCanal;
+  const motivoIndisponivel = `${nome} não opera nos canais selecionados.`;
   return (
     <motion.button
       type="button"
-      onClick={bloqueada ? undefined : onClick}
-      disabled={bloqueada}
+      onClick={indisponivelPeloCanal
+        ? () => toast.info(motivoIndisponivel)
+        : fixadaPeloCanal
+          ? () => toast.info(`${nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`)
+          : bloqueadaPorDados ? undefined : onClick}
+      disabled={bloqueadaPorDados}
+      aria-disabled={indisponivelPeloCanal || fixadaPeloCanal}
       aria-pressed={ativo}
       aria-label={nome}
-      title={bloqueada ? `${nome} não tem avaliações no período.` : undefined}
+      title={indisponivelPeloCanal
+        ? motivoIndisponivel
+        : fixadaPeloCanal
+          ? `${nome} é incluída pelo filtro do Mercado Livre.`
+          : bloqueadaPorDados ? `${nome} não tem avaliações no período.` : undefined}
       whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
@@ -64,6 +88,7 @@ function EmpresaPill({ nome, slug, total, ativo, onClick }: {
     >
       <HaloSelecao ativo={ativo} cor={cor} reduzir={reduzir} />
       {temIdentidade ? <BrandLogo brand={slug} height={17} /> : <span className="text-sm font-semibold text-foreground">{nome}</span>}
+      {indisponivelPeloCanal && <PlugZap2 size={14} className="text-muted-foreground" />}
     </motion.button>
   );
 }
@@ -117,7 +142,7 @@ type FiltroEscopoProps = {
   contagemMarca: Record<string, number>;
 };
 
-export function EmpresasRow({ marcasAtivas, onToggleMarca, contagemMarca }: Pick<FiltroEscopoProps, "marcasAtivas" | "onToggleMarca" | "contagemMarca">) {
+export function EmpresasRow({ marcasAtivas, canaisAtivos, onToggleMarca, contagemMarca }: Pick<FiltroEscopoProps, "marcasAtivas" | "canaisAtivos" | "onToggleMarca" | "contagemMarca">) {
   return (
     <div className="flex flex-nowrap items-center gap-2 w-fit">
       {BRAND_SLUGS.map((slug) => (
@@ -127,6 +152,7 @@ export function EmpresasRow({ marcasAtivas, onToggleMarca, contagemMarca }: Pick
           slug={slug}
           total={contagemMarca[slug] ?? 0}
           ativo={marcasAtivas.has(slug)}
+          canaisAtivos={canaisAtivos}
           onClick={() => onToggleMarca(slug)}
         />
       ))}

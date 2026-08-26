@@ -14,7 +14,13 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import {
+  ajustarMarcasSelecionadasAosCanais,
+  getBrandConfig,
+  isBrandSlug,
+  marcaDisponivelNosCanais,
+  marcaFixadaPelosCanais,
+} from "@/shared/config/brands";
 
 const copy = pagesConfig.clientes;
 
@@ -159,29 +165,42 @@ function CanalPill({ tipo, conectado, ativo, onClick }: {
    Mesmo tratamento das pílulas de canal, ao lado delas — igual ao Estoque.
    Diferente de lá, a lista de Clientes não exige escopo para abrir: empresa e
    canal são filtros opcionais, não um convite obrigatório. */
-function MarcaPill({ nome, slug, total, ativo, onClick }: {
+function MarcaPill({ nome, slug, total, ativo, indisponivelPeloCanal, fixadaPeloCanal, onClick }: {
   nome: string;
   slug: string;
   total: number;
   ativo: boolean;
+  indisponivelPeloCanal: boolean;
+  fixadaPeloCanal: boolean;
   onClick: () => void;
 }) {
   const reduzir = useReducedMotion();
   const vazia = total === 0;
-  const bloqueada = vazia && !ativo;
+  const bloqueadaPorDados = vazia && !ativo;
+  const bloqueada = bloqueadaPorDados || indisponivelPeloCanal;
+  const motivoIndisponivel = `${nome} não opera nos canais selecionados.`;
   const temIdentidade = isBrandSlug(slug);
 
   return (
     <motion.button
       type="button"
       variants={entradaExagerada}
-      onClick={bloqueada ? undefined : onClick}
-      disabled={bloqueada}
+      onClick={indisponivelPeloCanal
+        ? () => toast.info(motivoIndisponivel)
+        : fixadaPeloCanal
+          ? () => toast.info(`${nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`)
+          : bloqueadaPorDados ? undefined : onClick}
+      disabled={bloqueadaPorDados}
+      aria-disabled={indisponivelPeloCanal || fixadaPeloCanal}
       whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={nome}
-      title={bloqueada ? copy.brandSelector.emptyHint.replace("{marca}", nome) : undefined}
+      title={indisponivelPeloCanal
+        ? motivoIndisponivel
+        : fixadaPeloCanal
+          ? `${nome} é incluída pelo filtro do Mercado Livre.`
+          : bloqueadaPorDados ? copy.brandSelector.emptyHint.replace("{marca}", nome) : undefined}
       className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
@@ -195,6 +214,7 @@ function MarcaPill({ nome, slug, total, ativo, onClick }: {
       {temIdentidade
         ? <BrandLogo brand={slug} height={17} />
         : <span className="text-sm font-semibold text-foreground">{nome}</span>}
+      {indisponivelPeloCanal && <PlugZap2 size={14} className="text-muted-foreground" />}
     </motion.button>
   );
 }
@@ -280,6 +300,15 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
   }
 
   function alternarMarca(brandId: string) {
+    const marca = marcas.find((item) => item.brandId === brandId);
+    if (marca && marcaFixadaPelosCanais(marca.slug, canaisArray)) {
+      toast.info(`${marca.name} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
+      return;
+    }
+    if (marca && !marcaDisponivelNosCanais(marca.slug, canaisArray)) {
+      toast.info(`${marca.name} não opera nos canais selecionados.`);
+      return;
+    }
     setBrandIds((atual) => {
       const proximo = new Set(atual);
       if (proximo.has(brandId)) proximo.delete(brandId);
@@ -289,12 +318,16 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
   }
 
   function alternarCanal(tipo: CanalVenda) {
-    setCanaisSelecionados((atual) => {
-      const proximo = new Set(atual);
-      if (proximo.has(tipo)) proximo.delete(tipo);
-      else proximo.add(tipo);
-      return proximo;
-    });
+    const proximosCanais = new Set(canaisSelecionados);
+    if (proximosCanais.has(tipo)) proximosCanais.delete(tipo);
+    else proximosCanais.add(tipo);
+    const canaisLista = [...proximosCanais];
+    setCanaisSelecionados(proximosCanais);
+    setBrandIds((atuais) => new Set(ajustarMarcasSelecionadasAosCanais(
+      [...atuais],
+      canaisLista,
+      marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
+    )));
   }
 
   return (
@@ -323,6 +356,8 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
               slug={marca.slug}
               total={marca.total}
               ativo={brandIds.has(marca.brandId)}
+              indisponivelPeloCanal={!marcaDisponivelNosCanais(marca.slug, canaisArray)}
+              fixadaPeloCanal={marcaFixadaPelosCanais(marca.slug, canaisArray)}
               onClick={() => alternarMarca(marca.brandId)}
             />
           ))}

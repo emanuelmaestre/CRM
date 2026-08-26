@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { BRAND_SLUGS, canaisDaMarca } from "@/shared/config/brands";
+import {
+  BRAND_SLUGS,
+  ajustarMarcasSelecionadasAosCanais,
+  canaisDaMarca,
+  marcaDisponivelNosCanais,
+  marcaFixadaPelosCanais,
+} from "@/shared/config/brands";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
 
 describe("canais de venda por marca", () => {
@@ -23,5 +29,22 @@ describe("canais de venda por marca", () => {
 
   it("cai no conjunto completo para marca sem a chave declarada", () => {
     expect(canaisDaMarca("marca-inexistente")).toEqual(CANAIS_VENDA);
+  });
+
+  it("bloqueia a KARZI quando somente a Shopee esta selecionada", () => {
+    expect(marcaDisponivelNosCanais("karzi", ["shopee"])).toBe(false);
+    expect(marcaDisponivelNosCanais("karzi", ["mercadolivre", "shopee"])).toBe(true);
+    expect(marcaDisponivelNosCanais("karzi", [])).toBe(true);
+  });
+
+  it("seleciona a KARZI com Mercado Livre e a remove ao ficar somente Shopee", () => {
+    const marcas = [
+      { id: "karzi-id", slug: "karzi" },
+      { id: "wuwu-id", slug: "wuwu" },
+    ];
+
+    expect(ajustarMarcasSelecionadasAosCanais([], ["mercadolivre"], marcas)).toEqual(["karzi-id"]);
+    expect(ajustarMarcasSelecionadasAosCanais(["karzi-id", "wuwu-id"], ["shopee"], marcas)).toEqual(["wuwu-id"]);
+    expect(marcaFixadaPelosCanais("karzi", ["mercadolivre"])).toBe(true);
   });
 });

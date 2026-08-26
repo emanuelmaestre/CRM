@@ -49,7 +49,7 @@ describe("rótulos de Anúncios com informação", () => {
     expect(screen.getByText(/R\$\s*1\.200,00 de mídia sobre R\$\s*4\.800,00 de receita atribuída/i)).toBeInTheDocument();
     expect(screen.getByText(/a cada R\$\s*100,00 de receita atribuída, R\$\s*25,00/i)).toBeInTheDocument();
     expect(screen.getByText("Observação")).toBeInTheDocument();
-    expect(screen.getByText(/ACOS olha só a receita atribuída aos anúncios/i)).toBeInTheDocument();
+    expect(screen.getByText(/ACOS considera apenas a receita atribuída aos anúncios/i)).toBeInTheDocument();
     expect(screen.getByText(/ACOS baixo ajuda na eficiência, mas não é lucro/i)).toBeInTheDocument();
   });
 

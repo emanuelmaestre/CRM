@@ -4,7 +4,7 @@
     "cancelHref": "/clientes",
     "steps": ["Arquivo", "Prévia", "Confirmar"],
     "sections": [
-      { "title": "Selecione o arquivo", "description": "CSV ou planilha com colunas: nome, email, telefone, cpf_cnpj" },
+      { "title": "Selecione o arquivo", "description": "CSV ou planilha com colunas: nome, e-mail, telefone e CPF/CNPJ" },
       { "title": "Pré-visualização", "description": "Verifique o que será importado antes de confirmar" },
       { "title": "Confirmar importação", "description": "Revise o resumo e confirme para importar os dados" }
     ],
@@ -14,7 +14,7 @@
       "template": "nome,email,telefone,cpf_cnpj,data_nascimento"
     },
     "hints": {
-      "upload": "Arraste um arquivo CSV, XLSX ou JSON, ou clique para selecionar. Colunas aceitas: nome (obrigatório), email, telefone, cpf_cnpj, data_nascimento.",
+      "upload": "Arraste um arquivo CSV, XLSX ou JSON, ou clique para selecionar. Colunas aceitas: nome (obrigatório), e-mail, telefone, CPF/CNPJ e data de nascimento.",
       "preview": "Os registros com erro não serão importados. Corrija o arquivo e reimporte se necessário.",
       "confirm": "Esta ação não pode ser desfeita. Os registros rejeitados não serão importados."
     },

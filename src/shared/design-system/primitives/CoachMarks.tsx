@@ -171,7 +171,7 @@ export function CoachMarks({ storageKey, steps }: CoachMarksProps) {
         <button
           type="button"
           onClick={finalizar}
-          aria-label="Fechar tour"
+          aria-label="Fechar apresentação"
           className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted sm:right-2.5 sm:top-2.5"
         >
           <X size={14} />

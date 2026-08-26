@@ -19,6 +19,9 @@ const CANAIS = [
   { tipo: "tiktokshop" as const, conectado: false, total: 0 },
 ];
 
+const CANAIS_COM_SHOPEE = CANAIS.map((canal) =>
+  canal.tipo === "shopee" ? { ...canal, conectado: true, total: 90 } : canal);
+
 function produtoDe(brandId: string, sku: string, nome: string, slug: string, marca: string) {
   return {
     id: `p-${sku}`, sku, nome, preco: "19.90",
@@ -151,18 +154,53 @@ describe("Estoque — escopo por empresa", () => {
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
 
-    await waitFor(() => expect(obterFiltros).toHaveBeenCalledWith({ canalTipos: ["mercadolivre"] }));
+    await waitFor(() => {
+      expect(listarProdutos).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandIds: [MARCAS[0].brandId],
+          canalTipos: ["mercadolivre"],
+        }),
+      );
+    });
   });
 
-  it("canal sozinho não abre a lista — um canal tem as três empresas dentro", async () => {
+  it("Mercado Livre seleciona a KARZI automaticamente e abre a lista", async () => {
     render(<EstoqueLista />);
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
+    const karzi = await screen.findByRole("button", { name: "KARZI" });
     fireEvent.click(ml);
 
-    await waitFor(() => expect(obterFiltros).toHaveBeenCalledWith({ canalTipos: ["mercadolivre"] }));
-    expect(screen.getByTestId("estoque-escolha-empresa")).toBeInTheDocument();
-    expect(screen.queryByTestId("estoque-table")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(listarProdutos).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandIds: [MARCAS[0].brandId],
+          canalTipos: ["mercadolivre"],
+        }),
+      );
+    });
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByTestId("estoque-table")).toBeInTheDocument();
+  });
+
+  it("bloqueia a KARZI quando somente a Shopee esta selecionada", async () => {
+    obterFiltros.mockResolvedValue({ marcas: MARCAS, canais: CANAIS_COM_SHOPEE });
+    render(<EstoqueLista marcasIniciais={MARCAS} canaisIniciais={CANAIS_COM_SHOPEE} />);
+
+    const ml = screen.getByRole("button", { name: /^Mercado Livre/ });
+    const shopee = screen.getByRole("button", { name: /^Shopee/ });
+    const karzi = screen.getByRole("button", { name: "KARZI" });
+
+    fireEvent.click(shopee);
+    expect(karzi).toHaveAttribute("aria-disabled", "true");
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(ml);
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(ml);
+    expect(karzi).toHaveAttribute("aria-disabled", "true");
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
   });
 
   it("permite marcar mais de uma empresa ao mesmo tempo, sem desmarcar a anterior", async () => {
@@ -242,7 +280,14 @@ describe("Estoque — escopo por empresa", () => {
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
-    await waitFor(() => expect(obterFiltros).toHaveBeenCalledWith({ canalTipos: ["mercadolivre"] }));
+    await waitFor(() => {
+      expect(listarProdutos).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandIds: [MARCAS[0].brandId],
+          canalTipos: ["mercadolivre"],
+        }),
+      );
+    });
     expect(ml).toHaveAttribute("aria-pressed", "true");
 
     // Shopee está desconectado neste fixture — permanece bloqueado mesmo com

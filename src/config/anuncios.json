@@ -28,7 +28,7 @@
     "verTodas": "Ver todos os alertas"
   },
   "campanhas": {
-    "titulo": "Performance por campanha",
+    "titulo": "Desempenho por campanha",
     "subtitulo": "Ordenadas por investimento",
     "colunas": [
       "Campanha",
@@ -106,7 +106,7 @@
       "Vendas"
     ],
     "recomendado": "ML recomenda anunciar",
-    "buyBox": "Ganhando o Buy Box",
+    "buyBox": "Oferta em destaque (Buy Box)",
     "filtros": {
       "todos": "Todos",
       "recomendados": "Recomendados pelo ML",

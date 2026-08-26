@@ -300,7 +300,7 @@ export default function ConfiguracoesPage() {
           <Card
             title="Uso da API Shopee"
             icon={getIcon("Gauge")}
-            actions={<InfoBotao rotulo="Sobre o uso da API">Quantidade de chamadas feitas à Shopee através do proxy de IP fixo — esse proxy tem cota mensal, e estourá-la derruba a integração inteira até o mês virar ou o plano subir.</InfoBotao>}
+            actions={<InfoBotao rotulo="Sobre o uso da API">Quantidade de chamadas feitas à Shopee por meio da conexão de IP fixo. Essa conexão possui uma cota mensal; ao atingir o limite, a integração fica indisponível até o início do próximo mês ou a ampliação do plano.</InfoBotao>}
             colapsavelMobile
             abertoInicialMobile={false}
           >
@@ -308,10 +308,10 @@ export default function ConfiguracoesPage() {
           </Card>
 
           <Card
-            title="Endpoints e frequências"
+            title="Endereços e frequências"
             description="Chamadas externas ativas, organizadas por canal e módulo"
             icon={getIcon("Network")}
-            actions={<InfoBotao rotulo="Sobre os endpoints">Referência operacional do que o sistema chama, quando chama e quais ações podem consumir as APIs dos marketplaces.</InfoBotao>}
+            actions={<InfoBotao rotulo="Sobre os endereços">Referência operacional do que o sistema chama, quando chama e quais ações podem consumir as integrações dos canais de venda.</InfoBotao>}
             colapsavelMobile
             abertoInicialMobile={false}
           >
