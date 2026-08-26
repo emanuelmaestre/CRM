@@ -95,8 +95,8 @@ const canais: Canal[] = [
       },
       {
         modulo: "Métricas · status",
-        endpoints: ["GET /items?ids=...&attributes=id,status,sub_status"],
-        frequencia: "Ao abrir ou alterar filtros do painel e na foto diária de métricas.",
+        endpoints: ["Sem chamada externa · snapshot local em produto_canal"],
+        frequencia: "Leitura local ao abrir ou alterar filtros; o status é atualizado pela coleta automática de 6 horas.",
         tipo: "interface",
       },
       {
@@ -312,7 +312,7 @@ export function EndpointsFrequenciasSection() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 rounded-[0.9rem] border border-border bg-background/55 px-3 py-3">
         <p className="mr-auto min-w-[14rem] text-[11.5px] leading-relaxed text-muted-foreground">
-          Inventário das chamadas externas ativas. Filtros de Avaliações, Vendas e Estoque usam o banco local e não geram novas chamadas.
+          Inventário das chamadas externas ativas. Filtros de Avaliações, Vendas, Estoque e status operacional de Métricas usam o banco local.
         </p>
         {(Object.keys(frequenciaConfig) as TipoFrequencia[]).map((tipo) => <EtiquetaFrequencia key={tipo} tipo={tipo} />)}
       </div>
