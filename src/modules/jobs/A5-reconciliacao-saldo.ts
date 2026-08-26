@@ -193,6 +193,11 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
         const idsParaRecuperar: string[] = [];
         const produtoCanalIdsParaDesativar: string[] = [];
         const produtoIdsParaDesativar: string[] = [];
+        const statusParaPersistir = new Map<string, {
+          status: string;
+          subStatus: string | null;
+          ids: string[];
+        }>();
 
         await Promise.all([...porMarca].map(async ([marcaSlug, itens]) => {
           try {
@@ -203,6 +208,16 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
               // Sem resposta (falha pontual da consulta) não conta nem pra um
               // lado nem pro outro — não é sinal de nada, só ruído da rede.
               if (!info) continue;
+              const subStatus = info.subStatus[0] ?? null;
+              const chaveStatus = `${info.status}\u0000${subStatus ?? ""}`;
+              const grupo = statusParaPersistir.get(chaveStatus) ?? {
+                status: info.status,
+                subStatus,
+                ids: [],
+              };
+              grupo.ids.push(item.produtoCanalId);
+              statusParaPersistir.set(chaveStatus, grupo);
+
               const encerrado = info.status === "closed" || info.status === "nao_encontrado";
               if (encerrado) {
                 if (item.mlEncerradoDesde === null) {
@@ -223,6 +238,21 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
             // marcas, e nenhum item dela muda de estado nesta rodada.
           }
         }));
+
+        // Poucos status possíveis significam poucas escritas (normalmente
+        // ativo/pausado/encerrado), mesmo com centenas de anúncios. A data é
+        // a idade que a UI pode usar para distinguir dado coletado de ausência.
+        const statusVerificadoEm = new Date();
+        await Promise.all([...statusParaPersistir.values()].map((grupo) =>
+          db.update(produtoCanal)
+            .set({
+              mlStatusAnuncio: grupo.status,
+              mlSubStatus: grupo.subStatus,
+              mlStatusVerificadoEm: statusVerificadoEm,
+              updatedAt: statusVerificadoEm,
+            })
+            .where(inArray(produtoCanal.id, grupo.ids)),
+        ));
 
         if (idsParaEncerrarAgora.length > 0) {
           await db.update(produtoCanal)

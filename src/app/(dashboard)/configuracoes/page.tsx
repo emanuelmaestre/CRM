@@ -19,6 +19,7 @@ import { SincronizacaoSection } from "./SincronizacaoSection";
 import { UsuariosSection } from "./UsuariosSection";
 import { RotinasAgendadasSection } from "./RotinasAgendadasSection";
 import { ShopeeUsoSection } from "./ShopeeUsoSection";
+import { EndpointsFrequenciasSection } from "./EndpointsFrequenciasSection";
 import settingsConfig from "@/config/settings.json";
 import {
   actionListarConfiguracaoCanais,
@@ -259,6 +260,15 @@ export default function ConfiguracoesPage() {
           actions={<InfoBotao rotulo="Sobre o uso da API">Quantidade de chamadas feitas à Shopee através do proxy de IP fixo — esse proxy tem cota mensal, e estourá-la derruba a integração inteira até o mês virar ou o plano subir.</InfoBotao>}
         >
           <ShopeeUsoSection data={usoShopee} loading={carregandoUsoShopee} />
+        </Card>
+
+        <Card
+          title="Endpoints e frequências"
+          description="Chamadas externas ativas, organizadas por canal e módulo"
+          icon={getIcon("Network")}
+          actions={<InfoBotao rotulo="Sobre os endpoints">Referência operacional do que o sistema chama, quando chama e quais ações podem consumir as APIs dos marketplaces.</InfoBotao>}
+        >
+          <EndpointsFrequenciasSection />
         </Card>
 
         <Card title={settingsConfig.integrations.title} icon={getIcon(settingsConfig.integrations.icon)}>

@@ -10,9 +10,7 @@ import {
   produto,
   produtoCanal,
 } from "@/shared/lib/db/schema";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
-import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import type { MLStatusAnuncio } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { getBrandConfig } from "@/shared/config/brands";
 
 /* ── Parâmetros de negócio ───────────────────────────────────────
    Valores que definem o que conta como "atenção", "giro baixo" e
@@ -278,8 +276,8 @@ const SUB_STATUS_LABEL: Record<string, string> = {
   by_admin: "removido pelo Mercado Livre",
 };
 
-function traduzirStatusAnuncio(status: MLStatusAnuncio): { statusAnuncio: StatusAnuncioParado; motivoStatus: string | null } {
-  const motivo = status.subStatus[0] ? (SUB_STATUS_LABEL[status.subStatus[0]] ?? status.subStatus[0]) : null;
+function traduzirStatusAnuncio(status: { status: string; subStatus: string | null }): { statusAnuncio: StatusAnuncioParado; motivoStatus: string | null } {
+  const motivo = status.subStatus ? (SUB_STATUS_LABEL[status.subStatus] ?? status.subStatus) : null;
   if (status.status === "active") return { statusAnuncio: "ativo", motivoStatus: motivo };
   if (status.status === "paused") return { statusAnuncio: "pausado", motivoStatus: motivo };
   // under_review é moderação — o anúncio pode voltar a ficar ativo assim que
@@ -293,13 +291,9 @@ function traduzirStatusAnuncio(status: MLStatusAnuncio): { statusAnuncio: Status
   return { statusAnuncio: "nao_consultado", motivoStatus: motivo };
 }
 
-/** Preenche `statusAnuncio`/`motivoStatus` ao vivo, consultando o Mercado
- *  Livre — reaproveitado por qualquer lista de produtos que precise mostrar
- *  se o anúncio por trás do número ainda está ativo (Estoque Parado, Repor
- *  em breve, ...). Só chama a API para os itens que a lista de fato mostra
- *  (já vem cortada por TAMANHO_LISTA antes de chegar aqui), nunca para o
- *  catálogo inteiro. Muta os itens em vez de retornar uma cópia — o
- *  chamador já criou o array só pra isso. */
+/** Preenche `statusAnuncio`/`motivoStatus` com a última coleta da A5, sem
+ *  chamar o Mercado Livre no caminho dos filtros. Recebe a união das quatro
+ *  listas do mosaico para resolver tudo em uma única consulta local. */
 async function enriquecerComStatusAnuncio(
   ctx: CrudContext,
   itens: Array<{ produtoId: string; statusAnuncio: StatusAnuncioParado; motivoStatus: string | null }>,
@@ -309,43 +303,28 @@ async function enriquecerComStatusAnuncio(
   const vinculos = await ctx.db
     .select({
       produtoId: produtoCanal.produtoId,
-      externalListingId: produtoCanal.externalListingId,
-      marca: brand.slug,
+      status: produtoCanal.mlStatusAnuncio,
+      subStatus: produtoCanal.mlSubStatus,
     })
     .from(produtoCanal)
     .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
-    .innerJoin(brand, eq(brand.id, channelAccount.brandId))
     .where(and(
       eq(produtoCanal.orgId, ctx.orgId),
+      eq(produtoCanal.ativo, true),
       eq(channelAccount.tipo, "mercadolivre"),
       inArray(produtoCanal.produtoId, itens.map((item) => item.produtoId)),
     ));
 
-  const listingPorProduto = new Map(vinculos.map((v) => [v.produtoId, v]));
-  const idsPorMarca = new Map<string, string[]>();
-  for (const v of vinculos) {
-    if (!isBrandSlug(v.marca)) continue;
-    idsPorMarca.set(v.marca, [...(idsPorMarca.get(v.marca) ?? []), v.externalListingId]);
-  }
-
-  const statusPorListing = new Map<string, MLStatusAnuncio>();
-  await Promise.all([...idsPorMarca].map(async ([marca, ids]) => {
-    try {
-      const provider = await criarMLProvider(marca as Parameters<typeof criarMLProvider>[0]);
-      const resultado = await provider.consultarStatusAnuncios([...new Set(ids)]);
-      for (const [id, info] of Object.entries(resultado)) statusPorListing.set(id, info);
-    } catch {
-      // Falha de rede/token não pode derrubar o card inteiro — os itens
-      // dessa marca simplesmente ficam "não consultado" (fallback já setado pelo chamador).
-    }
-  }));
+  const statusPorProduto = new Map(vinculos.map((v) => [v.produtoId, v]));
 
   for (const item of itens) {
-    const vinculo = listingPorProduto.get(item.produtoId);
+    const vinculo = statusPorProduto.get(item.produtoId);
     if (!vinculo) { item.statusAnuncio = "sem_vinculo"; continue; }
-    const status = statusPorListing.get(vinculo.externalListingId);
-    if (!status) continue; // consulta falhou: mantém "nao_consultado"
-    const { statusAnuncio, motivoStatus } = traduzirStatusAnuncio(status);
+    if (!vinculo.status) continue; // A5 ainda não coletou: mantém "nao_consultado".
+    const { statusAnuncio, motivoStatus } = traduzirStatusAnuncio({
+      status: vinculo.status,
+      subStatus: vinculo.subStatus,
+    });
     item.statusAnuncio = statusAnuncio;
     item.motivoStatus = motivoStatus;
   }
@@ -580,10 +559,6 @@ export async function obterDashboardData(
     motivoStatus: null as string | null,
   }));
 
-  // Um campeão de vendas com o anúncio pausado/em revisão é o caso mais
-  // urgente dos 4 cards: é receita real que já estava entrando e parou.
-  await enriquecerComStatusAnuncio(ctx, maisVendidos);
-
   /* ── 2. Produtos que não vendem (giro baixo) ──
      Menos de 10 vendas por semana — a régua é semanal, então o limite usado
      aqui escala com o tamanho da janela em análise (30/84/365 dias, ou o
@@ -610,11 +585,6 @@ export async function obterDashboardData(
       motivoStatus: null as string | null,
     }));
 
-  // Mesmo raciocínio de Estoque Parado: saber se o anúncio ainda está no ar
-  // muda o que fazer com um produto que quase não vende — reativar antes de
-  // decidir liquidar, por exemplo.
-  await enriquecerComStatusAnuncio(ctx, giroBaixo);
-
   /* ── 3. Produtos que não saem (estoque parado) ── */
   const parados: ProdutoParado[] = produtosAtivos
     .filter((item) => (item.saldo ?? 0) > 0)
@@ -640,12 +610,6 @@ export async function obterDashboardData(
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
       motivoStatus: null as string | null,
     }));
-
-  // Status real do anúncio no ML — só para os poucos itens que a lista de
-  // fato mostra (TAMANHO_LISTA), nunca para os 300+ que existem no banco.
-  // Sem isso, "parado" parece sempre "ninguém compra" mesmo quando o próprio
-  // vendedor pausou o anúncio (achado real ao auditar os dados de produção).
-  await enriquecerComStatusAnuncio(ctx, parados);
 
   /* ── 4. Reposição (bateu o mínimo, repor em breve) ── */
   const reposicao: ProdutoReposicao[] = produtosAtivos
@@ -682,7 +646,14 @@ export async function obterDashboardData(
     })
     .slice(0, TAMANHO_LISTA);
 
-  await enriquecerComStatusAnuncio(ctx, reposicao);
+  // Uma leitura local para as quatro listas. Produtos repetidos entre cards
+  // não geram trabalho extra relevante e cada objeto recebe o mesmo snapshot.
+  await enriquecerComStatusAnuncio(ctx, [
+    ...maisVendidos,
+    ...giroBaixo,
+    ...parados,
+    ...reposicao,
+  ]);
 
   return {
     faturamento,

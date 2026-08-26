@@ -45,6 +45,13 @@ export const produtoCanal = pgTable("produto_canal", {
   // estado persiste por 24h seguidas (várias execuções do job) o produto é
   // desativado de verdade. Volta a null assim que o anúncio reaparece ativo/pausado.
   mlEncerradoDesde: timestamp("ml_encerrado_desde", { withTimezone: true }),
+  // Último status devolvido pela API de Itens do Mercado Livre. A coleta A5
+  // já paga essa consulta a cada 6h para detectar anúncios encerrados; guardar
+  // a resposta permite que Métricas mostre ativo/pausado/em revisão sem fazer
+  // chamadas externas a cada troca de filtro.
+  mlStatusAnuncio: text("ml_status_anuncio"),
+  mlSubStatus: text("ml_sub_status"),
+  mlStatusVerificadoEm: timestamp("ml_status_verificado_em", { withTimezone: true }),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

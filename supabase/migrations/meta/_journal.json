@@ -351,6 +351,13 @@
       "when": 1787693909149,
       "tag": "0049_sharp_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1787704205364,
+      "tag": "0050_sour_edwin_jarvis",
+      "breakpoints": true
     }
   ]
 }
