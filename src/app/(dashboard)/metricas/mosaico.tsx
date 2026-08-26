@@ -20,7 +20,7 @@ import { ScopeRow, type CardFiltro, type ScopeCanal, type ScopeMarca } from "./p
 import { type Periodo, AnelScore } from "./metricas-primitives";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
-import { LinhaTendencia, BarrasMarca, MiniRanking } from "./mini-visuais";
+import { BarrasTendencia, BarrasMarca, MiniRanking } from "./mini-visuais";
 import { actionObterDashboardData } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
@@ -513,12 +513,13 @@ export function Mosaico({
       ],
       dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
     },
-    /* Gráfico da série, grande — zigue-zague com ponta de flecha, que é o
-       que o card do topo tem de mais característico pra mostrar. Já foi
-       uma flecha de ícone, depois uma linha fina, depois colunas: as três
-       degeneravam no período curto (fio reto, ou uma barra gorda sozinha
-       com tracejado solto ao lado). A flecha aguenta os dois extremos —
-       série longa vira zigue-zague, série de 2 pontos vira diagonal limpa.
+    /* Gráfico da série, grande — barras a partir do zero, que é o que o
+       card do topo tem de mais característico pra mostrar. Já foi flecha
+       de ícone, linha fina, colunas e zigue-zague com ponta: todas
+       degeneravam no período curto. A causa nunca foi o tipo de gráfico —
+       era a matemática das colunas (teto de largura + altura normalizada
+       pelo mínimo, ver BarrasTendencia). Corrigido isso, barra é o desenho
+       que preenche a caixa em qualquer tamanho de série.
        O fallback abaixo garante os 2 pontos na origem: sem série, desenha
        [anterior, atual] — o mesmo par que já alimenta o "+9%" ao lado do
        número —, então o gráfico nunca fica vazio nem mente.
@@ -542,8 +543,8 @@ export function Mosaico({
           // `overflow-hidden` do card. Menor no mobile em vez de cortado.
           return (
             <>
-              <span className="lg:hidden"><LinhaTendencia dados={pontos} cor={cor} largura={104} altura={42} espessura={2.5} /></span>
-              <span className="hidden lg:block"><LinhaTendencia dados={pontos} cor={cor} largura={180} altura={60} espessura={3} /></span>
+              <span className="lg:hidden"><BarrasTendencia dados={pontos} cor={cor} largura={104} altura={42} /></span>
+              <span className="hidden lg:block"><BarrasTendencia dados={pontos} cor={cor} largura={180} altura={60} /></span>
             </>
           );
         })()
@@ -837,7 +838,7 @@ export function Mosaico({
     // `giroBaixoQtd` — precisa apagar isto NA MÃO quando isso acontecer.
     preview: giroBaixo.dados && giroBaixo.dados.giroBaixo.length > 0
       ? (
-        <LinhaTendencia
+        <BarrasTendencia
           dados={[9, 8, 8, 7, 7, 6, giroBaixo.dados.giroBaixo.length]}
           cor="var(--info)"
           largura={96}
