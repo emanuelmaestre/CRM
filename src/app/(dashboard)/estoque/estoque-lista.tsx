@@ -26,6 +26,7 @@ import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
 type SaldoCanal = { canal: string; saldo: number; verificadoEm: string };
 
@@ -632,8 +633,8 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   // Set muda de referência a cada toggle — para os efeitos abaixo não
   // dispararem em loop comparando array por identidade, a dependência real é
   // uma chave estável (mesmo padrão de serialização usado no wizard de régua).
-  const brandIdsArray = [...brandIds];
-  const canaisArray = [...canaisSelecionados];
+  const brandIdsArray = useMemo(() => [...brandIds], [brandIds]);
+  const canaisArray = useMemo(() => [...canaisSelecionados], [canaisSelecionados]);
   const brandIdsKey = brandIdsArray.slice().sort().join(",");
   const canaisKey = canaisArray.slice().sort().join(",");
 
@@ -706,6 +707,12 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
      uma seleção anterior fica em memória sem ser renderizado, então voltar
      para a empresa não provoca aquecimento em segundo plano. */
   const escopoDefinido = brandIds.size > 0 || busca.trim() !== "";
+
+  useAtualizacaoLocal("estoque", useCallback(() => {
+    if (!escopoDefinido) return;
+    carregar(brandIdsArray, busca, filtro, canaisArray);
+    carregarIndicadores(brandIdsArray, canaisArray);
+  }, [escopoDefinido, carregar, carregarIndicadores, brandIdsArray, canaisArray, busca, filtro]));
 
   // Recuperação leve para navegação cliente ou falha do carregamento inicial.
   // Também mantém as contagens cruzadas quando só o canal está marcado, sem

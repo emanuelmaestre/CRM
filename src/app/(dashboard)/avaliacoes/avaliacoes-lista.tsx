@@ -13,6 +13,7 @@ import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover
 import { springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
+import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import type { MLDistribuicaoNotas, MLOpiniao } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
 type CatalogItem = {
@@ -408,6 +409,17 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     return () => window.clearTimeout(task);
   }, [carregar]);
 
+  useAtualizacaoLocal("avaliacoes", useCallback(() => {
+    setCarregando(true);
+    void carregarDoCache()
+      .then((novosItens) => {
+        setItens(novosItens);
+        cacheAvaliacoes = { itens: novosItens, buscadoEm: Date.now() };
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : "Não foi possível atualizar as avaliações."))
+      .finally(() => setCarregando(false));
+  }, [carregarDoCache]));
+
   const alternar = useCallback((chave: string) => {
     setAbertos((atual) => {
       const proximo = new Set(atual);
@@ -509,6 +521,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     [filtrados],
   );
   const atencao = filtrados.filter((item) => item.ratingAverage !== null && item.ratingAverage < 4).length;
+  const carregandoInicial = carregando && itens.length === 0;
 
   /* ── Sem filtro ── O cache dos dois canais já está em memória; só o
      resultado fica escondido até uma marca ou canal ser escolhido acima. */
@@ -533,9 +546,9 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
           <div className="flex flex-col items-center justify-center gap-1 md:items-start">
             <span className="flex items-center gap-1.5">
               <p className="whitespace-nowrap text-[3.25rem] font-black leading-none tracking-[-0.03em] tabular-nums text-foreground">
-                {carregando ? "…" : media === null ? "—" : media.toFixed(1).replace(".", ",")}
+                {carregandoInicial ? "…" : media === null ? "—" : media.toFixed(1).replace(".", ",")}
               </p>
-              {!carregando && (
+              {!carregandoInicial && (
                 <CalculoPopover
                   titulo="Nota média"
                   significado="Resume a experiência de quem comprou em uma nota de 1 a 5, direto do canal de venda."
@@ -556,11 +569,11 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
             </span>
             <RatingStars nota={media} size={18} />
             <p className="mt-1 text-xs text-muted-foreground">
-              {carregando
+              {carregandoInicial
                 ? "Carregando…"
                 : `${totalOpinioes.toLocaleString("pt-BR")} opiniões · ${comentadas.toLocaleString("pt-BR")} com texto`}
             </p>
-            {!carregando && atencao > 0 && (
+            {!carregandoInicial && atencao > 0 && (
               <p className="mt-1 text-xs font-semibold text-destructive">
                 {atencao} {atencao === 1 ? "anúncio abaixo de 4,0" : "anúncios abaixo de 4,0"}
               </p>
@@ -572,7 +585,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
               <Distribuicao niveis={distribuicao} />
             ) : (
               <p className="text-sm text-muted-foreground">
-                {carregando ? "Carregando distribuição de notas…" : "Nenhuma opinião registrada ainda."}
+                {carregandoInicial ? "Carregando distribuição de notas…" : "Nenhuma opinião registrada ainda."}
               </p>
             )}
           </div>
@@ -618,7 +631,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
           </div>
         </div>
 
-        {carregando ? (
+        {carregandoInicial ? (
           <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 size={17} className="animate-spin" /> Carregando avaliações…
           </div>
@@ -629,7 +642,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
             description="Ajuste a busca, a marca ou a faixa de nota para ver as opiniões."
           />
         ) : (
-          <div>
+          <div className={carregando ? "opacity-60 transition-opacity" : "transition-opacity"} aria-busy={carregando}>
             {visiveis.map((item) => {
               const chave = `${item.brand}:${item.listingId}`;
               return (

@@ -13,6 +13,7 @@ import { CalendarioPopoverRange } from "@/shared/design-system/primitives/Calend
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { stagger } from "@/shared/design-system/motion-variants";
 import { tint } from "@/shared/design-system/color";
+import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import anunciosConfig from "@/config/anuncios.json";
 import channelsConfig from "@/config/channels.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
@@ -390,6 +391,8 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
     if (primeiraBusca.current) { primeiraBusca.current = false; return; }
     return buscar();
   }, [buscar]);
+
+  useAtualizacaoLocal("anuncios", buscar);
 
   if (carregando) return <Esqueleto />;
 

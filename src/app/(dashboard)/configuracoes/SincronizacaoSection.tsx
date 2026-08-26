@@ -12,6 +12,11 @@ import { AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedI
 import { getBrandConfig } from "@/shared/config/brands";
 import { actionDispararSincronizacaoConta, actionObterUltimaSincronizacaoConta } from "./actions";
 import type { CanalConfiguracao } from "@/modules/canais/application/configuracao-canais.service";
+import {
+  calcularProgressoExecucao,
+  progressoDoModulo,
+  resultadoOmitido,
+} from "@/modules/canais/domain/sincronizacao-progresso";
 
 type Execucao = NonNullable<Awaited<ReturnType<typeof actionObterUltimaSincronizacaoConta>>>;
 type ModuloStatus = "pendente" | "em_andamento" | "concluido" | "erro";
@@ -94,7 +99,8 @@ function useNumeroAnimado(valor: number, duracao = 700) {
 }
 
 function SeloModulo({ label, status, resultado, erro }: { label: string; status: ModuloStatus; resultado: unknown; erro?: string | null }) {
-  const ignorado = status === "concluido" && resultadoSemSuporte(resultado);
+  const ignorado = status === "concluido" && (resultadoSemSuporte(resultado) || resultadoOmitido(resultado));
+  const progresso = progressoDoModulo(status, resultado);
   const config = ignorado ? {
     icon: MinusCircle,
     cor: "var(--muted-foreground)",
@@ -102,7 +108,7 @@ function SeloModulo({ label, status, resultado, erro }: { label: string; status:
     texto: "Sem suporte",
   } : {
     pendente: { icon: null, cor: "var(--muted-foreground)", bg: "transparent", texto: "Na fila" },
-    em_andamento: { icon: Loader2, cor: "var(--acento-2)", bg: tint("var(--acento-2)", 8), texto: "Sincronizando…" },
+    em_andamento: { icon: Loader2, cor: "var(--acento-2)", bg: tint("var(--acento-2)", 8), texto: `${progresso}%` },
     concluido: { icon: CheckCircle2, cor: "var(--success)", bg: tint("var(--success)", 8), texto: "Concluído" },
     erro: { icon: XCircle, cor: "var(--destructive)", bg: tint("var(--destructive)", 16), texto: "Falhou" },
   }[status];
@@ -177,14 +183,7 @@ function SeloModulo({ label, status, resultado, erro }: { label: string; status:
 }
 
 function percentualExecucao(execucao: Execucao | null) {
-  if (!execucao) return 0;
-  const pontos = MODULOS.reduce((total, modulo) => {
-    const status = execucao[modulo.chave] as ModuloStatus;
-    if (status === "concluido" || status === "erro") return total + 1;
-    if (status === "em_andamento") return total + 0.45;
-    return total;
-  }, 0);
-  return Math.round((pontos / MODULOS.length) * 100);
+  return calcularProgressoExecucao(execucao);
 }
 
 function ProgressoCircular({ valor, emAndamento, comErro }: { valor: number; emAndamento: boolean; comErro: boolean }) {

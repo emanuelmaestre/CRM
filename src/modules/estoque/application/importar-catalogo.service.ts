@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo } from "@/shared/lib/db/schema";
 import { persistirEvento, despacharEvento } from "@/shared/events";
@@ -12,7 +12,7 @@ import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
  *  conta conectada e cria o produto + o vínculo produto_canal automático
  *  pra quem ainda não tem: o saldo inicial vem do "available_quantity" do
  *  próprio anúncio, e a partir daí a baixa automática (A2) assume. Anúncio
- *  já mapeado não é tocado — evita sobrescrever ajuste manual. */
+ *  já mapeado conserva o cadastro, mas atualiza o saldo informado pelo canal. */
 export interface ContaParaImportar {
   channelAccountId: string;
   brandId: string;
@@ -83,11 +83,13 @@ export async function importarPaginaCatalogoMercadoLivre(
   ]);
   let produtosCriados = 0;
   let ignorados = 0;
+  const saldosPendentes: Array<typeof estoqueCanalSaldo.$inferInsert> = [];
   for (const item of pagina.items) {
-    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-mercadolivre", "ml", vinculos);
+    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-mercadolivre", "ml", vinculos, saldosPendentes);
     if (resultado === "criado") produtosCriados += 1;
     else ignorados += 1;
   }
+  await gravarSaldosPendentes(ctx, saldosPendentes);
   const proximoOffset = offset + pagina.limit;
   return {
     produtosCriados,
@@ -114,11 +116,13 @@ export async function importarFatiaCatalogoShopee(
   const vinculos = await carregarVinculosDaConta(ctx, conta.channelAccountId);
   let produtosCriados = 0;
   let ignorados = 0;
+  const saldosPendentes: Array<typeof estoqueCanalSaldo.$inferInsert> = [];
   for (const item of itens) {
-    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-shopee", "shopee", vinculos);
+    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-shopee", "shopee", vinculos, saldosPendentes);
     if (resultado === "criado") produtosCriados += 1;
     else ignorados += 1;
   }
+  await gravarSaldosPendentes(ctx, saldosPendentes);
   return { produtosCriados, ignorados };
 }
 
@@ -156,9 +160,11 @@ function chaveVinculo(listingId: string, variationId: string | null): string {
 export async function carregarVinculosDaConta(
   ctx: CrudContext,
   channelAccountId: string,
-): Promise<Set<string>> {
+): Promise<Map<string, { id: string; produtoId: string }>> {
   const linhas = await ctx.db
     .select({
+      id: produtoCanal.id,
+      produtoId: produtoCanal.produtoId,
       externalListingId: produtoCanal.externalListingId,
       externalWarehouseId: produtoCanal.externalWarehouseId,
     })
@@ -167,7 +173,10 @@ export async function carregarVinculosDaConta(
       eq(produtoCanal.orgId, ctx.orgId),
       eq(produtoCanal.channelAccountId, channelAccountId),
     ));
-  return new Set(linhas.map((l) => chaveVinculo(l.externalListingId, l.externalWarehouseId)));
+  return new Map(linhas.map((l) => [
+    chaveVinculo(l.externalListingId, l.externalWarehouseId),
+    { id: l.id, produtoId: l.produtoId },
+  ]));
 }
 
 async function mapearItemCatalogo(
@@ -178,13 +187,14 @@ async function mapearItemCatalogo(
   prefixoSkuGerado: string,
   /** Índice pré-carregado (ver carregarVinculosDaConta). Sem ele, cai na
    *  consulta por item — comportamento antigo, para quem chama fora de um job. */
-  vinculosExistentes?: Set<string>,
+  vinculosExistentes?: Map<string, { id: string; produtoId: string }>,
+  saldosPendentes?: Array<typeof estoqueCanalSaldo.$inferInsert>,
 ): Promise<"criado" | "vinculado" | "ignorado"> {
   const chave = chaveVinculo(item.listingId, item.variationId);
   const jaMapeado = vinculosExistentes
-    ? vinculosExistentes.has(chave)
+    ? vinculosExistentes.get(chave)
     : await ctx.db
-      .select({ id: produtoCanal.id })
+      .select({ id: produtoCanal.id, produtoId: produtoCanal.produtoId })
       .from(produtoCanal)
       .where(and(
         eq(produtoCanal.orgId, ctx.orgId),
@@ -194,8 +204,25 @@ async function mapearItemCatalogo(
           ? eq(produtoCanal.externalWarehouseId, item.variationId)
           : isNull(produtoCanal.externalWarehouseId),
       ))
-      .then((rows) => Boolean(rows[0]));
-  if (jaMapeado) return "ignorado";
+      .then((rows) => rows[0]);
+  if (jaMapeado) {
+    // Uma sincronização de catálogo também traz o saldo atual. Antes um
+    // anúncio já vinculado era descartado antes desta escrita, então o botão
+    // contextual de Estoque não tinha como atualizar o dado que a pessoa
+    // acabou de pedir. O índice pré-carregado mantém a leitura em lote; aqui
+    // sobra somente a escrita necessária do saldo, idempotente por vínculo.
+    const saldo: typeof estoqueCanalSaldo.$inferInsert = {
+      orgId: ctx.orgId,
+      produtoId: jaMapeado.produtoId,
+      channelAccountId: conta.channelAccountId,
+      produtoCanalId: jaMapeado.id,
+      saldo: item.availableQuantity,
+      verificadoEm: new Date(),
+    };
+    if (saldosPendentes) saldosPendentes.push(saldo);
+    else await gravarSaldosPendentes(ctx, [saldo]);
+    return "ignorado";
+  }
 
   const sku = item.externalSku?.trim() || `${prefixoSkuGerado}-${item.listingId}${item.variationId ? `-${item.variationId}` : ""}`;
 
@@ -247,6 +274,7 @@ async function mapearItemCatalogo(
         externalWarehouseId: item.variationId,
         ativo: true,
       }).returning();
+      vinculosExistentes?.set(chave, { id: vinculo.id, produtoId });
 
       // O anúncio já traz o saldo do canal — semeia aqui para o produto
       // não nascer zerado esperando a coleta noturna (A5).
@@ -291,6 +319,21 @@ async function mapearItemCatalogo(
     console.error(`[estoque] falha ao importar anúncio ${item.listingId}`, error);
     return "ignorado";
   }
+}
+
+/** Um UPSERT por página/fatia, não um round-trip sequencial por anúncio. */
+async function gravarSaldosPendentes(
+  ctx: CrudContext,
+  saldos: Array<typeof estoqueCanalSaldo.$inferInsert>,
+) {
+  if (saldos.length === 0) return;
+  await ctx.db.insert(estoqueCanalSaldo).values(saldos).onConflictDoUpdate({
+    target: estoqueCanalSaldo.produtoCanalId,
+    set: {
+      saldo: sql`excluded.saldo`,
+      verificadoEm: new Date(),
+    },
+  });
 }
 
 /** O trabalho de verdade, isolado por conta — extraído pra poder rodar tanto

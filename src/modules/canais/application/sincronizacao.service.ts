@@ -1,14 +1,23 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
 import { inngest } from "@/shared/lib/inngest/client";
+import {
+  CAMPOS_MODULO_SINCRONIZACAO,
+  MODULOS_SINCRONIZACAO,
+  type ModuloSincronizacao,
+} from "../domain/sincronizacao-progresso";
 
 /** Central de Sincronização (Configurações): dispara a fila completa de uma
  *  conta de canal em background, em vez do usuário esperar uma chamada
  *  síncrona que pode estourar o timeout sob a fila de conexão única do
  *  banco. A execução fica registrada aqui; a tela faz polling do status em
  *  vez de segurar a requisição aberta. */
-export async function dispararSincronizacaoConta(ctx: CrudContext, channelAccountId: string) {
+export async function dispararSincronizacaoConta(
+  ctx: CrudContext,
+  channelAccountId: string,
+  opcoes: { modulos?: readonly ModuloSincronizacao[] } = {},
+) {
   assertPerfil(ctx, ["admin", "gestor"]);
 
   const conta = await ctx.db
@@ -19,9 +28,38 @@ export async function dispararSincronizacaoConta(ctx: CrudContext, channelAccoun
   if (!conta) throw new Error("Conta de canal não encontrada.");
   if (conta.status !== "conectado") throw new Error("Conta não está conectada.");
 
+  // Clique repetido acompanha a execução viva em vez de criar outra fila e
+  // repetir chamadas aos marketplaces (especialmente à Shopee/Webshare).
+  const ativa = await ctx.db
+    .select()
+    .from(sincronizacaoExecucao)
+    .where(and(
+      eq(sincronizacaoExecucao.orgId, ctx.orgId),
+      eq(sincronizacaoExecucao.channelAccountId, channelAccountId),
+      isNull(sincronizacaoExecucao.finalizadoEm),
+    ))
+    .orderBy(desc(sincronizacaoExecucao.iniciadoEm))
+    .limit(1)
+    .then((rows) => rows[0]);
+  if (ativa && Date.now() - ativa.iniciadoEm.getTime() <= LIMITE_EXECUCAO_ABANDONADA_MS) {
+    return ativa;
+  }
+
+  const solicitados = new Set<ModuloSincronizacao>(
+    opcoes.modulos?.length ? opcoes.modulos : MODULOS_SINCRONIZACAO,
+  );
+  const patchModulos: Record<string, unknown> = {};
+  for (const modulo of MODULOS_SINCRONIZACAO) {
+    if (solicitados.has(modulo)) continue;
+    const campos = CAMPOS_MODULO_SINCRONIZACAO[modulo];
+    patchModulos[campos.status] = "concluido";
+    patchModulos[campos.resultado] = { omitido: true, progresso: 100 };
+  }
+
   const [execucao] = await ctx.db.insert(sincronizacaoExecucao).values({
     orgId: ctx.orgId,
     channelAccountId,
+    ...patchModulos,
     // Compatibilidade com o histórico: as colunas continuam no banco, mas
     // novas execuções não chamam mais endpoints sem uso.
     reclamacoesStatus: "concluido",
@@ -33,15 +71,21 @@ export async function dispararSincronizacaoConta(ctx: CrudContext, channelAccoun
   await inngest.send({
     id: `sincronizacao-conta-${execucao.id}`,
     name: "canal/sincronizacao.solicitada",
-    data: { orgId: ctx.orgId, channelAccountId, execucaoId: execucao.id },
+    data: {
+      orgId: ctx.orgId,
+      channelAccountId,
+      execucaoId: execucao.id,
+      modulos: [...solicitados],
+      // Atualização pontual de Pedidos é incremental. A fila completa de
+      // Configurações continua sem `desde` e preserva a varredura de 90 dias.
+      desde: opcoes.modulos?.length
+        ? new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString()
+        : undefined,
+    },
   });
 
   return execucao;
 }
-
-const MODULOS_SINCRONIZACAO = [
-  "catalogo", "pedidos", "anuncios", "avaliacoes", "reputacao",
-] as const;
 
 /** Depois disto, uma execução sem `finalizado_em` é considerada abandonada.
  *

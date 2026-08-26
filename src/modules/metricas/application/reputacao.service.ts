@@ -1,7 +1,7 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 import type { CrudContext } from "@/shared/lib/crud-factory";
-import { brand, channelAccount } from "@/shared/lib/db/schema";
+import { brand, channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { getBrandConfig, isBrandSlug, compararPorOrdemDeMarca } from "@/shared/config/brands";
 
@@ -247,4 +247,73 @@ export async function obterReputacao(
   lista.sort((a, b) => (a.faixa ?? 9) - (b.faixa ?? 9) || a.marcaLabel.localeCompare(b.marcaLabel));
 
   return { marcas: lista, marcasComFalha, semContaConectada: false };
+}
+
+/**
+ * Lê a última fotografia gravada pelo A31. Esta é a fonte usada pela UI:
+ * consultar Métricas, abrir o toggle ou trocar filtros não consome API nem
+ * proxy. A chamada externa fica restrita à rotina automática e ao comando
+ * explícito "Verificar canal agora".
+ */
+export async function obterReputacaoPersistida(ctx: CrudContext): Promise<ReputacaoResultado> {
+  const contas = await ctx.db
+    .select({
+      channelAccountId: channelAccount.id,
+      brandId: channelAccount.brandId,
+      slug: brand.slug,
+      nome: brand.name,
+    })
+    .from(channelAccount)
+    .innerJoin(brand, and(eq(brand.id, channelAccount.brandId), eq(brand.orgId, channelAccount.orgId)))
+    .where(and(
+      eq(channelAccount.orgId, ctx.orgId),
+      eq(channelAccount.tipo, "mercadolivre"),
+      eq(channelAccount.status, "conectado"),
+      eq(brand.active, true),
+    ));
+
+  if (contas.length === 0) {
+    return { marcas: [], marcasComFalha: [], semContaConectada: true };
+  }
+
+  const execucoes = await ctx.db
+    .select({
+      channelAccountId: sincronizacaoExecucao.channelAccountId,
+      resultado: sincronizacaoExecucao.reputacaoResultado,
+      erro: sincronizacaoExecucao.reputacaoErro,
+    })
+    .from(sincronizacaoExecucao)
+    .where(and(
+      eq(sincronizacaoExecucao.orgId, ctx.orgId),
+      inArray(sincronizacaoExecucao.channelAccountId, contas.map((conta) => conta.channelAccountId)),
+      isNotNull(sincronizacaoExecucao.reputacaoResultado),
+    ))
+    .orderBy(desc(sincronizacaoExecucao.iniciadoEm))
+    .limit(Math.max(20, contas.length * 8));
+
+  const primeiraPorConta = new Map<string, (typeof execucoes)[number]>();
+  for (const execucao of execucoes) {
+    if (!primeiraPorConta.has(execucao.channelAccountId)) {
+      primeiraPorConta.set(execucao.channelAccountId, execucao);
+    }
+  }
+
+  const marcas: ReputacaoMarca[] = [];
+  const marcasComFalha: string[] = [];
+  for (const conta of contas) {
+    const label = (isBrandSlug(conta.slug) ? getBrandConfig(conta.slug)?.label : null) ?? conta.nome;
+    const execucao = primeiraPorConta.get(conta.channelAccountId);
+    const bruto = execucao?.resultado;
+    const reputacao = bruto && typeof bruto === "object" && "reputacao" in bruto
+      ? (bruto as { reputacao?: unknown }).reputacao
+      : null;
+    if (reputacao && typeof reputacao === "object") {
+      marcas.push(reputacao as ReputacaoMarca);
+    } else if (execucao?.erro) {
+      marcasComFalha.push(label);
+    }
+  }
+
+  marcas.sort((a, b) => (a.faixa ?? 9) - (b.faixa ?? 9) || a.marcaLabel.localeCompare(b.marcaLabel));
+  return { marcas, marcasComFalha, semContaConectada: false };
 }

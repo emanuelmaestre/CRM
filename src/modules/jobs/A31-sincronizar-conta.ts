@@ -23,14 +23,12 @@ import {
   sincronizarPaginaAvaliacoesMercadoLivre,
 } from "@/modules/canais/application/avaliacoes.service";
 import { obterReputacao } from "@/modules/metricas/application/reputacao.service";
+import {
+  MODULOS_SINCRONIZACAO,
+  type ModuloSincronizacao,
+} from "@/modules/canais/domain/sincronizacao-progresso";
 
 type ExecucaoPatch = Partial<typeof sincronizacaoExecucao.$inferInsert>;
-type ModuloSincronizacao =
-  | "catalogo"
-  | "pedidos"
-  | "anuncios"
-  | "avaliacoes"
-  | "reputacao";
 
 const COLUNAS: Record<ModuloSincronizacao, { status: keyof ExecucaoPatch; resultado: keyof ExecucaoPatch; erro: keyof ExecucaoPatch }> = {
   catalogo: { status: "catalogoStatus", resultado: "catalogoResultado", erro: "catalogoErro" },
@@ -63,11 +61,16 @@ export const A31_sincronizarConta = inngest.createFunction(
     triggers: [{ event: "canal/sincronizacao.solicitada" }],
   },
   async ({ event, step }) => {
-    const { orgId, channelAccountId, execucaoId } = event.data as {
+    const { orgId, channelAccountId, execucaoId, desde, modulos } = event.data as {
       orgId: string;
       channelAccountId: string;
       execucaoId: string;
+      desde?: string;
+      modulos?: ModuloSincronizacao[];
     };
+    const solicitados = new Set<ModuloSincronizacao>(
+      modulos?.length ? modulos.filter((item) => MODULOS_SINCRONIZACAO.includes(item)) : MODULOS_SINCRONIZACAO,
+    );
 
     const conta = await step.run("buscar-conta", () =>
       db
@@ -90,11 +93,23 @@ export const A31_sincronizarConta = inngest.createFunction(
     }
 
     function patchResultado(modulo: ModuloSincronizacao, resultado: unknown): ExecucaoPatch {
-      return patchStatus(modulo, "concluido", { [COLUNAS[modulo].resultado]: resultado } as ExecucaoPatch);
+      const completo = resultado && typeof resultado === "object"
+        ? { ...resultado, progresso: 100 }
+        : { valor: resultado, progresso: 100 };
+      return patchStatus(modulo, "concluido", { [COLUNAS[modulo].resultado]: completo } as ExecucaoPatch);
     }
 
     function patchErro(modulo: ModuloSincronizacao, error: unknown): ExecucaoPatch {
       return patchStatus(modulo, "erro", { [COLUNAS[modulo].erro]: erroLegivel(error) } as ExecucaoPatch);
+    }
+
+    async function atualizarProgresso(modulo: ModuloSincronizacao, progresso: number, detalhe: Record<string, unknown> = {}) {
+      await atualizarExecucao({
+        [COLUNAS[modulo].resultado]: {
+          ...detalhe,
+          progresso: Math.max(1, Math.min(99, Math.round(progresso))),
+        },
+      } as ExecucaoPatch);
     }
 
     async function executarModulo(modulo: ModuloSincronizacao, trabalho: () => Promise<unknown>): Promise<{ ok: true; resultado: unknown } | { ok: false; erro: string }> {
@@ -120,7 +135,9 @@ export const A31_sincronizarConta = inngest.createFunction(
       executar: (corpo: () => Promise<unknown>) => Promise<unknown>,
       trabalho: () => Promise<unknown>,
     ): Promise<{ ok: true; resultado: unknown } | { ok: false; erro: string }> {
-      await step.run(`${modulo}-em-andamento`, () => atualizarExecucao(patchStatus(modulo, "em_andamento")));
+      await step.run(`${modulo}-em-andamento`, () => atualizarExecucao(patchStatus(modulo, "em_andamento", {
+        [COLUNAS[modulo].resultado]: { progresso: 1 },
+      } as ExecucaoPatch)));
       try {
         const resultado = await executar(trabalho);
         await step.run(`${modulo}-concluido`, () => atualizarExecucao(patchResultado(modulo, resultado)));
@@ -134,7 +151,7 @@ export const A31_sincronizarConta = inngest.createFunction(
     // Em fatias, uma por step: catálogo grande não cabe num step só e era morto
     // pelo tempo limite, reexecutando do zero pra sempre — ver o comentário em
     // importar-catalogo.service.ts (KARZI concluía, WUWU e ARMARINHOS não).
-    await executarModuloEmSteps("catalogo", async () => {
+    if (solicitados.has("catalogo")) await executarModuloEmSteps("catalogo", async () => {
       if (conta.tipo !== "mercadolivre" && conta.tipo !== "shopee") {
         return { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) };
       }
@@ -154,6 +171,12 @@ export const A31_sincronizarConta = inngest.createFunction(
           );
           produtosCriados += parcial.produtosCriados;
           ignorados += parcial.ignorados;
+          const processados = Math.min(parcial.total, parcial.proximoOffset);
+          await step.run(`catalogo-ml-progresso-${offset}`, () => atualizarProgresso(
+            "catalogo",
+            parcial.total > 0 ? 10 + (processados / parcial.total) * 85 : 95,
+            { processados, total: parcial.total, produtosCriados, ignorados },
+          ));
           if (parcial.fim) break;
           offset = parcial.proximoOffset;
         }
@@ -170,11 +193,17 @@ export const A31_sincronizarConta = inngest.createFunction(
         );
         produtosCriados += parcial.produtosCriados;
         ignorados += parcial.ignorados;
+        await step.run(`catalogo-shopee-progresso-${i}`, () => atualizarProgresso(
+          "catalogo",
+          itens.length > 0 ? 10 + (Math.min(itens.length, i + fatia.length) / itens.length) * 85 : 95,
+          { processados: Math.min(itens.length, i + fatia.length), total: itens.length, produtosCriados, ignorados },
+        ));
       }
       return { produtosCriados, ignorados };
     });
 
-    const resultadoPedidos = await executarModuloEmSteps("pedidos", async () => {
+    const resultadoPedidos = solicitados.has("pedidos")
+      ? await executarModuloEmSteps("pedidos", async () => {
       // Mesmo freio do A24: app Shopee aprovado não tem permissão pra API de
       // Pedidos, reverter junto com SHOPEE_PEDIDOS_LIBERADO.
       if (conta.tipo === "shopee" && !SHOPEE_PEDIDOS_LIBERADO) {
@@ -182,11 +211,16 @@ export const A31_sincronizarConta = inngest.createFunction(
       }
       const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug ?? "");
       if (!provider) return { encontrados: 0, novos: 0, ...semSuporte("Pedidos", conta.tipo) };
-      const desde = new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
+      const dataDesde = desde ? new Date(desde) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
       // Um step só para a busca: uma vez concluída, o Inngest memoiza o
       // resultado e uma reexecução não repete as chamadas ao canal — que é o
       // que estava queimando a cota do proxy em loop.
-      const pedidos = await step.run(`pedidos-buscar-${channelAccountId}`, () => provider.buscarPedidos(desde));
+      const pedidos = await step.run(`pedidos-buscar-${channelAccountId}`, () => provider.buscarPedidos(dataDesde));
+      await step.run("pedidos-progresso-busca", () => atualizarProgresso("pedidos", 20, {
+        processados: 0,
+        total: pedidos.length,
+        desde: dataDesde.toISOString(),
+      }));
       let novos = 0;
       // Falha de UM pedido não derruba a leva. Um pedido ruim é sempre
       // possível — anúncio removido depois da venda (ErroSkuSemProduto),
@@ -198,7 +232,8 @@ export const A31_sincronizarConta = inngest.createFunction(
       const skusSemProduto = new Set<string>();
       const motivosDeFalha = new Set<string>();
       let ignorados = 0;
-      for (const pedidoBruto of pedidos) {
+      for (let indice = 0; indice < pedidos.length; indice++) {
+        const pedidoBruto = pedidos[indice];
         const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
         // Um step por pedido, como o A24 já fazia: cada ingestão tem seu
         // próprio orçamento de tempo e fica memoizada ao concluir.
@@ -224,6 +259,14 @@ export const A31_sincronizarConta = inngest.createFunction(
         } else if (resultado.novo) {
           novos += 1;
         }
+        const processados = indice + 1;
+        if (processados === pedidos.length || processados % 10 === 0) {
+          await step.run(`pedidos-progresso-${processados}`, () => atualizarProgresso(
+            "pedidos",
+            pedidos.length > 0 ? 20 + (processados / pedidos.length) * 75 : 95,
+            { processados, total: pedidos.length, novos, ignorados, desde: dataDesde.toISOString() },
+          ));
+        }
       }
       // Se NENHUM pedido entrou e todos falharam, o problema não é "um pedido
       // ruim" — é sistêmico (credencial, banco, formato do canal). Aí sim o
@@ -244,8 +287,9 @@ export const A31_sincronizarConta = inngest.createFunction(
           }
           : {}),
       };
-    });
-    if (!resultadoPedidos.ok) {
+    })
+      : null;
+    if (resultadoPedidos && !resultadoPedidos.ok) {
       await emitirEvento({
         tipo: "canal.degradado",
         orgId,
@@ -256,17 +300,19 @@ export const A31_sincronizarConta = inngest.createFunction(
       });
     }
 
-    await executarModulo("anuncios", async () => (
-      conta.tipo === "mercadolivre"
+    if (solicitados.has("anuncios")) await executarModulo("anuncios", async () => {
+      await atualizarProgresso("anuncios", 15, { etapa: "consultando_campanhas" });
+      return conta.tipo === "mercadolivre"
         ? sincronizarAnunciosMercadoLivreConta(ctx, channelAccountId)
-        : semSuporte("Anúncios patrocinados", conta.tipo)
-    ));
+        : semSuporte("Anúncios patrocinados", conta.tipo);
+    });
 
-    await executarModuloEmSteps("avaliacoes", async () => {
+    if (solicitados.has("avaliacoes")) await executarModuloEmSteps("avaliacoes", async () => {
       // Shopee pagina por cursor sobre a loja inteira (teto de 10 páginas), é
       // barato e cabe num step. O ML custa uma requisição por anúncio, então vai
       // fatiado — ver o comentário em avaliacoes.service.ts.
       if (conta.tipo === "shopee") {
+        await atualizarProgresso("avaliacoes", 15, { etapa: "consultando_opinioes" });
         return step.run("avaliacoes-shopee", () => sincronizarAvaliacoesShopeeConta(orgId, channelAccountId));
       }
       if (conta.tipo !== "mercadolivre") return semSuporte("Avaliações", conta.tipo);
@@ -280,6 +326,11 @@ export const A31_sincronizarConta = inngest.createFunction(
         );
         listingIds.push(...parcial.listingIds);
         anunciosSincronizados += parcial.sincronizados;
+        await step.run(`avaliacoes-ml-progresso-${offset}`, () => atualizarProgresso(
+          "avaliacoes",
+          parcial.fim ? 95 : Math.min(90, 10 + (pagina + 1) * 4),
+          { processados: anunciosSincronizados, etapa: "consultando_anuncios" },
+        ));
         if (parcial.fim) break;
         offset = parcial.proximoOffset;
       }
@@ -289,7 +340,8 @@ export const A31_sincronizarConta = inngest.createFunction(
       return { contasVerificadas: 1, anunciosSincronizados, removidos: limpeza.removidos };
     });
 
-    await executarModulo("reputacao", async () => {
+    if (solicitados.has("reputacao")) await executarModulo("reputacao", async () => {
+      await atualizarProgresso("reputacao", 20, { etapa: "consultando_saude_da_loja" });
       // Shopee tem saúde de loja própria (account_health), com permissão já
       // concedida ao app de catálogo — confirmado ao vivo em 25/08/2026. O
       // formato é diferente do termômetro do ML (métricas com alvo próprio, em
@@ -323,6 +375,9 @@ export const A31_sincronizarConta = inngest.createFunction(
         termometro: marca?.faixaLabel ?? null,
         vendasConcluidas: marca?.vendasConcluidas ?? null,
         semContaConectada: resultado.semContaConectada,
+        // A interface de Métricas lê esta fotografia do banco. Assim, abrir
+        // a tela e trocar filtros nunca dispara uma nova chamada ao ML.
+        reputacao: marca ?? null,
       };
     });
 

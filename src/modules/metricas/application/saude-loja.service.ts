@@ -13,7 +13,7 @@ import { obterAtendimentoPorMarca, type AtendimentoResumo } from "./atendimento.
 import {
   LIMITE_TAXA,
   obterContasDesconectadas,
-  obterReputacao,
+  obterReputacaoPersistida,
   type ContaDesconectada,
   type ReputacaoMarca,
   type ReputacaoResultado,
@@ -398,7 +398,7 @@ export async function obterSaudeLoja(
       ))
       .groupBy(produto.brandId),
     leve ? Promise.resolve<ReputacaoResultado>({ marcas: [], marcasComFalha: [], semContaConectada: true })
-      : obterReputacao(ctx).catch((): ReputacaoResultado => ({
+      : obterReputacaoPersistida(ctx).catch((): ReputacaoResultado => ({
         marcas: [],
         marcasComFalha: [],
         semContaConectada: true,

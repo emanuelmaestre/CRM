@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -19,6 +19,7 @@ import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
@@ -337,7 +338,10 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [brandIds, setBrandIds] = useState<string[]>([]);
   const [canaisSel, setCanaisSel] = useState<CanalVenda[]>([]);
   const [statusGrupo, setStatusGrupo] = useState<ChaveGrupoStatus>("");
-  const statusesAtivos = GRUPOS_STATUS.find((grupo) => grupo.chave === statusGrupo)?.statuses ?? [];
+  const statusesAtivos = useMemo(
+    () => GRUPOS_STATUS.find((grupo) => grupo.chave === statusGrupo)?.statuses ?? [],
+    [statusGrupo],
+  );
   const [busca, setBusca] = useState("");
   const [buscaAplicada, setBuscaAplicada] = useState("");
   // Pré-selecionado em Hoje, igual ao resto do app — antes vinha sem filtro
@@ -389,6 +393,11 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   // convite, e as contagens de marca/canal (rápidas) já estão aquecendo por
   // trás para quando a escolha acontecer.
   const escopoDefinido = brandIds.length > 0 || canaisSel.length > 0;
+
+  useAtualizacaoLocal("vendas", useCallback(() => {
+    if (!escopoDefinido) return;
+    carregar(brandIds, canaisSel, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
+  }, [escopoDefinido, carregar, brandIds, canaisSel, statusesAtivos, buscaAplicada, dataInicial, dataFinal]));
 
   useEffect(() => {
     if (!escopoDefinido) return;

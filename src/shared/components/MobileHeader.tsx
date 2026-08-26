@@ -8,6 +8,7 @@ import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
 import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
 import type { ModuloId } from "@/config/modulos";
+import { AtualizacaoToggle } from "@/shared/components/AtualizacaoToggle";
 
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
 
@@ -44,6 +45,7 @@ export function MobileHeader({ modulosVisiveis }: { modulosVisiveis: readonly Mo
         <ElisaLimaLogo className="w-24" />
       </button>
       <div className="flex items-center gap-1">
+        <AtualizacaoToggle modo="mobile" />
         {modulosVisiveis.includes("configuracoes") && (
           <Link
             href={navigationConfig.utilities.settings.href}

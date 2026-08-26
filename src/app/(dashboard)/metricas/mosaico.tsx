@@ -30,6 +30,7 @@ import type { SnapshotMetricas } from "@/modules/metricas/application/snapshot-m
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
+import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
 const copy = metricasConfig.mosaico;
 const blocosCopy = copy.blocos;
@@ -185,9 +186,10 @@ function useDadosDoCard(
   cache: React.MutableRefObject<Map<string, Promise<DashboardData>>>,
   periodo: Periodo,
   filtro: CardFiltro,
+  versaoLocal: number,
 ) {
   const periodoBusca = periodoEfetivo(periodo);
-  const chave = chaveFiltro(periodoBusca, filtro);
+  const chave = `${chaveFiltro(periodoBusca, filtro)}|v${versaoLocal}`;
   const semFiltro = semFiltroDefinido(filtro);
   const [resultado, setResultado] = useState<{ chave: string; dados: DashboardData | null }>({ chave: "", dados: null });
 
@@ -306,6 +308,12 @@ export function Mosaico({
   const [marcas, setMarcas] = useState<ScopeMarca[]>(marcasIniciais);
   const [canais, setCanais] = useState<ScopeCanal[]>(canaisIniciais);
   const cache = useRef(new Map<string, Promise<DashboardData>>());
+  const [versaoLocal, setVersaoLocal] = useState(0);
+
+  useAtualizacaoLocal("metricas", useCallback(() => {
+    cache.current.clear();
+    setVersaoLocal((atual) => atual + 1);
+  }, []));
 
   /* Um único filtro pra tela toda — antes era um por card (pra comparar
      marcas diferentes lado a lado); a barra de escopo agora vale pra todos
@@ -336,11 +344,11 @@ export function Mosaico({
     });
   }, [marcas, canais]);
 
-  const faturamento = useDadosDoCard(cache, periodo, filtroGlobal);
-  const reposicao = useDadosDoCard(cache, periodo, filtroGlobal);
-  const maisVendidos = useDadosDoCard(cache, periodo, filtroGlobal);
-  const giroBaixo = useDadosDoCard(cache, periodo, filtroGlobal);
-  const parados = useDadosDoCard(cache, periodo, filtroGlobal);
+  const faturamento = useDadosDoCard(cache, periodo, filtroGlobal, versaoLocal);
+  const reposicao = useDadosDoCard(cache, periodo, filtroGlobal, versaoLocal);
+  const maisVendidos = useDadosDoCard(cache, periodo, filtroGlobal, versaoLocal);
+  const giroBaixo = useDadosDoCard(cache, periodo, filtroGlobal, versaoLocal);
+  const parados = useDadosDoCard(cache, periodo, filtroGlobal, versaoLocal);
 
   // Estas duas já vieram prontas do servidor quando há dado inicial — refazê-las
   // aqui só repetiria no navegador o que acabou de chegar no HTML.
@@ -388,7 +396,7 @@ export function Mosaico({
         toast.error(metricasConfig.erros.carregar, { id: "metricas-saude" });
       });
     return () => { ativo = false; };
-  }, [chave, inicio, fim]);
+  }, [chave, inicio, fim, versaoLocal]);
 
   const carregandoSaude = saude.chave !== chave;
 
@@ -413,7 +421,7 @@ export function Mosaico({
         toast.error(metricasConfig.erros.carregar, { id: "metricas-posvenda" });
       });
     return () => { ativo = false; };
-  }, [chave, inicio, fim]);
+  }, [chave, inicio, fim, versaoLocal]);
 
   /* ── Snapshot de ontem, pra comparação real ──────────────────────────
      Giro baixo, Parados, Repor em breve e Pontuação da loja não tinham
@@ -431,7 +439,7 @@ export function Mosaico({
       .then((snapshot) => { if (ativo) setSnapshotOntem(snapshot); })
       .catch(() => { if (ativo) setSnapshotOntem(null); });
     return () => { ativo = false; };
-  }, []);
+  }, [versaoLocal]);
 
   // Publicações usa somente os filtros leves e estáveis que chegam com a
   // página. Não troca de ordem quando Saúde responde e não consulta Product
