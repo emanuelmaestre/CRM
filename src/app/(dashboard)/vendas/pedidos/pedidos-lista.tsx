@@ -178,8 +178,13 @@ function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; red
 function MarcaPill({ marca, ativo, onClick }: { marca: Marca; ativo: boolean; onClick: () => void }) {
   const reduzir = useReducedMotion();
   const { slug } = marca;
-  const vazia = marca.total === 0;
-  const bloqueada = vazia && !ativo;
+  // Zero pedido no canal escolhido = pílula travada, mesmo que a marca
+  // estivesse selecionada antes da escolha do canal. O `&& !ativo` que existia
+  // aqui deixava a marca vazia continuar ativa e clicável (KARZI + Shopee, por
+  // exemplo, que nunca teve um pedido) — a seleção seguia valendo e entrava na
+  // consulta sem nunca poder trazer nada. Quem desmarca é a lista (ver
+  // `sanearMarcasSelecionadas`); esta pílula só precisa não voltar a ligar.
+  const bloqueada = marca.total === 0;
   const temIdentidade = isBrandSlug(slug);
 
   return (
@@ -378,6 +383,20 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         setTotal(res.total);
         setResumo(res.resumo);
         setMarcas(res.marcas);
+        /* As contagens de marca voltam já cruzadas com o canal escolhido (ver
+           contarPedidosPorMarca): total 0 aqui quer dizer "esta marca não tem
+           um único pedido neste canal" — KARZI + Shopee, por exemplo. Marca
+           assim continuava selecionada e entrando na consulta, um filtro que
+           não tem como trazer nada; agora ela se desmarca sozinha, com aviso
+           do motivo. A pílula fica travada em seguida (ver MarcaPill), então
+           não religa enquanto o canal for esse. */
+        const invalidas = res.marcas.filter((marca) => marca.total === 0 && (marcas ?? []).includes(marca.brandId));
+        if (invalidas.length > 0) {
+          setBrandIds((atual) => atual.filter((id) => !invalidas.some((marca) => marca.brandId === id)));
+          for (const marca of invalidas) {
+            toast.info(copy.brandSelector.emptyHint.replace("{marca}", marca.nome));
+          }
+        }
         setCanais(res.canais);
         setAtualizadoEm(new Date());
       } catch {
