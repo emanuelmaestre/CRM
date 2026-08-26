@@ -125,7 +125,7 @@ interface MesProps {
   onAnterior: () => void;
   onProximo: () => void;
   foraDoLimite: (dia: Date) => boolean;
-  papel: (dia: Date) => "inicio" | "fim" | "meio" | null;
+  papel: (dia: Date) => "inicio" | "fim" | "meio" | "unico" | null;
   onEscolher: (dia: Date) => void;
   onHover: (dia: Date) => void;
   pulsando: boolean;
@@ -183,7 +183,7 @@ function Mes({ mes, direcaoNav, onAnterior, onProximo, foraDoLimite, papel, onEs
           const hoje = isToday(dia);
           const bloqueado = foraDoLimite(dia);
           const papelDia = papel(dia);
-          const extremo = papelDia === "inicio" || papelDia === "fim";
+          const extremo = papelDia === "inicio" || papelDia === "fim" || papelDia === "unico";
 
           return (
             <div key={dia.toISOString()} className="relative">
@@ -359,12 +359,21 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   const mesEsquerda = mesVisivel;
   const mesDireita = addMonths(mesVisivel, 1);
 
-  function dentroDoIntervaloPreview(dia: Date): "inicio" | "fim" | "meio" | null {
+  /** "unico" é um dia sozinho (início = fim, ex.: filtro "Hoje") — conta como
+   *  extremo pra ganhar o círculo cheio da cor de acento, mas ao contrário de
+   *  "inicio"/"fim" não desenha a faixa de conexão de fundo (pensada pra
+   *  ligar visualmente vários dias de um intervalo real). Sem essa distinção,
+   *  a faixa (metade do width, altura inteira da célula) vazava por trás do
+   *  círculo do dia único e criava um anel quebrado/duplicado. */
+  function dentroDoIntervaloPreview(dia: Date): "inicio" | "fim" | "meio" | "unico" | null {
     const ancora = inicioRascunho;
     const alvo = hoverDia ?? inicioSelecionado;
     // Sem seleção em andamento: mostra o intervalo já aplicado (se houver).
     if (!ancora) {
       if (!inicioSelecionado || !fimSelecionado) return null;
+      if (isSameDay(inicioSelecionado, fimSelecionado)) {
+        return isSameDay(dia, inicioSelecionado) ? "unico" : null;
+      }
       if (isSameDay(dia, inicioSelecionado)) return "inicio";
       if (isSameDay(dia, fimSelecionado)) return "fim";
       if (isAfter(dia, inicioSelecionado) && isBefore(dia, fimSelecionado)) return "meio";
@@ -373,6 +382,9 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
     // Seleção em andamento: intervalo entre a âncora e onde o cursor está agora.
     const referencia = alvo ?? ancora;
     const [de, ate] = isAfter(ancora, referencia) ? [referencia, ancora] : [ancora, referencia];
+    if (isSameDay(de, ate)) {
+      return isSameDay(dia, de) ? "unico" : null;
+    }
     if (isSameDay(dia, de)) return "inicio";
     if (isSameDay(dia, ate)) return "fim";
     if (isAfter(dia, de) && isBefore(dia, ate)) return "meio";

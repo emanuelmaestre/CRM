@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Check, ChevronDown, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { Check, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
@@ -308,7 +308,6 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
 }) {
   const reduzir = useReducedMotion();
   const [focado, setFocado] = useState<number | null>(null);
-  const [obsAberto, setObsAberto] = useState(false);
   const valorAnimado = useContagem((liquido ? dados?.totalLiquidoNumerico : dados?.totalNumerico) ?? 0);
   const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
   const variacao = (liquido ? dados?.variacaoPercentualLiquido : dados?.variacaoPercentual) ?? null;
@@ -366,12 +365,10 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   const totalDetail = somarChunks(detailChunks);
   const totalObs = somarChunks(obsChunks);
   const resumoKey = `${dados?.janelaLabel ?? ""}-${liquido}`;
-  const visivelResumo = useDigitacao(totalHeadline + totalDetail, !reduzir, resumoKey);
+  const visivelResumo = useDigitacao(totalHeadline + totalDetail + totalObs, !reduzir, resumoKey);
   const visivelHeadline = Math.max(0, Math.min(totalHeadline, visivelResumo));
   const visivelDetail = Math.max(0, Math.min(totalDetail, visivelResumo - totalHeadline));
-  // OBS digita só quando expandida — mantém o card fechado por padrão sem
-  // gastar altura com a explicação de cálculo, que é secundária.
-  const visivelObs = useDigitacao(totalObs, obsAberto && !reduzir, `${resumoKey}-${obsAberto}`);
+  const visivelObs = Math.max(0, Math.min(totalObs, visivelResumo - totalHeadline - totalDetail));
 
   return (
     <Card>
@@ -407,10 +404,10 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
             </motion.div>
           ) : (
             <motion.div key="conteudo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast} className="px-5 pb-5">
-              <div className="mt-3 hidden justify-end sm:flex">
+              <div className="mt-2 hidden justify-end sm:flex">
                 <TipoToggle liquido={liquido} aoTrocarLiquido={aoTrocarLiquido} />
               </div>
-              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-2">
+              <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-2">
                 <p className="text-stat-lg text-foreground">{moeda.format(valorAnimado)}</p>
                 {variacao !== null && (
                   <span
@@ -447,7 +444,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 )}
               </div>
 
-              <div className="mt-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5">
+              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5">
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <ShoppingBag size={13} strokeWidth={2} className="shrink-0 opacity-70" />
                   <span className="font-semibold tabular-nums text-foreground">{dados?.pedidos}</span> {copy.ordersLabel}
@@ -458,7 +455,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 </span>
               </div>
 
-              <div className="mt-3 sm:mt-4">
+              <div className="mt-2.5 sm:mt-3">
                 {/* Leitura do ponto sob o cursor. Fica em posição fixa em vez de
                     tooltip flutuante: nada é cortado pela borda do card nem empurra layout. */}
                 <p className="mb-2 h-4 text-xs font-semibold tabular-nums text-muted-foreground">
@@ -468,23 +465,22 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                     a soma dos blocos abaixo (leitura guiada) costumava empurrar
                     o card pra fora da viewport, forçando rolagem. No mobile
                     mantém a altura original — tela estreita já rola mesmo. */}
-                {dados && <GraficoSerie serie={serieAtiva} aoFocar={setFocado} cores={cores} altura="h-36 sm:h-28" />}
+                {dados && <GraficoSerie serie={serieAtiva} aoFocar={setFocado} cores={cores} altura="h-32 sm:h-24" />}
               </div>
 
               {/* Leitura guiada da comparação acima — traduz os números do
                   cabeçalho (valor, variação, pedidos) numa manchete + detalhe
-                  que entram "digitando" (ver `useDigitacao`). A base de cálculo
-                  (OBS) fica recolhida por padrão atrás de "Como é calculado" —
-                  é informação de apoio, não precisa ocupar espaço sempre; isso
-                  também é o que mantém o card inteiro visível sem rolagem em
-                  desktop/tablet na maioria dos casos. */}
+                  + base de cálculo (OBS), todos sempre visíveis e entrando
+                  "digitando" em sequência (ver `useDigitacao`). Espaçamentos
+                  enxutos no card inteiro (acima e dentro deste bloco) pra
+                  caber sem rolagem em desktop/tablet na maioria dos casos. */}
               {temResumo && dados && (
                 <motion.div
                   key={`${dados.janelaLabel}-${liquido}`}
                   variants={reduzir ? undefined : fadeUp}
                   initial={reduzir ? undefined : "hidden"}
                   animate={reduzir ? undefined : "show"}
-                  className="mt-3 flex items-start gap-2.5 overflow-hidden rounded-[0.85rem] border border-border p-3 sm:mt-4 sm:gap-3 sm:p-4"
+                  className="mt-2.5 flex items-start gap-2.5 overflow-hidden rounded-[0.85rem] border border-border p-2.5 sm:mt-3 sm:gap-3 sm:p-3.5"
                   style={{ background: tint(corTendenciaResumo, 5) }}
                 >
                   <motion.span
@@ -512,40 +508,13 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                       {!reduzir && visivelDetail > 0 && visivelDetail < totalDetail && <CursorDigitando />}
                     </p>
 
-                    {/* "Saiba mais": explica a base de cálculo (bruto/líquido)
-                        só quando pedido — mantém o bloco enxuto por padrão e
-                        troca de conteúdo junto com o toggle Bruto/Líquido. */}
-                    <button
-                      type="button"
-                      onClick={() => setObsAberto((v) => !v)}
-                      aria-expanded={obsAberto}
-                      className="press-feedback mt-1.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      Como esse valor é calculado
-                      <motion.span
-                        animate={{ rotate: obsAberto ? 180 : 0 }}
-                        transition={reduzir ? { duration: 0 } : springs.settleFast}
-                        className="flex"
-                      >
-                        <ChevronDown size={12} strokeWidth={2.4} />
-                      </motion.span>
-                    </button>
-                    <AnimatePresence initial={false}>
-                      {obsAberto && (
-                        <motion.div
-                          initial={reduzir ? undefined : { height: 0, opacity: 0 }}
-                          animate={reduzir ? undefined : { height: "auto", opacity: 1 }}
-                          exit={reduzir ? undefined : { height: 0, opacity: 0 }}
-                          transition={reduzir ? { duration: 0 } : springs.settleFast}
-                          className="overflow-hidden"
-                        >
-                          <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[12px] leading-relaxed text-muted-foreground sm:text-[12.5px]">
-                            {renderDigitado(obsChunks, visivelObs)}
-                            {!reduzir && visivelObs > 0 && visivelObs < totalObs && <CursorDigitando />}
-                          </p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {/* Base de cálculo (bruto/líquido) sempre visível — troca de
+                        texto junto com o toggle Bruto/Líquido, sem exigir clique
+                        pra ler o que compõe o valor exibido acima. */}
+                    <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[12px] leading-relaxed text-muted-foreground sm:text-[12.5px]">
+                      {renderDigitado(obsChunks, visivelObs)}
+                      {!reduzir && visivelObs > 0 && visivelObs < totalObs && <CursorDigitando />}
+                    </p>
                   </div>
                 </motion.div>
               )}
