@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Check, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { Check, ChevronDown, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
@@ -32,10 +32,13 @@ function corDoPico(cores: string[]): string {
    Barras em scaleY (propriedade de compositor, não força layout) com
    stagger curto. O pico ganha o gradiente da marca; o resto fica tonal,
    então o olho acha o topo sem precisar ler número. */
-function GraficoSerie({ serie, aoFocar, cores }: {
+function GraficoSerie({ serie, aoFocar, cores, altura = "h-36" }: {
   serie: FaturamentoResumo["serie"];
   aoFocar: (indice: number | null) => void;
   cores: string[];
+  /** Classes de altura (com breakpoints se necessário) — permite encolher o
+   *  gráfico em telas maiores pra caber o card inteiro sem rolagem. */
+  altura?: string;
 }) {
   // Com 1 dia só (período "Hoje"), a barra única — sempre o pico —
   // ocupava a largura inteira do gráfico com o gradiente de destaque,
@@ -43,7 +46,7 @@ function GraficoSerie({ serie, aoFocar, cores }: {
   // Uma frase substitui a barra até existir pelo menos 2 dias pra comparar.
   if (serie.length <= 1) {
     return (
-      <p className="flex h-36 items-center justify-center text-center text-xs text-muted-foreground">
+      <p className={`flex ${altura} items-center justify-center text-center text-xs text-muted-foreground`}>
         Escolha um período com mais de 1 dia para ver a evolução diária.
       </p>
     );
@@ -60,7 +63,7 @@ function GraficoSerie({ serie, aoFocar, cores }: {
   return (
     <div>
       <div
-        className="flex h-36 items-end gap-[3px]"
+        className={`flex ${altura} items-end gap-[3px]`}
         onPointerLeave={() => aoFocar(null)}
         role="img"
         aria-label={
@@ -305,6 +308,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
 }) {
   const reduzir = useReducedMotion();
   const [focado, setFocado] = useState<number | null>(null);
+  const [obsAberto, setObsAberto] = useState(false);
   const valorAnimado = useContagem((liquido ? dados?.totalLiquidoNumerico : dados?.totalNumerico) ?? 0);
   const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
   const variacao = (liquido ? dados?.variacaoPercentualLiquido : dados?.variacaoPercentual) ?? null;
@@ -361,11 +365,13 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
   const totalHeadline = somarChunks(headlineChunks);
   const totalDetail = somarChunks(detailChunks);
   const totalObs = somarChunks(obsChunks);
-  const totalResumo = totalHeadline + totalDetail + totalObs;
-  const visivelResumo = useDigitacao(totalResumo, !reduzir, `${dados?.janelaLabel ?? ""}-${liquido}`);
+  const resumoKey = `${dados?.janelaLabel ?? ""}-${liquido}`;
+  const visivelResumo = useDigitacao(totalHeadline + totalDetail, !reduzir, resumoKey);
   const visivelHeadline = Math.max(0, Math.min(totalHeadline, visivelResumo));
   const visivelDetail = Math.max(0, Math.min(totalDetail, visivelResumo - totalHeadline));
-  const visivelObs = Math.max(0, Math.min(totalObs, visivelResumo - totalHeadline - totalDetail));
+  // OBS digita só quando expandida — mantém o card fechado por padrão sem
+  // gastar altura com a explicação de cálculo, que é secundária.
+  const visivelObs = useDigitacao(totalObs, obsAberto && !reduzir, `${resumoKey}-${obsAberto}`);
 
   return (
     <Card>
@@ -401,7 +407,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
             </motion.div>
           ) : (
             <motion.div key="conteudo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={springs.settleFast} className="px-5 pb-5">
-              <div className="mt-4 hidden justify-end sm:flex">
+              <div className="mt-3 hidden justify-end sm:flex">
                 <TipoToggle liquido={liquido} aoTrocarLiquido={aoTrocarLiquido} />
               </div>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-2">
@@ -452,32 +458,37 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 </span>
               </div>
 
-              <div className="mt-5">
+              <div className="mt-3 sm:mt-4">
                 {/* Leitura do ponto sob o cursor. Fica em posição fixa em vez de
                     tooltip flutuante: nada é cortado pela borda do card nem empurra layout. */}
                 <p className="mb-2 h-4 text-xs font-semibold tabular-nums text-muted-foreground">
                   {pontoFocado ? `${pontoFocado.label} · ${moeda.format(pontoFocado.valor)}` : ""}
                 </p>
-                {dados && <GraficoSerie serie={serieAtiva} aoFocar={setFocado} cores={cores} />}
+                {/* Gráfico mais baixo em telas maiores (sm+): no desktop/tablet
+                    a soma dos blocos abaixo (leitura guiada) costumava empurrar
+                    o card pra fora da viewport, forçando rolagem. No mobile
+                    mantém a altura original — tela estreita já rola mesmo. */}
+                {dados && <GraficoSerie serie={serieAtiva} aoFocar={setFocado} cores={cores} altura="h-36 sm:h-28" />}
               </div>
 
               {/* Leitura guiada da comparação acima — traduz os números do
-                  cabeçalho (valor, variação, pedidos) num bloco organizado
-                  em 3 partes (manchete, detalhamento, base de cálculo) que
-                  entra "digitando" — cada trecho é revelado caractere a
-                  caractere (ver `useDigitacao`), como se estivesse sendo
-                  escrito na hora em vez de aparecer pronto. */}
+                  cabeçalho (valor, variação, pedidos) numa manchete + detalhe
+                  que entram "digitando" (ver `useDigitacao`). A base de cálculo
+                  (OBS) fica recolhida por padrão atrás de "Como é calculado" —
+                  é informação de apoio, não precisa ocupar espaço sempre; isso
+                  também é o que mantém o card inteiro visível sem rolagem em
+                  desktop/tablet na maioria dos casos. */}
               {temResumo && dados && (
                 <motion.div
                   key={`${dados.janelaLabel}-${liquido}`}
                   variants={reduzir ? undefined : fadeUp}
                   initial={reduzir ? undefined : "hidden"}
                   animate={reduzir ? undefined : "show"}
-                  className="mt-5 flex items-start gap-3 overflow-hidden rounded-[0.85rem] border border-border p-4"
+                  className="mt-3 flex items-start gap-2.5 overflow-hidden rounded-[0.85rem] border border-border p-3 sm:mt-4 sm:gap-3 sm:p-4"
                   style={{ background: tint(corTendenciaResumo, 5) }}
                 >
                   <motion.span
-                    className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                    className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full sm:h-8 sm:w-8"
                     style={{ background: tint(corTendenciaResumo, 14), color: corTendenciaResumo }}
                     animate={reduzir ? undefined : { scale: [1, 1.12, 1] }}
                     transition={reduzir ? undefined : { duration: 1.6, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
@@ -488,29 +499,53 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                       transition={reduzir ? undefined : { ...springs.settleFast, delay: 0.15 }}
                       className="flex"
                     >
-                      {positiva ? <TrendingUp size={15} strokeWidth={2.4} /> : <TrendingDown size={15} strokeWidth={2.4} />}
+                      {positiva ? <TrendingUp size={14} strokeWidth={2.4} /> : <TrendingDown size={14} strokeWidth={2.4} />}
                     </motion.span>
                   </motion.span>
-                  <div>
-                    <p className="text-[13.5px] font-bold leading-snug text-foreground">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-bold leading-snug text-foreground sm:text-[13.5px]">
                       {renderDigitado(headlineChunks, visivelHeadline)}
                       {!reduzir && visivelHeadline > 0 && visivelHeadline < totalHeadline && <CursorDigitando />}
                     </p>
-                    <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
+                    <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground sm:text-[12.5px]">
                       {renderDigitado(detailChunks, visivelDetail)}
                       {!reduzir && visivelDetail > 0 && visivelDetail < totalDetail && <CursorDigitando />}
                     </p>
-                    {/* Nota de rodapé explicando a base de cálculo do valor
-                        exibido — troca de texto junto com o toggle Bruto/
-                        Líquido, sem precisar abrir o popover completo
-                        "Entenda o faturamento" pra entender o que compõe o
-                        número. Mesmo tamanho de fonte do parágrafo acima,
-                        separado só pela borda, pra não parecer nota de
-                        rodapé secundária e sim parte da mesma explicação. */}
-                    <p className="mt-2 border-t border-border/60 pt-2 text-[12.5px] leading-relaxed text-muted-foreground">
-                      {renderDigitado(obsChunks, visivelObs)}
-                      {!reduzir && visivelObs > 0 && visivelObs < totalObs && <CursorDigitando />}
-                    </p>
+
+                    {/* "Saiba mais": explica a base de cálculo (bruto/líquido)
+                        só quando pedido — mantém o bloco enxuto por padrão e
+                        troca de conteúdo junto com o toggle Bruto/Líquido. */}
+                    <button
+                      type="button"
+                      onClick={() => setObsAberto((v) => !v)}
+                      aria-expanded={obsAberto}
+                      className="press-feedback mt-1.5 inline-flex items-center gap-1 text-[11.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      Como esse valor é calculado
+                      <motion.span
+                        animate={{ rotate: obsAberto ? 180 : 0 }}
+                        transition={reduzir ? { duration: 0 } : springs.settleFast}
+                        className="flex"
+                      >
+                        <ChevronDown size={12} strokeWidth={2.4} />
+                      </motion.span>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {obsAberto && (
+                        <motion.div
+                          initial={reduzir ? undefined : { height: 0, opacity: 0 }}
+                          animate={reduzir ? undefined : { height: "auto", opacity: 1 }}
+                          exit={reduzir ? undefined : { height: 0, opacity: 0 }}
+                          transition={reduzir ? { duration: 0 } : springs.settleFast}
+                          className="overflow-hidden"
+                        >
+                          <p className="mt-1.5 border-t border-border/60 pt-1.5 text-[12px] leading-relaxed text-muted-foreground sm:text-[12.5px]">
+                            {renderDigitado(obsChunks, visivelObs)}
+                            {!reduzir && visivelObs > 0 && visivelObs < totalObs && <CursorDigitando />}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </motion.div>
               )}
