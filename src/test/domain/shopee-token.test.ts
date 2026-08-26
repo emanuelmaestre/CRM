@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appDoCanalShopee,
   CANAIS_TOKEN_SHOPEE,
@@ -7,6 +7,11 @@ import {
   solicitarRenovacaoTokenShopee,
   tokenShopeePrecisaRenovar,
 } from "@/modules/canais/application/shopee-token.service";
+import {
+  canalTokenShopee,
+  obterShopeeAppCredenciais,
+  SHOPEE_APPS,
+} from "@/shared/config/shopee-env";
 
 describe("renovação OAuth da Shopee", () => {
   it("executa uma vez por hora e seleciona tokens dentro da margem segura", () => {
@@ -60,22 +65,67 @@ describe("renovação OAuth da Shopee", () => {
   });
 });
 
-/* São dois apps no Open Platform, cada um com sua autorização OAuth e seu
+/* São três apps no Open Platform, cada um com sua autorização OAuth e seu
    token — a Shopee autoriza por APP, não por loja. O A33 renovava só o token
    de catálogo; o de pedidos vencia de 4 em 4 horas sem ninguém renovar, e a
    sincronização de Pedidos falhava com "App Shopee Pedidos não conectado para
-   esta marca" mesmo com o token presente no banco (25/08/2026). */
-describe("renovação cobre os dois apps Shopee", () => {
-  it("lista os dois canais de token", () => {
-    expect([...CANAIS_TOKEN_SHOPEE]).toEqual(["shopee", "shopee_pedidos"]);
+   esta marca" mesmo com o token presente no banco (25/08/2026). O de anúncios
+   entrou em 26/08/2026 e cairia na mesma armadilha se ficasse de fora. */
+describe("renovação cobre os três apps Shopee", () => {
+  it("lista os três canais de token", () => {
+    expect([...CANAIS_TOKEN_SHOPEE]).toEqual(["shopee", "shopee_pedidos", "shopee_anuncios"]);
   });
 
   it("mapeia cada canal para o app que assina a renovação", () => {
     expect(appDoCanalShopee("shopee")).toBe("catalogo");
     expect(appDoCanalShopee("shopee_pedidos")).toBe("pedidos");
+    expect(appDoCanalShopee("shopee_anuncios")).toBe("anuncios");
   });
 
   it("trata canal desconhecido como catálogo, o comportamento anterior ao segundo app", () => {
     expect(appDoCanalShopee("")).toBe("catalogo");
+  });
+
+  /* O motivo de existir uma linha de canal por app: cada autorização é
+     independente, então conectar (ou reconectar) um não pode encostar no
+     token dos outros. É essa ida e volta app→canal→app que garante isso. */
+  it("mantém a ida e volta app → canal → app estável", () => {
+    for (const app of SHOPEE_APPS) {
+      expect(appDoCanalShopee(canalTokenShopee(app))).toBe(app);
+    }
+  });
+
+  it("dá um canal diferente para cada app, sem colisão", () => {
+    const canais = SHOPEE_APPS.map(canalTokenShopee);
+    expect(new Set(canais).size).toBe(SHOPEE_APPS.length);
+  });
+});
+
+/* Cada app lê seu próprio par partner_id/partner_key. Assinar com o par
+   errado devolve "Wrong sign" — erro que não aponta pra causa. */
+describe("credenciais por app Shopee", () => {
+  const original = { ...process.env };
+  afterEach(() => { process.env = { ...original }; });
+
+  it("lê a env var própria de cada app, no ambiente escolhido", () => {
+    process.env.SHOPEE_PARTNER_ID_LIVE = "catalogo-id";
+    process.env.SHOPEE_PARTNER_KEY_LIVE = "catalogo-key";
+    process.env.SHOPEE_PARTNER_ID_PEDIDOS_LIVE = "pedidos-id";
+    process.env.SHOPEE_PARTNER_KEY_PEDIDOS_LIVE = "pedidos-key";
+    process.env.SHOPEE_PARTNER_ID_ANUNCIOS_LIVE = "anuncios-id";
+    process.env.SHOPEE_PARTNER_KEY_ANUNCIOS_LIVE = "anuncios-key";
+
+    expect(obterShopeeAppCredenciais("catalogo", "live")).toEqual({ partnerId: "catalogo-id", partnerKey: "catalogo-key" });
+    expect(obterShopeeAppCredenciais("pedidos", "live")).toEqual({ partnerId: "pedidos-id", partnerKey: "pedidos-key" });
+    expect(obterShopeeAppCredenciais("anuncios", "live")).toEqual({ partnerId: "anuncios-id", partnerKey: "anuncios-key" });
+  });
+
+  it("não confunde o app de anúncios com o de catálogo quando só o de catálogo está configurado", () => {
+    process.env.SHOPEE_PARTNER_ID_LIVE = "catalogo-id";
+    process.env.SHOPEE_PARTNER_KEY_LIVE = "catalogo-key";
+    delete process.env.SHOPEE_PARTNER_ID_ANUNCIOS_LIVE;
+    delete process.env.SHOPEE_PARTNER_KEY_ANUNCIOS_LIVE;
+
+    expect(obterShopeeAppCredenciais("anuncios", "live")).toEqual({ partnerId: undefined, partnerKey: undefined });
   });
 });

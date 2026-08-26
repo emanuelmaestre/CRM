@@ -5,7 +5,13 @@ import { org, brand } from "./org";
 import { channelAccount } from "./canais";
 import { produto } from "./estoque";
 
-/* ── Módulo Anúncios (Product Ads / Mercado Livre) ────────────────
+/* ── Módulo Anúncios (Product Ads) ────────────────────────────────
+   Nasceu só com o Mercado Livre; desde 26/08/2026 as mesmas tabelas guardam
+   também as campanhas de Product Ads da Shopee, separadas pela coluna
+   `plataforma` (ver abaixo). O que muda por marketplace é quais colunas de
+   métrica vêm preenchidas — a Shopee não expõe SOV/impression share, o
+   Mercado Livre não expõe as métricas "broad" de 7 dias.
+
    Fase 1 (Dados) do módulo. A API do Mercado Livre só devolve a janela
    recente de métricas — não tem "me dá o histórico de 6 meses atrás".
    Por isso a estratégia é snapshot diário: uma linha por campanha/anúncio
@@ -45,6 +51,13 @@ export const adsCampanhaSnapshot = pgTable("ads_campanha_snapshot", {
   channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
   campaignId: text("campaign_id").notNull(),
   data: date("data").notNull(),
+
+  /** Marketplace dono da campanha. Derivável de channel_account.tipo, mas
+   *  gravado aqui pra que toda leitura do módulo possa filtrar sem join —
+   *  e, principalmente, pra que a chegada da Shopee não se misture
+   *  silenciosamente aos números do Mercado Livre nas telas que já existiam.
+   *  Default "mercadolivre" porque foi o único canal até 26/08/2026. */
+  plataforma: text("plataforma").notNull().default("mercadolivre"),
 
   nome: text("nome").notNull(),
   status: text("status").notNull(),
@@ -115,6 +128,9 @@ export const adsAnuncioSnapshot = pgTable("ads_anuncio_snapshot", {
   adGroupId: text("ad_group_id"),
   produtoId: uuid("produto_id").references(() => produto.id),
   data: date("data").notNull(),
+
+  /** Mesmo papel de `plataforma` em ads_campanha_snapshot. */
+  plataforma: text("plataforma").notNull().default("mercadolivre"),
 
   titulo: text("titulo"),
   status: text("status"),

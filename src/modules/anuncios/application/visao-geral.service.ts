@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsCampanhaSnapshot, brand } from "@/shared/lib/db/schema";
+import { PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios } from "../domain/plataformas";
 import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
 import { calcularDependenciaMidia } from "./metricas-calculadas";
 import { diagnosticarCampanha, type Diagnostico } from "./motor-diagnostico";
@@ -155,8 +156,9 @@ function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
 
 export async function obterVisaoGeral(
   ctx: CrudContext,
-  opcoes: { brandIds?: string[]; inicio?: string; fim?: string } = {},
+  opcoes: { brandIds?: string[]; inicio?: string; fim?: string; plataforma?: PlataformaAnuncios } = {},
 ): Promise<VisaoGeralResultado> {
+  const plataforma = opcoes.plataforma ?? PLATAFORMA_ANUNCIOS_PADRAO;
   const condicaoMarca = opcoes.brandIds && opcoes.brandIds.length > 0 ? [inArray(brand.id, opcoes.brandIds)] : [];
 
   const marcas = (await ctx.db
@@ -185,7 +187,11 @@ export async function obterVisaoGeral(
       criadoEm: adsCampanhaSnapshot.criadoEm,
     })
     .from(adsCampanhaSnapshot)
-    .where(and(eq(adsCampanhaSnapshot.orgId, ctx.orgId), inArray(adsCampanhaSnapshot.brandId, idsDasMarcas)))
+    .where(and(
+      eq(adsCampanhaSnapshot.orgId, ctx.orgId),
+      inArray(adsCampanhaSnapshot.brandId, idsDasMarcas),
+      eq(adsCampanhaSnapshot.plataforma, plataforma),
+    ))
     .orderBy(desc(adsCampanhaSnapshot.data), desc(adsCampanhaSnapshot.criadoEm));
 
   // A ordenação acima garante que a primeira linha vista de cada marca é a mais
@@ -211,6 +217,7 @@ export async function obterVisaoGeral(
     .where(and(
       eq(adsCampanhaSnapshot.orgId, ctx.orgId),
       inArray(adsCampanhaSnapshot.brandId, idsDasMarcas),
+      eq(adsCampanhaSnapshot.plataforma, plataforma),
       ...(periodoDefinido
         ? [gte(adsCampanhaSnapshot.data, opcoes.inicio!), lte(adsCampanhaSnapshot.data, opcoes.fim!)]
         : [inArray(adsCampanhaSnapshot.data, datasMaisRecentes)]),

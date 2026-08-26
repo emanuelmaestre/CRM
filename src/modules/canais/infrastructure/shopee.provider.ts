@@ -2,7 +2,7 @@ import crypto from "crypto";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
-import { obterShopeeBaseUrl, obterShopeeAppCredenciais } from "@/shared/config/shopee-env";
+import { obterShopeeBaseUrl, obterShopeeAppCredenciais, canalTokenShopee, type ShopeeApp } from "@/shared/config/shopee-env";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 interface ShopeeCredentials {
@@ -954,19 +954,21 @@ interface LinhaTokenShopee {
   expires_at?: string;
 }
 
-/** canal na tabela canal_tokens: "shopee" pro app CRM (catálogo), "shopee_pedidos"
- *  pro app Pedidos — linhas independentes porque cada app tem sua própria
- *  autorização/access_token na Shopee, mesmo pra a mesma loja. */
-function canalTokenShopee(app: "catalogo" | "pedidos"): string {
-  return app === "pedidos" ? "shopee_pedidos" : "shopee";
+/** Sufixo das env vars de fallback por marca (SHOPEE_ACCESS_TOKEN_*,
+ *  SHOPEE_SHOP_ID_*). Mesma lógica do infixo de partner_id em shopee-env.ts:
+ *  o app de catálogo veio primeiro e ficou sem infixo. */
+function sufixoEnvTokenShopee(app: ShopeeApp, upper: string): string {
+  if (app === "pedidos") return `PEDIDOS_${upper}`;
+  if (app === "anuncios") return `ANUNCIOS_${upper}`;
+  return upper;
 }
 
-export async function obterTokenShopee(brandSlug: BrandSlug, app: "catalogo" | "pedidos" = "catalogo"): Promise<{
+export async function obterTokenShopee(brandSlug: BrandSlug, app: ShopeeApp = "catalogo"): Promise<{
   shopId: string;
   accessToken: string;
 }> {
   const upper = brandEnvSuffix(brandSlug);
-  const sufixoEnv = app === "pedidos" ? `PEDIDOS_${upper}` : upper;
+  const sufixoEnv = sufixoEnvTokenShopee(app, upper);
   const canal = canalTokenShopee(app);
   const orgId = process.env.DEFAULT_ORG_ID;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

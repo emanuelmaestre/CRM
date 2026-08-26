@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsAnuncioSnapshot, adsCampanhaSnapshot } from "@/shared/lib/db/schema";
+import { PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios } from "../domain/plataformas";
 
 /* ── Campanhas (Fase 4 — Apresentação, sub-tela "Campanhas detalhada") ───
    Reaproveita o snapshot mais recente que a Visão Geral já lê, mas descendo
@@ -47,8 +48,10 @@ function paraNumeroOuNull(valor: unknown): number | null {
  *  não rodou). Ordenados por investimento, maior primeiro. */
 export async function obterAnunciosDaCampanha(
   ctx: CrudContext,
-  opcoes: { brandId: string; campanhaId: string },
+  opcoes: { brandId: string; campanhaId: string; plataforma?: PlataformaAnuncios },
 ): Promise<AnuncioDaCampanha[]> {
+  const plataforma = opcoes.plataforma ?? PLATAFORMA_ANUNCIOS_PADRAO;
+
   const ultimaData = await ctx.db
     .select({ data: adsCampanhaSnapshot.data })
     .from(adsCampanhaSnapshot)
@@ -56,6 +59,7 @@ export async function obterAnunciosDaCampanha(
       eq(adsCampanhaSnapshot.orgId, ctx.orgId),
       eq(adsCampanhaSnapshot.brandId, opcoes.brandId),
       eq(adsCampanhaSnapshot.campaignId, opcoes.campanhaId),
+      eq(adsCampanhaSnapshot.plataforma, plataforma),
     ))
     .orderBy(desc(adsCampanhaSnapshot.data))
     .limit(1)
@@ -71,6 +75,7 @@ export async function obterAnunciosDaCampanha(
       eq(adsAnuncioSnapshot.brandId, opcoes.brandId),
       eq(adsAnuncioSnapshot.campaignId, opcoes.campanhaId),
       eq(adsAnuncioSnapshot.data, ultimaData),
+      eq(adsAnuncioSnapshot.plataforma, plataforma),
     ));
 
   const anuncios: AnuncioDaCampanha[] = linhas.map((linha) => {

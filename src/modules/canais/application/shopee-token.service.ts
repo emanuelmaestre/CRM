@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
+import { appDoCanalShopee, CANAIS_TOKEN_SHOPEE, obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 
 // Token da Shopee dura bem menos que o do ML (expire_in típico é 4h, contra
@@ -17,21 +17,19 @@ const TokenResponseSchema = z.object({
   shop_id: z.number().int().positive().optional(),
 });
 
-/** Canais da tabela `canal_tokens` que guardam token OAuth da Shopee — um por
- *  app do Open Platform, porque a autorização é por APP e não por loja. Os dois
- *  precisam de renovação; renovar só "shopee" deixava o de pedidos vencer
- *  silenciosamente a cada 4 horas (erro real em 25/08/2026: "App Shopee Pedidos
- *  não conectado para esta marca" numa sincronização, com o token presente no
- *  banco mas expirado 36 minutos antes). */
-export const CANAIS_TOKEN_SHOPEE = ["shopee", "shopee_pedidos"] as const;
-export type CanalTokenShopee = (typeof CANAIS_TOKEN_SHOPEE)[number];
-
-/** Qual app assina a renovação daquele token. Errar aqui não é falha silenciosa
- *  — a Shopee valida a assinatura HMAC contra o partner_key do app dono do
- *  partner_id, então usar o par errado devolve "Wrong sign". */
-export function appDoCanalShopee(canal: string): "catalogo" | "pedidos" {
-  return canal === "shopee_pedidos" ? "pedidos" : "catalogo";
-}
+/** Canais Shopee em canal_tokens e o app que assina cada um moram em
+ *  shopee-env.ts (fonte única, sem dependência de banco). Reexportados aqui
+ *  porque este serviço era o dono original — quem já importava daqui, e os
+ *  testes, continuam valendo.
+ *
+ *  Todos precisam de renovação; renovar só "shopee" deixava o de pedidos
+ *  vencer silenciosamente a cada 4 horas (erro real em 25/08/2026: "App
+ *  Shopee Pedidos não conectado para esta marca" numa sincronização, com o
+ *  token presente no banco mas expirado 36 minutos antes). O de anúncios
+ *  entrou na lista junto com o app de Product Ads, em 26/08/2026, pelo mesmo
+ *  motivo. */
+export { CANAIS_TOKEN_SHOPEE, appDoCanalShopee } from "@/shared/config/shopee-env";
+export type { CanalTokenShopee } from "@/shared/config/shopee-env";
 
 export interface ShopeeTokenRow {
   id: string;

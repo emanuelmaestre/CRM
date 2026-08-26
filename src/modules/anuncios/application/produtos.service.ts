@@ -1,6 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsAnuncioSnapshot, adsCampanhaSnapshot } from "@/shared/lib/db/schema";
+import { PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios } from "../domain/plataformas";
 import {
   calcularDesperdicio, CRITERIOS_DESPERDICIO_PADRAO,
   type DesperdicioEstimado, type ItemAnalisadoDesperdicio,
@@ -66,12 +67,18 @@ function paraNumeroOuNull(valor: unknown): number | null {
  *  está indo" de Campanhas, só que no nível de item. */
 export async function obterProdutosDaMarca(
   ctx: CrudContext,
-  opcoes: { brandId: string },
+  opcoes: { brandId: string; plataforma?: PlataformaAnuncios },
 ): Promise<ProdutosResultado> {
+  const plataforma = opcoes.plataforma ?? PLATAFORMA_ANUNCIOS_PADRAO;
+
   const ultimoSnapshot = await ctx.db
     .select({ data: adsCampanhaSnapshot.data, criadoEm: adsCampanhaSnapshot.criadoEm })
     .from(adsCampanhaSnapshot)
-    .where(and(eq(adsCampanhaSnapshot.orgId, ctx.orgId), eq(adsCampanhaSnapshot.brandId, opcoes.brandId)))
+    .where(and(
+      eq(adsCampanhaSnapshot.orgId, ctx.orgId),
+      eq(adsCampanhaSnapshot.brandId, opcoes.brandId),
+      eq(adsCampanhaSnapshot.plataforma, plataforma),
+    ))
     .orderBy(desc(adsCampanhaSnapshot.data), desc(adsCampanhaSnapshot.criadoEm))
     .limit(1)
     .then((rows) => rows[0] ?? null);
@@ -89,6 +96,7 @@ export async function obterProdutosDaMarca(
         eq(adsCampanhaSnapshot.orgId, ctx.orgId),
         eq(adsCampanhaSnapshot.brandId, opcoes.brandId),
         eq(adsCampanhaSnapshot.data, ultimaData),
+        eq(adsCampanhaSnapshot.plataforma, plataforma),
       )),
     ctx.db
       .select()
@@ -97,6 +105,7 @@ export async function obterProdutosDaMarca(
         eq(adsAnuncioSnapshot.orgId, ctx.orgId),
         eq(adsAnuncioSnapshot.brandId, opcoes.brandId),
         eq(adsAnuncioSnapshot.data, ultimaData),
+        eq(adsAnuncioSnapshot.plataforma, plataforma),
       )),
   ]);
 

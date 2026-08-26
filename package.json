@@ -29,7 +29,8 @@
     "test:seed-synthetic": "node scripts/test-seed-synthetic.mjs",
     "db:migrate": "node scripts/migrar.mjs",
     "db:studio": "drizzle-kit studio",
-    "estoque:coletar": "node --env-file=.env.local --import tsx scripts/coletar-estoque.mts"
+    "estoque:coletar": "node --env-file=.env.local --import tsx scripts/coletar-estoque.mts",
+    "anuncios:shopee:inspecionar": "node --env-file=.env.local --import tsx scripts/inspecionar-anuncios-shopee.mts"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.2.3",

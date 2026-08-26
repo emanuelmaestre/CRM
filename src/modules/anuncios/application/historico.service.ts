@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsCampanhaSnapshot } from "@/shared/lib/db/schema";
+import { PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios } from "../domain/plataformas";
 
 /* ── Histórico (Fase 4 — Apresentação, sub-tela "Histórico") ──────────
    Agrega o snapshot diário (já existente desde a Fase 1) por dia, somando
@@ -35,8 +36,9 @@ function paraNumero(valor: unknown): number {
  *  hoje, pra não quebrar quem ainda chama sem intervalo explícito. */
 export async function obterHistoricoDaMarca(
   ctx: CrudContext,
-  opcoes: { brandId: string; dias?: number; inicio?: string; fim?: string },
+  opcoes: { brandId: string; dias?: number; inicio?: string; fim?: string; plataforma?: PlataformaAnuncios },
 ): Promise<PontoHistorico[]> {
+  const plataforma = opcoes.plataforma ?? PLATAFORMA_ANUNCIOS_PADRAO;
   let dataInicioStr: string;
   const dataFimStr = opcoes.fim ?? new Date().toISOString().slice(0, 10);
 
@@ -64,6 +66,7 @@ export async function obterHistoricoDaMarca(
       eq(adsCampanhaSnapshot.brandId, opcoes.brandId),
       gte(adsCampanhaSnapshot.data, dataInicioStr),
       lte(adsCampanhaSnapshot.data, dataFimStr),
+      eq(adsCampanhaSnapshot.plataforma, plataforma),
     ))
     .orderBy(asc(adsCampanhaSnapshot.data));
 

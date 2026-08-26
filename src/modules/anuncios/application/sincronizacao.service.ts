@@ -15,6 +15,13 @@ import {
   type MLCampanha,
 } from "../infrastructure/mercadolivre-ads.provider";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
+import type { PlataformaAnuncios } from "../domain/plataformas";
+
+/** Esta sincronização só grava Mercado Livre; a da Shopee vive em
+ *  sincronizacao-shopee.service.ts e grava a mesma tabela com outra
+ *  `plataforma`. Explícito nos valores (em vez de contar com o default da
+ *  coluna) porque o upsert reescreve a linha inteira no conflito. */
+const PLATAFORMA_MERCADOLIVRE: PlataformaAnuncios = "mercadolivre";
 
 /* ── Sincronização diária (Fase 1 — Dados) ────────────────────────
    Uma chamada por marca por dia é o suficiente: a API do Mercado Livre só
@@ -91,6 +98,7 @@ function valoresCampanha(
     channelAccountId: contaId,
     campaignId: String(campanha.id),
     data,
+    plataforma: PLATAFORMA_MERCADOLIVRE,
     nome: campanha.name,
     status: campanha.status,
     estrategia: campanha.strategy,
@@ -149,6 +157,7 @@ function valoresAnuncio(
     adGroupId: anuncio.adGroupId !== null ? String(anuncio.adGroupId) : null,
     produtoId,
     data,
+    plataforma: PLATAFORMA_MERCADOLIVRE,
     titulo: anuncio.title,
     status: anuncio.status,
     preco: anuncio.price !== null ? String(anuncio.price) : null,
@@ -230,6 +239,7 @@ async function sincronizarMarca(
     .where(and(
       eq(adsCampanhaSnapshot.orgId, ctx.orgId),
       eq(adsCampanhaSnapshot.brandId, brandId),
+      eq(adsCampanhaSnapshot.plataforma, PLATAFORMA_MERCADOLIVRE),
       ne(adsCampanhaSnapshot.data, data),
     ))
     .limit(1)

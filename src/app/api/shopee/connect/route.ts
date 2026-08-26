@@ -3,7 +3,7 @@ import { createHmac, randomBytes } from "crypto";
 import { obterUrlCallbackShopee } from "@/shared/config/app-url";
 import { authorizeRoute } from "@/shared/lib/auth/session";
 import { isBrandSlug } from "@/shared/config/brands";
-import { obterShopeeBaseUrl, obterShopeeAppCredenciais } from "@/shared/config/shopee-env";
+import { obterShopeeBaseUrl, obterShopeeAppCredenciais, ehShopeeApp, type ShopeeApp } from "@/shared/config/shopee-env";
 
 /* ── Autorização Shopee (Open Platform v2) ─────────────────────────
    Diferente do OAuth "clássico" do Mercado Livre (PKCE, client_id +
@@ -35,10 +35,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   // "catalogo" (app Elisa Lima CRM) por padrão; "pedidos" (app Elisa Lima
-  // Pedidos) quando o botão de conectar Pedidos manda ?app=pedidos — cada um
-  // é uma autorização OAuth própria na Shopee, mesmo pra mesma loja/marca.
+  // Pedidos) e "anuncios" (app Elisa Lima Anuncios) quando o botão
+  // correspondente manda ?app=... — cada um é uma autorização OAuth própria
+  // na Shopee, mesmo pra mesma loja/marca. Autorizar um NÃO revoga os outros:
+  // são partner_id diferentes, tokens em linhas diferentes de canal_tokens.
   const appParam = req.nextUrl.searchParams.get("app");
-  const app = appParam === "pedidos" ? "pedidos" : "catalogo";
+  const app: ShopeeApp = ehShopeeApp(appParam) ? appParam : "catalogo";
 
   const { partnerId, partnerKey } = obterShopeeAppCredenciais(app);
   if (!partnerId || !partnerKey) {

@@ -1,0 +1,2 @@
+ALTER TABLE "ads_anuncio_snapshot" ADD COLUMN "plataforma" text DEFAULT 'mercadolivre' NOT NULL;--> statement-breakpoint
+ALTER TABLE "ads_campanha_snapshot" ADD COLUMN "plataforma" text DEFAULT 'mercadolivre' NOT NULL;

@@ -14,7 +14,7 @@ import {
 import { createClient } from "@supabase/supabase-js";
 import { brandEnvSuffix, canaisDaMarca } from "@/shared/config/brands";
 import { isCredencialConfigurada } from "@/shared/config/env-credentials";
-import { shopeeAppEnvSuffix } from "@/shared/config/shopee-env";
+import { CANAIS_TOKEN_SHOPEE, shopeeAppEnvSuffix } from "@/shared/config/shopee-env";
 import { criarProduto } from "@/modules/estoque/application/estoque.service";
 
 const CANAL_LABEL: Record<string, string> = {
@@ -80,6 +80,10 @@ export interface CanalConfiguracao {
    *  autorizado via OAuth pra esta marca — autorização independente da do
    *  app de catálogo (`status`/`pronto` acima refletem só o catálogo). */
   shopeePedidosConectado: boolean;
+  /** Só para canal "shopee": app "Elisa Lima Anuncios" (Ads Service, Product
+   *  Ads) já autorizado via OAuth pra esta marca. Terceira autorização
+   *  independente da mesma loja — ver canal_tokens.canal = "shopee_anuncios". */
+  shopeeAnunciosConectado: boolean;
 }
 
 const ContaCanalInputSchema = z.object({
@@ -160,21 +164,31 @@ export async function obterResumoConfiguracoes(ctx: CrudContext) {
   };
 }
 
-async function brandIdsComShopeePedidosConectado(ctx: CrudContext): Promise<Set<string>> {
+/** Marcas que já autorizaram cada app extra da Shopee (Pedidos e Anúncios),
+ *  numa consulta só. São linhas independentes em canal_tokens — a ausência de
+ *  uma não diz nada sobre as outras, e é justamente por isso que conectar um
+ *  app não obriga a reconectar os demais. */
+async function brandIdsPorCanalTokenShopee(ctx: CrudContext): Promise<Map<string, Set<string>>> {
+  const porCanal = new Map<string, Set<string>>(
+    CANAIS_TOKEN_SHOPEE.map((canal) => [canal as string, new Set<string>()]),
+  );
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) return new Set();
+  if (!supabaseUrl || !serviceRoleKey) return porCanal;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const { data } = await supabase
     .from("canal_tokens")
-    .select("brand_id")
+    .select("brand_id, canal")
     .eq("org_id", ctx.orgId)
-    .eq("canal", "shopee_pedidos");
-  return new Set((data ?? []).map((row) => row.brand_id as string));
+    .in("canal", CANAIS_TOKEN_SHOPEE);
+  for (const row of data ?? []) {
+    porCanal.get(row.canal as string)?.add(row.brand_id as string);
+  }
+  return porCanal;
 }
 
 export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalConfiguracao[]> {
-  const [marcas, contas, mapeamentos, brandIdsPedidos] = await Promise.all([
+  const [marcas, contas, mapeamentos, brandIdsPorCanal] = await Promise.all([
     ctx.db
       .select({ id: brand.id, slug: brand.slug, name: brand.name })
       .from(brand)
@@ -198,8 +212,10 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
       })
       .from(produtoCanal)
       .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.ativo, true))),
-    brandIdsComShopeePedidosConectado(ctx),
+    brandIdsPorCanalTokenShopee(ctx),
   ]);
+  const brandIdsPedidos = brandIdsPorCanal.get("shopee_pedidos") ?? new Set<string>();
+  const brandIdsAnuncios = brandIdsPorCanal.get("shopee_anuncios") ?? new Set<string>();
 
   const skusPorConta = new Map<string, number>();
   for (const item of mapeamentos) {
@@ -242,6 +258,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
       envAusentes,
       pronto: status === "conectado" && envAusentes.length === 0 && skusMapeados > 0,
       shopeePedidosConectado: canal === "shopee" && brandIdsPedidos.has(marca.id),
+      shopeeAnunciosConectado: canal === "shopee" && brandIdsAnuncios.has(marca.id),
     };
   }));
 }

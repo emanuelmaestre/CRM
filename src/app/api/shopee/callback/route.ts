@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac } from "crypto";
 import { obterAppUrl } from "@/shared/config/app-url";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
-import { obterShopeeBaseUrl, obterShopeeAppCredenciais } from "@/shared/config/shopee-env";
+import { obterShopeeBaseUrl, obterShopeeAppCredenciais, canalTokenShopee, ehShopeeApp, type ShopeeApp } from "@/shared/config/shopee-env";
 import { createClient } from "@supabase/supabase-js";
 import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
@@ -100,8 +100,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(`${appUrl}/configuracoes?shopee_error=invalid_brand`);
   }
   const brand = rawBrand;
-  const app: "catalogo" | "pedidos" = rawApp === "pedidos" ? "pedidos" : "catalogo";
-  const canal = app === "pedidos" ? "shopee_pedidos" : "shopee";
+  const app: ShopeeApp = ehShopeeApp(rawApp) ? rawApp : "catalogo";
+  // Uma linha de canal_tokens por app. O upsert abaixo tem onConflict em
+  // (org_id, brand_id, canal), então gravar o token de um app nunca toca na
+  // linha dos outros — conectar Anúncios não derruba Catálogo nem Pedidos.
+  const canal = canalTokenShopee(app);
 
   const { partnerId, partnerKey } = obterShopeeAppCredenciais(app);
   if (!partnerId || !partnerKey) {
@@ -182,8 +185,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   // channel_account (status "conectado" exibido em Configurações) representa
   // o canal Shopee da marca como um todo — só o app catálogo (CRM) atualiza
-  // esse status hoje; Pedidos é a segunda autorização da mesma loja, o token
-  // já foi salvo acima independente disso.
+  // esse status. Pedidos e Anúncios são autorizações adicionais da MESMA
+  // loja: o token de cada um já foi salvo acima, na sua própria linha, e
+  // nenhum deles mexe no status nem nos tokens dos outros. É por isso que
+  // reconectar Anúncios não obriga a reconectar o resto.
   if (app === "catalogo") {
     const contaResult = await sincronizarContaCanal({
       orgId,
@@ -203,7 +208,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const res = NextResponse.redirect(`${appUrl}/configuracoes?shopee_connected=${brand}${app === "pedidos" ? "_pedidos" : ""}`);
+  const res = NextResponse.redirect(`${appUrl}/configuracoes?shopee_connected=${brand}${app === "catalogo" ? "" : "_" + app}`);
   res.cookies.delete("shopee_oauth_state");
   return res;
 }

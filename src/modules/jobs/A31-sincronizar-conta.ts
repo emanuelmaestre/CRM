@@ -17,6 +17,7 @@ import { isBrandSlug } from "@/shared/config/brands";
 import { emitirEvento } from "@/shared/events";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { sincronizarAnunciosMercadoLivreConta } from "@/modules/anuncios/application/sincronizacao.service";
+import { sincronizarAnunciosShopeeConta } from "@/modules/anuncios/application/sincronizacao-shopee.service";
 import {
   limparAvaliacoesForaDoCatalogoMercadoLivre,
   sincronizarAvaliacoesShopeeConta,
@@ -302,9 +303,13 @@ export const A31_sincronizarConta = inngest.createFunction(
 
     if (solicitados.has("anuncios")) await executarModulo("anuncios", async () => {
       await atualizarProgresso("anuncios", 15, { etapa: "consultando_campanhas" });
-      return conta.tipo === "mercadolivre"
-        ? sincronizarAnunciosMercadoLivreConta(ctx, channelAccountId)
-        : semSuporte("Anúncios patrocinados", conta.tipo);
+      if (conta.tipo === "mercadolivre") return sincronizarAnunciosMercadoLivreConta(ctx, channelAccountId);
+      // Shopee: app de Ads próprio, autorização separada da do catálogo. Uma
+      // marca com a loja conectada mas sem esse app autorizado cai no erro de
+      // credencial ausente vindo de criarShopeeAdsProvider — que é o que o
+      // operador precisa ler pra saber que falta clicar em Conectar.
+      if (conta.tipo === "shopee") return sincronizarAnunciosShopeeConta(ctx, channelAccountId);
+      return semSuporte("Anúncios patrocinados", conta.tipo);
     });
 
     if (solicitados.has("avaliacoes")) await executarModuloEmSteps("avaliacoes", async () => {
