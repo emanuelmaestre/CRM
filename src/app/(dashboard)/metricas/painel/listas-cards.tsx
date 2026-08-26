@@ -71,9 +71,13 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
                 : <span className="font-semibold" style={corMarca ? { color: corMarca } : undefined}>{marca}</span>}
             </span>
           </p>
+          {/* `shrink-0` no rótulo + `flex-wrap`: sem os dois, um selo largo
+              ("SEM VÍNCULO COM O ML") espremia o "Status:" até ele quebrar
+              letra a letra ("Sta/tus/:") na largura do celular. Agora o
+              rótulo fica inteiro e o selo desce de linha quando não cabe. */}
           {statusBadge && (
-            <p className="mt-0.5 flex items-center gap-1 text-xs leading-tight text-muted-foreground">
-              <span className="text-muted-foreground/70">Status:</span>
+            <p className="mt-0.5 flex flex-wrap items-center gap-1 text-xs leading-tight text-muted-foreground">
+              <span className="shrink-0 text-muted-foreground/70">Status:</span>
               {statusBadge}
             </p>
           )}

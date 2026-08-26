@@ -512,7 +512,11 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
   const filtroCanal = canais && canais.length > 0 && filtro && onChangeFiltro ? (
     <>
       <ScopeRow marcas={[]} canais={canais} filtro={filtro} onChange={onChangeFiltro} />
-      <span aria-hidden="true" className="h-6 w-px shrink-0 bg-border" />
+      {/* Só no desktop: no mobile as abas de critério já quebram para uma
+          linha própria (com borda no topo), então este divisor vertical
+          sobrava sozinho no fim da linha dos canais — um traço solto com
+          espaço vazio depois, sem nada para separar. */}
+      <span aria-hidden="true" className="hidden h-6 w-px shrink-0 bg-border sm:block" />
     </>
   ) : null;
 
