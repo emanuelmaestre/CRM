@@ -409,7 +409,11 @@ export function CanaisPorMarca({ items, loading, onChanged, mlStatus }: Props) {
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-3">
+      {/* Empilha no mobile (`flex-col`): lado a lado, o texto e o botão
+          espremiam um contra o outro em telas estreitas, cada um quebrando
+          em pontos diferentes — no fim virava 3 linhas irregulares em vez
+          de 1 frase + 1 botão claros. */}
+      <div className="mb-3 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <p className="text-[11px] text-muted-foreground">
           {totalAtencao === 0
             ? "Todos os canais estão prontos."

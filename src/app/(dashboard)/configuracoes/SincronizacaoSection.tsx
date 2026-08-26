@@ -374,20 +374,32 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
         : "Sincronização completa";
 
   return (
-    <div className="flex flex-col gap-3 border-b border-border py-3 last:border-0 xl:flex-row xl:items-center xl:justify-between">
+    // No mobile, cada conta ganha um cartão próprio (borda + fundo sutil) em
+    // vez de só uma linha separada por um traço embaixo — 4 elementos soltos
+    // (nome, status, hora, botão) sem moldura liam como itens desconexos,
+    // não como o resumo de UMA conta. `xl:` desliga o cartão e volta pro
+    // layout em colunas de sempre, onde a tabela inteira já dá o
+    // agrupamento visual.
+    <div className="flex flex-col gap-3 rounded-[0.9rem] border border-border bg-muted/20 p-3 xl:flex-row xl:items-center xl:justify-between xl:rounded-none xl:border-x-0 xl:border-t-0 xl:border-b xl:border-border xl:bg-transparent xl:p-0 xl:py-3 xl:last:border-b-0">
       <div className="flex items-center gap-2.5">
-        <ChannelLogo canal={conta.canal} size="sm" variant="badge" />
+        <ChannelLogo canal={conta.canal} size="md" variant="badge" />
         <div>
           <p className="text-sm font-semibold text-foreground">{conta.canalLabel}</p>
           <p className="text-xs" style={{ color: corMarca }}>{conta.brandLabel}</p>
         </div>
       </div>
 
-      {/* Colunas com largura fixa (não "auto"): cada linha é uma conta
-          separada, sem grid compartilhado entre elas — só travando a
-          largura de cada coluna é que "Sincronizar", o status e o relógio
-          caem exatamente no mesmo x em toda linha, com ou sem alerta. */}
-      <div className="flex flex-wrap items-center gap-2 xl:grid xl:grid-cols-[13rem_minmax(0,13rem)_2rem_auto] xl:items-center">
+      {/* Status numa linha própria (pode crescer bastante quando o popover
+          abre), depois hora + ações agrupadas numa segunda linha
+          (justify-between: hora à esquerda, botões à direita) — em vez do
+          flex-wrap solto de antes, onde os 4 blocos quebravam em pontos
+          imprevisíveis dependendo do tamanho do rótulo de status.
+          Colunas com largura fixa a partir de xl (não "auto"): cada linha é
+          uma conta separada, sem grid compartilhado entre elas — só
+          travando a largura de cada coluna é que "Sincronizar", o status e
+          o relógio caem exatamente no mesmo x em toda linha, com ou sem
+          alerta. */}
+      <div className="flex flex-col gap-2 xl:grid xl:grid-cols-[13rem_minmax(0,13rem)_2rem_auto] xl:items-center">
         <div className="flex min-h-9 items-center justify-start xl:justify-center">
           <AnimatePresence mode="popLayout">
             {execucao && (
@@ -438,22 +450,27 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           </AnimatePresence>
         </div>
 
-        <span className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-medium text-muted-foreground xl:justify-end xl:text-right">
-          <Clock3 size={12} className="shrink-0" />
-          {rotuloUltima(execucao)}
-        </span>
-        <SincronizacaoInfo conta={conta} execucao={execucao} />
+        <div className="flex items-center justify-between gap-2 xl:contents">
+          <span className="inline-flex min-h-8 min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground xl:justify-end xl:text-right">
+            <Clock3 size={12} className="shrink-0" />
+            <span className="truncate">{rotuloUltima(execucao)}</span>
+          </span>
 
-        <motion.button
-          type="button"
-          whileTap={{ scale: 0.97 }}
-          onClick={sincronizar}
-          disabled={disparando || emAndamento}
-          className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
-        >
-          <RefreshCw size={13} className={disparando || emAndamento ? "animate-spin" : ""} />
-          {emAndamento ? "Sincronizando…" : "Sincronizar"}
-        </motion.button>
+          <div className="flex shrink-0 items-center gap-2">
+            <SincronizacaoInfo conta={conta} execucao={execucao} />
+
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={sincronizar}
+              disabled={disparando || emAndamento}
+              className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+            >
+              <RefreshCw size={13} className={disparando || emAndamento ? "animate-spin" : ""} />
+              {emAndamento ? "Sincronizando…" : "Sincronizar"}
+            </motion.button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -470,7 +487,7 @@ export function SincronizacaoSection({ canais }: { canais: CanalConfiguracao[] }
   }
 
   return (
-    <div>
+    <div className="flex flex-col gap-2.5 xl:gap-0">
       {conectadas.map((conta) => (
         <LinhaConta key={conta.channelAccountId} conta={conta} />
       ))}

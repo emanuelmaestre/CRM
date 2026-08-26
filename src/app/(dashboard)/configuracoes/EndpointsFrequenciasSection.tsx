@@ -2,11 +2,11 @@ import {
   Clock3,
   MousePointerClick,
   RefreshCw,
-  ShoppingBag,
   Zap,
   type LucideIcon,
 } from "lucide-react";
 import { tint } from "@/shared/design-system/color";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 
 type TipoFrequencia = "automatico" | "evento" | "manual" | "interface";
 
@@ -21,7 +21,6 @@ type Canal = {
   id: "mercadolivre" | "shopee";
   nome: string;
   descricao: string;
-  cor: string;
   linhas: EndpointLinha[];
 };
 
@@ -37,7 +36,6 @@ const canais: Canal[] = [
     id: "mercadolivre",
     nome: "Mercado Livre",
     descricao: "Pedidos, catálogo, avaliações, métricas, publicidade e manutenção da conexão.",
-    cor: "#f2c600",
     linhas: [
       {
         modulo: "Vendas · webhook",
@@ -141,7 +139,6 @@ const canais: Canal[] = [
     id: "shopee",
     nome: "Shopee",
     descricao: "Pedidos, catálogo, avaliações, estoque, saúde da loja e renovação da conexão.",
-    cor: "#ee4d2d",
     linhas: [
       {
         modulo: "Vendas · webhook",
@@ -235,12 +232,7 @@ function TabelaCanal({ canal }: { canal: Canal }) {
     <section aria-labelledby={`endpoints-${canal.id}`} className="overflow-hidden rounded-[1rem] border border-border bg-background/45">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-            style={{ background: tint(canal.cor, 14), color: canal.cor }}
-          >
-            <ShoppingBag size={18} strokeWidth={2} />
-          </span>
+          <ChannelLogo canal={canal.id} size="md" variant="badge" className="h-10 w-10 shrink-0 rounded-xl" />
           <div className="min-w-0">
             <h3 id={`endpoints-${canal.id}`} className="text-sm font-bold text-foreground">{canal.nome}</h3>
             <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{canal.descricao}</p>
