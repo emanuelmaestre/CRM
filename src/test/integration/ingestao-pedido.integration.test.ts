@@ -196,4 +196,59 @@ describe.sequential("ingestão de pedidos — colisão de cliente e match de SKU
       ));
     if (identidade) clientesParaLimpar.push(identidade.clienteId);
   });
+
+  it("enriquece o financeiro quando a Shopee libera o escrow depois do primeiro webhook", async () => {
+    const providerOrderId = `SHP-${sufixo}-FINANCEIRO`;
+    const clienteExternalId = `shopee-financeiro-${sufixo}`;
+    const base = {
+      providerOrderId,
+      canal: "shopee",
+      clienteExternalId,
+      clienteNome: "Comprador Financeiro",
+      status: "READY_TO_SHIP",
+      total: "50.10",
+      itens: [{
+        skuExterno: `SKU_COMPARTILHADO_${sufixo}`,
+        quantidade: 1,
+        precoUnitario: "45.90",
+      }],
+      criadoEm: new Date(),
+    };
+    const primeiro = await ingerirPedido(orgId, brandId, contaShopeeId, base);
+    pedidosParaLimpar.push(primeiro.pedidoId);
+
+    const repetido = await ingerirPedido(orgId, brandId, contaShopeeId, {
+      ...base,
+      frete: "4.20",
+      desconto: "1.00",
+      acrescimo: "0.25",
+      valorLiquido: "41.50",
+      itens: [{ ...base.itens[0], taxaMarketplace: "4.40" }],
+    });
+    expect(repetido.novo).toBe(false);
+
+    const [financeiro] = await db
+      .select({
+        frete: pedido.frete,
+        desconto: pedido.desconto,
+        acrescimo: pedido.acrescimo,
+        valorLiquido: pedido.valorLiquido,
+        taxaMarketplace: pedidoItem.taxaMarketplace,
+      })
+      .from(pedido)
+      .innerJoin(pedidoItem, eq(pedidoItem.pedidoId, pedido.id))
+      .where(eq(pedido.id, primeiro.pedidoId));
+    expect(financeiro).toMatchObject({
+      frete: "4.20",
+      desconto: "1.00",
+      acrescimo: "0.25",
+      valorLiquido: "41.50",
+      taxaMarketplace: "4.40",
+    });
+
+    const [identidade] = await db.select({ clienteId: clienteIdentidade.clienteId })
+      .from(clienteIdentidade)
+      .where(and(eq(clienteIdentidade.orgId, orgId), eq(clienteIdentidade.externalId, clienteExternalId)));
+    if (identidade) clientesParaLimpar.push(identidade.clienteId);
+  });
 });

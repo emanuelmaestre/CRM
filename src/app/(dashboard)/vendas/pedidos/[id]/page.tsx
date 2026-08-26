@@ -63,6 +63,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
       frete: pedido.frete,
       desconto: pedido.desconto,
       acrescimo: pedido.acrescimo,
+      valorLiquido: pedido.valorLiquido,
       criadoEm: pedido.createdAt,
       recebidoEm: pedido.receivedAt,
       atualizadoEm: pedido.updatedAt,
@@ -102,11 +103,12 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
   const podeCancelarEsse = podeCancelar(detalhe.status as PedidoStatus);
   const subtotalItens = itens.reduce((soma, item) => soma + Number(item.precoUnitario) * item.quantidade, 0);
   const taxasConhecidas = itens.reduce((soma, item) => soma + Number(item.taxaMarketplace ?? 0), 0);
-  // Só desconta o que temos certeza que reduz a receita do vendedor (taxa e
-  // frete real). Desconto/acréscimo ficam de fora de propósito — não dá pra
-  // confirmar com segurança se entram ou saem da receita líquida sem um
-  // pedido real com esses valores diferentes de zero para conferir.
-  const valorLiquido = Number(detalhe.total) - taxasConhecidas - Number(detalhe.frete ?? 0);
+  // A Shopee informa o repasse exato (`escrow_amount`). Para canais que ainda
+  // não o enviam, preservamos a estimativa anterior baseada em total - taxas -
+  // frete, sem inventar o efeito de desconto/acréscimo.
+  const valorLiquido = detalhe.valorLiquido == null
+    ? Number(detalhe.total) - taxasConhecidas - Number(detalhe.frete ?? 0)
+    : Number(detalhe.valorLiquido);
   const endereco = [
     [detalhe.enderecoRua, detalhe.enderecoNumero].filter(Boolean).join(", "),
     detalhe.enderecoComplemento,
@@ -241,7 +243,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
                 { icon: Tag, label: "Descontos", desc: "Reduções aplicadas ao pedido (cupom, promoção). Fica em R$ 0,00 quando o canal não informa." },
                 { icon: Percent, label: "Taxa do canal de venda", desc: "Comissão cobrada pelo canal (Mercado Livre, Shopee, TikTok Shop etc.) sobre essa venda. Fica em R$ 0,00 quando o canal não informa." },
                 { icon: TrendingUp, label: "Acréscimos", desc: "Valores somados ao pedido (juros, taxa extra). Fica em R$ 0,00 quando o canal não informa." },
-                { icon: Wallet, label: "Valor líquido", desc: "Total já descontando frete e taxas. Não desconta desconto/acréscimo." },
+                { icon: Wallet, label: "Valor líquido", desc: "Repasse líquido informado pelo canal. Quando o canal não envia esse dado, é estimado descontando frete e taxas do total." },
               ].map(({ icon: Icon, label, desc }) => (
                 <div key={label} className="flex items-start gap-2">
                   <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-selecionado/10 text-selecionado">
@@ -290,7 +292,7 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
         >
           <Clock3 size={13} className="hidden shrink-0 text-selecionado lg:block" />
           <p className="text-xs font-medium leading-relaxed text-foreground lg:whitespace-nowrap">
-            Quando o canal não informa frete, taxas, desconto ou acréscimo, o valor aparece como R$ 0,00. O valor líquido desconta frete e taxas do total, mas não desconta desconto/acréscimo.
+            Quando o canal não informa frete, taxas, desconto ou acréscimo, o valor aparece como R$ 0,00. Na Shopee, o valor líquido usa o repasse calculado pelo próprio canal.
           </p>
         </div>
       </div>

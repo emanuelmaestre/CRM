@@ -6,7 +6,13 @@ import { resolverContaWebhookMarketplace } from "@/modules/canais/application/we
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
-import { obterTokenShopee, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
+import {
+  normalizarFinanceiroShopee,
+  obterTokenShopee,
+  SHOPEE_PEDIDOS_LIBERADO,
+  skuDoItemPedido,
+  type ShopeeOrderIncome,
+} from "@/modules/canais/infrastructure/shopee.provider";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -58,7 +64,11 @@ async function buscarDetalheShopee(
   nomeCliente: string;
   telefonCliente?: string;
   total: string;
-  itens: { skuExterno: string; quantidade: number; precoUnitario: string }[];
+  frete?: string;
+  desconto?: string;
+  acrescimo?: string;
+  valorLiquido?: string;
+  itens: { skuExterno: string; quantidade: number; precoUnitario: string; taxaMarketplace?: string }[];
 }> {
   const ts = Math.floor(Date.now() / 1000);
   const path = "/api/v2/order/get_order_detail";
@@ -81,7 +91,14 @@ async function buscarDetalheShopee(
 
   if (!res.ok) throw new Error(`Shopee detail HTTP ${res.status}`);
 
-  type ShopeeItem = { item_sku: string; model_quantity_purchased: number; model_discounted_price: number };
+  type ShopeeItem = {
+    item_id?: number;
+    model_id?: number;
+    item_sku?: string;
+    model_sku?: string;
+    model_quantity_purchased: number;
+    model_discounted_price: number;
+  };
   type ShopeeOrder = {
     order_sn: string;
     total_amount?: number;
@@ -92,14 +109,51 @@ async function buscarDetalheShopee(
   const data = await res.json() as { response?: { order_list?: ShopeeOrder[] } };
   const order = data.response?.order_list?.[0];
 
+  // O detalhe operacional não contém comissões nem o repasse. O financeiro é
+  // uma chamada separada na Shopee, inclusive no webhook.
+  const financePath = "/api/v2/payment/get_escrow_detail_batch";
+  const financeBase = `${partnerId}${financePath}${ts}${accessToken}${shopId}`;
+  const financeSign = crypto.createHmac("sha256", partnerKey).update(financeBase).digest("hex");
+  const financeQs = new URLSearchParams({
+    partner_id: partnerId,
+    shop_id: shopId,
+    access_token: accessToken,
+    timestamp: String(ts),
+    sign: financeSign,
+  });
+  let income: ShopeeOrderIncome | undefined;
+  try {
+    const financeRes = await shopeeFetch(`${obterShopeeBaseUrl()}${financePath}?${financeQs}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_sn_list: [orderSn] }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const financeData = await financeRes.json() as {
+      error?: string;
+      response?: { order_income_list?: Array<{ order_sn: string; order_income?: ShopeeOrderIncome }> };
+    };
+    if (financeRes.ok && !financeData.error) {
+      income = financeData.response?.order_income_list?.find((item) => item.order_sn === orderSn)?.order_income;
+    }
+  } catch (error) {
+    console.warn(`[webhook/shopee] financeiro ainda indisponível para ${orderSn}:`, error);
+  }
+  const financeiro = normalizarFinanceiroShopee(income, order?.item_list ?? []);
+
   return {
     nomeCliente: order?.recipient_address?.name ?? "Cliente Shopee",
     telefonCliente: order?.recipient_address?.phone,
-    total: order?.total_amount ? String(order.total_amount) : "0",
-    itens: (order?.item_list ?? []).map((i) => ({
-      skuExterno: i.item_sku,
+    total: financeiro?.total ?? (order?.total_amount ? String(order.total_amount) : "0"),
+    frete: financeiro?.frete,
+    desconto: financeiro?.desconto,
+    acrescimo: financeiro?.acrescimo,
+    valorLiquido: financeiro?.valorLiquido,
+    itens: (order?.item_list ?? []).map((i, indice) => ({
+      skuExterno: skuDoItemPedido(i),
       quantidade: i.model_quantity_purchased,
       precoUnitario: String(i.model_discounted_price),
+      taxaMarketplace: financeiro?.taxasMarketplace[indice],
     })),
   };
 }
@@ -173,6 +227,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       clienteTelefone: detalhe.telefonCliente,
       status: data.status ?? "criado",
       total: detalhe.total,
+      frete: detalhe.frete,
+      desconto: detalhe.desconto,
+      acrescimo: detalhe.acrescimo,
+      valorLiquido: detalhe.valorLiquido,
       itens: detalhe.itens,
       criadoEm: new Date(),
     });

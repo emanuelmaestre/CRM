@@ -108,7 +108,7 @@ function precoDoItem(priceInfo?: ShopeePriceInfo): string {
  *  Ordem igual à do catálogo: model_sku (variação) → item_sku (anúncio) →
  *  sintético. `model_id` vem 0 em anúncio sem variação, mesmo caso em que o
  *  catálogo grava `variationId: null` e não sufixa o SKU gerado. */
-function skuDoItemPedido(item: {
+export function skuDoItemPedido(item: {
   item_id?: number;
   model_id?: number;
   item_sku?: string;
@@ -118,6 +118,132 @@ function skuDoItemPedido(item: {
   if (informado) return informado;
   const sufixoVariacao = item.model_id ? `-${item.model_id}` : "";
   return `shopee-${item.item_id ?? ""}${sufixoVariacao}`;
+}
+
+/** Item e pedido como voltam de `get_order_detail` — antes eram tipos locais
+ *  da função que lia a resposta; subiram para cá porque a leitura passou a ser
+ *  feita em lotes, em mais de um ponto. */
+type ShopeeItem = {
+  item_id?: number;
+  model_id?: number;
+  item_sku?: string;
+  model_sku?: string;
+  model_quantity_purchased: number;
+  model_discounted_price: number;
+};
+
+type ShopeeDetail = {
+  order_sn: string;
+  order_status?: string;
+  buyer_username?: string;
+  total_amount?: number;
+  create_time?: number;
+  recipient_address?: { name: string; phone?: string };
+  item_list?: ShopeeItem[];
+};
+
+export type ShopeeOrderIncome = {
+  escrow_amount?: number;
+  buyer_total_amount?: number;
+  voucher_from_seller?: number;
+  voucher_from_shopee?: number;
+  coins?: number;
+  payment_promotion?: number;
+  buyer_paid_shipping_fee?: number;
+  buyer_transaction_fee?: number;
+  cross_border_tax?: number;
+  commission_fee?: number;
+  service_fee?: number;
+  seller_transaction_fee?: number;
+  seller_coin_cash_back?: number;
+  escrow_tax?: number;
+  campaign_fee?: number;
+  order_ams_commission_fee?: number;
+  reverse_shipping_fee?: number;
+  rsf_seller_protection_fee_premium_amount?: number;
+  delivery_seller_protection_fee_premium_amount?: number;
+  final_product_protection?: number;
+};
+
+export interface ShopeeFinanceiroNormalizado {
+  total?: string;
+  frete: string;
+  desconto: string;
+  acrescimo: string;
+  valorLiquido?: string;
+  taxasMarketplace: string[];
+}
+
+function valorFinanceiro(valor: unknown): number {
+  const numero = Number(valor ?? 0);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function dinheiroApi(valor: number): string {
+  return (Math.round((valor + Number.EPSILON) * 100) / 100).toFixed(2);
+}
+
+/** Converte o demonstrativo financeiro da Shopee para o contrato interno.
+ *
+ * `get_order_detail` traz os itens, mas não traz o repasse. Os campos abaixo
+ * vêm de `payment/get_escrow_detail_batch`: frete pago no checkout, descontos
+ * de checkout, tarifas cobradas do vendedor e o `escrow_amount` (líquido real).
+ * A taxa é distribuída entre os itens apenas porque o schema legado a guarda
+ * em `pedido_item`; o rateio em centavos preserva exatamente o total da API. */
+export function normalizarFinanceiroShopee(
+  income: ShopeeOrderIncome | undefined,
+  itens: Array<{ model_quantity_purchased?: number; model_discounted_price?: number }>,
+): ShopeeFinanceiroNormalizado | undefined {
+  if (!income) return undefined;
+
+  const taxaTotal = [
+    income.commission_fee,
+    income.service_fee,
+    income.seller_transaction_fee,
+    income.seller_coin_cash_back,
+    income.escrow_tax,
+    income.campaign_fee,
+    income.order_ams_commission_fee,
+    income.reverse_shipping_fee,
+    income.rsf_seller_protection_fee_premium_amount,
+    income.delivery_seller_protection_fee_premium_amount,
+  ].reduce<number>((total, valor) => total + valorFinanceiro(valor), 0);
+
+  const pesos = itens.map((item) => Math.max(
+    0,
+    valorFinanceiro(item.model_discounted_price) * valorFinanceiro(item.model_quantity_purchased),
+  ));
+  const pesoTotal = pesos.reduce((total, peso) => total + peso, 0);
+  const taxaCentavos = Math.round(taxaTotal * 100);
+  let centavosRestantes = taxaCentavos;
+  const taxasMarketplace = pesos.map((peso, indice) => {
+    const centavos = indice === pesos.length - 1
+      ? centavosRestantes
+      : Math.min(centavosRestantes, Math.round(taxaCentavos * (pesoTotal > 0 ? peso / pesoTotal : 1 / Math.max(itens.length, 1))));
+    centavosRestantes -= centavos;
+    return dinheiroApi(centavos / 100);
+  });
+
+  const desconto = [
+    income.voucher_from_seller,
+    income.voucher_from_shopee,
+    income.coins,
+    income.payment_promotion,
+  ].reduce<number>((total, valor) => total + valorFinanceiro(valor), 0);
+  const acrescimo = [
+    income.buyer_transaction_fee,
+    income.cross_border_tax,
+    income.final_product_protection,
+  ].reduce<number>((total, valor) => total + valorFinanceiro(valor), 0);
+
+  return {
+    total: income.buyer_total_amount == null ? undefined : dinheiroApi(valorFinanceiro(income.buyer_total_amount)),
+    frete: dinheiroApi(valorFinanceiro(income.buyer_paid_shipping_fee)),
+    desconto: dinheiroApi(desconto),
+    acrescimo: dinheiroApi(acrescimo),
+    valorLiquido: income.escrow_amount == null ? undefined : dinheiroApi(valorFinanceiro(income.escrow_amount)),
+    taxasMarketplace,
+  };
 }
 
 // O app "Elisa Lima CRM" (Product Management) não tem permissão pra API de
@@ -241,96 +367,179 @@ export class ShopeeProvider implements ChannelProvider {
     return pedidos;
   }
 
+  /** Tamanho de página do get_order_list. A Shopee aceita até 100; 50 é o que
+   *  já rodava em produção e mantém a chamada de detalhe (teto de 50 por
+   *  chamada) alinhada a uma página. */
+  private static readonly PAGINA_PEDIDOS = 50;
+  /** get_order_detail aceita no máximo 50 order_sn por chamada. */
+  private static readonly LOTE_DETALHE_PEDIDOS = 50;
+  /** Trava contra `more: true` eterno — 200 páginas são 10 mil pedidos numa
+   *  janela de 15 dias, muito além de qualquer volume real destas contas. */
+  private static readonly MAX_PAGINAS_PEDIDOS = 200;
+
+  /** Lista os order_sn da janela seguindo a paginação por cursor.
+   *
+   *  Antes esta chamada era única, com `page_size: 50` e sem olhar `more` /
+   *  `next_cursor`: qualquer janela com mais de 50 pedidos perdia o excedente
+   *  em silêncio — e a janela é de 15 dias, com dias de 23 pedidos numa marca
+   *  só (09/08/2026). Pedido que não entra aqui não é sincronizado nunca mais,
+   *  porque as sincronizações seguintes pedem janelas mais recentes. */
+  private async listarOrderSnsDaJanela(timeFrom: number, timeTo: number): Promise<string[]> {
+    const sns: string[] = [];
+    let cursor = "";
+
+    for (let pagina = 0; pagina < ShopeeProvider.MAX_PAGINAS_PEDIDOS; pagina++) {
+      // get_order_list devolve só order_sn/order_status — os demais campos do
+      // pedido (buyer_username, total_amount, create_time) NÃO são aceitos aqui
+      // em response_optional_fields; a Shopee responde "Wrong parameters,
+      // response_optional_field does not support [buyer_username]" e a chamada
+      // inteira falha. Todo o resto vem do get_order_detail.
+      const listRes = await shopeeFetch(this.urlPedidos("/order/get_order_list", {
+        time_range_field: "create_time",
+        time_from: timeFrom,
+        time_to: timeTo,
+        page_size: ShopeeProvider.PAGINA_PEDIDOS,
+        ...(cursor ? { cursor } : {}),
+      }), { signal: AbortSignal.timeout(10000) });
+
+      if (!listRes.ok) {
+        const detalhe = (await listRes.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+        throw new Error(`Shopee HTTP ${listRes.status} em get_order_list: ${detalhe}`);
+      }
+      const listData = await listRes.json() as {
+        error?: string;
+        message?: string;
+        response?: { order_list?: { order_sn: string }[]; more?: boolean; next_cursor?: string };
+      };
+      if (listData.error) throw new Error(`Shopee get_order_list: ${listData.message ?? listData.error}`);
+
+      sns.push(...(listData.response?.order_list ?? []).map((order) => order.order_sn));
+
+      const proximoCursor = listData.response?.next_cursor ?? "";
+      // Cursor repetido significaria pedir a mesma página para sempre.
+      if (!listData.response?.more || !proximoCursor || proximoCursor === cursor) return sns;
+      cursor = proximoCursor;
+    }
+
+    throw new Error(`Shopee get_order_list continuou paginando após ${ShopeeProvider.MAX_PAGINAS_PEDIDOS} páginas.`);
+  }
+
   private async buscarPedidosJanela(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]> {
     const timeFrom = Math.floor(inicioMs / 1000);
     const timeTo = Math.floor(fimMs / 1000);
 
-    // get_order_list devolve só order_sn/order_status — os demais campos do
-    // pedido (buyer_username, total_amount, create_time) NÃO são aceitos aqui
-    // em response_optional_fields; a Shopee responde "Wrong parameters,
-    // response_optional_field does not support [buyer_username]" e a chamada
-    // inteira falha. Todo o resto vem do get_order_detail abaixo.
-    const listRes = await shopeeFetch(this.urlPedidos("/order/get_order_list", {
-      time_range_field: "create_time",
-      time_from: timeFrom,
-      time_to: timeTo,
-      page_size: 50,
-    }), { signal: AbortSignal.timeout(10000) });
+    const sns = await this.listarOrderSnsDaJanela(timeFrom, timeTo);
+    if (sns.length === 0) return [];
 
-    if (!listRes.ok) {
-      const detalhe = (await listRes.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
-      throw new Error(`Shopee HTTP ${listRes.status} em get_order_list: ${detalhe}`);
-    }
-    const listData = await listRes.json() as {
-      error?: string;
-      message?: string;
-      response?: { order_list?: { order_sn: string }[] };
-    };
-    if (listData.error) throw new Error(`Shopee get_order_list: ${listData.message ?? listData.error}`);
-
-    const orders = listData.response?.order_list ?? [];
-    if (orders.length === 0) return [];
-
-    // Busca detalhes (itens de linha) em lote — máx 50 por chamada
-    const sns = orders.map((o) => o.order_sn).join(",");
-    const detailRes = await shopeeFetch(this.urlPedidos("/order/get_order_detail", {
-      order_sn_list: sns,
-      response_optional_fields: "item_list,recipient_address,buyer_user_id,buyer_username,total_amount",
-    }), { signal: AbortSignal.timeout(15000) });
-
-    type ShopeeItem = {
-      item_id?: number;
-      model_id?: number;
-      item_sku?: string;
-      model_sku?: string;
-      model_quantity_purchased: number;
-      model_discounted_price: number;
-    };
-    type ShopeeDetail = {
-      order_sn: string;
-      order_status?: string;
-      buyer_username?: string;
-      total_amount?: number;
-      create_time?: number;
-      recipient_address?: { name: string; phone?: string };
-      item_list?: ShopeeItem[];
-    };
-
-    if (!detailRes.ok) {
-      const detalhe = (await detailRes.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
-      throw new Error(`Shopee HTTP ${detailRes.status} em get_order_detail: ${detalhe}`);
-    }
-    const detailData = await detailRes.json() as { error?: string; message?: string; response?: { order_list?: ShopeeDetail[] } };
-    if (detailData.error) throw new Error(`Shopee get_order_detail: ${detailData.message ?? detailData.error}`);
+    // Detalhes em lotes de 50 — com a paginação acima, uma janela cheia passa
+    // fácil desse teto e a chamada inteira falharia se mandasse tudo de uma vez.
     const detailMap = new Map<string, ShopeeDetail>();
-    for (const d of detailData.response?.order_list ?? []) {
-      detailMap.set(d.order_sn, d);
+    for (let inicio = 0; inicio < sns.length; inicio += ShopeeProvider.LOTE_DETALHE_PEDIDOS) {
+      const lote = sns.slice(inicio, inicio + ShopeeProvider.LOTE_DETALHE_PEDIDOS);
+      const detailRes = await shopeeFetch(this.urlPedidos("/order/get_order_detail", {
+        order_sn_list: lote.join(","),
+        response_optional_fields: "item_list,recipient_address,buyer_user_id,buyer_username,total_amount",
+      }), { signal: AbortSignal.timeout(15000) });
+
+      if (!detailRes.ok) {
+        const detalhe = (await detailRes.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+        throw new Error(`Shopee HTTP ${detailRes.status} em get_order_detail: ${detalhe}`);
+      }
+      const detailData = await detailRes.json() as { error?: string; message?: string; response?: { order_list?: ShopeeDetail[] } };
+      if (detailData.error) throw new Error(`Shopee get_order_detail: ${detailData.message ?? detailData.error}`);
+      for (const d of detailData.response?.order_list ?? []) {
+        detailMap.set(d.order_sn, d);
+      }
     }
 
-    const detalhesAusentes = orders.filter((order) => !detailMap.has(order.order_sn));
+    const detalhesAusentes = sns.filter((sn) => !detailMap.has(sn));
     if (detalhesAusentes.length > 0) {
       throw new Error(`Shopee não retornou detalhes de ${detalhesAusentes.length} pedido(s).`);
     }
 
-    return orders.map((o) => {
-      const detail = detailMap.get(o.order_sn);
-      const comprador = detail?.buyer_username ?? o.order_sn;
+    const financeiroMap = await this.buscarFinanceiroPedidos(sns);
+
+    return sns.map((sn) => {
+      const detail = detailMap.get(sn);
+      const comprador = detail?.buyer_username ?? sn;
+      const financeiro = normalizarFinanceiroShopee(financeiroMap.get(sn), detail?.item_list ?? []);
       return {
-        providerOrderId: o.order_sn,
+        providerOrderId: sn,
         canal: "shopee",
         clienteExternalId: comprador,
         clienteNome: detail?.recipient_address?.name ?? comprador,
         clienteTelefone: detail?.recipient_address?.phone,
         status: (detail?.order_status ?? "").toLowerCase(),
-        total: String(detail?.total_amount ?? 0),
-        itens: (detail?.item_list ?? []).map((i) => ({
+        total: financeiro?.total ?? String(detail?.total_amount ?? 0),
+        frete: financeiro?.frete,
+        desconto: financeiro?.desconto,
+        acrescimo: financeiro?.acrescimo,
+        valorLiquido: financeiro?.valorLiquido,
+        itens: (detail?.item_list ?? []).map((i, indice) => ({
           skuExterno: skuDoItemPedido(i),
           quantidade: i.model_quantity_purchased,
           precoUnitario: String(i.model_discounted_price),
+          taxaMarketplace: financeiro?.taxasMarketplace[indice],
         })),
         criadoEm: new Date((detail?.create_time ?? 0) * 1000),
       };
     });
+  }
+
+  /** Busca o financeiro em lotes recomendados de até 20 pedidos. Falha desse
+   * endpoint não pode apagar o pedido operacional: pedidos novos ou ainda não
+   * pagos às vezes não têm escrow disponível. A reconciliação periódica tenta
+   * novamente e preenche os valores assim que a Shopee os liberar. */
+  private async buscarFinanceiroPedidos(orderSns: string[]): Promise<Map<string, ShopeeOrderIncome>> {
+    const resultado = new Map<string, ShopeeOrderIncome>();
+    for (let inicio = 0; inicio < orderSns.length; inicio += 20) {
+      const lote = orderSns.slice(inicio, inicio + 20);
+      try {
+        const res = await shopeeFetch(this.urlPedidos("/payment/get_escrow_detail_batch"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order_sn_list: lote }),
+          signal: AbortSignal.timeout(15000),
+        });
+        const data = await res.json() as {
+          error?: string;
+          message?: string;
+          response?: { order_income_list?: Array<{ order_sn: string; order_income?: ShopeeOrderIncome }> };
+        };
+        if (!res.ok || data.error) {
+          throw new Error(`HTTP ${res.status}: ${data.message ?? data.error ?? "resposta financeira recusada"}`);
+        }
+        for (const item of data.response?.order_income_list ?? []) {
+          if (item.order_income) resultado.set(item.order_sn, item.order_income);
+        }
+      } catch (error) {
+        console.warn(`[Shopee] financeiro em lote indisponível para ${lote.length} pedido(s); tentando endpoint individual:`, error);
+        for (const orderSn of lote) {
+          try {
+            const res = await shopeeFetch(this.urlPedidos("/payment/get_escrow_detail", { order_sn: orderSn }), {
+              signal: AbortSignal.timeout(10000),
+            });
+            const data = await res.json() as {
+              error?: string;
+              message?: string;
+              response?: { order_sn?: string; order_income?: ShopeeOrderIncome };
+            };
+            if (!res.ok || data.error) {
+              throw new Error(`HTTP ${res.status}: ${data.message ?? data.error ?? "resposta financeira recusada"}`);
+            }
+            if (data.response?.order_income) {
+              resultado.set(data.response.order_sn ?? orderSn, data.response.order_income);
+            }
+          } catch (individualError) {
+            console.warn(`[Shopee] financeiro individual indisponível para ${orderSn}:`, individualError);
+            // 401/403 é falha de autorização do app, não do pedido. Repetir a
+            // mesma chamada para o restante do lote só gastaria Webshare.
+            if (/HTTP (401|403)|permission|auth/i.test(String(individualError))) break;
+          }
+        }
+      }
+    }
+    return resultado;
   }
 
   async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {

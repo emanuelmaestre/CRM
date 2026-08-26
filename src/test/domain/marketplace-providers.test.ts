@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MercadoLivreProvider, normalizarAvaliacoesItem } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { ShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
+import { normalizarFinanceiroShopee, ShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 
 describe("contratos dos providers de marketplace", () => {
   afterEach(() => {
@@ -200,6 +200,48 @@ describe("contratos dos providers de marketplace", () => {
     expect(url.searchParams.get("sign")).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  // Antes a listagem era uma chamada só, com page_size 50 e sem olhar
+  // `more`/`next_cursor`: janela de 15 dias com mais de 50 pedidos perdia o
+  // excedente calado, e pedido que não entra na sincronização não volta.
+  it("segue o cursor do get_order_list até a Shopee dizer que acabou", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
+    const detalhe = (sn: string) => ({
+      order_sn: sn,
+      order_status: "READY_TO_SHIP",
+      total_amount: 10,
+      buyer_username: "comprador",
+      create_time: 1_784_779_900,
+      item_list: [{ item_id: 1, model_id: 0, item_sku: "SKU-1", model_quantity_purchased: 1, model_discounted_price: 10 }],
+    });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: { order_list: [{ order_sn: "SHP-1" }, { order_sn: "SHP-2" }], more: true, next_cursor: "cursor-2" },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: { order_list: [{ order_sn: "SHP-3" }], more: false, next_cursor: "" },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: { order_list: ["SHP-1", "SHP-2", "SHP-3"].map(detalhe) },
+      }), { status: 200 }))
+      .mockResolvedValue(new Response(JSON.stringify({ response: { order_income_list: [] } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new ShopeeProvider(
+      { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" },
+      { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" },
+    );
+    const pedidos = await provider.buscarPedidos(new Date(1_784_780_000_000 - 3 * 24 * 60 * 60 * 1000));
+
+    expect(pedidos.map((pedido) => pedido.providerOrderId)).toEqual(["SHP-1", "SHP-2", "SHP-3"]);
+    // Primeira página sem cursor, segunda com o cursor que a Shopee devolveu.
+    expect(new URL(String(fetchMock.mock.calls[0][0])).searchParams.get("cursor")).toBeNull();
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get("cursor")).toBe("cursor-2");
+    // Terceira chamada é o detalhe, com os pedidos das duas páginas juntos.
+    const urlDetalhe = new URL(String(fetchMock.mock.calls[2][0]));
+    expect(urlDetalhe.pathname).toContain("get_order_detail");
+    expect(urlDetalhe.searchParams.get("order_sn_list")).toBe("SHP-1,SHP-2,SHP-3");
+  });
+
   // Vendedor que não preenche SKU na Shopee é comum, e nesse caso o importador
   // de catálogo cria o produto com um SKU sintético `shopee-{item}[-{model}]`.
   // O item do pedido tem que chegar com a mesma chave, senão a ingestão recusa
@@ -239,6 +281,32 @@ describe("contratos dos providers de marketplace", () => {
             },
           ],
         },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: {
+          order_income_list: [
+            {
+              order_sn: "SHP-1",
+              order_income: {
+                buyer_total_amount: 24.2,
+                buyer_paid_shipping_fee: 4.2,
+                commission_fee: 2,
+                service_fee: 1,
+                seller_transaction_fee: 0.4,
+                escrow_amount: 20.8,
+              },
+            },
+            {
+              order_sn: "SHP-2",
+              order_income: {
+                buyer_total_amount: 35,
+                buyer_paid_shipping_fee: 0,
+                commission_fee: 3.5,
+                escrow_amount: 31.5,
+              },
+            },
+          ],
+        },
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -250,6 +318,86 @@ describe("contratos dos providers de marketplace", () => {
       ["shopee-111-222"],
       ["shopee-333", "VARIACAO"],
     ]);
+    expect(pedidos[0]).toMatchObject({
+      total: "24.20",
+      frete: "4.20",
+      valorLiquido: "20.80",
+      itens: [expect.objectContaining({ taxaMarketplace: "3.40" })],
+    });
+  });
+
+  it("normaliza e rateia em centavos o financeiro da Shopee", () => {
+    const financeiro = normalizarFinanceiroShopee({
+      buyer_total_amount: 50.1,
+      buyer_paid_shipping_fee: 4.2,
+      voucher_from_seller: 1,
+      voucher_from_shopee: 2,
+      coins: 0.5,
+      buyer_transaction_fee: 0.25,
+      commission_fee: 3.01,
+      service_fee: 1,
+      seller_transaction_fee: 0.5,
+      order_ams_commission_fee: 0.99,
+      escrow_amount: 42.35,
+    }, [
+      { model_quantity_purchased: 1, model_discounted_price: 30 },
+      { model_quantity_purchased: 1, model_discounted_price: 15.9 },
+    ]);
+
+    expect(financeiro).toEqual({
+      total: "50.10",
+      frete: "4.20",
+      desconto: "3.50",
+      acrescimo: "0.25",
+      valorLiquido: "42.35",
+      taxasMarketplace: ["3.59", "1.91"],
+    });
+  });
+
+  it("usa o financeiro individual quando a Shopee recusa o endpoint em lote", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: { order_list: [{ order_sn: "SHP-FALLBACK" }] },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: { order_list: [{
+          order_sn: "SHP-FALLBACK",
+          order_status: "READY_TO_SHIP",
+          total_amount: 50.1,
+          buyer_username: "comprador",
+          create_time: 1_784_779_900,
+          item_list: [{ item_id: 1, model_id: 0, item_sku: "SKU-1", model_quantity_purchased: 1, model_discounted_price: 45.9 }],
+        }] },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        error: "error_api_permission",
+        message: "No permission to current api.",
+      }), { status: 403 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: {
+          order_sn: "SHP-FALLBACK",
+          order_income: {
+            buyer_total_amount: 50.1,
+            buyer_paid_shipping_fee: 4.2,
+            commission_fee: 5,
+            escrow_amount: 45.1,
+          },
+        },
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const creds = { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" };
+    const pedidos = await new ShopeeProvider(creds, creds)
+      .buscarPedidos(new Date("2026-07-20T05:00:00.000Z"));
+
+    expect(pedidos[0]).toMatchObject({
+      frete: "4.20",
+      valorLiquido: "45.10",
+      itens: [expect.objectContaining({ taxaMarketplace: "5.00" })],
+    });
+    expect(String(fetchMock.mock.calls[3][0])).toContain("/payment/get_escrow_detail");
+    expect(String(fetchMock.mock.calls[3][0])).toContain("order_sn=SHP-FALLBACK");
   });
 
 });

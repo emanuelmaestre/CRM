@@ -1,0 +1,1 @@
+ALTER TABLE "pedido" ADD COLUMN "valor_liquido" numeric(12, 2);

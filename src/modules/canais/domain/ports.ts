@@ -25,21 +25,23 @@ export interface PedidoNormalizado {
   status: string;
   total: string;
   frete?: string;
-  /** Desconto/cupom aplicado ao pedido, quando o canal informa (hoje só o
-   *  Mercado Livre, via `coupon.amount`). Ausente para os demais canais. */
+  /** Desconto/cupom aplicado ao pedido, quando o canal informa. Na Shopee,
+   *  soma vouchers e moedas do checkout vindos do demonstrativo financeiro. */
   desconto?: string;
   /** Valor a mais que o comprador pagou além do total nominal (ex.: juro de
-   *  parcelamento), quando o canal informa (hoje só o Mercado Livre, via
-   *  `payments[]`). Ausente para os demais canais. */
+   *  parcelamento), quando o canal informa. */
   acrescimo?: string;
+  /** Repasse líquido calculado pelo próprio canal. Na Shopee é o
+   * `escrow_amount`, que inclui tarifas, subsídios e ajustes que não podem ser
+   * reconstruídos com exatidão apenas a partir do total do comprador. */
+  valorLiquido?: string;
   itens: {
     skuExterno: string;
     quantidade: number;
     precoUnitario: string;
-    /** Comissão que o canal cobrou por este item, quando o canal expõe esse
-     *  dado no próprio payload do pedido (hoje só o Mercado Livre, via
-     *  `sale_fee`). Ausente para os demais canais — não é um "zero", é "esse
-     *  canal não informa". */
+    /** Comissão que o canal cobrou por este item. No Mercado Livre vem de
+     *  `sale_fee`; na Shopee, as tarifas do escrow são rateadas entre os itens
+     *  preservando o total exato cobrado no pedido. */
     taxaMarketplace?: string;
   }[];
   criadoEm: Date;

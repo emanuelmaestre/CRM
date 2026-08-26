@@ -59,6 +59,7 @@ export async function ingerirPedido(
     .then((r) => r[0]);
 
   if (existente) {
+    await reconciliarFinanceiroPedido(orgId, existente.id, p);
     await reconciliarStatusPedido(orgId, brandId, existente.id, p.status);
     return { pedidoId: existente.id, novo: false };
   }
@@ -309,6 +310,7 @@ export async function ingerirPedido(
         frete: p.frete ?? "0",
         desconto: p.desconto ?? "0",
         acrescimo: p.acrescimo ?? "0",
+        valorLiquido: p.valorLiquido,
         createdAt: p.criadoEm,
       })
       .returning({ id: pedido.id });
@@ -368,6 +370,7 @@ export async function ingerirPedido(
       ))
       .then((rows) => rows[0]);
     if (!concorrente) throw error;
+    await reconciliarFinanceiroPedido(orgId, concorrente.id, p);
     await reconciliarStatusPedido(orgId, brandId, concorrente.id, p.status);
     return { pedidoId: concorrente.id, novo: false };
   }
@@ -375,6 +378,7 @@ export async function ingerirPedido(
   const { pedidoId, eventos, novo } = persistido;
 
   if (!novo) {
+    await reconciliarFinanceiroPedido(orgId, pedidoId, p);
     await reconciliarStatusPedido(orgId, brandId, pedidoId, p.status);
     return { pedidoId, novo: false };
   }
@@ -389,6 +393,56 @@ function isPedidoDuplicado(error: unknown): boolean {
   const candidate = error as { code?: string; constraint_name?: string; constraint?: string };
   const constraint = candidate.constraint_name ?? candidate.constraint;
   return candidate.code === "23505" && constraint === "uq_pedido_org_account_provider";
+}
+
+/** Uma nova leitura do mesmo pedido precisa enriquecer valores que a Shopee
+ * ainda não tinha liberado no primeiro webhook. Antes, duplicatas atualizavam
+ * somente o status e todos os campos financeiros antigos ficavam em zero para
+ * sempre, mesmo após uma sincronização manual. */
+async function reconciliarFinanceiroPedido(
+  orgId: string,
+  pedidoId: string,
+  p: PedidoNormalizado,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    const valores: Partial<typeof pedido.$inferInsert> = {
+      total: p.total,
+      updatedAt: new Date(),
+    };
+    if (p.frete !== undefined) valores.frete = p.frete;
+    if (p.desconto !== undefined) valores.desconto = p.desconto;
+    if (p.acrescimo !== undefined) valores.acrescimo = p.acrescimo;
+    if (p.valorLiquido !== undefined) valores.valorLiquido = p.valorLiquido;
+    await tx.update(pedido).set(valores)
+      .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)));
+
+    const temTaxas = p.itens.some((item) => item.taxaMarketplace !== undefined);
+    if (!temTaxas) return;
+    const itensPersistidos = await tx
+      .select({
+        id: pedidoItem.id,
+        quantidade: pedidoItem.quantidade,
+        precoUnitario: pedidoItem.precoUnitario,
+      })
+      .from(pedidoItem)
+      .where(eq(pedidoItem.pedidoId, pedidoId));
+    const taxaCentavos = Math.round(p.itens.reduce(
+      (total, item) => total + Number(item.taxaMarketplace ?? 0),
+      0,
+    ) * 100);
+    const pesos = itensPersistidos.map((item) => Number(item.precoUnitario) * item.quantidade);
+    const pesoTotal = pesos.reduce((total, peso) => total + peso, 0);
+    let restante = taxaCentavos;
+    for (let indice = 0; indice < itensPersistidos.length; indice++) {
+      const centavos = indice === itensPersistidos.length - 1
+        ? restante
+        : Math.min(restante, Math.round(taxaCentavos * (pesoTotal > 0 ? pesos[indice] / pesoTotal : 1 / Math.max(itensPersistidos.length, 1))));
+      restante -= centavos;
+      await tx.update(pedidoItem)
+        .set({ taxaMarketplace: (centavos / 100).toFixed(2) })
+        .where(eq(pedidoItem.id, itensPersistidos[indice].id));
+    }
+  });
 }
 
 async function reconciliarStatusPedido(

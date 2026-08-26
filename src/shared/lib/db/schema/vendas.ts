@@ -24,16 +24,19 @@ export const pedido = pgTable("pedido", {
   canal: text("canal").notNull(),
   status: pedidoStatusEnum("status").notNull().default("criado"),
   total: numeric("total", { precision: 12, scale: 2 }).notNull(),
-  // Custo real de envio pago pelo vendedor, vindo de GET /shipments/{id}/costs
-  // no Mercado Livre (senders[].cost) — não confundir com o valor que o
-  // comprador vê na vitrine. O campo `order.shipping.cost` que essa coluna lia
-  // antes não existe de fato na resposta da API; ficava sempre em "0".
+  // Valor de frete informado pelo canal: custo real do vendedor no Mercado
+  // Livre (GET /shipments/{id}/costs) e frete pago no checkout na Shopee
+  // (`buyer_paid_shipping_fee` do escrow).
   frete: numeric("frete", { precision: 12, scale: 2 }).default("0"),
   desconto: numeric("desconto", { precision: 12, scale: 2 }).default("0"),
   // Valor a mais que o comprador pagou além do total nominal do pedido (ex.:
   // juro de parcelamento) — no Mercado Livre, soma de
   // payments[].total_paid_amount - payments[].transaction_amount.
   acrescimo: numeric("acrescimo", { precision: 12, scale: 2 }).default("0"),
+  // Repasse líquido informado pelo canal. Na Shopee vem de
+  // payment/get_escrow_detail(.batch) e é mais preciso que reconstruir o
+  // líquido somando manualmente dezenas de subsídios, tarifas e ajustes.
+  valorLiquido: numeric("valor_liquido", { precision: 12, scale: 2 }),
   canceladoMotivo: text("cancelado_motivo"),
   origemIngestao: text("origem_ingestao").notNull().default("tempo_real"),
   importLoteId: uuid("import_lote_id").references(() => importLote.id),
@@ -68,11 +71,9 @@ export const pedidoItem = pgTable("pedido_item", {
   produtoId: uuid("produto_id").notNull().references(() => produto.id),
   quantidade: integer("quantidade").notNull(),
   precoUnitario: numeric("preco_unitario", { precision: 12, scale: 2 }).notNull(),
-  // Comissão que o canal cobreu por este item (ex.: `sale_fee` do Mercado
-  // Livre) — vem de graça no mesmo payload de pedido que já ingerimos, só
-  // não era lida. Null para pedidos antigos (ingeridos antes desta coluna
-  // existir) e para canais que não expõem essa taxa por item; a margem em
-  // Métricas soma só o que tem taxa conhecida, nunca trata null como zero.
+  // Comissão que o canal cobrou por este item (`sale_fee` do Mercado Livre ou
+  // rateio das tarifas do escrow da Shopee). Null para pedidos sem financeiro
+  // conhecido; a margem soma só o que o canal efetivamente informou.
   taxaMarketplace: numeric("taxa_marketplace", { precision: 12, scale: 2 }),
 }, (t) => [
   index("idx_pedido_item_pedido").on(t.pedidoId),
