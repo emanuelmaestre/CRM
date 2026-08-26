@@ -712,7 +712,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
     if (!escopoDefinido) return;
     carregar(brandIdsArray, busca, filtro, canaisArray);
     carregarIndicadores(brandIdsArray, canaisArray);
-  }, [escopoDefinido, carregar, carregarIndicadores, brandIdsArray, canaisArray, busca, filtro]));
+  }, [escopoDefinido, carregar, carregarIndicadores, brandIdsArray, canaisArray, busca, filtro]), { fontes: ["estoque"] });
 
   // Recuperação leve para navegação cliente ou falha do carregamento inicial.
   // Também mantém as contagens cruzadas quando só o canal está marcado, sem

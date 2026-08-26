@@ -4,6 +4,7 @@ import { channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
 import { inngest } from "@/shared/lib/inngest/client";
 import {
   CAMPOS_MODULO_SINCRONIZACAO,
+  INTERVALO_MINIMO_VERIFICACAO_MS,
   MODULOS_SINCRONIZACAO,
   type ModuloSincronizacao,
 } from "../domain/sincronizacao-progresso";
@@ -48,6 +49,39 @@ export async function dispararSincronizacaoConta(
   const solicitados = new Set<ModuloSincronizacao>(
     opcoes.modulos?.length ? opcoes.modulos : MODULOS_SINCRONIZACAO,
   );
+
+  /* Intervalo mínimo entre verificações manuais do mesmo módulo.
+     A dedução acima cobre o clique repetido enquanto algo roda; esta cobre o
+     caso seguinte — terminou às 10:40, alguém pede de novo às 10:41. Sem ela,
+     refazer na mão o que a rotina acabou de trazer é gasto puro de cota do
+     Webshare. A fila completa de Configurações não passa por aqui: quem pede
+     "sincronizar tudo" está pedindo explicitamente. */
+  if (opcoes.modulos?.length) {
+    const recentes = await ctx.db
+      .select()
+      .from(sincronizacaoExecucao)
+      .where(and(
+        eq(sincronizacaoExecucao.orgId, ctx.orgId),
+        eq(sincronizacaoExecucao.channelAccountId, channelAccountId),
+      ))
+      .orderBy(desc(sincronizacaoExecucao.iniciadoEm))
+      .limit(5);
+
+    for (const modulo of solicitados) {
+      const campos = CAMPOS_MODULO_SINCRONIZACAO[modulo];
+      const ultima = recentes.find((execucao) => execucao[campos.status] !== "pendente");
+      if (!ultima) continue;
+      const desde = Date.now() - ultima.iniciadoEm.getTime();
+      if (desde < INTERVALO_MINIMO_VERIFICACAO_MS) {
+        const faltam = Math.ceil((INTERVALO_MINIMO_VERIFICACAO_MS - desde) / 60_000);
+        throw new Error(
+          `Este módulo foi verificado há pouco. Tente de novo em ${faltam} min`
+          + " — os dados atuais continuam na tela.",
+        );
+      }
+    }
+  }
+
   const patchModulos: Record<string, unknown> = {};
   for (const modulo of MODULOS_SINCRONIZACAO) {
     if (solicitados.has(modulo)) continue;

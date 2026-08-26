@@ -70,6 +70,10 @@ export const sincronizacaoExecucao = pgTable("sincronizacao_execucao", {
 }, (t) => [
   index("idx_sincronizacao_org").on(t.orgId),
   index("idx_sincronizacao_channel_account").on(t.channelAccountId),
+  // O painel busca a última execução de cada conta (distinct on) e a idade da
+  // reputação persistida; os dois caem nestes compostos.
+  index("idx_sincronizacao_org_conta_iniciado").on(t.orgId, t.channelAccountId, t.iniciadoEm),
+  index("idx_sincronizacao_org_iniciado").on(t.orgId, t.iniciadoEm),
 ]);
 
 /** Uma linha por chamada feita via shopeeFetch (único ponto de saída pra
@@ -108,6 +112,7 @@ export const mlAvaliacaoAnuncio = pgTable("ml_avaliacao_anuncio", {
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("uq_ml_avaliacao_org_listing").on(t.orgId, t.listingId),
+  index("idx_ml_avaliacao_org_atualizado").on(t.orgId, t.atualizadoEm),
   index("idx_ml_avaliacao_brand").on(t.brandId),
 ]);
 
@@ -132,5 +137,6 @@ export const shopeeAvaliacaoAnuncio = pgTable("shopee_avaliacao_anuncio", {
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   uniqueIndex("uq_shopee_avaliacao_org_item").on(t.orgId, t.itemId),
+  index("idx_shopee_avaliacao_org_atualizado").on(t.orgId, t.atualizadoEm),
   index("idx_shopee_avaliacao_brand").on(t.brandId),
 ]);

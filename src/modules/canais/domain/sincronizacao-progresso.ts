@@ -1,3 +1,8 @@
+/** Intervalo mínimo entre duas verificações manuais do mesmo módulo na
+ *  mesma conta. Existe pra que dois cliques (ou duas pessoas) não gastem
+ *  cota da Shopee/Webshare refazendo em seguida o que acabou de rodar. */
+export const INTERVALO_MINIMO_VERIFICACAO_MS = 5 * 60_000;
+
 export const MODULOS_SINCRONIZACAO = [
   "catalogo",
   "pedidos",
@@ -19,7 +24,12 @@ export const CAMPOS_MODULO_SINCRONIZACAO = {
 
 export function progressoDoResultado(resultado: unknown): number | null {
   if (!resultado || typeof resultado !== "object" || !("progresso" in resultado)) return null;
-  const valor = Number((resultado as { progresso?: unknown }).progresso);
+  const bruto = (resultado as { progresso?: unknown }).progresso;
+  // A chave pode existir valendo null — é o que o resumo montado no banco
+  // devolve para um módulo sem progresso registrado. Number(null) é 0, e
+  // sem esta guarda um módulo "sem progresso" viraria "progresso zero".
+  if (bruto === null || bruto === undefined) return null;
+  const valor = Number(bruto);
   if (!Number.isFinite(valor)) return null;
   return Math.max(0, Math.min(100, Math.round(valor)));
 }

@@ -12,7 +12,7 @@ import appConfig from "@/config/app.json";
 import { nomePerfil, type Perfil } from "@/shared/lib/auth/authorization";
 import { isModuloId, type ModuloId } from "@/config/modulos";
 import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
-import { AtualizacaoToggle } from "@/shared/components/AtualizacaoToggle";
+import { AtualizacaoToggle } from "@/shared/components/atualizacao/AtualizacaoToggle";
 
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
 const LogoutIcon = getIcon(navigationConfig.utilities.logout.icon);

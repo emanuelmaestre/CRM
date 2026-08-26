@@ -21,8 +21,12 @@ async function globalSetup(config: FullConfig) {
 
     await page.goto(`${baseURL}/auth/login`);
     await page.getByLabel(/e-mail/i).fill(email);
-    await page.getByLabel(/senha/i).fill(password);
-    await page.getByRole("button", { name: /entrar/i }).click();
+    // Alvo explícito no input: o formulário ganhou um botão "Mostrar senha"
+    // dentro do mesmo campo, e getByLabel(/senha/i) passou a casar os dois —
+    // strict mode violation que derrubava todo o setup autenticado antes de
+    // qualquer spec rodar.
+    await page.locator("input#senha").fill(password);
+    await page.getByRole("button", { name: /^entrar$/i }).click();
     await page.waitForURL(/\/(dashboard|metricas|clientes|vendas)/, { timeout: 15_000 });
 
     // /clientes fica atrás de um PIN de 6 dígitos (dados sensíveis, LGPD).

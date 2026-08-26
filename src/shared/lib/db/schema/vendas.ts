@@ -50,6 +50,10 @@ export const pedido = pgTable("pedido", {
   index("idx_pedido_provider").on(t.providerOrderId),
   index("idx_pedido_recebido").on(t.receivedAt),
   index("idx_pedido_import_lote").on(t.importLoteId),
+  // O cabeçalho consulta max(atualizado_em) por organização a cada checagem de
+  // versão. Sem o composto, idx_pedido_org sozinho obriga a varrer todos os
+  // pedidos da organização só pra achar o maior — com ele é uma leitura.
+  index("idx_pedido_org_atualizado").on(t.orgId, t.updatedAt),
   uniqueIndex("uq_pedido_org_account_provider")
     .on(t.orgId, t.channelAccountId, t.providerOrderId)
     .where(sql`${t.channelAccountId} is not null and ${t.providerOrderId} is not null`),

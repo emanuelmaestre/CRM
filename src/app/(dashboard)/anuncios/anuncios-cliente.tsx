@@ -392,7 +392,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
     return buscar();
   }, [buscar]);
 
-  useAtualizacaoLocal("anuncios", buscar);
+  useAtualizacaoLocal("anuncios", buscar, { fontes: ["anuncios"] });
 
   if (carregando) return <Esqueleto />;
 

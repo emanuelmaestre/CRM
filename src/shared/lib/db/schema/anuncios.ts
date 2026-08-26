@@ -154,4 +154,5 @@ export const adsAnuncioSnapshot = pgTable("ads_anuncio_snapshot", {
   uniqueIndex("uq_ads_anuncio_snapshot_dia").on(t.orgId, t.channelAccountId, t.campaignId, t.itemId, t.data),
   index("idx_ads_anuncio_snapshot_brand").on(t.brandId, t.data),
   index("idx_ads_anuncio_snapshot_produto").on(t.produtoId),
+  index("idx_ads_anuncio_snapshot_org_criado").on(t.orgId, t.criadoEm),
 ]);

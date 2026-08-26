@@ -2,11 +2,13 @@ import { requirePageAuth } from "@/shared/lib/auth/session";
 import { TopNav } from "@/shared/components/TopNav";
 import { BottomNav } from "@/shared/components/BottomNav";
 import { MobileHeader } from "@/shared/components/MobileHeader";
+import { AtualizacaoProvider } from "@/shared/components/atualizacao/atualizacao-contexto";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const contexto = await requirePageAuth();
 
   return (
+    <AtualizacaoProvider>
     <div className="min-h-screen min-h-dvh bg-background">
       {/* Top nav — visível em md+ */}
       <div className="hidden md:block [@media_(min-width:768px)_and_(max-height:500px)]:hidden">
@@ -34,6 +36,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <nav className="fixed-header-stable fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card pb-[calc(env(safe-area-inset-bottom)_+_14px)] md:hidden [@media_(min-width:768px)_and_(max-height:500px)]:block">
         <BottomNav modulosVisiveis={contexto.modulosVisiveis} />
       </nav>
-    </div>
+      </div>
+    </AtualizacaoProvider>
   );
 }

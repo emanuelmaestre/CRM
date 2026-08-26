@@ -8,7 +8,7 @@ import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
 import { getIcon } from "@/shared/config/icon-registry";
 import navigationConfig from "@/config/navigation.json";
 import type { ModuloId } from "@/config/modulos";
-import { AtualizacaoToggle } from "@/shared/components/AtualizacaoToggle";
+import { AtualizacaoToggle } from "@/shared/components/atualizacao/AtualizacaoToggle";
 
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
 

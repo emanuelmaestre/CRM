@@ -27,7 +27,7 @@
     "db:seed:synthetic": "node scripts/seed-synthetic.mjs",
     "db:ci:seed-e2e": "node scripts/seed-ci-e2e.mjs",
     "test:seed-synthetic": "node scripts/test-seed-synthetic.mjs",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "node scripts/migrar.mjs",
     "db:studio": "drizzle-kit studio",
     "estoque:coletar": "node --env-file=.env.local --import tsx scripts/coletar-estoque.mts"
   },

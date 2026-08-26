@@ -20,6 +20,7 @@ export const produto = pgTable("produto", {
 }, (t) => [
   index("idx_produto_org_brand").on(t.orgId, t.brandId),
   index("idx_produto_sku").on(t.orgId, t.sku),
+  index("idx_produto_org_atualizado").on(t.orgId, t.updatedAt),
   // O mesmo código pode existir em marcas diferentes (ex.: uma conta vende
   // um SKU originado de outra linha). A identidade do produto é marca+SKU;
   // manter a unicidade só na organização fazia o catálogo da segunda marca
@@ -57,6 +58,7 @@ export const produtoCanal = pgTable("produto_canal", {
 }, (t) => [
   index("idx_produto_canal_produto").on(t.produtoId),
   index("idx_produto_canal_conta").on(t.channelAccountId),
+  index("idx_produto_canal_org_atualizado").on(t.orgId, t.updatedAt),
   uniqueIndex("uq_produto_canal").on(t.produtoId, t.channelAccountId),
 ]);
 
@@ -82,4 +84,5 @@ export const estoqueCanalSaldo = pgTable("estoque_canal_saldo", {
   uniqueIndex("uq_estoque_canal_saldo_mapeamento").on(t.produtoCanalId),
   index("idx_estoque_canal_saldo_produto").on(t.orgId, t.produtoId),
   index("idx_estoque_canal_saldo_conta").on(t.channelAccountId),
+  index("idx_estoque_canal_saldo_org_verificado").on(t.orgId, t.verificadoEm),
 ]);

@@ -397,7 +397,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   useAtualizacaoLocal("vendas", useCallback(() => {
     if (!escopoDefinido) return;
     carregar(brandIds, canaisSel, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
-  }, [escopoDefinido, carregar, brandIds, canaisSel, statusesAtivos, buscaAplicada, dataInicial, dataFinal]));
+  }, [escopoDefinido, carregar, brandIds, canaisSel, statusesAtivos, buscaAplicada, dataInicial, dataFinal]), { fontes: ["pedidos"] });
 
   useEffect(() => {
     if (!escopoDefinido) return;

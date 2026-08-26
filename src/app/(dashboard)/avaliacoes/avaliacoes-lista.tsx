@@ -418,7 +418,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
       })
       .catch((error) => toast.error(error instanceof Error ? error.message : "Não foi possível atualizar as avaliações."))
       .finally(() => setCarregando(false));
-  }, [carregarDoCache]));
+  }, [carregarDoCache]), { fontes: ["avaliacoes"] });
 
   const alternar = useCallback((chave: string) => {
     setAbertos((atual) => {
