@@ -376,7 +376,7 @@ export function Mosaico({
       .catch(() => { setMarcas([]); setCanais([]); });
   }, []);
 
-  /* ── Saúde da loja e atendimento ── */
+  /* ── Saúde da loja ── */
 
   const completo = Boolean(periodo.inicio && periodo.fim);
   const inicio = completo ? periodo.inicio : undefined;
@@ -616,9 +616,9 @@ export function Mosaico({
         : null,
     },
     explicacao: {
-      resumo: "Uma nota de 0 a 100 que resume a saúde da operação: reputação, pós-venda, satisfação, atendimento e catálogo, numa média ponderada.",
+      resumo: "Uma nota de 0 a 100 que resume a saúde da operação: reputação, pós-venda, satisfação e catálogo, numa média ponderada.",
       pontos: [
-        { titulo: "Cinco pilares, pesos diferentes", texto: "Reputação e pós-venda pesam mais que catálogo. Um problema de entrega reduz a pontuação mais do que um item sem foto." },
+        { titulo: "Quatro pilares, pesos diferentes", texto: "Reputação e pós-venda pesam mais que catálogo. Um problema de entrega reduz a pontuação mais do que um item sem foto." },
         { titulo: "Pilar sem dado sai da conta", texto: "Se um pilar não tiver informação suficiente no período, o peso será redistribuído entre os demais, em vez de virar zero." },
         { titulo: "Consolidado pesa por faturamento", texto: "Ao visualizar todas as marcas juntas, as que faturam mais influenciam mais o resultado. Não se trata de uma média simples entre marcas." },
       ],
@@ -1118,10 +1118,8 @@ export function Mosaico({
 
             Duas fileiras de verdade só no mobile (flex-col, onde a largura
             obriga tudo a empilhar de qualquer forma): canal + marca em cima
-            (o filtro de ESCOPO — quais dados aparecem) e Período +
-            "Atualizado às" embaixo, sempre juntos na mesma linha (o filtro
-            de TEMPO — quando; "Atualizado às" é sobre esse mesmo recorte,
-            por isso cola nele). A partir do sm, onde sobra largura, os dois
+            (o filtro de ESCOPO — quais dados aparecem) e o Período embaixo
+            (o filtro de TEMPO — quando). A partir do sm, onde sobra largura, os dois
             grupos voltam a viver numa fileira única (`sm:contents` devolve
             os filhos à sequência natural do flex pai) — igual sempre foi
             no desktop, só com canal/marca na ordem corrigida (ver

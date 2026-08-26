@@ -206,9 +206,9 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
         label: pilar.label,
         valor: `${Math.round(pilar.nota as number)} · peso ${Math.round((pilar.peso / pesoTotal) * 100)}%`,
       }))}
-      nota={medidos.length < 5
-        ? `Somente ${medidos.length} de 5 pilares possuíam dados. O peso dos demais foi redistribuído entre eles.`
-        : "Os 5 pilares possuíam dados neste período. Nenhum peso precisou ser redistribuído."}
+      nota={medidos.length < PILARES.length
+        ? `Somente ${medidos.length} de ${PILARES.length} pilares possuíam dados. O peso dos demais foi redistribuído entre eles.`
+        : `Os ${PILARES.length} pilares possuíam dados neste período. Nenhum peso precisou ser redistribuído.`}
     />
   );
 }

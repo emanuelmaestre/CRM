@@ -12,8 +12,8 @@
   },
   "score": {
     "titulo": "Pontuação de Saúde da Loja",
-    "subtitulo": "Cinco pilares, um número",
-    "explicacao": "A pontuação resume a saúde da loja em uma nota de 0 a 100. Ela combina reputação, pós-venda, satisfação, atendimento e catálogo. Cada pilar tem um peso; quando um deles ainda não possui dados, ele não recebe nota zero: sai temporariamente do cálculo e seu peso é distribuído entre os pilares medidos.",
+    "subtitulo": "Quatro pilares, um número",
+    "explicacao": "A pontuação resume a saúde da loja em uma nota de 0 a 100. Ela combina reputação, pós-venda, satisfação e catálogo. Cada pilar tem um peso; quando um deles ainda não possui dados, ele não recebe nota zero: sai temporariamente do cálculo e seu peso é distribuído entre os pilares medidos.",
     "parcialPrefixo": "Leitura parcial:",
     "parcialSufixo": "de {total} pilares com dado",
     "semDado": "Ainda não há dado suficiente para calcular",
@@ -208,7 +208,7 @@
       },
       "score": {
         "titulo": "Pontuação da loja",
-        "legenda": "Cinco pilares, um número"
+        "legenda": "Quatro pilares, um número"
       },
       "comparacao": {
         "titulo": "Marca",

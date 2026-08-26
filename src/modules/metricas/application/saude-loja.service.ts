@@ -229,7 +229,7 @@ export interface SaudeLojaFiltros {
   inicio?: string;
   fim?: string;
   brandIds?: string[];
-  /** Pula reputação (API do ML, lenta), atendimento por marca e
+  /** Pula reputação (API do ML, lenta) e
    *  pilares de score. Para quando só se precisa de faturamento/pedidos/ticket/
    *  cancelamento — rodar a consulta inteira só pra descartar quase tudo
    *  dobra o tempo de carregamento à toa. */

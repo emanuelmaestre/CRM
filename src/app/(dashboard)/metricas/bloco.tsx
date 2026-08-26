@@ -54,12 +54,15 @@ export interface ResumoBloco {
   selo?: string;
 }
 
-/** As 5 seções do mosaico, na ordem em que aparecem na tela. `label` é o
- *  rótulo pequeno acima do grupo de blocos. */
+/** As seções do mosaico, na ordem em que aparecem na tela. `label` é o
+ *  rótulo pequeno acima do grupo de blocos.
+ *
+ *  "Atendimento ao cliente" saiu junto com o resto do fluxo de mensagens:
+ *  nenhum bloco apontava mais para ela, então era uma seção que nunca
+ *  chegava a ser desenhada. */
 export const SECOES = [
   { id: "financeiro", label: "Financeiro" },
   { id: "saude", label: "Placar geral" },
-  { id: "atendimento", label: "Atendimento ao cliente" },
   { id: "estoque", label: "Estoque & catálogo" },
   { id: "marketing", label: "Marketing" },
 ] as const;
@@ -724,17 +727,17 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
               </div>
 
               {/* `justify-between` + `order` só no mobile: Status (ou
-                  qualquer ação do acaoSlot) no canto esquerdo, "Atualizado
-                  às"/Período no direito — cantos opostos em vez de
-                  agrupados no centro, mais fácil de escanear numa tela
-                  estreita. A partir do sm volta ao normal (`sm:justify-start`
+                  qualquer ação do acaoSlot) no canto esquerdo, Período no
+                  direito — cantos opostos em vez de agrupados no centro,
+                  mais fácil de escanear numa tela estreita. A partir do sm
+                  volta ao normal (`sm:justify-start`
                   + `sm:order-none` nos dois, já correto: barraPeriodo à
                   esquerda, acaoSlot empurrado pro fim via `sm:ml-auto`).
-                  Repor em breve foge da regra no mobile: o Status subiu pra
-                  linha do título (ver acaoTopoSlot acima), então esta linha
-                  fica só com "Atualizado às" — `justify-center` no lugar de
-                  `justify-between` centraliza esse texto sozinho.
-                  Marca/Comparação também foge: o acaoSlot ali carrega o
+                  Repor em breve não usa esta linha: não tem Período, e o
+                  Status subiu pra linha do título no mobile (ver
+                  acaoTopoSlot acima) — os `empty:hidden` abaixo fazem ela
+                  sumir sozinha em vez de sobrar como faixa vazia.
+                  Marca/Comparação foge da regra: o acaoSlot ali carrega o
                   filtro de canal E a grade de 7 critérios — um bloco grande
                   que precisa da própria linha. Com a ordem invertida, o
                   Período acabava empurrado pro final, depois da grade
@@ -752,9 +755,12 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                   baixo inteira some (`hidden sm:flex`, não sobra nada pra
                   mostrar ali); no desktop `semPeriodo` abaixo tira só o
                   Período, deixando Status/filtro sozinho na linha. */}
-              <div className={`${def.id === "parados" ? "hidden sm:flex" : "flex"} flex-row flex-wrap items-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2 ${def.id === "reposicao" ? "justify-center" : def.id === "comparacao" ? "justify-start" : "justify-between"}`}>
+              <div className={`${def.id === "parados" ? "hidden sm:flex" : "flex"} flex-row flex-wrap items-center gap-x-3 gap-y-2 empty:hidden sm:justify-start sm:gap-2 ${def.id === "comparacao" ? "justify-start" : "justify-between"}`}>
+                {/* `empty:hidden` aqui também: "Repor em breve" não tem
+                    Período nenhum, então este invólucro ficava no fluxo
+                    vazio, segurando altura e o gap do pai por nada. */}
                 {def.id !== "parados" && (
-                  <div className={`flex min-w-0 flex-wrap items-center justify-center gap-2 sm:order-none sm:justify-start ${def.id === "comparacao" || def.id === "faturamento" || def.id === "maisVendidos" || def.id === "giroBaixo" || def.id === "publicacoes" ? "" : "order-2"}`}>
+                  <div className={`flex min-w-0 flex-wrap items-center justify-center gap-2 empty:hidden sm:order-none sm:justify-start ${def.id === "comparacao" || def.id === "faturamento" || def.id === "maisVendidos" || def.id === "giroBaixo" || def.id === "publicacoes" ? "" : "order-2"}`}>
                     {barraPeriodo}
                   </div>
                 )}

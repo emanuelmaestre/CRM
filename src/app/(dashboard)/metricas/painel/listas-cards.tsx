@@ -312,8 +312,8 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot, a
    *  sm:flex` por conta própria. */
   acaoSlot?: HTMLElement | null;
   /** No mobile o Status sobe pra linha do título em vez de ficar na linha
-   *  de baixo (que aqui só tem "Atualizado às", ver mosaico.tsx) — pedido
-   *  explícito, pra ficar entre "Repor em breve" e o X de fechar. */
+   *  de baixo (que aqui fica vazia, ver bloco.tsx) — pedido explícito, pra
+   *  ficar entre "Repor em breve" e o X de fechar. */
   acaoTopoSlot?: HTMLElement | null;
 }) {
   const lista = itens ?? [];
