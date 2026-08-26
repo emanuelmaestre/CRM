@@ -77,11 +77,14 @@ export async function importarPaginaCatalogoMercadoLivre(
   offset: number,
 ): Promise<{ produtosCriados: number; ignorados: number; total: number; proximoOffset: number; fim: boolean }> {
   const provider = await criarMLProvider(conta.brandSlug);
-  const pagina = await provider.listarAnunciosAtivos({ offset, limit: TAMANHO_FATIA_CATALOGO });
+  const [pagina, vinculos] = await Promise.all([
+    provider.listarAnunciosAtivos({ offset, limit: TAMANHO_FATIA_CATALOGO }),
+    carregarVinculosDaConta(ctx, conta.channelAccountId),
+  ]);
   let produtosCriados = 0;
   let ignorados = 0;
   for (const item of pagina.items) {
-    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-mercadolivre", "ml");
+    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-mercadolivre", "ml", vinculos);
     if (resultado === "criado") produtosCriados += 1;
     else ignorados += 1;
   }
@@ -108,10 +111,11 @@ export async function importarFatiaCatalogoShopee(
   itens: Awaited<ReturnType<typeof listarCatalogoShopeeParaImportar>>,
 ): Promise<{ produtosCriados: number; ignorados: number }> {
   assertPerfil(ctx, ["admin", "gestor"]);
+  const vinculos = await carregarVinculosDaConta(ctx, conta.channelAccountId);
   let produtosCriados = 0;
   let ignorados = 0;
   for (const item of itens) {
-    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-shopee", "shopee");
+    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-shopee", "shopee", vinculos);
     if (resultado === "criado") produtosCriados += 1;
     else ignorados += 1;
   }
@@ -136,25 +140,61 @@ interface ItemCatalogoGenerico {
  *  deles, que tem formato de página diferente entre os dois. `origem` só
  *  vira metadado no evento `produto.criado`, pra auditoria saber de onde
  *  veio cada produto criado automaticamente. */
+/** Chave de um vínculo anúncio→produto dentro de uma conta de canal. */
+function chaveVinculo(listingId: string, variationId: string | null): string {
+  return `${listingId}|${variationId ?? ""}`;
+}
+
+/** Todos os vínculos que a conta já tem, numa consulta só.
+ *
+ *  `mapearItemCatalogo` perguntava ao banco item a item se aquele anúncio já
+ *  estava vinculado. Numa marca já sincronizada isso é uma ida e volta por
+ *  anúncio sem nenhuma escrita no fim — 50 consultas sequenciais por página,
+ *  e a latência somada estourava os 60s de teto da função na Vercel
+ *  (FUNCTION_INVOCATION_TIMEOUT em /api/inngest, 26/08/2026). Carregar o
+ *  índice de uma vez troca 50 idas e voltas por uma. */
+export async function carregarVinculosDaConta(
+  ctx: CrudContext,
+  channelAccountId: string,
+): Promise<Set<string>> {
+  const linhas = await ctx.db
+    .select({
+      externalListingId: produtoCanal.externalListingId,
+      externalWarehouseId: produtoCanal.externalWarehouseId,
+    })
+    .from(produtoCanal)
+    .where(and(
+      eq(produtoCanal.orgId, ctx.orgId),
+      eq(produtoCanal.channelAccountId, channelAccountId),
+    ));
+  return new Set(linhas.map((l) => chaveVinculo(l.externalListingId, l.externalWarehouseId)));
+}
+
 async function mapearItemCatalogo(
   ctx: CrudContext,
   conta: ContaParaImportar,
   item: ItemCatalogoGenerico,
   origem: "importacao-mercadolivre" | "importacao-shopee",
   prefixoSkuGerado: string,
+  /** Índice pré-carregado (ver carregarVinculosDaConta). Sem ele, cai na
+   *  consulta por item — comportamento antigo, para quem chama fora de um job. */
+  vinculosExistentes?: Set<string>,
 ): Promise<"criado" | "vinculado" | "ignorado"> {
-  const jaMapeado = await ctx.db
-    .select({ id: produtoCanal.id })
-    .from(produtoCanal)
-    .where(and(
-      eq(produtoCanal.orgId, ctx.orgId),
-      eq(produtoCanal.channelAccountId, conta.channelAccountId),
-      eq(produtoCanal.externalListingId, item.listingId),
-      item.variationId
-        ? eq(produtoCanal.externalWarehouseId, item.variationId)
-        : isNull(produtoCanal.externalWarehouseId),
-    ))
-    .then((rows) => rows[0]);
+  const chave = chaveVinculo(item.listingId, item.variationId);
+  const jaMapeado = vinculosExistentes
+    ? vinculosExistentes.has(chave)
+    : await ctx.db
+      .select({ id: produtoCanal.id })
+      .from(produtoCanal)
+      .where(and(
+        eq(produtoCanal.orgId, ctx.orgId),
+        eq(produtoCanal.channelAccountId, conta.channelAccountId),
+        eq(produtoCanal.externalListingId, item.listingId),
+        item.variationId
+          ? eq(produtoCanal.externalWarehouseId, item.variationId)
+          : isNull(produtoCanal.externalWarehouseId),
+      ))
+      .then((rows) => Boolean(rows[0]));
   if (jaMapeado) return "ignorado";
 
   const sku = item.externalSku?.trim() || `${prefixoSkuGerado}-${item.listingId}${item.variationId ? `-${item.variationId}` : ""}`;
