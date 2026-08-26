@@ -5,11 +5,10 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, Check, Clock3, Eye, Hourglass, Link2, Loader2, PackageX, PlugZap2,
+  AlertTriangle, Check, Clock3, Eye, Hourglass, Loader2, PackageX, PlugZap2,
   Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { CanalModal } from "./canal-modal";
 import {
   actionListarProdutos, actionListarProdutosParados,
   actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote,
@@ -622,7 +621,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const requestId = useRef(0);
   const filterRequestId = useRef(0);
   const [, startTransition]       = useTransition();
-  const [canalProduto, setCanalProduto] = useState<{ id: string; nome: string } | null>(null);
   const [marcas, setMarcas] = useState<ContagemMarcasEstoque>(marcasIniciais);
   const [indicadores, setIndicadores] = useState<Indicadores | null>(null);
   const [erroIndicadores, setErroIndicadores] = useState(false);
@@ -1129,13 +1127,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
                           >
                             <Eye size={14} strokeWidth={2} /> Ver
                           </Link>
-                          <button
-                            type="button"
-                            onClick={() => setCanalProduto({ id: p.id, nome: p.nome })}
-                            className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground shadow-[0_1px_2px_rgba(14,15,19,.05)] active:scale-[.97]"
-                          >
-                            <Link2 size={14} /> {copy.mobile.channels}
-                          </button>
                         </div>
                       )}
                     </motion.article>
@@ -1304,13 +1295,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
       </motion.div>
       )}
 
-      {canalProduto && (
-        <CanalModal
-          produtoId={canalProduto.id}
-          produtoNome={canalProduto.nome}
-          onClose={() => setCanalProduto(null)}
-        />
-      )}
 
       {/* Tour só depois de haver o que apontar — com a tela ainda em skeleton,
           os alvos não existem e os balões apontariam para o vazio. */}

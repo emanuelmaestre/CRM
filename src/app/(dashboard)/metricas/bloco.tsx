@@ -754,7 +754,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                   Período, deixando Status/filtro sozinho na linha. */}
               <div className={`${def.id === "parados" ? "hidden sm:flex" : "flex"} flex-row flex-wrap items-center gap-x-3 gap-y-2 sm:justify-start sm:gap-2 ${def.id === "reposicao" ? "justify-center" : def.id === "comparacao" ? "justify-start" : "justify-between"}`}>
                 {def.id !== "parados" && (
-                  <div className={`flex min-w-0 flex-wrap items-center justify-center gap-2 sm:order-none sm:justify-start ${def.id === "comparacao" ? "" : "order-2"}`}>
+                  <div className={`flex min-w-0 flex-wrap items-center justify-center gap-2 sm:order-none sm:justify-start ${def.id === "comparacao" || def.id === "faturamento" || def.id === "maisVendidos" || def.id === "giroBaixo" || def.id === "publicacoes" ? "" : "order-2"}`}>
                     {barraPeriodo}
                   </div>
                 )}
@@ -772,7 +772,7 @@ export function Foco({ def, onFechar, onAnterior, onProximo, barraPeriodo }: {
                     centralizar em relação a. Cards de um botão só (Score,
                     Reclamações) não mudam de lugar: `justify-end` continua
                     empurrando o conteúdo pro fim, seja a caixa larga ou não. */}
-                <div ref={setAcaoSlot} className={`flex min-w-0 flex-wrap items-center justify-center gap-2 empty:hidden sm:order-none sm:ml-auto sm:flex-1 sm:justify-end ${def.id === "comparacao" ? "" : "order-1"}`} />
+                <div ref={setAcaoSlot} className={`flex min-w-0 flex-wrap items-center justify-center gap-2 empty:hidden sm:order-none sm:ml-auto sm:flex-1 sm:justify-end ${def.id === "comparacao" || def.id === "faturamento" || def.id === "maisVendidos" || def.id === "giroBaixo" || def.id === "publicacoes" ? "" : "order-1"}`} />
               </div>
             </motion.div>
 
