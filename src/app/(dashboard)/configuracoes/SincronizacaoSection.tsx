@@ -472,7 +472,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           </AnimatePresence>
         </div>
 
-        <div className="flex basis-full items-center justify-between gap-2 xl:contents">
+        <div className="flex basis-full flex-wrap items-center justify-between gap-2 xl:contents">
           <span className="inline-flex min-h-8 min-w-0 items-center gap-1.5 text-[11px] font-medium text-muted-foreground xl:justify-end xl:text-right">
             <Clock3 size={12} className="shrink-0" />
             <span className="truncate">{rotuloUltima(execucao)}</span>
@@ -486,7 +486,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
               whileTap={{ scale: 0.97 }}
               onClick={sincronizar}
               disabled={disparando || emAndamento}
-              className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground whitespace-nowrap transition-colors hover:bg-muted disabled:opacity-60"
+              className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground xl:whitespace-nowrap transition-colors hover:bg-muted disabled:opacity-60"
             >
               <RefreshCw size={13} className={disparando || emAndamento ? "animate-spin" : ""} />
               {emAndamento ? "Sincronizando…" : "Sincronizar"}
