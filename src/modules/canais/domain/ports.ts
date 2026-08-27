@@ -56,6 +56,17 @@ export interface SaudeConector {
 
 export interface ChannelProvider {
   buscarPedidos(desde: Date): Promise<PedidoNormalizado[]>;
+  /** Fatia o intervalo em pedaços que cabem num `step.run` do Inngest.
+   *
+   *  Quem implementa o par `janelasDePedidos`/`buscarPedidosDaJanela` permite
+   *  que a sincronização manual (A31) busque UMA janela por step, em vez dos
+   *  90 dias inteiros dentro de um step só — que estoura o `maxDuration`,
+   *  faz o Inngest reexecutar do zero e prende a execução em `em_andamento`
+   *  para sempre. Quem não implementa cai no `buscarPedidos` inteiro, que é o
+   *  suficiente para canal de volume baixo. */
+  janelasDePedidos?(desde: Date, ate?: Date): Array<{ inicioMs: number; fimMs: number }>;
+  /** Uma janela de `janelasDePedidos` — as duas andam juntas. */
+  buscarPedidosDaJanela?(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]>;
   sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void>;
   consultarEstoque(referencia: EstoqueCanalRef): Promise<number>;
   saude(): Promise<SaudeConector>;

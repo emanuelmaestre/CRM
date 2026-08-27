@@ -18,7 +18,7 @@ import {
   registrarPedidoIgnorado,
 } from "@/modules/vendas/application/pedidos-ignorados.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
-import { criarShopeeProvider, ShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
+import { criarShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
 import { emitirEvento } from "@/shared/events";
 import type { CrudContext } from "@/shared/lib/crud-factory";
@@ -263,36 +263,37 @@ export const A31_sincronizarConta = inngest.createFunction(
       // repete aquelas chamadas ao canal — era o que queimava a cota do proxy
       // em laço.
       //
-      // Na Shopee, um step por janela de 15 dias em vez de um step para os 90
-      // dias inteiros. O step único não cabia nos 300s de `maxDuration` numa
-      // loja com volume (WUWU: 1073 pedidos em 90 dias, cada um pedindo
-      // `get_order_detail` pelo proxy): estourava, o Inngest reexecutava do
-      // zero e a execução ficava presa em `em_andamento` para sempre — o
-      // varredor de abandonadas marcava Pedidos como falha e Anúncios,
-      // Avaliações e Termômetro nem chegavam a rodar, porque a fila é
-      // sequencial. E memoização só vale para step que TERMINA: o step único,
-      // que existia para poupar a cota, era justamente quem a queimava.
-      // Mesma correção já aplicada ao catálogo da Shopee, que fatia e conclui.
+      // Um step por janela em vez de um step para os 90 dias inteiros, em todo
+      // canal que saiba se fatiar (Shopee: 15 dias, limite da própria API;
+      // Mercado Livre: 3 dias, limite do orçamento do step). O step único não
+      // cabia nos 300s de `maxDuration` numa loja com volume (WUWU: 1073
+      // pedidos da Shopee em 90 dias, cada um pedindo `get_order_detail` pelo
+      // proxy): estourava, o Inngest reexecutava do zero e a execução ficava
+      // presa em `em_andamento` para sempre — o varredor de abandonadas
+      // marcava Pedidos como falha e Anúncios, Avaliações e Termômetro nem
+      // chegavam a rodar, porque a fila é sequencial. E memoização só vale
+      // para step que TERMINA: o step único, que existia para poupar a cota,
+      // era justamente quem a queimava.
       //
       // Reaproveita o provider que `resolverChannelProvider` já criou em vez
-      // de chamar `criarShopeeProvider` de novo: aquela chamada resolve
-      // credencial, e este bloco roda fora de step — ou seja, a cada
-      // reinvocação da função pelo Inngest. Duas resoluções por invocação
-      // dobravam a chance de cair na janela de renovação do token, onde o
-      // provider recusa o token do banco e lança "token OAuth expirado".
-      const providerShopee = conta.tipo === "shopee" && provider instanceof ShopeeProvider
-        ? provider
+      // de criar outro: aquela chamada resolve credencial, e este bloco roda
+      // fora de step — ou seja, a cada reinvocação da função pelo Inngest.
+      // Duas resoluções por invocação dobravam a chance de cair na janela de
+      // renovação do token, onde o provider recusa o token do banco e lança
+      // "token OAuth expirado".
+      const porJanela = provider.janelasDePedidos && provider.buscarPedidosDaJanela
+        ? { janelas: provider.janelasDePedidos.bind(provider), buscar: provider.buscarPedidosDaJanela.bind(provider) }
         : null;
       // Sem anotação de tipo de propósito: o Inngest serializa entre steps e
       // `criadoEm` volta como string, não Date. Quem normaliza é o laço de
       // ingestão logo abaixo (`new Date(pedidoBruto.criadoEm)`).
-      const pedidos = providerShopee
+      const pedidos = porJanela
         ? await (async () => {
           const acumulado = [];
-          for (const [indice, janela] of providerShopee.janelasDePedidos(dataDesde).entries()) {
+          for (const [indice, janela] of porJanela.janelas(dataDesde).entries()) {
             const daJanela = await step.run(
               `pedidos-buscar-${channelAccountId}-janela-${indice}`,
-              () => providerShopee.buscarPedidosDaJanela(janela.inicioMs, janela.fimMs),
+              () => porJanela.buscar(janela.inicioMs, janela.fimMs),
             );
             acumulado.push(...daJanela);
           }

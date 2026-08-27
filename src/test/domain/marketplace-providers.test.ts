@@ -9,6 +9,10 @@ describe("contratos dos providers de marketplace", () => {
   });
 
   it("normaliza pedidos do Mercado Livre e preserva SKU, quantidade e origem", async () => {
+    // Relógio fixo logo depois do `desde`: a busca fatia o intervalo em
+    // janelas de até 3 dias, e sem fixar o agora o teste pediria dezenas de
+    // janelas conforme a data real fosse passando.
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-07-23T08:00:00.000Z").getTime());
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "seller-1" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({

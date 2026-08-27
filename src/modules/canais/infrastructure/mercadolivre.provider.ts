@@ -601,13 +601,107 @@ export class MercadoLivreProvider implements ChannelProvider {
     return normalizarPedidoMercadoLivre(order, endereco, custoEnvio);
   }
 
-  async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
-    const me = await this.get<{ id: string }>("/users/me");
-    const data = await this.get<{
-      results?: MLOrderDetail[];
-    }>(`/orders/search?seller=${me.id}&order.date_created.from=${encodeURIComponent(desde.toISOString())}&limit=50`);
+  /** `/users/me` memoizado por instância. O id do vendedor não muda durante
+   *  uma execução, e a busca de pedidos agora percorre várias janelas, cada
+   *  uma com várias páginas — sem isto, cada uma pagaria uma chamada a mais
+   *  só para reler o mesmo id. Falha não fica grudada: o cache é limpo para
+   *  a próxima tentativa poder acontecer. */
+  private sellerIdPromise?: Promise<string>;
 
-    return Promise.all((data.results ?? []).map(async (order) => {
+  private sellerId(): Promise<string> {
+    this.sellerIdPromise ??= this.get<{ id: string }>("/users/me")
+      .then((me) => me.id)
+      .catch((erro) => {
+        this.sellerIdPromise = undefined;
+        throw erro;
+      });
+    return this.sellerIdPromise;
+  }
+
+  /** Página do /orders/search. O ML recusa `limit` a partir de 100
+   *  ("limit.maximum_exceeded"); 50 é o que já rodava aqui. */
+  private static readonly PAGINA_PEDIDOS = 50;
+
+  /** Trava contra paginação eterna: 400 páginas são 20 mil pedidos numa
+   *  janela de 3 dias, ordens de grandeza acima de qualquer volume real
+   *  destas contas. */
+  private static readonly MAX_PAGINAS_PEDIDOS = 400;
+
+  /** Tamanho máximo da janela de busca de pedidos.
+   *
+   *  Não é limite da API (o ML aceita o intervalo que for): é o orçamento de
+   *  um `step.run` do Inngest. Cada pedido custa mais duas chamadas (endereço
+   *  e custo de envio) e a sincronização manual pede 90 dias — na WUWU isso é
+   *  `paging.total` de 3.356. Em três dias cabem ~150 pedidos, uns 300
+   *  enriquecimentos em janelas de 6 chamadas simultâneas: folgado dentro dos
+   *  300s de `maxDuration`. Mesmo raciocínio da Shopee, que fatia em 15 dias
+   *  porque lá o teto é da própria API. */
+  private static readonly JANELA_MAX_PEDIDOS_MS = 3 * 24 * 60 * 60 * 1000;
+
+  /** As janelas que cobrem o intervalo pedido — uma por `step.run`.
+   *
+   *  Pública pelo mesmo motivo da irmã na Shopee: quem chama precisa poder
+   *  buscar UMA janela por vez, para que cada pedaço conclua e fique
+   *  memoizado. Step que estoura o tempo é reexecutado do zero, e aí a
+   *  memoização que existia para poupar chamadas vira o laço que as queima.
+   *
+   *  `Date.now()`, e não `new Date()`, porque o relógio é mockado com
+   *  `vi.spyOn(Date, "now")` nos testes — `new Date()` ignoraria o spy. */
+  janelasDePedidos(desde: Date, ate: Date = new Date(Date.now())): Array<{ inicioMs: number; fimMs: number }> {
+    const fim = ate.getTime();
+    const janelas: Array<{ inicioMs: number; fimMs: number }> = [];
+    let inicioJanela = desde.getTime();
+    while (inicioJanela < fim) {
+      const fimJanela = Math.min(inicioJanela + MercadoLivreProvider.JANELA_MAX_PEDIDOS_MS, fim);
+      janelas.push({ inicioMs: inicioJanela, fimMs: fimJanela });
+      inicioJanela = fimJanela;
+    }
+    return janelas;
+  }
+
+  /** Segue a paginação do /orders/search até o `paging.total` acabar.
+   *
+   *  Era uma chamada só, com `limit=50`, sem `offset` e sem `sort` — e o sort
+   *  PADRÃO do Mercado Livre é `date_asc`. Ou seja: a busca ficava com os 50
+   *  pedidos MAIS ANTIGOS do intervalo e descartava o resto em silêncio. Na
+   *  sincronização manual (90 dias, `paging.total` de 3.356 na WUWU em
+   *  27/08/2026) isso devolvia sempre os mesmos 50 pedidos de três meses
+   *  atrás, todos já no banco: a execução relatava "50 encontrados, 0 novos" e
+   *  o botão Sincronizar nunca trouxe nada novo do Mercado Livre. Na
+   *  contingência de 4h (A24) o teto ainda não era atingido, mas um dia de
+   *  pico o atingiria — e pedido que não entra ali não volta nunca, porque a
+   *  janela seguinte já passou dele. */
+  private async listarOrdersDaJanela(de: Date, ate?: Date): Promise<MLOrderDetail[]> {
+    const seller = await this.sellerId();
+    const orders: MLOrderDetail[] = [];
+
+    for (let pagina = 0; pagina < MercadoLivreProvider.MAX_PAGINAS_PEDIDOS; pagina += 1) {
+      const params = new URLSearchParams({
+        seller,
+        "order.date_created.from": de.toISOString(),
+        ...(ate ? { "order.date_created.to": ate.toISOString() } : {}),
+        // Explícito de propósito: é o padrão do ML, mas é ele que torna a
+        // paginação estável — página nova não reordena as anteriores.
+        sort: "date_asc",
+        offset: String(pagina * MercadoLivreProvider.PAGINA_PEDIDOS),
+        limit: String(MercadoLivreProvider.PAGINA_PEDIDOS),
+      });
+      const data = await this.get<{
+        results?: MLOrderDetail[];
+        paging?: { total?: number };
+      }>(`/orders/search?${params.toString()}`);
+
+      const resultados = data.results ?? [];
+      orders.push(...resultados);
+      if (resultados.length < MercadoLivreProvider.PAGINA_PEDIDOS) break;
+      if (orders.length >= (data.paging?.total ?? 0)) break;
+    }
+
+    return orders;
+  }
+
+  private async enriquecerPedidos(orders: MLOrderDetail[]): Promise<PedidoNormalizado[]> {
+    return Promise.all(orders.map(async (order) => {
       const shippingId = order.shipping?.id;
       const [endereco, custoEnvio] = await Promise.all([
         shippingId ? this.buscarEnderecoEntrega(shippingId) : Promise.resolve(null),
@@ -615,6 +709,19 @@ export class MercadoLivreProvider implements ChannelProvider {
       ]);
       return normalizarPedidoMercadoLivre(order, endereco, custoEnvio);
     }));
+  }
+
+  /** Uma janela só — ver `janelasDePedidos`. */
+  async buscarPedidosDaJanela(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]> {
+    return this.enriquecerPedidos(await this.listarOrdersDaJanela(new Date(inicioMs), new Date(fimMs)));
+  }
+
+  async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
+    const pedidos: PedidoNormalizado[] = [];
+    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde)) {
+      pedidos.push(...await this.buscarPedidosDaJanela(inicioMs, fimMs));
+    }
+    return pedidos;
   }
 
   /** Busca ativa das mensagens pós-venda (chat dentro de um pedido já
