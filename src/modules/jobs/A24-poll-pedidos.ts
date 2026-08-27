@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
@@ -89,6 +90,7 @@ export const A24_pollPedidos = inngest.createFunction(
           const pedidos = await step.run(`buscar-${conta.id}`, () => provider.buscarPedidos(desde));
           let novos = 0;
           let ignorados = 0;
+          let falhasSemCausaConhecida = 0;
           for (const pedido of pedidos) {
             const pedidoNormalizado = { ...pedido, criadoEm: new Date(pedido.criadoEm) };
             // Mesma regra do A31: um pedido ruim é problema daquele pedido, não
@@ -104,16 +106,23 @@ export const A24_pollPedidos = inngest.createFunction(
                 console.warn(
                   `[A24] pedido ${pedido.providerOrderId} (${conta.tipo}/${conta.brandSlug}) pulado: ${motivo}`,
                 );
-                return { pedidoId: "", novo: false, falhou: true };
+                // Mesma distinção do A31: causa conhecida daquele pedido
+                // (SKU sem produto na marca) não conta pro freio sistêmico.
+                return { pedidoId: "", novo: false, falhou: true, porPedido: ehErroSkuSemProduto(error) };
               }
             });
             if (resultado.novo) novos++;
-            if ("falhou" in resultado && resultado.falhou) ignorados++;
+            if ("falhou" in resultado && resultado.falhou) {
+              ignorados++;
+              if (!("porPedido" in resultado) || !resultado.porPedido) falhasSemCausaConhecida++;
+            }
           }
-          // Todos os pedidos falharem não é "pedido ruim", é problema
-          // sistêmico da conta — cai no catch abaixo, que já marca a conta como
-          // degradada e registra o motivo.
-          if (pedidos.length > 0 && ignorados === pedidos.length) {
+          // Todos os pedidos falharem PODE ser problema sistêmico da conta —
+          // cai no catch abaixo, que marca a conta como degradada. Mas numa
+          // janela com um pedido só, "todos" é um pedido: um SKU sem produto
+          // na marca degradava a conta a cada quatro minutos. O freio só vale
+          // quando ao menos uma falha não tem causa conhecida de pedido.
+          if (pedidos.length > 0 && ignorados === pedidos.length && falhasSemCausaConhecida > 0) {
             throw new Error(`Nenhum dos ${pedidos.length} pedido(s) pôde ser importado — ver logs [A24].`);
           }
           resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos, ignorados });

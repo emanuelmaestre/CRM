@@ -272,12 +272,17 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
           const resultado = execucao[campos.resultado];
           if (!permitidos.has(modulo) || resultadoOmitido(resultado)) return [];
           const status = execucao[campos.status] as StatusModuloSincronizacao;
+          const detalhe = resultado && typeof resultado === "object" ? resultado as Record<string, unknown> : null;
           return [{
             modulo,
             label: ROTULOS_MODULO[modulo],
             status,
             progresso: progressoDoModulo(status, resultado),
             erro: execucao[campos.erro] as string | null,
+            // Itens pulados por causa conhecida daquele item — o módulo
+            // concluiu, mas não trouxe tudo (ver `pendencias` abaixo).
+            ignorados: typeof detalhe?.ignorados === "number" ? detalhe.ignorados : 0,
+            motivos: Array.isArray(detalhe?.motivos) ? detalhe.motivos.filter((item): item is string => typeof item === "string") : [],
           }];
         })
       : [];
@@ -329,6 +334,27 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
     ? Math.round(ativas.reduce((total, execucao) => total + execucao.progresso, 0) / ativas.length)
     : 100;
 
+  /* Pedidos que o canal entregou mas o CRM não conseguiu ingerir por uma
+     causa conhecida daquele pedido — hoje só SKU sem produto na marca
+     (anúncio despublicado depois da venda). NÃO é falha do canal e não entra
+     em `falhas`: o alerta vermelho de "canal não respondeu" acusava a Shopee
+     de algo que ela respondeu certo. Mas também não pode sumir da tela, ou o
+     pedido fica de fora sem ninguém saber. Faixa própria, sem alarme. */
+  const pendencias = contasResultado.flatMap((conta) => {
+    const itens = conta.execucao?.modulos.flatMap((item) => (
+      item.status === "concluido" && item.ignorados > 0
+        ? [{ label: item.label, ignorados: item.ignorados, motivos: item.motivos }]
+        : []
+    )) ?? [];
+    if (itens.length === 0) return [];
+    return [{
+      contaId: conta.id,
+      canalLabel: conta.canalLabel,
+      brandLabel: conta.brandLabel,
+      itens,
+    }];
+  });
+
   const falhas = contasResultado.flatMap((conta) => {
     const comErro = conta.execucao?.modulos.filter((item) => item.status === "erro") ?? [];
     if (comErro.length === 0) return [];
@@ -365,6 +391,7 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
     emAndamento: ativas.length > 0,
     ultimaConcluida,
     falhas,
+    pendencias,
     podeSincronizar: ctx.perfil === "admin" || ctx.perfil === "gestor",
     modulosDisponiveis: [...permitidos],
     contas: contasResultado,

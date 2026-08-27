@@ -178,6 +178,7 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
   const emAndamento = painel?.emAndamento ?? false;
   const progresso = painel?.progresso ?? 0;
   const falhas = painel?.falhas ?? [];
+  const pendencias = painel?.pendencias ?? [];
   const referencia = painel?.versao ?? painel?.ultimaConcluida ?? null;
 
   const cor = primeiraCarga
@@ -406,6 +407,42 @@ export function AtualizacaoToggle({ modo }: { modo: "desktop" | "mobile" }) {
                                 : <>Este canal ainda não trouxe nenhum dado.</>}
                             </p>
                             {falha.erro && <p className="mt-1 truncate text-muted-foreground/80" title={falha.erro}>{falha.erro}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+
+                  {/* Trouxe quase tudo: o canal respondeu, mas algum item
+                      ficou de fora por um motivo dele mesmo. Cor de aviso, não
+                      de erro — antes isso era jogado no alerta vermelho de
+                      "canal não respondeu", acusando o canal por engano. */}
+                  {pendencias.length > 0 && (
+                    <motion.div
+                      initial={reduzir ? false : { opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={transicao(reduzir, springs.settleFast)}
+                      className="mt-4 rounded-xl border border-warning/25 bg-warning/[0.07] px-3 py-3"
+                    >
+                      {pendencias.map((pendencia) => (
+                        <div key={pendencia.contaId} className="flex gap-2.5">
+                          <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warning" />
+                          <div className="min-w-0 text-[11px] leading-relaxed">
+                            <p className="font-bold text-warning">
+                              {pendencia.canalLabel} respondeu · {pendencia.brandLabel}
+                            </p>
+                            {pendencia.itens.map((item) => (
+                              <div key={item.label} className="mt-0.5">
+                                <p className="text-muted-foreground">
+                                  {item.ignorados === 1
+                                    ? <>1 item de {item.label.toLowerCase()} ficou de fora. O resto entrou.</>
+                                    : <>{item.ignorados} itens de {item.label.toLowerCase()} ficaram de fora. O resto entrou.</>}
+                                </p>
+                                {item.motivos.map((motivo) => (
+                                  <p key={motivo} className="mt-0.5 text-muted-foreground/80">{motivo}</p>
+                                ))}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       ))}

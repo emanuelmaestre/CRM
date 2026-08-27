@@ -233,6 +233,7 @@ export const A31_sincronizarConta = inngest.createFunction(
       const skusSemProduto = new Set<string>();
       const motivosDeFalha = new Set<string>();
       let ignorados = 0;
+      let falhasSemCausaConhecida = 0;
       for (let indice = 0; indice < pedidos.length; indice++) {
         const pedidoBruto = pedidos[indice];
         const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
@@ -243,11 +244,15 @@ export const A31_sincronizarConta = inngest.createFunction(
           async () => {
             try {
               const ingerido = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
-              return { novo: ingerido.novo, motivo: null as string | null, skus: [] as string[] };
+              return { novo: ingerido.novo, motivo: null as string | null, porPedido: false, skus: [] as string[] };
             } catch (error) {
               return {
                 novo: false,
                 motivo: erroLegivel(error).slice(0, 200),
+                // Causa conhecida DAQUELE pedido (SKU sem produto na marca)
+                // versus causa desconhecida, que pode ser da conta toda —
+                // a diferença decide o freio logo abaixo do laço.
+                porPedido: ehErroSkuSemProduto(error),
                 skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
               };
             }
@@ -255,6 +260,7 @@ export const A31_sincronizarConta = inngest.createFunction(
         );
         if (resultado.motivo) {
           ignorados += 1;
+          if (!resultado.porPedido) falhasSemCausaConhecida += 1;
           motivosDeFalha.add(resultado.motivo);
           for (const sku of resultado.skus) skusSemProduto.add(sku);
         } else if (resultado.novo) {
@@ -269,10 +275,16 @@ export const A31_sincronizarConta = inngest.createFunction(
           ));
         }
       }
-      // Se NENHUM pedido entrou e todos falharam, o problema não é "um pedido
-      // ruim" — é sistêmico (credencial, banco, formato do canal). Aí sim o
-      // módulo falha, pra não reportar sucesso em cima de uma leva vazia.
-      if (pedidos.length > 0 && ignorados === pedidos.length) {
+      // Se NENHUM pedido entrou e todos falharam, o problema PODE ser
+      // sistêmico (credencial, banco, formato do canal). Só que "todos"
+      // engana quando a leva é pequena: com um pedido só na janela, um SKU
+      // sem produto na marca virava 100% de falha e derrubava a conta
+      // inteira, com um alerta vermelho de "Shopee não respondeu" pra algo
+      // que a Shopee respondeu perfeitamente. Aconteceu de verdade em
+      // 26/08/2026 na ARMARINHOS LIMA. Por isso o freio exige ao menos uma
+      // falha SEM causa conhecida: quando toda a leva parou em erro de
+      // pedido (ErroSkuSemProduto), isso é `ignorados`, não falha da conta.
+      if (pedidos.length > 0 && ignorados === pedidos.length && falhasSemCausaConhecida > 0) {
         throw new Error(
           `Nenhum dos ${pedidos.length} pedido(s) pôde ser importado: ${[...motivosDeFalha].join(" | ")}`,
         );
