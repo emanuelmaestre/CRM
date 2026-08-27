@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CircleSlash, Loader2, PackageX, RotateCw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -48,12 +49,12 @@ function dataCurta(valor: string | Date | null): string {
     : data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
-function Pendencia({ linha, podeDescartar, onMudou }: {
+function Pendencia({ linha, podeDescartar }: {
   linha: PedidoIgnoradoLinha;
   podeDescartar: boolean;
-  onMudou: () => void;
 }) {
   const [pendente, iniciar] = useTransition();
+  const router = useRouter();
   const reduzir = useReducedMotion();
   const causa = CAUSAS[linha.causa] ?? CAUSAS.desconhecida;
   const fechado = linha.descartadoEm !== null;
@@ -71,7 +72,9 @@ function Pendencia({ linha, podeDescartar, onMudou }: {
         // texto que já estava na tela.
         toast.error(`Ainda não entrou: ${resultado.motivo}`, { duration: 8000 });
       }
-      onMudou();
+      // Busca o estado real em vez de adivinhar: quando o replay falha, a
+      // linha CONTINUA na fila, agora com a causa e o motivo regravados.
+      router.refresh();
     });
   }
 
@@ -79,7 +82,9 @@ function Pendencia({ linha, podeDescartar, onMudou }: {
     iniciar(async () => {
       await actionDescartarPedidoIgnorado(linha.id, desfazer);
       toast.success(desfazer ? "Pendência devolvida à fila." : "Pendência descartada.");
-      onMudou();
+      // Busca o estado real em vez de adivinhar: quando o replay falha, a
+      // linha CONTINUA na fila, agora com a causa e o motivo regravados.
+      router.refresh();
     });
   }
 
@@ -160,21 +165,20 @@ function Pendencia({ linha, podeDescartar, onMudou }: {
   );
 }
 
-export function PedidosIgnoradosLista({ linhasIniciais, podeDescartar, incluirFechados }: {
-  linhasIniciais: PedidoIgnoradoLinha[];
+export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }: {
+  linhas: PedidoIgnoradoLinha[];
   podeDescartar: boolean;
   incluirFechados: boolean;
 }) {
-  const [linhas, setLinhas] = useState(linhasIniciais);
-  const [atualizando, iniciar] = useTransition();
-
-  // A ação já revalida a rota; isto tira da tela na hora a linha que saiu da
-  // fila, sem esperar o servidor responder com a lista inteira.
-  function removerLocalmente(id: string) {
-    if (incluirFechados) return;
-    setLinhas((atuais) => atuais.filter((linha) => linha.id !== id));
-  }
-
+  // A lista vem direto das props, sem cópia em estado local.
+  //
+  // A primeira versão guardava `useState(linhasIniciais)` e removia a linha
+  // na mão depois de cada ação. Dois defeitos: `useState` ignora props novas,
+  // então o `revalidatePath` da action recarregava o servidor e a tela
+  // continuava mostrando a lista velha; e a remoção era feita mesmo quando o
+  // reprocessamento FALHAVA — a pendência sumia da tela sem ter saído da
+  // fila, reaparecendo no próximo carregamento. Agora quem manda é o
+  // servidor, e `router.refresh()` traz o estado real depois de cada ação.
   const abertas = linhas.filter((linha) => linha.descartadoEm === null).length;
 
   return (
@@ -207,18 +211,12 @@ export function PedidosIgnoradosLista({ linhasIniciais, podeDescartar, incluirFe
           <motion.ul layout className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {linhas.map((linha) => (
-                <Pendencia
-                  key={linha.id}
-                  linha={linha}
-                  podeDescartar={podeDescartar}
-                  onMudou={() => iniciar(() => removerLocalmente(linha.id))}
-                />
+                <Pendencia key={linha.id} linha={linha} podeDescartar={podeDescartar} />
               ))}
             </AnimatePresence>
           </motion.ul>
         </>
       )}
-      {atualizando && <span className="sr-only">Atualizando</span>}
     </div>
   );
 }

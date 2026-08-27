@@ -20,7 +20,7 @@ export default async function PedidosIgnoradosPage({ searchParams }: {
 
   return (
     <PedidosIgnoradosLista
-      linhasIniciais={linhas}
+      linhas={linhas}
       podeDescartar={permissions.podeDescartar}
       incluirFechados={incluirFechados}
     />

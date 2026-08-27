@@ -200,6 +200,22 @@ export async function listarPedidosIgnorados(
   }));
 }
 
+/** Quantas pendências estão em aberto. Existe separado de
+ *  `listarPedidosIgnorados` porque a tela de Vendas só precisa do número —
+ *  carregar 500 linhas com payload para exibir "3" seria desperdício numa
+ *  página que já faz quatro consultas. */
+export async function contarPedidosIgnoradosAbertos(ctx: { orgId: string }): Promise<number> {
+  const [linha] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(pedidoIgnorado)
+    .where(and(
+      eq(pedidoIgnorado.orgId, ctx.orgId),
+      isNull(pedidoIgnorado.resolvidoEm),
+      isNull(pedidoIgnorado.descartadoEm),
+    ));
+  return linha?.total ?? 0;
+}
+
 /** Reprocessa o pedido a partir do payload guardado — SEM chamar o canal.
  *
  *  O que muda entre uma tentativa e outra não é o pedido: é o CRM. Pedido é

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, PlugZap2 } from "lucide-react";
+import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, PlugZap2, PackageX } from "lucide-react";
 import { actionListarPedidosDetalhados } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -344,12 +344,14 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
   );
 }
 
-export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
+export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorados = 0 }: {
   /** Contagens já resolvidas no servidor (ver page.tsx) — chegam junto com o
    *  HTML, então as pílulas de filtro aparecem no primeiro quadro em vez de
    *  esperarem duas idas ao servidor depois que o JavaScript liga. */
   marcasIniciais?: Marca[];
   canaisIniciais?: Canal[];
+  /** Pendências em aberto na fila de recusados. Zero esconde o aviso. */
+  ignorados?: number;
 }) {
   const reduzir = useReducedMotion();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -645,6 +647,20 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "pedido" : "pedidos"}
             </span>
           </div>
+          {/* Só aparece quando há o que resolver. Um item fixo na navegação
+              global disputaria espaço na barra do celular com Métricas,
+              Vendas, Estoque e Publicidade por uma tela que, na operação
+              saudável, fica vazia — aqui o aviso nasce junto dos pedidos e
+              some sozinho quando a fila zera. */}
+          {ignorados > 0 && (
+            <a
+              href="/vendas/pedidos-ignorados"
+              className="press-feedback inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-500/20"
+            >
+              <PackageX size={13} />
+              {ignorados} {ignorados === 1 ? "não importado" : "não importados"}
+            </a>
+          )}
         </div>
 
         <div

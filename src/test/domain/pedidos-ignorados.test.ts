@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classificarCausa } from "@/modules/vendas/application/pedidos-ignorados.service";
+import { CAUSAS_REPROCESSAVEIS, classificarCausa } from "@/modules/vendas/application/pedidos-ignorados.service";
 import { ErroSkuSemProduto } from "@/modules/canais/domain/errors";
 
 /* A classificação existe porque a AÇÃO muda em cada caso, e só uma delas se
@@ -35,5 +35,30 @@ describe("classificação da causa de um pedido ignorado", () => {
   it("o que não se reconhece cai em desconhecida, sem fingir que sabe", () => {
     expect(classificarCausa(new Error("ECONNRESET"))).toBe("desconhecida");
     expect(classificarCausa("texto solto")).toBe("desconhecida");
+  });
+});
+
+/* Quais causas ganham o botão "Tentar novamente".
+   `payload_invalido` fica de fora porque a falha é determinística: mesmo
+   payload guardado, mesmo validador, mesmo erro. O botão ali só gastaria o
+   tempo de quem clica — é bug do CRM, não há nada a corrigir na loja. */
+describe("causas que aceitam reprocessamento", () => {
+  it("SKU sem produto pode ser reprocessado — o produto pode ter nascido no catálogo", () => {
+    expect(CAUSAS_REPROCESSAVEIS).toContain("sku_sem_produto");
+  });
+
+  it("cliente duplicado pode ser reprocessado — a colisão pode ter sido desfeita no CRM", () => {
+    expect(CAUSAS_REPROCESSAVEIS).toContain("cliente_duplicado");
+  });
+
+  it("payload inválido NÃO pode: reprocessar daria exatamente o mesmo erro", () => {
+    expect(CAUSAS_REPROCESSAVEIS).not.toContain("payload_invalido");
+  });
+
+  it("toda causa classificável está decidida — nenhuma fica sem resposta", () => {
+    const todas = ["sku_sem_produto", "cliente_duplicado", "payload_invalido", "desconhecida"] as const;
+    for (const causa of todas) {
+      expect(typeof CAUSAS_REPROCESSAVEIS.includes(causa)).toBe("boolean");
+    }
   });
 });

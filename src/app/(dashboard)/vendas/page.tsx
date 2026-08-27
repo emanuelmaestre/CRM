@@ -2,6 +2,7 @@ import pagesConfig from "@/config/pages.json";
 import { requirePageAuth } from "@/shared/lib/auth/session";
 import { PedidosLista } from "./pedidos/pedidos-lista";
 import { actionObterFiltrosPedidos } from "./actions";
+import { actionContarPedidosIgnorados } from "./pedidos-ignorados/actions";
 
 export const metadata = { title: pagesConfig.pedidos.metadataTitle };
 
@@ -12,8 +13,12 @@ export const metadata = { title: pagesConfig.pedidos.metadataTitle };
 export default async function VendasPage() {
   await requirePageAuth();
 
-  const { marcas, canais } = await actionObterFiltrosPedidos()
-    .catch(() => ({ marcas: [], canais: [] }));
+  const [{ marcas, canais }, ignorados] = await Promise.all([
+    actionObterFiltrosPedidos().catch(() => ({ marcas: [], canais: [] })),
+    // Nunca derruba a página de Vendas: a fila de recusados é aviso, não o
+    // trabalho. Sem o número, o aviso simplesmente não aparece.
+    actionContarPedidosIgnorados().catch(() => 0),
+  ]);
 
-  return <PedidosLista marcasIniciais={marcas} canaisIniciais={canais} />;
+  return <PedidosLista marcasIniciais={marcas} canaisIniciais={canais} ignorados={ignorados} />;
 }

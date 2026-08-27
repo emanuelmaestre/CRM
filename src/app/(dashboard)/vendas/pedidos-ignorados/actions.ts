@@ -3,10 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
+  contarPedidosIgnoradosAbertos,
   descartarPedidoIgnorado,
   listarPedidosIgnorados,
   reprocessarPedidoIgnorado,
 } from "@/modules/vendas/application/pedidos-ignorados.service";
+
+export async function actionContarPedidosIgnorados() {
+  const ctx = await getCrudContext();
+  return contarPedidosIgnoradosAbertos(ctx);
+}
 
 export async function actionListarPedidosIgnorados(incluirFechados = false) {
   const ctx = await getCrudContext();
