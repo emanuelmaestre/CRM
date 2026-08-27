@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
-import { toast } from "sonner";
 import { BadgeDollarSign, Eye, Gauge, LayoutGrid, Megaphone, MousePointerClick, Package, ShieldCheck, TriangleAlert, Wallet } from "lucide-react";
 import { actionObterDesempenhoPublicacoes } from "./actions";
 import { Card, CardHead, AvisoParcial } from "./metricas-primitives";
@@ -15,7 +14,7 @@ import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system
 import { traduzirNivelQualidade, traduzirPendenciaPublicacao } from "@/shared/lib/pt-br";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { getBrandConfig, isBrandSlug, marcaFixadaPelosCanais } from "@/shared/config/brands";
+import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { inteiro, moeda } from "@/shared/design-system/format";
 import { springs, staggerExagerado, entradaExagerada, variantes } from "@/shared/design-system/motion-variants";
 
@@ -213,22 +212,15 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
   }
 
   function alternarMarca(id: string) {
-    const marca = marcas.find((item) => item.brandId === id);
-    if (marca && marcaFixadaPelosCanais(marca.slug, canalAtivo ? ["mercadolivre"] : [])) {
-      toast.info(`${marca.marcaLabel} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
-      return;
-    }
     setBrandIds((atual) => (
       atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]
     ));
   }
 
+  // Ligar/desligar o canal não mexe mais na seleção de marca: marcar o
+  // Mercado Livre acrescentava a KARZI sozinho e depois não deixava tirar.
   function alternarMercadoLivre() {
-    const proximoCanalAtivo = !canalAtivo;
-    setCanalAtivo(proximoCanalAtivo);
-    if (!proximoCanalAtivo) return;
-    const karzi = marcas.find((marca) => marca.slug === "karzi");
-    if (karzi) setBrandIds((atuais) => atuais.includes(karzi.brandId) ? atuais : [...atuais, karzi.brandId]);
+    setCanalAtivo((atual) => !atual);
   }
 
   const CANAIS_FUTUROS = [
@@ -272,12 +264,9 @@ export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
     <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Marcas das publicações">
       {marcas.map((marca) => {
         const ativo = brandIds.includes(marca.brandId);
-        const fixadaPeloCanal = marcaFixadaPelosCanais(marca.slug, canalAtivo ? ["mercadolivre"] : []);
         const accent = isBrandSlug(marca.slug) ? getBrandConfig(marca.slug)?.color : undefined;
         return (
           <motion.button key={marca.brandId} type="button" role="switch" aria-checked={ativo} aria-label={marca.marcaLabel}
-            aria-disabled={fixadaPeloCanal}
-            title={fixadaPeloCanal ? `${marca.marcaLabel} é incluída pelo filtro do Mercado Livre.` : undefined}
             onClick={() => alternarMarca(marca.brandId)}
             whileHover={{ y: -2, scale: 1.04 }}
             whileTap={{ scale: 0.92 }}

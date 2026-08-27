@@ -10,7 +10,6 @@ import {
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
-  marcaFixadaPelosCanais,
 } from "@/shared/config/brands";
 import channelsConfig from "@/config/channels.json";
 
@@ -112,10 +111,6 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
   }
 
   function alternarMarca(marca: ScopeMarca) {
-    if (marcaFixadaPelosCanais(marca.slug, filtro.canal)) {
-      toast.info(`${marca.nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
-      return;
-    }
     onChange({ ...filtro, brandId: alternar(filtro.brandId, marca.brandId) });
   }
 

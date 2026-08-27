@@ -7,7 +7,6 @@ import {
   BRAND_SLUGS,
   ajustarMarcasSelecionadasAosCanais,
   marcaDisponivelNosCanais,
-  marcaFixadaPelosCanais,
 } from "@/shared/config/brands";
 
 export function AvaliacoesCliente({ itensIniciais }: {
@@ -34,7 +33,6 @@ export function AvaliacoesCliente({ itensIniciais }: {
   const [contagens, setContagens] = useState(contagensIniciais);
 
   function alternarMarca(slug: string) {
-    if (marcaFixadaPelosCanais(slug, [...canaisAtivos])) return;
     if (!marcaDisponivelNosCanais(slug, [...canaisAtivos])) return;
     setMarcasAtivas((atual) => {
       const proximo = new Set(atual);

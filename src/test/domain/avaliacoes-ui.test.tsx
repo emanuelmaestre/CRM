@@ -38,6 +38,10 @@ describe("filtros de Avaliações", () => {
 
     fireEvent.click(mercadoLivre);
     expect(mercadoLivre).toHaveAttribute("aria-pressed", "true");
+    // O canal não marca empresa nenhuma sozinho.
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByText(/^Produto /)).toHaveLength(15);
 
@@ -73,8 +77,13 @@ describe("filtros de Avaliações", () => {
     expect(karzi).toHaveAttribute("aria-disabled", "true");
     expect(karzi).toHaveAttribute("aria-pressed", "false");
 
+    // Com o Mercado Livre junto ela volta a operar — mas quem marca é o clique.
     fireEvent.click(mercadoLivre);
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(karzi);
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(mercadoLivre);
     expect(karzi).toHaveAttribute("aria-disabled", "true");

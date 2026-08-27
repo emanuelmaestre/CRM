@@ -4,7 +4,6 @@ import {
   ajustarMarcasSelecionadasAosCanais,
   canaisDaMarca,
   marcaDisponivelNosCanais,
-  marcaFixadaPelosCanais,
 } from "@/shared/config/brands";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
 
@@ -37,14 +36,18 @@ describe("canais de venda por marca", () => {
     expect(marcaDisponivelNosCanais("karzi", [])).toBe(true);
   });
 
-  it("seleciona a KARZI com Mercado Livre e a remove ao ficar somente Shopee", () => {
+  it("nao marca empresa sozinha ao escolher um canal, so tira a incompativel", () => {
     const marcas = [
       { id: "karzi-id", slug: "karzi" },
       { id: "wuwu-id", slug: "wuwu" },
     ];
 
-    expect(ajustarMarcasSelecionadasAosCanais([], ["mercadolivre"], marcas)).toEqual(["karzi-id"]);
+    // Mercado Livre nao acrescenta a KARZI: quem escolhe a empresa e o usuario.
+    expect(ajustarMarcasSelecionadasAosCanais([], ["mercadolivre"], marcas)).toEqual([]);
+    expect(ajustarMarcasSelecionadasAosCanais(["wuwu-id"], ["mercadolivre"], marcas)).toEqual(["wuwu-id"]);
+    // KARZI selecionada continua selecionada com Mercado Livre, e da pra tirar.
+    expect(ajustarMarcasSelecionadasAosCanais(["karzi-id"], ["mercadolivre"], marcas)).toEqual(["karzi-id"]);
+    // Shopee, onde a KARZI nao opera, e o unico caso que remove.
     expect(ajustarMarcasSelecionadasAosCanais(["karzi-id", "wuwu-id"], ["shopee"], marcas)).toEqual(["wuwu-id"]);
-    expect(marcaFixadaPelosCanais("karzi", ["mercadolivre"])).toBe(true);
   });
 });

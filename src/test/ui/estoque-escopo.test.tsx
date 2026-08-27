@@ -149,10 +149,13 @@ describe("Estoque — escopo por empresa", () => {
 
   it("recontagem das empresas acompanha o(s) canal(is) selecionado(s)", async () => {
     render(<EstoqueLista />);
-    await screen.findByRole("button", { name: "KARZI" });
+    const karzi = await screen.findByRole("button", { name: "KARZI" });
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
+    // Canal sozinho não é escopo (e não marca empresa nenhuma no lugar de
+    // quem clicou) — a empresa continua sendo um clique à parte.
+    fireEvent.click(karzi);
 
     await waitFor(() => {
       expect(listarProdutos).toHaveBeenCalledWith(
@@ -164,13 +167,17 @@ describe("Estoque — escopo por empresa", () => {
     });
   });
 
-  it("Mercado Livre seleciona a KARZI automaticamente e abre a lista", async () => {
+  it("Mercado Livre não marca empresa nenhuma sozinho; a KARZI abre a lista no clique dela", async () => {
     render(<EstoqueLista />);
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     const karzi = await screen.findByRole("button", { name: "KARZI" });
     fireEvent.click(ml);
 
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByTestId("estoque-table")).not.toBeInTheDocument();
+
+    fireEvent.click(karzi);
     await waitFor(() => {
       expect(listarProdutos).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -181,6 +188,10 @@ describe("Estoque — escopo por empresa", () => {
     });
     expect(karzi).toHaveAttribute("aria-pressed", "true");
     expect(await screen.findByTestId("estoque-table")).toBeInTheDocument();
+
+    // E dá pra desmarcar com o Mercado Livre ligado — a trava que não deixava.
+    fireEvent.click(karzi);
+    await waitFor(() => expect(karzi).toHaveAttribute("aria-pressed", "false"));
   });
 
   it("bloqueia a KARZI quando somente a Shopee esta selecionada", async () => {
@@ -195,7 +206,10 @@ describe("Estoque — escopo por empresa", () => {
     expect(karzi).toHaveAttribute("aria-disabled", "true");
     expect(karzi).toHaveAttribute("aria-pressed", "false");
 
+    // Com o Mercado Livre junto ela volta a operar, mas só marca no clique.
     fireEvent.click(ml);
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(ml);
@@ -280,6 +294,7 @@ describe("Estoque — escopo por empresa", () => {
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
+    fireEvent.click(await screen.findByRole("button", { name: "KARZI" }));
     await waitFor(() => {
       expect(listarProdutos).toHaveBeenCalledWith(
         expect.objectContaining({

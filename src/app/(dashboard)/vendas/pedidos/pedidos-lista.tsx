@@ -23,7 +23,6 @@ import {
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
-  marcaFixadaPelosCanais,
 } from "@/shared/config/brands";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
@@ -180,11 +179,10 @@ function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; red
    lado a lado, ao contrário do card duplo empilhado que existia antes — pra
    ocupar menos altura de tela sem perder a separação visual das duas
    perguntas (uma linha vertical entre os grupos já basta). */
-function MarcaPill({ marca, ativo, indisponivelPeloCanal, fixadaPeloCanal, onClick }: {
+function MarcaPill({ marca, ativo, indisponivelPeloCanal, onClick }: {
   marca: Marca;
   ativo: boolean;
   indisponivelPeloCanal: boolean;
-  fixadaPeloCanal: boolean;
   onClick: () => void;
 }) {
   const reduzir = useReducedMotion();
@@ -206,20 +204,16 @@ function MarcaPill({ marca, ativo, indisponivelPeloCanal, fixadaPeloCanal, onCli
       variants={entradaExagerada}
       onClick={indisponivelPeloCanal
         ? () => toast.info(motivoIndisponivel)
-        : fixadaPeloCanal
-          ? () => toast.info(`${marca.nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`)
-          : bloqueadaPorDados ? undefined : onClick}
+        : bloqueadaPorDados ? undefined : onClick}
       disabled={bloqueadaPorDados}
-      aria-disabled={indisponivelPeloCanal || fixadaPeloCanal}
+      aria-disabled={indisponivelPeloCanal}
       whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={marca.nome}
       title={indisponivelPeloCanal
         ? motivoIndisponivel
-        : fixadaPeloCanal
-          ? `${marca.nome} é incluída pelo filtro do Mercado Livre.`
-          : bloqueadaPorDados ? copy.brandSelector.emptyHint.replace("{marca}", marca.nome) : undefined}
+        : bloqueadaPorDados ? copy.brandSelector.emptyHint.replace("{marca}", marca.nome) : undefined}
       className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
@@ -414,8 +408,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
            não religa enquanto o canal for esse. */
         const invalidas = res.marcas.filter((marca) =>
           marca.total === 0
-          && (marcas ?? []).includes(marca.brandId)
-          && !marcaFixadaPelosCanais(marca.slug, canaisAtual ?? []));
+          && (marcas ?? []).includes(marca.brandId));
         if (invalidas.length > 0) {
           setBrandIds((atual) => atual.filter((id) => !invalidas.some((marca) => marca.brandId === id)));
           for (const marca of invalidas) {
@@ -470,10 +463,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   }
 
   function alternarMarca(marca: Marca) {
-    if (marcaFixadaPelosCanais(marca.slug, canaisSel)) {
-      toast.info(`${marca.nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
-      return;
-    }
     if (!marcaDisponivelNosCanais(marca.slug, canaisSel)) {
       toast.info(`${marca.nome} não opera nos canais selecionados.`);
       return;
@@ -520,7 +509,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                 marca={marca}
                 ativo={brandIds.includes(marca.brandId)}
                 indisponivelPeloCanal={!marcaDisponivelNosCanais(marca.slug, canaisSel)}
-                fixadaPeloCanal={marcaFixadaPelosCanais(marca.slug, canaisSel)}
                 onClick={() => alternarMarca(marca)}
               />
             ))}

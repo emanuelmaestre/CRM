@@ -241,6 +241,9 @@ describe("cards de Métricas", () => {
     expect(obterPublicacoes).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("switch", { name: /mercado livre/i }));
+    // O canal não marca a marca sozinho — são os dois passos que o texto pede.
+    expect(screen.getByRole("switch", { name: /karzi/i })).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(screen.getByRole("switch", { name: /karzi/i }));
     expect(screen.getByRole("switch", { name: /karzi/i })).toHaveAttribute("aria-checked", "true");
     expect(await screen.findAllByText("Impressões")).not.toHaveLength(0);
     expect(screen.getAllByText("Cliques").length).toBeGreaterThan(0);

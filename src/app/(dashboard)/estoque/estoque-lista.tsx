@@ -30,7 +30,6 @@ import {
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
-  marcaFixadaPelosCanais,
 } from "@/shared/config/brands";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
@@ -551,13 +550,12 @@ function CanalPill({ tipo, conectado, ativo, onClick }: {
 
    Não existe pílula "Todas": a tela abre sem escopo e clicar na empresa ativa
    volta para esse estado — a mesma regra de toggle do trilho de filtros. */
-function MarcaPill({ nome, slug, total, ativo, indisponivelPeloCanal, fixadaPeloCanal, onClick }: {
+function MarcaPill({ nome, slug, total, ativo, indisponivelPeloCanal, onClick }: {
   nome: string;
   slug: string;
   total: number;
   ativo: boolean;
   indisponivelPeloCanal: boolean;
-  fixadaPeloCanal: boolean;
   onClick: () => void;
 }) {
   const reduzir = useReducedMotion();
@@ -578,20 +576,16 @@ function MarcaPill({ nome, slug, total, ativo, indisponivelPeloCanal, fixadaPelo
       variants={entradaExagerada}
       onClick={indisponivelPeloCanal
         ? () => toast.info(motivoIndisponivel)
-        : fixadaPeloCanal
-          ? () => toast.info(`${nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`)
-          : bloqueadaPorDados ? undefined : onClick}
+        : bloqueadaPorDados ? undefined : onClick}
       disabled={bloqueadaPorDados}
-      aria-disabled={indisponivelPeloCanal || fixadaPeloCanal}
+      aria-disabled={indisponivelPeloCanal}
       whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       aria-pressed={ativo}
       aria-label={nome}
       title={indisponivelPeloCanal
         ? motivoIndisponivel
-        : fixadaPeloCanal
-          ? `${nome} é incluída pelo filtro do Mercado Livre.`
-          : bloqueadaPorDados ? copy.brandSelector.emptyHint.replace("{marca}", nome) : undefined}
+        : bloqueadaPorDados ? copy.brandSelector.emptyHint.replace("{marca}", nome) : undefined}
       className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
         bloqueada
           ? "border border-border opacity-40 cursor-not-allowed"
@@ -832,10 +826,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
 
   function alternarMarca(brandId: string) {
     const marca = marcas.find((item) => item.brandId === brandId);
-    if (marca && marcaFixadaPelosCanais(marca.slug, canaisArray)) {
-      toast.info(`${marca.name} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`);
-      return;
-    }
     if (marca && !marcaDisponivelNosCanais(marca.slug, canaisArray)) {
       toast.info(`${marca.name} não opera nos canais selecionados.`);
       return;
@@ -895,7 +885,6 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
               total={marca.total}
               ativo={brandIds.has(marca.brandId)}
               indisponivelPeloCanal={!marcaDisponivelNosCanais(marca.slug, canaisArray)}
-              fixadaPeloCanal={marcaFixadaPelosCanais(marca.slug, canaisArray)}
               onClick={() => alternarMarca(marca.brandId)}
             />
           ))}

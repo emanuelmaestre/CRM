@@ -24,18 +24,33 @@ function SeletorTeste() {
 }
 
 describe("compatibilidade entre canais e marcas", () => {
-  it("seleciona KARZI com Mercado Livre e a bloqueia quando sobra apenas Shopee", () => {
+  it("Mercado Livre nao marca a KARZI sozinho, e ela continua livre pra ligar e desligar", () => {
     render(<SeletorTeste />);
 
     const mercadoLivre = screen.getByRole("button", { name: "Mercado Livre" });
-    const shopee = screen.getByRole("button", { name: "Shopee" });
     const karzi = screen.getByRole("button", { name: "KARZI" });
 
     fireEvent.click(mercadoLivre);
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(karzi);
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
+
+    // O ponto da reclamação: com o Mercado Livre ligado, dá pra desmarcar.
+    fireEvent.click(karzi);
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("bloqueia a KARZI quando sobra apenas Shopee, canal onde ela nao opera", () => {
+    render(<SeletorTeste />);
+
+    const shopee = screen.getByRole("button", { name: "Shopee" });
+    const karzi = screen.getByRole("button", { name: "KARZI" });
+
+    fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(shopee);
-    fireEvent.click(mercadoLivre);
     expect(karzi).toHaveAttribute("aria-pressed", "false");
     expect(karzi).toHaveAttribute("aria-disabled", "true");
     expect(karzi).toHaveAttribute("title", "KARZI não opera nos canais selecionados.");

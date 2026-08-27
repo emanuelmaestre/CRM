@@ -10,7 +10,6 @@ import {
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
-  marcaFixadaPelosCanais,
 } from "@/shared/config/brands";
 import channelsConfig from "@/config/channels.json";
 
@@ -54,7 +53,6 @@ function EmpresaPill({ nome, slug, total, ativo, canaisAtivos, onClick }: {
   // aí continua clicável só pra dar pra desmarcar.
   const canaisLista = [...canaisAtivos];
   const indisponivelPeloCanal = !marcaDisponivelNosCanais(slug, canaisLista);
-  const fixadaPeloCanal = marcaFixadaPelosCanais(slug, canaisLista);
   const bloqueadaPorDados = total === 0 && !ativo;
   const bloqueada = bloqueadaPorDados || indisponivelPeloCanal;
   const motivoIndisponivel = `${nome} não opera nos canais selecionados.`;
@@ -63,18 +61,14 @@ function EmpresaPill({ nome, slug, total, ativo, canaisAtivos, onClick }: {
       type="button"
       onClick={indisponivelPeloCanal
         ? () => toast.info(motivoIndisponivel)
-        : fixadaPeloCanal
-          ? () => toast.info(`${nome} é selecionada automaticamente enquanto o Mercado Livre estiver ativo.`)
-          : bloqueadaPorDados ? undefined : onClick}
+        : bloqueadaPorDados ? undefined : onClick}
       disabled={bloqueadaPorDados}
-      aria-disabled={indisponivelPeloCanal || fixadaPeloCanal}
+      aria-disabled={indisponivelPeloCanal}
       aria-pressed={ativo}
       aria-label={nome}
       title={indisponivelPeloCanal
         ? motivoIndisponivel
-        : fixadaPeloCanal
-          ? `${nome} é incluída pelo filtro do Mercado Livre.`
-          : bloqueadaPorDados ? `${nome} não tem avaliações no período.` : undefined}
+        : bloqueadaPorDados ? `${nome} não tem avaliações no período.` : undefined}
       whileHover={!bloqueada && !reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!bloqueada && !reduzir ? { scale: 0.92 } : undefined}
       className={`relative inline-flex h-11 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-full px-4 transition-colors ${
