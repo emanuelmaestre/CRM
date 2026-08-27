@@ -450,16 +450,26 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
           flex do resto — no mobile, quando a linha estourava, o botão de
           atualizar sobrava sozinho longe do texto que ele atualiza. Agora
           formam um grupo só, que quebra (ou não) como unidade. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+      {/* Mobile: canal em cima, empresas embaixo, Período por último — cada
+          grupo com `w-full` para ocupar a própria fileira, e `md:contents`
+          desfazendo o agrupamento a partir do md, de volta à fileira única.
+
+          Sem o `w-full`, os dois grupos disputavam a mesma linha e a quebra
+          passava a depender de quantas pílulas existiam naquele instante: com
+          a Shopee selecionada a KARZI some (ela não opera Shopee), sobravam
+          3 canais + 2 empresas, tudo cabia numa fileira só, e o cabeçalho
+          mudava de forma conforme o canal escolhido. É o mesmo padrão que
+          Campanhas e Histórico já usavam — a página principal ficou de fora
+          quando as sub-páginas foram corrigidas. */}
+      <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
+        <div className="order-1 flex w-full justify-center gap-1.5 md:order-none md:contents">
           <SeletorCanalAnuncios />
+        </div>
+        <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
           <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
         </div>
-        {/* Período, Hoje, PDF e sincronizar viram um grupo só — antes o
-            período ficava colado nas pílulas de marca/canal, empurrando
-            PDF/sincronizar pra outra linha por conta própria. Juntos aqui,
-            tentam caber numa linha só e só quebram quando não cabe mesmo. */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 sm:justify-start sm:gap-3">
+        <span className="hidden h-px flex-1 bg-border md:block" />
+        <div className="order-3 flex w-full justify-center md:order-none md:contents">
           <CalendarioPopoverRange
             rotulo="Período"
             valor={periodo}
