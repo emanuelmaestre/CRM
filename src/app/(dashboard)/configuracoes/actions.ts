@@ -23,6 +23,16 @@ import {
   salvarMapeamentoCanalConfiguracao,
 } from "@/modules/canais/application/configuracao-canais.service";
 import { obterUsoApiShopee } from "@/modules/canais/application/shopee-uso.service";
+import {
+  encerrarRelacaoCanal,
+  listarCanaisEncerramento,
+  reabrirRelacaoCanal,
+} from "@/modules/canais/application/encerramento-canal.service";
+import {
+  autorizarExclusaoCanal,
+  estadoAutorizacaoExclusao,
+  executarExclusaoCanal,
+} from "@/modules/canais/application/autorizacao-exclusao.service";
 import { listarProdutos } from "@/modules/estoque/application/estoque.service";
 import {
   confirmarLoteHistorico,
@@ -112,6 +122,41 @@ export async function actionFinalizarBackup(backupId: unknown) {
 
 export async function actionListarBackups() {
   return listarBackups(await getCrudContext());
+}
+
+/* Encerramento de relação e exclusão dos dados de um canal. São quatro ações
+   separadas de propósito: encerrar, assinar, executar e reabrir. Nenhuma
+   delas faz a seguinte, e a exclusão só corre depois de três admins distintos
+   terem assinado com a própria senha — ver autorizacao-exclusao.service.ts. */
+
+export async function actionListarCanaisEncerramento() {
+  return listarCanaisEncerramento(await getCrudContext());
+}
+
+export async function actionEncerrarRelacaoCanal(channelAccountId: string) {
+  const resultado = await encerrarRelacaoCanal(await getCrudContext(), channelAccountId);
+  revalidatePath("/configuracoes");
+  return resultado;
+}
+
+export async function actionReabrirRelacaoCanal(channelAccountId: string) {
+  const resultado = await reabrirRelacaoCanal(await getCrudContext(), channelAccountId);
+  revalidatePath("/configuracoes");
+  return resultado;
+}
+
+export async function actionEstadoAutorizacaoExclusao(channelAccountId: string) {
+  return estadoAutorizacaoExclusao(await getCrudContext(), channelAccountId);
+}
+
+export async function actionAutorizarExclusaoCanal(input: unknown) {
+  return autorizarExclusaoCanal(await getCrudContext(), input);
+}
+
+export async function actionExecutarExclusaoCanal(channelAccountId: string) {
+  const resultado = await executarExclusaoCanal(await getCrudContext(), channelAccountId);
+  revalidatePath("/configuracoes");
+  return resultado;
 }
 
 export async function actionBaixarBackup(backupId: unknown) {

@@ -14,6 +14,7 @@ import { CanaisPorMarca } from "./CanaisPorMarca";
 import { useMercadoLivreStatus } from "./useMercadoLivreStatus";
 import { AutomacoesSection } from "./AutomacoesSection";
 import { BackupSection } from "./BackupSection";
+import { EncerramentoCanalSection } from "./EncerramentoCanalSection";
 import { SincronizacaoSection } from "./SincronizacaoSection";
 import { UsuariosSection } from "./UsuariosSection";
 import { RotinasAgendadasSection } from "./RotinasAgendadasSection";
@@ -368,6 +369,16 @@ export default function ConfiguracoesPage() {
             abertoInicialMobile={false}
           >
             <BackupSection />
+          </Card>
+
+          <Card
+            title="Encerramento de canal e exclusão de dados"
+            description="Exclusão dos dados de um canal cuja relação acabou — manual, com autorização de três administradores"
+            icon={getIcon("Shield")}
+            colapsavelMobile
+            abertoInicialMobile={false}
+          >
+            <EncerramentoCanalSection />
           </Card>
         </div>
 

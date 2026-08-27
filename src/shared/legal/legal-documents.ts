@@ -356,7 +356,7 @@ export const legalDocuments = {
           summary: "Apoio a solicitações de titulares, exclusão ao fim da relação e aviso de incidente de segurança.",
           body: [
             "Atendimento a solicitações: quando um titular exerce um direito diretamente com a plataforma (TikTok Shop, Shopee, Mercado Livre) ou com o vendedor autorizado, e a solicitação é encaminhada ao Elisa Lima CRM, a operadora atende ao pedido de acesso, correção, atualização, portabilidade, anonimização ou exclusão dos dados daquele titular em até 15 dias corridos do recebimento, e confirma por escrito a quem encaminhou. O mesmo canal vale para pedidos vindos da própria plataforma.",
-            "Encerramento da relação: encerrado o contrato, revogada a autorização ou desconectada a conta de canal, os tokens são invalidados imediatamente e todos os dados coletados daquele canal são excluídos em até 30 dias corridos, inclusive das cópias de backup dentro do ciclo de retenção destas. Só permanece o mínimo que a lei obrigue reter (por exemplo, dados fiscais de pedidos), em base segregada, sem uso operacional, e essa retenção é informada por escrito quando solicitada.",
+            "Encerramento da relação: encerrado o contrato, revogada a autorização ou desconectada a conta de canal, os tokens são invalidados imediatamente e a coleta cessa na mesma hora. A exclusão dos dados já coletados daquele canal é executada mediante solicitação da plataforma ou do vendedor autorizado, sem demora injustificada. A execução é sempre manual e nunca automática: exige autorização de três administradores distintos, cada um confirmando com a própria credencial, controle deliberado para que uma credencial comprometida ou um comando equivocado não destrua histórico de forma irreversível. Cada execução é registrada em log de auditoria com data, responsáveis e volume afetado, e esse registro é fornecido por escrito a quem solicitar. Só permanece o mínimo que a lei obrigue reter (por exemplo, dados fiscais de pedidos), sem uso operacional.",
             "Incidente de segurança: confirmado um acesso não autorizado, perda, alteração indevida ou vazamento que envolva dados pessoais ou dados de conta obtidos das plataformas, a operadora comunica a plataforma afetada e os vendedores afetados em até 72 horas da confirmação, pelo canal oficial de suporte ao desenvolvedor e por producao@elisalima.com.br, informando natureza do incidente, dados e titulares envolvidos, medidas técnicas já tomadas e plano de correção, com atualizações até o encerramento. A comunicação à ANPD e aos titulares segue a LGPD.",
           ],
           // `bullets`, não `table`: este documento não renderiza `table` (as
@@ -365,7 +365,7 @@ export const legalDocuments = {
           // de plataforma procura primeiro.
           bullets: [
             "Solicitação de titular encaminhada pela plataforma ou pelo vendedor: atendida em até 15 dias corridos.",
-            "Fim da relação, revogação ou desconexão: tokens invalidados na hora e dados excluídos em até 30 dias corridos.",
+            "Fim da relação, revogação ou desconexão: tokens invalidados na hora; exclusão dos dados executada mediante solicitação, sem demora injustificada, sob autorização de três administradores distintos.",
             "Incidente de segurança confirmado: plataforma e vendedores afetados avisados em até 72 horas.",
           ],
         },
@@ -474,8 +474,9 @@ export const legalDocuments = {
             { label: "Operacional", value: "Operacional", detail: "Logs de execução, auditoria e saúde das integrações. Usados para suporte, segurança e rastreabilidade. Retidos por período limitado e sem finalidade comercial." },
           ],
           bullets: [
-            "Encerrada a relação, revogada a autorização ou desconectada a conta, os tokens são invalidados na hora e os dados daquele canal são excluídos em até 30 dias corridos.",
-            "Permanece somente o mínimo que a lei obriga reter, em base segregada e sem uso operacional, informado por escrito quando solicitado.",
+            "Encerrada a relação, revogada a autorização ou desconectada a conta, os tokens são invalidados na hora e a coleta cessa; a exclusão dos dados daquele canal é executada mediante solicitação, sem demora injustificada.",
+            "A exclusão nunca é automática: exige autorização de três administradores distintos e fica registrada em log de auditoria com data, responsáveis e volume afetado.",
+            "Permanece somente o mínimo que a lei obriga reter, sem uso operacional, informado por escrito quando solicitado.",
             "Dados de plataforma não são vendidos, licenciados nem transferidos a terceiros.",
           ],
         },
@@ -523,11 +524,11 @@ export const legalDocuments = {
           body: [
             "Quando um titular exerce um direito diretamente com a plataforma ou com o vendedor autorizado e a solicitação é encaminhada à operadora, o pedido de acesso, correção, atualização, portabilidade, anonimização ou exclusão é atendido em até 15 dias corridos do recebimento, com confirmação por escrito a quem encaminhou.",
             "O mesmo canal e o mesmo prazo valem para pedidos vindos diretamente da plataforma. A operadora pode solicitar confirmação de identidade antes de executar, para não atender pedido fraudulento em nome de terceiro.",
-            "Encerrada a relação contratual, revogada a autorização ou desconectada a conta de canal, os tokens são invalidados imediatamente e todos os dados coletados daquele canal são excluídos em até 30 dias corridos, inclusive das cópias de backup dentro do ciclo de retenção destas.",
+            "Encerrada a relação contratual, revogada a autorização ou desconectada a conta de canal, os tokens são invalidados imediatamente e a coleta cessa na mesma hora. A exclusão dos dados já coletados daquele canal é executada mediante solicitação, sem demora injustificada, sempre por operação manual autorizada por três administradores distintos e registrada em log de auditoria.",
           ],
           bullets: [
             "Solicitação de titular: atendida em até 15 dias corridos.",
-            "Fim da relação, revogação ou desconexão: tokens invalidados na hora, dados excluídos em até 30 dias corridos.",
+            "Fim da relação, revogação ou desconexão: tokens invalidados na hora; exclusão executada mediante solicitação, sob autorização de três administradores distintos.",
             "Canal único para os dois casos: producao@elisalima.com.br.",
           ],
         },
@@ -814,14 +815,14 @@ export const legalDocuments = {
           summary: "Support for user requests, deletion at the end of the relationship and security incident notification.",
           body: [
             "Support for user requests: when a data subject exercises a right directly with the platform (TikTok Shop, Shopee, Mercado Livre) or with the authorized seller, and the request is forwarded to Elisa Lima CRM, the operator fulfils the request to access, correct, update, port, anonymize or delete that data subject's data within 15 calendar days of receipt, and confirms completion in writing to whoever forwarded it. The same channel applies to requests raised by the platform itself.",
-            "End of the relationship: upon contract termination, revocation of authorization or disconnection of a channel account, tokens are invalidated immediately and all data collected from that channel is deleted within 30 calendar days, including from backup copies within their retention cycle. Only the minimum that law requires is kept (for example, tax records of orders), in a segregated store, with no operational use, and such retention is disclosed in writing on request.",
+            "End of the relationship: upon contract termination, revocation of authorization or disconnection of a channel account, tokens are invalidated immediately and collection stops at once. Deletion of the data already collected from that channel is carried out upon request from the platform or the authorized seller, without undue delay. Execution is always manual and never automated: it requires authorization from three distinct administrators, each confirming with their own credential — a deliberate control so that a compromised credential or a mistaken command cannot irreversibly destroy history. Every execution is recorded in an audit log with the date, the responsible administrators and the volume affected, and that record is provided in writing on request. Only the minimum that law requires is kept (for example, tax records of orders), with no operational use.",
             "Security incident: once unauthorized access, loss, improper alteration or leakage involving personal data or platform account data is confirmed, the operator notifies the affected platform and the affected sellers within 72 hours of confirmation, through the official developer support channel and producao@elisalima.com.br, describing the nature of the incident, the data and data subjects involved, technical measures already taken and the remediation plan, with updates until closure. Notification to the Brazilian ANPD and to data subjects follows the LGPD.",
           ],
           // See the note on the Portuguese section: this document renders
           // `bullets`, not `table`.
           bullets: [
             "User request forwarded by the platform or the seller: fulfilled within 15 calendar days.",
-            "End of relationship, revocation or disconnection: tokens invalidated immediately and data deleted within 30 calendar days.",
+            "End of relationship, revocation or disconnection: tokens invalidated immediately; deletion carried out upon request, without undue delay, under authorization from three distinct administrators.",
             "Confirmed security incident: affected platform and sellers notified within 72 hours.",
           ],
         },
@@ -930,8 +931,9 @@ export const legalDocuments = {
             { label: "Operational", value: "Operational", detail: "Execution logs, audit records and integration health. Used for support, security and traceability. Retained for a limited period and with no commercial purpose." },
           ],
           bullets: [
-            "On termination, revocation of authorization or account disconnection, tokens are invalidated immediately and that channel's data is deleted within 30 calendar days.",
-            "Only the minimum that law requires is retained, in a segregated store with no operational use, disclosed in writing on request.",
+            "On termination, revocation of authorization or account disconnection, tokens are invalidated immediately and collection stops; that channel's data is deleted upon request, without undue delay.",
+            "Deletion is never automated: it requires authorization from three distinct administrators and is recorded in an audit log with the date, the responsible administrators and the volume affected.",
+            "Only the minimum that law requires is retained, with no operational use, disclosed in writing on request.",
             "Platform data is never sold, licensed or transferred to third parties.",
           ],
         },
@@ -979,11 +981,11 @@ export const legalDocuments = {
           body: [
             "When a data subject exercises a right directly with the platform or with the authorized seller and the request is forwarded to the operator, the request for access, correction, update, portability, anonymization or deletion is fulfilled within 15 calendar days of receipt, with written confirmation to whoever forwarded it.",
             "The same channel and deadline apply to requests coming directly from the platform. The operator may request identity confirmation before acting, so as not to serve a fraudulent request made in someone else's name.",
-            "On contract termination, revocation of authorization or disconnection of a channel account, tokens are invalidated immediately and all data collected from that channel is deleted within 30 calendar days, including from backup copies within their retention cycle.",
+            "On contract termination, revocation of authorization or disconnection of a channel account, tokens are invalidated immediately and collection stops at once. Deletion of the data already collected from that channel is carried out upon request, without undue delay, always as a manual operation authorized by three distinct administrators and recorded in an audit log.",
           ],
           bullets: [
             "Data subject request: fulfilled within 15 calendar days.",
-            "End of relationship, revocation or disconnection: tokens invalidated immediately, data deleted within 30 calendar days.",
+            "End of relationship, revocation or disconnection: tokens invalidated immediately; deletion carried out upon request, under authorization from three distinct administrators.",
             "Single channel for both cases: producao@elisalima.com.br.",
           ],
         },

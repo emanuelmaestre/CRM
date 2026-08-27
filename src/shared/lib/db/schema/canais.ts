@@ -24,12 +24,47 @@ export const channelAccount = pgTable("channel_account", {
   meta: jsonb("meta"),
   ultimaVerificacao: timestamp("ultima_verificacao", { withTimezone: true }),
   ultimoErro: text("ultimo_erro"),
+  /** Quando a relação com este canal foi encerrada de propósito — não é o
+   *  mesmo que `status = "desconectado"`, que também acontece por token
+   *  expirado ou canal fora do ar. É daqui que saem os 30 dias corridos de
+   *  exclusão prometidos publicamente em /security; reconectar limpa a data
+   *  e cancela a contagem. */
+  encerradoEm: timestamp("encerrado_em", { withTimezone: true }),
+  /** Carimbo de quando a exclusão dos dados daquele canal foi executada.
+   *  Preenchido é prova de cumprimento; é o que se mostra a uma plataforma
+   *  que pergunte se os dados dela foram mesmo apagados. */
+  dadosExcluidosEm: timestamp("dados_excluidos_em", { withTimezone: true }),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("idx_channel_org").on(t.orgId),
   index("idx_channel_brand").on(t.brandId),
   uniqueIndex("uq_channel_account_org_brand_tipo").on(t.orgId, t.brandId, t.tipo),
+]);
+
+/** Assinatura de um admin autorizando a exclusão dos dados de um canal.
+ *
+ *  A exclusão é irreversível e nenhuma rotina automática a executa: são
+ *  precisas TRÊS pessoas distintas, cada uma confirmando com a própria senha.
+ *  Uma linha por assinatura; o índice único impede que o mesmo admin assine
+ *  três vezes e destranque sozinho.
+ *
+ *  As assinaturas valem para UM encerramento: reconectar o canal apaga as
+ *  linhas, para que autorização velha não fique valendo para um encerramento
+ *  futuro que ninguém reviu. */
+export const exclusaoCanalAutorizacao = pgTable("exclusao_canal_autorizacao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
+  /** Referência solta a `app_user.id` de propósito: a assinatura tem que
+   *  sobreviver à remoção do usuário, senão o registro de quem autorizou
+   *  desaparece junto com a pessoa. */
+  autorizadoPorId: uuid("autorizado_por_id").notNull(),
+  autorizadoPorEmail: text("autorizado_por_email").notNull(),
+  autorizadoEm: timestamp("autorizado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex("uq_exclusao_autorizacao_conta_admin").on(t.channelAccountId, t.autorizadoPorId),
+  index("idx_exclusao_autorizacao_conta").on(t.channelAccountId),
 ]);
 
 export const sincronizacaoModuloStatusEnum = pgEnum("sincronizacao_modulo_status", [
