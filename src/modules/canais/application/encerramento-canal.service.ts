@@ -4,6 +4,7 @@ import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { camposAnonimizadosCliente } from "@/modules/clientes/domain/anonimizacao";
 import {
   auditLog,
+  brand,
   channelAccount,
   cliente,
   clienteIdentidade,
@@ -26,6 +27,9 @@ export type CanalEncerramento = {
   id: string;
   tipo: string;
   nome: string;
+  /** Slug da marca dona da conta. A tela colore a linha com a cor da marca
+   *  (brands.json) — saber de quem é o dado é parte de decidir apagá-lo. */
+  brandSlug: string;
   status: string;
   encerradoEm: Date | null;
   dadosExcluidosEm: Date | null;
@@ -46,26 +50,28 @@ export async function listarCanaisEncerramento(ctx: CrudContext): Promise<CanalE
   assertPerfil(ctx, ["admin"]);
 
   const linhas = await ctx.db.execute<{
-    id: string; tipo: string; nome: string; status: string;
+    id: string; tipo: string; nome: string; brand_slug: string; status: string;
     encerrado_em: Date | null; dados_excluidos_em: Date | null;
     assinaturas: number; clientes_afetados: number;
   }>(sql`
     select
-      c.id, c.tipo, c.nome, c.status,
+      c.id, c.tipo, c.nome, b.slug as brand_slug, c.status,
       c.encerrado_em, c.dados_excluidos_em,
       (select count(*)::int from ${exclusaoCanalAutorizacao} a
          where a.channel_account_id = c.id) as assinaturas,
       (select count(distinct p.cliente_id)::int from ${pedido} p
          where p.org_id = ${ctx.orgId} and p.channel_account_id = c.id) as clientes_afetados
     from ${channelAccount} c
+    join ${brand} b on b.id = c.brand_id
     where c.org_id = ${ctx.orgId}
-    order by c.tipo, c.nome
+    order by c.tipo, clientes_afetados desc, c.nome
   `);
 
   return linhas.map((l) => ({
     id: l.id,
     tipo: l.tipo,
     nome: l.nome,
+    brandSlug: l.brand_slug,
     status: l.status,
     encerradoEm: l.encerrado_em,
     dadosExcluidosEm: l.dados_excluidos_em,

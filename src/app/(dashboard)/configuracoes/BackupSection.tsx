@@ -26,23 +26,6 @@ function formatarTamanho(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function StatusHistorico({ status }: { status: string }) {
-  const config = status === "concluido"
-    ? { label: "Concluído", cor: "var(--success)" }
-    : status === "falhou"
-      ? { label: "Falhou", cor: "var(--destructive)" }
-      : { label: "Processando", cor: "var(--info)" };
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold"
-      style={{ background: tint(config.cor, 10), color: config.cor }}
-    >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: config.cor }} />
-      {config.label}
-    </span>
-  );
-}
-
 /** Uma linha do checklist. O ícone "carimba" ao virar concluído — scale
  *  0.6→1 numa spring curta, só nesse instante — em vez de trocar
  *  instantaneamente de traço pontilhado pra check, o que passava batido. */
@@ -151,14 +134,29 @@ export function BackupSection() {
   }
 
   const emAndamento = rodando || finalizando;
+  const ultimaConcluida = historico?.find((item) => item.status === "concluido") ?? null;
 
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1.5">
-          <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[.06em] text-muted-foreground">
-            <DatabaseBackup size={13} />
-            Exportar
+        {/* No lugar do rótulo "EXPORTAR", que só repetia o título do card e o
+            texto do próprio botão: a única coisa que alguém quer saber antes
+            de clicar — quando foi a última cópia que deu certo. */}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="min-w-0 text-[12.5px] text-muted-foreground">
+            {ultimaConcluida ? (
+              <>
+                Última cópia:{" "}
+                <span className="font-semibold text-foreground">
+                  {dataHora.format(new Date(ultimaConcluida.createdAt))}
+                </span>
+                {ultimaConcluida.tamanhoBytes ? ` · ${formatarTamanho(ultimaConcluida.tamanhoBytes)}` : ""}
+              </>
+            ) : historico === null ? (
+              "Carregando…"
+            ) : (
+              "Nenhuma cópia gerada ainda."
+            )}
           </p>
           <AnimatedInfoPopover
             trigger={(
@@ -298,30 +296,47 @@ export function BackupSection() {
       {historico !== null && historico.length > 0 && (
         <div className="mt-4">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[.06em] text-muted-foreground">Histórico</p>
-          <ul className="divide-y divide-border overflow-hidden rounded-[0.9rem] border border-border">
+          {/* Sem caixa com borda em volta: o card da seção já é a moldura, e
+              a borda dupla engordava a lista sem separar nada. A falha perde
+              o chip vermelho — uma tentativa que não deu certo semanas atrás
+              não precisa gritar toda vez que a página abre; fica em cinza,
+              legível e fora do caminho. */}
+          <ul className="divide-y divide-border/60">
             {historico.map((item) => {
               const totalLinhas = Array.isArray(item.tabelas)
                 ? (item.tabelas as Array<{ linhas: number }>).reduce((soma, t) => soma + t.linhas, 0)
                 : null;
+              const falhou = item.status === "falhou";
               return (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-[12.5px]">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 font-semibold text-foreground">
-                      {dataHora.format(new Date(item.createdAt))}
-                      <StatusHistorico status={item.status} />
-                    </p>
-                    <p className="mt-0.5 text-muted-foreground">
-                      {item.solicitadoPorNome ?? "Não identificado"}
-                      {totalLinhas !== null && ` · ${totalLinhas} registros`}
-                      {item.tamanhoBytes && ` · ${formatarTamanho(item.tamanhoBytes)}`}
-                      {item.status === "falhou" && item.erro && ` · ${item.erro}`}
-                    </p>
+                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-[12.5px]">
+                  <div className="flex min-w-0 items-start gap-2.5">
+                    <span
+                      aria-hidden
+                      className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                      style={{
+                        background: falhou
+                          ? "var(--border)"
+                          : item.status === "concluido" ? "var(--success)" : "var(--info)",
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className={`font-semibold ${falhou ? "text-muted-foreground" : "text-foreground"}`}>
+                        {dataHora.format(new Date(item.createdAt))}
+                        {falhou && <span className="ml-2 font-medium">não concluída</span>}
+                      </p>
+                      <p className="mt-0.5 text-muted-foreground">
+                        {item.solicitadoPorNome ?? "Não identificado"}
+                        {totalLinhas !== null && ` · ${totalLinhas} registros`}
+                        {item.tamanhoBytes && ` · ${formatarTamanho(item.tamanhoBytes)}`}
+                        {falhou && item.erro && ` · ${item.erro}`}
+                      </p>
+                    </div>
                   </div>
                   {item.status === "concluido" && (
                     <button
                       type="button"
                       onClick={() => baixarAnterior(item.id)}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-[0.6rem] border border-border px-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                      className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
                     >
                       <Download size={12} />
                       Baixar
