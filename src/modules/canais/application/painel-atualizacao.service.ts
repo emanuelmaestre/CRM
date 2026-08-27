@@ -4,6 +4,7 @@ import { brand, channelAccount } from "@/shared/lib/db/schema";
 import {
   CAMPOS_MODULO_SINCRONIZACAO,
   INTERVALO_MINIMO_VERIFICACAO_MS,
+  LIMITE_EXECUCAO_ABANDONADA_MS,
   MODULOS_SINCRONIZACAO,
   progressoDoModulo,
   resultadoOmitido,
@@ -348,7 +349,15 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
       atualidade,
       execucao: execucao ? {
         id: execucao.id,
-        emAndamento: !execucao.finalizadoEm && modulos.length > 0,
+        // Execução sem `finalizado_em` que já passou do limite de abandono
+        // NÃO conta como em andamento. Sem isso, uma execução morta mantinha
+        // o anel do cabeçalho girando para sempre — em 27/08/2026 ele marcava
+        // 36% com nada rodando, enquanto a própria Central já mostrava aquela
+        // execução como "Finalizada com alerta". Dois lados discordando sobre
+        // a mesma linha.
+        emAndamento: !execucao.finalizadoEm
+          && modulos.length > 0
+          && agora - new Date(execucao.iniciadoEm).getTime() <= LIMITE_EXECUCAO_ABANDONADA_MS,
         iniciadoEm: new Date(execucao.iniciadoEm).toISOString(),
         finalizadoEm: iso(execucao.finalizadoEm),
         progresso: modulos.length > 0

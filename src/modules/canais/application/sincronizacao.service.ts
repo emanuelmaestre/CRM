@@ -4,6 +4,7 @@ import { channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
 import { inngest } from "@/shared/lib/inngest/client";
 import {
   CAMPOS_MODULO_SINCRONIZACAO,
+  LIMITE_EXECUCAO_ABANDONADA_MS,
   INTERVALO_MINIMO_VERIFICACAO_MS,
   MODULOS_SINCRONIZACAO,
   type ModuloSincronizacao,
@@ -44,6 +45,28 @@ export async function dispararSincronizacaoConta(
     .then((rows) => rows[0]);
   if (ativa && Date.now() - ativa.iniciadoEm.getTime() <= LIMITE_EXECUCAO_ABANDONADA_MS) {
     return ativa;
+  }
+
+  /* Execução abandonada é ENCERRADA no banco, não só na leitura.
+     `obterUltimaSincronizacaoConta` sintetiza o desfecho ao ler, sem gravar:
+     a Central mostrava "Finalizada com alerta" enquanto a linha seguia com
+     `finalizado_em` nulo. Aí os dois lados discordavam sobre a mesma
+     execução — o cabeçalho do painel a contava como ativa (o anel parado em
+     36% em 27/08/2026, com nada rodando) e ela ficava aberta para sempre.
+     Fechar aqui, antes de criar a próxima, é o que faz os dois lados
+     concordarem e impede que linhas mortas se acumulem. */
+  if (ativa) {
+    const encerramento: Partial<typeof sincronizacaoExecucao.$inferInsert> = { finalizadoEm: new Date() };
+    for (const modulo of MODULOS_SINCRONIZACAO) {
+      const campos = CAMPOS_MODULO_SINCRONIZACAO[modulo];
+      if (ativa[campos.status] === "pendente" || ativa[campos.status] === "em_andamento") {
+        (encerramento as Record<string, unknown>)[campos.status] = "erro";
+        if (!ativa[campos.erro]) (encerramento as Record<string, unknown>)[campos.erro] = MOTIVO_ABANDONADA;
+      }
+    }
+    await ctx.db.update(sincronizacaoExecucao)
+      .set(encerramento)
+      .where(eq(sincronizacaoExecucao.id, ativa.id));
   }
 
   const solicitados = new Set<ModuloSincronizacao>(
@@ -121,18 +144,13 @@ export async function dispararSincronizacaoConta(
   return execucao;
 }
 
-/** Depois disto, uma execução sem `finalizado_em` é considerada abandonada.
- *
- *  Uma execução normal leva poucos minutos. Se o job morre sem gravar o
+/** Uma execução normal leva poucos minutos. Se o job morre sem gravar o
  *  desfecho — função morta pelo limite de tempo, deploy no meio, Inngest
- *  desistindo depois das tentativas — a linha fica "em andamento" para
- *  sempre e a tela gira sem fim, sem nenhuma forma de a pessoa saber que
- *  já acabou. Aconteceu em 25/08/2026: uma execução ficou girando 45+
- *  minutos depois de o job ter parado. A folga é generosa de propósito:
- *  errar marcando como falha uma execução que ainda vive é pior do que
+ *  desistindo depois das tentativas — a linha fica "em andamento" para sempre
+ *  e a tela gira sem fim. Aconteceu em 25/08/2026 (45+ minutos girando) e de
+ *  novo em 27/08. A folga de `LIMITE_EXECUCAO_ABANDONADA_MS` é generosa de
+ *  propósito: marcar como falha uma execução que ainda vive é pior do que
  *  demorar um pouco pra desistir de uma morta. */
-const LIMITE_EXECUCAO_ABANDONADA_MS = 30 * 60 * 1_000;
-
 const MOTIVO_ABANDONADA = "Execução interrompida: o job parou de responder. Sincronize de novo.";
 
 /** Última execução (em andamento ou concluída) de uma conta — o que a tela

@@ -1,3 +1,11 @@
+/** Depois disto, uma execução sem `finalizado_em` é considerada abandonada.
+ *
+ *  Mora no domínio porque três lados precisam concordar sobre o mesmo
+ *  número: quem dispara (encerra a morta antes de criar a próxima), quem lê
+ *  a última execução, e o painel (que não pode contar morta como ativa —
+ *  era o anel parado em 36% com nada rodando). */
+export const LIMITE_EXECUCAO_ABANDONADA_MS = 30 * 60 * 1_000;
+
 /** Intervalo mínimo entre duas verificações manuais do mesmo módulo na
  *  mesma conta. Existe pra que dois cliques (ou duas pessoas) não gastem
  *  cota da Shopee/Webshare refazendo em seguida o que acabou de rodar. */
