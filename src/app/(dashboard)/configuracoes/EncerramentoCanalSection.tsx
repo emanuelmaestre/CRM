@@ -105,9 +105,11 @@ export function EncerramentoCanalSection() {
     }
   }
 
-  // Só canal com conta e com dado dentro interessa aqui; canal sem comprador
-  // nenhum não tem o que excluir e só polui a lista.
-  const relevantes = canais.filter((c) => c.clientesAfetados > 0 || c.encerradoEm);
+  // Todas as contas aparecem, inclusive as que ainda não têm comprador
+  // nenhum. Esconder as vazias era mais limpo, mas deixava de fora justamente
+  // o canal que uma plataforma recém-conectada teria — e é a ela que se
+  // precisa demonstrar que o mecanismo de exclusão cobre o canal dela.
+  const relevantes = canais;
 
   if (carregando) {
     return (
@@ -121,7 +123,7 @@ export function EncerramentoCanalSection() {
   if (relevantes.length === 0) {
     return (
       <p className="py-4 text-[12.5px] text-muted-foreground">
-        Nenhum canal com dados de comprador para excluir.
+        Nenhuma conta de canal cadastrada.
       </p>
     );
   }
@@ -153,7 +155,9 @@ export function EncerramentoCanalSection() {
                 <p className="text-[11.5px] text-muted-foreground">
                   {ROTULO_CANAL[canal.tipo] ?? canal.tipo}
                   {" · "}
-                  {canal.clientesAfetados} {canal.clientesAfetados === 1 ? "comprador" : "compradores"}
+                  {canal.clientesAfetados === 0
+                    ? "nenhum comprador ainda"
+                    : `${canal.clientesAfetados} ${canal.clientesAfetados === 1 ? "comprador" : "compradores"}`}
                 </p>
               </div>
 
@@ -169,6 +173,10 @@ export function EncerramentoCanalSection() {
                       {liberado ? "Liberado para excluir" : `Faltam ${faltam}`}
                     </Etiqueta>
                   </>
+                ) : canal.clientesAfetados === 0 ? (
+                  // Sem comprador não há o que excluir, e dizer isso é mais
+                  // honesto do que "Relação ativa" numa conta que nunca vendeu.
+                  <Etiqueta cor="var(--muted-foreground)">Sem dados de comprador</Etiqueta>
                 ) : (
                   <Etiqueta cor="var(--success)">Relação ativa</Etiqueta>
                 )}
