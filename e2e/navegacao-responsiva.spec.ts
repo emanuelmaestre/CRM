@@ -51,6 +51,7 @@ test.describe("Navegação responsiva — 4 breakpoints", () => {
       } else {
         const topNav = page.locator("header nav");
         await expect(topNav).toBeVisible();
+        await expect(page.locator("nav.fixed.bottom-0")).toBeHidden();
       }
     });
   }
