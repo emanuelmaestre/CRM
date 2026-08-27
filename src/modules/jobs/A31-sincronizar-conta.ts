@@ -12,6 +12,11 @@ import {
 } from "@/modules/estoque/application/importar-catalogo.service";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
+import {
+  classificarCausa,
+  marcarPedidoIgnoradoResolvido,
+  registrarPedidoIgnorado,
+} from "@/modules/vendas/application/pedidos-ignorados.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { criarShopeeProvider, ShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
@@ -344,6 +349,11 @@ export const A31_sincronizarConta = inngest.createFunction(
               try {
                 const ingerido = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
                 if (ingerido.novo) saida.novos += 1;
+                // Fecha o laço: se este pedido já tinha sido recusado, a linha
+                // é marcada como resolvida em vez de apagada — o histórico de
+                // quanto tempo ficou parado é o que mostra se o processo de
+                // correção no canal está funcionando.
+                await marcarPedidoIgnoradoResolvido(orgId, channelAccountId, pedidoBruto.providerOrderId);
               } catch (error) {
                 // Falha de UM pedido não derruba o lote, do mesmo jeito que
                 // antes não derrubava a leva.
@@ -354,6 +364,19 @@ export const A31_sincronizarConta = inngest.createFunction(
                 if (ehErroSkuSemProduto(error)) {
                   for (const sku of error.skus ?? []) if (!saida.skus.includes(sku)) saida.skus.push(sku);
                 }
+                // Registra o pedido recusado com a causa classificada. Sem
+                // isto o que sobrava era só a mensagem, sem repetição, sem
+                // saber qual pedido — e nenhuma tela conseguiria listar nada.
+                await registrarPedidoIgnorado({
+                  orgId,
+                  brandId: conta.brandId,
+                  channelAccountId,
+                  providerOrderId: pedidoBruto.providerOrderId,
+                  causa: classificarCausa(error),
+                  motivo,
+                  skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
+                  payload: pedidoBruto as unknown as Record<string, unknown>,
+                });
               }
             }
             return saida;

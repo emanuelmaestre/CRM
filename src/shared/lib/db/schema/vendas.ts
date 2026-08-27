@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, numeric, integer, pgEnum, index, uniqueIndex,
+  pgTable, uuid, text, timestamp, numeric, integer, pgEnum, index, uniqueIndex, jsonb,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { org, brand } from "./org";
@@ -111,3 +111,53 @@ export const oportunidade = pgTable("oportunidade", {
   index("idx_oportunidade_cliente").on(t.clienteId),
 ]);
 
+
+/** Pedido que o canal entregou e o CRM não conseguiu ingerir.
+ *
+ *  Antes disto, o único vestígio de um pedido recusado era `motivos` dentro
+ *  de `sincronizacao_execucao.pedidos_resultado`: uma lista de mensagens SEM
+ *  REPETIÇÃO. Dava pra saber que 346 pedidos ficaram de fora e quais SKUs
+ *  apareciam, mas não QUAIS pedidos, de que dia, de que valor, de qual
+ *  comprador — a informação era descartada a cada execução. Sem ela não há
+ *  como montar uma tela pra alguém resolver caso a caso.
+ *
+ *  `payload` guarda o pedido como o canal entregou, então a tela mostra data,
+ *  total e comprador sem precisar bater na API de novo.
+ *
+ *  `resolvidoEm` fecha o laço: quando o mesmo `providerOrderId` finalmente
+ *  entra (porque o anúncio voltou, o SKU foi corrigido na loja, etc.), a
+ *  linha é marcada em vez de apagada — o histórico de "isto ficou 3 semanas
+ *  parado" é o que mostra se o processo está funcionando. */
+export const pedidoIgnoradoCausaEnum = pgEnum("pedido_ignorado_causa", [
+  /** SKU do item não existe como produto da marca. Resolve-se no canal. */
+  "sku_sem_produto",
+  /** Comprador colidiu com cadastro existente (telefone/e-mail únicos). */
+  "cliente_duplicado",
+  /** O canal devolveu o pedido fora do formato esperado. */
+  "payload_invalido",
+  /** Qualquer outra falha — some quando ganhar classificação própria. */
+  "desconhecida",
+]);
+
+export const pedidoIgnorado = pgTable("pedido_ignorado", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  brandId: uuid("brand_id").notNull().references(() => brand.id),
+  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
+  providerOrderId: text("provider_order_id").notNull(),
+  causa: pedidoIgnoradoCausaEnum("causa").notNull().default("desconhecida"),
+  motivo: text("motivo").notNull(),
+  /** SKUs que faltaram, quando a causa é `sku_sem_produto`. */
+  skus: text("skus").array(),
+  payload: jsonb("payload"),
+  tentativas: integer("tentativas").notNull().default(1),
+  primeiraVezEm: timestamp("primeira_vez_em", { withTimezone: true }).notNull().defaultNow(),
+  ultimaVezEm: timestamp("ultima_vez_em", { withTimezone: true }).notNull().defaultNow(),
+  resolvidoEm: timestamp("resolvido_em", { withTimezone: true }),
+}, (t) => [
+  // Um pedido recusado é UMA linha por conta de canal, atualizada a cada
+  // tentativa — senão cada sincronização criaria 346 linhas novas.
+  uniqueIndex("uq_pedido_ignorado_conta_pedido").on(t.channelAccountId, t.providerOrderId),
+  index("idx_pedido_ignorado_org_pendente").on(t.orgId, t.resolvidoEm),
+  index("idx_pedido_ignorado_causa").on(t.orgId, t.causa),
+]);
