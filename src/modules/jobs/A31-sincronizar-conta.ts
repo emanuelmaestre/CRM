@@ -298,46 +298,66 @@ export const A31_sincronizarConta = inngest.createFunction(
       const motivosDeFalha = new Set<string>();
       let ignorados = 0;
       let falhasSemCausaConhecida = 0;
-      for (let indice = 0; indice < pedidos.length; indice++) {
-        const pedidoBruto = pedidos[indice];
-        const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
-        // Um step por pedido, como o A24 já fazia: cada ingestão tem seu
-        // próprio orçamento de tempo e fica memoizada ao concluir.
-        const resultado = await step.run(
-          `pedidos-ingerir-${channelAccountId}-${pedidoBruto.providerOrderId}`,
+      // EM LOTE, não um step por pedido.
+      //
+      // O Inngest limita ~1000 steps por execução de função. Um step por
+      // pedido mais um de progresso a cada dez gastava 1073 + 107 + os do
+      // catálogo e das janelas: passava de mil por volta do pedido 880. Foi
+      // exatamente o que aconteceu em produção em 27/08/2026 — duas execuções
+      // independentes da Shopee/WUWU pararam no MESMO ponto, 880 de 1073,
+      // com 288 ignorados idênticos. Não era o token nem a busca: era a
+      // trava de steps, e nenhum clique em "Sincronizar" ia passar dali.
+      //
+      // Um step por lote de 25 derruba o gasto para ~45 steps na mesma leva.
+      // Cada lote leva uns 75s (≈3s por pedido, quase tudo latência de banco
+      // entre regiões), bem dentro dos 300s de `maxDuration`. Reexecutar um
+      // lote é seguro: `ingerirPedido` é idempotente — reconhece o pedido já
+      // importado por `providerOrderId` e não duplica.
+      const TAMANHO_LOTE_PEDIDOS = 25;
+      for (let inicio = 0; inicio < pedidos.length; inicio += TAMANHO_LOTE_PEDIDOS) {
+        const lote = pedidos.slice(inicio, inicio + TAMANHO_LOTE_PEDIDOS);
+        const parcial = await step.run(
+          `pedidos-ingerir-${channelAccountId}-lote-${inicio}`,
           async () => {
-            try {
-              const ingerido = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
-              return { novo: ingerido.novo, motivo: null as string | null, porPedido: false, skus: [] as string[] };
-            } catch (error) {
-              return {
-                novo: false,
-                motivo: erroLegivel(error).slice(0, 200),
-                // Causa conhecida DAQUELE pedido (SKU sem produto na marca)
-                // versus causa desconhecida, que pode ser da conta toda —
-                // a diferença decide o freio logo abaixo do laço.
-                porPedido: ehErroSkuSemProduto(error),
-                skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
-              };
+            const saida = {
+              novos: 0,
+              ignorados: 0,
+              falhasSemCausaConhecida: 0,
+              motivos: [] as string[],
+              skus: [] as string[],
+            };
+            for (const pedidoBruto of lote) {
+              const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
+              try {
+                const ingerido = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
+                if (ingerido.novo) saida.novos += 1;
+              } catch (error) {
+                // Falha de UM pedido não derruba o lote, do mesmo jeito que
+                // antes não derrubava a leva.
+                saida.ignorados += 1;
+                if (!ehErroSkuSemProduto(error)) saida.falhasSemCausaConhecida += 1;
+                const motivo = erroLegivel(error).slice(0, 200);
+                if (!saida.motivos.includes(motivo)) saida.motivos.push(motivo);
+                if (ehErroSkuSemProduto(error)) {
+                  for (const sku of error.skus ?? []) if (!saida.skus.includes(sku)) saida.skus.push(sku);
+                }
+              }
             }
+            return saida;
           },
         );
-        if (resultado.motivo) {
-          ignorados += 1;
-          if (!resultado.porPedido) falhasSemCausaConhecida += 1;
-          motivosDeFalha.add(resultado.motivo);
-          for (const sku of resultado.skus) skusSemProduto.add(sku);
-        } else if (resultado.novo) {
-          novos += 1;
-        }
-        const processados = indice + 1;
-        if (processados === pedidos.length || processados % 10 === 0) {
-          await step.run(`pedidos-progresso-${processados}`, () => atualizarProgresso(
-            "pedidos",
-            pedidos.length > 0 ? 20 + (processados / pedidos.length) * 75 : 95,
-            { processados, total: pedidos.length, novos, ignorados, desde: dataDesde.toISOString() },
-          ));
-        }
+        novos += parcial.novos;
+        ignorados += parcial.ignorados;
+        falhasSemCausaConhecida += parcial.falhasSemCausaConhecida;
+        for (const motivo of parcial.motivos) motivosDeFalha.add(motivo);
+        for (const sku of parcial.skus) skusSemProduto.add(sku);
+
+        const processados = Math.min(inicio + lote.length, pedidos.length);
+        await step.run(`pedidos-progresso-${processados}`, () => atualizarProgresso(
+          "pedidos",
+          pedidos.length > 0 ? 20 + (processados / pedidos.length) * 75 : 95,
+          { processados, total: pedidos.length, novos, ignorados, desde: dataDesde.toISOString() },
+        ));
       }
       // Se NENHUM pedido entrou e todos falharam, o problema PODE ser
       // sistêmico (credencial, banco, formato do canal). Só que "todos"
