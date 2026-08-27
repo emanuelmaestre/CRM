@@ -343,6 +343,27 @@ export const legalDocuments = {
             "Solicitações devem ser enviadas para producao@elisalima.com.br. A resposta seguirá os prazos legais e poderá exigir confirmação de identidade.",
           ],
         },
+        {
+          id: "compromissos-plataforma",
+          title: "Compromissos com plataformas e vendedores",
+          eyebrow: "Operador",
+          icon: "shield",
+          summary: "Apoio a solicitações de titulares, exclusão ao fim da relação e aviso de incidente de segurança.",
+          body: [
+            "Atendimento a solicitações: quando um titular exerce um direito diretamente com a plataforma (TikTok Shop, Shopee, Mercado Livre) ou com o vendedor autorizado, e a solicitação é encaminhada ao Elisa Lima CRM, a operadora atende ao pedido de acesso, correção, atualização, portabilidade, anonimização ou exclusão dos dados daquele titular em até 15 dias corridos do recebimento, e confirma por escrito a quem encaminhou. O mesmo canal vale para pedidos vindos da própria plataforma.",
+            "Encerramento da relação: encerrado o contrato, revogada a autorização ou desconectada a conta de canal, os tokens são invalidados imediatamente e todos os dados coletados daquele canal são excluídos em até 30 dias corridos, inclusive das cópias de backup dentro do ciclo de retenção destas. Só permanece o mínimo que a lei obrigue reter (por exemplo, dados fiscais de pedidos), em base segregada, sem uso operacional, e essa retenção é informada por escrito quando solicitada.",
+            "Incidente de segurança: confirmado um acesso não autorizado, perda, alteração indevida ou vazamento que envolva dados pessoais ou dados de conta obtidos das plataformas, a operadora comunica a plataforma afetada e os vendedores afetados em até 72 horas da confirmação, pelo canal oficial de suporte ao desenvolvedor e por producao@elisalima.com.br, informando natureza do incidente, dados e titulares envolvidos, medidas técnicas já tomadas e plano de correção, com atualizações até o encerramento. A comunicação à ANPD e aos titulares segue a LGPD.",
+          ],
+          // `bullets`, não `table`: este documento não renderiza `table` (as
+          // tabelas das seções Shopee e Mercado Livre também não aparecem na
+          // página). Os prazos precisam ficar visíveis — é o que o avaliador
+          // de plataforma procura primeiro.
+          bullets: [
+            "Solicitação de titular encaminhada pela plataforma ou pelo vendedor: atendida em até 15 dias corridos.",
+            "Fim da relação, revogação ou desconexão: tokens invalidados na hora e dados excluídos em até 30 dias corridos.",
+            "Incidente de segurança confirmado: plataforma e vendedores afetados avisados em até 72 horas.",
+          ],
+        },
       ],
       sources: [
         { label: "Mercado Livre Developers - Termos e Condições de Uso", href: "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes" },
@@ -607,6 +628,25 @@ export const legalDocuments = {
             "The platform uses HTTPS, role-based access control, audit logs, backups, token protection and permission segregation to reduce risk.",
             "Data subjects may request confirmation, access, correction, portability, anonymization, blocking, deletion, sharing information, consent withdrawal and objection, as provided by the LGPD.",
             "Requests should be sent to producao@elisalima.com.br. Responses follow legal deadlines and may require identity verification.",
+          ],
+        },
+        {
+          id: "platform-commitments",
+          title: "Commitments to platforms and sellers",
+          eyebrow: "Processor",
+          icon: "shield",
+          summary: "Support for user requests, deletion at the end of the relationship and security incident notification.",
+          body: [
+            "Support for user requests: when a data subject exercises a right directly with the platform (TikTok Shop, Shopee, Mercado Livre) or with the authorized seller, and the request is forwarded to Elisa Lima CRM, the operator fulfils the request to access, correct, update, port, anonymize or delete that data subject's data within 15 calendar days of receipt, and confirms completion in writing to whoever forwarded it. The same channel applies to requests raised by the platform itself.",
+            "End of the relationship: upon contract termination, revocation of authorization or disconnection of a channel account, tokens are invalidated immediately and all data collected from that channel is deleted within 30 calendar days, including from backup copies within their retention cycle. Only the minimum that law requires is kept (for example, tax records of orders), in a segregated store, with no operational use, and such retention is disclosed in writing on request.",
+            "Security incident: once unauthorized access, loss, improper alteration or leakage involving personal data or platform account data is confirmed, the operator notifies the affected platform and the affected sellers within 72 hours of confirmation, through the official developer support channel and producao@elisalima.com.br, describing the nature of the incident, the data and data subjects involved, technical measures already taken and the remediation plan, with updates until closure. Notification to the Brazilian ANPD and to data subjects follows the LGPD.",
+          ],
+          // See the note on the Portuguese section: this document renders
+          // `bullets`, not `table`.
+          bullets: [
+            "User request forwarded by the platform or the seller: fulfilled within 15 calendar days.",
+            "End of relationship, revocation or disconnection: tokens invalidated immediately and data deleted within 30 calendar days.",
+            "Confirmed security incident: affected platform and sellers notified within 72 hours.",
           ],
         },
       ],
