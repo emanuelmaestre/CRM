@@ -40,11 +40,20 @@ import type { ResultadoSincronizacaoMarca } from "./sincronizacao.service";
 
 export const PLATAFORMA_SHOPEE = "shopee";
 
-/** Dias de histórico buscados na primeira sincronização e mantidos depois.
- *  Barato porque a Shopee devolve a série inteira de uma vez; 90 dias é o
- *  mesmo horizonte usado no backfill do Mercado Livre, então as duas
- *  plataformas ficam comparáveis nas telas de histórico. */
+/** Janela da PRIMEIRA sincronização de uma marca. 90 dias é o mesmo
+ *  horizonte do backfill do Mercado Livre, então as duas plataformas ficam
+ *  comparáveis nas telas de histórico. */
 export const DIAS_HISTORICO_SHOPEE = 90;
+
+/** Janela das execuções seguintes. A Shopee atribui a venda até 7 dias depois
+ *  do clique, então a métrica de um dia continua mudando durante uma semana —
+ *  reescrever os últimos 10 dias cobre essa revisão com folga.
+ *
+ *  Repetir os 90 dias todo dia seria pagar seis janelas de API por marca pra
+ *  reescrever número que não muda mais: 30 dias já levaram 40s medidos nas
+ *  duas marcas, e um step grande demais estoura o tempo do Inngest e reexecuta
+ *  o job em loop, refazendo as chamadas já pagas. */
+export const DIAS_ATUALIZACAO_SHOPEE = 10;
 
 function paraNumero(valor: number | undefined | null): number | null {
   return typeof valor === "number" && Number.isFinite(valor) ? valor : null;
@@ -81,6 +90,14 @@ function parteIndireta(broad: number | undefined, direct: number | undefined): n
 function parteIndiretaTexto(broad: number | undefined, direct: number | undefined): string | null {
   const valor = parteIndireta(broad, direct);
   return valor === null ? null : String(valor);
+}
+
+/** Quantos dias buscar: janela explícita quando o chamador pediu uma (o
+ *  script de carga manual, por exemplo); senão, histórico inteiro na primeira
+ *  vez da marca e só a ponta nas seguintes. */
+export function janelaDeDias(diasPedidos: number | undefined, temHistorico: boolean): number {
+  if (diasPedidos !== undefined) return diasPedidos;
+  return temHistorico ? DIAS_ATUALIZACAO_SHOPEE : DIAS_HISTORICO_SHOPEE;
 }
 
 /** Métricas de campanha só podem ser atribuídas ao item quando a campanha
@@ -222,6 +239,21 @@ function valoresAnuncio(
   };
 }
 
+/** Já existe série gravada desta marca neste marketplace? Uma linha basta —
+ *  a pergunta é "primeira carga ou não", não "quantas". */
+async function temHistorico(ctx: CrudContext, brandId: string): Promise<boolean> {
+  const linha = await ctx.db
+    .select({ id: adsCampanhaSnapshot.id })
+    .from(adsCampanhaSnapshot)
+    .where(and(
+      eq(adsCampanhaSnapshot.orgId, ctx.orgId),
+      eq(adsCampanhaSnapshot.brandId, brandId),
+      eq(adsCampanhaSnapshot.plataforma, PLATAFORMA_SHOPEE),
+    ))
+    .limit(1);
+  return linha.length > 0;
+}
+
 async function emLotes<T>(itens: T[], tamanho: number, executar: (item: T) => Promise<unknown>) {
   for (let inicio = 0; inicio < itens.length; inicio += tamanho) {
     await Promise.all(itens.slice(inicio, inicio + tamanho).map(executar));
@@ -234,10 +266,13 @@ async function sincronizarMarca(
   brandId: string,
   brandSlug: BrandSlug,
   referencia: Date,
-  dias: number,
+  dias: number | undefined,
 ): Promise<ResultadoSincronizacaoMarca> {
+  // Sem janela explícita, a marca decide sozinha: quem nunca sincronizou puxa
+  // o histórico inteiro, quem já tem série só reescreve a ponta.
+  const janela = janelaDeDias(dias, dias === undefined && await temHistorico(ctx, brandId));
   const inicio = new Date(referencia);
-  inicio.setDate(inicio.getDate() - (dias - 1));
+  inicio.setDate(inicio.getDate() - (janela - 1));
 
   let campanhasIds: string[];
   let configuracoes: Map<string, ShopeeCampanhaConfig>;
@@ -342,7 +377,7 @@ async function listarContasShopeeAds(ctx: CrudContext, channelAccountId?: string
 export async function sincronizarAnunciosShopee(
   ctx: CrudContext,
   referencia: Date = new Date(),
-  dias: number = DIAS_HISTORICO_SHOPEE,
+  dias?: number,
 ): Promise<ResultadoSincronizacaoMarca[]> {
   const contas = await listarContasShopeeAds(ctx);
   const resultados: ResultadoSincronizacaoMarca[] = [];
@@ -359,7 +394,7 @@ export async function sincronizarAnunciosShopeeConta(
   ctx: CrudContext,
   channelAccountId: string,
   referencia: Date = new Date(),
-  dias: number = DIAS_HISTORICO_SHOPEE,
+  dias?: number,
 ): Promise<ResultadoSincronizacaoMarca> {
   const conta = await listarContasShopeeAds(ctx, channelAccountId).then((rows) => rows[0]);
   if (!conta) throw new Error("Conta Shopee conectada não encontrada para sincronizar os anúncios patrocinados.");

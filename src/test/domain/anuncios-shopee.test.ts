@@ -13,6 +13,9 @@ import {
 import {
   converterFracaoShopeeParaPercentual,
   deveAtribuirMetricasAoItem,
+  DIAS_ATUALIZACAO_SHOPEE,
+  DIAS_HISTORICO_SHOPEE,
+  janelaDeDias,
 } from "@/modules/anuncios/application/sincronizacao-shopee.service";
 
 /* Os formatos testados aqui foram confirmados ao vivo em 26/08/2026 contra a
@@ -215,5 +218,33 @@ describe("atribuição de métrica de campanha ao item", () => {
 
   it("não atribui quando a campanha não declara item nenhum", () => {
     expect(deveAtribuirMetricasAoItem([])).toBe(false);
+  });
+});
+
+/* Repetir os 90 dias todo dia seria pagar seis janelas de API por marca pra
+   reescrever número que não muda mais — e um step grande demais estoura o
+   tempo do Inngest e reexecuta o job em loop, refazendo as chamadas já pagas.
+   Medido ao vivo em 26/08/2026: 30 dias levaram 40s nas duas marcas, 10 dias
+   levaram 20s. */
+describe("janela de dias da sincronização", () => {
+  it("puxa o histórico inteiro na primeira vez da marca", () => {
+    expect(janelaDeDias(undefined, false)).toBe(DIAS_HISTORICO_SHOPEE);
+  });
+
+  it("só reescreve a ponta quando a marca já tem série gravada", () => {
+    expect(janelaDeDias(undefined, true)).toBe(DIAS_ATUALIZACAO_SHOPEE);
+  });
+
+  it("respeita a janela explícita, que é como a carga manual pede um recorte", () => {
+    expect(janelaDeDias(30, true)).toBe(30);
+    expect(janelaDeDias(30, false)).toBe(30);
+  });
+
+  /* A Shopee atribui a venda até 7 dias depois do clique: a métrica de um dia
+     continua mudando durante uma semana. A janela de atualização tem que
+     cobrir isso, senão o número congela errado. */
+  it("mantém a janela de atualização acima da janela de atribuição de 7 dias", () => {
+    expect(DIAS_ATUALIZACAO_SHOPEE).toBeGreaterThan(7);
+    expect(DIAS_ATUALIZACAO_SHOPEE).toBeLessThan(DIAS_HISTORICO_SHOPEE);
   });
 });
