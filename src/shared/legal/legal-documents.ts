@@ -48,6 +48,12 @@ export interface LegalDocument {
 
 const updatedPt = "Atualizado em 18 de agosto de 2026";
 const updatedEn = "Last updated on August 18, 2026";
+// Privacidade ganhou data própria em 27/08/2026: o texto de exclusão ao fim
+// da relação foi reescrito naquele dia, e a data era compartilhada com os
+// Termos — bumpar a constante comum afirmaria que os Termos também mudaram,
+// o que não aconteceu. Documento que muda sozinho precisa de data sozinha.
+const updatedPrivacyPt = "Atualizado em 27 de agosto de 2026";
+const updatedPrivacyEn = "Last updated on August 27, 2026";
 // A página de segurança nasceu depois de Termos e Privacidade e passa a ter
 // data própria: ela é revisada quando um controle técnico muda, não quando o
 // texto legal muda, então as duas datas andam separadas de propósito.
@@ -243,7 +249,7 @@ export const legalDocuments = {
       metadataTitle: "Política de Privacidade - Elisa Lima CRM",
       description:
         "Como o Elisa Lima CRM coleta, usa, protege, retém e exclui dados pessoais em integrações operacionais com Mercado Livre, TikTok Shop, Shopee e demais canais.",
-      lastUpdated: updatedPt,
+      lastUpdated: updatedPrivacyPt,
       alternateHref: "/privacy",
       alternateLabel: "English",
       commitments: [
@@ -702,7 +708,7 @@ export const legalDocuments = {
       metadataTitle: "Privacy Policy - Elisa Lima CRM",
       description:
         "How Elisa Lima CRM collects, uses, protects, retains and deletes personal data in operational integrations with Mercado Livre, TikTok Shop, Shopee and other channels.",
-      lastUpdated: updatedEn,
+      lastUpdated: updatedPrivacyEn,
       alternateHref: "/privacidade",
       alternateLabel: "Português",
       commitments: [
