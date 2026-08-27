@@ -231,8 +231,21 @@ export const A31_sincronizarConta = inngest.createFunction(
       return { produtosCriados, ignorados, diagnostico, ...(aviso ? { aviso } : {}) };
     });
 
-    const resultadoPedidos = solicitados.has("pedidos")
-      ? await executarModuloEmSteps("pedidos", async () => {
+    /* Pedidos fica DEFINIDO aqui e é EXECUTADO por último (ver a chamada
+       depois de Reputação).
+     *
+     *  A fila é sequencial: quando Pedidos empacava, a função inteira parava
+     *  nele e Anúncios, Avaliações e Termômetro nunca saíam de `pendente` —
+     *  trinta minutos depois o varredor marcava os três como "Falhou" sem que
+     *  tivessem tentado uma única vez. Foi o que a Central mostrou o dia
+     *  inteiro em 27/08/2026: quatro módulos vermelhos, e só o Catálogo verde,
+     *  porque Catálogo roda ANTES de Pedidos.
+     *
+     *  Pedidos é de longe o mais pesado — 1073 pedidos numa loja como a WUWU,
+     *  contra uma chamada só nos outros. Deixando-o por último, se ele morrer
+     *  morre sozinho, e os outros quatro já concluíram. */
+    const executarPedidos = () => solicitados.has("pedidos")
+      ? executarModuloEmSteps("pedidos", async () => {
       // Mesmo freio do A24: app Shopee aprovado não tem permissão pra API de
       // Pedidos, reverter junto com SHOPEE_PEDIDOS_LIBERADO.
       if (conta.tipo === "shopee" && !SHOPEE_PEDIDOS_LIBERADO) {
@@ -385,17 +398,7 @@ export const A31_sincronizarConta = inngest.createFunction(
           : {}),
       };
     })
-      : null;
-    if (resultadoPedidos && !resultadoPedidos.ok) {
-      await emitirEvento({
-        tipo: "canal.degradado",
-        orgId,
-        brandId: conta.brandId,
-        entidade: "channel_account",
-        entidadeId: channelAccountId,
-        payload: { motivo: "falha-sincronizacao-manual-pedidos", erro: resultadoPedidos.erro },
-      });
-    }
+      : Promise.resolve(null);
 
     if (solicitados.has("anuncios")) await executarModulo("anuncios", async () => {
       await atualizarProgresso("anuncios", 15, { etapa: "consultando_campanhas" });
@@ -485,6 +488,20 @@ export const A31_sincronizarConta = inngest.createFunction(
         reputacao: marca ?? null,
       };
     });
+
+    // POR ÚLTIMO, de propósito (ver a definição de `executarPedidos`): é o
+    // módulo pesado, e agora os quatro leves já concluíram antes dele.
+    const resultadoPedidos = await executarPedidos();
+    if (resultadoPedidos && !resultadoPedidos.ok) {
+      await emitirEvento({
+        tipo: "canal.degradado",
+        orgId,
+        brandId: conta.brandId,
+        entidade: "channel_account",
+        entidadeId: channelAccountId,
+        payload: { motivo: "falha-sincronizacao-manual-pedidos", erro: resultadoPedidos.erro },
+      });
+    }
 
     await step.run("finalizar-execucao", () =>
       atualizarExecucao({ finalizadoEm: new Date() }),
