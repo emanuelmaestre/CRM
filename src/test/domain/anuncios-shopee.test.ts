@@ -10,15 +10,16 @@ import {
   PublicidadeShopeeNaoHabilitadaError,
   ShopeeAdsProvider,
 } from "@/modules/anuncios/infrastructure/shopee-ads.provider";
-import { deveAtribuirMetricasAoItem } from "@/modules/anuncios/application/sincronizacao-shopee.service";
+import {
+  converterFracaoShopeeParaPercentual,
+  deveAtribuirMetricasAoItem,
+} from "@/modules/anuncios/application/sincronizacao-shopee.service";
 
-/* ATENÇÃO: diferente do teste do provider do Mercado Livre, NADA aqui foi
-   confirmado ao vivo contra a loja real — o app "Elisa Lima Anuncios" saiu do
-   Go Live em 26/08/2026 e a primeira autorização ainda não tinha acontecido
-   quando isto foi escrito. Estes testes cobrem o que é nosso (assinatura,
-   fatiamento de janela, formato de data, tratamento de erro), não o contrato
-   da Shopee. O contrato se confirma com `npm run anuncios:shopee:inspecionar`.
-   Ver o aviso no topo de shopee-ads.provider.ts. */
+/* Os formatos testados aqui foram confirmados ao vivo em 26/08/2026 contra a
+   loja WUWU (shop_id 1645247022) — o payload dos testes de envelope e escala é
+   cópia do que a API devolveu de verdade, não do que a documentação descrevia.
+   Dois casos aqui existem porque a versão anterior errou os dois em silêncio:
+   o envelope objeto-vs-array e a escala fração-vs-percentual. */
 
 function respostaOk(corpo: unknown): Response {
   return new Response(JSON.stringify(corpo), { status: 200 });
@@ -141,26 +142,62 @@ describe("provider de Product Ads da Shopee", () => {
     await expect(promessa).rejects.not.toBeInstanceOf(PublicidadeShopeeNaoHabilitadaError);
   });
 
-  it("achata loja → campanha → dia na série diária por campanha", async () => {
-    shopeeFetchMock.mockResolvedValue(respostaOk({ response: [{
-      shop_id: 1234567,
+  /* Formato real: `response` é OBJETO, não array de blocos por loja. A versão
+     anterior tipava como array e quebrou com "is not iterable" na primeira
+     chamada de verdade. */
+  it("achata loja → campanha → dia quando o envelope é objeto", async () => {
+    shopeeFetchMock.mockResolvedValue(respostaOk({ response: {
+      shop_id: 1645247022,
+      region: "BR",
       campaign_list: [{
-        campaign_id: 99,
-        ad_name: "Campanha de teste",
-        campaign_placement: "search",
+        campaign_id: 107287398,
+        ad_type: "manual",
+        campaign_placement: "all",
+        ad_name: "Cortina Box Preta",
         metrics_list: [
-          { date: "25-08-2026", clicks: 10, impression: 100, expense: 5 },
-          { date: "26-08-2026", clicks: 12, impression: 130, expense: 6 },
+          { date: "25-08-2026", clicks: 40, impression: 1813, expense: 10 },
+          { date: "26-08-2026", clicks: 24, impression: 1079, expense: 10 },
         ],
       }],
+    } }));
+
+    const desempenho = await new ShopeeAdsProvider(CREDS)
+      .listarDesempenhoDiario(["107287398"], new Date(2026, 7, 25), new Date(2026, 7, 26));
+
+    expect(desempenho).toHaveLength(1);
+    expect(desempenho[0].campaignId).toBe("107287398");
+    expect(desempenho[0].nome).toBe("Cortina Box Preta");
+    expect(desempenho[0].dias.map((dia) => dia.date)).toEqual(["25-08-2026", "26-08-2026"]);
+  });
+
+  it("continua entendendo o envelope em array, caso outra região devolva assim", async () => {
+    shopeeFetchMock.mockResolvedValue(respostaOk({ response: [{
+      shop_id: 1645247022,
+      campaign_list: [{ campaign_id: 99, metrics_list: [{ date: "26-08-2026", clicks: 1 }] }],
     }] }));
 
     const desempenho = await new ShopeeAdsProvider(CREDS)
-      .listarDesempenhoDiario(["99"], new Date(2026, 7, 25), new Date(2026, 7, 26));
+      .listarDesempenhoDiario(["99"], new Date(2026, 7, 26), new Date(2026, 7, 26));
 
     expect(desempenho).toHaveLength(1);
-    expect(desempenho[0].nome).toBe("Campanha de teste");
-    expect(desempenho[0].dias.map((dia) => dia.date)).toEqual(["25-08-2026", "26-08-2026"]);
+    expect(desempenho[0].dias).toHaveLength(1);
+  });
+});
+
+/* O Mercado Livre devolve taxa em PERCENTUAL e a Shopee em FRAÇÃO, e as duas
+   caem na mesma coluna. Sem conversão, um ACOS real de 20% viraria 0,2% na
+   tabela — cem vezes menor, sem nada na tela denunciando. */
+describe("escala das taxas da Shopee", () => {
+  it("converte fração em percentual, como o Mercado Livre já grava", () => {
+    expect(converterFracaoShopeeParaPercentual(0.0482)).toBe("4.82");
+    expect(converterFracaoShopeeParaPercentual(0.2)).toBe("20");
+    expect(converterFracaoShopeeParaPercentual(0.0159)).toBe("1.59");
+  });
+
+  it("preserva zero, que é medição de verdade, e ignora ausência", () => {
+    expect(converterFracaoShopeeParaPercentual(0)).toBe("0");
+    expect(converterFracaoShopeeParaPercentual(undefined)).toBeNull();
+    expect(converterFracaoShopeeParaPercentual(null)).toBeNull();
   });
 });
 

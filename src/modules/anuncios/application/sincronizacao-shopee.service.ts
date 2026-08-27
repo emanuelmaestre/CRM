@@ -35,8 +35,8 @@ import type { ResultadoSincronizacaoMarca } from "./sincronizacao.service";
      campanha em cada item (o que inflaria o total N vezes). Ver
      `deveAtribuirMetricasAoItem`.
 
-   ATENÇÃO: o contrato da API ainda não foi verificado ao vivo — ver o aviso
-   no topo de shopee-ads.provider.ts. */
+   Contrato verificado ao vivo em 26/08/2026 — ver o aviso no topo de
+   shopee-ads.provider.ts. */
 
 export const PLATAFORMA_SHOPEE = "shopee";
 
@@ -53,6 +53,18 @@ function paraNumero(valor: number | undefined | null): number | null {
 function paraTexto(valor: number | undefined | null): string | null {
   const numero = paraNumero(valor);
   return numero === null ? null : String(numero);
+}
+
+/** As colunas de taxa deste snapshot nasceram com o Mercado Livre, que devolve
+ *  PERCENTUAL (ctr 0.75 = 0,75%; acos 19.40 = 19,4%). A Shopee devolve FRAÇÃO
+ *  (ctr 0.0482 = 4,82%; broad_cir 0.20 = 20%) — confirmado ao vivo em
+ *  26/08/2026 comparando com as linhas já gravadas do ML. Gravar a fração crua
+ *  na mesma coluna faria um ACOS de 20% aparecer como 0,2%: cem vezes menor, e
+ *  sem nada na tela indicando que veio de outro canal. ROAS fica de fora
+ *  porque já é razão nos dois (5.15 no ML, 4.98 na Shopee). */
+function fracaoParaPercentual(valor: number | undefined | null): string | null {
+  const numero = paraNumero(valor);
+  return numero === null ? null : String(Math.round(numero * 100 * 10000) / 10000);
 }
 
 /** Diferença entre a métrica "broad" (loja toda, 7 dias após o clique) e a
@@ -73,6 +85,8 @@ function parteIndiretaTexto(broad: number | undefined, direct: number | undefine
 
 /** Métricas de campanha só podem ser atribuídas ao item quando a campanha
  *  anuncia um item só — com dois ou mais não há como repartir sem inventar. */
+export { fracaoParaPercentual as converterFracaoShopeeParaPercentual };
+
 export function deveAtribuirMetricasAoItem(itemIds: string[]): boolean {
   return itemIds.length === 1;
 }
@@ -116,18 +130,19 @@ function valoresCampanha(
 
     clicks: paraNumero(metricas.clicks),
     prints: paraNumero(metricas.impression),
-    ctr: paraTexto(metricas.ctr),
+    ctr: fracaoParaPercentual(metricas.ctr),
     cost: paraTexto(metricas.expense),
     // `cpc` fica de fora de propósito: o campo com esse nome na resposta da
-    // Shopee está documentado como CUSTO POR CONVERSÃO, não custo por clique.
-    // Gravar na coluna `cpc` (que o resto do módulo lê como custo por clique)
-    // trocaria um número por outro sem ninguém perceber. O custo por clique
-    // exibido nas telas já é derivado de investimento ÷ cliques, então nada
-    // se perde. VERIFICAR ao vivo antes de mudar isso.
+    // Shopee é CUSTO POR CONVERSÃO, não custo por clique — confirmado ao vivo
+    // em 20/08/2026, cpc=5 com expense=10 e clicks=25 (10÷25=0,40; 10÷2
+    // conversões=5,00). Gravar na coluna `cpc` (que o resto do módulo lê como
+    // custo por clique) trocaria um número por outro sem ninguém perceber. O
+    // custo por clique exibido nas telas já é derivado de investimento ÷
+    // cliques, então nada se perde.
     cpc: null,
-    acos: paraTexto(metricas.broad_cir),
+    acos: fracaoParaPercentual(metricas.broad_cir),
     roas: paraTexto(metricas.broad_roi),
-    cvr: paraTexto(metricas.cr),
+    cvr: fracaoParaPercentual(metricas.cr),
     // Shopee não expõe participação de exibição em nenhuma dessas formas.
     sov: null,
     impressionShare: null,
@@ -189,12 +204,12 @@ function valoresAnuncio(
 
     clicks: metricas ? paraNumero(metricas.clicks) : null,
     prints: metricas ? paraNumero(metricas.impression) : null,
-    ctr: metricas ? paraTexto(metricas.ctr) : null,
+    ctr: metricas ? fracaoParaPercentual(metricas.ctr) : null,
     cost: metricas ? paraTexto(metricas.expense) : null,
     cpc: null,
-    acos: metricas ? paraTexto(metricas.broad_cir) : null,
+    acos: metricas ? fracaoParaPercentual(metricas.broad_cir) : null,
     roas: metricas ? paraTexto(metricas.broad_roi) : null,
-    cvr: metricas ? paraTexto(metricas.cr) : null,
+    cvr: metricas ? fracaoParaPercentual(metricas.cr) : null,
     organicUnitsQuantity: null,
     directUnitsQuantity: metricas ? paraNumero(metricas.direct_order_amount) : null,
     indirectUnitsQuantity: metricas ? parteIndireta(metricas.broad_order_amount, metricas.direct_order_amount) : null,

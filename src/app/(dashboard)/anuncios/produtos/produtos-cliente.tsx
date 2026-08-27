@@ -11,6 +11,7 @@ import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterProdutosDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
+import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
 import { Card, CardHead, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
@@ -37,33 +38,42 @@ function Esqueleto() {
 export function ProdutosClienteDetalhe() {
   const [marcas, setMarcas] = useState<VisaoGeralMarca[] | null>(null);
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
+  const { canal } = useCanalAnuncios();
   const [dados, setDados] = useState<ProdutosResultado | null>(null);
+  // Guarda marca + canal, não só a marca: sem o canal na chave, trocar de
+  // canal deixaria a lista do Mercado Livre na tela como se fosse a da Shopee.
   const [dadosBrandId, setDadosBrandId] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("todos");
-  const carregandoProdutos = marcaAtiva !== null && dadosBrandId !== marcaAtiva;
+  const chaveProdutos = `${marcaAtiva}:${canal}`;
+  const carregandoProdutos = marcaAtiva !== null && dadosBrandId !== chaveProdutos;
 
   useEffect(() => {
     let ativo = true;
-    actionObterVisaoGeralAnuncios()
+    actionObterVisaoGeralAnuncios({ canal })
       .then((resultado) => {
         if (!ativo) return;
         setMarcas(resultado.marcas);
-        setMarcaAtiva((atual) => atual ?? resultado.marcas[0]?.brandId ?? null);
+        // Marca que não anuncia no canal novo não pode continuar ativa.
+        setMarcaAtiva((atual) => (
+          atual && resultado.marcas.some((marca) => marca.brandId === atual)
+            ? atual
+            : resultado.marcas[0]?.brandId ?? null
+        ));
       })
       .catch(() => { if (ativo) toast.error(anunciosConfig.erros.carregar); })
       .finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
-  }, []);
+  }, [canal]);
 
   useEffect(() => {
     if (!marcaAtiva) return;
     let ativo = true;
-    actionObterProdutosDaMarca({ brandId: marcaAtiva })
-      .then((resultado) => { if (ativo) { setDados(resultado); setDadosBrandId(marcaAtiva); } })
-      .catch(() => { if (ativo) { toast.error(anunciosConfig.erros.carregar); setDadosBrandId(marcaAtiva); } });
+    actionObterProdutosDaMarca({ brandId: marcaAtiva, canal })
+      .then((resultado) => { if (ativo) { setDados(resultado); setDadosBrandId(chaveProdutos); } })
+      .catch(() => { if (ativo) { toast.error(anunciosConfig.erros.carregar); setDadosBrandId(chaveProdutos); } });
     return () => { ativo = false; };
-  }, [marcaAtiva]);
+  }, [marcaAtiva, canal, chaveProdutos]);
 
   const idsDesperdicio = useMemo(
     () => new Set((dados?.desperdicio.itens ?? []).map((item) => item.id)),

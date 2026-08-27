@@ -10,6 +10,7 @@ import { CalendarioPopoverRange, type RangeDatas } from "@/shared/design-system/
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterHistoricoDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
+import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
 import { Card, CardHead, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
@@ -132,6 +133,7 @@ function GraficoHistorico({ pontos, periodo }: { pontos: PontoHistorico[]; perio
 export function HistoricoClienteDetalhe() {
   const [marcas, setMarcas] = useState<VisaoGeralMarca[] | null>(null);
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
+  const { canal } = useCanalAnuncios();
   const [pontos, setPontos] = useState<PontoHistorico[] | null>(null);
   const [pontosBrandId, setPontosBrandId] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<RangeDatas>(periodoPadrao);
@@ -139,28 +141,33 @@ export function HistoricoClienteDetalhe() {
 
   useEffect(() => {
     let ativo = true;
-    actionObterVisaoGeralAnuncios()
+    actionObterVisaoGeralAnuncios({ canal })
       .then((resultado) => {
         if (!ativo) return;
         setMarcas(resultado.marcas);
-        setMarcaAtiva((atual) => atual ?? resultado.marcas[0]?.brandId ?? null);
+        // Marca que não anuncia no canal novo não pode continuar ativa.
+        setMarcaAtiva((atual) => (
+          atual && resultado.marcas.some((marca) => marca.brandId === atual)
+            ? atual
+            : resultado.marcas[0]?.brandId ?? null
+        ));
       })
       .catch(() => { if (ativo) toast.error(anunciosConfig.erros.carregar); })
       .finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
-  }, []);
+  }, [canal]);
 
   useEffect(() => {
     if (!marcaAtiva || !periodo.inicio || !periodo.fim) return;
-    const chave = `${marcaAtiva}:${periodo.inicio}:${periodo.fim}`;
+    const chave = `${marcaAtiva}:${periodo.inicio}:${periodo.fim}:${canal}`;
     let ativo = true;
-    actionObterHistoricoDaMarca({ brandId: marcaAtiva, inicio: periodo.inicio, fim: periodo.fim })
+    actionObterHistoricoDaMarca({ brandId: marcaAtiva, inicio: periodo.inicio, fim: periodo.fim, canal })
       .then((resultado) => { if (ativo) { setPontos(resultado); setPontosBrandId(chave); } })
       .catch(() => { if (ativo) { toast.error(anunciosConfig.erros.carregar); setPontosBrandId(chave); } });
     return () => { ativo = false; };
-  }, [marcaAtiva, periodo]);
+  }, [marcaAtiva, periodo, canal]);
 
-  const carregandoPontos = marcaAtiva !== null && pontosBrandId !== `${marcaAtiva}:${periodo.inicio}:${periodo.fim}`;
+  const carregandoPontos = marcaAtiva !== null && pontosBrandId !== `${marcaAtiva}:${periodo.inicio}:${periodo.fim}:${canal}`;
 
   if (carregando) return <Esqueleto />;
 

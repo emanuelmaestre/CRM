@@ -10,6 +10,7 @@ import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { springs, stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterAnunciosDaCampanha, actionObterVisaoGeralAnuncios } from "../actions";
+import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
 import { Card, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
@@ -172,6 +173,7 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
   expandida: boolean;
   onToggle: () => void;
 }) {
+  const { canal } = useCanalAnuncios();
   const [anuncios, setAnuncios] = useState<AnuncioDaCampanha[] | null>(null);
   const carregandoAnuncios = expandida && anuncios === null;
   const reduzir = useReducedMotion();
@@ -179,7 +181,7 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
   useEffect(() => {
     if (!expandida || anuncios !== null) return;
     let ativo = true;
-    actionObterAnunciosDaCampanha({ brandId, campanhaId: campanha.campanhaId })
+    actionObterAnunciosDaCampanha({ brandId, campanhaId: campanha.campanhaId, canal })
       .then((resultado) => { if (ativo) setAnuncios(resultado); })
       .catch(() => { if (ativo) { toast.error(copy.anuncios.vazio); setAnuncios([]); } });
     return () => { ativo = false; };
@@ -265,6 +267,7 @@ function Esqueleto() {
 }
 
 export function CampanhasClienteDetalhe() {
+  const { canal } = useCanalAnuncios();
   const [dados, setDados] = useState<VisaoGeralResultado | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
@@ -272,16 +275,24 @@ export function CampanhasClienteDetalhe() {
 
   useEffect(() => {
     let ativo = true;
-    actionObterVisaoGeralAnuncios()
+    actionObterVisaoGeralAnuncios({ canal })
       .then((resultado) => {
         if (!ativo) return;
         setDados(resultado);
-        setMarcaAtiva((atual) => atual ?? resultado.marcas[0]?.brandId ?? null);
+        // Marca que não anuncia no canal novo não pode continuar ativa.
+        setMarcaAtiva((atual) => (
+          atual && resultado.marcas.some((marca) => marca.brandId === atual)
+            ? atual
+            : resultado.marcas[0]?.brandId ?? null
+        ));
+        // A campanha aberta é do canal anterior — fechar evita mostrar aquele
+        // detalhe sob o rótulo do canal novo.
+        setExpandida(null);
       })
       .catch(() => { if (ativo) toast.error(anunciosConfig.erros.carregar); })
       .finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
-  }, []);
+  }, [canal]);
 
   if (carregando) return <Esqueleto />;
 

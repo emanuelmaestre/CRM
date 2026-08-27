@@ -10,6 +10,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "../actions";
+import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios } from "../anuncios-cliente";
 import { Card, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
@@ -37,17 +38,18 @@ function Esqueleto() {
 }
 
 export function ComparacaoClienteDetalhe() {
+  const { canal } = useCanalAnuncios();
   const [dados, setDados] = useState<VisaoGeralResultado | null>(null);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
     let ativo = true;
-    actionObterVisaoGeralAnuncios()
+    actionObterVisaoGeralAnuncios({ canal })
       .then((resultado) => { if (ativo) setDados(resultado); })
       .catch(() => { if (ativo) toast.error(anunciosConfig.erros.carregar); })
       .finally(() => { if (ativo) setCarregando(false); });
     return () => { ativo = false; };
-  }, []);
+  }, [canal]);
 
   if (carregando) return <Esqueleto />;
 

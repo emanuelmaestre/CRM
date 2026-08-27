@@ -8,46 +8,60 @@ import { obterVisaoGeral, type VisaoGeralResultado } from "@/modules/anuncios/ap
 import { obterAnunciosDaCampanha, type AnuncioDaCampanha } from "@/modules/anuncios/application/campanha-detalhe.service";
 import { obterProdutosDaMarca, type ProdutosResultado } from "@/modules/anuncios/application/produtos.service";
 import { obterHistoricoDaMarca, type PontoHistorico } from "@/modules/anuncios/application/historico.service";
+import { PLATAFORMAS_ANUNCIOS, type PlataformaAnuncios } from "@/modules/anuncios/domain/plataformas";
 
 const PERFIS = ["admin", "gestor"] as const;
+
+/* Toda consulta do módulo é de UM canal. Mercado Livre e Shopee gravam nas
+   mesmas tabelas (separados pela coluda `plataforma`), mas somar os dois num
+   ROAS só não significaria nada: a Shopee atribui venda em 7 dias após o
+   clique, o Mercado Livre não usa essa janela. Ausente = Mercado Livre, que
+   era o único canal antes de 26/08/2026. */
+const CanalSchema = z.enum(PLATAFORMAS_ANUNCIOS).optional();
 
 const FiltrosSchema = z.object({
   brandIds: z.array(z.string().uuid()).max(20).optional(),
   inicio: z.string().date().optional(),
   fim: z.string().date().optional(),
+  canal: CanalSchema,
 });
 
 export async function actionObterVisaoGeralAnuncios(
-  filtros: { brandIds?: string[]; inicio?: string; fim?: string } = {},
+  filtros: { brandIds?: string[]; inicio?: string; fim?: string; canal?: PlataformaAnuncios } = {},
 ): Promise<VisaoGeralResultado> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
-  return medirTempo("anuncios/visao-geral", () => obterVisaoGeral(ctx, FiltrosSchema.parse(filtros)));
+  const { canal, ...resto } = FiltrosSchema.parse(filtros);
+  return medirTempo("anuncios/visao-geral", () => obterVisaoGeral(ctx, { ...resto, plataforma: canal }));
 }
 
 const AnunciosDaCampanhaSchema = z.object({
   brandId: z.string().uuid(),
   campanhaId: z.string().min(1),
+  canal: CanalSchema,
 });
 
 export async function actionObterAnunciosDaCampanha(
-  filtros: { brandId: string; campanhaId: string },
+  filtros: { brandId: string; campanhaId: string; canal?: PlataformaAnuncios },
 ): Promise<AnuncioDaCampanha[]> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
-  return obterAnunciosDaCampanha(ctx, AnunciosDaCampanhaSchema.parse(filtros));
+  const { canal, ...resto } = AnunciosDaCampanhaSchema.parse(filtros);
+  return obterAnunciosDaCampanha(ctx, { ...resto, plataforma: canal });
 }
 
 const ProdutosDaMarcaSchema = z.object({
   brandId: z.string().uuid(),
+  canal: CanalSchema,
 });
 
 export async function actionObterProdutosDaMarca(
-  filtros: { brandId: string },
+  filtros: { brandId: string; canal?: PlataformaAnuncios },
 ): Promise<ProdutosResultado> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
-  return obterProdutosDaMarca(ctx, ProdutosDaMarcaSchema.parse(filtros));
+  const { canal, ...resto } = ProdutosDaMarcaSchema.parse(filtros);
+  return obterProdutosDaMarca(ctx, { ...resto, plataforma: canal });
 }
 
 const HistoricoDaMarcaSchema = z.object({
@@ -55,12 +69,14 @@ const HistoricoDaMarcaSchema = z.object({
   dias: z.number().int().min(1).max(180).optional(),
   inicio: z.string().date().optional(),
   fim: z.string().date().optional(),
+  canal: CanalSchema,
 });
 
 export async function actionObterHistoricoDaMarca(
-  filtros: { brandId: string; dias?: number; inicio?: string; fim?: string },
+  filtros: { brandId: string; dias?: number; inicio?: string; fim?: string; canal?: PlataformaAnuncios },
 ): Promise<PontoHistorico[]> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
-  return obterHistoricoDaMarca(ctx, HistoricoDaMarcaSchema.parse(filtros));
+  const { canal, ...resto } = HistoricoDaMarcaSchema.parse(filtros);
+  return obterHistoricoDaMarca(ctx, { ...resto, plataforma: canal });
 }

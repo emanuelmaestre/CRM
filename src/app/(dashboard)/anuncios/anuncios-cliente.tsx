@@ -17,6 +17,13 @@ import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import anunciosConfig from "@/config/anuncios.json";
 import channelsConfig from "@/config/channels.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
+import { useCanalAnuncios } from "./canal-anuncios";
+import { ehPlataformaAnuncios, PLATAFORMA_ANUNCIOS_PADRAO } from "@/modules/anuncios/domain/plataformas";
+
+/** Canal em que o servidor pré-buscou `dadosIniciais`. Ele não sabe a
+ *  preferência guardada no navegador, então sempre usa o padrão — por isso a
+ *  busca no cliente só é pulada quando o canal restaurado bate com este. */
+const PLATAFORMA_DOS_DADOS_INICIAIS = PLATAFORMA_ANUNCIOS_PADRAO;
 import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
 import { OrganicoCard } from "./organico-card";
@@ -280,35 +287,45 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
 
 const CANAIS_ANUNCIOS = ["mercadolivre", "shopee", "tiktokshop"] as const;
 
-/** Mercado Livre é a única fonte de dado de Publicidade hoje — não existe
- *  integração de Product Ads pra Shopee/TikTok Shop ainda. Mostra os 3 pra
- *  deixar claro que a tela é sobre canais de venda (mesma leitura de
- *  Vendas/Estoque), mas Shopee/TikTok ficam travados como "ainda não
- *  disponível" em vez de fingir que dá pra filtrar por eles. */
+/** Mercado Livre e Shopee têm Product Ads integrado; TikTok Shop não, e fica
+ *  travado como "ainda não disponível" em vez de fingir que dá pra filtrar por
+ *  ele. Escolha única, não múltipla: somar os dois canais num ROAS só não
+ *  significaria nada (a Shopee atribui venda em 7 dias após o clique, o
+ *  Mercado Livre não usa essa janela) — comparar canais é a tela de
+ *  Comparação, não um total. */
 export function SeletorCanalAnuncios() {
   const reduzir = useReducedMotion();
+  const { canal: canalAtivo, definirCanal } = useCanalAnuncios();
+
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Canal de publicidade">
       {CANAIS_ANUNCIOS.map((canal) => {
-        const disponivel = canal === "mercadolivre";
+        const disponivel = ehPlataformaAnuncios(canal);
+        const ativo = disponivel && canal === canalAtivo;
         const label = (channelsConfig.items as Record<string, { label?: string }>)[canal]?.label ?? canal;
         return (
           <motion.button
             key={canal}
             type="button"
+            role="tab"
             whileHover={disponivel && !reduzir ? { y: -2, scale: 1.04 } : undefined}
             whileTap={!reduzir ? { scale: disponivel ? 0.92 : 0.97 } : undefined}
-            aria-pressed={disponivel}
+            aria-selected={ativo}
+            disabled={!disponivel}
             title={disponivel ? label : `Publicidade de ${label} ainda não está disponível`}
             aria-label={disponivel ? label : `${label} — ainda não disponível`}
-            onClick={disponivel ? undefined : () => toast.info(`Publicidade de ${label} ainda não está disponível.`)}
+            onClick={disponivel
+              ? () => definirCanal(canal)
+              : () => toast.info(`Publicidade de ${label} ainda não está disponível.`)}
             className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
-              disponivel
+              ativo
                 ? "border-2 border-selecionado bg-selecionado/12"
-                : "border border-border opacity-50"
+                : disponivel
+                  ? "border border-border/80 bg-card/40 hover:bg-card/70"
+                  : "border border-border opacity-50"
             }`}
           >
-            <HaloSelecao ativo={disponivel} cor="var(--selecionado)" reduzir={reduzir} />
+            <HaloSelecao ativo={ativo} cor="var(--selecionado)" reduzir={reduzir} />
             <ChannelLogo canal={canal} size="sm" variant="logo" />
             {!disponivel && <PlugZap2 size={14} className="text-muted-foreground" />}
           </motion.button>
@@ -348,7 +365,11 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
   // período padrão de 30 dias sempre que inicio/fim estiverem vazios —
   // mesmo padrão já usado em Métricas.
   const periodoEfetivo = periodo.inicio && periodo.fim ? periodo : periodoInicial();
-  const chaveInicial = `${periodoEfetivo.inicio}:${periodoEfetivo.fim}`;
+  // O canal entra na chave: trocar de canal precisa invalidar o que está na
+  // tela, senão os números do Mercado Livre ficariam visíveis sob o rótulo da
+  // Shopee até a busca nova voltar.
+  const chaveInicial = `${periodoEfetivo.inicio}:${periodoEfetivo.fim}:${PLATAFORMA_DOS_DADOS_INICIAIS}`;
+  const { canal, pronto: canalPronto } = useCanalAnuncios();
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(
     dadosIniciais?.dados?.marcas[0]?.brandId ?? null,
   );
@@ -358,7 +379,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
       : { chave: "", dados: null, anterior: null },
   );
   const dados = consulta.dados;
-  const chavePeriodo = `${periodoEfetivo.inicio}:${periodoEfetivo.fim}`;
+  const chavePeriodo = `${periodoEfetivo.inicio}:${periodoEfetivo.fim}:${canal}`;
   const carregando = consulta.chave !== chavePeriodo;
 
   const buscar = useCallback(() => {
@@ -369,17 +390,24 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
     const fimAnterior = new Date(inicio); fimAnterior.setDate(fimAnterior.getDate() - 1);
     const inicioAnterior = new Date(fimAnterior); inicioAnterior.setDate(inicioAnterior.getDate() - (dias - 1));
     Promise.all([
-      actionObterVisaoGeralAnuncios({ inicio: periodoEfetivo.inicio, fim: periodoEfetivo.fim }),
-      actionObterVisaoGeralAnuncios({ inicio: paraISO(inicioAnterior), fim: paraISO(fimAnterior) }),
+      actionObterVisaoGeralAnuncios({ inicio: periodoEfetivo.inicio, fim: periodoEfetivo.fim, canal }),
+      actionObterVisaoGeralAnuncios({ inicio: paraISO(inicioAnterior), fim: paraISO(fimAnterior), canal }),
     ])
       .then(([resultado, anterior]) => {
         if (!ativo) return;
         setConsulta({ chave: chavePeriodo, dados: resultado, anterior });
-        setMarcaAtiva((atual) => atual ?? resultado.marcas[0]?.brandId ?? null);
+        // A marca ativa não sobrevive à troca de canal quando ela não anuncia
+        // no canal novo (a KARZI não tem Shopee, por exemplo) — cair na
+        // primeira marca do resultado é melhor que uma tela vazia.
+        setMarcaAtiva((atual) => (
+          atual && resultado.marcas.some((marca) => marca.brandId === atual)
+            ? atual
+            : resultado.marcas[0]?.brandId ?? null
+        ));
       })
       .catch(() => { if (ativo) { setConsulta({ chave: chavePeriodo, dados: null, anterior: null }); toast.error(copy.erros.carregar); } });
     return () => { ativo = false; };
-  }, [periodoEfetivo.inicio, periodoEfetivo.fim, chavePeriodo]);
+  }, [periodoEfetivo.inicio, periodoEfetivo.fim, chavePeriodo, canal]);
 
   // Quando o servidor já mandou os dados do período inicial, a primeira
   // execução destes efeitos é pulada — ela só refaria no navegador a busca
@@ -388,9 +416,13 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
   const primeiraBusca = useRef(Boolean(dadosIniciais?.dados));
 
   useEffect(() => {
-    if (primeiraBusca.current) { primeiraBusca.current = false; return; }
+    // Espera a preferência de canal ser lida: buscar antes disso faria uma
+    // ida ao servidor no canal padrão que seria descartada logo em seguida.
+    if (!canalPronto) return;
+    if (primeiraBusca.current && canal === PLATAFORMA_DOS_DADOS_INICIAIS) { primeiraBusca.current = false; return; }
+    primeiraBusca.current = false;
     return buscar();
-  }, [buscar]);
+  }, [buscar, canal, canalPronto]);
 
   useAtualizacaoLocal("anuncios", buscar, { fontes: ["anuncios"] });
 

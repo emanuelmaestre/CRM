@@ -13,19 +13,24 @@ import type { BrandSlug } from "@/shared/config/brands";
    error_api_permission — foi exatamente o que aconteceu com a API de Pedidos
    antes do app dela existir (ver comentário em shopee.provider.ts).
 
-   ATENÇÃO — contrato ainda NÃO verificado ao vivo. Os caminhos e nomes de
-   campo aqui vieram da documentação pública da Shopee e do SDK oficial de
-   referência, não de uma chamada real contra a loja. O módulo Anúncios do
-   Mercado Livre carrega o aviso oposto (lá tudo foi conferido ao vivo, e a
-   primeira versão tirada de busca na web estava em boa parte errada), então
-   vale repetir o alerta: rodar `npm run anuncios:shopee:inspecionar` contra a
-   conta real e corrigir o que divergir ANTES de tratar estes números como
-   verdade. Os pontos mais prováveis de divergência estão marcados com
-   "VERIFICAR" ao longo do arquivo. */
+   Contrato VERIFICADO ao vivo em 26/08/2026 contra a loja WUWU (shop_id
+   1645247022), com `npm run anuncios:shopee:inspecionar`. A primeira versão
+   deste arquivo foi escrita a partir da documentação pública e do SDK oficial,
+   e duas coisas estavam erradas — as duas silenciosas:
+
+   • `get_product_campaign_daily_performance` devolve `response` como OBJETO
+     ({shop_id, region, campaign_list}), não como array de blocos por loja.
+   • O campo que a Shopee chama de `cpc` é CUSTO POR CONVERSÃO, não por
+     clique: em 20/08 veio cpc=5 com expense=10 e clicks=25 (10÷25=0,40, mas
+     10÷2 conversões=5,00). Por isso ele não alimenta a coluna `cpc`.
+
+   Mantido o hábito do módulo do Mercado Livre: o que vale é o que a API de
+   fato devolve, não o que a documentação descreve. Rodar o script de novo
+   depois de qualquer mudança de contrato. */
 
 /** Formato de data que os relatórios de Ads da Shopee aceitam — DD-MM-YYYY,
- *  diferente do ISO usado no resto da API. VERIFICAR ao vivo: se a resposta
- *  vier vazia sem erro, este é o primeiro suspeito. */
+ *  diferente do ISO usado no resto da API. Confirmado ao vivo: é também o
+ *  formato em que o campo `date` volta na resposta. */
 export function paraDataShopeeAds(data: Date): string {
   const dia = String(data.getDate()).padStart(2, "0");
   const mes = String(data.getMonth() + 1).padStart(2, "0");
@@ -117,6 +122,19 @@ interface RespostaShopee<T> {
   request_id?: string;
 }
 
+/** Envelope do relatório diário por campanha, como a Shopee devolve de fato. */
+interface BlocoDesempenhoLoja {
+  shop_id?: number;
+  region?: string;
+  campaign_list?: {
+    campaign_id?: number | string;
+    ad_type?: string;
+    ad_name?: string;
+    campaign_placement?: string;
+    metrics_list?: ShopeeMetricasDia[];
+  }[];
+}
+
 interface CredenciaisAds {
   partnerId: string;
   partnerKey: string;
@@ -125,9 +143,9 @@ interface CredenciaisAds {
 }
 
 /** Quantas campanhas cabem numa chamada de setting_info/daily_performance.
- *  VERIFICAR: a documentação fala em limite por chamada mas não é explícita
- *  sobre o número; 100 é o teto usado pelos outros endpoints paginados da
- *  Shopee e serve como escolha conservadora. */
+ *  A documentação não é explícita sobre o teto; 100 é o limite usado pelos
+ *  outros endpoints paginados da Shopee e serve como escolha conservadora.
+ *  `campaign_id_list` separado por vírgula confirmado ao vivo em 26/08. */
 const CAMPANHAS_POR_CHAMADA = 100;
 
 /** Teto de dias por chamada de relatório. A API de pedidos da Shopee rejeita
@@ -242,8 +260,7 @@ export class ShopeeAdsProvider {
           };
         }[];
       }>("/ads/get_product_level_campaign_setting_info", {
-        // VERIFICAR: parâmetros de lista em GET na Shopee vão separados por
-        // vírgula. Se a resposta vier vazia, testar JSON.stringify do array.
+        // Lista em GET vai separada por vírgula — confirmado ao vivo.
         campaign_id_list: lote.join(","),
         // 1 = common_info. Os outros tipos (lance manual/automático) não
         // alimentam nenhum campo do snapshot hoje, então não são pedidos.
@@ -271,9 +288,14 @@ export class ShopeeAdsProvider {
     return configuracoes;
   }
 
-  /** Série diária por campanha. A Shopee devolve um bloco por loja, com uma
-   *  lista de campanhas dentro e as métricas de cada dia dentro de cada
-   *  campanha — por isso o achatamento em duas camadas aqui. */
+  /** Série diária por campanha. A Shopee devolve um bloco da loja com a lista
+   *  de campanhas dentro, e as métricas de cada dia dentro de cada campanha —
+   *  por isso o achatamento em duas camadas aqui.
+   *
+   *  O envelope é um OBJETO, não um array (a documentação sugeria array, e a
+   *  primeira versão deste método quebrou com "is not iterable" na primeira
+   *  chamada real). Aceitamos os dois formatos porque a diferença custa uma
+   *  linha e outra região pode devolver diferente. */
   async listarDesempenhoDiario(
     campaignIds: string[],
     inicio: Date,
@@ -283,23 +305,17 @@ export class ShopeeAdsProvider {
 
     for (const janela of janelasDeDias(inicio, fim, DIAS_POR_CHAMADA)) {
       for (const lote of emLotes(campaignIds, CAMPANHAS_POR_CHAMADA)) {
-        const resposta = await this.chamar<{
-          shop_id?: number;
-          region?: string;
-          campaign_list?: {
-            campaign_id?: number | string;
-            ad_type?: string;
-            ad_name?: string;
-            campaign_placement?: string;
-            metrics_list?: ShopeeMetricasDia[];
-          }[];
-        }[]>("/ads/get_product_campaign_daily_performance", {
-          campaign_id_list: lote.join(","),
-          start_date: paraDataShopeeAds(janela.inicio),
-          end_date: paraDataShopeeAds(janela.fim),
-        });
+        const resposta = await this.chamar<BlocoDesempenhoLoja | BlocoDesempenhoLoja[]>(
+          "/ads/get_product_campaign_daily_performance",
+          {
+            campaign_id_list: lote.join(","),
+            start_date: paraDataShopeeAds(janela.inicio),
+            end_date: paraDataShopeeAds(janela.fim),
+          },
+        );
 
-        for (const bloco of resposta ?? []) {
+        const blocos = Array.isArray(resposta) ? resposta : resposta ? [resposta] : [];
+        for (const bloco of blocos) {
           for (const campanha of bloco.campaign_list ?? []) {
             if (campanha.campaign_id === undefined || campanha.campaign_id === null) continue;
             const id = String(campanha.campaign_id);
