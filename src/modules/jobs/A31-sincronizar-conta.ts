@@ -13,7 +13,7 @@ import {
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
-import { criarShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
+import { criarShopeeProvider, ShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
 import { emitirEvento } from "@/shared/events";
 import type { CrudContext } from "@/shared/lib/crud-factory";
@@ -247,7 +247,7 @@ export const A31_sincronizarConta = inngest.createFunction(
       //
       // Na Shopee, um step por janela de 15 dias em vez de um step para os 90
       // dias inteiros. O step único não cabia nos 300s de `maxDuration` numa
-      // loja com volume (WUWU: 208 pedidos em 90 dias, cada um pedindo
+      // loja com volume (WUWU: 1073 pedidos em 90 dias, cada um pedindo
       // `get_order_detail` pelo proxy): estourava, o Inngest reexecutava do
       // zero e a execução ficava presa em `em_andamento` para sempre — o
       // varredor de abandonadas marcava Pedidos como falha e Anúncios,
@@ -255,8 +255,15 @@ export const A31_sincronizarConta = inngest.createFunction(
       // sequencial. E memoização só vale para step que TERMINA: o step único,
       // que existia para poupar a cota, era justamente quem a queimava.
       // Mesma correção já aplicada ao catálogo da Shopee, que fatia e conclui.
-      const providerShopee = conta.tipo === "shopee" && isBrandSlug(conta.brandSlug ?? "")
-        ? await criarShopeeProvider(conta.brandSlug as Parameters<typeof criarShopeeProvider>[0])
+      //
+      // Reaproveita o provider que `resolverChannelProvider` já criou em vez
+      // de chamar `criarShopeeProvider` de novo: aquela chamada resolve
+      // credencial, e este bloco roda fora de step — ou seja, a cada
+      // reinvocação da função pelo Inngest. Duas resoluções por invocação
+      // dobravam a chance de cair na janela de renovação do token, onde o
+      // provider recusa o token do banco e lança "token OAuth expirado".
+      const providerShopee = conta.tipo === "shopee" && provider instanceof ShopeeProvider
+        ? provider
         : null;
       // Sem anotação de tipo de propósito: o Inngest serializa entre steps e
       // `criadoEm` volta como string, não Date. Quem normaliza é o laço de

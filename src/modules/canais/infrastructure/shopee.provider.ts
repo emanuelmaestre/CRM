@@ -1057,6 +1057,34 @@ function sufixoEnvTokenShopee(app: ShopeeApp, upper: string): string {
   return upper;
 }
 
+/** Qual access_token usar: o gravado em `canal_tokens` ou o do ambiente.
+ *
+ *  A margem de 60 segundos antes do vencimento era tratada como "expirado":
+ *  o código descartava o token do banco e exigia o do ambiente — que é
+ *  placeholder proposital e costuma estar vazio. Durante os ~60s em que o A33
+ *  renova o token, QUALQUER chamada lançava "token OAuth expirado", mesmo com
+ *  um token perfeitamente válido gravado. Job curto passava batido; a
+ *  sincronização de 1073 pedidos da WUWU atravessa a janela e morreu no meio
+ *  duas vezes seguidas em 27/08/2026, sempre no minuto da renovação.
+ *
+ *  Agora a margem só muda a PREFERÊNCIA: sem token de ambiente, um token do
+ *  banco que ainda vale 30s é usado — melhor que falhar de imediato, e o A33
+ *  já renovou antes da chamada seguinte. Só token de fato vencido é recusado. */
+export function escolherAccessTokenShopee(
+  tokenBanco: string | undefined,
+  expiraEm: string | undefined,
+  doAmbiente: string | undefined,
+  agoraMs: number = Date.now(),
+): { accessToken: string | undefined; tokenBancoVencido: boolean } {
+  const vencimentoMs = expiraEm ? new Date(expiraEm).getTime() : null;
+  const vencido = vencimentoMs !== null && vencimentoMs <= agoraMs;
+  const pertoDeVencer = vencimentoMs !== null && !vencido && vencimentoMs <= agoraMs + 60_000;
+
+  if (vencido) return { accessToken: doAmbiente, tokenBancoVencido: true };
+  if (pertoDeVencer) return { accessToken: doAmbiente ?? tokenBanco, tokenBancoVencido: false };
+  return { accessToken: tokenBanco ?? doAmbiente, tokenBancoVencido: false };
+}
+
 export async function obterTokenShopee(brandSlug: BrandSlug, app: ShopeeApp = "catalogo"): Promise<{
   shopId: string;
   accessToken: string;
@@ -1096,16 +1124,13 @@ export async function obterTokenShopee(brandSlug: BrandSlug, app: ShopeeApp = "c
     cacheTokenPorMarca.set(cacheKey, { valor: tokenRow, expiraEm: Date.now() + TTL_CACHE_TOKEN_MS });
   }
 
-  const tokenBancoExpirado = tokenRow?.expires_at
-    ? new Date(tokenRow.expires_at).getTime() <= Date.now() + 60_000
-    : false;
-  const accessToken = tokenBancoExpirado
-    ? process.env[`SHOPEE_ACCESS_TOKEN_${sufixoEnv}`]
-    : tokenRow?.access_token ?? process.env[`SHOPEE_ACCESS_TOKEN_${sufixoEnv}`];
-  const shopId = (tokenBancoExpirado ? undefined : tokenRow?.seller_id)
+  const doAmbiente = process.env[`SHOPEE_ACCESS_TOKEN_${sufixoEnv}`];
+  const escolha = escolherAccessTokenShopee(tokenRow?.access_token, tokenRow?.expires_at, doAmbiente);
+  const { accessToken, tokenBancoVencido } = escolha;
+  const shopId = (tokenBancoVencido ? undefined : tokenRow?.seller_id)
     ?? process.env[`SHOPEE_SHOP_ID_${sufixoEnv}`];
 
-  if (accessToken && (!tokenRow || tokenBancoExpirado)) {
+  if (accessToken && accessToken === doAmbiente && (!tokenRow || tokenBancoVencido)) {
     const motivo = tokenRow ? "token OAuth em canal_tokens expirado" : "nenhum token persistido em canal_tokens";
     console.warn(
       `[shopee] usando SHOPEE_ACCESS_TOKEN_${sufixoEnv} do ambiente (${motivo}). ` +
@@ -1114,7 +1139,7 @@ export async function obterTokenShopee(brandSlug: BrandSlug, app: ShopeeApp = "c
   }
 
   if (!accessToken || !shopId) {
-    const motivo = tokenBancoExpirado ? "token OAuth expirado" : "token ausente";
+    const motivo = tokenBancoVencido ? "token OAuth expirado" : "token ausente";
     throw new Error(`Credencial Shopee (${app}) indisponível para ${upper}: ${motivo}.`);
   }
 
