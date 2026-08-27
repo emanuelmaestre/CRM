@@ -38,7 +38,10 @@ describe("catálogo da Shopee — anúncio com variação que a API não devolve
               item_name: "Kit 4 peças",
               item_sku: "KIT4",
               item_status: "NORMAL",
-              tier_variation: [{ name: "Cor" }],
+              // Campo real: conferido ao vivo contra a loja WUWU em 27/08/2026.
+              // O fixture antes usava `tier_variation`, que a API NUNCA devolve
+              // — o teste passava contra uma resposta que não existe.
+              has_model: true,
               stock_info_v2: { summary_info: { total_available_stock: 7 } },
               price_info: [{ current_price: 10 }],
             }],

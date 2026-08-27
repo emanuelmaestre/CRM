@@ -30,6 +30,7 @@
     "db:migrate": "node scripts/migrar.mjs",
     "db:studio": "drizzle-kit studio",
     "estoque:coletar": "node --env-file=.env.local --import tsx scripts/coletar-estoque.mts",
+    "shopee:buscar": "node --env-file=.env --env-file=.env.local --import tsx scripts/buscar-anuncio-shopee.mts",
     "anuncios:shopee:inspecionar": "node --env-file=.env.local --import tsx scripts/inspecionar-anuncios-shopee.mts"
   },
   "dependencies": {

@@ -892,7 +892,7 @@ export class ShopeeProvider implements ChannelProvider {
    *  equivalente Shopee do `listarAnunciosAtivos` do Mercado Livre. Reusa
    *  `listarItemIdsAtivos` (já existente pra Avaliações) pra descobrir os
    *  IDs, depois busca detalhe em lote de 50 via `get_item_base_info`.
-   *  Item sem variação vira 1 entrada; item com variação (`tier_variation`
+   *  Item sem variação vira 1 entrada; item com variação (`has_model`
    *  não vazio) busca `get_model_list` à parte, uma entrada por SKU real —
    *  mesma chamada extra que `consultarEstoque` já paga hoje pra esse caso. */
   /** Além dos itens, devolve por que anúncio ficou de fora.
@@ -928,7 +928,7 @@ export class ShopeeProvider implements ChannelProvider {
       item_status?: string;
       price_info?: ShopeePriceInfo;
       stock_info_v2?: ShopeeStockInfo;
-      tier_variation?: unknown[];
+      has_model?: boolean;
     };
 
     const itens: ShopeeAnuncioCatalogo[] = [];
@@ -936,7 +936,7 @@ export class ShopeeProvider implements ChannelProvider {
       const lote = itemIds.slice(i, i + 50);
       const res = await shopeeFetch(this.url("/product/get_item_base_info", {
         item_id_list: lote.join(","),
-        response_optional_fields: "item_name,item_sku,item_status,price_info,stock_info_v2,tier_variation",
+        response_optional_fields: "item_name,item_sku,item_status,price_info,stock_info_v2,has_model",
       }), { signal: AbortSignal.timeout(10000) });
       if (!res.ok) {
         const detalhe = (await res.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
@@ -955,7 +955,14 @@ export class ShopeeProvider implements ChannelProvider {
           continue;
         }
 
-        const temVariacao = Array.isArray(item.tier_variation) && item.tier_variation.length > 0;
+        // `has_model`, NÃO `tier_variation`: verificado ao vivo contra a loja
+        // WUWU em 27/08/2026 — `tier_variation` volta `undefined` sempre, seja
+        // pedido em `response_optional_fields` ou via `need_tier_variation=true`.
+        // Como todo item caía em "sem variação", o SKU gravado era o do anúncio
+        // (`item_sku`) e nunca o da variação, então pedido de variação (W613-BL,
+        // W613-CZ) não achava produto nenhum e o diagnóstico mostrava
+        // `comVariacao: 0` numa loja onde os anúncios TÊM variação.
+        const temVariacao = item.has_model === true;
         if (temVariacao) diagnostico.comVariacao += 1;
         if (!temVariacao) {
           itens.push({
