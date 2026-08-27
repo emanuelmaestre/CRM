@@ -11,6 +11,7 @@ import {
   lgpdSolicitacao,
 } from "@/shared/lib/db/schema";
 import { persistirEvento } from "@/shared/events";
+import { camposAnonimizadosCliente } from "../domain/anonimizacao";
 import { exportarDadosCliente } from "./clientes.service";
 
 const CriarSolicitacaoSchema = z.object({
@@ -178,26 +179,10 @@ export async function anonimizarSolicitacaoLgpd(ctx: CrudContext, input: unknown
     if (!clienteAntes) throw new Error("Cliente nao encontrado para anonimizacao.");
 
     await tx.update(cliente).set({
-      nome: "Cliente anonimizado",
-      email: null,
-      telefone: null,
-      cpfCnpj: null,
-      dataNascimento: null,
-      // Enriquecimento vindo do endereço de entrega do Mercado Livre (nome
-      // completo, endereço, geolocalização) — mesmo dado pessoal que os
-      // campos acima, tem que sumir junto na anonimização.
-      nomeCompleto: null,
-      enderecoRua: null,
-      enderecoNumero: null,
-      enderecoComplemento: null,
-      enderecoBairro: null,
-      enderecoCidade: null,
-      enderecoEstado: null,
-      enderecoCep: null,
-      enderecoLatitude: null,
-      enderecoLongitude: null,
+      ...camposAnonimizadosCliente("Cliente anonimizado", now),
+      // Só o atendimento a titular apaga de fato: a retenção automática
+      // anonimiza e deixa o registro em pé para as métricas históricas.
       deletedAt: now,
-      updatedAt: now,
     }).where(and(eq(cliente.id, solicitacao.clienteId), eq(cliente.orgId, ctx.orgId)));
 
     await tx.update(consentimento).set({

@@ -4,6 +4,7 @@ import { cliente } from "@/shared/lib/db/schema/clientes";
 import { consentimento } from "@/shared/lib/db/schema/clientes";
 import { and, eq, lt, sql } from "drizzle-orm";
 import { emitirEvento } from "@/shared/events";
+import { camposAnonimizadosCliente } from "@/modules/clientes/domain/anonimizacao";
 import { subYears } from "date-fns";
 
 // Política padrão: anonimizar clientes inativos há mais de 5 anos sem consentimento ativo
@@ -58,14 +59,7 @@ export const A22_lgpdRetencao = inngest.createFunction(
       await step.run(`anonimizar-${c.id}`, async () => {
         await db
           .update(cliente)
-          .set({
-            nome: `[Anonimizado ${c.id.slice(0, 8)}]`,
-            email: null,
-            telefone: null,
-            cpfCnpj: null,
-            dataNascimento: null,
-            updatedAt: new Date(),
-          })
+          .set(camposAnonimizadosCliente(`[Anonimizado ${c.id.slice(0, 8)}]`, new Date()))
           .where(and(eq(cliente.id, c.id), eq(cliente.orgId, orgId)));
 
         anonimizados.push(c.id);
