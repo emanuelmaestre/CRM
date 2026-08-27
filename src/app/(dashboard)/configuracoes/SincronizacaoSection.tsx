@@ -404,7 +404,24 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           com hora e botões quebrando para baixo — antes ele descia sozinho
           para uma linha própria, e o cartão gastava três linhas onde cabiam
           duas. A partir de xl volta a ser a grade de colunas fixas. */}
-      <div className="contents xl:grid xl:grid-cols-[13rem_minmax(0,13rem)_2rem_auto] xl:items-center">
+      {/* Três colunas para três itens: status, relógio e ações. Antes eram
+          QUATRO faixas declaradas (…_2rem_auto) para os mesmos três itens —
+          o `xl:contents` do agrupador de baixo entrega relógio e ações
+          direto ao grid, então as ações caíam na faixa de 2rem, precisavam
+          de ~150px e vazavam 40px para fora da linha (o botão "Sincronizar"
+          aparecia cortado na direita), enquanto a faixa `auto` do fim ficava
+          vazia em 0px. O respiro de 2rem que aquela faixa tentava dar agora
+          é `gap-x-8`, que é o que ele sempre foi. O relógio ganhou 2rem a
+          mais porque "Em andamento desde 26/08/2026, 21:24" não cabia em
+          13rem e vinha truncado com reticências.
+
+          As TRÊS faixas são fixas, incluindo a das ações. Com a última em
+          `auto` ela media o próprio conteúdo, e "Sincronizando…" é mais
+          largo que "Sincronizar" — como a linha é `justify-between`, a
+          diferença empurrava status e relógio das contas Shopee para a
+          esquerda das do Mercado Livre. Largura travada = todas as linhas
+          começam no mesmo x, que era a intenção original. */}
+      <div className="contents xl:grid xl:grid-cols-[13rem_minmax(0,15rem)_11rem] xl:items-center xl:gap-x-8">
         <div className="flex min-h-9 shrink-0 items-center justify-start xl:justify-center">
           <AnimatePresence mode="popLayout">
             {execucao && (
@@ -461,7 +478,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
             <span className="truncate">{rotuloUltima(execucao)}</span>
           </span>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 xl:justify-end">
             <SincronizacaoInfo conta={conta} execucao={execucao} />
 
             <motion.button
@@ -469,7 +486,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
               whileTap={{ scale: 0.97 }}
               onClick={sincronizar}
               disabled={disparando || emAndamento}
-              className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+              className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground whitespace-nowrap transition-colors hover:bg-muted disabled:opacity-60"
             >
               <RefreshCw size={13} className={disparando || emAndamento ? "animate-spin" : ""} />
               {emAndamento ? "Sincronizando…" : "Sincronizar"}
