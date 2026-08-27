@@ -12,6 +12,9 @@ export function LegalLinks() {
       <Link href="/privacidade" className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
         Privacidade
       </Link>
+      <Link href="/seguranca" className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+        Segurança
+      </Link>
     </nav>
   );
 }

@@ -9,6 +9,8 @@ const PUBLIC_PATHS = new Set([
   "/privacidade",
   "/terms",
   "/privacy",
+  "/seguranca",
+  "/security",
 ]);
 const PUBLIC_API_PREFIXES = [
   "/api/inngest",

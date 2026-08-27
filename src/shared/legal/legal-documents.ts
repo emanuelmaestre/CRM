@@ -1,7 +1,7 @@
-import { Boxes, Handshake } from "lucide-react";
+import { Boxes, Handshake, ShieldCheck } from "lucide-react";
 
 export type LegalLocale = "pt" | "en";
-export type LegalDocumentKind = "terms" | "privacy";
+export type LegalDocumentKind = "terms" | "privacy" | "security";
 
 export interface LegalSource {
   label: string;
@@ -48,6 +48,11 @@ export interface LegalDocument {
 
 const updatedPt = "Atualizado em 18 de agosto de 2026";
 const updatedEn = "Last updated on August 18, 2026";
+// A página de segurança nasceu depois de Termos e Privacidade e passa a ter
+// data própria: ela é revisada quando um controle técnico muda, não quando o
+// texto legal muda, então as duas datas andam separadas de propósito.
+const updatedSecurityPt = "Atualizado em 27 de agosto de 2026";
+const updatedSecurityEn = "Last updated on August 27, 2026";
 const operatorCompanyPt = [
   { label: "ELISA LIMA HAUTE COUTURE E COMERCIO DE ROUPAS LTDA", document: "CNPJ 24.264.245/0001-94" },
   { label: "KARZI", document: "CNPJ 57.899.124/0001-78" },
@@ -384,6 +389,177 @@ export const legalDocuments = {
         company: operatorCompanyPt,
       },
     },
+    security: {
+      kind: "security",
+      locale: "pt",
+      title: "Segurança da Informação",
+      metadataTitle: "Segurança da Informação - Elisa Lima CRM",
+      description:
+        "Controles de segurança, classificação e retenção de dados, gestão de vulnerabilidades e resposta a incidentes do Elisa Lima CRM.",
+      lastUpdated: updatedSecurityPt,
+      alternateHref: "/security",
+      alternateLabel: "English",
+      commitments: [
+        "Acesso por menor privilégio: perfil, rota e módulo são concedidos individualmente, e todo dado é isolado por organização no banco.",
+        "Criptografia obrigatória em trânsito (HTTPS com HSTS) e em repouso (AES-256 no banco gerenciado).",
+        "Incidente confirmado é comunicado às plataformas e aos vendedores afetados em até 72 horas.",
+      ],
+      sections: [
+        {
+          id: "escopo",
+          title: "Escopo e arquitetura",
+          eyebrow: "Superfície",
+          icon: "file",
+          summary: "Aplicação serverless, sem servidores próprios e sem rede corporativa exposta.",
+          body: [
+            "O Elisa Lima CRM é uma aplicação web privada, usada pelas marcas KARZI, WUWU e ARMARINHOS LIMA para operar catálogo, pedidos, estoque, anúncios, atendimento e métricas a partir das integrações autorizadas de Mercado Livre, TikTok Shop e Shopee.",
+            "A aplicação roda em infraestrutura gerenciada, com WAF e proteção contra negação de serviço da plataforma de hospedagem e TLS terminado na borda. Não há servidor administrado pela operadora, não há rede corporativa própria e não existem portas de entrada abertas para a internet.",
+            "O banco de dados é um PostgreSQL gerenciado, alcançável apenas pelo pooler de conexão mediante credencial. As credenciais vivem em variáveis de ambiente do provedor de hospedagem, nunca no código-fonte e nunca entregues ao navegador.",
+          ],
+          bullets: [
+            "As chamadas de saída para as APIs dos canais partem de um endereço IP de egresso fixo e declarado às plataformas.",
+            "Nenhum segredo vive no código: credenciais e tokens ficam exclusivamente em variáveis de ambiente. O repositório tem varredura automática e contínua de segredo, com bloqueio de envio que impede uma credencial de entrar no histórico.",
+            "Ambientes de desenvolvimento e produção usam credenciais distintas.",
+          ],
+        },
+        {
+          id: "acesso",
+          title: "Controle de acesso e menor privilégio",
+          eyebrow: "Autorização",
+          icon: "user",
+          summary: "Perfil, rota e módulo são concedidos individualmente, e o isolamento entre organizações é validado por teste automatizado.",
+          body: [
+            "A autenticação usa provedor gerenciado com sessão assinada. A autorização acontece em três camadas somadas: perfil do usuário (administrador, gestor ou vendedor), restrição por rota declarada em configuração versionada, e visibilidade de módulo definida individualmente pelo administrador para cada pessoa.",
+            "Toda operação de escrita revalida o perfil de quem chamou no lado do servidor. A verificação nunca depende do que o navegador informa, de modo que ocultar um módulo na interface não é o que protege o dado — a checagem no servidor é.",
+            "Os dados são isolados por organização no próprio banco: todas as tabelas têm Row Level Security ativa com política por identificador de organização, e o código filtra explicitamente por esse identificador em cada consulta. Uma suíte de testes dedicada roda na integração contínua a cada alteração e valida negação por padrão, isolamento de leitura e escrita, e bloqueio de troca de organização.",
+          ],
+          bullets: [
+            "A chave privilegiada do banco é usada somente em código de servidor e jamais é enviada ao cliente.",
+            "Os escopos solicitados nas APIs dos canais se limitam ao necessário para a funcionalidade autorizada.",
+            "Ações sensíveis ficam registradas em log de auditoria somente de inserção, que não é atualizado nem apagado.",
+            "Contas de usuário são criadas e desativadas pelo administrador, e o desligamento revoga o acesso imediatamente.",
+          ],
+        },
+        {
+          id: "criptografia",
+          title: "Criptografia e proteção do tráfego",
+          eyebrow: "Confidencialidade",
+          icon: "lock",
+          summary: "HTTPS obrigatório com HSTS e política de conteúdo restritiva; dados em repouso cifrados com AES-256.",
+          body: [
+            "Todo o tráfego é exclusivamente HTTPS. A resposta carrega Strict-Transport-Security com validade de dois anos, incluindo subdomínios e com preload, o que impede rebaixamento para HTTP mesmo em primeira visita conhecida.",
+            "Uma Content-Security-Policy restritiva limita as origens de script, imagem, fonte, estilo e conexão a um conjunto declarado. Somam-se a ela negação de enquadramento, X-Content-Type-Options nosniff, Referrer-Policy de origem estrita e Permissions-Policy negando câmera, microfone e geolocalização.",
+            "Os dados em repouso ficam em PostgreSQL gerenciado com criptografia de disco AES-256 aplicada pelo provedor, com backups igualmente cifrados. Credenciais e tokens de integração são guardados apartados dos dados operacionais.",
+          ],
+          bullets: [
+            "Nenhum segredo é versionado; todos vivem em variáveis de ambiente.",
+            "Tokens de acesso das plataformas são renovados automaticamente e invalidados na desconexão da conta.",
+            "Os cabeçalhos de segurança são verificáveis publicamente por qualquer ferramenta de varredura.",
+          ],
+        },
+        {
+          id: "classificacao",
+          title: "Classificação e retenção de dados",
+          eyebrow: "Governança do dado",
+          icon: "database",
+          summary: "Quatro categorias de dado, cada uma com origem, finalidade e prazo de retenção declarados.",
+          body: [
+            "A operadora trata apenas o dado que as plataformas entregam para o cumprimento do pedido e para a operação do catálogo. Não há coleta direta de titular, não há enriquecimento com bases externas, não há corretagem de dados e nenhum dado de plataforma é usado para treinar modelos de inteligência artificial.",
+            "Cada categoria abaixo recebe tratamento proporcional à sua sensibilidade. Dado pessoal e segredo têm acesso restrito aos perfis que precisam deles para operar, e o acesso é registrado em auditoria.",
+          ],
+          table: [
+            { label: "Segredo", value: "Segredo", detail: "Credenciais de aplicativo e tokens OAuth das plataformas. Acesso somente por código de servidor. Retidos enquanto a conexão existir e invalidados imediatamente na desconexão." },
+            { label: "Pessoal", value: "Pessoal", detail: "Nome, endereço de entrega e contato do comprador, quando a plataforma os fornece. Usados apenas para cumprir e acompanhar o pedido. Retidos pelo prazo fiscal e legal aplicável ao pedido." },
+            { label: "Comercial", value: "Comercial", detail: "Pedidos, itens, valores, catálogo, estoque, anúncios e métricas do vendedor. Usados para operar e analisar a própria loja. Retidos enquanto a relação existir." },
+            { label: "Operacional", value: "Operacional", detail: "Logs de execução, auditoria e saúde das integrações. Usados para suporte, segurança e rastreabilidade. Retidos por período limitado e sem finalidade comercial." },
+          ],
+          bullets: [
+            "Encerrada a relação, revogada a autorização ou desconectada a conta, os tokens são invalidados na hora e os dados daquele canal são excluídos em até 30 dias corridos.",
+            "Permanece somente o mínimo que a lei obriga reter, em base segregada e sem uso operacional, informado por escrito quando solicitado.",
+            "Dados de plataforma não são vendidos, licenciados nem transferidos a terceiros.",
+          ],
+        },
+        {
+          id: "vulnerabilidades",
+          title: "Gestão de vulnerabilidades",
+          eyebrow: "Prevenção",
+          icon: "shield",
+          summary: "Varredura contínua de dependências, verificação automatizada a cada alteração e teste de intrusão periódico.",
+          body: [
+            "As dependências do projeto são monitoradas continuamente por varredura automática, que emite alerta e abre solicitação de atualização assim que uma vulnerabilidade conhecida é publicada. Correções de severidade alta são priorizadas sobre trabalho de funcionalidade.",
+            "Toda alteração de código passa por integração contínua antes de chegar à produção: análise estática, verificação de tipos e bateria de testes automatizados, incluindo a suíte que valida o isolamento entre organizações na camada do banco. Alteração que quebra a verificação não é publicada.",
+            "A aplicação passou por teste de intrusão em agosto de 2026, cobrindo autenticação, autorização, isolamento entre organizações, exposição de segredo e superfície de API. Os achados foram corrigidos e reverificados. O relatório é fornecido a plataformas parceiras mediante solicitação.",
+          ],
+          bullets: [
+            "Correção de vulnerabilidade crítica ou alta: tratada com prioridade sobre demanda de funcionalidade.",
+            "A verificação automatizada — tipos, análise estática, testes unitários, testes de isolamento de dados e build — roda a cada envio de código, e o resultado é revisado antes de a alteração ser considerada concluída.",
+            "As dependências publicadas em produção são mantidas sem vulnerabilidade conhecida em aberto.",
+            "Achados de segurança relatados por terceiros podem ser enviados para producao@elisalima.com.br.",
+          ],
+        },
+        {
+          id: "incidentes",
+          title: "Resposta a incidentes",
+          eyebrow: "Reação",
+          icon: "badge",
+          summary: "Responsável nomeado, prazo de 72 horas e conteúdo mínimo da comunicação definidos previamente.",
+          body: [
+            "A responsabilidade pela resposta a incidentes é do líder de operações, alcançável em producao@elisalima.com.br, que conduz a contenção, decide a comunicação e acompanha a correção até o encerramento.",
+            "Confirmado um acesso não autorizado, perda, alteração indevida ou vazamento que envolva dados pessoais ou dados de conta obtidos das plataformas, a operadora comunica a plataforma afetada e os vendedores afetados em até 72 horas da confirmação, pelo canal oficial de suporte ao desenvolvedor e por e-mail.",
+            "A comunicação informa a natureza do incidente, os dados e titulares envolvidos, as medidas técnicas já tomadas e o plano de correção, e é seguida de atualizações até o encerramento. A notificação à Autoridade Nacional de Proteção de Dados e aos titulares segue a LGPD.",
+          ],
+          bullets: [
+            "Primeira ação de contenção: revogar tokens e sessões da superfície afetada.",
+            "Prazo de comunicação: até 72 horas da confirmação do incidente.",
+            "O log de auditoria somente de inserção sustenta a reconstituição do que ocorreu.",
+          ],
+        },
+        {
+          id: "titulares",
+          title: "Direitos do titular e exclusão",
+          eyebrow: "Titulares",
+          icon: "shield",
+          summary: "Solicitação encaminhada pela plataforma ou pelo vendedor é atendida em até 15 dias corridos.",
+          body: [
+            "Quando um titular exerce um direito diretamente com a plataforma ou com o vendedor autorizado e a solicitação é encaminhada à operadora, o pedido de acesso, correção, atualização, portabilidade, anonimização ou exclusão é atendido em até 15 dias corridos do recebimento, com confirmação por escrito a quem encaminhou.",
+            "O mesmo canal e o mesmo prazo valem para pedidos vindos diretamente da plataforma. A operadora pode solicitar confirmação de identidade antes de executar, para não atender pedido fraudulento em nome de terceiro.",
+            "Encerrada a relação contratual, revogada a autorização ou desconectada a conta de canal, os tokens são invalidados imediatamente e todos os dados coletados daquele canal são excluídos em até 30 dias corridos, inclusive das cópias de backup dentro do ciclo de retenção destas.",
+          ],
+          bullets: [
+            "Solicitação de titular: atendida em até 15 dias corridos.",
+            "Fim da relação, revogação ou desconexão: tokens invalidados na hora, dados excluídos em até 30 dias corridos.",
+            "Canal único para os dois casos: producao@elisalima.com.br.",
+          ],
+        },
+        {
+          id: "responsabilidade",
+          title: "Responsável e revisão",
+          eyebrow: "Manutenção",
+          icon: "user",
+          summary: "Documento revisado sempre que uma integração, um controle ou um prazo muda.",
+          body: [
+            "Esta página descreve os controles efetivamente em vigor, não uma intenção futura. É revisada sempre que uma integração é adicionada ou removida, um controle técnico muda, ou um prazo declarado é alterado.",
+            "A operadora é uma equipe pequena e não mantém certificação ISO 27001 nem SOC 2. Os controles aqui descritos são verificáveis por inspeção técnica: os cabeçalhos de segurança podem ser conferidos por varredura pública, e o comportamento de isolamento e autorização é coberto por teste automatizado executado a cada alteração.",
+            "Dúvidas de plataformas parceiras, de vendedores autorizados ou de titulares devem ser enviadas para producao@elisalima.com.br.",
+          ],
+        },
+      ],
+      sources: [
+        { label: "TikTok Shop - Data security and privacy review", href: "https://partner.tiktokshop.com/docv2/page/data-security-and-privacy-review" },
+        { label: "Shopee Open Platform - Data Protection Policy", href: "https://open.shopee.com/developer-guide/32" },
+        { label: "Mercado Livre Developers - Termos e Condições de Uso", href: "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes" },
+        { label: "Lei Geral de Proteção de Dados - Lei 13.709/2018", href: "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm" },
+      ],
+      contact: {
+        title: "Segurança e incidentes",
+        emailLabel: "E-mail",
+        email: "producao@elisalima.com.br",
+        addressLabel: "Endereço",
+        address: "São Paulo - SP, Brasil",
+        companyLabel: "CNPJ",
+        company: operatorCompanyPt,
+      },
+    },
   },
   en: {
     terms: {
@@ -669,6 +845,177 @@ export const legalDocuments = {
         company: operatorCompanyEn,
       },
     },
+    security: {
+      kind: "security",
+      locale: "en",
+      title: "Information Security",
+      metadataTitle: "Information Security - Elisa Lima CRM",
+      description:
+        "Security controls, data classification and retention, vulnerability management and incident response for Elisa Lima CRM.",
+      lastUpdated: updatedSecurityEn,
+      alternateHref: "/seguranca",
+      alternateLabel: "Português",
+      commitments: [
+        "Least privilege access: profile, route and module are granted individually, and all data is tenant-isolated at the database level.",
+        "Encryption is mandatory in transit (HTTPS with HSTS) and at rest (AES-256 on managed database storage).",
+        "A confirmed incident is reported to the affected platforms and sellers within 72 hours.",
+      ],
+      sections: [
+        {
+          id: "scope",
+          title: "Scope and architecture",
+          eyebrow: "Attack surface",
+          icon: "file",
+          summary: "A serverless application, with no self-managed servers and no exposed corporate network.",
+          body: [
+            "Elisa Lima CRM is a private web application used by the brands KARZI, WUWU and ARMARINHOS LIMA to operate catalog, orders, inventory, ads, customer support and metrics from authorized Mercado Livre, TikTok Shop and Shopee integrations.",
+            "The application runs on managed infrastructure, with the hosting platform's managed WAF and denial-of-service protection and TLS terminated at the edge. The operator administers no servers, maintains no corporate network of its own, and exposes no inbound ports to the internet.",
+            "The database is a managed PostgreSQL instance, reachable only through the connection pooler with credentials. Credentials live in hosting provider environment variables, never in source control and never delivered to the browser.",
+          ],
+          bullets: [
+            "Outbound calls to channel APIs leave from a fixed egress IP address declared to the platforms.",
+            "No secret lives in code: credentials and tokens are held exclusively in environment variables. The repository runs continuous automated secret scanning, with push protection that prevents a credential from entering the history.",
+            "Development and production environments use separate credentials.",
+          ],
+        },
+        {
+          id: "access",
+          title: "Access control and least privilege",
+          eyebrow: "Authorization",
+          icon: "user",
+          summary: "Profile, route and module are granted individually, and tenant isolation is verified by an automated test suite.",
+          body: [
+            "Authentication uses a managed provider with a signed session. Authorization is enforced in three cumulative layers: user profile (admin, manager or seller), per-route restriction declared in versioned configuration, and module visibility set individually by the administrator for each person.",
+            "Every write operation re-validates the caller's profile server-side. The check never relies on what the browser reports, so hiding a module in the interface is not what protects the data — the server-side check is.",
+            "Data is tenant-isolated in the database itself: every table has Row Level Security enabled with an organization identifier policy, and application code filters explicitly by that identifier on every query. A dedicated test suite runs in continuous integration on every change and verifies default deny, read and write isolation, and blocking of tenant switching.",
+          ],
+          bullets: [
+            "The privileged database key is used only in server-side code and is never shipped to the client.",
+            "Scopes requested from channel APIs are limited to what the authorized functionality requires.",
+            "Sensitive actions are recorded in an insert-only audit log that is never updated or deleted.",
+            "User accounts are created and deactivated by the administrator, and offboarding revokes access immediately.",
+          ],
+        },
+        {
+          id: "encryption",
+          title: "Encryption and traffic protection",
+          eyebrow: "Confidentiality",
+          icon: "lock",
+          summary: "HTTPS is mandatory with HSTS and a restrictive content policy; data at rest is encrypted with AES-256.",
+          body: [
+            "All traffic is HTTPS only. Responses carry Strict-Transport-Security with a two-year max-age, includeSubDomains and preload, which prevents downgrade to HTTP even on a known first visit.",
+            "A restrictive Content-Security-Policy limits script, image, font, style and connection origins to a declared set. It is complemented by frame denial, X-Content-Type-Options nosniff, a strict-origin Referrer-Policy, and a Permissions-Policy denying camera, microphone and geolocation.",
+            "Data at rest is held in managed PostgreSQL with provider-applied AES-256 disk encryption, and backups are encrypted as well. Integration credentials and tokens are stored separately from operational data.",
+          ],
+          bullets: [
+            "No secret is committed to source control; all secrets live in environment variables.",
+            "Platform access tokens are refreshed automatically and invalidated when an account is disconnected.",
+            "Security headers are publicly verifiable with any scanning tool.",
+          ],
+        },
+        {
+          id: "classification",
+          title: "Data classification and retention",
+          eyebrow: "Data governance",
+          icon: "database",
+          summary: "Four data categories, each with a declared origin, purpose and retention period.",
+          body: [
+            "The operator processes only the data platforms provide for order fulfilment and catalog operation. There is no direct collection from data subjects, no enrichment with external databases, no data brokerage, and no platform data is used to train artificial intelligence models.",
+            "Each category below is handled in proportion to its sensitivity. Personal data and secrets are restricted to the profiles that need them to operate, and access is recorded in the audit log.",
+          ],
+          table: [
+            { label: "Secret", value: "Secret", detail: "Application credentials and platform OAuth tokens. Accessible only to server-side code. Retained while the connection exists and invalidated immediately on disconnection." },
+            { label: "Personal", value: "Personal", detail: "Buyer name, delivery address and contact, where the platform provides them. Used only to fulfil and track the order. Retained for the tax and legal period applicable to the order." },
+            { label: "Commercial", value: "Commercial", detail: "Orders, items, amounts, catalog, inventory, ads and seller metrics. Used to operate and analyse the seller's own store. Retained while the relationship exists." },
+            { label: "Operational", value: "Operational", detail: "Execution logs, audit records and integration health. Used for support, security and traceability. Retained for a limited period and with no commercial purpose." },
+          ],
+          bullets: [
+            "On termination, revocation of authorization or account disconnection, tokens are invalidated immediately and that channel's data is deleted within 30 calendar days.",
+            "Only the minimum that law requires is retained, in a segregated store with no operational use, disclosed in writing on request.",
+            "Platform data is never sold, licensed or transferred to third parties.",
+          ],
+        },
+        {
+          id: "vulnerabilities",
+          title: "Vulnerability management",
+          eyebrow: "Prevention",
+          icon: "shield",
+          summary: "Continuous dependency scanning, automated verification on every change, and periodic penetration testing.",
+          body: [
+            "Project dependencies are monitored continuously by automated scanning, which raises an alert and opens an update request as soon as a known vulnerability is published. High severity fixes take priority over feature work.",
+            "Every code change passes through continuous integration before reaching production: static analysis, type checking and an automated test battery, including the suite that verifies database-level tenant isolation. A change that fails verification is not published.",
+            "The application underwent penetration testing in August 2026, covering authentication, authorization, tenant isolation, secret exposure and API surface. Findings were remediated and re-verified. The report is provided to partner platforms on request.",
+          ],
+          bullets: [
+            "Critical or high severity fixes take priority over feature demand.",
+            "Automated verification — type checking, static analysis, unit tests, data isolation tests and build — runs on every code push, and its result is reviewed before a change is considered complete.",
+            "Dependencies deployed to production are kept free of known open vulnerabilities.",
+            "Third-party security findings can be sent to producao@elisalima.com.br.",
+          ],
+        },
+        {
+          id: "incidents",
+          title: "Incident response",
+          eyebrow: "Reaction",
+          icon: "badge",
+          summary: "A named responsible person, a 72-hour deadline and a predefined minimum notification content.",
+          body: [
+            "Responsibility for incident response sits with the operations lead, reachable at producao@elisalima.com.br, who directs containment, decides on notification and follows remediation through to closure.",
+            "On confirmation of unauthorized access, loss, tampering or leakage involving personal data or account data obtained from the platforms, the operator notifies the affected platform and the affected sellers within 72 hours of confirmation, through the official developer support channel and by email.",
+            "The notification states the nature of the incident, the data and data subjects involved, the technical measures already taken and the remediation plan, and is followed by updates until closure. Notification to the Brazilian data protection authority (ANPD) and to data subjects follows the LGPD.",
+          ],
+          bullets: [
+            "First containment action: revoke tokens and sessions on the affected surface.",
+            "Notification deadline: within 72 hours of incident confirmation.",
+            "The insert-only audit log supports reconstructing what happened.",
+          ],
+        },
+        {
+          id: "subjects",
+          title: "Data subject rights and deletion",
+          eyebrow: "Data subjects",
+          icon: "shield",
+          summary: "A request forwarded by the platform or by the seller is fulfilled within 15 calendar days.",
+          body: [
+            "When a data subject exercises a right directly with the platform or with the authorized seller and the request is forwarded to the operator, the request for access, correction, update, portability, anonymization or deletion is fulfilled within 15 calendar days of receipt, with written confirmation to whoever forwarded it.",
+            "The same channel and deadline apply to requests coming directly from the platform. The operator may request identity confirmation before acting, so as not to serve a fraudulent request made in someone else's name.",
+            "On contract termination, revocation of authorization or disconnection of a channel account, tokens are invalidated immediately and all data collected from that channel is deleted within 30 calendar days, including from backup copies within their retention cycle.",
+          ],
+          bullets: [
+            "Data subject request: fulfilled within 15 calendar days.",
+            "End of relationship, revocation or disconnection: tokens invalidated immediately, data deleted within 30 calendar days.",
+            "Single channel for both cases: producao@elisalima.com.br.",
+          ],
+        },
+        {
+          id: "ownership",
+          title: "Ownership and review",
+          eyebrow: "Maintenance",
+          icon: "user",
+          summary: "This document is reviewed whenever an integration, a control or a declared deadline changes.",
+          body: [
+            "This page describes controls actually in force, not a future intention. It is reviewed whenever an integration is added or removed, a technical control changes, or a declared deadline is altered.",
+            "The operator is a small team and does not hold ISO 27001 or SOC 2 certification. The controls described here are verifiable by technical inspection: security headers can be checked with any public scanner, and isolation and authorization behaviour is covered by automated tests executed on every change.",
+            "Questions from partner platforms, authorized sellers or data subjects should be sent to producao@elisalima.com.br.",
+          ],
+        },
+      ],
+      sources: [
+        { label: "TikTok Shop - Data security and privacy review", href: "https://partner.tiktokshop.com/docv2/page/data-security-and-privacy-review" },
+        { label: "Shopee Open Platform - Data Protection Policy", href: "https://open.shopee.com/developer-guide/32" },
+        { label: "Mercado Livre Developers - Terms and Conditions", href: "https://developers.mercadolivre.com.br/pt_br/termos-e-condicoes" },
+        { label: "Brazilian General Data Protection Law - Law 13.709/2018", href: "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm" },
+      ],
+      contact: {
+        title: "Security and incidents",
+        emailLabel: "Email",
+        email: "producao@elisalima.com.br",
+        addressLabel: "Address",
+        address: "São Paulo - SP, Brazil",
+        companyLabel: "Company registration",
+        company: operatorCompanyEn,
+      },
+    },
   },
 } satisfies Record<LegalLocale, Record<LegalDocumentKind, LegalDocument>>;
 
@@ -688,5 +1035,11 @@ export const legalLoginItems = [
     title: "Privacidade",
     description: "Dados, retenção, revogação e direitos LGPD",
     icon: Boxes,
+  },
+  {
+    href: "/seguranca",
+    title: "Segurança",
+    description: "Controles de acesso, criptografia, incidentes e vulnerabilidades",
+    icon: ShieldCheck,
   },
 ] as const;
