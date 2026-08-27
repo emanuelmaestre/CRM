@@ -154,6 +154,13 @@ export const pedidoIgnorado = pgTable("pedido_ignorado", {
   primeiraVezEm: timestamp("primeira_vez_em", { withTimezone: true }).notNull().defaultNow(),
   ultimaVezEm: timestamp("ultima_vez_em", { withTimezone: true }).notNull().defaultNow(),
   resolvidoEm: timestamp("resolvido_em", { withTimezone: true }),
+  /** Descartado à mão: o operador olhou e concluiu que este pedido nunca vai
+   *  entrar (produto fora de linha, venda cancelada no canal). Separado de
+   *  `resolvidoEm` de propósito — "entrou sozinho depois que consertei o
+   *  anúncio" e "desisti deste" são resultados opostos, e misturar os dois
+   *  faria a fila parecer saudável só porque alguém a esvaziou na mão. */
+  descartadoEm: timestamp("descartado_em", { withTimezone: true }),
+  descartadoPor: uuid("descartado_por"),
 }, (t) => [
   // Um pedido recusado é UMA linha por conta de canal, atualizada a cada
   // tentativa — senão cada sincronização criaria 346 linhas novas.
