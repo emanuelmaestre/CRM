@@ -37,8 +37,33 @@ const CREDS = {
 
 describe("formato de data dos relatórios de Ads da Shopee", () => {
   it("escreve DD-MM-YYYY, não ISO", () => {
-    expect(paraDataShopeeAds(new Date(2026, 7, 26))).toBe("26-08-2026");
-    expect(paraDataShopeeAds(new Date(2026, 0, 5))).toBe("05-01-2026");
+    expect(paraDataShopeeAds(new Date("2026-08-26T15:00:00Z"))).toBe("26-08-2026");
+    expect(paraDataShopeeAds(new Date("2026-01-05T15:00:00Z"))).toBe("05-01-2026");
+  });
+
+  /* Regressão real de 27/08/2026: a data era montada com os componentes locais
+     do servidor, que na Vercel é UTC. Às 00:27 UTC ainda é 21:27 do dia
+     ANTERIOR no Brasil — pedimos o dia seguinte e a Shopee recusou a chamada
+     inteira com ads.performance.error_date_in_future. Entre 00:00 e 03:00 UTC
+     isso acontecia todo dia.
+
+     A asserção vale em qualquer máquina depois do conserto (a data sai sempre
+     no fuso da loja); com o bug, ela só falha onde o relógio não é o de
+     Brasília — que é justamente o caso do servidor e do CI. */
+  it("monta a data no fuso da loja, não no do servidor", () => {
+    expect(paraDataShopeeAds(new Date("2026-08-27T00:27:00Z"))).toBe("26-08-2026");
+    expect(paraDataShopeeAds(new Date("2026-08-27T02:59:00Z"))).toBe("26-08-2026");
+    expect(paraDataShopeeAds(new Date("2026-08-27T03:01:00Z"))).toBe("27-08-2026");
+  });
+
+  it("nunca pede uma data futura para a loja", () => {
+    // O fim da janela é sempre "agora"; no fuso da loja isso jamais pode cair
+    // depois do dia corrente de lá.
+    const hojeNaLoja = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+    const [ano, mes, dia] = hojeNaLoja.split("-");
+    expect(paraDataShopeeAds(new Date())).toBe(`${dia}-${mes}-${ano}`);
   });
 
   it("volta pro ISO que a coluna `data` do snapshot usa", () => {

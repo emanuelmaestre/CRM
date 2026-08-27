@@ -43,6 +43,28 @@ function erroLegivel(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** As duas sincronizações de Publicidade isolam falha POR MARCA: em vez de
+ *  lançar, devolvem `{ status: "erro", mensagem }` para que uma marca ruim não
+ *  derrube as outras. Só que `executarModuloEm` marca o módulo como concluído
+ *  sempre que o trabalho não lança — então a Central pintava o módulo de verde
+ *  com a falha enterrada no JSON do resultado.
+ *
+ *  Aconteceu de verdade em 27/08/2026: a coleta da Shopee foi recusada com
+ *  `error_date_in_future` e a tela dizia "Sincronização completa". Aqui a
+ *  falha volta a ser exceção, que é o que a Central sabe mostrar.
+ *
+ *  `publicidade_nao_habilitada` NÃO é erro: é conta que simplesmente não usa
+ *  publicidade, e pintar isso de vermelho todo dia treinaria a ignorar o
+ *  vermelho. */
+function falharSeColetaDeuErro<T extends { status: string; mensagem?: string; brandSlug?: string }>(resultado: T): T {
+  if (resultado.status === "erro") {
+    throw new Error(
+      `Publicidade${resultado.brandSlug ? ` (${resultado.brandSlug})` : ""}: ${resultado.mensagem ?? "falha não detalhada"}`,
+    );
+  }
+  return resultado;
+}
+
 function semSuporte(modulo: string, tipo: string) {
   return {
     semSuporte: true,
@@ -315,12 +337,16 @@ export const A31_sincronizarConta = inngest.createFunction(
 
     if (solicitados.has("anuncios")) await executarModulo("anuncios", async () => {
       await atualizarProgresso("anuncios", 15, { etapa: "consultando_campanhas" });
-      if (conta.tipo === "mercadolivre") return sincronizarAnunciosMercadoLivreConta(ctx, channelAccountId);
+      if (conta.tipo === "mercadolivre") {
+        return falharSeColetaDeuErro(await sincronizarAnunciosMercadoLivreConta(ctx, channelAccountId));
+      }
       // Shopee: app de Ads próprio, autorização separada da do catálogo. Uma
       // marca com a loja conectada mas sem esse app autorizado cai no erro de
       // credencial ausente vindo de criarShopeeAdsProvider — que é o que o
       // operador precisa ler pra saber que falta clicar em Conectar.
-      if (conta.tipo === "shopee") return sincronizarAnunciosShopeeConta(ctx, channelAccountId);
+      if (conta.tipo === "shopee") {
+        return falharSeColetaDeuErro(await sincronizarAnunciosShopeeConta(ctx, channelAccountId));
+      }
       return semSuporte("Anúncios patrocinados", conta.tipo);
     });
 

@@ -28,13 +28,34 @@ import type { BrandSlug } from "@/shared/config/brands";
    fato devolve, não o que a documentação descreve. Rodar o script de novo
    depois de qualquer mudança de contrato. */
 
+/** Fuso da loja. A Shopee decide o que é "hoje" pelo relógio da loja (region
+ *  BR), não pelo do servidor — e o servidor da Vercel roda em UTC. É o fuso
+ *  que o resto do sistema já usa para exibir data ao usuário. */
+const FUSO_DA_LOJA = "America/Sao_Paulo";
+
+// en-CA por conveniência: devolve as partes já como ano/mês/dia de 2 dígitos.
+const partesDaData = new Intl.DateTimeFormat("en-CA", {
+  timeZone: FUSO_DA_LOJA,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 /** Formato de data que os relatórios de Ads da Shopee aceitam — DD-MM-YYYY,
  *  diferente do ISO usado no resto da API. Confirmado ao vivo: é também o
- *  formato em que o campo `date` volta na resposta. */
+ *  formato em que o campo `date` volta na resposta.
+ *
+ *  A data é montada no FUSO DA LOJA, não no do servidor. Usar os componentes
+ *  locais (`getDate()` etc.) quebrou de verdade em 27/08/2026: uma
+ *  sincronização manual às 00:27 UTC — ainda 21:27 do dia anterior no Brasil —
+ *  pediu o dia seguinte e a Shopee recusou a chamada inteira com
+ *  `ads.performance.error_date_in_future`. Entre 00:00 e 03:00 UTC todo dia,
+ *  o servidor e a loja discordam sobre que dia é hoje. */
 export function paraDataShopeeAds(data: Date): string {
-  const dia = String(data.getDate()).padStart(2, "0");
-  const mes = String(data.getMonth() + 1).padStart(2, "0");
-  return `${dia}-${mes}-${data.getFullYear()}`;
+  const partes = Object.fromEntries(
+    partesDaData.formatToParts(data).map((parte) => [parte.type, parte.value]),
+  );
+  return `${partes.day}-${partes.month}-${partes.year}`;
 }
 
 /** Converte de volta pro ISO (YYYY-MM-DD) que a coluna `data` do snapshot usa. */
