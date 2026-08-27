@@ -3,7 +3,7 @@ import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo } from "@/shared/lib/db/schema";
 import { persistirEvento, despacharEvento } from "@/shared/events";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
+import { criarShopeeProvider, type DiagnosticoCatalogoShopee } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 /** Cadastro manual de produto, um a um, não dá conta de um catálogo com
@@ -107,10 +107,29 @@ export async function listarCatalogoShopeeParaImportar(conta: ContaParaImportar)
   return provider.listarCatalogoAtivo();
 }
 
+/** Frase curta para o resultado da execução — é o que aparece na Central de
+ *  Sincronização quando o catálogo volta menor do que deveria. Some quando não
+ *  há nada de anormal a dizer. */
+export function resumirDiagnosticoShopee(d: DiagnosticoCatalogoShopee): string | null {
+  const partes: string[] = [];
+  if (d.foraDoStatusNormal > 0) {
+    partes.push(`${d.foraDoStatusNormal} anúncio(s) fora do status "à venda" na Shopee — não viram produto`);
+  }
+  if (d.variacoesIndisponiveis > 0) {
+    partes.push(
+      `${d.variacoesIndisponiveis} anúncio(s) com variação que a Shopee não devolveu: entraram só no nível do anúncio, então SKU de variação pode faltar`
+      + (d.motivosVariacao.length > 0 ? ` (${d.motivosVariacao.join(" | ")})` : ""),
+    );
+  }
+  return partes.length > 0 ? partes.join(". ") : null;
+}
+
 export async function importarFatiaCatalogoShopee(
   ctx: CrudContext,
   conta: ContaParaImportar,
-  itens: Awaited<ReturnType<typeof listarCatalogoShopeeParaImportar>>,
+  // Só a fatia de itens: `listarCatalogoShopeeParaImportar` passou a devolver
+  // `{ itens, diagnostico }`, e quem chama fatia apenas `itens`.
+  itens: Awaited<ReturnType<typeof listarCatalogoShopeeParaImportar>>["itens"],
 ): Promise<{ produtosCriados: number; ignorados: number }> {
   assertPerfil(ctx, ["admin", "gestor"]);
   const vinculos = await carregarVinculosDaConta(ctx, conta.channelAccountId);
@@ -376,7 +395,7 @@ async function importarCatalogoDaContaShopee(ctx: CrudContext, conta: ContaParaI
   let ignorados = 0;
 
   const provider = await criarShopeeProvider(conta.brandSlug);
-  const itens = await provider.listarCatalogoAtivo();
+  const { itens } = await provider.listarCatalogoAtivo();
   for (const item of itens) {
     const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-shopee", "shopee");
     if (resultado === "criado") produtosCriados += 1;

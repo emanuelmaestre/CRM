@@ -7,6 +7,7 @@ import {
   importarPaginaCatalogoMercadoLivre,
   listarCatalogoShopeeParaImportar,
   resolverContaParaImportar,
+  resumirDiagnosticoShopee,
   TAMANHO_FATIA_CATALOGO,
 } from "@/modules/estoque/application/importar-catalogo.service";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
@@ -206,7 +207,7 @@ export const A31_sincronizarConta = inngest.createFunction(
         return { produtosCriados, ignorados };
       }
 
-      const itens = await step.run("catalogo-shopee-listar", () =>
+      const { itens, diagnostico } = await step.run("catalogo-shopee-listar", () =>
         listarCatalogoShopeeParaImportar(contaImport),
       );
       for (let i = 0; i < itens.length; i += TAMANHO_FATIA_CATALOGO) {
@@ -222,7 +223,12 @@ export const A31_sincronizarConta = inngest.createFunction(
           { processados: Math.min(itens.length, i + fatia.length), total: itens.length, produtosCriados, ignorados },
         ));
       }
-      return { produtosCriados, ignorados };
+      // `aviso` fica gravado em catalogo_resultado, então o motivo de o
+      // catálogo voltar menor do que deveria sobrevive à execução em vez de
+      // sumir num console.error — era a informação que faltava pra saber por
+      // que a ARMARINHOS LIMA importava 0 produtos.
+      const aviso = resumirDiagnosticoShopee(diagnostico);
+      return { produtosCriados, ignorados, diagnostico, ...(aviso ? { aviso } : {}) };
     });
 
     const resultadoPedidos = solicitados.has("pedidos")

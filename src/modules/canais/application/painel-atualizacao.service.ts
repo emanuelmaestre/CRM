@@ -70,6 +70,31 @@ export const MODULOS_EXTERNOS_POR_TELA: Record<TelaAtualizavel, readonly ModuloS
 
 export { INTERVALO_MINIMO_VERIFICACAO_MS } from "../domain/sincronizacao-progresso";
 
+/** Quantos itens ficaram de fora e por quê, lendo os dois formatos que os
+ *  módulos gravam em `*_resultado`. Devolve zero e lista vazia quando não há
+ *  nada de anormal — é isso que mantém a faixa de pendências fora da tela nas
+ *  sincronizações saudáveis. */
+export function contagemDePendencia(detalhe: Record<string, unknown> | null): { ignorados: number; motivos: string[] } {
+  const motivos = Array.isArray(detalhe?.motivos)
+    ? detalhe.motivos.filter((item): item is string => typeof item === "string")
+    : [];
+  // Pedidos: `ignorados` conta o que não entrou, e `motivos` explica.
+  if (motivos.length > 0) {
+    return { ignorados: typeof detalhe?.ignorados === "number" ? detalhe.ignorados : motivos.length, motivos };
+  }
+  // Catálogo: `aviso` é a frase pronta; a contagem vem do diagnóstico, nunca
+  // de `ignorados` (que ali significa "já estava mapeado").
+  if (typeof detalhe?.aviso === "string" && detalhe.aviso.length > 0) {
+    const d = detalhe.diagnostico as Record<string, unknown> | undefined;
+    const soma = (chave: string) => (typeof d?.[chave] === "number" ? d[chave] as number : 0);
+    return {
+      ignorados: Math.max(1, soma("variacoesIndisponiveis") + soma("foraDoStatusNormal")),
+      motivos: [detalhe.aviso],
+    };
+  }
+  return { ignorados: 0, motivos: [] };
+}
+
 const ROTULOS_MODULO: Record<ModuloSincronizacao, string> = {
   catalogo: "Catálogo e estoque",
   pedidos: "Pedidos",
@@ -281,8 +306,13 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
             erro: execucao[campos.erro] as string | null,
             // Itens pulados por causa conhecida daquele item — o módulo
             // concluiu, mas não trouxe tudo (ver `pendencias` abaixo).
-            ignorados: typeof detalhe?.ignorados === "number" ? detalhe.ignorados : 0,
-            motivos: Array.isArray(detalhe?.motivos) ? detalhe.motivos.filter((item): item is string => typeof item === "string") : [],
+            //
+            // Duas formas de dizer a mesma coisa, porque os módulos gravam
+            // diferente: Pedidos emite `ignorados` + `motivos` (um por pedido
+            // que não entrou); Catálogo emite `aviso`, uma frase pronta, mais
+            // `diagnostico` com os números — e ali `ignorados` NÃO serve de
+            // contagem, porque conta anúncio já mapeado (o caso saudável).
+            ...contagemDePendencia(detalhe),
           }];
         })
       : [];
@@ -340,9 +370,16 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
      em `falhas`: o alerta vermelho de "canal não respondeu" acusava a Shopee
      de algo que ela respondeu certo. Mas também não pode sumir da tela, ou o
      pedido fica de fora sem ninguém saber. Faixa própria, sem alarme. */
+  /* Exige `motivos`, não só `ignorados`. "Ignorado" quer dizer coisas
+     opostas conforme o módulo: em Pedidos é item que ficou de fora e importa
+     avisar; no Catálogo é anúncio JÁ mapeado, que é o estado normal e
+     saudável (65 ignorados numa loja de 65 anúncios significa "nada mudou").
+     Ler `ignorados` cru anunciaria "65 itens ficaram de fora" em toda
+     sincronização bem-sucedida de catálogo. `motivos` só existe quando algo
+     de fato falhou. */
   const pendencias = contasResultado.flatMap((conta) => {
     const itens = conta.execucao?.modulos.flatMap((item) => (
-      item.status === "concluido" && item.ignorados > 0
+      item.status === "concluido" && item.ignorados > 0 && item.motivos.length > 0
         ? [{ label: item.label, ignorados: item.ignorados, motivos: item.motivos }]
         : []
     )) ?? [];

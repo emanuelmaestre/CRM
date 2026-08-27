@@ -41,6 +41,19 @@ export interface ShopeeAnuncioCatalogo {
   price: string;
 }
 
+/** Por que anúncio ficou de fora do catálogo importado. Serializado dentro do
+ *  resultado da execução, para o motivo ficar gravado no banco em vez de
+ *  evaporar num `console.error` que ninguém lê. */
+export interface DiagnosticoCatalogoShopee {
+  anunciosConsultados: number;
+  /** Pausado, banido ou removido — não vira produto novo, de propósito. */
+  foraDoStatusNormal: number;
+  comVariacao: number;
+  /** Anúncios cuja busca de variação falhou e entraram só no nível do anúncio. */
+  variacoesIndisponiveis: number;
+  motivosVariacao: string[];
+}
+
 export interface ShopeeMetricaDesempenho {
   /** Nome cru da Shopee (ex.: "late_shipment_rate") — a tradução é da camada
    *  de apresentação, não daqui. */
@@ -850,10 +863,31 @@ export class ShopeeProvider implements ChannelProvider {
    *  Item sem variação vira 1 entrada; item com variação (`tier_variation`
    *  não vazio) busca `get_model_list` à parte, uma entrada por SKU real —
    *  mesma chamada extra que `consultarEstoque` já paga hoje pra esse caso. */
-  async listarCatalogoAtivo(): Promise<ShopeeAnuncioCatalogo[]> {
+  /** Além dos itens, devolve por que anúncio ficou de fora.
+   *
+   *  Existe por um caso real: o catálogo da Shopee da ARMARINHOS LIMA
+   *  terminava toda execução com `{ produtosCriados: 0, ignorados: 65 }` e
+   *  ZERO variações importadas, enquanto pedidos chegavam com SKUs de
+   *  variação (KIT4_ESSENZA, KIT5_SUPREME) que não existiam como produto —
+   *  e por isso não podiam ser ingeridos. O motivo era invisível: anúncio
+   *  fora do status NORMAL era pulado em silêncio, e falha ao buscar
+   *  variações virava só um `console.error` que evaporava. Sem esses
+   *  números não dá pra distinguir "a loja não tem variação" de "a busca de
+   *  variação está falhando", que pedem correções opostas. */
+  async listarCatalogoAtivo(): Promise<{
+    itens: ShopeeAnuncioCatalogo[];
+    diagnostico: DiagnosticoCatalogoShopee;
+  }> {
     garantirNaoPausado();
+    const diagnostico: DiagnosticoCatalogoShopee = {
+      anunciosConsultados: 0,
+      foraDoStatusNormal: 0,
+      comVariacao: 0,
+      variacoesIndisponiveis: 0,
+      motivosVariacao: [],
+    };
     const itemIds = await this.listarItemIdsAtivos();
-    if (itemIds.length === 0) return [];
+    if (itemIds.length === 0) return { itens: [], diagnostico };
 
     type ShopeeItemBase = {
       item_id: number;
@@ -880,12 +914,17 @@ export class ShopeeProvider implements ChannelProvider {
       if (data.error) throw new Error(`Shopee get_item_base_info: ${data.message ?? data.error}`);
 
       for (const item of data.response?.item_list ?? []) {
+        diagnostico.anunciosConsultados += 1;
         // NORMAL é o único status "à venda" — pausado/banido/deletado não
         // deve virar produto novo no Estoque (mesmo filtro que o `active`
         // do Mercado Livre já aplica na busca de anúncios).
-        if (item.item_status && item.item_status !== "NORMAL") continue;
+        if (item.item_status && item.item_status !== "NORMAL") {
+          diagnostico.foraDoStatusNormal += 1;
+          continue;
+        }
 
         const temVariacao = Array.isArray(item.tier_variation) && item.tier_variation.length > 0;
+        if (temVariacao) diagnostico.comVariacao += 1;
         if (!temVariacao) {
           itens.push({
             listingId: String(item.item_id),
@@ -911,13 +950,36 @@ export class ShopeeProvider implements ChannelProvider {
             });
           }
         } catch (error) {
-          // Mesma filosofia do resto do importador: falha num item não pode
-          // derrubar o catálogo inteiro, só esse item fica de fora dessa vez.
+          // Falha num item não derruba o catálogo — mas também não pode mais
+          // sumir com o anúncio. Antes o `continue` implícito descartava o
+          // anúncio INTEIRO, então nenhum produto nascia pra ele e todo
+          // pedido daquela venda caía em "SKU sem produto na marca", sem
+          // nada em lugar nenhum explicando por quê.
+          //
+          // Agora entra a versão no nível do anúncio (mesmo formato de quem
+          // não tem variação): o produto passa a existir e o pedido consegue
+          // casar. É pior que a variação certa — um produto para o anúncio
+          // todo em vez de um por variação —, e é muito melhor que nada.
+          // Quando a busca de variação voltar a funcionar, a execução
+          // seguinte cria as variações que faltam.
+          diagnostico.variacoesIndisponiveis += 1;
+          const motivo = error instanceof Error ? error.message : String(error);
+          if (diagnostico.motivosVariacao.length < 3 && !diagnostico.motivosVariacao.includes(motivo)) {
+            diagnostico.motivosVariacao.push(motivo.slice(0, 200));
+          }
           console.error(`[shopee] falha ao buscar variações do item ${item.item_id}`, error);
+          itens.push({
+            listingId: String(item.item_id),
+            variationId: null,
+            externalSku: item.item_sku || null,
+            title: item.item_name ?? String(item.item_id),
+            availableQuantity: saldoDoEstoque(item.stock_info_v2),
+            price: precoDoItem(item.price_info),
+          });
         }
       }
     }
-    return itens;
+    return { itens, diagnostico };
   }
 
   async saude(): Promise<SaudeConector> {
