@@ -368,14 +368,46 @@ export class ShopeeProvider implements ChannelProvider {
   // fatiamos o intervalo pedido em janelas de até 15 dias e concatenamos.
   private static readonly JANELA_MAX_PEDIDOS_MS = 15 * 24 * 60 * 60 * 1000;
 
-  async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
-    const agora = Date.now();
-    const pedidos: PedidoNormalizado[] = [];
+  /** As janelas de até 15 dias que cobrem o intervalo pedido.
+   *
+   *  Público porque quem chama precisa poder buscar UMA janela por vez: na
+   *  sincronização manual (A31) as 90 dias inteiras rodavam dentro de um
+   *  único `step.run` do Inngest, e numa loja com volume — a WUWU, 208
+   *  pedidos em 90 dias — isso não cabia nos 300s de `maxDuration`. O step
+   *  estourava, o Inngest reexecutava do zero, e a execução ficava presa em
+   *  `em_andamento` para sempre, travando os módulos seguintes (Anúncios,
+   *  Avaliações, Termômetro nunca saíam de `pendente`). Pior: o step único
+   *  existia justamente para a memoização evitar repetir chamadas ao canal —
+   *  mas memoização só vale para step que TERMINA, então o remédio virou a
+   *  doença e o laço queimava a cota do proxy que queria poupar.
+   *
+   *  Uma janela por step: cada pedaço cabe no orçamento, conclui e fica
+   *  memoizado de verdade. */
+  // `Date.now()`, não `new Date()`: o relógio é mockado com
+  // `vi.spyOn(Date, "now")` nos testes de contrato do provider, e `new Date()`
+  // ignora esse spy — passaria a fatiar pelo relógio real e a gerar janelas
+  // que o teste não espera.
+  janelasDePedidos(desde: Date, ate: Date = new Date(Date.now())): Array<{ inicioMs: number; fimMs: number }> {
+    const fim = ate.getTime();
+    const janelas: Array<{ inicioMs: number; fimMs: number }> = [];
     let inicioJanela = desde.getTime();
-    while (inicioJanela < agora) {
-      const fimJanela = Math.min(inicioJanela + ShopeeProvider.JANELA_MAX_PEDIDOS_MS, agora);
-      pedidos.push(...await this.buscarPedidosJanela(inicioJanela, fimJanela));
+    while (inicioJanela < fim) {
+      const fimJanela = Math.min(inicioJanela + ShopeeProvider.JANELA_MAX_PEDIDOS_MS, fim);
+      janelas.push({ inicioMs: inicioJanela, fimMs: fimJanela });
       inicioJanela = fimJanela;
+    }
+    return janelas;
+  }
+
+  /** Uma janela só — ver `janelasDePedidos`. */
+  async buscarPedidosDaJanela(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]> {
+    return this.buscarPedidosJanela(inicioMs, fimMs);
+  }
+
+  async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
+    const pedidos: PedidoNormalizado[] = [];
+    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde)) {
+      pedidos.push(...await this.buscarPedidosJanela(inicioMs, fimMs));
     }
     return pedidos;
   }

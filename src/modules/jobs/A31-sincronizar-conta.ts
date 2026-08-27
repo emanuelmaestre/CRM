@@ -241,10 +241,39 @@ export const A31_sincronizarConta = inngest.createFunction(
       const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug ?? "");
       if (!provider) return { encontrados: 0, novos: 0, ...semSuporte("Pedidos", conta.tipo) };
       const dataDesde = desde ? new Date(desde) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
-      // Um step só para a busca: uma vez concluída, o Inngest memoiza o
-      // resultado e uma reexecução não repete as chamadas ao canal — que é o
-      // que estava queimando a cota do proxy em loop.
-      const pedidos = await step.run(`pedidos-buscar-${channelAccountId}`, () => provider.buscarPedidos(dataDesde));
+      // A busca fica memoizada por step: concluído um, uma reexecução não
+      // repete aquelas chamadas ao canal — era o que queimava a cota do proxy
+      // em laço.
+      //
+      // Na Shopee, um step por janela de 15 dias em vez de um step para os 90
+      // dias inteiros. O step único não cabia nos 300s de `maxDuration` numa
+      // loja com volume (WUWU: 208 pedidos em 90 dias, cada um pedindo
+      // `get_order_detail` pelo proxy): estourava, o Inngest reexecutava do
+      // zero e a execução ficava presa em `em_andamento` para sempre — o
+      // varredor de abandonadas marcava Pedidos como falha e Anúncios,
+      // Avaliações e Termômetro nem chegavam a rodar, porque a fila é
+      // sequencial. E memoização só vale para step que TERMINA: o step único,
+      // que existia para poupar a cota, era justamente quem a queimava.
+      // Mesma correção já aplicada ao catálogo da Shopee, que fatia e conclui.
+      const providerShopee = conta.tipo === "shopee" && isBrandSlug(conta.brandSlug ?? "")
+        ? await criarShopeeProvider(conta.brandSlug as Parameters<typeof criarShopeeProvider>[0])
+        : null;
+      // Sem anotação de tipo de propósito: o Inngest serializa entre steps e
+      // `criadoEm` volta como string, não Date. Quem normaliza é o laço de
+      // ingestão logo abaixo (`new Date(pedidoBruto.criadoEm)`).
+      const pedidos = providerShopee
+        ? await (async () => {
+          const acumulado = [];
+          for (const [indice, janela] of providerShopee.janelasDePedidos(dataDesde).entries()) {
+            const daJanela = await step.run(
+              `pedidos-buscar-${channelAccountId}-janela-${indice}`,
+              () => providerShopee.buscarPedidosDaJanela(janela.inicioMs, janela.fimMs),
+            );
+            acumulado.push(...daJanela);
+          }
+          return acumulado;
+        })()
+        : await step.run(`pedidos-buscar-${channelAccountId}`, () => provider.buscarPedidos(dataDesde));
       await step.run("pedidos-progresso-busca", () => atualizarProgresso("pedidos", 20, {
         processados: 0,
         total: pedidos.length,
