@@ -24,7 +24,7 @@ import {
   isBrandSlug,
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
-import { AvisoLimiteDoDia, FaixaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
+import { CardLimiteDoDia, JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
@@ -362,8 +362,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
-  // Uma janela só, aberta pela faixa (celular) ou pelo selo (tablet/desktop).
-  const [limiteAberto, setLimiteAberto] = useState(false);
+  /* Uma janela só, para a única porta que hoje leva até ela: o card de fuso
+     na grade de indicadores. Guarda PARA QUAL conjunto de pedidos foi aberta,
+     e não um booleano: trocar o filtro troca os pedidos da fronteira, e um
+     booleano deixaria a janela aberta sobre uma lista que ninguém pediu. */
+  const [limiteAbertoPara, setLimiteAbertoPara] = useState<LimiteDoDia | null>(null);
+  const limiteAberto = limiteAbertoPara === limiteDoDia;
+  const setLimiteAberto = (abrir: boolean) => setLimiteAbertoPara(abrir ? limiteDoDia : null);
+  const temLimiteDoDia = limiteDoDia.soNoMercadoLivre.length + limiteDoDia.soAqui.length > 0;
   const [loading, setLoading] = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [brandIds, setBrandIds] = useState<string[]>([]);
@@ -610,16 +616,17 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         </motion.div>
       ) : (
       <div className="flex flex-col gap-4">
-      {/* Indicadores e a faixa de fuso formam um bloco só: o vão entre eles é
-          o mesmo da grade (2.5), não o vão maior que separa este bloco da
-          lista de pedidos — senão a faixa flutuaria entre os dois, sem
-          pertencer a nenhum. */}
-      <div className="flex flex-col gap-2.5">
       <motion.section
         variants={staggerExagerado}
         initial="hidden"
         animate="show"
-        className="grid grid-cols-2 gap-2.5 lg:grid-cols-4"
+        // Quatro colunas viram cinco quando há pedido na virada do dia. O
+        // indicador de fuso não é um aviso pendurado na grade: é a resposta
+        // para "por que o Faturamento aqui não bate com o do ML", e mora
+        // junto do número que ele explica. Sem pedido na virada ele não
+        // existe, e a grade volta a ser a de sempre — por isso a contagem de
+        // colunas é condicional, e não uma quinta coluna vazia esperando.
+        className={`grid grid-cols-2 gap-2.5 ${temLimiteDoDia ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
         aria-label="Resumo das vendas filtradas"
       >
         {[
@@ -646,9 +653,17 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
             />
           </motion.div>
         ))}
+
+        {/* Em duas colunas (celular e tablet em retrato) o quinto card cairia
+            sozinho numa linha, ao lado de um buraco. Ocupando as duas, ele
+            fecha a grade e ainda ganha largura para o rótulo inteiro — que é
+            o mais longo dos cinco. */}
+        {temLimiteDoDia && (
+          <motion.div variants={variantes(reduzir, entradaExagerada)} className="col-span-2 lg:col-span-1">
+            <CardLimiteDoDia dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
+          </motion.div>
+        )}
       </motion.section>
-      <FaixaLimiteDoDia dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
-      </div>
       <motion.section
         initial={reduzir ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -664,7 +679,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <AvisoLimiteDoDia dados={limiteDoDia} aberto={limiteAberto} setAberto={setLimiteAberto} />
             {/* Só aparece quando há o que resolver. Um item fixo na navegação
                 global disputaria espaço na barra do celular com Métricas,
                 Vendas, Estoque e Publicidade por uma tela que, na operação
@@ -788,6 +802,11 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
       </motion.section>
       </div>
       )}
+
+      {/* A explicação em tela cheia. Fica fora do bloco condicional dos
+          indicadores porque é um Dialog em portal — o lugar dela na árvore
+          não é o lugar dela na tela. */}
+      <JanelaLimiteDoDia dados={limiteDoDia} aberto={limiteAberto} setAberto={setLimiteAberto} />
     </div>
   );
 }

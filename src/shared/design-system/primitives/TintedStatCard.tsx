@@ -29,6 +29,16 @@ export interface TintedStatCardProps {
    *  quando o card convive em grade com outros cujo rótulo pode ou não
    *  quebrar linha, para o valor não nascer em alturas diferentes entre eles. */
   labelClassName?: string;
+  /** Texto do `title` nativo — some no toque, então nunca carrega informação
+   *  que só exista ali; serve de reforço no desktop para um card cujo destino
+   *  ao clique não é óbvio pelo rótulo. */
+  dica?: string;
+  /** Tique de relógio no fundo: a cor do card enche e esvazia devagar, com
+   *  pausa longa entre repetições. Só faz sentido num card que é PORTA para
+   *  outra tela e que a pessoa não está procurando — um destaque estático
+   *  vira paisagem no segundo dia, e um que se mexe sem parar disputa a
+   *  leitura dos números ao lado. */
+  pulsar?: boolean;
   /** Encolhe respiro e valor NO CELULAR, voltando ao normal a partir de `sm`.
    *  Serve à grade que precisa caber mais coisa na primeira tela do telefone
    *  sem empurrar o conteúdo principal para baixo da dobra; no desktop, onde
@@ -36,7 +46,7 @@ export interface TintedStatCardProps {
   compactoNoMobile?: boolean;
 }
 
-export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, ativo, labelClassName, compactoNoMobile }: TintedStatCardProps) {
+export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, ativo, labelClassName, compactoNoMobile, dica, pulsar }: TintedStatCardProps) {
   const reduzir = useReducedMotion();
   const Tag = onClick ? motion.button : motion.div;
 
@@ -44,7 +54,12 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      aria-pressed={onClick ? ativo : undefined}
+      title={dica}
+      // `ativo` indefinido é o caso do card que ABRE algo em vez de filtrar:
+      // sem estado ligado/desligado para anunciar, `aria-pressed` sairia como
+      // "não pressionado" e o leitor de tela prometeria um botão de alternar
+      // que não existe.
+      aria-pressed={onClick && ativo !== undefined ? ativo : undefined}
       whileHover={reduzir || !onClick ? undefined : { y: -4, scale: 1.02 }}
       whileTap={reduzir || !onClick ? undefined : { scale: 0.94 }}
       transition={springs.momentum}
@@ -65,6 +80,17 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
         background: "var(--card)",
       }}
     >
+      {pulsar && !reduzir && (
+        <motion.span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ background: `color-mix(in srgb, ${cor} 9%, transparent)` }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 2.4, times: [0, 0.35, 0.7, 1], repeat: Infinity, repeatDelay: 4.4, ease: "easeInOut" }}
+        />
+      )}
+
       {/* Pulso de seleção: só quando é clicável e acaba de ativar — anel na
        *  cor do card que nasce colado e se expande sumindo (AnimatePresence
        *  monta uma vez por ativação, não é loop). */}
@@ -83,12 +109,12 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
           )}
         </AnimatePresence>
       )}
-      <div className={`flex items-center gap-2 text-xs font-semibold ${labelClassName ?? ""}`} style={{ color: cor }}>
+      <div className={`relative flex items-center gap-2 text-xs font-semibold ${labelClassName ?? ""}`} style={{ color: cor }}>
         <Icon size={15} strokeWidth={1.75} />
         {label}
       </div>
-      <p className={`font-black tabular-nums ${compactoNoMobile ? "mt-1.5 text-lg sm:mt-2 sm:text-xl" : "mt-2 text-xl"}`} style={{ color: cor }}>{valor}</p>
-      {sub && <p className="mt-1.5 text-[11px] text-muted-foreground">{sub}</p>}
+      <p className={`relative font-black tabular-nums ${compactoNoMobile ? "mt-1.5 text-lg sm:mt-2 sm:text-xl" : "mt-2 text-xl"}`} style={{ color: cor }}>{valor}</p>
+      {sub && <p className="relative mt-1.5 text-[11px] text-muted-foreground">{sub}</p>}
     </Tag>
   );
 }

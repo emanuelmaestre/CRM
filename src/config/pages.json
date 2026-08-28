@@ -429,6 +429,17 @@
       "badgeDica": "Abrir a explicação da diferença de fuso com o Mercado Livre",
       "faixaDica": "Toque para entender por que o total não bate com o Mercado Livre",
       "faixaSufixo": "que o ML conta em outro dia",
+      "cardSubUm": "1 pedido na virada do dia",
+      "cardSubMuitos": "{n} pedidos na virada do dia",
+      "diagrama": {
+        "titulo": "A hora que os dois calendários não dividem no mesmo lugar",
+        "aqui": "Este painel",
+        "ml": "Mercado Livre",
+        "ontem": "dia anterior",
+        "hoje": "dia seguinte",
+        "faixa": "1 hora",
+        "legenda": "Nesta hora o pedido já é do dia seguinte aqui e ainda é do anterior no Mercado Livre. É o mesmo pedido nos dois lados."
+      },
       "title": "Por que o total não bate com o Mercado Livre",
       "subtitleUm": "1 pedido caiu na hora em que o dia vira para o Mercado Livre",
       "subtitleMuitos": "{n} pedidos caíram na hora em que o dia vira para o Mercado Livre",

@@ -15,7 +15,7 @@ import { AcaoSlotFiltro } from "./listas-cards";
 import { moeda } from "@/shared/design-system/format";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
 import { tint } from "@/shared/design-system/color";
-import { copyLimite, JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
+import { copyLimite, JanelaLimiteDoDia, somarLimite, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 
 const copy = dashboardConfig.cards.faturamento;
 
@@ -320,12 +320,9 @@ function FaixaFusoFaturamento({ dados, onClick }: { dados?: LimiteDoDia | null; 
   const quantidade = soNoMercadoLivre.length + soAqui.length;
   if (quantidade === 0) return null;
 
-  // Cancelado e devolvido ficam fora da soma pelo mesmo motivo de sempre: o
-  // faturamento acima também os exclui, e é com ele que se compara.
-  const somar = (linhas: LimiteDoDia["soAqui"]) => linhas
-    .filter((item) => item.status !== "cancelado" && item.status !== "devolvido")
-    .reduce((total, item) => total + item.total, 0);
-  const diferenca = Math.abs(somar(soNoMercadoLivre) - somar(soAqui));
+  // Mesma soma da janela e do card de Vendas — cancelado e devolvido fora,
+  // porque o faturamento acima também os exclui e é com ele que se compara.
+  const diferenca = Math.abs(somarLimite(soNoMercadoLivre) - somarLimite(soAqui));
 
   return (
     <motion.button
@@ -386,12 +383,15 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
 }) {
   const reduzir = useReducedMotion();
   const [focado, setFocado] = useState<number | null>(null);
-  const [limiteAberto, setLimiteAberto] = useState(false);
-  // Trocar o período ou o filtro troca os pedidos da fronteira. Sem fechar
-  // aqui, a janela seguiria aberta mostrando a lista nova sem ninguém ter
-  // pedido — e, se o novo recorte não tem pedido na virada, ela reabriria
-  // sozinha quando um recorte seguinte voltasse a ter.
-  useEffect(() => { setLimiteAberto(false); }, [limiteDoDia]);
+  /* Guarda PARA QUAL conjunto de pedidos a janela foi aberta, em vez de um
+     booleano solto. Trocar o período ou o filtro troca os pedidos da
+     fronteira: com um booleano, a janela seguiria aberta exibindo uma lista
+     que ninguém pediu, e voltaria a aparecer sozinha assim que um recorte
+     seguinte tivesse pedidos na virada. Comparando a identidade do dado, ela
+     se fecha por dedução — sem efeito e sem estado a sincronizar. */
+  const [limiteAbertoPara, setLimiteAbertoPara] = useState<LimiteDoDia | null>(null);
+  const limiteAberto = limiteAbertoPara !== null && limiteAbertoPara === limiteDoDia;
+  const setLimiteAberto = (abrir: boolean) => setLimiteAbertoPara(abrir ? limiteDoDia ?? null : null);
   const valorAnimado = useContagem((liquido ? dados?.totalLiquidoNumerico : dados?.totalNumerico) ?? 0);
   const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
   const variacao = (liquido ? dados?.variacaoPercentualLiquido : dados?.variacaoPercentual) ?? null;

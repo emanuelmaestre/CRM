@@ -18,9 +18,19 @@ interface DialogProps {
    *  só o miolo rola, e o texto continua numa coluna de largura legível em
    *  vez de esticar de ponta a ponta do monitor. */
   fullscreen?: boolean;
+  /** Só com `fullscreen`. Entrega a altura da tela ao conteúdo em vez de
+   *  deixá-lo crescer e rolar: o miolo vira uma caixa de altura fixa e quem
+   *  decide o que rola lá dentro é o próprio conteúdo — em geral só a lista
+   *  longa, dentro do painel dela, com o resto da explicação sempre à vista.
+   *
+   *  Vale do tablet para cima (`md`). No celular não existe layout que caiba
+   *  numa tela de 640px de altura sem espremer o texto a ponto de não se ler,
+   *  então lá a rolagem continua — melhor rolar do que não conseguir ler. */
+  fill?: boolean;
 }
 
-export function Dialog({ open, onOpenChange, title, description, children, className, fullscreen }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, className, fullscreen, fill }: DialogProps) {
+  const preencher = Boolean(fullscreen && fill);
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -40,7 +50,7 @@ export function Dialog({ open, onOpenChange, title, description, children, class
                 : "mb-4 pr-10",
             )}
           >
-            <div className={cn(fullscreen && "mx-auto w-full max-w-5xl")}>
+            <div className={cn(fullscreen && "mx-auto w-full", fullscreen && (preencher ? "max-w-7xl" : "max-w-5xl"))}>
               <DialogPrimitive.Title className={cn("font-semibold text-foreground", fullscreen ? "text-lg sm:text-xl" : "text-base")}>
                 {title}
               </DialogPrimitive.Title>
@@ -69,8 +79,15 @@ export function Dialog({ open, onOpenChange, title, description, children, class
             // junto. A coluna limitada existe porque linha de texto ocupando
             // 1.900px de monitor não se lê — se perde a volta para a linha
             // seguinte.
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8 sm:py-6">
-              <div className="mx-auto w-full max-w-5xl">{children}</div>
+            <div
+              className={cn(
+                "min-h-0 flex-1 px-4 py-5 sm:px-8 sm:py-6",
+                preencher ? "overflow-y-auto md:overflow-hidden" : "overflow-y-auto",
+              )}
+            >
+              <div className={cn("mx-auto w-full", preencher ? "max-w-7xl md:flex md:h-full md:flex-col" : "max-w-5xl")}>
+                {children}
+              </div>
             </div>
           ) : children}
         </DialogPrimitive.Content>
