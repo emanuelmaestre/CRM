@@ -26,6 +26,8 @@ const numero = (valor: unknown) => Number.isFinite(Number(valor)) ? Number(valor
  * limitação explícita em vez de fabricar um SLA. */
 export async function obterPosVenda(ctx: CrudContext, filtros: {
   inicio: Date; fim: Date; brandIds?: string[];
+  /** Recorte de canal. Vazio/ausente = todos, mesma convenção do módulo. */
+  canais?: string[];
 }): Promise<PosVendaResultado> {
   const marcas = (await ctx.db.select({ id: brand.id, slug: brand.slug, nome: brand.name })
     .from(brand)
@@ -35,6 +37,7 @@ export async function obterPosVenda(ctx: CrudContext, filtros: {
   if (marcas.length === 0) return { marcas: [], parcial: true };
 
   const ids = marcas.map((item) => item.id);
+  const recorteCanal = filtros.canais?.length ? [inArray(pedido.canal, filtros.canais)] : [];
   const [resumos, motivos] = await Promise.all([
     ctx.db.select({
       brandId: pedido.brandId,
@@ -45,10 +48,12 @@ export async function obterPosVenda(ctx: CrudContext, filtros: {
       emTransito: sql<number>`count(*) filter (where ${pedido.status} in ('pago','separado','enviado'))`,
       impacto: sql<number>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} in ('cancelado','devolvido')), 0)`,
     }).from(pedido).where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.brandId, ids),
-      gte(pedido.createdAt, filtros.inicio), lte(pedido.createdAt, filtros.fim))).groupBy(pedido.brandId),
+      gte(pedido.createdAt, filtros.inicio), lte(pedido.createdAt, filtros.fim),
+      ...recorteCanal)).groupBy(pedido.brandId),
     ctx.db.select({ brandId: pedido.brandId, motivo: pedido.canceladoMotivo, quantidade: sql<number>`count(*)` })
       .from(pedido).where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.brandId, ids),
         gte(pedido.createdAt, filtros.inicio), lte(pedido.createdAt, filtros.fim),
+        ...recorteCanal,
         inArray(pedido.status, ["cancelado", "devolvido"])))
       .groupBy(pedido.brandId, pedido.canceladoMotivo),
   ]);

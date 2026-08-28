@@ -9,18 +9,34 @@ export const metadata = { title: pagesConfig.metricas.metadataTitle };
 /* A entrada espera apenas os filtros leves. Pós-venda e recomendações não são
    necessários para tornar o mosaico clicável e carregam no próprio ritmo
    depois da hidratação, junto dos demais conteúdos de cada painel. */
+/* O dia de hoje no calendário de São Paulo, não no do processo: em produção o
+   servidor roda em UTC, e perto da meia-noite "hoje" viraria o dia seguinte
+   do de quem está olhando a tela no Brasil. */
+function hojeEmSaoPaulo() {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
+
 async function ConteudoMetricas() {
-  const [{ marcas, canais }, posVenda, snapshotOntem] = await Promise.all([
+  const [{ marcas, canais }, snapshotOntem] = await Promise.all([
     actionObterFiltrosPedidos().catch(() => ({ marcas: [], canais: [] })),
-    actionObterPosVenda().catch(() => null),
     actionObterSnapshotAnterior(1).catch(() => null),
   ]);
+
+  /* Pós-venda vem DEPOIS dos filtros, não em paralelo: precisa ser buscado no
+     mesmo escopo com que o mosaico nasce (hoje + canal padrão), senão o card
+     abre mostrando uma janela que ninguém pediu. Antes era `actionObterPosVenda()`
+     sem argumento, que cai na janela padrão de 30 dias — era essa a origem de
+     "Cumprimento de pedidos" contar um período diferente do resto do card. */
+  const hoje = hojeEmSaoPaulo();
+  const canalPadrao = canais.some((canal) => canal.tipo === "mercadolivre") ? ["mercadolivre"] : [];
+  const posVenda = await actionObterPosVenda({ inicio: hoje, fim: hoje, canais: canalPadrao }).catch(() => null);
 
   return (
     <Mosaico
       marcasIniciais={marcas}
       canaisIniciais={canais}
       posVendaInicial={posVenda}
+      posVendaInicialChave={`${hoje}..${hoje}|${[...canalPadrao].sort().join(",")}`}
       snapshotInicial={snapshotOntem}
     />
   );

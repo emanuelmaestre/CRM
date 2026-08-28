@@ -284,7 +284,7 @@ const TOUR: CoachMarkStep[] = [
 
 export function Mosaico({
   marcasIniciais = [], canaisIniciais = [], saudeInicial = null,
-  posVendaInicial = null, snapshotInicial,
+  posVendaInicial = null, posVendaInicialChave = null, snapshotInicial,
 }: {
   /* O mosaico é a soma de seis buscas independentes, todas resolvidas no
      servidor e entregues dentro do HTML (ver page.tsx). */
@@ -292,6 +292,10 @@ export function Mosaico({
   canaisIniciais?: ScopeCanal[];
   saudeInicial?: SaudeLojaResultado | null;
   posVendaInicial?: PosVendaResultado | null;
+  /** Escopo exato que o servidor usou para buscar `posVendaInicial`, no mesmo
+   *  formato de `chave` ("inicio..fim|canais"). Sem ele o cliente teria de
+   *  adivinhar — e adivinhava errado (ver o estado de pós-venda abaixo). */
+  posVendaInicialChave?: string | null;
   snapshotInicial?: SnapshotMetricas | null;
 }) {
   const params = useSearchParams();
@@ -381,7 +385,13 @@ export function Mosaico({
   const completo = Boolean(periodo.inicio && periodo.fim);
   const inicio = completo ? periodo.inicio : undefined;
   const fim = completo ? periodo.fim : undefined;
-  const chave = `${inicio ?? ""}..${fim ?? ""}`;
+  // O canal entra na chave junto com o período. Antes ficava de fora, e o
+  // resultado é que clicar numa bandeirinha não refazia nem marcava como
+  // desatualizada nenhuma das duas buscas deste bloco — o filtro de canal era
+  // decorativo neste card. Ordenado para "ML, Shopee" e "Shopee, ML" serem a
+  // mesma chave, igual ao `chaveFiltro` dos cinco cartões.
+  const canaisEscolhidos = useMemo(() => [...filtroGlobal.canal].sort(), [filtroGlobal.canal]);
+  const chave = `${inicio ?? ""}..${fim ?? ""}|${canaisEscolhidos.join(",")}`;
 
   // A chave inicial é hoje..hoje: o período começa em "Hoje" (mesmo default
   // do estado `periodo` acima), e é exatamente essa janela que o servidor
@@ -403,7 +413,7 @@ export function Mosaico({
   useEffect(() => {
     if (primeiraSaude.current) { primeiraSaude.current = false; return; }
     let ativo = true;
-    actionObterSaudeLoja({ inicio, fim })
+    actionObterSaudeLoja({ inicio, fim, canais: canaisEscolhidos })
       .then((resultado) => { if (ativo) { setSaude({ chave, dados: resultado }); setCarregadoEm(new Date()); } })
       .catch(() => {
         if (!ativo) return;
@@ -411,7 +421,7 @@ export function Mosaico({
         toast.error(metricasConfig.erros.carregar, { id: "metricas-saude" });
       });
     return () => { ativo = false; };
-  }, [chave, inicio, fim, versaoSaude]);
+  }, [chave, inicio, fim, canaisEscolhidos, versaoSaude]);
 
   const carregandoSaude = saude.chave !== chave;
 
@@ -421,14 +431,28 @@ export function Mosaico({
      fechar e reabrir refazia a busca do zero. Aqui a busca sobe para o
      mosaico, dispara junto com Saúde da loja e Atendimento assim que a
      página carrega, e os cards viram (quase) só apresentação. */
+  /* A chave do pré-carregado vem do servidor (ver page.tsx) em vez de ser
+     assumida aqui. Antes o estado nascia rotulado como `hoje..hoje`, mas o
+     servidor tinha buscado a janela padrão de 30 dias — e como o efeito
+     abaixo pulava a primeira execução, "Cumprimento de pedidos" mostrava 30
+     dias enquanto o resto do mesmo card mostrava o período escolhido. Com a
+     chave real, qualquer divergência (fuso do navegador diferente, canal
+     padrão diferente) vira uma rebusca em vez de um número errado. */
   const [posVenda, setPosVenda] = useState<{ chave: string; dados: PosVendaResultado | null }>(
-    posVendaInicial ? { chave: `${hoje}..${hoje}`, dados: posVendaInicial } : { chave: "", dados: null },
+    posVendaInicial ? { chave: posVendaInicialChave ?? "", dados: posVendaInicial } : { chave: "", dados: null },
   );
-  const primeiroPosVenda = useRef(Boolean(posVendaInicial));
+  // Guarda a última chave PEDIDA (não a última respondida): é o que impede
+  // tanto a rebusca à toa quando o pré-carregado já serve quanto o número
+  // velho ficar na tela quando não serve.
+  const chavePosVendaPedida = useRef<string | null>(
+    posVendaInicial ? `${posVendaInicialChave ?? ""}|v0` : null,
+  );
   useEffect(() => {
-    if (primeiroPosVenda.current) { primeiroPosVenda.current = false; return; }
+    const alvo = `${chave}|v${versaoPosVenda}`;
+    if (chavePosVendaPedida.current === alvo) return;
+    chavePosVendaPedida.current = alvo;
     let ativo = true;
-    actionObterPosVenda({ inicio, fim })
+    actionObterPosVenda({ inicio, fim, canais: canaisEscolhidos })
       .then((dados) => { if (ativo) setPosVenda({ chave, dados }); })
       .catch(() => {
         if (!ativo) return;
@@ -436,7 +460,11 @@ export function Mosaico({
         toast.error(metricasConfig.erros.carregar, { id: "metricas-posvenda" });
       });
     return () => { ativo = false; };
-  }, [chave, inicio, fim, versaoPosVenda]);
+  }, [chave, inicio, fim, canaisEscolhidos, versaoPosVenda]);
+
+  // Pós-venda fora do período/canal atuais é dado velho: o card recebe null e
+  // mostra o vazio dele, em vez de exibir a janela anterior como se fosse esta.
+  const posVendaAtual = posVenda.chave === chave ? posVenda.dados : null;
 
   /* ── Snapshot de ontem, pra comparação real ──────────────────────────
      Giro baixo, Parados, Repor em breve e Pontuação da loja não tinham
@@ -696,13 +724,13 @@ export function Mosaico({
         carregando={carregandoSaude}
         acaoSlot={acaoSlot}
         atualizadoEm={carregadoEm}
-        posVenda={posVenda.dados}
+        posVenda={posVendaAtual}
         canais={canais}
         filtro={filtroGlobal}
         onChangeFiltro={setFiltroGlobal}
       />
     ),
-  }), [saude.dados, carregandoSaude, carregadoEm, posVenda.dados, canais, filtroGlobal]);
+  }), [saude.dados, carregandoSaude, carregadoEm, posVendaAtual, canais, filtroGlobal]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",

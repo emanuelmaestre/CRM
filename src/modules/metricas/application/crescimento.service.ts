@@ -43,6 +43,16 @@ function percentual(parte: number, total: number): number | null {
   return total > 0 ? Math.round((parte / total) * 1000) / 10 : null;
 }
 
+/** Recorte de canal para as consultas em SQL cru. Lista vazia = sem recorte
+ *  (todos os canais), mesma convenção do resto do módulo. Recebe o apelido da
+ *  tabela porque a recorrência precisa aplicar o mesmo recorte duas vezes: no
+ *  pedido do período e no pedido anterior que o torna recorrente. */
+function filtroCanal(canais: string[], apelido = "p") {
+  if (canais.length === 0) return sql``;
+  const coluna = sql.raw(`${apelido}.canal`);
+  return sql` and ${coluna} in (${sql.join(canais.map((canal) => sql`${canal}`), sql`, `)})`;
+}
+
 /** Cancelamento e devolução contam sobre TODOS os pedidos do período — ao
  *  contrário do resto do módulo, aqui é exatamente o que se quer medir, não
  *  o que se quer excluir. */
@@ -51,6 +61,7 @@ async function taxasCancelamento(
   inicio: Date,
   fim: Date,
   brandIds: string[],
+  canais: string[],
 ): Promise<Map<string, { taxa: number | null; total: number; cancelados: number }>> {
   const linhas = await ctx.db
     .select({
@@ -64,6 +75,7 @@ async function taxasCancelamento(
       inArray(pedido.brandId, brandIds),
       gte(pedido.createdAt, inicio),
       lte(pedido.createdAt, fim),
+      ...(canais.length > 0 ? [inArray(pedido.canal, canais)] : []),
     ))
     .groupBy(pedido.brandId);
 
@@ -81,6 +93,7 @@ async function concentracaoTop5PorMarca(
   inicio: Date,
   fim: Date,
   brandIds: string[],
+  canais: string[],
 ): Promise<Map<string, { taxa: number | null; total: number; top5: number }>> {
   const resultado = await ctx.db.execute(sql`
     with vendas_produto as (
@@ -91,7 +104,7 @@ async function concentracaoTop5PorMarca(
         and p.brand_id in (${sql.join(brandIds.map((id) => sql`${id}::uuid`), sql`, `)})
         and p.criado_em >= ${inicio.toISOString()}::timestamptz
         and p.criado_em <= ${fim.toISOString()}::timestamptz
-        and p.status not in ('cancelado', 'devolvido')
+        and p.status not in ('cancelado', 'devolvido')${filtroCanal(canais)}
       group by p.brand_id, pi.produto_id
     ),
     ranqueado as (
@@ -119,12 +132,18 @@ async function concentracaoTop5PorMarca(
 /** "Recorrente" = o cliente já tinha um pedido não-cancelado dessa mesma
  *  marca antes deste. Escopo por marca, não pela org inteira: cliente é
  *  compartilhado entre marcas no cadastro, mas comprar da KARZI antes não
- *  faz alguém "cliente recorrente" da WUWU na primeira compra de lá. */
+ *  faz alguém "cliente recorrente" da WUWU na primeira compra de lá.
+ *
+ *  Com recorte de canal vale o mesmo raciocínio um nível abaixo: a compra
+ *  anterior também precisa ser do canal escolhido. Sem isso, olhar só a Shopee
+ *  contava como "voltou" quem tinha comprado no Mercado Livre — recorrência
+ *  que aquele canal nunca viu acontecer. */
 async function taxaRecorrenciaPorMarca(
   ctx: CrudContext,
   inicio: Date,
   fim: Date,
   brandIds: string[],
+  canais: string[],
 ): Promise<Map<string, { taxa: number | null; total: number; recorrente: number }>> {
   const resultado = await ctx.db.execute(sql`
     with pedidos_do_periodo as (
@@ -137,14 +156,14 @@ async function taxaRecorrenciaPorMarca(
             and anterior.brand_id = p.brand_id
             and anterior.org_id = p.org_id
             and anterior.criado_em < p.criado_em
-            and anterior.status not in ('cancelado', 'devolvido')
+            and anterior.status not in ('cancelado', 'devolvido')${filtroCanal(canais, "anterior")}
         ) as recorrente
       from pedido p
       where p.org_id = ${ctx.orgId}
         and p.brand_id in (${sql.join(brandIds.map((id) => sql`${id}::uuid`), sql`, `)})
         and p.criado_em >= ${inicio.toISOString()}::timestamptz
         and p.criado_em <= ${fim.toISOString()}::timestamptz
-        and p.status not in ('cancelado', 'devolvido')
+        and p.status not in ('cancelado', 'devolvido')${filtroCanal(canais)}
     )
     select
       brand_id,
@@ -166,14 +185,15 @@ async function taxaRecorrenciaPorMarca(
 
 export async function obterCrescimentoPorMarca(
   ctx: CrudContext,
-  opcoes: { inicio: Date; fim: Date; brandIds: string[] },
+  opcoes: { inicio: Date; fim: Date; brandIds: string[]; canais?: string[] },
 ): Promise<Map<string, CrescimentoMarca>> {
   if (opcoes.brandIds.length === 0) return new Map();
 
+  const canais = opcoes.canais ?? [];
   const [cancelamento, concentracao, recorrencia] = await Promise.all([
-    taxasCancelamento(ctx, opcoes.inicio, opcoes.fim, opcoes.brandIds),
-    concentracaoTop5PorMarca(ctx, opcoes.inicio, opcoes.fim, opcoes.brandIds),
-    taxaRecorrenciaPorMarca(ctx, opcoes.inicio, opcoes.fim, opcoes.brandIds),
+    taxasCancelamento(ctx, opcoes.inicio, opcoes.fim, opcoes.brandIds, canais),
+    concentracaoTop5PorMarca(ctx, opcoes.inicio, opcoes.fim, opcoes.brandIds, canais),
+    taxaRecorrenciaPorMarca(ctx, opcoes.inicio, opcoes.fim, opcoes.brandIds, canais),
   ]);
 
   const resultado = new Map<string, CrescimentoMarca>();

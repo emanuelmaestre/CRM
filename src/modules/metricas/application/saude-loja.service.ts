@@ -2,11 +2,13 @@ import { and, count, eq, gt, gte, inArray, isNull, lte, ne, sql, sum } from "dri
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
+  channelAccount,
   estoqueCanalSaldo,
   mlAvaliacaoAnuncio,
   shopeeAvaliacaoAnuncio,
   pedido,
   produto,
+  produtoCanal,
 } from "@/shared/lib/db/schema";
 import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
 import {
@@ -153,8 +155,16 @@ function escala(valor: number, pior: number, melhor: number): number {
 
 /* ── Pilares ─────────────────────────────────────────────────── */
 
-/** Termômetro 1–5 vira 0–100 direto: vermelho é 0, verde é 100. */
-function pilarReputacao(reputacao: ReputacaoMarca | null): { nota: number | null; detalhe: string } {
+/** Termômetro 1–5 vira 0–100 direto: vermelho é 0, verde é 100.
+ *
+ *  `foraDoCanal` = o recorte de canal escolhido não inclui o Mercado Livre.
+ *  Não é "ainda não temos o dado", é "esse dado não existe fora do ML" — e
+ *  dizer a frase errada faria a pessoa procurar uma conexão que não falta. */
+function pilarReputacao(
+  reputacao: ReputacaoMarca | null,
+  foraDoCanal = false,
+): { nota: number | null; detalhe: string } {
+  if (foraDoCanal) return { nota: null, detalhe: "Termômetro só existe no Mercado Livre" };
   if (!reputacao || reputacao.faixa === null) {
     return { nota: null, detalhe: "Sem termômetro no Mercado Livre ainda" };
   }
@@ -166,7 +176,11 @@ function pilarReputacao(reputacao: ReputacaoMarca | null): { nota: number | null
 
 /** Cada taxa vale 100 quando está em zero e 0 quando bate o teto que derruba o
  *  termômetro. A nota do pilar é a média das taxas que existem. */
-function pilarPosVenda(reputacao: ReputacaoMarca | null): { nota: number | null; detalhe: string } {
+function pilarPosVenda(
+  reputacao: ReputacaoMarca | null,
+  foraDoCanal = false,
+): { nota: number | null; detalhe: string } {
+  if (foraDoCanal) return { nota: null, detalhe: "Taxas de pós-venda só existem no Mercado Livre" };
   const taxas = (reputacao?.taxas ?? []).filter((taxa) => taxa.valor !== null);
   if (taxas.length === 0) return { nota: null, detalhe: "Sem histórico de pós-venda no período" };
 
@@ -184,7 +198,12 @@ function pilarPosVenda(reputacao: ReputacaoMarca | null): { nota: number | null;
 /** Nota de 1 a 5 estrelas mapeada em 0–100, com o piso em 3: abaixo disso o
  *  anúncio já está afastando comprador, e tratar 3,0 como "60%" suavizaria
  *  demais um problema que é grave. */
-function pilarSatisfacao(notaMedia: number | null, total: number): { nota: number | null; detalhe: string } {
+function pilarSatisfacao(
+  notaMedia: number | null,
+  total: number,
+  canalSemAvaliacao = false,
+): { nota: number | null; detalhe: string } {
+  if (canalSemAvaliacao) return { nota: null, detalhe: "Canal escolhido não tem nota de anúncio" };
   if (notaMedia === null || total === 0) {
     return { nota: null, detalhe: "Nenhum anúncio avaliado ainda" };
   }
@@ -229,6 +248,16 @@ export interface SaudeLojaFiltros {
   inicio?: string;
   fim?: string;
   brandIds?: string[];
+  /** Recorte de canal ("mercadolivre", "shopee", …). Vazio/ausente = todos.
+   *
+   *  Nem todo indicador do card existe por canal: faturamento, pedidos,
+   *  ticket, cancelamento, recorrência e concentração saem de `pedido.canal`
+   *  e filtram direto. Termômetro e taxas de pós-venda só existem no Mercado
+   *  Livre, e nota média sai de `ml_avaliacao_anuncio`/`shopee_avaliacao_anuncio`
+   *  — quando o recorte deixa a fonte de fora, o pilar vira "sem dado" e sai
+   *  da média ponderada (ver `compor`), em vez de a nota de um canal vazar
+   *  para o recorte de outro. */
+  canais?: string[];
   /** Pula reputação (API do ML, lenta) e
    *  pilares de score. Para quando só se precisa de faturamento/pedidos/ticket/
    *  cancelamento — rodar a consulta inteira só pra descartar quase tudo
@@ -272,6 +301,11 @@ export async function obterSaudeLoja(
 ): Promise<SaudeLojaResultado> {
   const { inicio, fim } = resolverJanela(filtros);
   const brandIds = (filtros?.brandIds ?? []).filter(Boolean);
+  const canais = (filtros?.canais ?? []).filter(Boolean);
+  const recorteCanal = canais.length > 0 ? [inArray(pedido.canal, canais)] : [];
+  /** Lista vazia = sem recorte, então todo canal entra. */
+  const incluiCanal = (tipo: string) => canais.length === 0 || canais.includes(tipo);
+  const temMercadoLivre = incluiCanal("mercadolivre");
 
   const condicaoMarca = brandIds.length > 0 ? [inArray(brand.id, brandIds)] : [];
 
@@ -323,10 +357,11 @@ export async function obterSaudeLoja(
         lte(pedido.createdAt, fim),
         ne(pedido.status, "cancelado"),
         ne(pedido.status, "devolvido"),
+        ...recorteCanal,
       ))
       .groupBy(pedido.brandId),
     leve ? Promise.resolve([]) : Promise.all([
-      ctx.db
+      !temMercadoLivre ? Promise.resolve([]) : ctx.db
         .select({
           brandId: mlAvaliacaoAnuncio.brandId,
           nota: sql<number | null>`
@@ -344,7 +379,7 @@ export async function obterSaudeLoja(
           gt(mlAvaliacaoAnuncio.reviewsTotal, 0),
         ))
         .groupBy(mlAvaliacaoAnuncio.brandId),
-      ctx.db
+      !incluiCanal("shopee") ? Promise.resolve([]) : ctx.db
         .select({
           brandId: shopeeAvaliacaoAnuncio.brandId,
           nota: sql<number | null>`
@@ -376,9 +411,13 @@ export async function obterSaudeLoja(
         inArray(produto.brandId, idsVisiveis),
         eq(produto.ativo, true),
         isNull(produto.deletedAt),
+        ...(canais.length > 0 ? [condicaoCanalProduto(ctx.orgId, canais)] : []),
       ))
       .groupBy(produto.brandId),
-    leve ? Promise.resolve<ReputacaoResultado>({ marcas: [], marcasComFalha: [], semContaConectada: true })
+    // Termômetro é do Mercado Livre. Fora dele não há o que buscar — e buscar
+    // assim mesmo faria a reputação do ML aparecer num recorte só de Shopee.
+    leve || !temMercadoLivre
+      ? Promise.resolve<ReputacaoResultado>({ marcas: [], marcasComFalha: [], semContaConectada: true })
       : obterReputacaoPersistida(ctx).catch((): ReputacaoResultado => ({
         marcas: [],
         marcasComFalha: [],
@@ -388,7 +427,7 @@ export async function obterSaudeLoja(
       itens: [], total: 0, pendentes: 0, marcasComFalha: [], semContaConectada: true,
     }),
     leve ? Promise.resolve<ContaDesconectada[]>([]) : obterContasDesconectadas(ctx).catch((): ContaDesconectada[] => []),
-    obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis }),
+    obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis, canais }),
   ]);
 
   const vendas = new Map(vendasPorMarca.map((linha) => [linha.brandId, linha]));
@@ -433,9 +472,9 @@ export async function obterSaudeLoja(
     const crescimentoMarca = crescimentoPorMarca.get(item.id) ?? null;
 
     const calculos: Record<ChavePilar, { nota: number | null; detalhe: string }> = {
-      reputacao: pilarReputacao(reputacaoMarca),
-      posVenda: pilarPosVenda(reputacaoMarca),
-      satisfacao: pilarSatisfacao(notaMedia, totalAvaliacoes),
+      reputacao: pilarReputacao(reputacaoMarca, !temMercadoLivre),
+      posVenda: pilarPosVenda(reputacaoMarca, !temMercadoLivre),
+      satisfacao: pilarSatisfacao(notaMedia, totalAvaliacoes, !temMercadoLivre && !incluiCanal("shopee")),
       estoque: pilarEstoque(ativos, comSaldo, abaixoDoMinimo),
     };
 
@@ -506,6 +545,20 @@ export async function obterSaudeLoja(
     marcasComFalha: [...new Set([...reputacao.marcasComFalha, ...reclamacoes.marcasComFalha])],
     contasDesconectadas,
   };
+}
+
+/** Gêmea da mesma condição em `dashboard.service.ts`: EXISTS em vez de JOIN,
+ *  porque um produto pode ter mais de um mapeamento ativo no mesmo canal e um
+ *  JOIN duplicaria a linha — o que aqui inflaria a contagem do catálogo. */
+function condicaoCanalProduto(orgId: string, canais: string[]) {
+  return sql`exists (
+    select 1 from ${produtoCanal}
+    inner join ${channelAccount} on ${channelAccount.id} = ${produtoCanal.channelAccountId}
+    where ${produtoCanal.produtoId} = ${produto.id}
+      and ${produtoCanal.orgId} = ${orgId}
+      and ${produtoCanal.ativo} = true
+      and ${channelAccount.tipo} in ${canais}
+  )`;
 }
 
 /** Mesmo saldo que o Estoque e o Painel usam: o MAIOR entre os canais, nunca a

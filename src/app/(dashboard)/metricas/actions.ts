@@ -31,6 +31,13 @@ const FiltrosSchema = z.object({
   inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   fim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   brandIds: z.array(z.string().uuid()).max(20).optional(),
+  // Tipos de canal ("mercadolivre", "shopee", …) — os mesmos valores de
+  // `pedido.canal` e `channel_account.tipo`, e a tela só oferece o que veio do
+  // banco (ver actionObterFiltrosPedidos). Fica `string` em vez de enum de
+  // propósito: canal novo entra sem precisar de deploy deste arquivo, e um
+  // valor desconhecido simplesmente não casa nenhuma linha em vez de derrubar
+  // a página inteira com erro de validação. Lista vazia = todos os canais.
+  canais: z.array(z.string().min(1).max(40)).max(5).optional(),
   leve: z.boolean().optional(),
 });
 
@@ -119,8 +126,8 @@ export async function actionObterSaudeLoja(filtros: MetricasFiltros = {}): Promi
 export async function actionObterPosVenda(filtros: MetricasFiltros = {}): Promise<PosVendaResultado> {
   const ctx = await getCrudContext();
   assertPerfil(ctx, [...PERFIS]);
-  const { inicio, fim, brandIds } = FiltrosSchema.parse(filtros);
-  return obterPosVenda(ctx, { ...resolverJanela(inicio, fim), brandIds });
+  const { inicio, fim, brandIds, canais } = FiltrosSchema.parse(filtros);
+  return obterPosVenda(ctx, { ...resolverJanela(inicio, fim), brandIds, canais });
 }
 
 /** Foto de N dias atrás gravada pelo job A30 — a base de comparação que
@@ -167,18 +174,25 @@ export async function actionRejeitarSugestao(sugestaoId: string, motivo = "Rejei
   await rejeitarSugestao(ctx.orgId, id, z.string().trim().min(3).max(500).parse(motivo));
 }
 
+/* `new Date(ano, mes-1, dia)` e `setHours(0,0,0,0)` nascem à meia-noite do fuso
+   do PROCESSO, não do Brasil — e em produção (Vercel) o processo roda em UTC.
+   Isso deslocava a janela do Pós-venda em 3 horas: entravam pedidos das 21h às
+   24h do dia anterior ao escolhido e saíam os das 21h às 24h do último dia, o
+   que fazia "Cumprimento de pedidos" divergir do Faturamento do mesmo card,
+   que usa o offset fixo. Brasil não observa horário de verão desde 2019, então
+   -03:00 vale o ano inteiro — mesma correção já feita em `dashboard.service.ts`
+   e `saude-loja.service.ts`. */
+function parseDataLocal(iso: string, fimDoDia: boolean): Date {
+  return new Date(`${iso}T${fimDoDia ? "23:59:59.999" : "00:00:00.000"}-03:00`);
+}
+
 function resolverJanela(inicio?: string, fim?: string) {
   if (inicio && fim) {
-    const [ai, mi, di] = inicio.split("-").map(Number);
-    const [af, mf, df] = fim.split("-").map(Number);
-    return {
-      inicio: new Date(ai, mi - 1, di),
-      fim: new Date(af, mf - 1, df, 23, 59, 59, 999),
-    };
+    return { inicio: parseDataLocal(inicio, false), fim: parseDataLocal(fim, true) };
   }
   const agora = new Date();
-  const trintaDiasAtras = new Date(agora);
-  trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 29);
-  trintaDiasAtras.setHours(0, 0, 0, 0);
-  return { inicio: trintaDiasAtras, fim: agora };
+  const hojeSaoPaulo = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora);
+  const inicioJanela = parseDataLocal(hojeSaoPaulo, false);
+  inicioJanela.setDate(inicioJanela.getDate() - 29);
+  return { inicio: inicioJanela, fim: agora };
 }
