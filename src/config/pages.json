@@ -421,6 +421,16 @@
       "description": "Ajuste a marca, o canal ou o status para ver os pedidos."
     },
     "loadError": "Erro ao carregar pedidos.",
+    "limiteDoDia": {
+      "badge": "{n} em outro dia no ML",
+      "title": "Por que o total não bate com o Mercado Livre",
+      "explanation": "O Mercado Livre fecha o dia pelo relógio dele, uma hora atrás do nosso. Estes pedidos caíram nessa hora de virada — são os mesmos pedidos, contados em dias diferentes. Nenhum está faltando aqui.",
+      "aheadTitle": "O ML conta no período, aqui não",
+      "aheadHint": "Vendidos na primeira hora depois do fim do período. É o que faz o total desta tela ficar abaixo do painel dele.",
+      "behindTitle": "Aqui conta, o ML não",
+      "behindHint": "Vendidos na primeira hora do dia inicial. O ML joga esses para o dia anterior.",
+      "reconcile": "Diferença que isto explica: {valor}"
+    },
     "brandSelector": {
       "label": "Marca",
       "emptyHint": "{marca} não tem pedido com o filtro atual."

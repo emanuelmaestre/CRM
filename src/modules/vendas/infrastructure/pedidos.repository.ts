@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, ilike, inArray, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, cliente, pedido, pedidoItem } from "@/shared/lib/db/schema";
 import { compararPorOrdemDeMarca } from "@/shared/config/brands";
@@ -98,6 +98,85 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
     freteTotal: Number(resumo?.freteTotal ?? 0),
     descontosTotal: Number(resumo?.descontosTotal ?? 0),
   };
+}
+
+/** A hora em que o dia do Mercado Livre e o dia daqui não coincidem.
+ *
+ *  O relógio do ML corre em GMT-4: o `date_created` que a API devolve vem
+ *  escrito nesse fuso ("2026-08-26T23:10:15.000-04:00") e o painel de métricas
+ *  dele fecha o dia por esse relógio. O CRM guarda o instante certo e fecha o
+ *  dia em Brasília (GMT-3). O resultado é uma hora de desencontro em cada
+ *  ponta do período — e nenhum pedido perdido, só deslocado de dia. */
+export const DESLOCAMENTO_DIA_MERCADOLIVRE_MS = 60 * 60 * 1000;
+
+/** Os pedidos que caem na fronteira entre os dois calendários.
+ *
+ *  `soNoMercadoLivre` — vendidos na primeira hora depois do fim do período: o
+ *  Mercado Livre os conta dentro do período escolhido, aqui eles aparecem no
+ *  dia seguinte. É o que faz o total do CRM ficar ABAIXO do painel dele.
+ *
+ *  `soAqui` — vendidos na primeira hora do dia de início: aqui entram no
+ *  período, e o Mercado Livre os joga para o dia anterior, fazendo o total
+ *  ficar ACIMA. Quase sempre vazio (venda entre meia-noite e uma da manhã é
+ *  rara), mas sem ele a conferência não fecha nos dois sentidos.
+ *
+ *  Os limites são abertos de um lado de propósito: o dia do ML termina em
+ *  01:00 EXATO no relógio daqui, então um pedido de 01:00:00 já é do dia
+ *  seguinte para os dois calendários e não está em desencontro nenhum. */
+export async function consultarPedidosNoLimiteDoDia(
+  orgId: string,
+  opts: ConsultaPedidos,
+): Promise<{ soNoMercadoLivre: PedidoNoLimite[]; soAqui: PedidoNoLimite[] }> {
+  const vazio = { soNoMercadoLivre: [], soAqui: [] };
+  // Sem recorte de data não existe fronteira de dia para desencontrar. E se o
+  // filtro de canal exclui o Mercado Livre, o desencontro não se aplica a
+  // nada do que está na tela.
+  if (!opts.inicio || !opts.fim) return vazio;
+  if (opts.canais?.length && !opts.canais.includes("mercadolivre")) return vazio;
+
+  const janela = (...limites: SQL[]) => db
+    .select({
+      id: pedido.id,
+      providerOrderId: pedido.providerOrderId,
+      clienteNome: cliente.nome,
+      status: pedido.status,
+      total: pedido.total,
+      createdAt: pedido.createdAt,
+    })
+    .from(pedido)
+    .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
+    .where(and(
+      eq(pedido.orgId, orgId),
+      eq(pedido.canal, "mercadolivre"),
+      ...(opts.brandIds?.length ? [inArray(pedido.brandId, opts.brandIds)] : []),
+      ...limites,
+    ))
+    .orderBy(pedido.createdAt);
+
+  const [soNoMercadoLivre, soAqui] = await Promise.all([
+    janela(
+      gt(pedido.createdAt, opts.fim),
+      lte(pedido.createdAt, new Date(opts.fim.getTime() + DESLOCAMENTO_DIA_MERCADOLIVRE_MS)),
+    ),
+    janela(
+      gte(pedido.createdAt, opts.inicio),
+      lt(pedido.createdAt, new Date(opts.inicio.getTime() + DESLOCAMENTO_DIA_MERCADOLIVRE_MS)),
+    ),
+  ]);
+
+  const normalizar = (linhas: Awaited<ReturnType<typeof janela>>): PedidoNoLimite[] =>
+    linhas.map((linha) => ({ ...linha, total: Number(linha.total) }));
+
+  return { soNoMercadoLivre: normalizar(soNoMercadoLivre), soAqui: normalizar(soAqui) };
+}
+
+export interface PedidoNoLimite {
+  id: string;
+  providerOrderId: string | null;
+  clienteNome: string;
+  status: string;
+  total: number;
+  createdAt: Date;
 }
 
 export function consultarPedidosPorMarca(orgId: string, canais?: string[]) {

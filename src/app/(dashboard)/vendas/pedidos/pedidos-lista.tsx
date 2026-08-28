@@ -32,6 +32,8 @@ type ConsultaPedidos = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>
 type Marca = ConsultaPedidos["marcas"][number];
 type Canal = ConsultaPedidos["canais"][number];
 type Resumo = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["resumo"];
+type LimiteDoDia = ConsultaPedidos["limiteDoDia"];
+type PedidoNoLimite = LimiteDoDia["soNoMercadoLivre"][number];
 
 const copy = pagesConfig.pedidos;
 const PAGINA = 50;
@@ -52,6 +54,8 @@ const resumoInicial: Resumo = {
   freteTotal: 0,
   descontosTotal: 0,
 };
+
+const limiteDoDiaInicial: LimiteDoDia = { soNoMercadoLivre: [], soAqui: [] };
 
 function inicioDoDia(data: string): string | undefined {
   return data ? `${data}T00:00:00-03:00` : undefined;
@@ -109,6 +113,79 @@ const LEGENDA_STATUS_PEDIDOS: Array<{ titulo: string; cor: string; texto: string
   { titulo: "Em aberto", cor: "var(--info)", texto: "Criado, Pago, Separado e Enviado. O Mercado Livre não informa esses quatro estágios separadamente pelo pedido, então praticamente todo pedido ativo fica agrupado aqui até ser cancelado." },
   { titulo: "Cancelado", cor: "var(--destructive)", texto: "O pedido foi cancelado — pelo comprador, pelo vendedor ou automaticamente por falta de pagamento." },
 ];
+
+/* ── Desencontro de dia com o Mercado Livre ───────────────────────────────
+   Fica na linha do título, ao lado do aviso de "não importados", mas de
+   propósito SEM o peso visual dele: recusado é trabalho a resolver, isto aqui
+   é só uma explicação que se esgota no popover. Duas etiquetas com a mesma
+   força fariam o olho tratar as duas como o mesmo tipo de pendência, e a que
+   é de verdade perderia urgência. */
+function GrupoLimiteDoDia({ titulo, dica, linhas }: { titulo: string; dica: string; linhas: PedidoNoLimite[] }) {
+  if (linhas.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">{titulo}</p>
+      <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{dica}</p>
+      <ul className="mt-2 flex flex-col divide-y divide-border">
+        {linhas.map((item) => (
+          <li key={item.id}>
+            <Link
+              href={`/vendas/pedidos/${item.id}`}
+              className="flex items-baseline justify-between gap-3 py-1.5 transition-colors hover:text-foreground"
+            >
+              <span className="min-w-0 flex-1 truncate text-[12.5px] font-semibold text-foreground">{item.clienteNome}</span>
+              <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">{dataHora.format(item.createdAt)}</span>
+              <span className="shrink-0 text-[12.5px] font-bold tabular-nums text-foreground">{dinheiro.format(item.total)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function AvisoLimiteDoDia({ dados }: { dados: LimiteDoDia }) {
+  const { soNoMercadoLivre, soAqui } = dados;
+  const quantidade = soNoMercadoLivre.length + soAqui.length;
+  if (quantidade === 0) return null;
+
+  /* Cancelado e devolvido aparecem na lista (o pedido existe e está mesmo na
+     hora de virada), mas ficam fora da soma: o Faturamento desta tela também
+     os exclui, e é com ele que a pessoa está comparando. */
+  const somar = (linhas: PedidoNoLimite[]) => linhas
+    .filter((item) => item.status !== "cancelado" && item.status !== "devolvido")
+    .reduce((total, item) => total + item.total, 0);
+  const diferenca = somar(soNoMercadoLivre) - somar(soAqui);
+  const copyLimite = copy.limiteDoDia;
+
+  return (
+    <AnimatedInfoPopover
+      trigger={(
+        <AnimatedInfoTrigger
+          title={copyLimite.title}
+          iconSize={12}
+          className="press-feedback inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+        >
+          {copyLimite.badge.replace("{n}", String(quantidade))}
+        </AnimatedInfoTrigger>
+      )}
+      align="end"
+      sideOffset={8}
+      collisionPadding={12}
+      className="z-[100] w-[min(24rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+    >
+      <p className="text-[12.5px] font-bold text-foreground">{copyLimite.title}</p>
+      <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">{copyLimite.explanation}</p>
+      <GrupoLimiteDoDia titulo={copyLimite.aheadTitle} dica={copyLimite.aheadHint} linhas={soNoMercadoLivre} />
+      <GrupoLimiteDoDia titulo={copyLimite.behindTitle} dica={copyLimite.behindHint} linhas={soAqui} />
+      {diferenca !== 0 && (
+        <p className="mt-4 border-t border-border pt-3 text-[12px] font-semibold text-muted-foreground">
+          {copyLimite.reconcile.replace("{valor}", dinheiro.format(Math.abs(diferenca)))}
+        </p>
+      )}
+    </AnimatedInfoPopover>
+  );
+}
 
 /** `compacto`: no mobile este botão mudou de lugar (ver comentário na barra
  *  de filtros mais abaixo) — foi morar na mesma linha de "Todos"/"Período",
@@ -357,6 +434,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
+  const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
   const [loading, setLoading] = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [brandIds, setBrandIds] = useState<string[]>([]);
@@ -400,6 +478,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         setPedidos(res.data);
         setTotal(res.total);
         setResumo(res.resumo);
+        setLimiteDoDia(res.limiteDoDia);
         setMarcas(res.marcas);
         /* As contagens de marca voltam já cruzadas com o canal escolhido (ver
            contarPedidosPorMarca): total 0 aqui quer dizer "esta marca não tem
@@ -647,20 +726,23 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
               <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "pedido" : "pedidos"}
             </span>
           </div>
-          {/* Só aparece quando há o que resolver. Um item fixo na navegação
-              global disputaria espaço na barra do celular com Métricas,
-              Vendas, Estoque e Publicidade por uma tela que, na operação
-              saudável, fica vazia — aqui o aviso nasce junto dos pedidos e
-              some sozinho quando a fila zera. */}
-          {ignorados > 0 && (
-            <a
-              href="/vendas/pedidos-ignorados"
-              className="press-feedback inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-500/20"
-            >
-              <PackageX size={13} />
-              {ignorados} {ignorados === 1 ? "não importado" : "não importados"}
-            </a>
-          )}
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <AvisoLimiteDoDia dados={limiteDoDia} />
+            {/* Só aparece quando há o que resolver. Um item fixo na navegação
+                global disputaria espaço na barra do celular com Métricas,
+                Vendas, Estoque e Publicidade por uma tela que, na operação
+                saudável, fica vazia — aqui o aviso nasce junto dos pedidos e
+                some sozinho quando a fila zera. */}
+            {ignorados > 0 && (
+              <a
+                href="/vendas/pedidos-ignorados"
+                className="press-feedback inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-500/20"
+              >
+                <PackageX size={13} />
+                {ignorados} {ignorados === 1 ? "não importado" : "não importados"}
+              </a>
+            )}
+          </div>
         </div>
 
         <div

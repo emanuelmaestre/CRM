@@ -4,7 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
-  cancelarPedido, contarPedidosPorCanal, contarPedidosPorMarca, listarPedidosDetalhados, resumirPedidos,
+  cancelarPedido, contarPedidosPorCanal, contarPedidosPorMarca, listarPedidosDetalhados,
+  listarPedidosNoLimiteDoDia, resumirPedidos,
 } from "@/modules/vendas/application/pedidos.service";
 import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 
@@ -21,7 +22,7 @@ export async function actionListarPedidosDetalhados(opts: {
 } = {}) {
   const ctx = await getCrudContext();
   const { offset, ...filtros } = normalizarConsultaPedidos(opts);
-  const [result, resumo, marcas, canais] = await Promise.all([
+  const [result, resumo, marcas, canais, limiteDoDia] = await Promise.all([
     listarPedidosDetalhados(ctx, {
       ...filtros,
       limit: 50,
@@ -30,12 +31,18 @@ export async function actionListarPedidosDetalhados(opts: {
     resumirPedidos(ctx, filtros),
     contarPedidosPorMarca(ctx, { canais: filtros.canais }),
     contarPedidosPorCanal(ctx, { brandIds: filtros.brandIds }),
+    /* Viaja junto da lista de propósito: é a mesma seleção, e uma ida
+       separada abriria a janela em que o aviso fala de um período que a tela
+       já trocou. Sem recorte de data ou sem o Mercado Livre no filtro, a
+       consulta devolve vazio sem tocar no banco. */
+    listarPedidosNoLimiteDoDia(ctx, filtros),
   ]);
   return {
     ...result,
     resumo,
     marcas,
     canais,
+    limiteDoDia,
     permissions: { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" },
   };
 }

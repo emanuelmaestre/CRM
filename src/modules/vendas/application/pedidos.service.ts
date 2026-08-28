@@ -7,6 +7,7 @@ import { validarTransicaoPedido, type PedidoStatus } from "../domain/state-machi
 import type { ConsultaPedidos } from "../domain/consulta-pedidos";
 import {
   consultarPedidosDetalhados,
+  consultarPedidosNoLimiteDoDia,
   consultarPedidosPorCanal,
   consultarPedidosPorMarca,
   consultarResumoPedidos,
@@ -144,6 +145,14 @@ export async function resumirPedidos(
 ) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
   return consultarResumoPedidos(ctx.orgId, opts);
+}
+
+/** Os pedidos que o calendário do Mercado Livre e o daqui colocam em dias
+ *  diferentes — o que explica a diferença entre o Faturamento desta tela e o
+ *  painel do canal sem que nenhum pedido esteja faltando. */
+export async function listarPedidosNoLimiteDoDia(ctx: CrudContext, opts: ConsultaPedidos = {}) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+  return consultarPedidosNoLimiteDoDia(ctx.orgId, opts);
 }
 
 /** Alimenta as pílulas de marca/canal no topo da tela de Pedidos — mesmo
