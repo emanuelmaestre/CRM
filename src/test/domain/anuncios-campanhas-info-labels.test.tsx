@@ -45,6 +45,7 @@ const marca: VisaoGeralMarca = {
   brandId: "brand-1",
   brandSlug: "elisa",
   brandLabel: "Elisa",
+  janela: { inicio: "2026-08-17", fim: "2026-08-17" },
   dataSnapshot: "2026-08-17",
   sincronizadoEm: "2026-08-17T12:00:00.000Z",
   resumo: {

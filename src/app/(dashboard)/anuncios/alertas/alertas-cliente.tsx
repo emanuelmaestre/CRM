@@ -9,8 +9,9 @@ import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { stagger } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { actionObterVisaoGeralAnuncios } from "../actions";
-import { SeletorMarca } from "../anuncios-cliente";
-import { Card } from "../anuncios-primitives";
+import { useCanalAnuncios } from "../canal-anuncios";
+import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
+import { AvisoJanela, Card } from "../anuncios-primitives";
 import { COR_PRIORIDADE, LinhaAlerta, LinhaGrupo } from "../atencao-card";
 import type { PrioridadeAlerta } from "@/modules/anuncios/application/alertas";
 import type { VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
@@ -33,23 +34,43 @@ function Esqueleto() {
 }
 
 export function AlertasClienteDetalhe() {
-  const [dados, setDados] = useState<VisaoGeralResultado | null>(null);
-  const [carregando, setCarregando] = useState(true);
+  // Esta era a única das seis telas do módulo que ignorava o canal: buscava
+  // sem `canal` e caía sempre no Mercado Livre, com o seletor ausente. Quem
+  // escolhia Shopee em Publicidade e clicava em Alertas voltava para o ML sem
+  // nenhum sinal de que tinha voltado.
+  const { canal } = useCanalAnuncios();
+  // O canal carregado vive junto dos dados, e "carregando" é a comparação
+  // entre ele e o canal ativo — mesmo padrão de Produtos e Histórico. Um
+  // `setCarregando(true)` no corpo do efeito faria uma renderização a mais só
+  // para anunciar que vai renderizar de novo.
+  const [consulta, setConsulta] = useState<{ canal: string; dados: VisaoGeralResultado | null }>({ canal: "", dados: null });
+  const carregando = consulta.canal !== canal;
+  const dados = consulta.dados;
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("todos");
 
   useEffect(() => {
     let ativo = true;
-    actionObterVisaoGeralAnuncios()
+    actionObterVisaoGeralAnuncios({ canal })
       .then((resultado) => {
         if (!ativo) return;
-        setDados(resultado);
-        setMarcaAtiva((atual) => atual ?? resultado.marcas[0]?.brandId ?? null);
+        setConsulta({ canal, dados: resultado });
+        // A marca ativa não sobrevive à troca de canal quando ela não anuncia
+        // no canal novo (a KARZI não tem Shopee) — mesmo tratamento das
+        // outras telas do módulo.
+        setMarcaAtiva((atual) => (
+          atual && resultado.marcas.some((marca) => marca.brandId === atual)
+            ? atual
+            : resultado.marcas[0]?.brandId ?? null
+        ));
       })
-      .catch(() => { if (ativo) toast.error(anunciosConfig.erros.carregar); })
-      .finally(() => { if (ativo) setCarregando(false); });
+      .catch(() => {
+        if (!ativo) return;
+        setConsulta({ canal, dados: null });
+        toast.error(anunciosConfig.erros.carregar);
+      });
     return () => { ativo = false; };
-  }, []);
+  }, [canal]);
 
   const marca: VisaoGeralMarca | undefined = dados?.marcas.find((item) => item.brandId === marcaAtiva) ?? dados?.marcas[0];
 
@@ -76,14 +97,24 @@ export function AlertasClienteDetalhe() {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
+      {/* Mesma fileira das outras telas do módulo: canal, marca e o horário da
+          última sincronização à direita. */}
       <div className="flex flex-wrap items-center gap-3">
-        <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
+        <SeletorCanalAnuncios />
+        <SeletorMarca
+          marcas={dados.marcas}
+          ativa={marca.brandId}
+          onChange={setMarcaAtiva}
+          indisponiveis={dados.marcasIndisponiveis}
+        />
         <span className="h-px flex-1 bg-border" />
         <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <RefreshCw size={11} />
           {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}
         </span>
       </div>
+
+      <AvisoJanela janela={dados.janela} fim={marca.janela.fim} />
 
       <div className="flex flex-wrap gap-1.5">
         {FILTROS.map((item) => {

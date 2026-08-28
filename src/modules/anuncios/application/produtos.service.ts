@@ -1,7 +1,10 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
-import { adsAnuncioSnapshot, adsCampanhaSnapshot } from "@/shared/lib/db/schema";
-import { PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios } from "../domain/plataformas";
+import { adsAnuncioSnapshot, adsCampanhaSnapshot, produto } from "@/shared/lib/db/schema";
+import {
+  DIAS_ATRIBUICAO, diasJanelaPadrao, inicioDaJanelaPadrao,
+  PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios,
+} from "../domain/plataformas";
 import {
   calcularDesperdicio, CRITERIOS_DESPERDICIO_PADRAO,
   type DesperdicioEstimado, type ItemAnalisadoDesperdicio,
@@ -21,10 +24,24 @@ import {
    real e não depende de custo nenhum. */
 
 export interface AnuncioProduto {
+  /** Identidade da LINHA, que é o par (campanha, item) e não o item sozinho:
+   *  na Shopee o mesmo anúncio costuma estar em mais de uma campanha ao mesmo
+   *  tempo, cada uma com gasto e retorno próprios. Usar `itemId` como
+   *  identidade colidia — o React acusava chave duplicada na tabela da WUWU e,
+   *  pior, a marca de "gasto sem retorno" de uma campanha aparecia também na
+   *  linha da outra campanha do mesmo item, que podia estar vendendo bem. */
+  linhaId: string;
   itemId: string;
   campanhaId: string;
   campanhaNome: string;
   titulo: string | null;
+  /** SKU interno, quando o anúncio bate com um produto do catálogo
+   *  (`ads_anuncio_snapshot.produto_id`). Null quando não há correspondência
+   *  — produto ainda não sincronizado, ou variação sem SKU mapeado. É o que
+   *  liga o anúncio patrocinado ao Estoque; na Shopee, onde o título do
+   *  anúncio é o nome comercial de 90 caracteres, costuma ser a única forma
+   *  curta de identificar o item. */
+  sku: string | null;
   status: string | null;
   preco: number | null;
   /** Data de criação do anúncio (item) no Mercado Livre — confirmado ao
@@ -44,6 +61,10 @@ export interface AnuncioProduto {
 }
 
 export interface ProdutosResultado {
+  /** Recorte somado nestes números — igual ao da Visão Geral: um dia no
+   *  Mercado Livre, a janela de atribuição na Shopee. Null quando a marca
+   *  não tem snapshot nenhum no canal. */
+  janela: { inicio: string; fim: string; dias: number; diasAtribuicao: number } | null;
   dataSnapshot: string | null;
   /** Timestamp real da sincronização (ISO, com hora) — `dataSnapshot` é só
    *  o dia do calendário. Ver `criadoEm` em `ads_campanha_snapshot`. */
@@ -60,6 +81,19 @@ function paraNumeroOuNull(valor: unknown): number | null {
   if (valor === null || valor === undefined) return null;
   const parsed = Number(valor);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+/* Vendedor que não preenche SKU na Shopee (comum) recebe do catálogo um SKU
+   sintético `shopee-{item_id}[-{model_id}]` — ver `skuDoItemPedido` em
+   canais/infrastructure/shopee.provider.ts, que é quem o gera. Ele existe para
+   a ingestão de pedidos ter uma chave, não para ser lido: "shopee-58260477465"
+   ao lado do título é o item_id que a tela já tem, escrito de novo. Mostrar
+   só SKU de verdade — o do vendedor. */
+const SKU_SINTETICO_SHOPEE = /^shopee-\d+(-\d+)?$/;
+
+function skuApresentavel(sku: string | undefined): string | null {
+  if (!sku || SKU_SINTETICO_SHOPEE.test(sku)) return null;
+  return sku;
 }
 
 /** Todos os anúncios da marca na data de snapshot mais recente, ordenados
@@ -85,8 +119,14 @@ export async function obterProdutosDaMarca(
   const ultimaData = ultimoSnapshot?.data ?? null;
 
   if (!ultimaData) {
-    return { dataSnapshot: null, sincronizadoEm: null, anuncios: [], desperdicio: { totalEmAtencao: 0, itens: [] } };
+    return { janela: null, dataSnapshot: null, sincronizadoEm: null, anuncios: [], desperdicio: { totalEmAtencao: 0, itens: [] } };
   }
+
+  // Mesma janela padrão da Visão Geral, pelo mesmo motivo: na Shopee o último
+  // dia tem o gasto do item mas ainda não as vendas que ela credita depois do
+  // clique, e um "Gasto sem retorno" calculado só nele acusaria de desperdício
+  // metade do catálogo todo santo dia.
+  const inicioJanela = inicioDaJanelaPadrao(ultimaData, plataforma);
 
   const [campanhas, itens] = await Promise.all([
     ctx.db
@@ -104,16 +144,65 @@ export async function obterProdutosDaMarca(
       .where(and(
         eq(adsAnuncioSnapshot.orgId, ctx.orgId),
         eq(adsAnuncioSnapshot.brandId, opcoes.brandId),
-        eq(adsAnuncioSnapshot.data, ultimaData),
+        gte(adsAnuncioSnapshot.data, inicioJanela),
+        lte(adsAnuncioSnapshot.data, ultimaData),
         eq(adsAnuncioSnapshot.plataforma, plataforma),
-      )),
+      ))
+      .orderBy(adsAnuncioSnapshot.data),
   ]);
 
   const nomeCampanhaPorId = new Map(campanhas.map((c) => [c.campaignId, c.nome]));
 
-  const anuncios: AnuncioProduto[] = itens.map((linha) => {
+  /* SKU interno de quem tem correspondência no catálogo. Uma consulta só,
+     com os ids já em mãos — não um SELECT por anúncio. A sincronização já
+     resolveu o vínculo (`produto_id`), aqui é só traduzir para algo legível. */
+  const produtoIds = [...new Set(itens.map((linha) => linha.produtoId).filter((id): id is string => id !== null))];
+  const skuPorProduto = produtoIds.length === 0 ? new Map<string, string>() : new Map(
+    (await ctx.db
+      .select({ id: produto.id, sku: produto.sku })
+      .from(produto)
+      .where(and(eq(produto.orgId, ctx.orgId), inArray(produto.id, produtoIds))))
+      .map((linha) => [linha.id, linha.sku] as const),
+  );
+
+  /* Um item aparece uma vez por dia da janela: somamos o que é somável e
+     mantemos a última linha como base para os campos descritivos (título,
+     status, preço), que descrevem o item e não o dia. Com janela de um dia
+     — o caso do Mercado Livre — isto devolve exatamente a linha original. */
+  const porItem = new Map<string, typeof itens>();
+  for (const linha of itens) {
+    const chave = `${linha.campaignId}:${linha.itemId}`;
+    const grupo = porItem.get(chave) ?? [];
+    grupo.push(linha);
+    porItem.set(chave, grupo);
+  }
+  const linhasAgregadas = [...porItem.values()].map((linhas) => {
+    const base = linhas[linhas.length - 1];
+    if (linhas.length === 1) return base;
+    const somar = (campo: keyof typeof base) => linhas.reduce((total, l) => total + paraNumero(l[campo]), 0);
+    // Arredondado na soma, não só na exibição: 47.92999999999999 vira base de
+    // ROAS e de "gasto sem retorno", e o resíduo se propaga pros dois. Mesmo
+    // tratamento que a Visão Geral já dá aos totais dela.
+    const cost = Math.round(somar("cost") * 100) / 100;
+    const totalAmount = Math.round(somar("totalAmount") * 100) / 100;
+    return {
+      ...base,
+      clicks: somar("clicks"),
+      prints: somar("prints"),
+      unitsQuantity: somar("unitsQuantity"),
+      cost: String(cost),
+      totalAmount: String(totalAmount),
+      // Recalculadas sobre os totais: média de razões daria peso igual a um
+      // dia de R$ 0,30 e a um de R$ 80,00.
+      roas: cost > 0 ? String(totalAmount / cost) : null,
+      acos: totalAmount > 0 ? String((cost / totalAmount) * 100) : null,
+    };
+  });
+
+  const anuncios: AnuncioProduto[] = linhasAgregadas.map((linha) => {
     const investimento = paraNumero(linha.cost);
     return {
+      linhaId: `${linha.campaignId}:${linha.itemId}`,
       itemId: linha.itemId,
       campanhaId: linha.campaignId,
       /* Confirmado ao vivo (22/08/2026): a API do Mercado Livre às vezes
@@ -124,6 +213,7 @@ export async function obterProdutosDaMarca(
        * bonito quando a API diverge assim. */
       campanhaNome: nomeCampanhaPorId.get(linha.campaignId) ?? `Campanha ${linha.campaignId}`,
       titulo: linha.titulo,
+      sku: linha.produtoId ? skuApresentavel(skuPorProduto.get(linha.produtoId)) : null,
       status: linha.status,
       preco: paraNumeroOuNull(linha.preco),
       criadoEm: linha.anuncioCriadoEm?.toISOString() ?? null,
@@ -142,7 +232,8 @@ export async function obterProdutosDaMarca(
   }).sort((a, b) => b.investimento - a.investimento);
 
   const itensParaDesperdicio: ItemAnalisadoDesperdicio[] = anuncios.map((a) => ({
-    id: a.itemId,
+    // Pelo par (campanha, item), a mesma identidade das linhas — ver `linhaId`.
+    id: a.linhaId,
     nome: a.titulo ?? a.itemId,
     cliques: a.cliques,
     gasto: a.investimento,
@@ -152,6 +243,12 @@ export async function obterProdutosDaMarca(
   }));
 
   return {
+    janela: {
+      inicio: inicioJanela,
+      fim: ultimaData,
+      dias: diasJanelaPadrao(plataforma),
+      diasAtribuicao: DIAS_ATRIBUICAO[plataforma] ?? 0,
+    },
     dataSnapshot: ultimaData,
     sincronizadoEm: ultimoSnapshot?.criadoEm?.toISOString() ?? null,
     anuncios,

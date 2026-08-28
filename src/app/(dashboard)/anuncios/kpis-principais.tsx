@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { VisaoGeralResumo } from "@/modules/anuncios/application/visao-geral.service";
+import { EXPOE_VENDA_ORGANICA, type PlataformaAnuncios } from "@/modules/anuncios/domain/plataformas";
 import { springs, fadeUp } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { RotuloComInfo, useContagem } from "./anuncios-primitives";
@@ -10,6 +11,7 @@ import { COR_ROAS, SetaRoas, situacaoRoas } from "./roas";
 import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.kpis;
+const copyReceita = anunciosConfig.receitaPorCanal;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const inteiro = new Intl.NumberFormat("pt-BR");
 const decimal1 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -17,7 +19,7 @@ const decimal2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maxi
 const percentual = (valor: number) => `${decimal1.format(valor)}%`;
 const roasTexto = (valor: number) => `${decimal2.format(valor)}x`;
 
-function descricaoReceita(resumo: VisaoGeralResumo) {
+function descricaoReceita(resumo: VisaoGeralResumo, plataforma: PlataformaAnuncios) {
   const valor = moeda.format(resumo.receitaTotal);
   const vendas = Math.max(0, resumo.vendas);
   const ticketMedio = vendas > 0 ? resumo.receitaTotal / vendas : null;
@@ -34,7 +36,11 @@ function descricaoReceita(resumo: VisaoGeralResumo) {
 
   return {
     descricao: `${leitura} Use este valor para medir ROAS, ACOS e retorno da mídia paga.`,
-    observacao: "Receita, nesta tela, é o valor total vendido que a plataforma atribuiu aos anúncios. Não é lucro: ainda não desconta investimento em mídia, custo do produto, taxas, frete ou impostos.",
+    // "Receita atribuída" não é a mesma conta nos dois canais: o Mercado Livre
+    // credita a venda do anúncio no dia do clique, a Shopee credita a loja
+    // inteira em até 7 dias. O número é honesto dentro de cada canal e não é
+    // comparável entre eles — dizer isso aqui é o que evita a leitura errada.
+    observacao: `Receita, nesta tela, é o valor total vendido que a plataforma atribuiu aos anúncios. Não é lucro: ainda não desconta investimento em mídia, custo do produto, taxas, frete ou impostos. ${copyReceita[plataforma]}`,
   };
 }
 
@@ -82,9 +88,20 @@ function descricaoAcos(resumo: VisaoGeralResumo) {
   };
 }
 
-function descricaoTacos(resumo: VisaoGeralResumo) {
+function descricaoTacos(resumo: VisaoGeralResumo, plataforma: PlataformaAnuncios) {
   const receitaTotal = resumo.receitaTotal + resumo.receitaOrganica;
   const observacao = "TACOS olha o peso da mídia no negócio inteiro. Diferente do ACOS, ele usa receita total: anúncios mais orgânico. Ainda assim, não é lucro nem margem.";
+
+  // Na Shopee o TACOS não fica sem dado por falta de venda: fica porque o
+  // relatório de Ads dela não informa a venda orgânica, que é metade da conta.
+  // É ausência permanente do canal — dizer "sem receita no período" mandaria a
+  // pessoa procurar um problema que não existe.
+  if (!EXPOE_VENDA_ORGANICA[plataforma]) {
+    return {
+      descricao: "A Shopee não informa venda orgânica no relatório de Publicidade — ela devolve apenas o que veio de anúncio. Sem a receita orgânica falta metade da conta do TACOS, que compara o investimento com a receita TOTAL do canal. Por isso ele fica sem dado aqui, e não por falta de vendas. No Mercado Livre o número aparece normalmente.",
+      observacao,
+    };
+  }
 
   if (resumo.tacos === null || receitaTotal <= 0) {
     return {
@@ -214,10 +231,10 @@ function descricaoCpc(resumo: VisaoGeralResumo) {
   };
 }
 
-function descricaoKpi(resumo: VisaoGeralResumo) {
-  const receita = descricaoReceita(resumo);
+function descricaoKpi(resumo: VisaoGeralResumo, plataforma: PlataformaAnuncios) {
+  const receita = descricaoReceita(resumo, plataforma);
   const acos = descricaoAcos(resumo);
-  const tacos = descricaoTacos(resumo);
+  const tacos = descricaoTacos(resumo, plataforma);
   const vendas = descricaoVendas(resumo);
   const cvr = descricaoCvr(resumo);
   const ctr = descricaoCtr(resumo);
@@ -278,8 +295,8 @@ function NumeroGrande({ label, descricao, observacao, valor, formatar, cor, sufi
   );
 }
 
-export function KpisPrincipais({ resumo }: { resumo: VisaoGeralResumo }) {
-  const infoKpi = descricaoKpi(resumo);
+export function KpisPrincipais({ resumo, plataforma }: { resumo: VisaoGeralResumo; plataforma: PlataformaAnuncios }) {
+  const infoKpi = descricaoKpi(resumo, plataforma);
 
   return (
     <div className="card-surface p-5">

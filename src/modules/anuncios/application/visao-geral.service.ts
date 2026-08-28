@@ -1,7 +1,10 @@
 import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsCampanhaSnapshot, brand } from "@/shared/lib/db/schema";
-import { PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios } from "../domain/plataformas";
+import {
+  DIAS_ATRIBUICAO, diasJanelaPadrao, EXPOE_VENDA_ORGANICA, inicioDaJanelaPadrao,
+  PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios,
+} from "../domain/plataformas";
 import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
 import { calcularDependenciaMidia } from "./metricas-calculadas";
 import { diagnosticarCampanha, type Diagnostico } from "./motor-diagnostico";
@@ -69,6 +72,11 @@ export interface VisaoGeralMarca {
   brandId: string;
   brandSlug: string;
   brandLabel: string;
+  /** Dias que os números desta marca somam. Sem período escolhido é a janela
+   *  padrão do canal (ver `DIAS_JANELA_PADRAO`) terminando no dia mais
+   *  recente que ESTA marca tem — duas marcas podem ter sincronizado em dias
+   *  diferentes, e nenhuma herda a janela da outra. */
+  janela: { inicio: string; fim: string };
   dataSnapshot: string | null;
   /** Quando a sincronização de fato rodou (ISO, com hora) — diferente de
    *  `dataSnapshot`, que é só o dia do calendário a que as métricas se
@@ -95,8 +103,24 @@ export interface MarcaIndisponivel {
   brandLabel: string;
 }
 
+/** O recorte que produziu estes números, para a tela poder dizê-lo em voz
+ *  alta. Sem isso, "últimos 7 dias" e "hoje" chegam com a mesma cara e o
+ *  operador lê o total da semana como se fosse o do dia. */
+export interface JanelaVisaoGeral {
+  plataforma: PlataformaAnuncios;
+  /** Quantos dias a janela cobre. 1 = só o dia mais recente. */
+  dias: number;
+  /** Falso quando a janela é a padrão do canal; verdadeiro quando quem
+   *  chamou escolheu início e fim no calendário. */
+  periodoDefinido: boolean;
+  /** Dias que o canal ainda pode creditar depois do clique (7 na Shopee, 0
+   *  no Mercado Livre) — o que sustenta o aviso de "ainda subindo". */
+  diasAtribuicao: number;
+}
+
 export interface VisaoGeralResultado {
   marcas: VisaoGeralMarca[];
+  janela: JanelaVisaoGeral;
   /** Ativas, mas sem anúncio nenhum na plataforma escolhida. */
   marcasIndisponiveis: MarcaIndisponivel[];
   /** Consolidado das marcas visíveis — soma simples, não ponderada (ao
@@ -134,8 +158,22 @@ function resumoVazio(): VisaoGeralResumo {
  *  soma o que é somável, recalcula proporção (ROAS/ACOS/CVR/CTR) sobre os
  *  totais em vez de fazer média das médias, que distorceria campanhas
  *  pequenas para o mesmo peso de campanhas grandes. */
-function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
+function agregarResumo(campanhas: CampanhaVisaoGeral[], plataforma: PlataformaAnuncios): VisaoGeralResumo {
   if (campanhas.length === 0) return resumoVazio();
+
+  /* Canal que não informa venda orgânica não tem TACOS nem dependência de
+     mídia — falta metade das duas contas.
+
+     Isso precisa ser dito aqui, e não deduzido do número: `receitaOrganica`
+     chega null do banco (a Shopee não devolve o dado; ver
+     sincronizacao-shopee.service.ts, que grava null de propósito justamente
+     para "manter a TACOS honestamente vazia"), mas `paraNumero(null)` é 0, e
+     zero é um valor legítimo. Com zero no denominador extra, TACOS virava
+     `investimento / receita` — exatamente o ACOS, mostrado ao lado dele com
+     outro nome — e a dependência de mídia virava "crítica, 100%", lida como
+     "esta marca depende inteiramente de anúncio" quando o certo é "este canal
+     não conta essa parte". Os dois números eram falsos, não vazios. */
+  const canalInformaOrganico = EXPOE_VENDA_ORGANICA[plataforma] ?? true;
 
   const investimentoTotal = Math.round(campanhas.reduce((s, c) => s + c.investimento, 0) * 100) / 100;
   const receitaTotal = Math.round(campanhas.reduce((s, c) => s + c.receita, 0) * 100) / 100;
@@ -153,7 +191,7 @@ function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
     acosMedio: receitaTotal > 0 ? Math.round((investimentoTotal / receitaTotal) * 1000) / 10 : null,
     // TACOS: investimento sobre a receita TOTAL (paga + orgânica) — é o que
     // distingue de ACOS, que só olha a receita atribuída à publicidade.
-    tacos: (receitaTotal + receitaOrganica) > 0
+    tacos: canalInformaOrganico && (receitaTotal + receitaOrganica) > 0
       ? Math.round((investimentoTotal / (receitaTotal + receitaOrganica)) * 1000) / 10
       : null,
     vendasPublicitarias,
@@ -162,7 +200,9 @@ function agregarResumo(campanhas: CampanhaVisaoGeral[]): VisaoGeralResumo {
     cliques: cliquesTotal,
     impressoes: impressoesTotal,
     vendas: vendasTotal,
-    dependenciaMidia: calcularDependenciaMidia(vendasPublicitarias, vendasPublicitarias + vendasOrganicas),
+    dependenciaMidia: canalInformaOrganico
+      ? calcularDependenciaMidia(vendasPublicitarias, vendasPublicitarias + vendasOrganicas)
+      : { percentual: null, classificacao: null },
     cvrMedio: cliquesTotal > 0 ? Math.round((vendasTotal / cliquesTotal) * 1000) / 10 : null,
     ctrMedio: impressoesTotal > 0 ? Math.round((cliquesTotal / impressoesTotal) * 1000) / 10 : null,
     cpcMedio: cliquesTotal > 0 ? Math.round((investimentoTotal / cliquesTotal) * 100) / 100 : null,
@@ -222,12 +262,24 @@ export async function obterVisaoGeral(
 
   const periodoDefinido = Boolean(opcoes.inicio && opcoes.fim);
 
-  // Sem período escolhido, cada marca olha o próprio dia mais recente — que
-  // pode ser diferente entre marcas. Buscar "todos os dias mais recentes de
-  // uma vez" e filtrar por marca em memória preserva exatamente esse recorte.
-  const datasMaisRecentes = [...new Set([...ultimoPorMarca.values()].map((item) => item.data))];
+  // Sem período escolhido, cada marca olha a janela padrão DO CANAL terminando
+  // no próprio dia mais recente — que pode ser diferente entre marcas. No
+  // Mercado Livre a janela é de um dia, exatamente o recorte que esta tela
+  // sempre teve; na Shopee são 7, porque o dia de hoje ainda não recebeu as
+  // vendas que ela credita depois do clique (ver domain/plataformas.ts).
+  const janelaPorMarca = new Map<string, { inicio: string; fim: string }>();
+  for (const [brandId, ultimo] of ultimoPorMarca) {
+    janelaPorMarca.set(brandId, { inicio: inicioDaJanelaPadrao(ultimo.data, plataforma), fim: ultimo.data });
+  }
 
-  const todasAsLinhas = idsDasMarcas.length === 0 || (!periodoDefinido && datasMaisRecentes.length === 0) ? [] : await ctx.db
+  // A consulta é uma só, cobrindo da menor abertura à maior data entre as
+  // marcas; o recorte exato de cada uma é reaplicado em memória logo abaixo.
+  // Continuam sendo duas idas ao banco no total, como antes.
+  const janelas = [...janelaPorMarca.values()];
+  const aberturaGlobal = janelas.length > 0 ? janelas.reduce((menor, j) => (j.inicio < menor ? j.inicio : menor), janelas[0].inicio) : null;
+  const fechamentoGlobal = janelas.length > 0 ? janelas.reduce((maior, j) => (j.fim > maior ? j.fim : maior), janelas[0].fim) : null;
+
+  const todasAsLinhas = idsDasMarcas.length === 0 || (!periodoDefinido && aberturaGlobal === null) ? [] : await ctx.db
     .select()
     .from(adsCampanhaSnapshot)
     .where(and(
@@ -236,7 +288,7 @@ export async function obterVisaoGeral(
       eq(adsCampanhaSnapshot.plataforma, plataforma),
       ...(periodoDefinido
         ? [gte(adsCampanhaSnapshot.data, opcoes.inicio!), lte(adsCampanhaSnapshot.data, opcoes.fim!)]
-        : [inArray(adsCampanhaSnapshot.data, datasMaisRecentes)]),
+        : [gte(adsCampanhaSnapshot.data, aberturaGlobal!), lte(adsCampanhaSnapshot.data, fechamentoGlobal!)]),
     ))
     .orderBy(asc(adsCampanhaSnapshot.data));
 
@@ -263,11 +315,12 @@ export async function obterVisaoGeral(
       continue;
     }
 
-    // Sem período, cada marca fica só com as linhas do próprio dia mais
-    // recente: a consulta trouxe os dias mais recentes de todas as marcas
-    // juntos, e uma marca não pode herdar o dia da outra.
+    // Sem período, cada marca fica só com as linhas da própria janela: a
+    // consulta trouxe a união das janelas de todas as marcas, e uma marca não
+    // pode herdar os dias da outra.
+    const janelaDaMarca = janelaPorMarca.get(marca.id) ?? { inicio: ultimaData, fim: ultimaData };
     const linhasCampanhaBrutas = (linhasPorMarca.get(marca.id) ?? [])
-      .filter((linha) => periodoDefinido || linha.data === ultimaData);
+      .filter((linha) => periodoDefinido || (linha.data >= janelaDaMarca.inicio && linha.data <= janelaDaMarca.fim));
 
     const porCampanha = new Map<string, typeof linhasCampanhaBrutas>();
     for (const linha of linhasCampanhaBrutas) {
@@ -370,9 +423,10 @@ export async function obterVisaoGeral(
       brandId: marca.id,
       brandSlug: marca.slug,
       brandLabel: getBrandConfig(marca.slug)?.label ?? marca.nome,
+      janela: periodoDefinido ? { inicio: opcoes.inicio!, fim: opcoes.fim! } : janelaDaMarca,
       dataSnapshot: ultimaData,
       sincronizadoEm: ultimoSnapshot?.criadoEm?.toISOString() ?? null,
-      resumo: agregarResumo(campanhas),
+      resumo: agregarResumo(campanhas, plataforma),
       campanhas: campanhas.sort((a, b) => b.investimento - a.investimento),
       alertasIndividuais,
       alertasAgrupados,
@@ -382,10 +436,24 @@ export async function obterVisaoGeral(
 
   const todasCampanhas = resultado.flatMap((m) => m.campanhas);
 
+  // Dias que a janela cobre: o período escolhido quando há um, senão a janela
+  // padrão do canal (que é igual para todas as marcas — só o dia final muda).
+  const diasDaJanela = periodoDefinido
+    ? Math.max(1, Math.round(
+        (new Date(`${opcoes.fim!}T00:00:00Z`).getTime() - new Date(`${opcoes.inicio!}T00:00:00Z`).getTime()) / 86_400_000,
+      ) + 1)
+    : diasJanelaPadrao(plataforma);
+
   return {
     marcas: resultado,
+    janela: {
+      plataforma,
+      dias: diasDaJanela,
+      periodoDefinido,
+      diasAtribuicao: DIAS_ATRIBUICAO[plataforma] ?? 0,
+    },
     marcasIndisponiveis: indisponiveis,
-    resumoConsolidado: agregarResumo(todasCampanhas),
+    resumoConsolidado: agregarResumo(todasCampanhas, plataforma),
     // Continua olhando só `resultado`: uma marca indisponível não é dado, é a
     // ausência dele — contá-la aqui esconderia o estado de "nada sincronizado".
     semDados: resultado.length === 0,

@@ -73,6 +73,16 @@ export function ComparacaoClienteDetalhe() {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
+      {/* Esta tela compara MARCAS dentro de um canal, nunca canais entre si —
+          somar Mercado Livre e Shopee no mesmo ROAS misturaria duas moedas de
+          atribuição (ver domain/plataformas.ts). Ainda assim, a pessoa troca
+          o canal aqui em cima e lê os dois quadros em sequência; sem dizer
+          que "receita" tem definição diferente em cada um, a diferença entre
+          os quadros passa por diferença de desempenho. */}
+      <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">
+        {anunciosConfig.receitaPorCanal.comparacao}
+      </p>
+
       <Card>
         {/* Mobile: título centralizado, canal embaixo, também centralizado —
             `justify-between` com o texto à esquerda e a pílula sozinha à

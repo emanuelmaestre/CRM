@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { RefreshCw, Split } from "lucide-react";
 import type { VisaoGeralMarca, VisaoGeralResumo } from "@/modules/anuncios/application/visao-geral.service";
+import { EXPOE_VENDA_ORGANICA, type PlataformaAnuncios } from "@/modules/anuncios/domain/plataformas";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
@@ -35,16 +36,21 @@ const VEREDITO_CLASSIFICACAO: Record<string, string> = {
   critica: "Quase todas as vendas vêm de mídia paga — hoje, sem investimento em anúncio, as vendas cairiam quase a zero. Vale entender se é uma fase (lançamento) ou um padrão que precisa de atenção.",
 };
 
-export function OrganicoCard({ resumo, resumoAnterior, marca }: {
+export function OrganicoCard({ resumo, resumoAnterior, marca, plataforma }: {
   resumo: VisaoGeralResumo;
   resumoAnterior?: VisaoGeralResumo | null;
   /** O filtro de marca fica só no topo da página — cards mais abaixo, fora
    *  da primeira dobra, perdem essa referência quando a pessoa rola. A logo
    *  aqui repete o contexto sem precisar rolar de volta pra conferir. */
   marca: VisaoGeralMarca;
+  /** Canal dos números. Vem como prop, e não de um hook, porque é o mesmo
+   *  canal que produziu `resumo` — lê-lo de novo por fora abriria espaço
+   *  para o card falar de um canal e os números serem de outro. */
+  plataforma: PlataformaAnuncios;
 }) {
   const totalVendas = resumo.vendasPublicitarias + resumo.vendasOrganicas;
   const semDado = totalVendas === 0;
+  const canalSemVendaOrganica = !EXPOE_VENDA_ORGANICA[plataforma];
   const reduzir = useReducedMotion();
 
   const percentualPago = totalVendas > 0 ? Math.round((resumo.vendasPublicitarias / totalVendas) * 1000) / 10 : 0;
@@ -65,7 +71,21 @@ export function OrganicoCard({ resumo, resumoAnterior, marca }: {
         accent={ACENTO}
         trailing={<MarcaBadge brandSlug={marca.brandSlug} brandLabel={marca.brandLabel} />}
       />
-      {semDado ? (
+      {/* A ordem importa e é o conserto de um número errado, não de um vazio.
+
+          Este card compara venda paga com venda orgânica. Num canal que não
+          informa a orgânica, ele não fica vazio: ele fica ERRADO. Com 4 vendas
+          pagas e a orgânica ausente lida como zero, a barra dava "100% via
+          publicidade" e o veredito "Dependência crítica — quase todas as
+          vendas vêm de mídia paga". Nenhuma das duas frases é verdade sobre a
+          loja; as duas são verdade só sobre o que a Shopee conta.
+
+          Por isso a checagem do canal vem ANTES de `semDado`: não é o caso de
+          "não vendeu" (vendeu), é o caso de "não dá para responder a pergunta
+          deste card aqui". Depois dele, o vazio comum de período sem venda. */}
+      {canalSemVendaOrganica ? (
+        <EmptyState illustration="generic" title={copy.semOrganico} description={copy.semOrganicoDescricao} />
+      ) : semDado ? (
         <EmptyState illustration="generic" title={copy.semVenda} />
       ) : (
         <motion.div initial={reduzir ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={reduzir ? { duration: 0 } : springs.settleFast} className="px-4 pb-5 pt-2 sm:px-5">

@@ -33,7 +33,7 @@ function resumo(): VisaoGeralResumo {
 
 describe("rótulos de Anúncios com informação", () => {
   it("mostra um ícone explicativo ao lado de cada KPI principal e secundário", async () => {
-    render(<KpisPrincipais resumo={resumo()} />);
+    render(<KpisPrincipais resumo={resumo()} plataforma="mercadolivre" />);
 
     expect(screen.getAllByRole("button", { name: /Explicar indicador/i })).toHaveLength(11);
     expect(screen.getByRole("button", { name: "Explicar indicador Investimento (dinheiro gasto em anúncios)" })).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe("rótulos de Anúncios com informação", () => {
   });
 
   it("explica o ROAS de forma didática e dinâmica", async () => {
-    render(<KpisPrincipais resumo={resumo()} />);
+    render(<KpisPrincipais resumo={resumo()} plataforma="mercadolivre" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador ROAS (retorno por real investido)" }));
 
@@ -65,7 +65,7 @@ describe("rótulos de Anúncios com informação", () => {
   });
 
   it("explica receita atribuída com observação sobre o que é receita", async () => {
-    render(<KpisPrincipais resumo={resumo()} />);
+    render(<KpisPrincipais resumo={resumo()} plataforma="mercadolivre" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador Receita atribuída (venda que veio do anúncio)" }));
 
@@ -78,7 +78,7 @@ describe("rótulos de Anúncios com informação", () => {
   });
 
   it("explica vendas atribuídas com leitura de conversão e observação", async () => {
-    render(<KpisPrincipais resumo={resumo()} />);
+    render(<KpisPrincipais resumo={resumo()} plataforma="mercadolivre" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador Vendas atribuídas (vendas que vieram do anúncio)" }));
 
@@ -91,7 +91,7 @@ describe("rótulos de Anúncios com informação", () => {
   });
 
   it("explica CTR com fórmula, leitura prática e observação", async () => {
-    render(<KpisPrincipais resumo={resumo()} />);
+    render(<KpisPrincipais resumo={resumo()} plataforma="mercadolivre" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CTR (taxa de cliques)" }));
 
@@ -105,7 +105,7 @@ describe("rótulos de Anúncios com informação", () => {
   });
 
   it("explica CPC médio com fórmula, leitura prática e observação", async () => {
-    render(<KpisPrincipais resumo={resumo()} />);
+    render(<KpisPrincipais resumo={resumo()} plataforma="mercadolivre" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CPC médio (custo por clique)" }));
 
@@ -119,7 +119,7 @@ describe("rótulos de Anúncios com informação", () => {
   });
 
   it("explica CVR com fórmula, leitura de conversão e observação", async () => {
-    render(<KpisPrincipais resumo={resumo()} />);
+    render(<KpisPrincipais resumo={resumo()} plataforma="mercadolivre" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador CVR (taxa de conversão)" }));
 
@@ -133,7 +133,7 @@ describe("rótulos de Anúncios com informação", () => {
   });
 
   it("explica TACOS com receita total e observação sobre ACOS", async () => {
-    render(<KpisPrincipais resumo={resumo()} />);
+    render(<KpisPrincipais resumo={resumo()} plataforma="mercadolivre" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Explicar indicador TACOS (peso do anúncio nas vendas)" }));
 

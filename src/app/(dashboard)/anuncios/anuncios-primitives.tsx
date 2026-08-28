@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import { Hourglass } from "lucide-react";
+import anunciosConfig from "@/config/anuncios.json";
 import { fadeUp, springs } from "@/shared/design-system/motion-variants";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { isBrandSlug } from "@/shared/config/brands";
+
+const copyJanela = anunciosConfig.janela;
 
 /* Mesmos primitivos visuais de Métricas (Card/CardHead/SectionLabel/
    useContagem) — repetidos aqui em vez de importados de outra rota, pelo
@@ -175,4 +179,51 @@ export function BarraSimples({ valor, maximo, cor, atraso = 0, altura = 7 }: {
       />
     </div>
   );
+}
+
+/* ── Aviso de janela ───────────────────────────────────────────────
+   O módulo mostra dois recortes diferentes conforme o canal (um dia no
+   Mercado Livre, sete na Shopee) e as duas coisas chegavam na tela com a
+   mesma cara. Sem dizer qual é, o total de uma semana é lido como o do dia.
+
+   Só aparece quando há o que explicar: canal que credita venda depois do
+   clique (`diasAtribuicao > 0`) e janela terminando dentro desse prazo. No
+   Mercado Livre, e em qualquer período antigo escolhido no calendário, não
+   renderiza nada — aviso que aparece sempre vira moldura e ninguém lê. */
+export function AvisoJanela({ janela, fim }: {
+  janela: { dias: number; diasAtribuicao: number } | null;
+  /** Último dia da janela mostrada (ISO). */
+  fim: string | null;
+}) {
+  if (!janela || janela.diasAtribuicao <= 0 || !fim) return null;
+
+  // Janela que já fechou (alguém escolheu "julho" no calendário) não tem
+  // dia em revisão — o número de lá é final.
+  const hoje = new Date();
+  const diasAtras = Math.round((Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()) - new Date(`${fim}T00:00:00Z`).getTime()) / 86_400_000);
+  if (!Number.isFinite(diasAtras) || diasAtras >= janela.diasAtribuicao) return null;
+
+  const texto = copyJanela.descricao.replaceAll("{dias}", String(janela.diasAtribuicao));
+
+  return (
+    <div className="flex items-start gap-2.5 rounded-xl border border-border bg-card/60 px-3.5 py-3">
+      <span
+        aria-hidden="true"
+        className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+        style={{ background: tint("var(--warning)", 12), color: "var(--warning)" }}
+      >
+        <Hourglass size={13} strokeWidth={2.2} />
+      </span>
+      <p className="text-[12px] leading-relaxed text-muted-foreground">
+        <span className="font-semibold text-foreground">{copyJanela.titulo}.</span>{" "}
+        {texto}
+      </p>
+    </div>
+  );
+}
+
+/** Rótulo curto da janela, pro cabeçalho de telas que não têm calendário
+ *  (Produtos, Campanhas): sem ele, "37 anúncios" não diz de quando. */
+export function rotuloDaJanela(dias: number): string {
+  return dias <= 1 ? copyJanela.rotuloDia : copyJanela.rotuloDias.replace("{dias}", String(dias));
 }

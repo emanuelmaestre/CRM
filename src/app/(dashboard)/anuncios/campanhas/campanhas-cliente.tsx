@@ -334,7 +334,11 @@ export function CampanhasClienteDetalhe() {
           <SeletorCanalAnuncios />
         </div>
         <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
-          <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={(brandId) => { setMarcaAtiva(brandId); setExpandida(null); }} />
+        {/* A marca que não anuncia neste canal continua na fileira, apagada
+            e com o ícone de tomada, em vez de sumir — mesma decisão da Visão
+            Geral (some sem explicação, o operador não distingue "não anuncia
+            aqui" de "quebrou"). */}
+          <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={(brandId) => { setMarcaAtiva(brandId); setExpandida(null); }} indisponiveis={dados.marcasIndisponiveis} />
         </div>
         <span className="hidden h-px flex-1 bg-border md:block" />
         <span className="hidden items-center gap-1.5 text-[11px] text-muted-foreground md:inline-flex">

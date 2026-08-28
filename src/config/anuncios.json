@@ -173,7 +173,9 @@
   "organico": {
     "titulo": "Publicidade × Orgânico",
     "descricao": "Quanto das vendas depende de mídia paga, nesta janela de dados.",
-    "semVenda": "Nenhuma venda (paga ou orgânica) registrada na última sincronização."
+    "semVenda": "Nenhuma venda (paga ou orgânica) registrada na última sincronização.",
+    "semOrganico": "A Shopee não informa venda orgânica",
+    "semOrganicoDescricao": "O relatório de Publicidade da Shopee só devolve o que veio de anúncio — ela não separa a venda que teria acontecido sem mídia paga. Sem esse número não dá para dizer quanto do resultado depende de publicidade, e por isso TACOS e dependência de mídia ficam sem dado neste canal. No Mercado Livre o card continua completo."
   },
   "vazio": {
     "titulo": "Nenhum dado de publicidade ainda",
@@ -181,5 +183,18 @@
   },
   "erros": {
     "carregar": "Não foi possível carregar os dados de Anúncios."
+  },
+  "janela": {
+    "_doc": "Aviso da janela de leitura. Aparece só quando o canal ainda pode creditar vendas aos dias mostrados — hoje, só a Shopee (7 dias depois do clique).",
+    "rotuloDia": "Dia mais recente sincronizado",
+    "rotuloDias": "Últimos {dias} dias",
+    "titulo": "Os dias mais recentes ainda vão subir",
+    "descricao": "A Shopee credita a venda até {dias} dias depois do clique. Nos dias mais recentes desta janela o gasto já aparece inteiro, mas parte da receita ainda não entrou — por isso a janela padrão aqui é de {dias} dias, e não o dia de hoje."
+  },
+  "receitaPorCanal": {
+    "_doc": "Receita não significa a mesma coisa nos dois canais. Usado na Visão Geral e na Comparação, para o número não ser lido como se fosse o mesmo conceito.",
+    "mercadolivre": "No Mercado Livre, receita é a venda atribuída ao anúncio (direta e indireta), creditada no dia do clique.",
+    "shopee": "Na Shopee, receita é o GMV amplo: toda venda da loja creditada em até 7 dias depois do clique, não apenas a do produto anunciado.",
+    "comparacao": "Os dois canais medem receita de formas diferentes: o Mercado Livre credita a venda no dia do clique, a Shopee credita a loja inteira em até 7 dias. Compare a evolução de cada canal com ele mesmo, não a diferença entre os dois."
   }
 }

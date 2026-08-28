@@ -1,7 +1,9 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { adsAnuncioSnapshot, adsCampanhaSnapshot } from "@/shared/lib/db/schema";
-import { PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios } from "../domain/plataformas";
+import {
+  inicioDaJanelaPadrao, PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios,
+} from "../domain/plataformas";
 
 /* ── Campanhas (Fase 4 — Apresentação, sub-tela "Campanhas detalhada") ───
    Reaproveita o snapshot mais recente que a Visão Geral já lê, mas descendo
@@ -67,6 +69,11 @@ export async function obterAnunciosDaCampanha(
 
   if (!ultimaData) return [];
 
+  // Mesma janela padrão da Visão Geral e de Produtos: sem ela, os anúncios
+  // desta campanha somariam um período e os totais da campanha logo acima
+  // somariam outro, e os números não fechariam entre si.
+  const inicioJanela = inicioDaJanelaPadrao(ultimaData, plataforma);
+
   const linhas = await ctx.db
     .select()
     .from(adsAnuncioSnapshot)
@@ -74,11 +81,42 @@ export async function obterAnunciosDaCampanha(
       eq(adsAnuncioSnapshot.orgId, ctx.orgId),
       eq(adsAnuncioSnapshot.brandId, opcoes.brandId),
       eq(adsAnuncioSnapshot.campaignId, opcoes.campanhaId),
-      eq(adsAnuncioSnapshot.data, ultimaData),
+      gte(adsAnuncioSnapshot.data, inicioJanela),
+      lte(adsAnuncioSnapshot.data, ultimaData),
       eq(adsAnuncioSnapshot.plataforma, plataforma),
-    ));
+    ))
+    .orderBy(adsAnuncioSnapshot.data);
 
-  const anuncios: AnuncioDaCampanha[] = linhas.map((linha) => {
+  // Um item por dia da janela vira um item só, com as métricas somadas — os
+  // campos descritivos vêm da última linha, que descreve o item, não o dia.
+  const porItem = new Map<string, typeof linhas>();
+  for (const linha of linhas) {
+    const grupo = porItem.get(linha.itemId) ?? [];
+    grupo.push(linha);
+    porItem.set(linha.itemId, grupo);
+  }
+  const linhasAgregadas = [...porItem.values()].map((doItem) => {
+    const base = doItem[doItem.length - 1];
+    if (doItem.length === 1) return base;
+    const somar = (campo: keyof typeof base) => doItem.reduce((total, l) => total + paraNumero(l[campo]), 0);
+    // Arredondado na soma, não só na exibição: 47.92999999999999 vira base de
+    // ROAS e de "gasto sem retorno", e o resíduo se propaga pros dois. Mesmo
+    // tratamento que a Visão Geral já dá aos totais dela.
+    const cost = Math.round(somar("cost") * 100) / 100;
+    const totalAmount = Math.round(somar("totalAmount") * 100) / 100;
+    return {
+      ...base,
+      clicks: somar("clicks"),
+      prints: somar("prints"),
+      unitsQuantity: somar("unitsQuantity"),
+      cost: String(cost),
+      totalAmount: String(totalAmount),
+      roas: cost > 0 ? String(totalAmount / cost) : null,
+      acos: totalAmount > 0 ? String((cost / totalAmount) * 100) : null,
+    };
+  });
+
+  const anuncios: AnuncioDaCampanha[] = linhasAgregadas.map((linha) => {
     const investimento = paraNumero(linha.cost);
     return {
       itemId: linha.itemId,

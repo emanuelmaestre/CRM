@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { BarChart3, GitCompare, History, Package, PlugZap2 } from "lucide-react";
+import { BarChart3, BellRing, GitCompare, History, Package, PlugZap2 } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
+import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
@@ -18,7 +18,10 @@ import anunciosConfig from "@/config/anuncios.json";
 import channelsConfig from "@/config/channels.json";
 import { actionObterVisaoGeralAnuncios } from "./actions";
 import { useCanalAnuncios } from "./canal-anuncios";
-import { ehPlataformaAnuncios, PLATAFORMA_ANUNCIOS_PADRAO } from "@/modules/anuncios/domain/plataformas";
+import {
+  ehPlataformaAnuncios, inicioDaJanelaPadrao,
+  PLATAFORMA_ANUNCIOS_PADRAO, type PlataformaAnuncios,
+} from "@/modules/anuncios/domain/plataformas";
 
 /** Canal em que o servidor pré-buscou `dadosIniciais`. Ele não sabe a
  *  preferência guardada no navegador, então sempre usa o padrão — por isso a
@@ -27,7 +30,7 @@ const PLATAFORMA_DOS_DADOS_INICIAIS = PLATAFORMA_ANUNCIOS_PADRAO;
 import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
 import { OrganicoCard } from "./organico-card";
-import { RotuloComInfo, SectionLabel } from "./anuncios-primitives";
+import { AvisoJanela, RotuloComInfo, SectionLabel } from "./anuncios-primitives";
 import type { MarcaIndisponivel, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
 
 const copy = anunciosConfig;
@@ -43,11 +46,15 @@ const periodoAnteriorTexto = (dias: number) => dias === 1 ? "o dia anterior" : `
 const periodoAnteriorComPreposicao = (dias: number) => dias === 1 ? "no dia anterior" : `nos ${dias} dias anteriores`;
 const paraISO = (data: Date) => `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
 const hojeISO = paraISO(new Date());
-// Pré-selecionado em Hoje, igual ao resto do app (Métricas, Publicidade e
-// as demais listas) — antes vinha em 30 dias, um recorte diferente do
-// padrão adotado nos outros módulos.
-function periodoInicial() {
-  return { inicio: hojeISO, fim: hojeISO };
+/* Sem escolha no calendário, a janela é a DO CANAL, não a da tela.
+
+   O Mercado Livre continua pré-selecionado em Hoje, igual ao resto do app
+   (Métricas e as demais listas). A Shopee abre nos últimos 7 dias porque ela
+   credita a venda até uma semana depois do clique: no dia de hoje ela mostra
+   o gasto inteiro e quase nenhuma receita, e a tela abria com ROAS zero tendo
+   90 dias de dado saudável logo atrás. Ver domain/plataformas.ts. */
+function periodoDoCanal(fim: string, canal: PlataformaAnuncios) {
+  return { inicio: inicioDaJanelaPadrao(fim, canal), fim };
 }
 
 function descricaoComparacaoRoas({
@@ -343,15 +350,22 @@ export function SeletorCanalAnuncios() {
             onClick={disponivel
               ? () => definirCanal(canal)
               : () => toast.info(`Publicidade de ${label} ainda não está disponível.`)}
+            // Canal escolhido usa a COR DO CANAL, igual a Vendas, Estoque,
+            // Clientes e Métricas — aqui ele era o roxo de seleção, então a
+            // Shopee selecionada ficava lilás enquanto a marca ao lado, na
+            // mesma fileira, acendia na cor dela. Duas gramáticas de seleção
+            // na mesma linha: a pessoa lia o lilás como outro tipo de estado,
+            // não como "este é o canal ativo".
             className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
               ativo
-                ? "border-2 border-selecionado bg-selecionado/12"
+                ? "border-2 bg-card/70"
                 : disponivel
                   ? "border border-border/80 bg-card/40 hover:bg-card/70"
                   : "border border-border opacity-50"
             }`}
+            style={ativo ? { borderColor: channelAccent(canal) } : undefined}
           >
-            <HaloSelecao ativo={ativo} cor="var(--selecionado)" reduzir={reduzir} />
+            <HaloSelecao ativo={ativo} cor={channelAccent(canal)} reduzir={reduzir} />
             <ChannelLogo canal={canal} size="sm" variant="logo" />
             {!disponivel && <PlugZap2 size={14} className="text-muted-foreground" />}
           </motion.button>
@@ -383,19 +397,32 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
   /** Visão geral do período atual e do anterior, já resolvidas no servidor. */
   dadosIniciais?: { dados: VisaoGeralResultado | null; anterior: VisaoGeralResultado | null } | null;
 }) {
-  const [periodo, setPeriodo] = useState(() => periodoServidor ?? periodoInicial());
-  // "Limpar" no calendário volta o período pra "" — sem isso, o resto do
-  // componente (busca de dados, exportar PDF, cálculo de dias pro período
-  // anterior) fazia `new Date("T12:00:00")` (Invalid Date) e mandava
-  // "NaN-NaN-NaN" pro servidor, quebrando a tela. periodoEfetivo cai pro
-  // período padrão de 30 dias sempre que inicio/fim estiverem vazios —
-  // mesmo padrão já usado em Métricas.
-  const periodoEfetivo = periodo.inicio && periodo.fim ? periodo : periodoInicial();
+  const { canal, pronto: canalPronto } = useCanalAnuncios();
+  // Guarda só o que a PESSOA escolheu no calendário. Vazio (o estado inicial,
+  // e também o que "Limpar" devolve) significa "use a janela padrão", que é a
+  // do canal ativo — assim trocar de canal sem ter escolhido período move a
+  // janela junto, e escolher um período uma vez o mantém nos dois canais.
+  //
+  // Isso também resolve o que o vazio já resolvia antes: sem o fallback, o
+  // resto do componente (busca, exportar PDF, período anterior) fazia
+  // `new Date("T12:00:00")` (Invalid Date) e mandava "NaN-NaN-NaN" pro
+  // servidor, quebrando a tela.
+  const [periodo, setPeriodo] = useState({ inicio: "", fim: "" });
+  // Âncora do "hoje" vinda do servidor: recalcular no navegador poderia cair
+  // em outro dia (fuso do servidor vs. o do usuário) e jogar fora a busca já
+  // pré-resolvida no HTML.
+  const fimBase = periodoServidor?.fim ?? hojeISO;
+  const periodoPadrao = useMemo(() => periodoDoCanal(fimBase, canal), [fimBase, canal]);
+  const periodoEfetivo = periodo.inicio && periodo.fim ? periodo : periodoPadrao;
   // O canal entra na chave: trocar de canal precisa invalidar o que está na
   // tela, senão os números do Mercado Livre ficariam visíveis sob o rótulo da
-  // Shopee até a busca nova voltar.
-  const chaveInicial = `${periodoEfetivo.inicio}:${periodoEfetivo.fim}:${PLATAFORMA_DOS_DADOS_INICIAIS}`;
-  const { canal, pronto: canalPronto } = useCanalAnuncios();
+  // Shopee até a busca nova voltar. A chave dos dados pré-buscados descreve o
+  // que o SERVIDOR resolveu — canal padrão e a janela dele — e não o que a
+  // preferência do navegador vai pedir daqui a um instante.
+  const chaveInicial = (() => {
+    const doServidor = periodoDoCanal(fimBase, PLATAFORMA_DOS_DADOS_INICIAIS);
+    return `${doServidor.inicio}:${doServidor.fim}:${PLATAFORMA_DOS_DADOS_INICIAIS}`;
+  })();
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(
     dadosIniciais?.dados?.marcas[0]?.brandId ?? null,
   );
@@ -464,6 +491,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
 
   const marca = dados.marcas.find((item) => item.brandId === marcaAtiva) ?? dados.marcas[0];
   const marcaAnterior = consulta.anterior?.marcas.find((item) => item.brandId === marca.brandId) ?? null;
+  const totalDeAlertas = marca.alertasIndividuais.length + marca.alertasAgrupados.length;
   // Período/Hoje pintam com a cor da marca ativa — mesma identidade que já
   // aparece na logo dela na pílula de seleção, em vez de um teal genérico.
   const acentoMarca = isBrandSlug(marca.brandSlug) ? getBrandConfig(marca.brandSlug)?.color : undefined;
@@ -503,7 +531,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
         <div className="order-3 flex w-full justify-center md:order-none md:contents">
           <CalendarioPopoverRange
             rotulo="Período"
-            valor={periodo}
+            valor={periodoEfetivo}
             max={hojeISO}
             onChange={setPeriodo}
             accent={acentoMarca}
@@ -570,10 +598,32 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
           </span>
           <span className="lg:hidden">Campanhas</span><span className="hidden lg:inline">{copy.campanhas.verTodas}</span>
         </Link>
+        {/* A Central de Alertas existia, funcionava e não tinha porta: nenhum
+            link no app apontava pra ela. Entra aqui, junto das outras telas
+            irmãs, com o contador do que há pra ver — um atalho que sempre diz
+            "0" só ocupa espaço, então some quando não há alerta nenhum. */}
+        {totalDeAlertas > 0 && (
+          <Link
+            href="/publicidade/alertas"
+            className="group inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#D97706] hover:text-foreground lg:justify-start"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#D97706", 9), color: "#D97706" }}>
+              <BellRing size={14} />
+            </span>
+            <span className="lg:hidden">Alertas</span><span className="hidden lg:inline">{copy.atencao.verTodas}</span>
+            <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums" style={{ background: tint("#D97706", 14), color: "#D97706" }}>
+              {inteiro.format(totalDeAlertas)}
+            </span>
+          </Link>
+        )}
       </div>
 
+      {/* Vem antes dos números, não depois: é o que evita ler a receita dos
+          dias mais recentes da Shopee como queda de desempenho. */}
+      <AvisoJanela janela={dados.janela} fim={marca.janela.fim} />
+
       {/* Ato 1 — os quatro números que respondem "o que está acontecendo" */}
-      <KpisPrincipais resumo={marca.resumo} />
+      <KpisPrincipais resumo={marca.resumo} plataforma={dados.janela.plataforma} />
 
       <ComparativoPeriodo atual={marca} anterior={marcaAnterior} dias={Math.max(1, Math.round((new Date(`${periodoEfetivo.fim}T12:00:00`).getTime() - new Date(`${periodoEfetivo.inicio}T12:00:00`).getTime()) / 86_400_000) + 1)} />
 
@@ -586,7 +636,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
       {/* Ato 3 — o que a mídia paga está puxando */}
       <section className="flex flex-col gap-3">
         <SectionLabel>Dependência de mídia</SectionLabel>
-        <OrganicoCard resumo={marca.resumo} resumoAnterior={marcaAnterior?.resumo ?? null} marca={marca} />
+        <OrganicoCard resumo={marca.resumo} resumoAnterior={marcaAnterior?.resumo ?? null} marca={marca} plataforma={dados.janela.plataforma} />
       </section>
     </motion.div>
   );

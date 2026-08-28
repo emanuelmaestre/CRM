@@ -15,7 +15,7 @@ import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
 import { Card, CardHead, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { PontoHistorico } from "@/modules/anuncios/application/historico.service";
-import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
+import type { MarcaIndisponivel, VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
 
 const copy = anunciosConfig.historicoDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -132,6 +132,7 @@ function GraficoHistorico({ pontos, periodo }: { pontos: PontoHistorico[]; perio
 
 export function HistoricoClienteDetalhe() {
   const [marcas, setMarcas] = useState<VisaoGeralMarca[] | null>(null);
+  const [marcasIndisponiveis, setMarcasIndisponiveis] = useState<MarcaIndisponivel[]>([]);
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
   const { canal } = useCanalAnuncios();
   const [pontos, setPontos] = useState<PontoHistorico[] | null>(null);
@@ -145,6 +146,7 @@ export function HistoricoClienteDetalhe() {
       .then((resultado) => {
         if (!ativo) return;
         setMarcas(resultado.marcas);
+        setMarcasIndisponiveis(resultado.marcasIndisponiveis);
         // Marca que não anuncia no canal novo não pode continuar ativa.
         setMarcaAtiva((atual) => (
           atual && resultado.marcas.some((marca) => marca.brandId === atual)
@@ -192,7 +194,11 @@ export function HistoricoClienteDetalhe() {
           <SeletorCanalAnuncios />
         </div>
         <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
-          <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
+        {/* A marca que não anuncia neste canal continua na fileira, apagada
+            e com o ícone de tomada, em vez de sumir — mesma decisão da Visão
+            Geral (some sem explicação, o operador não distingue "não anuncia
+            aqui" de "quebrou"). */}
+          <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} indisponiveis={marcasIndisponiveis} />
         </div>
         <span className="hidden h-px flex-1 bg-border md:block" />
         <div className="order-3 flex w-full justify-center md:order-none md:contents">

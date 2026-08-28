@@ -13,10 +13,10 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterProdutosDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
 import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
-import { Card, CardHead, RotuloComInfo } from "../anuncios-primitives";
+import { AvisoJanela, Card, CardHead, RotuloComInfo, rotuloDaJanela } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { AnuncioProduto, ProdutosResultado } from "@/modules/anuncios/application/produtos.service";
-import type { VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
+import type { MarcaIndisponivel, VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
 
 const copy = anunciosConfig.produtosDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -37,6 +37,7 @@ function Esqueleto() {
 
 export function ProdutosClienteDetalhe() {
   const [marcas, setMarcas] = useState<VisaoGeralMarca[] | null>(null);
+  const [marcasIndisponiveis, setMarcasIndisponiveis] = useState<MarcaIndisponivel[]>([]);
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
   const { canal } = useCanalAnuncios();
   const [dados, setDados] = useState<ProdutosResultado | null>(null);
@@ -54,6 +55,7 @@ export function ProdutosClienteDetalhe() {
       .then((resultado) => {
         if (!ativo) return;
         setMarcas(resultado.marcas);
+        setMarcasIndisponiveis(resultado.marcasIndisponiveis);
         // Marca que não anuncia no canal novo não pode continuar ativa.
         setMarcaAtiva((atual) => (
           atual && resultado.marcas.some((marca) => marca.brandId === atual)
@@ -80,12 +82,43 @@ export function ProdutosClienteDetalhe() {
     [dados],
   );
 
+  /* Colunas e filtros que só existem em alguns canais. Decididos pelo DADO,
+     não por um `if (canal === "shopee")`: se amanhã a Shopee passar a expor
+     recomendação, ou o ML parar de expor, a tela acompanha sozinha.
+
+     • Campanha: na Shopee cada campanha anuncia um item só e leva o título do
+       produto como nome — a coluna repetia, palavra por palavra, a coluna ao
+       lado, com 90 caracteres cada.
+     • Criado em: a Shopee não devolve data de criação do item.
+     • Recomendados: é um sinal do Mercado Livre; na Shopee o filtro existia e
+       nunca devolvia nada, o que se lê como lista vazia, não como "não se
+       aplica aqui". */
+  const colunas = useMemo(() => {
+    const lista = dados?.anuncios ?? [];
+    return {
+      campanha: lista.some((a) => a.campanhaNome !== (a.titulo ?? a.itemId)),
+      criadoEm: lista.some((a) => a.criadoEm !== null),
+      recomendacao: lista.some((a) => a.recomendado !== null),
+    };
+  }, [dados]);
+
+  const filtrosDisponiveis = useMemo(
+    () => FILTROS.filter((item) => item !== "recomendados" || colunas.recomendacao),
+    [colunas.recomendacao],
+  );
+
+  // Filtro escolhido no Mercado Livre que não existe na Shopee não pode ficar
+  // ativo depois da troca de canal — a lista sairia vazia sem explicação.
+  // Derivado, não corrigido num efeito: o efeito renderizaria uma vez com a
+  // lista vazia antes de se consertar.
+  const filtroEfetivo = filtrosDisponiveis.includes(filtro) ? filtro : "todos";
+
   const anunciosFiltrados = useMemo(() => {
     const lista = dados?.anuncios ?? [];
-    if (filtro === "recomendados") return lista.filter((a) => a.recomendado);
-    if (filtro === "desperdicio") return lista.filter((a) => idsDesperdicio.has(a.itemId));
+    if (filtroEfetivo === "recomendados") return lista.filter((a) => a.recomendado);
+    if (filtroEfetivo === "desperdicio") return lista.filter((a) => idsDesperdicio.has(a.linhaId));
     return lista;
-  }, [dados, filtro, idsDesperdicio]);
+  }, [dados, filtroEfetivo, idsDesperdicio]);
 
   if (carregando) return <Esqueleto />;
 
@@ -98,6 +131,10 @@ export function ProdutosClienteDetalhe() {
   }
 
   const marca = marcas.find((item) => item.brandId === marcaAtiva) ?? marcas[0];
+  // As explicações das colunas diziam "hoje" em texto fixo. Com a janela
+  // variando por canal, dizer "hoje" sobre uma soma de sete dias seria
+  // simplesmente falso.
+  const naJanela = (dados?.janela?.dias ?? 1) <= 1 ? "nos dados de hoje" : `nos últimos ${dados!.janela!.dias} dias`;
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
@@ -132,7 +169,11 @@ export function ProdutosClienteDetalhe() {
           <SeletorCanalAnuncios />
         </div>
         <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
-          <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
+        {/* A marca que não anuncia neste canal continua na fileira, apagada
+            e com o ícone de tomada, em vez de sumir — mesma decisão da Visão
+            Geral (some sem explicação, o operador não distingue "não anuncia
+            aqui" de "quebrou"). */}
+          <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} indisponiveis={marcasIndisponiveis} />
         </div>
         <span className="hidden h-px min-w-4 flex-1 bg-border md:block" />
         <span className="hidden items-center gap-1.5 text-[11px] text-muted-foreground md:inline-flex">
@@ -152,18 +193,23 @@ export function ProdutosClienteDetalhe() {
         </Card>
       )}
 
+      <AvisoJanela janela={dados?.janela ?? null} fim={dados?.janela?.fim ?? null} />
+
       <Card>
         <CardHead
           title={copy.title}
-          subtitle={copy.description}
+          // A janela entra no subtítulo porque esta tela não tem calendário:
+          // sem isso, "37 anúncios" não diz de quando, e um total de sete dias
+          // passa por total do dia.
+          subtitle={dados?.janela ? `${copy.description} · ${rotuloDaJanela(dados.janela.dias)}` : copy.description}
           icon={Package}
           accent="var(--acento-2)"
           trailing={(
             <SelectPopover
-              valor={filtro}
+              valor={filtroEfetivo}
               onChange={setFiltro}
               buttonClassName="press-feedback inline-flex h-11 min-w-[9rem] items-center justify-between gap-2 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado"
-              itens={FILTROS.map((item) => ({ value: item, label: copy.filtros[item] }))}
+              itens={filtrosDisponiveis.map((item) => ({ value: item, label: copy.filtros[item] }))}
             />
           )}
         />
@@ -175,11 +221,12 @@ export function ProdutosClienteDetalhe() {
           <>
           <div className="divide-y divide-border px-4 py-2 md:hidden">
             {anunciosFiltrados.map((anuncio: AnuncioProduto) => (
-              <article key={anuncio.itemId} className="py-4">
+              <article key={anuncio.linhaId} className="py-4">
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
                     <h4 className="text-sm font-semibold leading-snug text-foreground">{anuncio.titulo ?? anuncio.itemId}</h4>
-                    <p className="mt-1 text-xs text-muted-foreground">{anuncio.campanhaNome}</p>
+                    {colunas.campanha && <p className="mt-1 text-xs text-muted-foreground">{anuncio.campanhaNome}</p>}
+                    {anuncio.sku && <p className="mt-1 font-mono text-[11px] text-muted-foreground">{anuncio.sku}</p>}
                   </div>
                   {/* `title` sozinho não explica nada no toque (só no hover
                       de mouse) — no mobile cada selo também dispara um toast
@@ -195,20 +242,33 @@ export function ProdutosClienteDetalhe() {
                         <Trophy size={15} className="text-warning" />
                       </button>
                     )}
-                    {idsDesperdicio.has(anuncio.itemId) && (
+                    {idsDesperdicio.has(anuncio.linhaId) && (
                       <button type="button" title={copy.desperdicio.titulo} onClick={() => toast.info(copy.desperdicio.titulo)} className="press-feedback -m-1.5 p-1.5">
                         <AlertTriangle size={15} className="text-destructive" />
                       </button>
                     )}
                   </div>
                 </div>
+                {/* Grade de duas colunas: a segunda de cada par alinha à
+                    direita. Com "Criado em" some num canal e presente no
+                    outro, o alinhamento não pode estar escrito à mão em cada
+                    célula — a paridade do índice é que decide. */}
                 <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                  <div><dt className="text-xs text-muted-foreground">Criado em</dt><dd className="mt-0.5 font-medium tabular-nums">{anuncio.criadoEm ? dataCurta.format(new Date(anuncio.criadoEm)) : "Não informada"}</dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">Investimento</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Receita</dt><dd className="mt-0.5 font-semibold tabular-nums">{moeda.format(anuncio.receita)}</dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">ROAS</dt><dd className="mt-0.5 font-semibold"><Roas valor={anuncio.roas} /></dd></div>
-                  <div><dt className="text-xs text-muted-foreground">Cliques</dt><dd className="mt-0.5 tabular-nums">{anuncio.cliques.toLocaleString("pt-BR")}</dd></div>
-                  <div className="text-right"><dt className="text-xs text-muted-foreground">Vendas</dt><dd className="mt-0.5 tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</dd></div>
+                  {[
+                    ...(colunas.criadoEm
+                      ? [{ rotulo: "Criado em", valor: <span className="font-medium tabular-nums">{anuncio.criadoEm ? dataCurta.format(new Date(anuncio.criadoEm)) : "Não informada"}</span> }]
+                      : []),
+                    { rotulo: "Investimento", valor: <span className="font-semibold tabular-nums">{moeda.format(anuncio.investimento)}</span> },
+                    { rotulo: "Receita", valor: <span className="font-semibold tabular-nums">{moeda.format(anuncio.receita)}</span> },
+                    { rotulo: "ROAS", valor: <span className="font-semibold"><Roas valor={anuncio.roas} /></span> },
+                    { rotulo: "Cliques", valor: <span className="tabular-nums">{anuncio.cliques.toLocaleString("pt-BR")}</span> },
+                    { rotulo: "Vendas", valor: <span className="tabular-nums">{anuncio.vendas.toLocaleString("pt-BR")}</span> },
+                  ].map((campo, indice) => (
+                    <div key={campo.rotulo} className={indice % 2 === 1 ? "text-right" : undefined}>
+                      <dt className="text-xs text-muted-foreground">{campo.rotulo}</dt>
+                      <dd className="mt-0.5">{campo.valor}</dd>
+                    </div>
+                  ))}
                 </dl>
               </article>
             ))}
@@ -218,46 +278,52 @@ export function ProdutosClienteDetalhe() {
               <thead>
                 <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
                   <th className="whitespace-nowrap px-3 py-2">{copy.colunas[0]}</th>
-                  <th className="whitespace-nowrap px-3 py-2">{copy.colunas[1]}</th>
+                  {colunas.campanha && <th className="whitespace-nowrap px-3 py-2">{copy.colunas[1]}</th>}
+                  {colunas.criadoEm && (
+                    <th className="whitespace-nowrap px-3 py-2 text-right">
+                      <RotuloComInfo descricao="Data em que o anúncio (item) foi criado no Mercado Livre. Não é a data em que ele entrou nesta campanha, é a origem do anúncio em si.">{copy.colunas[2]}</RotuloComInfo>
+                    </th>
+                  )}
                   <th className="whitespace-nowrap px-3 py-2 text-right">
-                    <RotuloComInfo descricao="Data em que o anúncio (item) foi criado no Mercado Livre. Não é a data em que ele entrou nesta campanha, é a origem do anúncio em si.">{copy.colunas[2]}</RotuloComInfo>
+                    <RotuloComInfo descricao={`Quanto foi gasto em mídia com este anúncio, ${naJanela}.`}>{copy.colunas[3]}</RotuloComInfo>
                   </th>
                   <th className="whitespace-nowrap px-3 py-2 text-right">
-                    <RotuloComInfo descricao="Quanto foi gasto em mídia com este anúncio, nos dados de hoje.">{copy.colunas[3]}</RotuloComInfo>
-                  </th>
-                  <th className="whitespace-nowrap px-3 py-2 text-right">
-                    <RotuloComInfo descricao="Faturamento atribuído a este anúncio hoje. Não é lucro, pois ainda não desconta investimento, custo do produto, frete, taxas ou impostos.">{copy.colunas[4]}</RotuloComInfo>
+                    <RotuloComInfo descricao={`Faturamento atribuído a este anúncio ${naJanela}. Não é lucro, pois ainda não desconta investimento, custo do produto, frete, taxas ou impostos.`}>{copy.colunas[4]}</RotuloComInfo>
                   </th>
                   <th className="whitespace-nowrap px-3 py-2 text-right">
                     <RotuloComInfo descricao="Receita deste anúncio dividida pelo investimento nele. Ajuda a comparar retorno entre anúncios, mas não é margem nem lucro.">{copy.colunas[5]}</RotuloComInfo>
                   </th>
                   <th className="whitespace-nowrap px-3 py-2 text-right">
-                    <RotuloComInfo descricao="Vezes que clicaram neste anúncio hoje.">{copy.colunas[6]}</RotuloComInfo>
+                    <RotuloComInfo descricao={`Vezes que clicaram neste anúncio ${naJanela}.`}>{copy.colunas[6]}</RotuloComInfo>
                   </th>
                   <th className="whitespace-nowrap px-3 py-2 text-right">
-                    <RotuloComInfo descricao="Vendas que vieram deste anúncio pago hoje. Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).">{copy.colunas[7]}</RotuloComInfo>
+                    <RotuloComInfo descricao={`Vendas que vieram deste anúncio pago ${naJanela}. Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).`}>{copy.colunas[7]}</RotuloComInfo>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {anunciosFiltrados.map((anuncio: AnuncioProduto, indice: number) => (
-                  <tr key={anuncio.itemId} className={indice < anunciosFiltrados.length - 1 ? "border-b border-border" : ""}>
+                  <tr key={anuncio.linhaId} className={indice < anunciosFiltrados.length - 1 ? "border-b border-border" : ""}>
                     <td className="max-w-[260px] px-3 py-2.5 font-medium text-foreground">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate">{anuncio.titulo ?? anuncio.itemId}</span>
+                        {/* O SKU vem depois do título, não numa coluna própria:
+                            na Shopee o título é o nome comercial inteiro e o
+                            SKU é o que permite achar o mesmo item no Estoque. */}
+                        {anuncio.sku && <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-normal text-muted-foreground">{anuncio.sku}</span>}
                         {anuncio.recomendado && (
                           <span title={copy.recomendado}><Sparkles size={12} className="shrink-0 text-success" /></span>
                         )}
                         {anuncio.buyBoxWinner && (
                           <span title={copy.buyBox}><Trophy size={12} className="shrink-0 text-warning" /></span>
                         )}
-                        {idsDesperdicio.has(anuncio.itemId) && (
+                        {idsDesperdicio.has(anuncio.linhaId) && (
                           <span title={copy.desperdicio.titulo}><AlertTriangle size={12} className="shrink-0 text-destructive" /></span>
                         )}
                       </div>
                     </td>
-                    <td className="max-w-[180px] truncate px-3 py-2.5 text-muted-foreground">{anuncio.campanhaNome}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{anuncio.criadoEm ? dataCurta.format(new Date(anuncio.criadoEm)) : "Não informada"}</td>
+                    {colunas.campanha && <td className="max-w-[180px] truncate px-3 py-2.5 text-muted-foreground">{anuncio.campanhaNome}</td>}
+                    {colunas.criadoEm && <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{anuncio.criadoEm ? dataCurta.format(new Date(anuncio.criadoEm)) : "Não informada"}</td>}
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(anuncio.investimento)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-foreground">{moeda.format(anuncio.receita)}</td>
                     <td className="px-3 py-2.5 text-right font-semibold">
