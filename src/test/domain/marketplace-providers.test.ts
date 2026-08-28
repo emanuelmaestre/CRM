@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MercadoLivreProvider, normalizarAvaliacoesItem } from "@/modules/canais/infrastructure/mercadolivre.provider";
-import { normalizarFinanceiroShopee, ShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
+import { extrairIncomePorPedido, normalizarFinanceiroShopee, ShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 
 describe("contratos dos providers de marketplace", () => {
   afterEach(() => {
@@ -192,6 +192,7 @@ describe("contratos dos providers de marketplace", () => {
     const provider = new ShopeeProvider(
       { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" },
       { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" },
+      { partnerId: "9", partnerKey: "segredo-financeiro", shopId: "2", accessToken: "token-financeiro" },
     );
     // `desde` precisa ser anterior ao Date.now() mockado (2026-07-23T04:13Z):
     // uma janela que começa no futuro não tem o que buscar e a chamada nem sai.
@@ -227,12 +228,13 @@ describe("contratos dos providers de marketplace", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({
         response: { order_list: ["SHP-1", "SHP-2", "SHP-3"].map(detalhe) },
       }), { status: 200 }))
-      .mockResolvedValue(new Response(JSON.stringify({ response: { order_income_list: [] } }), { status: 200 }));
+      .mockResolvedValue(new Response(JSON.stringify({ response: [] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const provider = new ShopeeProvider(
       { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" },
       { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" },
+      { partnerId: "9", partnerKey: "segredo-financeiro", shopId: "2", accessToken: "token-financeiro" },
     );
     const pedidos = await provider.buscarPedidos(new Date(1_784_780_000_000 - 3 * 24 * 60 * 60 * 1000));
 
@@ -287,9 +289,12 @@ describe("contratos dos providers de marketplace", () => {
         },
       }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        response: {
-          order_income_list: [
-            {
+        // Forma REAL do get_escrow_detail_batch, conferida ao vivo contra a
+        // conta WUWU em 28/08/2026: `response` é um ARRAY de objetos com
+        // `escrow_detail` dentro — não existe `order_income_list` no lote.
+        response: [
+          {
+            escrow_detail: {
               order_sn: "SHP-1",
               order_income: {
                 buyer_total_amount: 24.2,
@@ -300,7 +305,9 @@ describe("contratos dos providers de marketplace", () => {
                 escrow_amount: 20.8,
               },
             },
-            {
+          },
+          {
+            escrow_detail: {
               order_sn: "SHP-2",
               order_income: {
                 buyer_total_amount: 35,
@@ -309,13 +316,16 @@ describe("contratos dos providers de marketplace", () => {
                 escrow_amount: 31.5,
               },
             },
-          ],
-        },
+          },
+        ],
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     const creds = { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" };
-    const provider = new ShopeeProvider(creds, creds);
+    // O escrow é assinado pelo app Financeiro (Accounting And Finance), não
+    // pelo de Pedidos — par e token próprios, como na produção.
+    const credsFinanceiro = { partnerId: "9", partnerKey: "segredo-financeiro", shopId: "2", accessToken: "token-financeiro" };
+    const provider = new ShopeeProvider(creds, creds, credsFinanceiro);
     const pedidos = await provider.buscarPedidos(new Date("2026-07-20T05:00:00.000Z"));
 
     expect(pedidos.map((p) => p.itens.map((i) => i.skuExterno))).toEqual([
@@ -404,7 +414,10 @@ describe("contratos dos providers de marketplace", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const creds = { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" };
-    const pedidos = await new ShopeeProvider(creds, creds)
+    // O escrow é assinado pelo app Financeiro (Accounting And Finance), não
+    // pelo de Pedidos — par e token próprios, como na produção.
+    const credsFinanceiro = { partnerId: "9", partnerKey: "segredo-financeiro", shopId: "2", accessToken: "token-financeiro" };
+    const pedidos = await new ShopeeProvider(creds, creds, credsFinanceiro)
       .buscarPedidos(new Date("2026-07-20T05:00:00.000Z"));
 
     expect(pedidos[0]).toMatchObject({
@@ -434,13 +447,87 @@ describe("contratos dos providers de marketplace", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const creds = { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" };
-    const pedidos = await new ShopeeProvider(creds, creds)
+    // O escrow é assinado pelo app Financeiro (Accounting And Finance), não
+    // pelo de Pedidos — par e token próprios, como na produção.
+    const credsFinanceiro = { partnerId: "9", partnerKey: "segredo-financeiro", shopId: "2", accessToken: "token-financeiro" };
+    const pedidos = await new ShopeeProvider(creds, creds, credsFinanceiro)
       .buscarPedidos(new Date("2026-07-20T05:00:00.000Z"));
 
     // O pedido operacional continua chegando inteiro; só o financeiro falta.
     expect(pedidos[0]).toMatchObject({ providerOrderId: "SHP-FALLBACK", frete: undefined, valorLiquido: undefined });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
+
+/* A API de Payment pertence à categoria Accounting And Finance, do app
+     "Elisa Lima Financeiro" — NÃO à de Order Management. Assinado com o par
+     do app de Pedidos, o escrow respondeu 403 error_api_permission em 989
+     chamadas em sete dias, e todo pedido da Shopee entrou sem repasse. O
+     par errado não quebra nada em tempo de compilação: só a URL denuncia. */
+  it("assina o escrow com o app Financeiro e os pedidos com o app de Pedidos", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
+    const [lista, detalhe] = respostasDePedidoShopee();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(lista)
+      .mockResolvedValueOnce(detalhe)
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        response: [{ escrow_detail: { order_sn: "SHP-FALLBACK", order_income: { escrow_amount: 45.1 } } }],
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const creds = { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" };
+    const credsFinanceiro = { partnerId: "9", partnerKey: "segredo-financeiro", shopId: "2", accessToken: "token-financeiro" };
+    await new ShopeeProvider(creds, creds, credsFinanceiro)
+      .buscarPedidos(new Date("2026-07-20T05:00:00.000Z"));
+
+    const urlPedidos = new URL(String(fetchMock.mock.calls[1][0]));
+    const urlEscrow = new URL(String(fetchMock.mock.calls[2][0]));
+    expect(urlPedidos.pathname).toContain("get_order_detail");
+    expect(urlPedidos.searchParams.get("partner_id")).toBe("1");
+    expect(urlEscrow.pathname).toContain("get_escrow_detail_batch");
+    expect(urlEscrow.searchParams.get("partner_id")).toBe("9");
+    expect(urlEscrow.searchParams.get("access_token")).toBe("token-financeiro");
+  });
+
+  /* Marca que ainda não autorizou o app Financeiro. O pedido tem de entrar
+     inteiro na mesma; o que não pode é gastar uma chamada por lote mais uma
+     por pedido em algo condenado — a cota do proxy de IP fixo é o gargalo. */
+  it("não chama o escrow quando a marca não tem o app Financeiro conectado", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
+    const [lista, detalhe] = respostasDePedidoShopee();
+    const fetchMock = vi.fn().mockResolvedValueOnce(lista).mockResolvedValueOnce(detalhe);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const creds = { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" };
+    const pedidos = await new ShopeeProvider(creds, creds).buscarPedidos(new Date("2026-07-20T05:00:00.000Z"));
+
+    expect(pedidos[0]).toMatchObject({ providerOrderId: "SHP-FALLBACK", valorLiquido: undefined });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  /* O lote devolve `response` como ARRAY de escrow_detail. O código lia
+     `response.order_income_list`, que é a forma do endpoint INDIVIDUAL —
+     enquanto o escrow deu 403 isso ficou invisível, e no dia da liberação
+     teria voltado 200 com financeiro vazio, sem erro nenhum pra investigar. */
+  it("lê o financeiro do formato real do lote e ignora pedido sem income", () => {
+    const doLote = extrairIncomePorPedido({
+      response: [
+        { escrow_detail: { order_sn: "A", order_income: { escrow_amount: 7.91 } } },
+        { escrow_detail: { order_sn: "B" } },
+      ],
+    });
+    expect([...doLote.keys()]).toEqual(["A"]);
+    expect(doLote.get("A")).toMatchObject({ escrow_amount: 7.91 });
+
+    // Tolera a forma antiga por segurança, sem depender dela.
+    const antigo = extrairIncomePorPedido({
+      response: { order_income_list: [{ order_sn: "C", order_income: { escrow_amount: 1 } }] },
+    });
+    expect([...antigo.keys()]).toEqual(["C"]);
+
+    // Resposta de erro não vira financeiro em branco silencioso.
+    expect(extrairIncomePorPedido({ error: "error_api_permission" }).size).toBe(0);
+  });
+
 
 });
 

@@ -304,6 +304,38 @@ function garantirNaoPausado(): void {
   if (SHOPEE_REQUISICOES_PAUSADAS) throw new ErroShopeePausado();
 }
 
+/** Envelope do get_escrow_detail_batch.
+ *
+ *  `response` é um ARRAY de `{ escrow_detail: { order_sn, order_income } }` —
+ *  conferido ao vivo em 28/08/2026 contra a conta WUWU. NÃO existe o campo
+ *  `order_income_list` que este código lia antes: era o formato do endpoint
+ *  individual, presumido igual para o lote. Enquanto o escrow respondeu 403
+ *  por permissão o erro ficou invisível — quando a permissão chegasse, o lote
+ *  voltaria 200 e vazio, e o financeiro seguiria em branco sem nenhum erro
+ *  para investigar. Exportado porque o webhook consome o mesmo endpoint e
+ *  precisa concordar com esta forma. */
+export function extrairIncomePorPedido(
+  corpo: unknown,
+): Map<string, ShopeeOrderIncome> {
+  const resultado = new Map<string, ShopeeOrderIncome>();
+  const resposta = (corpo as { response?: unknown })?.response;
+  /* Aceita as duas formas por segurança: o array de escrow_detail que a
+     Shopee devolve hoje e o antigo order_income_list, caso alguma conta ou
+     versão da API ainda responda assim. */
+  const lista = Array.isArray(resposta)
+    ? resposta
+    : (resposta as { order_income_list?: unknown[] })?.order_income_list ?? [];
+  for (const bruto of lista) {
+    const item = (bruto as { escrow_detail?: unknown }).escrow_detail ?? bruto;
+    const { order_sn: orderSn, order_income: income } = (item ?? {}) as {
+      order_sn?: string;
+      order_income?: ShopeeOrderIncome;
+    };
+    if (orderSn && income) resultado.set(orderSn, income);
+  }
+  return resultado;
+}
+
 export class ShopeeProvider implements ChannelProvider {
   private readonly host = obterShopeeBaseUrl();
   private creds: ShopeeCredentials;
@@ -315,6 +347,12 @@ export class ShopeeProvider implements ChannelProvider {
   // Opcional porque nem toda marca vai ter o app de Pedidos conectado ainda
   // — ver SHOPEE_PEDIDOS_LIBERADO.
   private credsPedidos?: ShopeeCredentials;
+  // App "Elisa Lima Financeiro" (Accounting And Finance) — a API de Payment
+  // (get_escrow_detail*) pertence a ESSA categoria, não à de Order Management.
+  // Assinar o escrow com o app de Pedidos devolvia 403 error_api_permission em
+  // 100% das chamadas; ver buscarFinanceiroPedidos(). Autorização própria,
+  // logo access_token próprio, ainda que a loja seja a mesma.
+  private credsFinanceiro?: ShopeeCredentials;
   // Uma coleta pode pedir várias variações do mesmo anúncio. Todas usam o
   // mesmo get_model_list; compartilhar a Promise evita pagar a mesma chamada
   // uma vez por SKU durante a própria execução.
@@ -325,9 +363,14 @@ export class ShopeeProvider implements ChannelProvider {
     stock_info_v2?: ShopeeStockInfo;
   }>>>();
 
-  constructor(creds: ShopeeCredentials, credsPedidos?: ShopeeCredentials) {
+  constructor(
+    creds: ShopeeCredentials,
+    credsPedidos?: ShopeeCredentials,
+    credsFinanceiro?: ShopeeCredentials,
+  ) {
     this.creds = creds;
     this.credsPedidos = credsPedidos;
+    this.credsFinanceiro = credsFinanceiro;
   }
 
   // A Shopee assina o CAMINHO COMPLETO da chamada (com /api/v2), o mesmo que
@@ -366,6 +409,17 @@ export class ShopeeProvider implements ChannelProvider {
       throw new Error("App Shopee Pedidos não conectado para esta marca (ver SHOPEE_PARTNER_ID_PEDIDOS_* e OAuth em /configuracoes).");
     }
     return this.url(path, params, this.credsPedidos);
+  }
+
+  /** A API de Payment assina com o par + token do app "Elisa Lima Financeiro"
+   *  (categoria Accounting And Finance). É o mesmo motivo de urlPedidos: a
+   *  Shopee autoriza por APP e libera cada categoria de API só para o app
+   *  dono dela. */
+  private urlFinanceiro(path: string, params: Record<string, string | number> = {}): string {
+    if (!this.credsFinanceiro) {
+      throw new Error("App Shopee Financeiro não conectado para esta marca (ver SHOPEE_PARTNER_ID_FINANCEIRO_* e OAuth em /configuracoes).");
+    }
+    return this.url(path, params, this.credsFinanceiro);
   }
 
   // get_order_list rejeita qualquer janela (time_to - time_from) maior que
@@ -551,40 +605,50 @@ export class ShopeeProvider implements ChannelProvider {
    * pagos às vezes não têm escrow disponível. A reconciliação periódica tenta
    * novamente e preenche os valores assim que a Shopee os liberar.
    *
-   * ATENÇÃO — em 28/08/2026 este endpoint respondia 403 em 100% das chamadas:
-   * 495 em `get_escrow_detail_batch` e 494 em `get_escrow_detail` em sete dias,
-   * nenhuma bem-sucedida, enquanto `get_order_list` e `get_order_detail` do
-   * MESMO app respondiam 200. É permissão de categoria: o app "Elisa Lima
-   * Pedidos" não tem a API de Payment/Finance liberada no console da Shopee.
-   * Enquanto não tiver, todo pedido da Shopee entra sem frete, sem desconto,
-   * sem acréscimo, sem `valor_liquido` e sem taxa de marketplace por item — e o
-   * "Faturamento líquido" da Shopee sai igual ao bruto, sem a comissão que ela
-   * de fato cobra. Não é bug de código: é autorização a pedir à Shopee.
-   * Quando liberar, nada aqui precisa mudar e nem é preciso reimportar na mão:
-   * `reconciliarFinanceiroPedido` (ingestao-pedido.service.ts) preenche os
-   * valores dos pedidos já gravados na próxima passada da A34. */
+   * HISTÓRICO — este endpoint respondeu 403 em 100% das chamadas até 28/08/2026
+   * (495 em `get_escrow_detail_batch` e 494 em `get_escrow_detail` em sete
+   * dias), enquanto `get_order_list` do MESMO app respondia 200. Nunca foi bug
+   * de código: a API de Payment pertence à categoria Accounting And Finance, e
+   * o app "Elisa Lima Pedidos" é Order Management. A correção foi assinar com
+   * o app "Elisa Lima Financeiro" (urlFinanceiro abaixo), aprovado pela Shopee
+   * e autorizado pelas duas marcas em 28/08/2026 — conferido ao vivo: 200 e
+   * `escrow_amount` real nos dois endpoints.
+   *
+   * Os pedidos já gravados em branco não precisam de reimportação manual:
+   * `reconciliarFinanceiroPedido` (ingestao-pedido.service.ts) preenche frete,
+   * desconto, acréscimo, `valor_liquido` e a taxa por item na próxima passada
+   * da A34. Marca sem o app financeiro conectado continua caindo no aviso de
+   * `semPermissaoFinanceira` — sem token, urlFinanceiro lança e o pedido entra
+   * sem financeiro, como antes, em vez de derrubar a sincronização. */
   private async buscarFinanceiroPedidos(orderSns: string[]): Promise<Map<string, ShopeeOrderIncome>> {
     const resultado = new Map<string, ShopeeOrderIncome>();
+    /* Marca sem o app Financeiro autorizado: sair aqui, antes de qualquer
+       rede. Deixar urlFinanceiro() lançar dentro do laço custaria uma volta
+       por lote e, no fallback, uma por pedido — todas fadadas ao mesmo erro,
+       queimando a cota do proxy de IP fixo, que é o gargalo real. */
+    if (!this.credsFinanceiro) {
+      console.warn(
+        `[Shopee] app Financeiro não conectado para esta marca — ${orderSns.length} pedido(s) entram sem `
+        + "repasse, frete e taxa. Autorizar em /configuracoes; a A34 preenche depois, sem reimportação.",
+      );
+      return resultado;
+    }
     let semPermissaoFinanceira = false;
     for (let inicio = 0; inicio < orderSns.length; inicio += 20) {
       const lote = orderSns.slice(inicio, inicio + 20);
       try {
-        const res = await shopeeFetch(this.urlPedidos("/payment/get_escrow_detail_batch"), {
+        const res = await shopeeFetch(this.urlFinanceiro("/payment/get_escrow_detail_batch"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ order_sn_list: lote }),
           signal: AbortSignal.timeout(15000),
         });
-        const data = await res.json() as {
-          error?: string;
-          message?: string;
-          response?: { order_income_list?: Array<{ order_sn: string; order_income?: ShopeeOrderIncome }> };
-        };
+        const data = await res.json() as { error?: string; message?: string };
         if (!res.ok || data.error) {
           throw new Error(`HTTP ${res.status}: ${data.message ?? data.error ?? "resposta financeira recusada"}`);
         }
-        for (const item of data.response?.order_income_list ?? []) {
-          if (item.order_income) resultado.set(item.order_sn, item.order_income);
+        for (const [orderSn, income] of extrairIncomePorPedido(data)) {
+          resultado.set(orderSn, income);
         }
       } catch (error) {
         /* Autorização negada no lote também nega no individual — é o mesmo app
@@ -598,7 +662,7 @@ export class ShopeeProvider implements ChannelProvider {
           console.warn(`[Shopee] financeiro em lote indisponível para ${lote.length} pedido(s); tentando endpoint individual:`, error);
           for (const orderSn of lote) {
             try {
-              const res = await shopeeFetch(this.urlPedidos("/payment/get_escrow_detail", { order_sn: orderSn }), {
+              const res = await shopeeFetch(this.urlFinanceiro("/payment/get_escrow_detail", { order_sn: orderSn }), {
                 signal: AbortSignal.timeout(10000),
               });
               const data = await res.json() as {
@@ -1183,6 +1247,7 @@ interface LinhaTokenShopee {
 function sufixoEnvTokenShopee(app: ShopeeApp, upper: string): string {
   if (app === "pedidos") return `PEDIDOS_${upper}`;
   if (app === "anuncios") return `ANUNCIOS_${upper}`;
+  if (app === "financeiro") return `FINANCEIRO_${upper}`;
   return upper;
 }
 
@@ -1302,5 +1367,30 @@ export async function criarShopeeProvider(brandSlug: BrandSlug): Promise<ShopeeP
     }
   }
 
-  return new ShopeeProvider({ partnerId, partnerKey, shopId, accessToken }, credsPedidos);
+  // Mesma regra do app de Pedidos, e pelo mesmo motivo: opcional de
+  // propósito. Marca que ainda não autorizou o app Financeiro continua
+  // sincronizando catálogo, estoque e pedidos normalmente — só entra sem o
+  // financeiro do pedido, que a A34 preenche depois que a autorização vier.
+  const credsAppFinanceiro = obterShopeeAppCredenciais("financeiro");
+  let credsFinanceiro: ShopeeCredentials | undefined;
+  if (credsAppFinanceiro.partnerId && credsAppFinanceiro.partnerKey) {
+    try {
+      const tokenFinanceiro = await obterTokenShopee(brandSlug, "financeiro");
+      credsFinanceiro = {
+        partnerId: credsAppFinanceiro.partnerId,
+        partnerKey: credsAppFinanceiro.partnerKey,
+        ...tokenFinanceiro,
+      };
+    } catch {
+      // Sem token do app Financeiro — urlFinanceiro() lança só se/quando o
+      // escrow for pedido, e buscarFinanceiroPedidos trata isso como
+      // "sem permissão" e segue sem derrubar a sincronização.
+    }
+  }
+
+  return new ShopeeProvider(
+    { partnerId, partnerKey, shopId, accessToken },
+    credsPedidos,
+    credsFinanceiro,
+  );
 }

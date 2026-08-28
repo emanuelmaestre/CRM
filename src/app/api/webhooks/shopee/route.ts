@@ -6,7 +6,9 @@ import { resolverContaWebhookMarketplace } from "@/modules/canais/application/we
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { obterShopeeAppCredenciais, obterShopeeBaseUrl } from "@/shared/config/shopee-env";
+import { type BrandSlug } from "@/shared/config/brands";
 import {
+  extrairIncomePorPedido,
   normalizarFinanceiroShopee,
   obterTokenShopee,
   SHOPEE_PEDIDOS_LIBERADO,
@@ -54,8 +56,13 @@ function verificarAssinatura(req: NextRequest, rawBody: string): boolean {
   });
 }
 
+/** `partnerId`/`partnerKey`/`shopId`/`accessToken` são os do app de PEDIDOS,
+ *  usados no get_order_detail. `marca` vem junto porque o escrow é assinado
+ *  por OUTRO app (Financeiro) e precisa buscar o token dele — mesma loja, mas
+ *  tokens não intercambiáveis. */
 async function buscarDetalheShopee(
   orderSn: string,
+  marca: BrandSlug,
   partnerId: string,
   partnerKey: string,
   shopId: string,
@@ -110,33 +117,44 @@ async function buscarDetalheShopee(
   const order = data.response?.order_list?.[0];
 
   // O detalhe operacional não contém comissões nem o repasse. O financeiro é
-  // uma chamada separada na Shopee, inclusive no webhook.
-  const financePath = "/api/v2/payment/get_escrow_detail_batch";
-  const financeBase = `${partnerId}${financePath}${ts}${accessToken}${shopId}`;
-  const financeSign = crypto.createHmac("sha256", partnerKey).update(financeBase).digest("hex");
-  const financeQs = new URLSearchParams({
-    partner_id: partnerId,
-    shop_id: shopId,
-    access_token: accessToken,
-    timestamp: String(ts),
-    sign: financeSign,
-  });
+  // uma chamada separada na Shopee, inclusive no webhook — e assinada por
+  // OUTRO app: a API de Payment é da categoria Accounting And Finance ("Elisa
+  // Lima Financeiro"), não Order Management. Assinada com o par de Pedidos,
+  // como estava aqui, ela responde 403 error_api_permission — o mesmo 403 que
+  // deixou todo pedido da Shopee entrar sem repasse até 28/08/2026.
   let income: ShopeeOrderIncome | undefined;
   try {
+    const credsFinanceiro = obterShopeeAppCredenciais("financeiro");
+    if (!credsFinanceiro.partnerId || !credsFinanceiro.partnerKey) {
+      throw new Error("credenciais do app Shopee Financeiro não configuradas");
+    }
+    const tokenFinanceiro = await obterTokenShopee(marca, "financeiro");
+    const financePath = "/api/v2/payment/get_escrow_detail_batch";
+    const financeTs = Math.floor(Date.now() / 1000);
+    const financeBase = `${credsFinanceiro.partnerId}${financePath}${financeTs}${tokenFinanceiro.accessToken}${tokenFinanceiro.shopId}`;
+    const financeSign = crypto.createHmac("sha256", credsFinanceiro.partnerKey).update(financeBase).digest("hex");
+    const financeQs = new URLSearchParams({
+      partner_id: credsFinanceiro.partnerId,
+      shop_id: tokenFinanceiro.shopId,
+      access_token: tokenFinanceiro.accessToken,
+      timestamp: String(financeTs),
+      sign: financeSign,
+    });
     const financeRes = await shopeeFetch(`${obterShopeeBaseUrl()}${financePath}?${financeQs}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ order_sn_list: [orderSn] }),
       signal: AbortSignal.timeout(10000),
     });
-    const financeData = await financeRes.json() as {
-      error?: string;
-      response?: { order_income_list?: Array<{ order_sn: string; order_income?: ShopeeOrderIncome }> };
-    };
+    const financeData = await financeRes.json() as { error?: string };
     if (financeRes.ok && !financeData.error) {
-      income = financeData.response?.order_income_list?.find((item) => item.order_sn === orderSn)?.order_income;
+      // Mesmo parser do provider: `response` é um array de escrow_detail.
+      income = extrairIncomePorPedido(financeData).get(orderSn);
     }
   } catch (error) {
+    // Marca sem o app Financeiro autorizado cai aqui e o pedido entra sem
+    // repasse — a A34 preenche depois. Nunca derruba o webhook: perder o
+    // push faria a Shopee reenviar o mesmo evento em loop.
     console.warn(`[webhook/shopee] financeiro ainda indisponível para ${orderSn}:`, error);
   }
   const financeiro = normalizarFinanceiroShopee(income, order?.item_list ?? []);
@@ -217,7 +235,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { partnerId = "", partnerKey = "" } = obterShopeeAppCredenciais("pedidos");
     const { shopId, accessToken } = await obterTokenShopee(conta.brandSlug, "pedidos");
 
-    const detalhe = await buscarDetalheShopee(data.ordersn, partnerId, partnerKey, shopId, accessToken);
+    const detalhe = await buscarDetalheShopee(data.ordersn, conta.brandSlug, partnerId, partnerKey, shopId, accessToken);
 
     const { pedidoId, novo } = await ingerirPedido(conta.orgId, conta.brandId, conta.channelAccountId, {
       providerOrderId: data.ordersn,
