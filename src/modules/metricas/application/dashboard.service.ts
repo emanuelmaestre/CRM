@@ -26,7 +26,6 @@ const LIMITE_GIRO_BAIXO_POR_SEMANA = 10;
 const DIAS_PARA_PARADO = 15;
 
 /** Quantos itens cada lista traz. Lista curta é lista que se lê. */
-const TAMANHO_LISTA = 6;
 
 export type Granularidade = "dia" | "semana" | "mes";
 
@@ -98,6 +97,10 @@ interface ProdutoBase {
 
 export interface ProdutoMaisVendido extends ProdutoBase {
   quantidade: number;
+  /** Quantidade vendida pelo mesmo produto na janela imediatamente anterior. */
+  quantidadeAnterior: number;
+  /** Variação contra a janela anterior. Null quando o produto não vendeu antes. */
+  variacaoPercentual: number | null;
   receita: string;
   /** Participação (0–100) na receita do topo da lista, para a barra de proporção. */
   participacao: number;
@@ -141,9 +144,17 @@ export interface ProdutoReposicao extends ProdutoBase {
 export interface DashboardData {
   faturamento: FaturamentoResumo;
   maisVendidos: ProdutoMaisVendido[];
+  maisVendidosTotal: number;
   giroBaixo: ProdutoGiroBaixo[];
+  giroBaixoTotal: number;
+  giroBaixoValorParadoNumerico: number;
+  giroBaixoValorParado: string;
   parados: ProdutoParado[];
+  paradosTotal: number;
+  paradosValorParadoNumerico: number;
+  paradosValorParado: string;
   reposicao: ProdutoReposicao[];
+  reposicaoTotal: number;
 }
 
 /* ── Formatação ───────────────────────────────────────────────── */
@@ -417,7 +428,10 @@ export async function obterDashboardData(
       })
       .from(pedidoItem)
       .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
-      .where(and(...condicoesPedido, gte(pedido.createdAt, inicioJanela))),
+      // Traz também a janela anterior: o ranking continua sendo montado com
+      // a janela atual, mas a quantidade anterior permite que o card mostre
+      // uma variação real do mesmo produto em vez do antigo +11% fictício.
+      .where(and(...condicoesPedido, gte(pedido.createdAt, inicioJanelaAnterior))),
     ctx.db
       .select({
         id: produto.id,
@@ -468,7 +482,9 @@ export async function obterDashboardData(
       totalJanelaLiquido += liquido;
       pedidosNaJanela += 1;
     }
-    if (item.createdAt >= inicioJanelaAnterior && item.createdAt <= fimJanelaAnterior) {
+    // A fronteira é exclusiva: um pedido exatamente à meia-noite do início
+    // atual pertence ao período atual, nunca aos dois períodos.
+    if (item.createdAt >= inicioJanelaAnterior && item.createdAt < fimJanelaAnterior) {
       totalJanelaAnterior += valor;
       totalJanelaAnteriorLiquido += liquido;
     }
@@ -519,11 +535,14 @@ export async function obterDashboardData(
 
   /* ── Agregação de vendas por produto ── */
   const vendasPorProduto = new Map<string, { quantidade: number; receita: number }>();
+  const vendasAnterioresPorProduto = new Map<string, { quantidade: number; receita: number }>();
   for (const item of itensVendidos) {
-    const atual = vendasPorProduto.get(item.produtoId) ?? { quantidade: 0, receita: 0 };
+    const pertenceAoAtual = item.pedidoEm >= inicioJanela && item.pedidoEm <= fimJanela;
+    const alvo = pertenceAoAtual ? vendasPorProduto : vendasAnterioresPorProduto;
+    const atual = alvo.get(item.produtoId) ?? { quantidade: 0, receita: 0 };
     atual.quantidade += item.quantidade;
     atual.receita += item.quantidade * parseMoney(item.precoUnitario);
-    vendasPorProduto.set(item.produtoId, atual);
+    alvo.set(item.produtoId, atual);
   }
 
   const ultimaSaidaPorProduto = new Map<string, Date>();
@@ -543,17 +562,21 @@ export async function obterDashboardData(
   const valorUnitario = (item: typeof produtosAtivos[number]): number => parseMoney(item.preco);
 
   /* ── 1. Produtos que vendem mais ── */
-  const rankingVendas = produtosAtivos
+  const rankingVendasCompleto = produtosAtivos
     .map((item) => ({ item, venda: vendasPorProduto.get(item.id) }))
     .filter((linha): linha is { item: typeof produtosAtivos[number]; venda: { quantidade: number; receita: number } } =>
       Boolean(linha.venda && linha.venda.quantidade > 0))
-    .sort((a, b) => b.venda.quantidade - a.venda.quantidade || b.venda.receita - a.venda.receita)
-    .slice(0, TAMANHO_LISTA);
+    .sort((a, b) => b.venda.quantidade - a.venda.quantidade || b.venda.receita - a.venda.receita);
 
-  const maiorQuantidade = rankingVendas[0]?.venda.quantidade ?? 0;
-  const maisVendidos: ProdutoMaisVendido[] = rankingVendas.map(({ item, venda }) => ({
+  const maiorQuantidade = rankingVendasCompleto[0]?.venda.quantidade ?? 0;
+  const maisVendidos: ProdutoMaisVendido[] = rankingVendasCompleto.map(({ item, venda }) => ({
     ...base(item),
     quantidade: venda.quantidade,
+    quantidadeAnterior: vendasAnterioresPorProduto.get(item.id)?.quantidade ?? 0,
+    variacaoPercentual: (() => {
+      const anterior = vendasAnterioresPorProduto.get(item.id)?.quantidade ?? 0;
+      return anterior > 0 ? Math.round(((venda.quantidade - anterior) / anterior) * 100) : null;
+    })(),
     receita: formatCurrency(venda.receita),
     participacao: maiorQuantidade > 0 ? Math.round((venda.quantidade / maiorQuantidade) * 100) : 0,
     statusAnuncio: "nao_consultado" as StatusAnuncioParado,
@@ -566,10 +589,18 @@ export async function obterDashboardData(
      período personalizado), em vez de comparar sempre contra um total fixo
      de 10 independente de a janela ser curta ou longa. */
   const limiteGiroBaixo = (LIMITE_GIRO_BAIXO_POR_SEMANA / 7) * janelaDias;
-  const giroBaixo: ProdutoGiroBaixo[] = produtosAtivos
+  const giroBaixoCompleto = produtosAtivos
     .filter((item) => (item.saldo ?? 0) > 0)
     .map((item) => ({ item, quantidade: vendasPorProduto.get(item.id)?.quantidade ?? 0 }))
-    .filter(({ quantidade }) => quantidade < limiteGiroBaixo)
+    // Giro baixo ainda vende. Quantidade zero pertence exclusivamente a
+    // Estoque parado, evitando o mesmo produto nos dois cards.
+    .filter(({ item, quantidade }) => {
+      const ultimaSaida = ultimaSaidaPorProduto.get(item.id);
+      return quantidade > 0
+        && quantidade < limiteGiroBaixo
+        && ultimaSaida !== undefined
+        && ultimaSaida >= limiteParado;
+    })
     .map(({ item, quantidade }) => ({
       ...base(item),
       quantidade,
@@ -577,9 +608,9 @@ export async function obterDashboardData(
       valorParadoNumerico: (item.saldo ?? 0) * valorUnitario(item),
     }))
     // Menor giro primeiro; empate desempata por dinheiro parado — o que dói mais.
-    .sort((a, b) => a.quantidade - b.quantidade || b.valorParadoNumerico - a.valorParadoNumerico)
-    .slice(0, TAMANHO_LISTA)
-    .map(({ valorParadoNumerico, ...resto }) => ({
+    .sort((a, b) => a.quantidade - b.quantidade || b.valorParadoNumerico - a.valorParadoNumerico);
+  const giroBaixoValorParadoNumerico = giroBaixoCompleto.reduce((soma, item) => soma + item.valorParadoNumerico, 0);
+  const giroBaixo: ProdutoGiroBaixo[] = giroBaixoCompleto.map(({ valorParadoNumerico, ...resto }) => ({
       ...resto,
       valorParado: formatCurrency(valorParadoNumerico),
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
@@ -587,7 +618,7 @@ export async function obterDashboardData(
     }));
 
   /* ── 3. Produtos que não saem (estoque parado) ── */
-  const parados: ProdutoParado[] = produtosAtivos
+  const paradosCompletos = produtosAtivos
     .filter((item) => (item.saldo ?? 0) > 0)
     .map((item) => {
       const ultimaSaida = ultimaSaidaPorProduto.get(item.id) ?? null;
@@ -603,9 +634,9 @@ export async function obterDashboardData(
       valorParadoNumerico: (item.saldo ?? 0) * valorUnitario(item),
     }))
     // Maior capital imobilizado primeiro — é o que justifica liquidar.
-    .sort((a, b) => b.valorParadoNumerico - a.valorParadoNumerico)
-    .slice(0, TAMANHO_LISTA)
-    .map(({ valorParadoNumerico, ...resto }) => ({
+    .sort((a, b) => b.valorParadoNumerico - a.valorParadoNumerico);
+  const paradosValorParadoNumerico = paradosCompletos.reduce((soma, item) => soma + item.valorParadoNumerico, 0);
+  const parados: ProdutoParado[] = paradosCompletos.map(({ valorParadoNumerico, ...resto }) => ({
       ...resto,
       valorParado: formatCurrency(valorParadoNumerico),
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
@@ -613,7 +644,7 @@ export async function obterDashboardData(
     }));
 
   /* ── 4. Reposição (bateu o mínimo, repor em breve) ── */
-  const reposicao: ProdutoReposicao[] = produtosAtivos
+  const reposicaoCompleta = produtosAtivos
     .filter((item) => {
       const saldo = item.saldo ?? 0;
       const minimo = item.estoqueMinimo;
@@ -644,8 +675,8 @@ export async function obterDashboardData(
       if (a.coberturaDias !== null) return -1;
       if (b.coberturaDias !== null) return 1;
       return b.urgencia - a.urgencia;
-    })
-    .slice(0, TAMANHO_LISTA);
+    });
+  const reposicao = reposicaoCompleta;
 
   // Uma leitura local para as quatro listas. Produtos repetidos entre cards
   // não geram trabalho extra relevante e cada objeto recebe o mesmo snapshot.
@@ -659,8 +690,16 @@ export async function obterDashboardData(
   return {
     faturamento,
     maisVendidos,
+    maisVendidosTotal: rankingVendasCompleto.length,
     giroBaixo,
+    giroBaixoTotal: giroBaixoCompleto.length,
+    giroBaixoValorParadoNumerico,
+    giroBaixoValorParado: formatCurrency(giroBaixoValorParadoNumerico),
     parados,
+    paradosTotal: paradosCompletos.length,
+    paradosValorParadoNumerico,
+    paradosValorParado: formatCurrency(paradosValorParadoNumerico),
     reposicao,
+    reposicaoTotal: reposicaoCompleta.length,
   };
 }

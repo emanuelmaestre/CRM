@@ -122,7 +122,7 @@ function EsqueletoLista() {
 }
 
 /* ── Casca de card de lista ───────────────────────────────────── */
-function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazioDescricao, scope, children }: {
+function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazioDescricao, scope, total, exibidos, children }: {
   vazio: boolean;
   carregando: boolean;
   semFiltro: boolean;
@@ -130,6 +130,10 @@ function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazi
   vazioTitulo: string;
   vazioDescricao: string;
   scope?: React.ReactNode;
+  /** Total real de itens que atendem à regra do card. */
+  total?: number;
+  /** Quantos itens foram renderizados. Deve coincidir com o total. */
+  exibidos?: number;
   children: React.ReactNode;
 }) {
   // Troca de conteúdo é feita por crossfade (AnimatePresence), nunca por
@@ -157,9 +161,16 @@ function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazi
               <EmptyState illustration={ilustracao} title={vazioTitulo} description={vazioDescricao} />
             </motion.div>
           ) : (
-            <motion.ul key="lista" variants={stagger} initial="hidden" animate="show" className="mt-4">
-              {children}
-            </motion.ul>
+            <motion.div key="lista" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {total !== undefined && exibidos !== undefined && total > exibidos && (
+                <p className="mx-5 mt-4 rounded-lg bg-muted/50 px-3 py-2 text-[11.5px] text-muted-foreground">
+                  Exibindo os {exibidos} mais relevantes de <strong className="font-semibold text-foreground">{total} itens no total</strong>.
+                </p>
+              )}
+              <motion.ul variants={stagger} initial="hidden" animate="show" className="mt-4">
+                {children}
+              </motion.ul>
+            </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
@@ -212,8 +223,9 @@ function statusAnuncioInfoMaisVendidos(item: ProdutoMaisVendido): { label: strin
   return MAPA[item.statusAnuncio];
 }
 
-export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
+export function MaisVendidosCard({ itens, total, carregando, semFiltro, scope, acaoSlot }: {
   itens: ProdutoMaisVendido[] | null;
+  total: number;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
@@ -232,6 +244,8 @@ export function MaisVendidosCard({ itens, carregando, semFiltro, scope, acaoSlot
         vazioTitulo={copyVendidos.emptyTitle}
         vazioDescricao={copyVendidos.emptyDescription}
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
+        total={total}
+        exibidos={lista.length}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -302,8 +316,9 @@ function statusAnuncioInfoReposicao(item: ProdutoReposicao): { label: string; cl
   return MAPA[item.statusAnuncio];
 }
 
-export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
+export function ReposicaoCard({ itens, total, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
   itens: ProdutoReposicao[] | null;
+  total: number;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
@@ -330,6 +345,8 @@ export function ReposicaoCard({ itens, carregando, semFiltro, scope, acaoSlot, a
         vazioTitulo={copyReposicao.emptyTitle}
         vazioDescricao={copyReposicao.emptyDescription}
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
+        total={total}
+        exibidos={lista.length}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -399,8 +416,9 @@ function statusAnuncioInfoGiroBaixo(item: ProdutoGiroBaixo): { label: string; cl
   return MAPA[item.statusAnuncio];
 }
 
-export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }: {
+export function GiroBaixoCard({ itens, total, carregando, semFiltro, scope, acaoSlot }: {
   itens: ProdutoGiroBaixo[] | null;
+  total: number;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
@@ -419,6 +437,8 @@ export function GiroBaixoCard({ itens, carregando, semFiltro, scope, acaoSlot }:
       vazioTitulo={copyGiro.emptyTitle}
       vazioDescricao={copyGiro.emptyDescription}
       scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
+      total={total}
+      exibidos={lista.length}
     >
       {lista.map((item) => (
         <LinhaProduto
@@ -616,8 +636,9 @@ function EntendaStatusBotao() {
   );
 }
 
-export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
+export function ParadosCard({ itens, total, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
   itens: ProdutoParado[] | null;
+  total: number;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
@@ -654,6 +675,8 @@ export function ParadosCard({ itens, carregando, semFiltro, scope, acaoSlot, aca
         // (junto do período e do "Entenda os status") — sem sobrar espaço no
         // mobile pra isso, então lá elas continuam aqui embaixo, como sempre.
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
+        total={total}
+        exibidos={lista.length}
       >
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);

@@ -4,6 +4,7 @@ import { db } from "@/shared/lib/db";
 import { metricasSnapshotDiario } from "@/shared/lib/db/schema";
 import { obterDashboardData } from "@/modules/metricas/application/dashboard.service";
 import { obterSaudeLoja } from "@/modules/metricas/application/saude-loja.service";
+import { ESCOPO_SNAPSHOT_METRICAS } from "@/modules/metricas/domain/snapshot-scope";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 
 function hojeEmSaoPaulo(): string {
@@ -20,9 +21,10 @@ function hojeEmSaoPaulo(): string {
  *  existiu. Faturamento e Vendem mais não precisam disto: comparam contra
  *  pedidos, que já carregam data própria.
  *
- *  Sem filtro de marca/canal de propósito — é a mesma leitura "todas as
- *  marcas" que os cards mostram assim que a pessoa seleciona tudo no
- *  filtro global do mosaico (ver Mosaico.tsx). */
+ *  A fotografia usa exatamente a visão inicial do mosaico: todas as marcas,
+ *  Mercado Livre e o dia corrente. O identificador do escopo é persistido
+ *  junto dos números; se a pessoa mudar marca, canal ou período, a UI não
+ *  compara grandezas diferentes. */
 export const A30_snapshotMetricas = inngest.createFunction(
   {
     id: "A30-snapshot-metricas",
@@ -33,29 +35,26 @@ export const A30_snapshotMetricas = inngest.createFunction(
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
     const ctx: CrudContext = { db, orgId, perfil: "admin" };
+    const hoje = hojeEmSaoPaulo();
+    const filtros = { inicio: hoje, fim: hoje, canal: ["mercadolivre"] };
 
-    const dashboard = await step.run("obter-dashboard", () => obterDashboardData(ctx));
-    const saude = await step.run("obter-saude-loja", () => obterSaudeLoja(ctx));
-
-    const valorNumerico = (formatado: string) => {
-      // formatCurrency devolve "R$ 1.234,56" — a mesma string que os cards
-      // mostram. Reverte pro número que a coluna numeric espera.
-      const limpo = formatado.replace(/[^\d,-]/g, "").replace(",", ".");
-      return Number.isFinite(Number(limpo)) ? Number(limpo) : 0;
-    };
-
-    const giroBaixoValorParado = dashboard.giroBaixo.reduce((soma, item) => soma + valorNumerico(item.valorParado), 0);
-    const paradosValorParado = dashboard.parados.reduce((soma, item) => soma + valorNumerico(item.valorParado), 0);
+    const dashboard = await step.run("obter-dashboard", () => obterDashboardData(ctx, filtros));
+    const saude = await step.run("obter-saude-loja", () => obterSaudeLoja(ctx, {
+      inicio: hoje,
+      fim: hoje,
+      canais: ["mercadolivre"],
+    }));
 
     const linha = {
       orgId,
-      data: hojeEmSaoPaulo(),
+      data: hoje,
       scoreGeral: saude.scoreGeral !== null ? Math.round(saude.scoreGeral) : null,
-      giroBaixoQtd: dashboard.giroBaixo.length,
-      giroBaixoValorParado: giroBaixoValorParado.toFixed(2),
-      paradosQtd: dashboard.parados.length,
-      paradosValorParado: paradosValorParado.toFixed(2),
-      reposicaoQtd: dashboard.reposicao.length,
+      giroBaixoQtd: dashboard.giroBaixoTotal,
+      giroBaixoValorParado: dashboard.giroBaixoValorParadoNumerico.toFixed(2),
+      paradosQtd: dashboard.paradosTotal,
+      paradosValorParado: dashboard.paradosValorParadoNumerico.toFixed(2),
+      reposicaoQtd: dashboard.reposicaoTotal,
+      escopoCalculo: ESCOPO_SNAPSHOT_METRICAS,
     };
 
     // Rodar o job de novo no mesmo dia (reprocessamento manual, retry) atualiza
@@ -73,6 +72,7 @@ export const A30_snapshotMetricas = inngest.createFunction(
             paradosQtd: sql`excluded.parados_qtd`,
             paradosValorParado: sql`excluded.parados_valor_parado`,
             reposicaoQtd: sql`excluded.reposicao_qtd`,
+            escopoCalculo: sql`excluded.escopo_calculo`,
           },
         })
     );

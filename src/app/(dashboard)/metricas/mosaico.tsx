@@ -24,13 +24,17 @@ import { BarrasTendencia, BarrasMarca, MiniRanking } from "./mini-visuais";
 import { actionObterDashboardData } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
-  actionObterPosVenda, actionObterSaudeLoja, actionObterSnapshotAnterior,
+  actionObterLimiteDoDia, actionObterPosVenda, actionObterResumoPublicacoes, actionObterSaudeLoja,
+  actionObterSnapshotAnterior, type ResumoPublicacoesMosaico,
 } from "./actions";
+import type { LimiteDoDia } from "@/shared/components/limite-do-dia";
 import type { SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
+import { ESCOPO_SNAPSHOT_METRICAS } from "@/modules/metricas/domain/snapshot-scope";
+import { calcularVantagemPercentualDaLider } from "@/modules/metricas/domain/comparacao-marcas";
 
 const copy = metricasConfig.mosaico;
 const blocosCopy = copy.blocos;
@@ -90,13 +94,6 @@ function semFiltroDefinido(filtro: CardFiltro) {
  *  pra importar a função de lá aqui: aquele arquivo puxa Drizzle/Postgres
  *  no topo, e isto aqui é "use client". Null quando não há base de
  *  comparação (snapshot ausente ou zero), nunca um percentual inventado. */
-/** "R$ 1.234,56" (o formato que o serviço já devolve) → 1234.56. */
-function valorParaNumero(formatado: string): number {
-  const limpo = formatado.replace(/[^\d,-]/g, "").replace(",", ".");
-  const numero = Number(limpo);
-  return Number.isFinite(numero) ? numero : 0;
-}
-
 /** "R$ 6,3k" — compacto de propósito pro número caber no card sem
  *  quebrar linha; não precisa dos centavos exatos aqui. */
 function formatarReaisCompacto(valor: number): string {
@@ -109,57 +106,6 @@ function calcularVariacao(atual: number, anterior: number | null): number | null
   if (anterior === null || anterior === 0) return null;
   return Math.round(((atual - anterior) / anterior) * 100);
 }
-
-/* ══════════════════════════════════════════════════════════════════════
- * PLACAR FICTÍCIO TEMPORÁRIO — pedido explícito do usuário em 22/08/2026.
- *
- * O job A30 só passou a existir hoje; a primeira foto real só é gravada
- * esta noite (cron 02:30 UTC ≈ 23:30 em Brasília), então até lá
- * `snapshotOntem` é sempre null e os 4 cards abaixo (Pontuação da loja,
- * Giro baixo, Parados, Repor em breve) ficariam sem nenhum percentual.
- * A pedido do usuário, ENQUANTO ISSO estes 4 números fictícios preenchem
- * o espaço — os mesmos valores do protótipo de referência, sem relação
- * com o dado real.
- *
- * Isto SE DESLIGA SOZINHO: o `??` abaixo só é alcançado quando
- * `calcularVariacao` devolve null por falta de `snapshotOntem`. Assim que
- * o job gravar a primeira foto (a partir de amanhã), `snapshotOntem` deixa
- * de ser null, `calcularVariacao` passa a devolver o percentual real, e
- * este fallback para de ser lido — sem precisar editar nada aqui de novo.
- * Pode apagar este bloco quando confirmar (alguns dias depois) que os 4
- * cards já mostram variação real todo santo dia. */
-const VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT = {
-  score: 2,
-  giroBaixo: -4,
-  parados: 3,
-  reposicao: 14,
-} as const;
-
-/* Mesmo pedido, mas SEM desligamento automático — diferente do bloco acima,
- * estes três não têm nenhum cálculo real por trás esperando pra assumir:
- *   • Marca/Comparação: "3 marcas comparadas" não tem variação real
- *     concebível — 3 não vira 3,2. Fictício pra sempre, por natureza do
- *     dado, não por falta de implementação.
- *   • Vendem mais: dá pra fazer de verdade (unidades vendidas têm data,
- *     igual Faturamento), só que ninguém implementou ainda o comparativo
- *     contra a janela anterior.
- *   • Publicações: o mosaico não consulta a API de Ads pra nenhuma marca
- *     ao carregar — de propósito (ver comentário perto de `blocoPublicacoes`
- *     mais abaixo): consultar todas as marcas na API do Mercado Livre toda
- *     vez que a tela abre deixaria o mosaico inteiro mais lento à toa. Um
- *     número real aqui exigiria essa busca antecipada — é uma troca de
- *     performance, não só UI, então fica fictício até essa decisão ser
- *     tomada.
- * Precisa apagar Vendem mais/Publicações NA MÃO quando virarem reais —
- * Marca/Comparação fica assim de vez. */
-const FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO = {
-  comparacao: 6,
-  vendemMais: 11,
-  // "~" no valor: deixa explícito que é aproximado (na real, inventado),
-  // não um número calculado que só está desatualizado.
-  publicacoes: { valor: "~63%", variacao: 18, legenda: "Receita via anúncio" },
-} as const;
-/* ══════════════════════════════════════════════════════════════════════ */
 
 /** As grades mobile e desktop ficam as DUAS sempre montadas (só CSS —
  *  `lg:hidden`/`hidden lg:flex` — troca qual aparece; o React nunca
@@ -391,7 +337,8 @@ export function Mosaico({
   // decorativo neste card. Ordenado para "ML, Shopee" e "Shopee, ML" serem a
   // mesma chave, igual ao `chaveFiltro` dos cinco cartões.
   const canaisEscolhidos = useMemo(() => [...filtroGlobal.canal].sort(), [filtroGlobal.canal]);
-  const chave = `${inicio ?? ""}..${fim ?? ""}|${canaisEscolhidos.join(",")}`;
+  const brandIdsEscolhidos = useMemo(() => [...filtroGlobal.brandId].sort(), [filtroGlobal.brandId]);
+  const chave = `${inicio ?? ""}..${fim ?? ""}|${brandIdsEscolhidos.join(",")}|${canaisEscolhidos.join(",")}`;
 
   // A chave inicial é hoje..hoje: o período começa em "Hoje" (mesmo default
   // do estado `periodo` acima), e é exatamente essa janela que o servidor
@@ -413,7 +360,7 @@ export function Mosaico({
   useEffect(() => {
     if (primeiraSaude.current) { primeiraSaude.current = false; return; }
     let ativo = true;
-    actionObterSaudeLoja({ inicio, fim, canais: canaisEscolhidos })
+    actionObterSaudeLoja({ inicio, fim, brandIds: brandIdsEscolhidos, canais: canaisEscolhidos })
       .then((resultado) => { if (ativo) { setSaude({ chave, dados: resultado }); setCarregadoEm(new Date()); } })
       .catch(() => {
         if (!ativo) return;
@@ -421,7 +368,7 @@ export function Mosaico({
         toast.error(metricasConfig.erros.carregar, { id: "metricas-saude" });
       });
     return () => { ativo = false; };
-  }, [chave, inicio, fim, canaisEscolhidos, versaoSaude]);
+  }, [chave, inicio, fim, brandIdsEscolhidos, canaisEscolhidos, versaoSaude]);
 
   const carregandoSaude = saude.chave !== chave;
 
@@ -452,7 +399,7 @@ export function Mosaico({
     if (chavePosVendaPedida.current === alvo) return;
     chavePosVendaPedida.current = alvo;
     let ativo = true;
-    actionObterPosVenda({ inicio, fim, canais: canaisEscolhidos })
+    actionObterPosVenda({ inicio, fim, brandIds: brandIdsEscolhidos, canais: canaisEscolhidos })
       .then((dados) => { if (ativo) setPosVenda({ chave, dados }); })
       .catch(() => {
         if (!ativo) return;
@@ -460,11 +407,34 @@ export function Mosaico({
         toast.error(metricasConfig.erros.carregar, { id: "metricas-posvenda" });
       });
     return () => { ativo = false; };
-  }, [chave, inicio, fim, canaisEscolhidos, versaoPosVenda]);
+  }, [chave, inicio, fim, brandIdsEscolhidos, canaisEscolhidos, versaoPosVenda]);
 
   // Pós-venda fora do período/canal atuais é dado velho: o card recebe null e
   // mostra o vazio dele, em vez de exibir a janela anterior como se fosse esta.
   const posVendaAtual = posVenda.chave === chave ? posVenda.dados : null;
+
+  /* ── Pedidos na virada do dia do Mercado Livre ────────────────────────
+     A ressalva de fuso que a faixa do card de Faturamento mostra. Segue a
+     MESMA chave dos outros cards (período + marcas + canais), porque a
+     pergunta é sobre o número que está na tela — mudou o recorte, muda o
+     que fica na fronteira.
+
+     Falha em silêncio: é um complemento do número, não o número. Um toast
+     aqui acusaria erro de carregamento de uma tela que carregou. */
+  const [limite, setLimite] = useState<{ chave: string; dados: LimiteDoDia | null }>({ chave: "", dados: null });
+  const chaveLimitePedida = useRef<string | null>(null);
+  useEffect(() => {
+    const alvo = `${chave}|v${versaoDashboard}`;
+    if (chaveLimitePedida.current === alvo) return;
+    chaveLimitePedida.current = alvo;
+    let ativo = true;
+    actionObterLimiteDoDia({ inicio, fim, brandIds: brandIdsEscolhidos, canais: canaisEscolhidos })
+      .then((dados) => { if (ativo) setLimite({ chave, dados }); })
+      .catch(() => { if (ativo) setLimite({ chave, dados: null }); });
+    return () => { ativo = false; };
+  }, [chave, inicio, fim, brandIdsEscolhidos, canaisEscolhidos, versaoDashboard]);
+
+  const limiteAtual = limite.chave === chave ? limite.dados : null;
 
   /* ── Snapshot de ontem, pra comparação real ──────────────────────────
      Giro baixo, Parados, Repor em breve e Pontuação da loja não tinham
@@ -484,6 +454,19 @@ export function Mosaico({
     return () => { ativo = false; };
   }, [versaoDashboard]);
 
+  /** Snapshot só é comparável quando reproduzimos exatamente sua régua.
+   * Linhas antigas são `legado`; filtros diferentes ocultam a variação em
+   * vez de comparar números de universos distintos. */
+  const todasAsMarcasSelecionadas = filtroGlobal.brandId.length === 0
+    || (filtroGlobal.brandId.length === marcas.length
+      && marcas.every((marca) => filtroGlobal.brandId.includes(marca.brandId)));
+  const apenasMercadoLivre = filtroGlobal.canal.length === 1 && filtroGlobal.canal[0] === "mercadolivre";
+  const periodoDiarioAtual = periodo.inicio === hoje && periodo.fim === hoje;
+  const snapshotComparavel = snapshotOntem?.escopoCalculo === ESCOPO_SNAPSHOT_METRICAS
+    && todasAsMarcasSelecionadas && apenasMercadoLivre && periodoDiarioAtual
+    ? snapshotOntem
+    : null;
+
   // Publicações usa somente os filtros leves e estáveis que chegam com a
   // página. Não troca de ordem quando Saúde responde e não consulta Product
   // Ads até a pessoa escolher marca e canal dentro do card.
@@ -492,6 +475,42 @@ export function Mosaico({
       marca: marca.slug,
       marcaLabel: marca.nome,
     })), [marcas]);
+
+  const idsPublicacoes = useMemo(() => {
+    const selecionadas = filtroGlobal.brandId.length > 0
+      ? filtroGlobal.brandId
+      : marcasPublicacoes.map((marca) => marca.brandId);
+    return [...selecionadas].sort();
+  }, [filtroGlobal.brandId, marcasPublicacoes]);
+  const publicacoesNoEscopo = filtroGlobal.canal.length === 0 || filtroGlobal.canal.includes("mercadolivre");
+  const periodoPublicacoes = periodoEfetivo(periodo);
+  const chavePublicacoes = `${periodoPublicacoes.inicio}..${periodoPublicacoes.fim}|${idsPublicacoes.join(",")}`;
+  const [resumoPublicacoes, setResumoPublicacoes] = useState<{
+    chave: string;
+    dados: ResumoPublicacoesMosaico | null;
+    falhou: boolean;
+  }>({ chave: "", dados: null, falhou: false });
+
+  useEffect(() => {
+    if (!publicacoesNoEscopo || idsPublicacoes.length === 0) return;
+    let ativo = true;
+    actionObterResumoPublicacoes({
+      brandIds: idsPublicacoes,
+      inicio: periodoPublicacoes.inicio,
+      fim: periodoPublicacoes.fim,
+    })
+      .then((dados) => { if (ativo) setResumoPublicacoes({ chave: chavePublicacoes, dados, falhou: false }); })
+      .catch(() => {
+        if (!ativo) return;
+        setResumoPublicacoes({ chave: chavePublicacoes, dados: null, falhou: true });
+        toast.error("Não foi possível carregar o resumo de Publicações.", { id: "metricas-publicacoes-resumo" });
+      });
+    return () => { ativo = false; };
+  }, [chavePublicacoes, idsPublicacoes, periodoPublicacoes.inicio, periodoPublicacoes.fim, publicacoesNoEscopo]);
+
+  const resumoPublicacoesAtual = resumoPublicacoes.chave === chavePublicacoes ? resumoPublicacoes.dados : null;
+  const carregandoPublicacoes = publicacoesNoEscopo && idsPublicacoes.length > 0
+    && resumoPublicacoes.chave !== chavePublicacoes;
 
   /* ── Cores do pico do gráfico de Faturamento ──
      Segue o que está filtrado: marca escolhida manda; sem marca mas com
@@ -611,9 +630,10 @@ export function Mosaico({
         acaoSlot={acaoSlot}
         liquido={visaoLiquida}
         aoTrocarLiquido={setVisaoLiquida}
+        limiteDoDia={limiteAtual}
       />
     ),
-  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, coresFaturamento, escopo, chipsDoFiltro, visaoLiquida]);
+  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, coresFaturamento, escopo, chipsDoFiltro, visaoLiquida, limiteAtual]);
 
   const blocoScore = useMemo<BlocoDef>(() => ({
     id: "score",
@@ -634,7 +654,7 @@ export function Mosaico({
       // Variação real contra a foto de ontem (job A30) quando ela já
       // existe; sem base ainda, cai no "/100" pra não deixar o card mudo.
       variacao: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
-        ? calcularVariacao(Math.round(saude.dados.scoreGeral), snapshotOntem?.scoreGeral ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.score
+        ? calcularVariacao(Math.round(saude.dados.scoreGeral), snapshotComparavel?.scoreGeral ?? null)
         : null,
       sinal: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
         ? { texto: "/100", tom: "neutro" as const }
@@ -676,9 +696,17 @@ export function Mosaico({
     chips: chipsDoFiltro,
     temLegendaStatus: true,
     render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
-  }), [saude.dados, carregandoSaude, snapshotOntem, chipsDoFiltro]);
+  }), [saude.dados, carregandoSaude, snapshotComparavel, chipsDoFiltro]);
 
-  const blocoComparacao = useMemo<BlocoDef>(() => ({
+  const blocoComparacao = useMemo<BlocoDef>(() => {
+    const marcasPorFaturamento = [...(saude.dados?.marcas ?? [])]
+      .sort((a, b) => b.faturamento - a.faturamento);
+    const lider = marcasPorFaturamento[0];
+    const vantagemDaLider = calcularVantagemPercentualDaLider(
+      marcasPorFaturamento.map((marca) => marca.faturamento),
+    );
+
+    return ({
     id: "comparacao",
     secao: "financeiro",
     titulo: blocosCopy.comparacao.titulo,
@@ -689,16 +717,14 @@ export function Mosaico({
     resumo: {
       valor: saude.dados ? String(saude.dados.marcas.length) : null,
       // Quem está na frente por faturamento vira parte da legenda — a
-      // resposta que o card dá antes de ser aberto — já que o espaço do
-      // percentual (variacao) foi ocupado pelo fictício abaixo.
-      legenda: (() => {
-        const lider = [...(saude.dados?.marcas ?? [])].sort((a, b) => b.faturamento - a.faturamento)[0];
-        return lider ? `${lider.marcaLabel} lidera` : blocosCopy.comparacao.legenda;
-      })(),
-      // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
-      // arquivo. "3 marcas" não tem variação real conceitualmente (3 não
-      // vira 3,2), então isto não se desliga sozinho.
-      variacao: saude.dados ? FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.comparacao : null,
+      // resposta que o card dá antes de ser aberto.
+      legenda: lider ? `${lider.marcaLabel} lidera em faturamento` : blocosCopy.comparacao.legenda,
+      // Não é variação da quantidade de marcas: mede a distância real da
+      // líder para a segunda colocada dentro do mesmo período/filtro.
+      variacao: vantagemDaLider,
+      rodape: vantagemDaLider === null
+        ? "Compare ao menos duas marcas com faturamento"
+        : "Vantagem sobre a 2ª colocada",
     },
     explicacao: {
       resumo: "Coloca as marcas ativas lado a lado e utiliza os mesmos critérios de medição. A liderança muda conforme o critério escolhido nas abas.",
@@ -714,9 +740,7 @@ export function Mosaico({
       ? <BarrasMarca dados={saude.dados.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel, valor: marca.faturamento }))} />
       : undefined,
     previewAlinhamento: "start",
-    // As marcas que ESTE card compara — vêm de saude.dados (todas as
-    // ativas), não do filtro global, porque comparar é justamente pôr
-    // todas lado a lado.
+    // As marcas que ESTE card compara já respeitam o filtro global.
     chips: saude.dados?.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })) ?? [],
     render: (acaoSlot) => (
       <ComparacaoCard
@@ -729,7 +753,8 @@ export function Mosaico({
         onChangeFiltro={setFiltroGlobal}
       />
     ),
-  }), [saude.dados, carregandoSaude, posVendaAtual, canais, filtroGlobal]);
+    });
+  }, [saude.dados, carregandoSaude, posVendaAtual, canais, filtroGlobal]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",
@@ -740,10 +765,10 @@ export function Mosaico({
     carregando: reposicao.carregando,
     semFiltro: reposicao.semFiltro,
     resumo: {
-      valor: reposicao.dados ? String(reposicao.dados.reposicao.length) : null,
+      valor: reposicao.dados ? String(reposicao.dados.reposicaoTotal) : null,
       legenda: blocosCopy.reposicao.legenda,
       variacao: reposicao.dados
-        ? calcularVariacao(reposicao.dados.reposicao.length, snapshotOntem?.reposicaoQtd ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.reposicao
+        ? calcularVariacao(reposicao.dados.reposicaoTotal, snapshotComparavel?.reposicaoQtd ?? null)
         : null,
       // Mais itens precisando de reposição é notícia ruim, não boa — sem
       // isto a seta pra cima (mais SKUs em alerta) apareceria verde.
@@ -757,19 +782,19 @@ export function Mosaico({
           ? { texto: `menor: ${maisUrgente.coberturaDias}d`, tom: "ruim" as const }
           : undefined;
       })(),
-      alerta: reposicao.dados && reposicao.dados.reposicao.length > 0
+      alerta: reposicao.dados && reposicao.dados.reposicaoTotal > 0
         ? { nivel: "atencao", texto: "repor" }
         : null,
     },
     explicacao: {
-      resumo: "Produtos que bateram o estoque mínimo cadastrado — o aviso de que é hora de repor em breve, antes que o saldo zere.",
+      resumo: "Mostra os produtos cujo saldo já atingiu ou ficou abaixo do estoque mínimo cadastrado. O objetivo é avisar a reposição antes que o saldo chegue a zero.",
       pontos: [
-        { titulo: "Gatilho é bater o mínimo", texto: "Entra na lista quem tem saldo maior que zero e igual ou abaixo do estoque mínimo cadastrado. Quem ainda está acima do mínimo não aparece aqui." },
-        { titulo: "Precisa de mínimo cadastrado", texto: "Um produto sem estoque mínimo definido não possui referência para comparação e, por isso, não aparece aqui. Não é falta de dado, mas falta de parâmetro." },
-        { titulo: "Urgência considera o ritmo de venda", texto: "Quanto mais perto de zerar e mais rápido o produto está vendendo no período, maior a urgência de repor." },
-        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel para saber o significado de cada status, como Ativo, Pausado e Encerrado. Repor não adianta se o anúncio estiver fora do ar." },
+        { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, ter saldo maior que zero, possuir estoque mínimo maior que zero e apresentar saldo igual ou inferior ao mínimo. Os filtros de marca e canal também são respeitados." },
+        { titulo: "Como ler o número", texto: "O número principal é a quantidade total de produtos que atendem à regra. Todos eles aparecem na lista. Produto sem mínimo cadastrado não entra, pois não existe uma referência para comparar o saldo." },
+        { titulo: "Cobertura estimada", texto: "Quando houve venda no período, a cobertura é calculada dividindo o saldo pelo consumo médio diário. Exemplo: saldo 19 e três vendas em um dia resultam em aproximadamente seis dias de cobertura. Trata-se de uma estimativa, não de uma garantia." },
+        { titulo: "Ordem e status", texto: "Produtos com menor cobertura aparecem primeiro. Quando não há venda suficiente para estimar a cobertura, a prioridade considera o quanto o saldo ficou abaixo do mínimo. O selo informa se o anúncio está ativo, pausado, em revisão ou encerrado." },
       ],
-      dica: "Este painel avisa antes do problema, diferente de Giro baixo e Parados, que mostram o que já não está saindo.",
+      dica: "Saldo e status vêm da última sincronização disponível. Este painel avisa sobre quantidade; ele não confirma prazo de compra, fornecedor ou mercadoria já encomendada.",
     },
     /* Barra = dias de cobertura restantes (barra curta = acaba antes =
        mais urgente, que é a mesma ordem da lista). Produtos sem consumo
@@ -790,6 +815,7 @@ export function Mosaico({
     render: (acaoSlot, acaoTopoSlot) => (
       <ReposicaoCard
         itens={reposicao.dados?.reposicao ?? null}
+        total={reposicao.dados?.reposicaoTotal ?? 0}
         carregando={reposicao.carregando}
         semFiltro={reposicao.semFiltro}
         scope={escopo}
@@ -797,7 +823,7 @@ export function Mosaico({
         acaoTopoSlot={acaoTopoSlot}
       />
     ),
-  }), [reposicao, escopo, chipsDoFiltro, snapshotOntem]);
+  }), [reposicao, escopo, chipsDoFiltro, snapshotComparavel]);
 
   const blocoMaisVendidos = useMemo<BlocoDef>(() => ({
     id: "maisVendidos",
@@ -813,18 +839,18 @@ export function Mosaico({
         : null,
       legenda: maisVendidos.dados?.maisVendidos[0]?.nome ?? blocosCopy.maisVendidos.legenda,
       rodape: blocosCopy.maisVendidos.legenda,
-      // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
-      // arquivo. `participacao` (real) continua calculada e pronta pra
-      // voltar aqui como `sinal` no dia em que isto for apagado.
-      variacao: maisVendidos.dados ? FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.vendemMais : null,
+      // Compara o produto líder atual com ele mesmo na janela anterior.
+      variacao: maisVendidos.dados?.maisVendidos[0]?.variacaoPercentual ?? null,
     },
     explicacao: {
-      resumo: "Os produtos com mais unidades vendidas no período selecionado. A ordem considera o volume de vendas, e não o faturamento.",
+      resumo: "Classifica os produtos ativos que tiveram vendas válidas no período selecionado. A ordem considera a quantidade de unidades vendidas, não o faturamento.",
       pontos: [
-        { titulo: "Ordena por unidades, não por dinheiro", texto: "Um produto barato vendido em volume pode aparecer na frente de um produto caro vendido poucas vezes." },
-        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel. Um campeão de vendas com o anúncio pausado ou em revisão é o caso mais urgente, pois as vendas estavam acontecendo e foram interrompidas." },
+        { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM e ter vendido pelo menos uma unidade no período. Pedidos cancelados ou devolvidos não contam. Os filtros de marca, canal e período são respeitados." },
+        { titulo: "Como ler o número", texto: "O número principal é a quantidade vendida pelo produto líder. Ele não representa a quantidade de produtos da lista. Todos os produtos que tiveram venda válida aparecem ao abrir o painel." },
+        { titulo: "Ordem e desempate", texto: "A maior quantidade vendida fica no topo. Se dois produtos venderam a mesma quantidade, aparece primeiro aquele que gerou maior faturamento no período." },
+        { titulo: "Variação percentual", texto: "O percentual compara o produto líder atual com ele mesmo no período imediatamente anterior, usando uma janela de igual duração. Sem vendas anteriores para servir de base, nenhum percentual é mostrado." },
       ],
-      dica: "Combine com 5 produtos mais vendidos, no painel Marca, para ver se a receita depende demais de poucos itens campeões.",
+      dica: "O selo de status ajuda a identificar um risco operacional. Um produto líder com anúncio pausado, em revisão ou encerrado pode perder vendas mesmo tendo boa procura.",
     },
     preview: maisVendidos.dados && maisVendidos.dados.maisVendidos.length > 0
       // -mt-1.5: sobe um pouco a lista 1º/2º/3º dentro do próprio espaço
@@ -838,6 +864,7 @@ export function Mosaico({
     render: (acaoSlot) => (
       <MaisVendidosCard
         itens={maisVendidos.dados?.maisVendidos ?? null}
+        total={maisVendidos.dados?.maisVendidosTotal ?? 0}
         carregando={maisVendidos.carregando}
         semFiltro={maisVendidos.semFiltro}
         scope={escopo}
@@ -858,38 +885,34 @@ export function Mosaico({
     carregando: giroBaixo.carregando,
     semFiltro: giroBaixo.semFiltro,
     resumo: {
-      valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixo.length) : null,
+      valor: giroBaixo.dados ? String(giroBaixo.dados.giroBaixoTotal) : null,
       legenda: blocosCopy.giroBaixo.legenda,
       variacao: giroBaixo.dados
-        ? calcularVariacao(giroBaixo.dados.giroBaixo.length, snapshotOntem?.giroBaixoQtd ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.giroBaixo
+        ? calcularVariacao(giroBaixo.dados.giroBaixoTotal, snapshotComparavel?.giroBaixoQtd ?? null)
         : null,
       // Mais itens em giro baixo é piora, não melhora.
       subirEhRuim: true,
       // `valorParado` (capital travado no item que mais dói) já vem
       // formatado do serviço e era descartado — é o que transforma "7
       // itens" em "7 itens segurando R$ X".
-      sinal: giroBaixo.dados?.giroBaixo[0]?.valorParado
-        ? { texto: giroBaixo.dados.giroBaixo[0].valorParado, tom: "ruim" as const }
+      sinal: giroBaixo.dados && giroBaixo.dados.giroBaixoValorParadoNumerico > 0
+        ? { texto: formatarReaisCompacto(giroBaixo.dados.giroBaixoValorParadoNumerico), tom: "ruim" as const }
         : undefined,
     },
     explicacao: {
-      resumo: "Produtos com saldo em estoque que quase não venderam no período. Eles ainda vendem, mas em ritmo insuficiente para movimentar o capital imobilizado.",
+      resumo: "Mostra produtos ativos, com saldo positivo, que ainda venderam no período, mas ficaram abaixo da régua proporcional de 10 unidades por semana.",
       pontos: [
-        { titulo: "Só quem ainda tem saldo", texto: "Produto com saldo zerado não conta como giro baixo. Quando também não vende há muito tempo, ele pertence à categoria Parados." },
-        { titulo: "Menos de 10 vendas por semana", texto: "O corte é uma taxa semanal: entra quem vende, em média, menos de 10 unidades por semana no período — o limite escala junto quando o período é maior que uma semana." },
-        { titulo: "Ordenado pelo que mais impacta", texto: "Em caso de empate na quantidade vendida, o valor imobilizado em estoque define a ordem. O produto que retém mais dinheiro aparece primeiro." },
-        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel. Giro baixo com o anúncio pausado ou em revisão pode não ser sobre demanda — pode ser o anúncio fora do ar." },
+        { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, ter saldo maior que zero, registrar pelo menos uma venda válida no período e ter vendido abaixo do limite proporcional. Também precisa ter uma venda nos últimos 15 dias; caso contrário, pertence a Estoque parado." },
+        { titulo: "Régua proporcional", texto: "O limite é calculado por 10 ÷ 7 × quantidade de dias. Em Hoje, uma venda entra e duas não entram. Em sete dias, entram quantidades de uma a nove. Pedidos cancelados ou devolvidos ficam fora da conta." },
+        { titulo: "Como ler os valores", texto: "O número principal é a quantidade total de produtos classificados. O valor em reais soma preço de venda multiplicado pelo saldo. Portanto, representa valor bruto potencial do estoque, não custo de aquisição nem lucro." },
+        { titulo: "Ordem e status", texto: "Quem vendeu menos aparece primeiro. Em caso de empate, o maior valor bruto em estoque define a ordem. Um anúncio pausado ou em revisão pode indicar problema operacional, não falta de procura." },
       ],
-      dica: "Vale cruzar com o preço de venda: giro baixo em item caro imobiliza mais capital que giro baixo em item barato, mesmo com a mesma quantidade parada.",
+      dica: "O período muda a régua e pode alterar bastante a lista. Para uma leitura menos volátil do giro, prefira uma janela de sete dias ou mais.",
     },
-    // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
-    // arquivo. A tendência real (quantos itens em giro baixo por dia) vai
-    // dar pra desenhar assim que o job A30 acumular uns dias de
-    // `giroBaixoQtd` — precisa apagar isto NA MÃO quando isso acontecer.
-    preview: giroBaixo.dados && giroBaixo.dados.giroBaixo.length > 0
+    preview: giroBaixo.dados && giroBaixo.dados.giroBaixoTotal > 0 && snapshotComparavel
       ? (
         <BarrasTendencia
-          dados={[9, 8, 8, 7, 7, 6, giroBaixo.dados.giroBaixo.length]}
+          dados={[snapshotComparavel.giroBaixoQtd, giroBaixo.dados.giroBaixoTotal]}
           cor="var(--info)"
           largura={96}
           altura={36}
@@ -903,13 +926,14 @@ export function Mosaico({
     render: (acaoSlot) => (
       <GiroBaixoCard
         itens={giroBaixo.dados?.giroBaixo ?? null}
+        total={giroBaixo.dados?.giroBaixoTotal ?? 0}
         carregando={giroBaixo.carregando}
         semFiltro={giroBaixo.semFiltro}
         scope={escopo}
         acaoSlot={acaoSlot}
       />
     ),
-  }), [giroBaixo, escopo, chipsDoFiltro, snapshotOntem]);
+  }), [giroBaixo, escopo, chipsDoFiltro, snapshotComparavel]);
 
   const blocoParados = useMemo<BlocoDef>(() => ({
     id: "parados",
@@ -920,31 +944,28 @@ export function Mosaico({
     carregando: parados.carregando,
     semFiltro: parados.semFiltro,
     resumo: {
-      // Capital parado, não quantidade de itens — "R$ 6,3k" diz mais do
-      // que "6" sozinho. Soma só os itens que a lista devolve (capada em
-      // TAMANHO_LISTA no serviço); com mais parados que isso, o valor
-      // real é maior do que o mostrado — aproximado de propósito, a
-      // pedido do usuário, em vez de buscar a soma exata à parte.
-      valor: parados.dados && parados.dados.parados.length > 0
-        ? formatarReaisCompacto(parados.dados.parados.reduce((soma, item) => soma + valorParaNumero(item.valorParado), 0))
+      // Valor bruto total de todos os itens classificados. A lista aberta
+      // recebe o mesmo universo completo, sem corte visual.
+      valor: parados.dados && parados.dados.paradosTotal > 0
+        ? formatarReaisCompacto(parados.dados.paradosValorParadoNumerico)
         : parados.dados ? "R$ 0" : null,
-      legenda: parados.dados ? `${parados.dados.parados.length} ${blocosCopy.parados.legenda}` : blocosCopy.parados.legenda,
+      legenda: parados.dados ? `${parados.dados.paradosTotal} ${blocosCopy.parados.legenda}` : blocosCopy.parados.legenda,
       variacao: parados.dados
-        ? calcularVariacao(parados.dados.parados.length, snapshotOntem?.paradosQtd ?? null) ?? VARIACAO_FICTICIA_ENQUANTO_SEM_SNAPSHOT.parados
+        ? calcularVariacao(parados.dados.paradosTotal, snapshotComparavel?.paradosQtd ?? null)
         : null,
       // Mais itens parados é piora, não melhora.
       subirEhRuim: true,
-      alerta: parados.dados && parados.dados.parados.length > 0 ? { nivel: "atencao", texto: "parados" } : null,
+      alerta: parados.dados && parados.dados.paradosTotal > 0 ? { nivel: "atencao", texto: "parados" } : null,
     },
     explicacao: {
-      resumo: "Produtos com saldo em estoque e sem nenhuma venda registrada nos últimos 15 dias. É capital imobilizado por tempo suficiente para ser considerado um risco.",
+      resumo: "Mostra produtos ativos, com saldo positivo, que não registraram nenhuma venda válida nos últimos 15 dias ou que nunca tiveram venda associada no histórico disponível do CRM.",
       pontos: [
-        { titulo: "15 dias é o corte", texto: "Menos que isso é giro baixo (vende pouco); 15 dias ou mais sem nenhuma saída é parado (não vende)." },
-        { titulo: "Inclui quem nunca vendeu", texto: "Produtos que nunca tiveram saída também entram aqui, além daqueles que vendiam antes e pararam." },
-        { titulo: "Ordenado pelo capital imobilizado", texto: "Quem possui mais dinheiro imobilizado em estoque aparece primeiro, pois é o caso que mais pode justificar uma liquidação." },
-        { titulo: "O selo de Status conta o resto da história", texto: "Toque em \"Entenda os status\" dentro do painel para saber o significado de cada status, como Ativo, Pausado e Encerrado." },
+        { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, não estar excluído e possuir saldo maior que zero. A última venda válida deve ter ocorrido há 15 dias ou mais. Pedidos cancelados ou devolvidos não contam como venda." },
+        { titulo: "Quem nunca vendeu", texto: "Produto sem nenhuma venda associada também entra. Isso significa sem venda registrada no histórico disponível do CRM; não prova que o produto nunca tenha vendido antes da implantação ou fora dos dados importados." },
+        { titulo: "Como ler os valores", texto: "O número da legenda é a quantidade total de produtos parados. O valor principal soma preço de venda multiplicado pelo saldo. Ele representa valor bruto potencial do estoque, não custo de aquisição nem lucro." },
+        { titulo: "Período, ordem e status", texto: "O corte de 15 dias é fixo e não muda com o período dos outros cards. A lista começa pelo maior valor bruto em estoque. O selo informa se o anúncio está ativo, pausado, em revisão ou encerrado." },
       ],
-      dica: "Um item nesta lista não é necessariamente ruim. Pode ser um lançamento recente que ainda não teve tempo suficiente para vender. Verifique a data de cadastro antes de decidir pela liquidação.",
+      dica: "Antes de liquidar, confira a data de cadastro, a qualidade do histórico importado e o status do anúncio. Um item novo ou sem histórico completo pode aparecer aqui sem representar encalhe real.",
     },
     /* Barra = dias parado (barra longa = parado há mais tempo = pior).
        `diasParado` nulo significa "nunca vendeu" — o caso MAIS grave, não
@@ -974,6 +995,7 @@ export function Mosaico({
     render: (acaoSlot, acaoTopoSlot) => (
       <ParadosCard
         itens={parados.dados?.parados ?? null}
+        total={parados.dados?.paradosTotal ?? 0}
         carregando={parados.carregando}
         semFiltro={parados.semFiltro}
         scope={escopo}
@@ -981,7 +1003,7 @@ export function Mosaico({
         acaoTopoSlot={acaoTopoSlot}
       />
     ),
-  }), [parados, escopo, chipsDoFiltro, snapshotOntem]);
+  }), [parados, escopo, chipsDoFiltro, snapshotComparavel]);
 
   // Só existe com marca conectada — um bloco que abriria vazio não vira bloco.
   const blocoPublicacoes = useMemo<BlocoDef | null>(() => {
@@ -992,13 +1014,18 @@ export function Mosaico({
       titulo: blocosCopy.publicacoes.titulo,
       icone: Megaphone,
       accent: "var(--acento-3)",
-      // Fictício — ver FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO no topo do
-      // arquivo. Sem número real disponível aqui de propósito (o mosaico
-      // não consulta a API de Ads pra nenhuma marca ao carregar).
+      carregando: carregandoPublicacoes,
+      semFiltro: !publicacoesNoEscopo || idsPublicacoes.length === 0,
       resumo: {
-        valor: FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.publicacoes.valor,
-        variacao: FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.publicacoes.variacao,
-        legenda: FICTICIO_SEM_DESLIGAMENTO_AUTOMATICO.publicacoes.legenda,
+        // Receita atribuída pelo próprio Product Ads, comparada com a janela
+        // anterior de mesmo tamanho. Nenhum número nasce no cliente.
+        valor: resumoPublicacoesAtual ? formatarReaisCompacto(resumoPublicacoesAtual.receita) : null,
+        variacao: resumoPublicacoesAtual?.variacaoReceitaPercentual ?? null,
+        legenda: resumoPublicacoesAtual
+          ? `${resumoPublicacoesAtual.totalPublicacoes} publicações · ${resumoPublicacoesAtual.comVeiculacao} com veiculação`
+          : resumoPublicacoes.falhou && resumoPublicacoes.chave === chavePublicacoes
+            ? "Não foi possível consultar"
+            : blocosCopy.publicacoes.legenda,
       },
       explicacao: {
         resumo: "Como cada anúncio patrocinado se saiu no Mercado Livre durante o período selecionado, sem misturar vendas orgânicas com resultados da publicidade.",
@@ -1009,26 +1036,25 @@ export function Mosaico({
         ],
         dica: "Publicações sem qualquer veiculação ficam separadas para não esconder os anúncios que realmente consumiram verba ou geraram resultado.",
       },
-      // Preview fictício (mesma ressalva do resumo acima) — vira real no
-      // dia em que existir um percentual de verdade pra desenhar.
-      preview: (
-        <>
-          <span className="lg:hidden"><AnelScore valor={63} cor="var(--acento-3)" tamanho={40} /></span>
-          <span className="hidden lg:inline-block"><AnelScore valor={63} cor="var(--acento-3)" tamanho={56} /></span>
-        </>
-      ),
-      previewAlinhamento: "sobrepor",
-      chips: marcasPublicacoes.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })),
+      chips: marcasPublicacoes
+        .filter((marca) => idsPublicacoes.includes(marca.brandId))
+        .map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })),
       render: (acaoSlot) => (
         <PublicacoesCard
           marcas={marcasPublicacoes.map((marca) => ({ brandId: marca.brandId, marcaLabel: marca.marcaLabel, slug: marca.marca }))}
-          inicio={inicio ?? diasAtras(29)}
-          fim={fim ?? hoje}
+          inicio={periodoPublicacoes.inicio}
+          fim={periodoPublicacoes.fim}
+          brandIdsIniciais={idsPublicacoes}
+          canalAtivoInicial={publicacoesNoEscopo}
           acaoSlot={acaoSlot}
         />
       ),
     };
-  }, [marcasPublicacoes, inicio, fim]);
+  }, [
+    marcasPublicacoes, carregandoPublicacoes, publicacoesNoEscopo,
+    idsPublicacoes, resumoPublicacoesAtual, resumoPublicacoes,
+    chavePublicacoes, periodoPublicacoes.inicio, periodoPublicacoes.fim,
+  ]);
 
   // Junta, separa em seções (Financeiro / Saúde / Atendimento / Estoque /
   // Marketing) e ordena por urgência dentro de cada uma — o trabalho pesado

@@ -373,7 +373,7 @@ export default function ConfiguracoesPage() {
 
           <Card
             title="Encerramento de canal e exclusão de dados"
-            description="Exclusão dos dados de um canal cuja relação acabou — manual, com autorização de três administradores"
+            description="Exclusão manual dos dados de um canal cuja relação acabou, mediante autorização de três administradores"
             icon={getIcon("Shield")}
             colapsavelMobile
             abertoInicialMobile={false}

@@ -29,7 +29,7 @@ export interface ResumoBloco {
   valor: string | null;
   /** O que o número é — some quando não há valor. */
   legenda?: string;
-  /** Variação percentual contra a janela anterior. Null não desenha nada. */
+  /** Percentual comparativo real do card. Null não desenha nada. */
   variacao?: number | null;
   /** Quando maior é pior (reclamação, item parado), a seta pra cima fica
    *  vermelha. Sem isso, "subiu 40%" pareceria uma boa notícia. */
@@ -37,9 +37,7 @@ export interface ResumoBloco {
   /** Frase curta abaixo do número — o detalhe que cabe no bloco. */
   rodape?: string;
   /** Segundo número do card, mostrado ao lado do principal quando NÃO há
-   *  variação percentual pra mostrar. Só Faturamento tem janela anterior
-   *  calculada (ver `variacao`); os outros cards não têm base de
-   *  comparação no tempo, mas quase todos já carregam um segundo dado
+   *  percentual comparativo pra mostrar. Quase todos já carregam um segundo dado
    *  real que estava sendo descartado — capital travado em Giro baixo,
    *  cobertura em dias em Repor, participação do líder em Vendem mais.
    *  É esse valor que entra aqui: informação de verdade no lugar onde um
@@ -250,9 +248,8 @@ const VARIANTES = {
   },
 } as const;
 
-/** O que aparece ao lado do número grande: a variação percentual quando
- *  ela existe de verdade (hoje só Faturamento, o único com janela
- *  anterior calculada) e, quando não existe, o segundo dado real do card
+/** O que aparece ao lado do número grande: o percentual comparativo quando
+ *  ele existe de verdade e, quando não existe, o segundo dado real do card
  *  (ver `sinal` em `ResumoBloco`). Nunca os dois — e nunca um percentual
  *  inventado só pra preencher o espaço. */
 function Sinal({ resumo }: { resumo: ResumoBloco }) {

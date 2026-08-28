@@ -422,12 +422,17 @@
     },
     "loadError": "Erro ao carregar pedidos.",
     "limiteDoDia": {
-      "badge": "Pedidos na virada do dia",
-      "badgeDica": "Abrir a explicação da diferença com o Mercado Livre",
+      "badge": "Diferença de fuso do ML",
+      "badgeCurto": "Fuso do ML",
+      "badgeContadorUm": "1 pedido",
+      "badgeContadorMuitos": "{n} pedidos",
+      "badgeDica": "Abrir a explicação da diferença de fuso com o Mercado Livre",
+      "faixaDica": "Toque para entender por que o total não bate com o Mercado Livre",
+      "faixaSufixo": "que o ML conta em outro dia",
       "title": "Por que o total não bate com o Mercado Livre",
       "subtitleUm": "1 pedido caiu na hora em que o dia vira para o Mercado Livre",
       "subtitleMuitos": "{n} pedidos caíram na hora em que o dia vira para o Mercado Livre",
-      "explanation": "O Mercado Livre fecha o dia pelo relógio dele, uma hora atrás do nosso. Estes pedidos caíram nessa hora de virada — são os mesmos pedidos, contados em dias diferentes. Nenhum está faltando aqui.",
+      "explanation": "O Mercado Livre fecha o dia pelo relógio dele, uma hora atrás do nosso. Estes pedidos caíram nessa hora de virada; são os mesmos pedidos, contados em dias diferentes. Nenhum está faltando aqui.",
       "comoFunciona": [
         {
           "titulo": "O dia do ML começa 1 hora depois",
@@ -453,7 +458,7 @@
       "reconcile": "Diferença que isto explica: {valor}",
       "reconcileDica": "Some este valor ao total desta tela e você chega ao número que o Mercado Livre mostra para o mesmo período.",
       "reconcileZero": "As duas pontas se anulam: os totais fecham iguais mesmo com pedidos na virada do dia.",
-      "rodape": "Cancelados e devolvidos aparecem na lista, mas ficam fora da soma — o Faturamento desta tela também os exclui."
+      "rodape": "Cancelados e devolvidos aparecem na lista, mas ficam fora da soma. O Faturamento desta tela também os exclui."
     },
     "brandSelector": {
       "label": "Marca",
@@ -576,6 +581,6 @@
   "anuncios": {
     "metadataTitle": "Publicidade",
     "title": "Publicidade",
-    "description": "Desempenho, investimento e oportunidades no Mercado Livre"
+    "description": "Desempenho, investimento e oportunidades da mídia paga por canal"
   }
 }

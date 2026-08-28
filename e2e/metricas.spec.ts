@@ -14,6 +14,11 @@ import { test, expect } from "@playwright/test";
  * seguem o que está de fato em mosaico.tsx/bloco.tsx hoje.
  */
 test.describe("Métricas", () => {
+  async function fecharTourSeVisivel(page: import("@playwright/test").Page) {
+    const pular = page.getByRole("button", { name: /pular tour/i });
+    if (await pular.isVisible().catch(() => false)) await pular.click();
+  }
+
   test("página carrega sem erro 500", async ({ page }) => {
     await page.goto("/metricas");
     await expect(page).not.toHaveTitle(/500|Error/i);
@@ -34,6 +39,7 @@ test.describe("Métricas", () => {
 
   test("abrir um bloco monta o card completo e Esc devolve ao mosaico", async ({ page }) => {
     await page.goto("/metricas");
+    await fecharTourSeVisivel(page);
     const bloco = page.getByRole("button", { name: /abrir pontuação da loja/i });
     await expect(bloco).toBeVisible({ timeout: 15_000 });
 
@@ -68,7 +74,7 @@ test.describe("Métricas", () => {
     const painel = page.getByRole("dialog");
     await expect(painel).toBeVisible({ timeout: 15_000 });
 
-    const criterio = painel.getByRole("tab", { name: "Faturamento" });
+    const criterio = painel.getByRole("tab", { name: "Valor médio por pedido" });
     await expect(criterio).toBeVisible({ timeout: 15_000 });
     await criterio.click();
     await expect(criterio).toHaveAttribute("aria-selected", "true");

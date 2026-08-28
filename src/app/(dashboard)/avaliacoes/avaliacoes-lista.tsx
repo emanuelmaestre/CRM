@@ -166,7 +166,7 @@ function Opiniao({ opiniao, comprador }: { opiniao: MLOpiniao; comprador?: Compr
         {comprador && (
           <Link
             href={`/clientes/${comprador.clienteId}`}
-            title={`Único comprador deste anúncio no período — pedido de ${formatarData(comprador.pedidoCriadoEm)}. O Mercado Livre não confirma quem escreveu a opinião; isto é dedução por cruzamento de dados, não certeza vinda do canal.`}
+            title={`Único comprador deste anúncio no período. Pedido de ${formatarData(comprador.pedidoCriadoEm)}. O Mercado Livre não confirma quem escreveu a opinião; isto é uma dedução por cruzamento de dados, não uma certeza fornecida pelo canal.`}
             className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success transition-colors hover:bg-success/20"
           >
             <UserCheck size={10} strokeWidth={2.5} /> {comprador.clienteNome}

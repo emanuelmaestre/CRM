@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Check, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { Check, ChevronRight, Clock, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
@@ -15,6 +15,7 @@ import { AcaoSlotFiltro } from "./listas-cards";
 import { moeda } from "@/shared/design-system/format";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
 import { tint } from "@/shared/design-system/color";
+import { copyLimite, JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 
 const copy = dashboardConfig.cards.faturamento;
 
@@ -302,10 +303,76 @@ function EsqueletoFaturamento() {
   );
 }
 
-export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope, acaoSlot, liquido, aoTrocarLiquido }: {
+/* ── Ressalva de fuso ─────────────────────────────────────────────────────
+   A mesma hora de desencontro entre o calendário do Mercado Livre e o daqui
+   que Vendas já explica, medida em dinheiro: quanto deste total o ML conta em
+   outro dia. Mostra as duas medidas — quantos pedidos e quanto valor —, porque
+   aqui a pergunta que se faz olhando o número grande é "quanto falta para
+   bater", e a contagem sozinha não responde isso.
+
+   Some inteira quando não há pedido na virada, quando o recorte de canal exclui
+   o Mercado Livre ou quando não há período escolhido (a action devolve listas
+   vazias nos três casos). */
+function FaixaFusoFaturamento({ dados, onClick }: { dados?: LimiteDoDia | null; onClick: () => void }) {
+  const reduzir = useReducedMotion();
+  if (!dados) return null;
+  const { soNoMercadoLivre, soAqui } = dados;
+  const quantidade = soNoMercadoLivre.length + soAqui.length;
+  if (quantidade === 0) return null;
+
+  // Cancelado e devolvido ficam fora da soma pelo mesmo motivo de sempre: o
+  // faturamento acima também os exclui, e é com ele que se compara.
+  const somar = (linhas: LimiteDoDia["soAqui"]) => linhas
+    .filter((item) => item.status !== "cancelado" && item.status !== "devolvido")
+    .reduce((total, item) => total + item.total, 0);
+  const diferenca = Math.abs(somar(soNoMercadoLivre) - somar(soAqui));
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      title={copyLimite.faixaDica}
+      whileHover={reduzir ? undefined : { y: -1 }}
+      whileTap={reduzir ? undefined : { scale: 0.99 }}
+      transition={springs.momentum}
+      className="relative mt-2.5 flex min-h-11 w-full items-center gap-2.5 overflow-hidden rounded-[0.85rem] border px-3.5 py-2.5 text-left"
+      style={{
+        borderColor: "color-mix(in srgb, var(--info) 30%, transparent)",
+        background: "color-mix(in srgb, var(--info) 6%, transparent)",
+      }}
+    >
+      {/* Mesmo tique de relógio das outras duas portas de entrada — ver
+          SeloLimiteDoDia. */}
+      {!reduzir && (
+        <motion.span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "color-mix(in srgb, var(--info) 8%, transparent)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 1, 0] }}
+          transition={{ duration: 2.4, times: [0, 0.35, 0.7, 1], repeat: Infinity, repeatDelay: 4.4, ease: "easeInOut" }}
+        />
+      )}
+      <Clock size={14} strokeWidth={2} className="relative shrink-0" style={{ color: "var(--info)" }} />
+      <span className="relative min-w-0 flex-1 text-xs" style={{ color: "var(--info)" }}>
+        <span className="font-bold tabular-nums">
+          {(quantidade === 1 ? copyLimite.badgeContadorUm : copyLimite.badgeContadorMuitos).replace("{n}", String(quantidade))}
+        </span>
+        {" · "}
+        <span className="font-bold tabular-nums">{moeda.format(diferenca)}</span>
+        <span className="opacity-80"> {copyLimite.faixaSufixo}</span>
+      </span>
+      <ChevronRight size={15} className="relative shrink-0" style={{ color: "var(--info)" }} />
+    </motion.button>
+  );
+}
+
+export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope, acaoSlot, liquido, aoTrocarLiquido, limiteDoDia }: {
   dados: FaturamentoResumo | null;
   carregando: boolean;
   semFiltro: boolean;
+  /** Pedidos na fronteira de dia do Mercado Livre, no mesmo recorte do card. */
+  limiteDoDia?: LimiteDoDia | null;
   /** Cor de cada marca ativa no filtro do card — vazio ("todas"), 1 ou várias. */
   cores?: string[];
   scope?: React.ReactNode;
@@ -319,6 +386,12 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
 }) {
   const reduzir = useReducedMotion();
   const [focado, setFocado] = useState<number | null>(null);
+  const [limiteAberto, setLimiteAberto] = useState(false);
+  // Trocar o período ou o filtro troca os pedidos da fronteira. Sem fechar
+  // aqui, a janela seguiria aberta mostrando a lista nova sem ninguém ter
+  // pedido — e, se o novo recorte não tem pedido na virada, ela reabriria
+  // sozinha quando um recorte seguinte voltasse a ter.
+  useEffect(() => { setLimiteAberto(false); }, [limiteDoDia]);
   const valorAnimado = useContagem((liquido ? dados?.totalLiquidoNumerico : dados?.totalNumerico) ?? 0);
   const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
   const variacao = (liquido ? dados?.variacaoPercentualLiquido : dados?.variacaoPercentual) ?? null;
@@ -470,6 +543,16 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 </span>
               </div>
 
+              {/* Terceira linha, largura inteira: o mesmo desencontro de fuso
+                  que Vendas explica, só que medido em dinheiro — é o valor que
+                  falta para este total bater com o painel do Mercado Livre.
+                  Vem depois de "pedidos" e "valor médio" porque é da mesma
+                  natureza (compõe a leitura do número grande), mas ganha linha
+                  própria e corpo de faixa: não é um pedaço do faturamento, é
+                  uma ressalva sobre ele, e um terceiro item solto na mesma
+                  linha se leria como mais um componente da conta. */}
+              <FaixaFusoFaturamento dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
+
               <div className="mt-2.5 sm:mt-3">
                 {/* Leitura do ponto sob o cursor. Fica em posição fixa em vez de
                     tooltip flutuante: nada é cortado pela borda do card nem empurra layout. */}
@@ -573,6 +656,13 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* A janela mora fora do corpo do card — é um Dialog em tela cheia, via
+          portal; a faixa acima é só a porta. É a MESMA explicação que o selo
+          de Vendas abre, importada do compartilhado em vez de recriada. */}
+      {limiteDoDia && (
+        <JanelaLimiteDoDia dados={limiteDoDia} aberto={limiteAberto} setAberto={setLimiteAberto} />
+      )}
     </Card>
   );
 }

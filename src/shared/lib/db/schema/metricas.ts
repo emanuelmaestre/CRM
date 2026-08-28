@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, date, integer, numeric, timestamp, uniqueIndex, index,
+  pgTable, uuid, date, integer, numeric, text, timestamp, uniqueIndex, index,
 } from "drizzle-orm/pg-core";
 import { org } from "./org";
 
@@ -20,6 +20,10 @@ export const metricasSnapshotDiario = pgTable("metricas_snapshot_diario", {
   paradosQtd: integer("parados_qtd").notNull(),
   paradosValorParado: numeric("parados_valor_parado", { precision: 12, scale: 2 }).notNull(),
   reposicaoQtd: integer("reposicao_qtd").notNull(),
+  /** Identifica exatamente a régua usada na fotografia. Linhas antigas
+   *  recebem `legado`; a UI nunca compara um snapshot com filtro/período
+   *  diferente do valor atual. */
+  escopoCalculo: text("escopo_calculo").notNull().default("legado"),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   // Uma foto por org por dia — rodar o job duas vezes no mesmo dia

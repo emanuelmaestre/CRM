@@ -277,7 +277,7 @@ export function BackupSection() {
           >
             <p className="flex items-center gap-2 text-[12.5px] font-semibold text-foreground">
               <CheckCircle2 size={15} className="text-success" />
-              Pronto — {formatarTamanho(concluido.tamanhoBytes)}, válido por 24h.
+              Pronto: {formatarTamanho(concluido.tamanhoBytes)}, válido por 24h.
             </p>
             <a
               href={concluido.urlAssinada}

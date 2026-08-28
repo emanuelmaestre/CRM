@@ -29,14 +29,15 @@ async function ConteudoMetricas() {
      "Cumprimento de pedidos" contar um período diferente do resto do card. */
   const hoje = hojeEmSaoPaulo();
   const canalPadrao = canais.some((canal) => canal.tipo === "mercadolivre") ? ["mercadolivre"] : [];
-  const posVenda = await actionObterPosVenda({ inicio: hoje, fim: hoje, canais: canalPadrao }).catch(() => null);
+  const marcasPadrao = marcas.map((marca) => marca.brandId).sort();
+  const posVenda = await actionObterPosVenda({ inicio: hoje, fim: hoje, brandIds: marcasPadrao, canais: canalPadrao }).catch(() => null);
 
   return (
     <Mosaico
       marcasIniciais={marcas}
       canaisIniciais={canais}
       posVendaInicial={posVenda}
-      posVendaInicialChave={`${hoje}..${hoje}|${[...canalPadrao].sort().join(",")}`}
+      posVendaInicialChave={`${hoje}..${hoje}|${marcasPadrao.join(",")}|${[...canalPadrao].sort().join(",")}`}
       snapshotInicial={snapshotOntem}
     />
   );

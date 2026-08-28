@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ComponentPropsWithoutRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -14,7 +14,6 @@ import { CalendarioPopoverRange } from "@/shared/design-system/primitives/Calend
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
-import { Dialog } from "@/shared/design-system/primitives/Dialog";
 import { springs, variantes, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
@@ -25,6 +24,7 @@ import {
   isBrandSlug,
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
+import { AvisoLimiteDoDia, FaixaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
@@ -33,8 +33,6 @@ type ConsultaPedidos = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>
 type Marca = ConsultaPedidos["marcas"][number];
 type Canal = ConsultaPedidos["canais"][number];
 type Resumo = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["resumo"];
-type LimiteDoDia = ConsultaPedidos["limiteDoDia"];
-type PedidoNoLimite = LimiteDoDia["soNoMercadoLivre"][number];
 
 const copy = pagesConfig.pedidos;
 const PAGINA = 50;
@@ -100,7 +98,7 @@ const GRUPOS_STATUS = [
   { chave: "", label: "Todos", statuses: [] as string[], dica: undefined as string | undefined },
   {
     chave: "aberto", label: "Em aberto", statuses: ["criado", "pago", "separado", "enviado"],
-    dica: "Criado, Pago, Separado e Enviado — o Mercado Livre não informa esses estágios separadamente, então a maior parte dos pedidos fica aqui até ser cancelada.",
+    dica: "O Mercado Livre não informa separadamente os estágios Criado, Pago, Separado e Enviado. Por isso, a maior parte dos pedidos permanece aqui até ser cancelada.",
   },
   { chave: "cancelado", label: "Cancelado", statuses: ["cancelado"], dica: undefined as string | undefined },
 ] as const;
@@ -110,245 +108,11 @@ type ChaveGrupoStatus = (typeof GRUPOS_STATUS)[number]["chave"];
  *  devolve (ver comentário de GRUPOS_STATUS acima); nada de Entregue,
  *  Concluído ou Devolvido, que não existem como dado real da API. */
 const LEGENDA_STATUS_PEDIDOS: Array<{ titulo: string; cor: string; texto: string }> = [
-  { titulo: "Todos", cor: "var(--muted-foreground)", texto: "Mostra os pedidos de qualquer status, sem recorte — o ponto de partida antes de filtrar." },
+  { titulo: "Todos", cor: "var(--muted-foreground)", texto: "Mostra os pedidos de qualquer status, sem recorte. É o ponto de partida antes de aplicar um filtro." },
   { titulo: "Em aberto", cor: "var(--info)", texto: "Criado, Pago, Separado e Enviado. O Mercado Livre não informa esses quatro estágios separadamente pelo pedido, então praticamente todo pedido ativo fica agrupado aqui até ser cancelado." },
-  { titulo: "Cancelado", cor: "var(--destructive)", texto: "O pedido foi cancelado — pelo comprador, pelo vendedor ou automaticamente por falta de pagamento." },
+  { titulo: "Cancelado", cor: "var(--destructive)", texto: "O pedido foi cancelado pelo comprador, pelo vendedor ou automaticamente por falta de pagamento." },
 ];
 
-/* ── Desencontro de dia com o Mercado Livre ───────────────────────────────
-   Fica na linha do título, ao lado do aviso de "não importados", e agora com
-   cor própria: azul de informação, nunca o âmbar/vermelho do recusado. A
-   distinção continua valendo — recusado é trabalho a resolver, isto é uma
-   explicação que se esgota no popover — só que ela passou a ser feita pelo
-   MATIZ, e não por apagar este selo até o ponto de ninguém notar que ele
-   existe. Era o que acontecia: quem estranhava o total divergir do painel do
-   ML não achava a resposta, que estava na tela o tempo todo, cinza.
-
-   O rótulo também deixou de contar ("4 em outro dia no ML"): o número mudava
-   a cada filtro e o botão parecia um alerta diferente a cada visita. Nome
-   fixo, contador separado numa pílula — a coisa é sempre a mesma, o que muda
-   é quantos pedidos ela pegou. */
-const copyLimite = copy.limiteDoDia;
-const AZUL_LIMITE = "var(--info)";
-
-/** Pedido individual da lista. Mostra o número do ML junto do nome porque é
- *  por ele que se confere pedido a pedido do outro lado — sem isso, a lista
- *  prova que a diferença existe, mas não deixa auditar. */
-function LinhaPedidoNoLimite({ item }: { item: PedidoNoLimite }) {
-  const foraDaSoma = item.status === "cancelado" || item.status === "devolvido";
-  return (
-    <li>
-      <Link
-        href={`/vendas/pedidos/${item.id}`}
-        className="flex items-center gap-2.5 rounded-[0.6rem] px-2 py-1.5 transition-colors hover:bg-muted"
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12.5px] font-semibold text-foreground">{item.clienteNome}</span>
-          <span className="block truncate text-[10.5px] tabular-nums text-muted-foreground">
-            {item.providerOrderId ? `#${item.providerOrderId}` : copyLimite.pedidoSem} · {dataHora.format(item.createdAt)}
-          </span>
-        </span>
-        {foraDaSoma && (
-          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-muted-foreground">
-            fora da soma
-          </span>
-        )}
-        <span
-          className={`shrink-0 text-[12.5px] font-bold tabular-nums ${foraDaSoma ? "text-muted-foreground line-through" : "text-foreground"}`}
-        >
-          {dinheiro.format(item.total)}
-        </span>
-      </Link>
-    </li>
-  );
-}
-
-/** Uma das duas pontas do período. `soma` vem de fora porque é a mesma conta
- *  que alimenta a reconciliação lá embaixo — calcular duas vezes deixaria o
- *  card e o total livres para discordar. */
-function GrupoLimiteDoDia({ titulo, dica, linhas, soma, className }: {
-  titulo: string;
-  dica: string;
-  linhas: PedidoNoLimite[];
-  soma: number;
-  className?: string;
-}) {
-  if (linhas.length === 0) return null;
-  const resumo = (linhas.length === 1 ? copyLimite.grupoResumoUm : copyLimite.grupoResumoMuitos)
-    .replace("{n}", String(linhas.length))
-    .replace("{valor}", dinheiro.format(soma));
-
-  return (
-    <section className={`rounded-[0.95rem] border border-border bg-muted/30 p-3.5 ${className ?? ""}`}>
-      <p className="text-[11px] font-bold uppercase tracking-[.08em]" style={{ color: AZUL_LIMITE }}>{titulo}</p>
-      <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{dica}</p>
-      <p className="mt-2 text-[11.5px] font-bold tabular-nums text-foreground">{resumo}</p>
-      <ul className="mt-1.5 flex flex-col divide-y divide-border/70">
-        {linhas.map((item) => <LinhaPedidoNoLimite key={item.id} item={item} />)}
-      </ul>
-    </section>
-  );
-}
-
-/** O selo respira: o anel azul acende e apaga a cada ~4s em vez de ficar
- *  aceso. Um destaque estático nesta barra vira paisagem depois do segundo
- *  dia; um que pisca sem parar disputa a leitura dos pedidos. O intervalo
- *  longo é o meio-termo — reaparece de tempos em tempos para quem está
- *  procurando a explicação, some do caminho de quem não está. */
-const GatilhoLimiteDoDia = forwardRef<
-  HTMLButtonElement,
-  ComponentPropsWithoutRef<typeof AnimatedInfoTrigger> & { quantidade: number }
->(function GatilhoLimiteDoDia({ quantidade, ...props }, ref) {
-  const reduzir = useReducedMotion();
-  return (
-    // `forwardRef` + `{...props}` não são cerimônia: o Popover do Radix abre
-    // via `asChild`, clonando este nó para pendurar nele o ref e o onClick.
-    // Um componente que não repassa os dois vira um botão bonito que não
-    // abre nada — foi exatamente o que aconteceu na primeira versão.
-    <AnimatedInfoTrigger
-      ref={ref}
-      {...props}
-      title={copyLimite.badgeDica}
-      iconSize={12}
-      whileHover={reduzir ? undefined : { y: -1 }}
-      transition={springs.settleFast}
-      className="press-feedback inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors"
-      style={{
-        borderColor: "color-mix(in srgb, var(--info) 35%, transparent)",
-        background: "color-mix(in srgb, var(--info) 8%, transparent)",
-        color: AZUL_LIMITE,
-      }}
-    >
-      {!reduzir && (
-        <motion.span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-full"
-          style={{ border: `1px solid ${AZUL_LIMITE}` }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0.55, 0] }}
-          transition={{ duration: 1.6, repeat: Infinity, repeatDelay: 3.6, ease: "easeInOut" }}
-        />
-      )}
-      <span className="relative">{copyLimite.badge}</span>
-      <span
-        className="relative inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10.5px] font-extrabold tabular-nums text-white"
-        style={{ background: AZUL_LIMITE }}
-      >
-        {quantidade}
-      </span>
-    </AnimatedInfoTrigger>
-  );
-});
-
-function AvisoLimiteDoDia({ dados }: { dados: LimiteDoDia }) {
-  // Antes do early return: hook não pode ficar atrás de um `return` condicional.
-  const [aberto, setAberto] = useState(false);
-  const { soNoMercadoLivre, soAqui } = dados;
-  const quantidade = soNoMercadoLivre.length + soAqui.length;
-  if (quantidade === 0) return null;
-
-  /* Cancelado e devolvido aparecem na lista (o pedido existe e está mesmo na
-     hora de virada), mas ficam fora da soma: o Faturamento desta tela também
-     os exclui, e é com ele que a pessoa está comparando. */
-  const somar = (linhas: PedidoNoLimite[]) => linhas
-    .filter((item) => item.status !== "cancelado" && item.status !== "devolvido")
-    .reduce((total, item) => total + item.total, 0);
-  const somaAdiante = somar(soNoMercadoLivre);
-  const somaAtras = somar(soAqui);
-  const diferenca = somaAdiante - somaAtras;
-  // Duas colunas só quando existem mesmo duas pontas — com um grupo só, a
-  // segunda coluna viraria um vazio do tamanho do conteúdo ao lado.
-  const duasPontas = soNoMercadoLivre.length > 0 && soAqui.length > 0;
-
-  const subtitle = (quantidade === 1 ? copyLimite.subtitleUm : copyLimite.subtitleMuitos)
-    .replace("{n}", String(quantidade));
-
-  return (
-    <>
-      <GatilhoLimiteDoDia quantidade={quantidade} onClick={() => setAberto(true)} />
-      {/* Janela centralizada, e não o popover ancorado que isto era: o popover
-          só pode ocupar o espaço entre o botão e a borda da tela, e como este
-          botão vive no meio da página, sobravam ~300px — a explicação inteira
-          virava rolagem, justamente o que não pode acontecer. Centralizado, o
-          conteúdo usa a altura da janela toda e cabe de uma vez no desktop;
-          no celular ele vira folha e rola, que ali é o esperado.
-
-          Largura até 56rem (max-w-4xl) porque é ela que troca rolagem por
-          leitura: com ela os três passos ficam lado a lado e as duas pontas
-          do período também, cortando a altura pela metade. */}
-      <Dialog
-        open={aberto}
-        onOpenChange={setAberto}
-        title={copyLimite.title}
-        description={<span className="font-semibold" style={{ color: AZUL_LIMITE }}>{subtitle}</span>}
-        className="sm:max-w-4xl"
-      >
-      <p className="max-w-[68ch] text-[12px] leading-relaxed text-muted-foreground">{copyLimite.explanation}</p>
-
-      {/* Os três passos do porquê, numerados: a explicação acima resume, isto
-          destrincha. Em coluna no celular, lado a lado do tablet para cima. */}
-      <ol className="mt-4 grid gap-2.5 sm:grid-cols-3">
-        {copyLimite.comoFunciona.map((passo, indice) => (
-          <li key={passo.titulo} className="rounded-[0.95rem] border border-border p-3.5">
-            <span
-              aria-hidden="true"
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-extrabold text-white"
-              style={{ background: AZUL_LIMITE }}
-            >
-              {indice + 1}
-            </span>
-            <p className="mt-2 text-[12px] font-bold text-foreground">{passo.titulo}</p>
-            <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{passo.texto}</p>
-          </li>
-        ))}
-      </ol>
-
-      {/* Mesma grade de três colunas dos passos, reaproveitada: as pontas do
-          período e a conta que elas explicam viram três células de uma linha
-          só. Empilhados, esses blocos somavam mais altura do que a janela
-          tinha e traziam de volta a rolagem que a largura tinha acabado de
-          eliminar. Com uma ponta só, ela ocupa duas colunas e a conta fica
-          na terceira — a linha continua cheia, sem buraco. */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <GrupoLimiteDoDia
-          titulo={copyLimite.aheadTitle}
-          dica={copyLimite.aheadHint}
-          linhas={soNoMercadoLivre}
-          soma={somaAdiante}
-          className={duasPontas ? "" : "sm:col-span-2"}
-        />
-        <GrupoLimiteDoDia
-          titulo={copyLimite.behindTitle}
-          dica={copyLimite.behindHint}
-          linhas={soAqui}
-          soma={somaAtras}
-          className={duasPontas ? "" : "sm:col-span-2"}
-        />
-
-        {/* Fecha a conta: é a linha que a pessoa veio buscar quando os dois
-            totais não bateram. */}
-        <div
-          className="rounded-[0.95rem] px-4 py-3"
-          style={{ background: "color-mix(in srgb, var(--info) 7%, transparent)" }}
-        >
-          {diferenca === 0 ? (
-            <p className="text-[12px] font-semibold text-foreground">{copyLimite.reconcileZero}</p>
-          ) : (
-            <>
-              <p className="text-[13px] font-extrabold tabular-nums" style={{ color: AZUL_LIMITE }}>
-                {copyLimite.reconcile.replace("{valor}", dinheiro.format(Math.abs(diferenca)))}
-              </p>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{copyLimite.reconcileDica}</p>
-            </>
-          )}
-        </div>
-      </div>
-
-      <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">{copyLimite.rodape}</p>
-      </Dialog>
-    </>
-  );
-}
 
 /** `compacto`: no mobile este botão mudou de lugar (ver comentário na barra
  *  de filtros mais abaixo) — foi morar na mesma linha de "Todos"/"Período",
@@ -598,6 +362,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
+  // Uma janela só, aberta pela faixa (celular) ou pelo selo (tablet/desktop).
+  const [limiteAberto, setLimiteAberto] = useState(false);
   const [loading, setLoading] = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [brandIds, setBrandIds] = useState<string[]>([]);
@@ -844,6 +610,11 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         </motion.div>
       ) : (
       <div className="flex flex-col gap-4">
+      {/* Indicadores e a faixa de fuso formam um bloco só: o vão entre eles é
+          o mesmo da grade (2.5), não o vão maior que separa este bloco da
+          lista de pedidos — senão a faixa flutuaria entre os dois, sem
+          pertencer a nenhum. */}
+      <div className="flex flex-col gap-2.5">
       <motion.section
         variants={staggerExagerado}
         initial="hidden"
@@ -871,10 +642,13 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
               valor={<NumeroAnimado valor={card.numero} formatar={card.formatar} apenasPrimeiraVez={false} duracao={0.5} />}
               icon={card.icon}
               cor={card.cor}
+              compactoNoMobile
             />
           </motion.div>
         ))}
       </motion.section>
+      <FaixaLimiteDoDia dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
+      </div>
       <motion.section
         initial={reduzir ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -890,7 +664,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <AvisoLimiteDoDia dados={limiteDoDia} />
+            <AvisoLimiteDoDia dados={limiteDoDia} aberto={limiteAberto} setAberto={setLimiteAberto} />
             {/* Só aparece quando há o que resolver. Um item fixo na navegação
                 global disputaria espaço na barra do celular com Métricas,
                 Vendas, Estoque e Publicidade por uma tela que, na operação

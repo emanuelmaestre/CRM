@@ -129,18 +129,18 @@ function EntendaStatusPublicacaoBotao() {
   );
 }
 
-export function PublicacoesCard({ marcas, inicio, fim, acaoSlot }: {
+export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], canalAtivoInicial = false, acaoSlot }: {
   marcas: Array<{ brandId: string; marcaLabel: string; slug: string }>;
   inicio: string;
   fim: string;
+  brandIdsIniciais?: string[];
+  canalAtivoInicial?: boolean;
   acaoSlot?: HTMLElement | null;
 }) {
-  // Começa sem marca marcada — igual aos demais cards do mosaico, que
-  // esperam uma escolha em vez de assumir a primeira marca da lista.
-  const [brandIds, setBrandIds] = useState<string[]>([]);
-  // Começa sem canal marcado também — mesmo raciocínio do brandIds acima,
-  // nada vem pré-selecionado.
-  const [canalAtivo, setCanalAtivo] = useState(false);
+  // Abre no mesmo escopo do mosaico. A pessoa pode refinar a seleção dentro
+  // do card, mas não precisa repetir marca e canal que acabou de escolher.
+  const [brandIds, setBrandIds] = useState<string[]>(() => brandIdsIniciais);
+  const [canalAtivo, setCanalAtivo] = useState(canalAtivoInicial);
   const [mostrarSemVeiculacao, setMostrarSemVeiculacao] = useState(false);
   const chaveMarca = (id: string) => `${id}:${inicio}:${fim}`;
 

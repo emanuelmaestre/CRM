@@ -29,9 +29,14 @@ export interface TintedStatCardProps {
    *  quando o card convive em grade com outros cujo rótulo pode ou não
    *  quebrar linha, para o valor não nascer em alturas diferentes entre eles. */
   labelClassName?: string;
+  /** Encolhe respiro e valor NO CELULAR, voltando ao normal a partir de `sm`.
+   *  Serve à grade que precisa caber mais coisa na primeira tela do telefone
+   *  sem empurrar o conteúdo principal para baixo da dobra; no desktop, onde
+   *  sobra espaço, apertar não traz benefício nenhum. */
+  compactoNoMobile?: boolean;
 }
 
-export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, ativo, labelClassName }: TintedStatCardProps) {
+export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, ativo, labelClassName, compactoNoMobile }: TintedStatCardProps) {
   const reduzir = useReducedMotion();
   const Tag = onClick ? motion.button : motion.div;
 
@@ -54,7 +59,7 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
       // todos esticam pra mesma altura, o bloco fica centralizado em vez de
       // colado no topo com um vão vazio embaixo — informação mais clara em
       // vez de "perdida" numa caixa maior do que ela mesma.
-      className="relative flex h-full w-full flex-col justify-center overflow-hidden rounded-[1.15rem] border-2 p-4 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_10px_28px_rgba(14,15,19,.12)]"
+      className={`relative flex h-full w-full flex-col justify-center overflow-hidden rounded-[1.15rem] border-2 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_10px_28px_rgba(14,15,19,.12)] ${compactoNoMobile ? "p-3 sm:p-4" : "p-4"}`}
       style={{
         borderColor: ativo ? cor : "transparent",
         background: "var(--card)",
@@ -82,7 +87,7 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
         <Icon size={15} strokeWidth={1.75} />
         {label}
       </div>
-      <p className="mt-2 text-xl font-black tabular-nums" style={{ color: cor }}>{valor}</p>
+      <p className={`font-black tabular-nums ${compactoNoMobile ? "mt-1.5 text-lg sm:mt-2 sm:text-xl" : "mt-2 text-xl"}`} style={{ color: cor }}>{valor}</p>
       {sub && <p className="mt-1.5 text-[11px] text-muted-foreground">{sub}</p>}
     </Tag>
   );

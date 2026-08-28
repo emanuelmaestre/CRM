@@ -1,6 +1,7 @@
 import { and, desc, eq, lte } from "drizzle-orm";
 import { metricasSnapshotDiario } from "@/shared/lib/db/schema";
 import type { CrudContext } from "@/shared/lib/crud-factory";
+export { ESCOPO_SNAPSHOT_METRICAS } from "@/modules/metricas/domain/snapshot-scope";
 
 export interface SnapshotMetricas {
   scoreGeral: number | null;
@@ -9,6 +10,7 @@ export interface SnapshotMetricas {
   paradosQtd: number;
   paradosValorParado: number;
   reposicaoQtd: number;
+  escopoCalculo: string;
 }
 
 /** Foto mais recente gravada pelo job A30 até N dias atrás (não exatamente
@@ -29,6 +31,7 @@ export async function obterSnapshotAnterior(ctx: CrudContext, diasAtras: number)
       paradosQtd: metricasSnapshotDiario.paradosQtd,
       paradosValorParado: metricasSnapshotDiario.paradosValorParado,
       reposicaoQtd: metricasSnapshotDiario.reposicaoQtd,
+      escopoCalculo: metricasSnapshotDiario.escopoCalculo,
     })
     .from(metricasSnapshotDiario)
     .where(and(eq(metricasSnapshotDiario.orgId, ctx.orgId), lte(metricasSnapshotDiario.data, corteIso)))
@@ -46,6 +49,7 @@ export async function obterSnapshotAnterior(ctx: CrudContext, diasAtras: number)
     paradosQtd: linha.paradosQtd,
     paradosValorParado: Number(linha.paradosValorParado),
     reposicaoQtd: linha.reposicaoQtd,
+    escopoCalculo: linha.escopoCalculo,
   };
 }
 

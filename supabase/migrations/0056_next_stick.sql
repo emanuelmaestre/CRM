@@ -1,0 +1,1 @@
+ALTER TABLE "metricas_snapshot_diario" ADD COLUMN "escopo_calculo" text DEFAULT 'legado' NOT NULL;
