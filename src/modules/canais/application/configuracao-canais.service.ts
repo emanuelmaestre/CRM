@@ -84,6 +84,11 @@ export interface CanalConfiguracao {
    *  Ads) já autorizado via OAuth pra esta marca. Terceira autorização
    *  independente da mesma loja — ver canal_tokens.canal = "shopee_anuncios". */
   shopeeAnunciosConectado: boolean;
+  /** Só para canal "shopee": app "Elisa Lima Financeiro" (Accounting And
+   *  Finance — repasses, taxas e escrow) autorizado para esta marca. Mais uma
+   *  concessão independente da mesma loja — ver canal_tokens.canal =
+   *  "shopee_financeiro". */
+  shopeeFinanceiroConectado: boolean;
 }
 
 const ContaCanalInputSchema = z.object({
@@ -216,6 +221,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
   ]);
   const brandIdsPedidos = brandIdsPorCanal.get("shopee_pedidos") ?? new Set<string>();
   const brandIdsAnuncios = brandIdsPorCanal.get("shopee_anuncios") ?? new Set<string>();
+  const brandIdsFinanceiro = brandIdsPorCanal.get("shopee_financeiro") ?? new Set<string>();
 
   const skusPorConta = new Map<string, number>();
   for (const item of mapeamentos) {
@@ -259,6 +265,7 @@ export async function listarConfiguracaoCanais(ctx: CrudContext): Promise<CanalC
       pronto: status === "conectado" && envAusentes.length === 0 && skusMapeados > 0,
       shopeePedidosConectado: canal === "shopee" && brandIdsPedidos.has(marca.id),
       shopeeAnunciosConectado: canal === "shopee" && brandIdsAnuncios.has(marca.id),
+      shopeeFinanceiroConectado: canal === "shopee" && brandIdsFinanceiro.has(marca.id),
     };
   }));
 }

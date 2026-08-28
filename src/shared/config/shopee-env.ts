@@ -19,26 +19,32 @@ export function obterShopeeBaseUrl(env = process.env.SHOPEE_ENV): string {
   return ehTeste(env) ? BASE_URL_TEST : BASE_URL_LIVE;
 }
 
-/** São três apps Shopee, categorias diferentes no Open Platform, porque a
+/** São quatro apps Shopee, categorias diferentes no Open Platform, porque a
  *  Shopee autoriza por APP e cada categoria só enxerga a sua fatia da API:
  *  "catalogo" (app "Elisa Lima CRM", Product Management — catálogo/estoque/
- *  avaliações), "pedidos" (app "Elisa Lima Pedidos", Order Management) e
+ *  avaliações), "pedidos" (app "Elisa Lima Pedidos", Order Management),
  *  "anuncios" (app "Elisa Lima Anuncios", Ads Service — Product Ads, Go Live
- *  concluído em 26/08/2026). Cada um tem seu próprio par partner_id/
- *  partner_key, não intercambiável — a Shopee valida a assinatura HMAC contra
- *  o partner_key do app dono do partner_id usado. Guardamos os três pares
- *  (test e live) lado a lado no .env pra trocar de ambiente só mudando
- *  SHOPEE_ENV, sem reescrever credencial nenhuma. */
-export type ShopeeApp = "catalogo" | "pedidos" | "anuncios";
+ *  concluído em 26/08/2026) e "financeiro" (app "Elisa Lima Financeiro",
+ *  Accounting And Finance — repasses, taxas e escrow, aprovado em 28/08/2026).
+ *  Cada um tem seu próprio par partner_id/partner_key, não intercambiável — a
+ *  Shopee valida a assinatura HMAC contra o partner_key do app dono do
+ *  partner_id usado. Guardamos os quatro pares (test e live) lado a lado no
+ *  .env pra trocar de ambiente só mudando SHOPEE_ENV, sem reescrever
+ *  credencial nenhuma.
+ *
+ *  Esta lista é a ÚNICA fonte da verdade: o tipo, o validador e os testes de
+ *  ida e volta saem todos dela. Antes o validador repetia os nomes à mão, e
+ *  acrescentar um app pedia lembrar de dois lugares — o tipo de app novo
+ *  compilava e só era recusado em runtime, no /connect. */
+export const SHOPEE_APPS = ["catalogo", "pedidos", "anuncios", "financeiro"] as const;
 
-/** Todos os apps, na ordem em que aparecem em Configurações. */
-export const SHOPEE_APPS: readonly ShopeeApp[] = ["catalogo", "pedidos", "anuncios"];
+export type ShopeeApp = (typeof SHOPEE_APPS)[number];
 
 /** Aceita só os valores conhecidos — usado onde o app chega de fora (query
  *  string do /connect, cookie de state do callback), pra não deixar um valor
  *  arbitrário virar nome de env var. */
 export function ehShopeeApp(valor: string | null | undefined): valor is ShopeeApp {
-  return valor === "catalogo" || valor === "pedidos" || valor === "anuncios";
+  return SHOPEE_APPS.includes(valor as ShopeeApp);
 }
 
 /** Pedaço do nome da env var que separa um app do outro. O app de catálogo é
@@ -47,6 +53,7 @@ export function ehShopeeApp(valor: string | null | undefined): valor is ShopeeAp
 function infixoDoApp(app: ShopeeApp): string {
   if (app === "pedidos") return "PEDIDOS_";
   if (app === "anuncios") return "ANUNCIOS_";
+  if (app === "financeiro") return "FINANCEIRO_";
   return "";
 }
 
@@ -76,7 +83,12 @@ export function urlProdutoShopee(shopId: string, itemId: string): string {
  *  mesma loja concede acesso a cada app separadamente e cada concessão gera
  *  seu próprio access_token; por isso conectar (ou reconectar) um app não
  *  mexe em linha nenhuma dos outros. */
-export const CANAIS_TOKEN_SHOPEE = ["shopee", "shopee_pedidos", "shopee_anuncios"] as const;
+export const CANAIS_TOKEN_SHOPEE = [
+  "shopee",
+  "shopee_pedidos",
+  "shopee_anuncios",
+  "shopee_financeiro",
+] as const;
 export type CanalTokenShopee = (typeof CANAIS_TOKEN_SHOPEE)[number];
 
 /** App → canal em canal_tokens. O app de catálogo veio primeiro e ficou com o
@@ -84,6 +96,7 @@ export type CanalTokenShopee = (typeof CANAIS_TOKEN_SHOPEE)[number];
 export function canalTokenShopee(app: ShopeeApp): CanalTokenShopee {
   if (app === "pedidos") return "shopee_pedidos";
   if (app === "anuncios") return "shopee_anuncios";
+  if (app === "financeiro") return "shopee_financeiro";
   return "shopee";
 }
 
@@ -93,5 +106,6 @@ export function canalTokenShopee(app: ShopeeApp): CanalTokenShopee {
 export function appDoCanalShopee(canal: string): ShopeeApp {
   if (canal === "shopee_pedidos") return "pedidos";
   if (canal === "shopee_anuncios") return "anuncios";
+  if (canal === "shopee_financeiro") return "financeiro";
   return "catalogo";
 }

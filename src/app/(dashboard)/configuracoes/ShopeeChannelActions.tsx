@@ -16,6 +16,9 @@ interface Props {
   /** Conta OAuth do app "Elisa Lima Anuncios" (Ads Service, Product Ads).
    *  Ver canal_tokens.canal = "shopee_anuncios". */
   anunciosConectado?: boolean;
+  /** Conta OAuth do app "Elisa Lima Financeiro" (Accounting And Finance —
+   *  repasses, taxas e escrow). Ver canal_tokens.canal = "shopee_financeiro". */
+  financeiroConectado?: boolean;
 }
 
 interface LinhaApp {
@@ -31,17 +34,21 @@ interface LinhaApp {
  *
  * Uma linha por app do Shopee Open Platform, porque são autorizações
  * INDEPENDENTES da mesma loja: "Elisa Lima CRM" (catálogo/estoque/avaliações),
- * "Elisa Lima Pedidos" (pedidos) e "Elisa Lima Anuncios" (Product Ads). Cada
- * uma tem partner_id próprio e grava seu token na sua própria linha de
- * canal_tokens — conectar ou reconectar uma NÃO derruba as outras, então nunca
- * é preciso refazer as três de uma vez. Ver AGENTS.md/memória
- * "shopee-proxy-webshare" e obterShopeeAppCredenciais().
+ * "Elisa Lima Pedidos" (pedidos), "Elisa Lima Anuncios" (Product Ads) e
+ * "Elisa Lima Financeiro" (repasses, taxas e escrow). Cada uma tem partner_id
+ * próprio e grava seu token na sua própria linha de canal_tokens — conectar ou
+ * reconectar uma NÃO derruba as outras, então nunca é preciso refazer todas de
+ * uma vez. Ver AGENTS.md/memória "shopee-proxy-webshare" e
+ * obterShopeeAppCredenciais().
  */
-export function ShopeeChannelActions({ slug, conectado, pedidosConectado, anunciosConectado }: Props) {
+export function ShopeeChannelActions({
+  slug, conectado, pedidosConectado, anunciosConectado, financeiroConectado,
+}: Props) {
   const linhas: LinhaApp[] = [
     { app: "catalogo", rotulo: "Catálogo", conectado },
     { app: "pedidos", rotulo: "Pedidos", conectado: Boolean(pedidosConectado) },
     { app: "anuncios", rotulo: "Anúncios", conectado: Boolean(anunciosConectado) },
+    { app: "financeiro", rotulo: "Financeiro", conectado: Boolean(financeiroConectado) },
   ];
 
   return (

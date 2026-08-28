@@ -65,21 +65,30 @@ describe("renovação OAuth da Shopee", () => {
   });
 });
 
-/* São três apps no Open Platform, cada um com sua autorização OAuth e seu
+/* São quatro apps no Open Platform, cada um com sua autorização OAuth e seu
    token — a Shopee autoriza por APP, não por loja. O A33 renovava só o token
    de catálogo; o de pedidos vencia de 4 em 4 horas sem ninguém renovar, e a
    sincronização de Pedidos falhava com "App Shopee Pedidos não conectado para
    esta marca" mesmo com o token presente no banco (25/08/2026). O de anúncios
-   entrou em 26/08/2026 e cairia na mesma armadilha se ficasse de fora. */
-describe("renovação cobre os três apps Shopee", () => {
-  it("lista os três canais de token", () => {
-    expect([...CANAIS_TOKEN_SHOPEE]).toEqual(["shopee", "shopee_pedidos", "shopee_anuncios"]);
+   entrou em 26/08/2026 e o financeiro em 28/08/2026; os dois cairiam na mesma
+   armadilha se ficassem de fora.
+
+   Esta lista é conferida na unha de propósito. As outras asserções do bloco
+   saem de SHOPEE_APPS e passariam sozinhas com um app novo — é justamente o
+   que não se quer aqui: acrescentar um app TEM de fazer este teste falhar, pra
+   obrigar quem acrescenta a conferir se o A33 e o /connect foram junto. */
+describe("renovação cobre os quatro apps Shopee", () => {
+  it("lista os quatro canais de token", () => {
+    expect([...CANAIS_TOKEN_SHOPEE]).toEqual([
+      "shopee", "shopee_pedidos", "shopee_anuncios", "shopee_financeiro",
+    ]);
   });
 
   it("mapeia cada canal para o app que assina a renovação", () => {
     expect(appDoCanalShopee("shopee")).toBe("catalogo");
     expect(appDoCanalShopee("shopee_pedidos")).toBe("pedidos");
     expect(appDoCanalShopee("shopee_anuncios")).toBe("anuncios");
+    expect(appDoCanalShopee("shopee_financeiro")).toBe("financeiro");
   });
 
   it("trata canal desconhecido como catálogo, o comportamento anterior ao segundo app", () => {
@@ -114,10 +123,25 @@ describe("credenciais por app Shopee", () => {
     process.env.SHOPEE_PARTNER_KEY_PEDIDOS_LIVE = "pedidos-key";
     process.env.SHOPEE_PARTNER_ID_ANUNCIOS_LIVE = "anuncios-id";
     process.env.SHOPEE_PARTNER_KEY_ANUNCIOS_LIVE = "anuncios-key";
+    process.env.SHOPEE_PARTNER_ID_FINANCEIRO_LIVE = "financeiro-id";
+    process.env.SHOPEE_PARTNER_KEY_FINANCEIRO_LIVE = "financeiro-key";
 
     expect(obterShopeeAppCredenciais("catalogo", "live")).toEqual({ partnerId: "catalogo-id", partnerKey: "catalogo-key" });
     expect(obterShopeeAppCredenciais("pedidos", "live")).toEqual({ partnerId: "pedidos-id", partnerKey: "pedidos-key" });
     expect(obterShopeeAppCredenciais("anuncios", "live")).toEqual({ partnerId: "anuncios-id", partnerKey: "anuncios-key" });
+    expect(obterShopeeAppCredenciais("financeiro", "live")).toEqual({ partnerId: "financeiro-id", partnerKey: "financeiro-key" });
+  });
+
+  /* O app financeiro tem infixo próprio (FINANCEIRO_) e nenhum prefixo em
+     comum com os outros três — sem isso ele cairia silenciosamente no par de
+     catálogo e toda chamada voltaria "Wrong sign". */
+  it("não confunde o app financeiro com o de catálogo quando só o de catálogo está configurado", () => {
+    process.env.SHOPEE_PARTNER_ID_LIVE = "catalogo-id";
+    process.env.SHOPEE_PARTNER_KEY_LIVE = "catalogo-key";
+    delete process.env.SHOPEE_PARTNER_ID_FINANCEIRO_LIVE;
+    delete process.env.SHOPEE_PARTNER_KEY_FINANCEIRO_LIVE;
+
+    expect(obterShopeeAppCredenciais("financeiro", "live")).toEqual({ partnerId: undefined, partnerKey: undefined });
   });
 
   it("não confunde o app de anúncios com o de catálogo quando só o de catálogo está configurado", () => {

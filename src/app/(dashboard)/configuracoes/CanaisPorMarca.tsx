@@ -281,6 +281,7 @@ function DetalheCanal({ item, onChanged, mlStatus }: {
           conectado={item.status === "conectado"}
           pedidosConectado={item.shopeePedidosConectado}
           anunciosConectado={item.shopeeAnunciosConectado}
+          financeiroConectado={item.shopeeFinanceiroConectado}
         />
       ) : null}
 
