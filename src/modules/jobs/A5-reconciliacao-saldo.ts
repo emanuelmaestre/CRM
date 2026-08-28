@@ -5,6 +5,7 @@ import { brand, channelAccount, estoqueCanalSaldo, produto, produtoCanal } from 
 import { emitirEvento, emitirEventoUnico } from "@/shared/events";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
 
 /** Quanto tempo o anúncio precisa ficar "closed"/não encontrado, sem
@@ -17,6 +18,12 @@ import { isBrandSlug } from "@/shared/config/brands";
  *  precisa caber mais de uma rodada em 24h, o que INTERVALO_COLETA_HORAS
  *  garante com folga. */
 const HORAS_PARA_DESATIVAR = 24;
+
+/** De quanto em quanto tempo o espelho do anúncio na Shopee (status, preço,
+ *  foto, link) é reconsultado. Não é de hora em hora como o saldo: esses
+ *  campos mudam devagar, e a cota do proxy da Shopee é o recurso escasso da
+ *  integração (ver o topo de shopee.provider.ts). */
+const HORAS_ENTRE_ESPELHOS_SHOPEE = 6;
 
 /** De quantas em quantas horas a varredura completa roda.
  *
@@ -77,6 +84,7 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
           brandId: channelAccount.brandId,
           brandSlug: brand.slug,
           mlEncerradoDesde: produtoCanal.mlEncerradoDesde,
+          statusVerificadoEm: produtoCanal.statusVerificadoEm,
         })
         .from(produtoCanal)
         .innerJoin(channelAccount, and(
@@ -246,6 +254,13 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
         await Promise.all([...statusParaPersistir.values()].map((grupo) =>
           db.update(produtoCanal)
             .set({
+              // As duas grafias: `status_anuncio` é a coluna de canal, que
+              // vale pro Mercado Livre e pra Shopee, e é a que as telas leem;
+              // as `ml_*` seguem escritas durante a transição, porque a
+              // migration é aplicada à mão antes do deploy e há uma janela em
+              // que o código no ar ainda lê as antigas.
+              statusAnuncio: grupo.status,
+              statusVerificadoEm,
               mlStatusAnuncio: grupo.status,
               mlSubStatus: grupo.subStatus,
               mlStatusVerificadoEm: statusVerificadoEm,
@@ -284,6 +299,66 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
             },
           });
         }
+      });
+    }
+
+    /* ── Espelho do anúncio na Shopee ──────────────────────────────────
+       Status, preço anunciado, foto e link. Os quatro apareciam preenchidos
+       no Mercado Livre e vazios na Shopee (133 vínculos sem status nenhum,
+       contra 656 de 658 no ML) — não porque a Shopee não informe, mas porque
+       a chamada que já fazíamos pedia só o nome do item.
+
+       Não desativa produto nem marca anúncio como encerrado, ao contrário do
+       trecho do Mercado Livre acima: aquilo depende de uma régua de 24h de
+       "encerrado" que a Shopee expressa de outro jeito ("UNLIST", "BANNED",
+       "DELETED"), e desativar catálogo com base numa tradução ainda não
+       verificada ao vivo seria arriscar apagar produto vendável. Aqui só se
+       registra o que o canal respondeu. */
+    const mapeamentosShopee = conectados.filter((item) => item.tipo === "shopee" && isBrandSlug(item.brandSlug));
+    let anunciosShopeeEspelhados = 0;
+    if (mapeamentosShopee.length > 0) {
+      anunciosShopeeEspelhados = await step.run("espelhar-anuncios-shopee", async () => {
+        const agora = Date.now();
+        const pendentes = mapeamentosShopee.filter((item) => (
+          !item.statusVerificadoEm
+          || agora - new Date(item.statusVerificadoEm).getTime() >= HORAS_ENTRE_ESPELHOS_SHOPEE * 3_600_000
+        ));
+        if (pendentes.length === 0) return 0;
+
+        const porMarca = new Map<string, typeof pendentes>();
+        for (const item of pendentes) {
+          porMarca.set(item.brandSlug, [...(porMarca.get(item.brandSlug) ?? []), item]);
+        }
+
+        let espelhados = 0;
+        for (const [marcaSlug, itens] of porMarca) {
+          try {
+            const provider = await criarShopeeProvider(marcaSlug as Parameters<typeof criarShopeeProvider>[0]);
+            const detalhes = await provider.consultarStatusAnuncios(itens.map((item) => item.externalListingId));
+            const verificadoEm = new Date();
+            await Promise.all(itens.map(async (item) => {
+              const detalhe = detalhes[item.externalListingId];
+              // Sem resposta pra este anúncio é "não sei agora", nunca
+              // "sumiu" — mesmo critério do trecho do Mercado Livre.
+              if (!detalhe) return;
+              await db.update(produtoCanal)
+                .set({
+                  statusAnuncio: detalhe.status,
+                  statusVerificadoEm: verificadoEm,
+                  precoAnuncio: detalhe.preco,
+                  imagemUrl: detalhe.imagem,
+                  permalink: detalhe.permalink,
+                  updatedAt: verificadoEm,
+                })
+                .where(eq(produtoCanal.id, item.produtoCanalId));
+              espelhados += 1;
+            }));
+          } catch {
+            // Marca inteira falhou (token vencido, proxy fora) — as outras
+            // seguem, e o saldo já coletado acima não é afetado.
+          }
+        }
+        return espelhados;
       });
     }
 
@@ -332,6 +407,7 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
       desconectados,
       lotes: lotes.length,
       produtosDesativados,
+      anunciosShopeeEspelhados,
     };
   },
 );

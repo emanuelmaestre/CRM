@@ -53,6 +53,34 @@ export const produtoCanal = pgTable("produto_canal", {
   mlStatusAnuncio: text("ml_status_anuncio"),
   mlSubStatus: text("ml_sub_status"),
   mlStatusVerificadoEm: timestamp("ml_status_verificado_em", { withTimezone: true }),
+
+  /* ── Espelho do anúncio no canal, para qualquer canal ──────────────────
+     As três colunas `ml_*` acima nasceram quando o Mercado Livre era o
+     único canal com coleta de status. Com a Shopee integrada elas passaram a
+     significar "status, mas só de um canal": produto que só vive na Shopee
+     aparecia sem status nenhum, sem nada explicando (133 vínculos Shopee com
+     status vazio contra 656 de 658 preenchidos no ML).
+
+     As colunas abaixo são do CANAL, seja ele qual for. As `ml_*` continuam
+     sendo escritas por enquanto: a migration é aplicada à mão e o deploy vem
+     depois, então há uma janela em que o código antigo ainda lê as antigas.
+     `ml_sub_status` fica onde está — sub-status é vocabulário do ML mesmo. */
+
+  /** Status cru que o canal informa para o anúncio: "active"/"paused"/
+   *  "closed" no Mercado Livre, "NORMAL"/"UNLIST"/"BANNED"/"DELETED" na
+   *  Shopee. Cru de propósito — a tradução para o vocabulário do CRM é da
+   *  camada que exibe, e guardar já traduzido apagaria a diferença entre
+   *  "o canal disse X" e "nós interpretamos X". */
+  statusAnuncio: text("status_anuncio"),
+  statusVerificadoEm: timestamp("status_verificado_em", { withTimezone: true }),
+  /** Preço anunciado NO CANAL, que não é o `produto.preco` interno: o mesmo
+   *  SKU costuma ter preço diferente em cada marketplace. */
+  precoAnuncio: numeric("preco_anuncio", { precision: 12, scale: 2 }),
+  /** Foto e link públicos do anúncio. O do Mercado Livre vem pronto da API;
+   *  o da Shopee é montado a partir de shop_id + item_id, que é como a
+   *  própria Shopee forma a URL do produto. */
+  imagemUrl: text("imagem_url"),
+  permalink: text("permalink"),
   createdAt: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [

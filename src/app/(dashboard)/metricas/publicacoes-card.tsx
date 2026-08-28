@@ -8,7 +8,9 @@ import { actionObterDesempenhoPublicacoes } from "./actions";
 import { Card, CardHead, AvisoParcial } from "./metricas-primitives";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { PublicidadeIllustration } from "@/shared/design-system/primitives/illustrations";
-import type { DesempenhoPublicacoesResultado, SituacaoQualidade } from "@/modules/metricas/application/publicacoes.service";
+import type { DesempenhoPublicacao, DesempenhoPublicacoesResultado, SituacaoQualidade } from "@/modules/metricas/application/publicacoes.service";
+import { PLATAFORMAS_ANUNCIOS, type PlataformaAnuncios } from "@/modules/anuncios/domain/plataformas";
+import channelsConfig from "@/config/channels.json";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { traduzirNivelQualidade, traduzirPendenciaPublicacao } from "@/shared/lib/pt-br";
@@ -27,6 +29,12 @@ const periodoLabel = (inicio: string, fim: string) => `${formatarDataCurta(inici
 // dataCriacao vem como ISO completo (com hora e fuso) da API de Itens, não
 // no formato "YYYY-MM-DD" de inicio/fim — formatarDataCurta quebraria nele.
 const formatarDataPublicacao = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+// Sincronização precisa da hora: o snapshot de publicidade roda de manhã, e
+// "28/08" sozinho não distingue o dado de hoje cedo do de ontem à noite.
+const formatarDataHoraSincronizacao = (iso: string) => new Date(iso).toLocaleString("pt-BR", {
+  day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo",
+});
 
 // A nota de qualidade era sempre cinza neutro, tivesse 5/100 ou 95/100 — sem
 // nenhuma pista de cor pra escanear rápido quais publicações precisam de
@@ -58,10 +66,16 @@ function HaloSelecao({ cor }: { cor: string }) {
   );
 }
 
+/* Os dois canais nomeiam os próprios estados. Mercado Livre devolve
+   active/hold/idle; a Shopee, ongoing/paused/ended/closed (confirmado no
+   snapshot de anúncios). Traduzir os dois no mesmo lugar evita que um estado
+   da Shopee caia em "Status indisponível", que significaria "não sabemos". */
 function rotuloStatus(status: string | null): string {
-  if (status === "active") return "Ativo";
-  if (status === "hold") return "Em espera";
+  if (status === "active" || status === "ongoing") return "Ativo";
+  if (status === "hold" || status === "paused") return "Em espera";
   if (status === "idle") return "Sem veiculação";
+  if (status === "ended") return "Encerrado";
+  if (status === "closed") return "Fechado";
   return "Status indisponível";
 }
 
@@ -71,7 +85,14 @@ function rotuloStatus(status: string | null): string {
  *  temporária de consulta, nada a ver com o status do anúncio. Cruza com o
  *  status real (já mostrado no selo ao lado) em vez de um "geralmente"
  *  vago que não confirma nada. */
-function motivoQualidadeIndisponivel(status: string | null, qualidadeStatus: SituacaoQualidade): string {
+function motivoQualidadeIndisponivel(
+  status: string | null,
+  qualidadeStatus: SituacaoQualidade,
+  canal: PlataformaAnuncios = "mercadolivre",
+): string {
+  if (canal === "shopee") {
+    return "A Shopee não publica nota de qualidade do anúncio na API de publicidade — é um conceito do Mercado Livre. Aqui \"não aplicável\" significa que o dado não existe neste canal, não que a publicação foi mal avaliada.";
+  }
   if (qualidadeStatus === "nao_aplicavel") {
     return status !== "active"
       ? `O Mercado Livre só calcula essa pontuação para anúncios com status "Ativo". Esta publicação está "${rotuloStatus(status)}", por isso a pontuação não existe agora. Não é uma falha nem uma nota zero.`
@@ -84,10 +105,19 @@ function motivoQualidadeIndisponivel(status: string | null, qualidadeStatus: Sit
  *  por publicação precisa se destacar tanto quanto o de qualidade ao lado
  *  dele, não sumir como texto cinza corrido junto do ID do anúncio. */
 function corStatus(status: string | null): string {
-  if (status === "active") return "var(--success)";
-  if (status === "hold") return "var(--warning)";
+  if (status === "active" || status === "ongoing") return "var(--success)";
+  if (status === "hold" || status === "paused") return "var(--warning)";
   return "var(--muted-foreground)";
 }
+
+/** Cor de seleção da pílula de canal. O amarelo de marca do Mercado Livre
+ *  (#FFE600, em channels.json) some sobre fundo claro; este é o mesmo tom
+ *  escurecido que a pílula já usava. O da Shopee é o accent original, que
+ *  tem contraste suficiente. */
+const COR_CANAL: Record<PlataformaAnuncios, string> = {
+  mercadolivre: "#8a7000",
+  shopee: "#EE4D2D",
+};
 
 /** Mesmo catálogo fixo usado nos outros cards (Estoque Parado, Repor em
  *  breve, Vendem mais, Giro baixo) — aqui são só 3 estados possíveis, os
@@ -129,86 +159,124 @@ function EntendaStatusPublicacaoBotao() {
   );
 }
 
-export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], canalAtivoInicial = false, acaoSlot }: {
+export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], canaisIniciais = [], acaoSlot }: {
   marcas: Array<{ brandId: string; marcaLabel: string; slug: string }>;
   inicio: string;
   fim: string;
   brandIdsIniciais?: string[];
-  canalAtivoInicial?: boolean;
+  /** Canais com publicidade que o filtro do mosaico deixou passar. */
+  canaisIniciais?: PlataformaAnuncios[];
   acaoSlot?: HTMLElement | null;
 }) {
   // Abre no mesmo escopo do mosaico. A pessoa pode refinar a seleção dentro
   // do card, mas não precisa repetir marca e canal que acabou de escolher.
   const [brandIds, setBrandIds] = useState<string[]>(() => brandIdsIniciais);
-  const [canalAtivo, setCanalAtivo] = useState(canalAtivoInicial);
+  const [canais, setCanais] = useState<PlataformaAnuncios[]>(() => canaisIniciais);
   const [mostrarSemVeiculacao, setMostrarSemVeiculacao] = useState(false);
-  const chaveMarca = (id: string) => `${id}:${inicio}:${fim}`;
+  /* A busca é por PAR (marca × canal), não por marca: são integrações
+     diferentes, com tempo de resposta próprio, e a falha de uma não pode
+     apagar o que a outra já trouxe. */
+  const chaveDe = (brandId: string, canal: PlataformaAnuncios) => `${brandId}:${canal}:${inicio}:${fim}`;
 
   const [resultados, setResultados] = useState<Record<string, DesempenhoPublicacoesResultado | null>>({});
   const emVoo = useRef(new Set<string>());
 
   useEffect(() => {
-    if (!canalAtivo) return;
     brandIds.forEach((id) => {
-      const key = chaveMarca(id);
-      if (key in resultados || emVoo.current.has(key)) return;
-      emVoo.current.add(key);
-      const filtros = { brandId: id, inicio, fim };
-      actionObterDesempenhoPublicacoes({ ...filtros, detalhes: false })
-        .then((resultado) => {
-          setResultados((atual) => ({ ...atual, [key]: resultado }));
-          actionObterDesempenhoPublicacoes({ ...filtros, detalhes: true })
-            .then((completo) => setResultados((atual) => ({ ...atual, [key]: completo })))
-            .catch(() => { /* Mantém as métricas principais já carregadas. */ })
-            .finally(() => emVoo.current.delete(key));
-        })
-        .catch(() => {
-          setResultados((atual) => ({ ...atual, [key]: null }));
-          emVoo.current.delete(key);
-        });
+      canais.forEach((canal) => {
+        const key = chaveDe(id, canal);
+        if (key in resultados || emVoo.current.has(key)) return;
+        emVoo.current.add(key);
+        const filtros = { brandId: id, canal, inicio, fim };
+        actionObterDesempenhoPublicacoes({ ...filtros, detalhes: false })
+          .then((resultado) => {
+            setResultados((atual) => ({ ...atual, [key]: resultado }));
+            /* Segunda etapa (qualidade, pendências e data de publicação) só
+               existe no Mercado Livre — na Shopee ela devolveria exatamente
+               a mesma resposta, então nem se pede. */
+            if (canal !== "mercadolivre") { emVoo.current.delete(key); return; }
+            actionObterDesempenhoPublicacoes({ ...filtros, detalhes: true })
+              .then((completo) => setResultados((atual) => ({ ...atual, [key]: completo })))
+              .catch(() => { /* Mantém as métricas principais já carregadas. */ })
+              .finally(() => emVoo.current.delete(key));
+          })
+          .catch(() => {
+            setResultados((atual) => ({ ...atual, [key]: null }));
+            emVoo.current.delete(key);
+          });
+      });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandIds, inicio, fim, canalAtivo]);
+  }, [brandIds, canais, inicio, fim]);
 
   const marcaPorId = new Map(marcas.map((m) => [m.brandId, m]));
-  const selecionadas = canalAtivo ? brandIds : [];
-  const carregando = selecionadas.length > 0 && selecionadas.some((id) => !(chaveMarca(id) in resultados));
-  const itensCombinados = selecionadas.flatMap((id) => {
-    const dados = resultados[chaveMarca(id)];
+  const pares = brandIds.flatMap((brandId) => canais.map((canal) => ({ brandId, canal })));
+  const carregando = pares.length > 0 && pares.some(({ brandId, canal }) => !(chaveDe(brandId, canal) in resultados));
+  /* Com dois canais ligados a grade é uma lista só. Ordenar por resultado
+     (e não deixar na ordem de chegada das consultas) evita que a leitura
+     dependa de qual integração respondeu primeiro. */
+  const porResultado = (a: { item: DesempenhoPublicacao }, b: { item: DesempenhoPublicacao }) => (
+    b.item.receita - a.item.receita || b.item.investimento - a.item.investimento || b.item.cliques - a.item.cliques
+  );
+  const itensCombinados = pares.flatMap(({ brandId, canal }) => {
+    const dados = resultados[chaveDe(brandId, canal)];
     if (!dados) return [];
-    const marca = marcaPorId.get(id);
+    const marca = marcaPorId.get(brandId);
     return dados.itens.map((item) => ({ item, marca }));
-  });
-  const itensSemVeiculacao = selecionadas.flatMap((id) => {
-    const dados = resultados[chaveMarca(id)];
+  }).sort(porResultado);
+  const itensSemVeiculacao = pares.flatMap(({ brandId, canal }) => {
+    const dados = resultados[chaveDe(brandId, canal)];
     if (!dados) return [];
-    const marca = marcaPorId.get(id);
+    const marca = marcaPorId.get(brandId);
     return dados.semVeiculacao.map((item) => ({ item, marca }));
   });
-  const resumos = selecionadas.flatMap((id) => {
-    const dados = resultados[chaveMarca(id)];
+  const resumos = pares.flatMap(({ brandId, canal }) => {
+    const dados = resultados[chaveDe(brandId, canal)];
     return dados ? [dados.resumo] : [];
   });
-  const algumParcial = selecionadas.some((id) => resultados[chaveMarca(id)]?.parcial);
+  /* Quando a Shopee está no ar, os números dela são do último snapshot
+     diário e não "de agora" como os do Mercado Livre — a data precisa
+     aparecer, senão o card mistura duas idades de dado em silêncio. */
+  const sincronizacaoShopee = pares.reduce<string | null>((maior, { brandId, canal }) => {
+    if (canal !== "shopee") return maior;
+    const quando = resultados[chaveDe(brandId, canal)]?.sincronizadoEm ?? null;
+    if (!quando) return maior;
+    return !maior || quando > maior ? quando : maior;
+  }, null);
+  const algumParcial = pares.some(({ brandId, canal }) => resultados[chaveDe(brandId, canal)]?.parcial);
   // null só acontece pelo .catch da busca (a service nunca retorna null em
   // sucesso) — sem essa checagem, "deu erro" e "não tem publicação" caíam
   // na mesma tela de vazio, e quem via não sabia se devia tentar de novo.
-  const algumErro = selecionadas.some((id) => chaveMarca(id) in resultados && resultados[chaveMarca(id)] === null);
-  const multiplasMarcas = selecionadas.length > 1;
+  const algumErro = pares.some(({ brandId, canal }) => (
+    chaveDe(brandId, canal) in resultados && resultados[chaveDe(brandId, canal)] === null
+  ));
+  const multiplasMarcas = brandIds.length > 1;
+  const multiplosCanais = canais.length > 1;
   const totalPublicacoes = resumos.reduce((soma, item) => soma + item.totalPublicacoes, 0);
   const totalComVeiculacao = resumos.reduce((soma, item) => soma + item.comVeiculacao, 0);
   const totalSemVeiculacao = resumos.reduce((soma, item) => soma + item.semVeiculacao, 0);
   const investimentoTotal = resumos.reduce((soma, item) => soma + item.investimento, 0);
   const receitaTotal = resumos.reduce((soma, item) => soma + item.receita, 0);
   const retornoMedio = investimentoTotal > 0 ? receitaTotal / investimentoTotal : null;
-  const algumaContagemFalhou = brandIds.some((brandId) => resultados[chaveMarca(brandId)] === null);
+
 
   /** A pílula não mostra mais contagem (regra do sistema inteiro), mas
    *  ainda precisa distinguir "ainda não consultei" de "consultei e
    *  falhou" — só o segundo caso acende o aviso. */
   function falhouParaMarca(brandId: string) {
-    const key = chaveMarca(brandId);
-    return key in resultados && resultados[key] === null;
+    return canais.some((canal) => {
+      const key = chaveDe(brandId, canal);
+      return key in resultados && resultados[key] === null;
+    });
+  }
+
+  /** Mesma pergunta pelo outro eixo: a pílula do canal só acende o aviso
+   *  quando foi ESTE canal que não respondeu. */
+  function falhouParaCanal(canal: PlataformaAnuncios) {
+    return brandIds.some((brandId) => {
+      const key = chaveDe(brandId, canal);
+      return key in resultados && resultados[key] === null;
+    });
   }
 
   function alternarMarca(id: string) {
@@ -219,40 +287,50 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
 
   // Ligar/desligar o canal não mexe mais na seleção de marca: marcar o
   // Mercado Livre acrescentava a KARZI sozinho e depois não deixava tirar.
-  function alternarMercadoLivre() {
-    setCanalAtivo((atual) => !atual);
+  function alternarCanal(canal: PlataformaAnuncios) {
+    setCanais((atual) => (
+      atual.includes(canal) ? atual.filter((item) => item !== canal) : [...atual, canal]
+    ));
   }
 
-  const CANAIS_FUTUROS = [
-    { canal: "shopee", label: "Shopee" },
-    { canal: "tiktok", label: "TikTok Shop" },
-  ] as const;
+  /* Canal sem publicidade integrada: fica na fileira, apagado e com o motivo
+     no title, em vez de sumir — a ausência explicada é a mesma decisão da
+     pastilha de marca indisponível em Publicidade. A Shopee saiu daqui em
+     28/08/2026, quando o job A32 passou a trazer os anúncios dela. */
+  const CANAIS_SEM_PUBLICIDADE = [{ canal: "tiktok", label: "TikTok Shop" }] as const;
 
   const abasCanal = (
     <div className="flex items-center gap-1" role="group" aria-label="Canal das publicações">
-      <motion.button type="button" role="switch" aria-checked={canalAtivo}
-        title={canalAtivo ? "Anúncios patrocinados do Mercado Livre, clique para ocultar" : "Anúncios patrocinados do Mercado Livre ocultos, clique para mostrar"}
-        onClick={alternarMercadoLivre}
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.88, rotate: -4 }}
-        transition={springs.settleFast}
-        style={canalAtivo ? { borderColor: "#8a7000" } : undefined}
-        className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors duration-200 ${
-          canalAtivo ? "border-2 bg-card/70 shadow-sm" : "border border-border/80 bg-card/40 opacity-40 hover:bg-card/70 hover:opacity-70"
-        }`}>
-        {canalAtivo && <HaloSelecao cor="#8a7000" />}
-        <ChannelLogo canal="mercadolivre" size="sm" variant="logo" />
-        {/* Sem contagem na pílula (mesma regra do resto do sistema — ver
-            ScopeRow e as listas de Vendas/Estoque/Clientes). O aviso de
-            falha continua: ele não é a contagem, é "esta consulta não
-            voltou", que muda a leitura de tudo que o card mostra abaixo. */}
-        {algumaContagemFalhou && (
-          <TriangleAlert size={12} className="text-muted-foreground" aria-label="Não foi possível consultar as publicações desta marca" />
-        )}
-      </motion.button>
-      {CANAIS_FUTUROS.map(({ canal, label }) => (
+      {PLATAFORMAS_ANUNCIOS.map((canal) => {
+        const ativo = canais.includes(canal);
+        const rotulo = (channelsConfig.items as Record<string, { label?: string }>)[canal]?.label ?? canal;
+        const cor = COR_CANAL[canal];
+        return (
+          <motion.button key={canal} type="button" role="switch" aria-checked={ativo} aria-label={rotulo}
+            title={`Anúncios patrocinados — ${rotulo}. Clique para ${ativo ? "ocultar" : "mostrar"}.`}
+            onClick={() => alternarCanal(canal)}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.88, rotate: -4 }}
+            transition={springs.settleFast}
+            style={ativo ? { borderColor: cor } : undefined}
+            className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors duration-200 ${
+              ativo ? "border-2 bg-card/70 shadow-sm" : "border border-border/80 bg-card/40 opacity-40 hover:bg-card/70 hover:opacity-70"
+            }`}>
+            {ativo && <HaloSelecao cor={cor} />}
+            <ChannelLogo canal={canal} size="sm" variant="logo" />
+            {/* Sem contagem na pílula (mesma regra do resto do sistema — ver
+                ScopeRow e as listas de Vendas/Estoque/Clientes). O aviso de
+                falha continua: ele não é a contagem, é "esta consulta não
+                voltou", que muda a leitura de tudo que o card mostra abaixo. */}
+            {falhouParaCanal(canal) && (
+              <TriangleAlert size={12} className="text-muted-foreground" aria-label={`Não foi possível consultar as publicações — ${rotulo}`} />
+            )}
+          </motion.button>
+        );
+      })}
+      {CANAIS_SEM_PUBLICIDADE.map(({ canal, label }) => (
         <span key={canal} role="switch" aria-checked="false" aria-disabled="true"
-          title={`${label} (em breve)`}
+          title={`${label} — sem publicidade integrada`}
           className="inline-flex h-11 shrink-0 cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card/40 px-3.5 text-muted-foreground opacity-40">
           <ChannelLogo canal={canal} size="sm" variant="logo" />
         </span>
@@ -325,9 +403,9 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
       <div className="px-4 pb-5 pt-4 sm:px-5">
         <AnimatePresence mode="wait">
           {brandIds.length === 0 ? (
-            <EstadoVazio key="sem-marca" icone={Megaphone} texto="Selecione uma marca e depois ative o Mercado Livre para carregar as publicações patrocinadas." ilustrado />
-          ) : !canalAtivo ? (
-            <EstadoVazio key="sem-canal" icone={Megaphone} texto="Nenhum canal selecionado. Ative o Mercado Livre acima para ver as publicações." />
+            <EstadoVazio key="sem-marca" icone={Megaphone} texto="Selecione uma marca e um canal para carregar as publicações patrocinadas." ilustrado />
+          ) : canais.length === 0 ? (
+            <EstadoVazio key="sem-canal" icone={Megaphone} texto="Nenhum canal selecionado. Ative o Mercado Livre ou a Shopee acima para ver as publicações." />
           ) : carregando ? (
             <motion.div key="carregando" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <Skeleton className="h-52 w-full" />
@@ -363,7 +441,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                     <CalculoPopover
                       compacto
                       titulo="Publicações patrocinadas"
-                      significado="Quantidade de publicações que a conta de publicidade do Mercado Livre devolveu para as marcas selecionadas. Não representa todo o catálogo da loja."
+                      significado="Quantidade de publicações que as contas de publicidade dos canais selecionados devolveram para as marcas escolhidas. Não representa todo o catálogo da loja."
                       formula="contagem de códigos de publicação únicos, consolidando o mesmo item quando ele participa de mais de uma campanha"
                       resultado={inteiro.format(totalPublicacoes)}
                       itens={[
@@ -418,8 +496,19 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                 </div>
               </motion.div>
               <p className="mb-3 text-xs text-muted-foreground">
-                Anúncios patrocinados{multiplasMarcas ? ` · ${selecionadas.length} marcas` : ""} · {periodo}
+                Anúncios patrocinados{multiplasMarcas ? ` · ${brandIds.length} marcas` : ""}{multiplosCanais ? " · 2 canais" : ""} · {periodo}
               </p>
+
+              {/* O Mercado Livre é consultado na hora; a Shopee vem do
+                  snapshot diário de publicidade. Sem esta linha, os dois
+                  números apareceriam lado a lado como se tivessem a mesma
+                  idade. */}
+              {sincronizacaoShopee && (
+                <p className="mb-3 text-[11px] text-muted-foreground">
+                  Números da Shopee conforme a última sincronização de publicidade, em {formatarDataHoraSincronizacao(sincronizacaoShopee)}.
+                  {canais.includes("mercadolivre") ? " Os do Mercado Livre são consultados na hora." : ""}
+                </p>
+              )}
 
               {totalComVeiculacao > itensCombinados.length && (
                 <p className="mb-3 text-[11px] text-muted-foreground">
@@ -442,18 +531,26 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                       : item.qualidadeStatus === "nao_aplicavel" ? "Não aplicável" : "Indisponível";
                   return (
                     <motion.article
-                      key={`${marca?.brandId ?? ""}:${item.itemId}`}
+                      key={`${marca?.brandId ?? ""}:${item.canal}:${item.itemId}`}
                       layout
                       variants={variantes(reduzir, entradaExagerada)}
                       whileHover={reduzir ? undefined : { y: -4, scale: 1.012 }}
                       transition={springs.settle}
                       className="rounded-xl border border-border p-4 shadow-[0_1px_2px_rgba(14,15,19,.03)] transition-shadow hover:shadow-[0_10px_28px_rgba(14,15,19,.08)]"
                     >
-                      {multiplasMarcas && marca && (
-                        <div className="mb-1.5 flex items-center gap-1">
-                          {isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={11} /> : (
-                            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{marca.marcaLabel}</span>
+                      {(multiplasMarcas || multiplosCanais) && (
+                        <div className="mb-1.5 flex items-center gap-1.5">
+                          {multiplasMarcas && marca && (
+                            isBrandSlug(marca.slug) ? <BrandLogo brand={marca.slug} height={11} /> : (
+                              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{marca.marcaLabel}</span>
+                            )
                           )}
+                          {/* Com os dois canais na mesma grade, o mesmo
+                              produto pode aparecer duas vezes — uma por
+                              canal. Sem esta marcação as duas linhas se leem
+                              como duplicata, e não como dois anúncios com
+                              verba e resultado próprios. */}
+                          {multiplosCanais && <ChannelLogo canal={item.canal} size="sm" variant="logo" />}
                         </div>
                       )}
                       {/* `items-start` + sem `truncate`: o nome do produto
@@ -528,7 +625,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                             nota={item.qualidadeStatus === "nao_consultada"
                               ? "As métricas de publicidade já estão disponíveis. Qualidade e pendências estão sendo consultadas separadamente para não atrasar o restante do painel."
                               : item.qualidadeStatus === "nao_aplicavel" || item.qualidadeStatus === "indisponivel"
-                              ? motivoQualidadeIndisponivel(item.status, item.qualidadeStatus)
+                              ? motivoQualidadeIndisponivel(item.status, item.qualidadeStatus, item.canal)
                               : "A pontuação e as pendências representam a avaliação atual da publicação e não variam com o período selecionado. Uma nota alta não garante cliques ou vendas."}
                           />
                         </span>

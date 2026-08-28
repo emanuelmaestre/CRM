@@ -288,7 +288,35 @@ const SUB_STATUS_LABEL: Record<string, string> = {
   by_admin: "removido pelo Mercado Livre",
 };
 
-function traduzirStatusAnuncio(status: { status: string; subStatus: string | null }): { statusAnuncio: StatusAnuncioParado; motivoStatus: string | null } {
+/* A Shopee nomeia os mesmos estados com outras palavras. "UNLIST" é o
+   anúncio tirado da vitrine pelo próprio vendedor — o equivalente exato do
+   "paused" do Mercado Livre. "BANNED" é remoção pela plataforma, que aqui se
+   lê como encerrado, e não como "em revisão": o ML devolve `under_review`
+   enquanto ainda dá pra corrigir, e a Shopee não tem esse meio-termo neste
+   campo. Sem esta tradução, produto que só vive na Shopee caía em
+   "não consultado" mesmo com o status coletado. */
+const STATUS_SHOPEE: Record<string, StatusAnuncioParado> = {
+  NORMAL: "ativo",
+  UNLIST: "pausado",
+  BANNED: "encerrado",
+  DELETED: "encerrado",
+};
+
+const MOTIVO_STATUS_SHOPEE: Record<string, string> = {
+  UNLIST: "fora da vitrine na Shopee",
+  BANNED: "removido pela Shopee",
+  DELETED: "excluído",
+};
+
+function traduzirStatusAnuncio(status: { status: string; subStatus: string | null; canal?: string }): { statusAnuncio: StatusAnuncioParado; motivoStatus: string | null } {
+  if (status.canal === "shopee") {
+    const traduzido = STATUS_SHOPEE[status.status.toUpperCase()];
+    return traduzido
+      ? { statusAnuncio: traduzido, motivoStatus: MOTIVO_STATUS_SHOPEE[status.status.toUpperCase()] ?? null }
+      // Status novo que a Shopee passe a devolver não vira palpite: fica como
+      // não consultado, que é a única coisa verdadeira a dizer.
+      : { statusAnuncio: "nao_consultado", motivoStatus: null };
+  }
   const motivo = status.subStatus ? (SUB_STATUS_LABEL[status.subStatus] ?? status.subStatus) : null;
   if (status.status === "active") return { statusAnuncio: "ativo", motivoStatus: motivo };
   if (status.status === "paused") return { statusAnuncio: "pausado", motivoStatus: motivo };
@@ -312,22 +340,35 @@ async function enriquecerComStatusAnuncio(
 ): Promise<void> {
   if (itens.length === 0) return;
 
+  /* Sem travar em "mercadolivre": o mesmo produto pode viver só na Shopee, e
+     ali o status ficava vazio — a tela dizia "sem vínculo", que é diferente
+     de "não sei" e diferente de "está pausado lá". Lê a coluna de canal
+     (`status_anuncio`), preenchida pela A5 nos dois canais. */
   const vinculos = await ctx.db
     .select({
       produtoId: produtoCanal.produtoId,
-      status: produtoCanal.mlStatusAnuncio,
+      status: produtoCanal.statusAnuncio,
       subStatus: produtoCanal.mlSubStatus,
+      canal: channelAccount.tipo,
     })
     .from(produtoCanal)
     .innerJoin(channelAccount, eq(channelAccount.id, produtoCanal.channelAccountId))
     .where(and(
       eq(produtoCanal.orgId, ctx.orgId),
       eq(produtoCanal.ativo, true),
-      eq(channelAccount.tipo, "mercadolivre"),
       inArray(produtoCanal.produtoId, itens.map((item) => item.produtoId)),
     ));
 
-  const statusPorProduto = new Map(vinculos.map((v) => [v.produtoId, v]));
+  /* Produto anunciado nos dois canais tem duas linhas. Fica com a que tem
+     status coletado; havendo as duas, o Mercado Livre decide, porque é onde
+     a régua de "encerrado" já é verificada de hora em hora. */
+  const statusPorProduto = new Map<string, typeof vinculos[number]>();
+  for (const vinculo of vinculos) {
+    const atual = statusPorProduto.get(vinculo.produtoId);
+    if (!atual) { statusPorProduto.set(vinculo.produtoId, vinculo); continue; }
+    if (!atual.status && vinculo.status) { statusPorProduto.set(vinculo.produtoId, vinculo); continue; }
+    if (vinculo.status && vinculo.canal === "mercadolivre") statusPorProduto.set(vinculo.produtoId, vinculo);
+  }
 
   for (const item of itens) {
     const vinculo = statusPorProduto.get(item.produtoId);
@@ -336,6 +377,7 @@ async function enriquecerComStatusAnuncio(
     const { statusAnuncio, motivoStatus } = traduzirStatusAnuncio({
       status: vinculo.status,
       subStatus: vinculo.subStatus,
+      canal: vinculo.canal,
     });
     item.statusAnuncio = statusAnuncio;
     item.motivoStatus = motivoStatus;

@@ -201,6 +201,7 @@ describe("cards de Métricas", () => {
   it("mostra somente métricas patrocinadas do período e separa publicações sem veiculação", async () => {
     const brandId = "11111111-1111-4111-8111-111111111111";
     const base = {
+      canal: "mercadolivre" as const,
       status: "active",
       ctr: 0.86,
       cvr: 9.01,
@@ -211,6 +212,8 @@ describe("cards de Métricas", () => {
       dataCriacao: "2026-05-10T12:00:00.000Z",
     };
     const dados: DesempenhoPublicacoesResultado = {
+      canal: "mercadolivre",
+      sincronizadoEm: null,
       periodo: { inicio: "2026-06-01", fim: "2026-08-21" },
       parcial: false,
       resumo: {
@@ -270,7 +273,7 @@ describe("cards de Métricas", () => {
 
     // Sem seleção não há consulta nem spinner permanente: a tela explica os
     // dois passos e só começa a buscar depois de marca + canal.
-    expect(screen.getByText(/selecione uma marca e depois ative o mercado livre/i)).toBeInTheDocument();
+    expect(screen.getByText(/selecione uma marca e um canal/i)).toBeInTheDocument();
     expect(screen.queryByLabelText("Contagem ainda não consultada")).not.toBeInTheDocument();
     expect(obterPublicacoes).not.toHaveBeenCalled();
 
@@ -294,6 +297,72 @@ describe("cards de Métricas", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /1 publicação sem veiculação/i }));
     expect(screen.getByText("Anúncio realmente zerado")).toBeInTheDocument();
+  });
+
+  it("Publicações da Shopee: sem nota de qualidade, e dizendo de quando é o dado", async () => {
+    const brandId = "22222222-2222-4222-8222-222222222222";
+    const dados: DesempenhoPublicacoesResultado = {
+      canal: "shopee",
+      // A Shopee não é consultada ao vivo: vem do snapshot diário do A32.
+      sincronizadoEm: "2026-08-28T06:01:36.000Z",
+      periodo: { inicio: "2026-08-15", fim: "2026-08-21" },
+      parcial: false,
+      resumo: {
+        totalPublicacoes: 1,
+        comVeiculacao: 1,
+        semVeiculacao: 0,
+        investimento: 53.16,
+        receita: 199.2,
+        unidadesAtribuidas: 8,
+      },
+      itens: [{
+        canal: "shopee",
+        itemId: "58210482074",
+        titulo: "Cortina Box Preta Cinza Visor",
+        status: "ongoing",
+        impressoes: 8_200,
+        cliques: 199,
+        unidadesAtribuidas: 8,
+        ctr: 2.43,
+        cvr: 4.02,
+        investimento: 53.16,
+        receita: 199.2,
+        qualidade: null,
+        nivelQualidade: null,
+        qualidadeStatus: "nao_aplicavel",
+        pendencias: [],
+        dataCriacao: null,
+      }],
+      semVeiculacao: [],
+    };
+    obterPublicacoes.mockResolvedValue(dados);
+    // O mock é compartilhado entre os testes do arquivo; sem limpar, as
+    // chamadas do teste anterior contariam aqui.
+    obterPublicacoes.mockClear();
+
+    render(<PublicacoesCard
+      marcas={[{ brandId, marcaLabel: "WUWU", slug: "wuwu" }]}
+      inicio="2026-08-15"
+      fim="2026-08-21"
+      brandIdsIniciais={[brandId]}
+      canaisIniciais={["shopee"]}
+    />);
+
+    expect(await screen.findByText("Cortina Box Preta Cinza Visor")).toBeInTheDocument();
+    // "ongoing" é estado da Shopee: sem tradução cairia em "Status indisponível".
+    expect(screen.getByText("Ativo")).toBeInTheDocument();
+    // A nota de qualidade é do Mercado Livre; aqui o certo é dizer que não
+    // se aplica, e não mostrar zero nem "Indisponível" (que seria falha).
+    expect(screen.getByText("Não aplicável")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Entenda o indicador Pontuação de qualidade" }));
+    expect(screen.getByText(/não publica nota de qualidade/i)).toBeInTheDocument();
+    // Dado de snapshot não pode se passar por consulta ao vivo.
+    expect(screen.getByText(/última sincronização de publicidade/i)).toBeInTheDocument();
+
+    const chamada = obterPublicacoes.mock.calls.at(0)?.[0] as { canal?: string } | undefined;
+    expect(chamada?.canal).toBe("shopee");
+    // Sem segunda etapa: enriquecer só existe no Mercado Livre.
+    expect(obterPublicacoes).toHaveBeenCalledTimes(1);
   });
 
   it("BarraComLimite não espelha a barra quando o valor é negativo", () => {

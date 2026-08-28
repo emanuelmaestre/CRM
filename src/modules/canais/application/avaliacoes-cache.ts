@@ -2,7 +2,8 @@ import "server-only";
 
 import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { brand, mlAvaliacaoAnuncio, shopeeAvaliacaoAnuncio } from "@/shared/lib/db/schema";
+import { brand, channelAccount, mlAvaliacaoAnuncio, shopeeAvaliacaoAnuncio } from "@/shared/lib/db/schema";
+import { urlProdutoShopee } from "@/shared/config/shopee-env";
 import settingsConfig from "@/config/settings.json";
 import type { MLDistribuicaoNotas, MLOpiniao } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
@@ -35,7 +36,7 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
 }> {
   // As duas tabelas são independentes. Consultá-las em paralelo reduz pela
   // metade o caminho crítico da página em conexões frias com o banco.
-  const [linhasMl, linhasShopee] = await Promise.all([
+  const [linhasMl, linhasShopee, contasShopee] = await Promise.all([
     db
       .select({
         listingId: mlAvaliacaoAnuncio.listingId,
@@ -54,6 +55,7 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
     db
       .select({
         itemId: shopeeAvaliacaoAnuncio.itemId,
+        brandId: shopeeAvaliacaoAnuncio.brandId,
         title: shopeeAvaliacaoAnuncio.title,
         ratingAverage: shopeeAvaliacaoAnuncio.ratingAverage,
         reviewsTotal: shopeeAvaliacaoAnuncio.reviewsTotal,
@@ -65,7 +67,23 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
       .from(shopeeAvaliacaoAnuncio)
       .innerJoin(brand, and(eq(brand.id, shopeeAvaliacaoAnuncio.brandId), eq(brand.orgId, orgId)))
       .where(eq(shopeeAvaliacaoAnuncio.orgId, orgId)),
+    /* Só pelo shop_id de cada marca dá pra montar o link do anúncio da
+       Shopee — ver `urlProdutoShopee`. Sem ele, a lista de Avaliações
+       mostrava o botão "abrir anúncio" no Mercado Livre e nada na Shopee,
+       como se aquele anúncio não existisse em lugar nenhum. */
+    db
+      .select({ brandId: channelAccount.brandId, meta: channelAccount.meta })
+      .from(channelAccount)
+      .where(and(eq(channelAccount.orgId, orgId), eq(channelAccount.tipo, "shopee"))),
   ]);
+
+  const shopIdPorMarca = new Map<string, string>();
+  for (const conta of contasShopee) {
+    const shopId = (conta.meta as { externalAccountId?: unknown } | null)?.externalAccountId;
+    // Conta sintética (seed) não tem shop_id: fica sem link, em vez de um
+    // endereço inventado que levaria a uma página inexistente.
+    if (typeof shopId === "string" && shopId.trim()) shopIdPorMarca.set(conta.brandId, shopId.trim());
+  }
 
   const itemsMl = linhasMl.map((linha) => ({
     listingId: linha.listingId,
@@ -87,7 +105,9 @@ export async function listarAvaliacoesDoCache(orgId: string): Promise<{
   const itemsShopee = linhasShopee.map((linha) => ({
     listingId: linha.itemId,
     title: linha.title,
-    permalink: null,
+    permalink: shopIdPorMarca.has(linha.brandId)
+      ? urlProdutoShopee(shopIdPorMarca.get(linha.brandId)!, linha.itemId)
+      : null,
     ratingAverage: linha.ratingAverage,
     reviewsTotal: linha.reviewsTotal,
     ratingLevels: linha.ratingLevels as MLDistribuicaoNotas | null,

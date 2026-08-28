@@ -62,6 +62,15 @@ export function obterShopeeAppCredenciais(
   };
 }
 
+/** Endereço público do anúncio na Shopee. A Shopee não devolve permalink em
+ *  nenhuma das APIs que usamos — nem na de catálogo, nem na de Ads —, mas a
+ *  URL do produto é formada por shop_id + item_id, e é assim que a própria
+ *  loja monta o link. Fica aqui, e não dentro do provider, porque quem exibe
+ *  Avaliações precisa da mesma URL sem carregar a integração inteira. */
+export function urlProdutoShopee(shopId: string, itemId: string): string {
+  return `https://shopee.com.br/product/${shopId}/${itemId}`;
+}
+
 /** Canais da tabela `canal_tokens` que guardam token OAuth da Shopee — um por
  *  app do Open Platform, porque a autorização é por APP e não por loja. A
  *  mesma loja concede acesso a cada app separadamente e cada concessão gera

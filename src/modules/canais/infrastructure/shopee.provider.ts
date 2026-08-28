@@ -2,7 +2,7 @@ import crypto from "crypto";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
-import { obterShopeeBaseUrl, obterShopeeAppCredenciais, canalTokenShopee, type ShopeeApp } from "@/shared/config/shopee-env";
+import { obterShopeeBaseUrl, obterShopeeAppCredenciais, canalTokenShopee, urlProdutoShopee, type ShopeeApp } from "@/shared/config/shopee-env";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 interface ShopeeCredentials {
@@ -104,6 +104,13 @@ function saldoDoEstoque(stockInfo?: ShopeeStockInfo): number {
 // current_price já reflete promoção ativa; cai pro original_price quando
 // não há price_info nenhum (item sem preço configurado é caso raro, mas
 // não pode quebrar a importação inteira por causa disso).
+/** Preço do anúncio, ou null quando a Shopee não informou nenhum. */
+function precoOuNulo(priceInfo?: ShopeePriceInfo): string | null {
+  const info = priceInfo?.[0];
+  const valor = info?.current_price ?? info?.original_price ?? null;
+  return valor === null || valor === undefined ? null : String(valor);
+}
+
 function precoDoItem(priceInfo?: ShopeePriceInfo): string {
   const info = priceInfo?.[0];
   return String(info?.current_price ?? info?.original_price ?? 0);
@@ -933,6 +940,74 @@ export class ShopeeProvider implements ChannelProvider {
       this.modelosPorItem.delete(itemId);
       throw error;
     }
+  }
+
+  /** Status, preço, foto e link dos anúncios informados — o equivalente
+   *  Shopee do `consultarStatusAnuncios` do Mercado Livre, que a A5 já usa
+   *  há tempos. Existe porque esses quatro campos apareciam preenchidos no
+   *  Mercado Livre e vazios na Shopee em Estoque e Avaliações: não é que a
+   *  Shopee não informe, é que ninguém estava perguntando (a chamada que já
+   *  fazíamos pedia só `item_name`).
+   *
+   *  Uma chamada por lote de 50, o mesmo limite que `listarCatalogoAtivo`
+   *  respeita. O status vem CRU ("NORMAL", "UNLIST", "BANNED", "DELETED") —
+   *  traduzir é papel de quem exibe.
+   *
+   *  Anúncio que a Shopee não devolver simplesmente não aparece no resultado;
+   *  quem chama trata ausência como "não sei agora", nunca como "encerrado".
+   *
+   *  O preço vem null quando o anúncio tem variação: nesse caso a Shopee só
+   *  informa preço por SKU, num `get_model_list` por item — e é justamente a
+   *  chamada cara que a coleta de saldo já raciona por causa da cota do proxy.
+   *  Status, foto e link, que eram os campos ausentes nas telas, vêm sempre. */
+  async consultarStatusAnuncios(itemIds: string[]): Promise<Record<string, {
+    status: string | null;
+    preco: string | null;
+    imagem: string | null;
+    permalink: string;
+  }>> {
+    garantirNaoPausado();
+    const resultado: Record<string, { status: string | null; preco: string | null; imagem: string | null; permalink: string }> = {};
+    const ids = [...new Set(itemIds.map((id) => id.trim()).filter(Boolean))];
+    if (ids.length === 0) return resultado;
+
+    type ItemComDetalhe = {
+      item_id: number;
+      item_status?: string;
+      price_info?: ShopeePriceInfo;
+      image?: { image_url_list?: string[] };
+    };
+
+    for (let i = 0; i < ids.length; i += 50) {
+      const lote = ids.slice(i, i + 50);
+      const res = await shopeeFetch(this.url("/product/get_item_base_info", {
+        item_id_list: lote.join(","),
+        response_optional_fields: "item_status,price_info,image",
+      }), { signal: AbortSignal.timeout(10000) });
+      // Lote que falha não derruba os outros: é uma coleta de enriquecimento,
+      // e meia tela preenchida vale mais que uma execução abortada.
+      if (!res.ok) continue;
+      const data = await res.json().catch(() => null) as {
+        error?: string;
+        response?: { item_list?: ItemComDetalhe[] };
+      } | null;
+      if (!data || data.error) continue;
+
+      for (const item of data.response?.item_list ?? []) {
+        const itemId = String(item.item_id);
+        resultado[itemId] = {
+          status: item.item_status ?? null,
+          // `precoDoItem` devolve "0" quando não há preço, o que serve pro
+          // importador de catálogo mas não aqui: gravar zero como preço do
+          // anúncio seria inventar um número. Ausente fica ausente.
+          preco: precoOuNulo(item.price_info),
+          imagem: item.image?.image_url_list?.[0] ?? null,
+          permalink: urlProdutoShopee(this.creds.shopId, itemId),
+        };
+      }
+    }
+
+    return resultado;
   }
 
   /** Catálogo inteiro da loja (ativo à venda), pro importador do Estoque —

@@ -27,6 +27,7 @@ import {
   actionObterLimiteDoDia, actionObterPosVenda, actionObterResumoPublicacoes, actionObterSaudeLoja,
   actionObterSnapshotAnterior, type ResumoPublicacoesMosaico,
 } from "./actions";
+import { PLATAFORMAS_ANUNCIOS, type PlataformaAnuncios } from "@/modules/anuncios/domain/plataformas";
 import type { LimiteDoDia } from "@/shared/components/limite-do-dia";
 import type { SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
@@ -285,13 +286,17 @@ export function Mosaico({
      os previews ao mesmo tempo, igual ao resto do app (Vendas, Estoque,
      Avaliações). Quem quiser comparar marcas diferentes faz isso dentro de
      Marca/Comparação, que já existem pra esse fim. Começa com tudo
-     selecionado (todas as marcas conectadas + Mercado Livre) — a régua
-     "sem filtro = sem dado" continua valendo se a pessoa limpar a seleção,
-     mas o primeiro carregamento já mostra número, não uma tela pedindo
-     escolha. */
+     selecionado (todas as marcas conectadas + todos os canais conectados) —
+     a régua "sem filtro = sem dado" continua valendo se a pessoa limpar a
+     seleção, mas o primeiro carregamento já mostra número, não uma tela
+     pedindo escolha.
+
+     Até 28/08/2026 "tudo" era só o Mercado Livre, porque era o único canal
+     com dado; a Shopee ficava de fora do primeiro carregamento e sumia da
+     tela inteira (inclusive do card Publicações) sem nada explicando. */
   const [filtroGlobal, setFiltroGlobal] = useState<CardFiltro>(() => ({
     brandId: marcasIniciais.map((marca) => marca.brandId),
-    canal: canaisIniciais.some((canal) => canal.tipo === "mercadolivre") ? ["mercadolivre"] : [],
+    canal: canaisIniciais.filter((canal) => canal.conectado).map((canal) => canal.tipo),
   }));
 
   // Quando as marcas/canais chegam depois do primeiro render (montagem sem
@@ -305,7 +310,7 @@ export function Mosaico({
     primeiroFiltroAplicado.current = true;
     setFiltroGlobal({
       brandId: marcas.map((marca) => marca.brandId),
-      canal: canais.some((canal) => canal.tipo === "mercadolivre") ? ["mercadolivre"] : [],
+      canal: canais.filter((canal) => canal.conectado).map((canal) => canal.tipo),
     });
   }, [marcas, canais]);
 
@@ -482,9 +487,20 @@ export function Mosaico({
       : marcasPublicacoes.map((marca) => marca.brandId);
     return [...selecionadas].sort();
   }, [filtroGlobal.brandId, marcasPublicacoes]);
-  const publicacoesNoEscopo = filtroGlobal.canal.length === 0 || filtroGlobal.canal.includes("mercadolivre");
+  /* Quais canais de publicidade o filtro global deixa passar. Antes isto era
+     um booleano "é Mercado Livre?", porque só o ML tinha Product Ads
+     integrado; com a Shopee sincronizando (job A32), filtrar por Shopee
+     esvaziava o card em vez de mostrar os anúncios dela. Sem filtro de canal
+     = todos os canais com publicidade, e um canal sem publicidade (TikTok)
+     simplesmente não entra na lista. */
+  const canaisPublicacoes = useMemo<PlataformaAnuncios[]>(() => (
+    filtroGlobal.canal.length === 0
+      ? [...PLATAFORMAS_ANUNCIOS]
+      : PLATAFORMAS_ANUNCIOS.filter((canal) => filtroGlobal.canal.includes(canal))
+  ), [filtroGlobal.canal]);
+  const publicacoesNoEscopo = canaisPublicacoes.length > 0;
   const periodoPublicacoes = periodoEfetivo(periodo);
-  const chavePublicacoes = `${periodoPublicacoes.inicio}..${periodoPublicacoes.fim}|${idsPublicacoes.join(",")}`;
+  const chavePublicacoes = `${periodoPublicacoes.inicio}..${periodoPublicacoes.fim}|${idsPublicacoes.join(",")}|${canaisPublicacoes.join(",")}`;
   const [resumoPublicacoes, setResumoPublicacoes] = useState<{
     chave: string;
     dados: ResumoPublicacoesMosaico | null;
@@ -496,6 +512,7 @@ export function Mosaico({
     let ativo = true;
     actionObterResumoPublicacoes({
       brandIds: idsPublicacoes,
+      canais: canaisPublicacoes,
       inicio: periodoPublicacoes.inicio,
       fim: periodoPublicacoes.fim,
     })
@@ -506,7 +523,7 @@ export function Mosaico({
         toast.error("Não foi possível carregar o resumo de Publicações.", { id: "metricas-publicacoes-resumo" });
       });
     return () => { ativo = false; };
-  }, [chavePublicacoes, idsPublicacoes, periodoPublicacoes.inicio, periodoPublicacoes.fim, publicacoesNoEscopo]);
+  }, [chavePublicacoes, idsPublicacoes, canaisPublicacoes, periodoPublicacoes.inicio, periodoPublicacoes.fim, publicacoesNoEscopo]);
 
   const resumoPublicacoesAtual = resumoPublicacoes.chave === chavePublicacoes ? resumoPublicacoes.dados : null;
   const carregandoPublicacoes = publicacoesNoEscopo && idsPublicacoes.length > 0
@@ -1028,11 +1045,12 @@ export function Mosaico({
             : blocosCopy.publicacoes.legenda,
       },
       explicacao: {
-        resumo: "Como cada anúncio patrocinado se saiu no Mercado Livre durante o período selecionado, sem misturar vendas orgânicas com resultados da publicidade.",
+        resumo: "Como cada anúncio patrocinado se saiu nos canais selecionados durante o período, sem misturar vendas orgânicas com resultados da publicidade.",
         pontos: [
-          { titulo: "Impressões, cliques e vendas atribuídas", texto: "Todos os números vêm da mesma medição de publicidade do Mercado Livre. As vendas orgânicas ficam fora para não distorcer a conversão." },
-          { titulo: "Investimento, receita e retorno", texto: "O retorno compara a receita que o Mercado Livre atribuiu ao anúncio com o valor investido exatamente no período selecionado." },
-          { titulo: "Pontuação de qualidade", texto: "É a nota atribuída pelo Mercado Livre ao anúncio, considerando ficha técnica, fotos e atributos preenchidos. Essa nota influencia a exibição nas buscas." },
+          { titulo: "Impressões, cliques e vendas atribuídas", texto: "Cada número vem da medição de publicidade do próprio canal do anúncio. As vendas orgânicas ficam fora para não distorcer a conversão." },
+          { titulo: "Investimento, receita e retorno", texto: "O retorno compara a receita que o canal atribuiu ao anúncio com o valor investido exatamente no período selecionado." },
+          { titulo: "Pontuação de qualidade", texto: "É a nota que o Mercado Livre atribui ao anúncio, considerando ficha técnica, fotos e atributos preenchidos. A Shopee não publica nota equivalente, e por isso os anúncios dela aparecem como \"não aplicável\" — não é nota zero." },
+          { titulo: "De quando é cada número", texto: "O Mercado Livre é consultado na hora. Os da Shopee vêm da sincronização diária de publicidade, e o card mostra a data e a hora dela." },
         ],
         dica: "Publicações sem qualquer veiculação ficam separadas para não esconder os anúncios que realmente consumiram verba ou geraram resultado.",
       },
@@ -1045,14 +1063,14 @@ export function Mosaico({
           inicio={periodoPublicacoes.inicio}
           fim={periodoPublicacoes.fim}
           brandIdsIniciais={idsPublicacoes}
-          canalAtivoInicial={publicacoesNoEscopo}
+          canaisIniciais={canaisPublicacoes}
           acaoSlot={acaoSlot}
         />
       ),
     };
   }, [
     marcasPublicacoes, carregandoPublicacoes, publicacoesNoEscopo,
-    idsPublicacoes, resumoPublicacoesAtual, resumoPublicacoes,
+    idsPublicacoes, canaisPublicacoes, resumoPublicacoesAtual, resumoPublicacoes,
     chavePublicacoes, periodoPublicacoes.inicio, periodoPublicacoes.fim,
   ]);
 

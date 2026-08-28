@@ -280,7 +280,12 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
                     rel="noreferrer"
                     className="press-feedback mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
                   >
-                    Ver no Mercado Livre <ExternalLink size={12} />
+                    {/* O rótulo segue o canal do anúncio: a Shopee passou a
+                        ter link (montado de shop_id + item_id, ver
+                        urlProdutoShopee), e "Ver no Mercado Livre" num
+                        anúncio da Shopee mandaria a pessoa para o lugar
+                        errado antes mesmo de ela clicar. */}
+                    Ver {item.canal === "shopee" ? "na Shopee" : "no Mercado Livre"} <ExternalLink size={12} />
                   </a>
                 )}
               </div>

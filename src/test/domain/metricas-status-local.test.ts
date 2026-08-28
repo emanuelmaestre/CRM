@@ -17,16 +17,33 @@ describe("Métricas — status de anúncio vem da coleta local", () => {
   });
 
   it("lê o snapshot persistido no vínculo do anúncio", () => {
-    expect(dashboard).toContain("produtoCanal.mlStatusAnuncio");
+    expect(dashboard).toContain("produtoCanal.statusAnuncio");
     expect(dashboard).toContain("produtoCanal.mlSubStatus");
     expect(dashboard).toContain("eq(produtoCanal.ativo, true)");
   });
 
+  it("não lê status de um canal só", () => {
+    // O filtro fixo por Mercado Livre fazia produto que só vive na Shopee
+    // aparecer como "sem vínculo" — que é outra coisa, e mandava investigar
+    // um problema que não existia.
+    expect(dashboard).not.toContain('eq(channelAccount.tipo, "mercadolivre")');
+    expect(dashboard).toContain("STATUS_SHOPEE");
+  });
+
   it("persiste na A5 a resposta que já foi coletada em lote", () => {
-    expect(coleta).toContain("mlStatusAnuncio: grupo.status");
+    expect(coleta).toContain("statusAnuncio: grupo.status");
     expect(coleta).toContain("mlSubStatus: grupo.subStatus");
     expect(coleta).toContain("mlStatusVerificadoEm: statusVerificadoEm");
-    expect(schema).toContain('mlStatusAnuncio: text("ml_status_anuncio")');
+    expect(schema).toContain('statusAnuncio: text("status_anuncio")');
+  });
+
+  it("espelha o anúncio da Shopee na mesma coleta", () => {
+    expect(coleta).toContain("espelhar-anuncios-shopee");
+    expect(coleta).toContain("consultarStatusAnuncios");
+    // Sem resposta é "não sei agora": a Shopee não desativa produto aqui,
+    // ao contrário do trecho do Mercado Livre.
+    expect(coleta).not.toContain("produtoIdsParaDesativarShopee");
+    expect(schema).toContain('permalink: text("permalink")');
   });
 
   it("não mantém placares fictícios no mosaico", () => {

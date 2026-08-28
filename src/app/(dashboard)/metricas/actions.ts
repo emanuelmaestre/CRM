@@ -4,12 +4,12 @@ import { unstable_cache } from "next/cache";
 import { medirTempo } from "@/shared/lib/observability/medir-tempo";
 import { z } from "zod";
 import {
-  contarPublicacoesPorMarca,
   enriquecerDesempenhoPublicacoes,
   obterDesempenhoPublicacoesBase,
   PUBLICACOES_CACHE_TAG,
   type DesempenhoPublicacoesResultado,
 } from "@/modules/metricas/application/publicacoes.service";
+import { PLATAFORMAS_ANUNCIOS } from "@/modules/anuncios/domain/plataformas";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import { assertPerfil } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
@@ -50,6 +50,10 @@ const PublicacoesSchema = z.object({
   brandId: z.string().uuid(),
   inicio: z.string().date(),
   fim: z.string().date(),
+  /* Enum de verdade, ao contrário de `canais` em FiltrosSchema: ali um
+     canal desconhecido só deixa de casar linha, aqui ele escolheria qual
+     integração chamar. Um valor fora da lista tem de ser recusado. */
+  canal: z.enum(PLATAFORMAS_ANUNCIOS).optional(),
   detalhes: z.boolean().optional(),
 });
 
@@ -90,39 +94,13 @@ export async function actionObterDesempenhoPublicacoes(
   );
 }
 
-const ContarPublicacoesSchema = z.object({
-  brandIds: z.array(z.string().uuid()).max(20),
-  inicio: z.string().date(),
-  fim: z.string().date(),
-});
-
-const contarPublicacoesPorMarcaComCache = unstable_cache(
-  async (orgId: string, filtros: z.infer<typeof ContarPublicacoesSchema>) =>
-    contarPublicacoesPorMarca({ db, orgId, perfil: "gestor" }, filtros),
-  ["metricas-publicacoes-contagem"],
-  { revalidate: 120, tags: [PUBLICACOES_CACHE_TAG] },
-);
-
-/** Alimenta o número ao lado de cada pílula de marca em Publicações — mesmo
- *  espírito de `contarPedidosPorMarca`/`contarProdutosPorMarca`, só que
- *  aqui a contagem não vem do banco: chama a API de Product Ads do
- *  Mercado Livre por marca (ver `contarPublicacoesPorMarca`). */
-export async function actionContarPublicacoesPorMarca(
-  filtros: z.infer<typeof ContarPublicacoesSchema>,
-): Promise<Array<{ brandId: string; total: number }>> {
-  const ctx = await getCrudContext();
-  assertPerfil(ctx, [...PERFIS_LEITURA]);
-  const filtrosValidos = ContarPublicacoesSchema.parse(filtros);
-  return medirTempo(
-    "metricas/publicacoes-contagem",
-    () => contarPublicacoesPorMarcaComCache(ctx.orgId, filtrosValidos),
-  );
-}
-
 const ResumoPublicacoesSchema = z.object({
   brandIds: z.array(z.string().uuid()).min(1).max(20),
   inicio: z.string().date(),
   fim: z.string().date(),
+  /** Canais somados no tile fechado. Vazio nunca chega da tela — o mosaico
+   *  já traduz "sem filtro de canal" para a lista inteira antes de chamar. */
+  canais: z.array(z.enum(PLATAFORMAS_ANUNCIOS)).min(1).max(PLATAFORMAS_ANUNCIOS.length),
 });
 
 export interface ResumoPublicacoesMosaico {
@@ -155,13 +133,17 @@ export async function actionObterResumoPublicacoes(
   const fimAnterior = deslocarDataIso(validos.inicio, -1);
   const inicioAnterior = deslocarDataIso(validos.inicio, -dias);
 
-  const resultados = await Promise.allSettled(validos.brandIds.map(async (brandId) => {
+  /* Uma consulta por (marca × canal): o tile fechado soma o que estiver
+     selecionado. Falha de um canal não derruba o outro — `allSettled` já
+     trata cada par como independente, e o `parcial` no fim avisa a tela. */
+  const pares = validos.brandIds.flatMap((brandId) => validos.canais.map((canal) => ({ brandId, canal })));
+  const resultados = await Promise.allSettled(pares.map(async ({ brandId, canal }) => {
     const [atual, anterior] = await Promise.all([
       obterDesempenhoPublicacoesBaseComCache(ctx.orgId, {
-        brandId, inicio: validos.inicio, fim: validos.fim,
+        brandId, canal, inicio: validos.inicio, fim: validos.fim,
       }),
       obterDesempenhoPublicacoesBaseComCache(ctx.orgId, {
-        brandId, inicio: inicioAnterior, fim: fimAnterior,
+        brandId, canal, inicio: inicioAnterior, fim: fimAnterior,
       }),
     ]);
     return { atual: atual.resumo, anterior: anterior.resumo };
