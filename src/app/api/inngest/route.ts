@@ -26,6 +26,7 @@ import { A30_snapshotMetricas } from "@/modules/jobs/A30-snapshot-metricas";
 import { A31_sincronizarConta } from "@/modules/jobs/A31-sincronizar-conta";
 import { A32_syncAnunciosAds } from "@/modules/jobs/A32-sync-anuncios-ads";
 import { A33_refreshShopeeTokens } from "@/modules/jobs/A33-refresh-shopee-tokens";
+import { A34_reconciliarPedidos } from "@/modules/jobs/A34-reconciliar-pedidos";
 
 /* Cada `step.run` é uma invocação HTTP própria desta rota, então o limite vale
    por step, não pelo job inteiro. Sem declarar nada, a Vercel aplica o padrão
@@ -66,5 +67,6 @@ export const { GET, POST, PUT } = serve({
     A31_sincronizarConta,
     A32_syncAnunciosAds,
     A33_refreshShopeeTokens,
+    A34_reconciliarPedidos,
   ],
 });

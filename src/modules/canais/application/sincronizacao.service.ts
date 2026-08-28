@@ -18,7 +18,15 @@ import {
 export async function dispararSincronizacaoConta(
   ctx: CrudContext,
   channelAccountId: string,
-  opcoes: { modulos?: readonly ModuloSincronizacao[] } = {},
+  opcoes: {
+    modulos?: readonly ModuloSincronizacao[];
+    /** Início da varredura de Pedidos. Sem isto, um pedido de módulo usa as
+     *  últimas 24h (é o que a tela quer: "confere agora o que acabou de
+     *  entrar"). A reconciliação diária (A34) passa uma janela maior, porque o
+     *  buraco que ela existe pra tapar é justamente o pedido que a janela
+     *  curta já deixou pra trás. */
+    desde?: Date;
+  } = {},
 ) {
   assertPerfil(ctx, ["admin", "gestor"]);
 
@@ -135,9 +143,11 @@ export async function dispararSincronizacaoConta(
       modulos: [...solicitados],
       // Atualização pontual de Pedidos é incremental. A fila completa de
       // Configurações continua sem `desde` e preserva a varredura de 90 dias.
-      desde: opcoes.modulos?.length
-        ? new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString()
-        : undefined,
+      desde: opcoes.desde
+        ? opcoes.desde.toISOString()
+        : opcoes.modulos?.length
+          ? new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString()
+          : undefined,
     },
   });
 

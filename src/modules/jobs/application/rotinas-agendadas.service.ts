@@ -19,6 +19,18 @@ const ROTINAS_AGENDADAS = [
     atrasoLimiteMinutos: 6 * 60,
   },
   {
+    nome: "A34-reconciliar-pedidos",
+    titulo: "Reconciliação de pedidos dos últimos dias",
+    categoria: "Pedidos",
+    // Rede de segurança de trás da rede de segurança: a A24 cobre webhook
+    // perdido dentro da janela dela, esta cobre o que escapou das duas — ver
+    // DIAS_RECONCILIACAO em A34-reconciliar-pedidos.ts. Diário, então o limite
+    // de atraso dá um dia inteiro de folga.
+    agenda: "uma vez por dia",
+    cron: "0 5 * * *",
+    atrasoLimiteMinutos: 48 * 60,
+  },
+  {
     nome: "A18-saude-conectores",
     titulo: "Verificação de integridade dos conectores",
     categoria: "Canais",
