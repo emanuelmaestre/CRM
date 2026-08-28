@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "drizzle-orm";
 import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
+import { liquidoDoPedido } from "@/modules/vendas/domain/liquido-pedido";
 import {
   brand,
   channelAccount,
@@ -75,9 +76,12 @@ export interface FaturamentoResumo {
   ticketMedio: string;
   serie: SeriePonto[];
   janelaLabel: string;
-  /** Faturamento líquido: total menos taxa de marketplace conhecida (por item)
-   *  e frete pago pelo vendedor. Não desconta desconto/acréscimo nem custo do
-   *  produto — mesmo critério já usado no detalhe do pedido (`valorLiquido`). */
+  /** Faturamento líquido. Quando o canal informa o repasse real (`valor_liquido`
+   *  — hoje a Shopee, via escrow), é ele que vale: já vem com tarifas, subsídios
+   *  e ajustes que a estimativa não tem como enxergar. Sem esse dado (Mercado
+   *  Livre e canais manuais), cai na estimativa `total - taxas conhecidas -
+   *  frete`, que não desconta desconto/acréscimo nem custo do produto. Mesmo
+   *  critério do detalhe do pedido — os dois precisam bater na mesma janela. */
   totalLiquidoNumerico: number;
   totalLiquido: string;
   totalAnteriorLiquidoNumerico: number;
@@ -446,12 +450,12 @@ export async function obterDashboardData(
 
   const [pedidosJanela, taxasPorPedido, itensVendidos, produtosAtivos, ultimasSaidas] = await Promise.all([
     ctx.db
-      .select({ id: pedido.id, total: pedido.total, frete: pedido.frete, createdAt: pedido.createdAt })
+      .select({ id: pedido.id, total: pedido.total, frete: pedido.frete, valorLiquido: pedido.valorLiquido, createdAt: pedido.createdAt })
       .from(pedido)
       .where(and(...condicoesPedido)),
     // Soma da taxa de marketplace por pedido, na mesma janela de busca dos
-    // pedidos acima — usada para o faturamento líquido (ver `valorLiquido`
-    // no detalhe do pedido, mesmo critério: total - taxas - frete).
+    // pedidos acima. Só entra em cena no fallback: pedido cujo canal informou
+    // o repasse real usa `valor_liquido` e ignora esta soma.
     ctx.db
       .select({
         pedidoId: pedidoItem.pedidoId,
@@ -514,7 +518,12 @@ export async function obterDashboardData(
 
   for (const item of pedidosJanela) {
     const valor = parseMoney(item.total);
-    const liquido = valor - (taxaPorPedido.get(item.id) ?? 0) - parseMoney(item.frete);
+    const liquido = liquidoDoPedido({
+      total: valor,
+      frete: parseMoney(item.frete),
+      valorLiquido: item.valorLiquido,
+      taxasConhecidas: taxaPorPedido.get(item.id) ?? 0,
+    });
     const chave = (serieHoraria ? startOfHour(item.createdAt) : inicioDoBalde(item.createdAt, granularidadeSerie)).getTime();
     if (baldes.has(chave)) baldes.set(chave, (baldes.get(chave) ?? 0) + valor);
     if (baldesLiquido.has(chave)) baldesLiquido.set(chave, (baldesLiquido.get(chave) ?? 0) + liquido);

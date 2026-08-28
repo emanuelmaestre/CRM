@@ -52,6 +52,8 @@ const resumoInicial: Resumo = {
   devolvidosValor: 0,
   freteTotal: 0,
   descontosTotal: 0,
+  taxasTotal: 0,
+  liquidoTotal: 0,
 };
 
 const limiteDoDiaInicial: LimiteDoDia = { soNoMercadoLivre: [], soAqui: [] };
@@ -630,17 +632,33 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         aria-label="Resumo das vendas filtradas"
       >
         {[
-          { chave: "faturamento", label: "Faturamento", numero: resumo.faturamento, formatar: (v: number) => dinheiro.format(v), icon: CircleDollarSign, cor: "var(--success)" },
-          { chave: "pedidos", label: "Pedidos", numero: resumo.totalPedidos, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)" },
+          {
+            chave: "faturamento",
+            label: "Faturamento",
+            numero: resumo.faturamento,
+            formatar: (v: number) => dinheiro.format(v),
+            icon: CircleDollarSign,
+            cor: "var(--success)",
+            /* O líquido vive como subtítulo do bruto, não como um sexto card:
+               é o mesmo dinheiro visto de outro ângulo, e separá-los em cards
+               irmãos convidava a somar um com o outro. Só aparece quando é
+               menor que o bruto — se nenhum pedido do filtro tem taxa nem
+               repasse conhecido, os dois números seriam idênticos e a linha
+               viraria ruído. */
+            sub: resumo.liquidoTotal > 0 && resumo.liquidoTotal < resumo.faturamento
+              ? `${dinheiro.format(resumo.liquidoTotal)} líquido`
+              : undefined,
+          },
+          { chave: "pedidos", label: "Pedidos", numero: resumo.totalPedidos, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)", sub: undefined },
           {
             chave: "cancelados",
             label: <><span className="lg:hidden">Cancel./Devol.</span><span className="hidden lg:inline">Cancelados/Devolvidos</span></>,
-            numero: resumo.cancelados, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)",
+            numero: resumo.cancelados, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)", sub: undefined,
           },
           {
             chave: "valor-cancelado",
             label: <><span className="lg:hidden">Valor cancel./devol.</span><span className="hidden lg:inline">Valor cancelado/devolvido</span></>,
-            numero: resumo.canceladosValor + resumo.devolvidosValor, formatar: (v: number) => dinheiro.format(v), icon: Ban, cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)",
+            numero: resumo.canceladosValor + resumo.devolvidosValor, formatar: (v: number) => dinheiro.format(v), icon: Ban, cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)", sub: undefined,
           },
         ].map((card) => (
           <motion.div key={card.chave} variants={variantes(reduzir, entradaExagerada)}>
@@ -649,6 +667,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
               valor={<NumeroAnimado valor={card.numero} formatar={card.formatar} apenasPrimeiraVez={false} duracao={0.5} />}
               icon={card.icon}
               cor={card.cor}
+              sub={card.sub}
               compactoNoMobile
             />
           </motion.div>

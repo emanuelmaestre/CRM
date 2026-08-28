@@ -63,6 +63,23 @@ export async function consultarPedidosDetalhados(
   return { data, total: totalRows[0]?.total ?? 0, limit: opts.limit, offset: opts.offset };
 }
 
+/** Taxa que o canal cobrou por um pedido: soma dos itens, zero quando nenhum
+ *  item tem taxa conhecida. Subconsulta, e não join, para não multiplicar a
+ *  linha do pedido — ver o comentário em `consultarResumoPedidos`. */
+const TAXA_DO_PEDIDO = sql`coalesce((
+  select sum(${pedidoItem.taxaMarketplace}) from ${pedidoItem}
+  where ${pedidoItem.pedidoId} = ${pedido.id}
+), 0)`;
+
+/** Repasse do pedido. `valor_liquido` é o número que o canal informou (escrow
+ *  da Shopee) e vale mais que qualquer reconstrução nossa: já traz subsídio de
+ *  frete, tarifa de campanha e ajustes que a estimativa não enxerga. Para quem
+ *  não informa (Mercado Livre, canais manuais), sobra a estimativa. */
+const LIQUIDO_DO_PEDIDO = sql`coalesce(
+  ${pedido.valorLiquido},
+  ${pedido.total} - ${TAXA_DO_PEDIDO} - coalesce(${pedido.frete}, 0)
+)`;
+
 export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedidos) {
   const [resumo] = await db
     .select({
@@ -81,6 +98,13 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       devolvidosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'devolvido'), 0)`,
       freteTotal: sql<string>`coalesce(sum(${pedido.frete}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
       descontosTotal: sql<string>`coalesce(sum(${pedido.desconto}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
+      // Taxa cobrada pelo canal, somada por pedido numa subconsulta em vez de
+      // um join: `pedido_item` é 1:N e juntá-lo aqui multiplicaria o cabeçalho
+      // do pedido pelo número de itens, inflando faturamento e ticket médio.
+      taxasTotal: sql<string>`coalesce(sum(${TAXA_DO_PEDIDO}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
+      // Mesma regra do detalhe do pedido e de Métricas: o repasse informado
+      // pelo canal manda; sem ele, a estimativa total - taxas - frete.
+      liquidoTotal: sql<string>`coalesce(sum(${LIQUIDO_DO_PEDIDO}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
     })
     .from(pedido)
     .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
@@ -97,6 +121,8 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
     devolvidosValor: Number(resumo?.devolvidosValor ?? 0),
     freteTotal: Number(resumo?.freteTotal ?? 0),
     descontosTotal: Number(resumo?.descontosTotal ?? 0),
+    taxasTotal: Number(resumo?.taxasTotal ?? 0),
+    liquidoTotal: Number(resumo?.liquidoTotal ?? 0),
   };
 }
 

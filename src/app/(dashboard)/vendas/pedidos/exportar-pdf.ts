@@ -16,6 +16,8 @@ type ResumoPdf = {
   cancelados: number;
   freteTotal: number;
   descontosTotal: number;
+  taxasTotal: number;
+  liquidoTotal: number;
 };
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -72,17 +74,27 @@ export async function exportarPedidosPdf(input: {
   autoTable(doc, {
     startY: 34,
     theme: "grid",
-    body: [[
-      "Faturamento", moeda.format(input.resumo.faturamento),
-      "Pedidos", input.resumo.totalPedidos.toLocaleString("pt-BR"),
-      "Valor médio por pedido", moeda.format(input.resumo.ticketMedio),
-      "Cancel. / devol.", input.resumo.cancelados.toLocaleString("pt-BR"),
-      "Frete", moeda.format(input.resumo.freteTotal),
-      "Descontos", moeda.format(input.resumo.descontosTotal),
-    ]],
+    /* Duas linhas de quatro pares, não uma de oito: em A4 paisagem sobram
+       269mm úteis, e dezesseis células deixariam 16mm para cada uma — rótulo
+       como "Faturamento líquido" quebraria no meio e os valores em reais
+       ficariam colados. Com oito células por linha cada uma tem 33mm. */
+    body: [
+      [
+        "Faturamento", moeda.format(input.resumo.faturamento),
+        "Faturamento líquido", moeda.format(input.resumo.liquidoTotal),
+        "Pedidos", input.resumo.totalPedidos.toLocaleString("pt-BR"),
+        "Valor médio por pedido", moeda.format(input.resumo.ticketMedio),
+      ],
+      [
+        "Taxas do canal", moeda.format(input.resumo.taxasTotal),
+        "Frete", moeda.format(input.resumo.freteTotal),
+        "Descontos", moeda.format(input.resumo.descontosTotal),
+        "Cancel. / devol.", input.resumo.cancelados.toLocaleString("pt-BR"),
+      ],
+    ],
     styles: { fontSize: 8.5, cellPadding: 3.5 },
     columnStyles: Object.fromEntries(
-      [0, 2, 4, 6, 8, 10].map((coluna) => [coluna, { fontStyle: "bold" as const, textColor: CINZA_ESCURO }]),
+      [0, 2, 4, 6].map((coluna) => [coluna, { fontStyle: "bold" as const, textColor: CINZA_ESCURO }]),
     ),
   });
 

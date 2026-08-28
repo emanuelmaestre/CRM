@@ -12,6 +12,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { podeCancelar, type PedidoStatus } from "@/modules/vendas/domain/state-machine";
+import { liquidoDoPedido, liquidoFoiInformado } from "@/modules/vendas/domain/liquido-pedido";
 import { CancelarPedidoModal } from "./cancelar-pedido-modal";
 import { StatusPedidoBadge } from "./status-pedido-badge";
 
@@ -103,12 +104,15 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
   const podeCancelarEsse = podeCancelar(detalhe.status as PedidoStatus);
   const subtotalItens = itens.reduce((soma, item) => soma + Number(item.precoUnitario) * item.quantidade, 0);
   const taxasConhecidas = itens.reduce((soma, item) => soma + Number(item.taxaMarketplace ?? 0), 0);
-  // A Shopee informa o repasse exato (`escrow_amount`). Para canais que ainda
-  // não o enviam, preservamos a estimativa anterior baseada em total - taxas -
-  // frete, sem inventar o efeito de desconto/acréscimo.
-  const valorLiquido = detalhe.valorLiquido == null
-    ? Number(detalhe.total) - taxasConhecidas - Number(detalhe.frete ?? 0)
-    : Number(detalhe.valorLiquido);
+  // A regra (repasse do canal manda, estimativa só na falta dele) vive em
+  // liquido-pedido.ts, junto do porquê e do tamanho medido da diferença.
+  const liquidoInformado = liquidoFoiInformado(detalhe.valorLiquido);
+  const valorLiquido = liquidoDoPedido({
+    total: detalhe.total,
+    frete: detalhe.frete,
+    valorLiquido: detalhe.valorLiquido,
+    taxasConhecidas,
+  });
   const endereco = [
     [detalhe.enderecoRua, detalhe.enderecoNumero].filter(Boolean).join(", "),
     detalhe.enderecoComplemento,
@@ -283,6 +287,14 @@ export default async function PedidoDetalhePage({ params }: { params: Promise<{ 
             <div className="flex justify-between text-base font-bold" style={{ color: "var(--success)" }}>
               <span>Valor líquido</span><span>{moeda(String(valorLiquido))}</span>
             </div>
+            {/* Os dois números moram na mesma linha da tela, mas não têm o mesmo
+                peso: um é o repasse que o canal fechou, o outro é conta nossa
+                por falta de dado melhor. Sem dizer qual é qual, quem confere
+                com o extrato do canal não sabe se uma diferença é erro do CRM
+                ou limitação da fonte. */}
+            <p className="-mt-1 text-right text-[11px] font-medium text-muted-foreground">
+              {liquidoInformado ? "repasse informado pelo canal" : "estimado: total - taxas - frete"}
+            </p>
           </div>
         </div>
 
