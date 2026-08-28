@@ -85,13 +85,17 @@ export function CardLimiteDoDia({ dados, onClick }: { dados: LimiteDoDia; onClic
 /** Pedido individual da lista. Mostra o número do ML junto do nome porque é
  *  por ele que se confere pedido a pedido do outro lado — sem isso, a lista
  *  prova que a diferença existe, mas não deixa auditar. */
-function LinhaPedidoNoLimite({ item }: { item: PedidoNoLimite }) {
+function LinhaPedidoNoLimite({ item, ancorado }: { item: PedidoNoLimite; ancorado?: boolean }) {
   const foraDaSoma = item.status === "cancelado" || item.status === "devolvido";
   return (
     <li>
       <Link
         href={`/vendas/pedidos/${item.id}`}
         className="flex items-center gap-2.5 rounded-[0.6rem] px-2 py-1.5 transition-colors hover:bg-muted"
+        // O pedido que o desenho usa de exemplo fica marcado também aqui na
+        // lista: sem isso, "um pedido desta lista" obriga a pessoa a caçar o
+        // número à mão para ligar as duas coisas.
+        style={ancorado ? { background: "color-mix(in srgb, var(--info) 9%, transparent)" } : undefined}
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-semibold text-foreground">{item.clienteNome}</span>
@@ -120,11 +124,12 @@ function LinhaPedidoNoLimite({ item }: { item: PedidoNoLimite }) {
  *  quinze pedidos na virada, era o título que sumia primeiro — e sem ele a
  *  lista deixa de dizer QUAL das duas pontas se está lendo, que é a única
  *  coisa que distingue uma da outra. */
-function GrupoLimiteDoDia({ titulo, dica, linhas, soma }: {
+function GrupoLimiteDoDia({ titulo, dica, linhas, soma, idAncora }: {
   titulo: string;
   dica: string;
   linhas: PedidoNoLimite[];
   soma: number;
+  idAncora?: string;
 }) {
   if (linhas.length === 0) return null;
   const resumo = (linhas.length === 1 ? copyLimite.grupoResumoUm : copyLimite.grupoResumoMuitos)
@@ -145,7 +150,7 @@ function GrupoLimiteDoDia({ titulo, dica, linhas, soma }: {
       </div>
       <p className="mt-0.5 shrink-0 text-[11.5px] leading-snug text-muted-foreground">{dica}</p>
       <ul className="mt-1.5 min-h-0 flex-1 divide-y divide-border/70 overflow-y-auto">
-        {linhas.map((item) => <LinhaPedidoNoLimite key={item.id} item={item} />)}
+        {linhas.map((item) => <LinhaPedidoNoLimite key={item.id} item={item} ancorado={item.id === idAncora} />)}
       </ul>
     </section>
   );
@@ -156,14 +161,49 @@ function GrupoLimiteDoDia({ titulo, dica, linhas, soma }: {
    diferentes. É uma ideia espacial contada em prosa: quem lê tem de montar o
    desenho na cabeça antes de entender.
 
-   Aqui ele está montado. Dois trilhos empilhados, o mesmo trecho de tempo nos
-   dois (23:00 às 02:00), e o corte entre um dia e o outro caindo em lugares
-   diferentes em cada um. A distância entre os dois cortes É a divergência —
-   não uma metáfora dela.
+   Aqui ele está montado — e ancorado num pedido DE VERDADE, tirado da lista ao
+   lado. A versão anterior rotulava os trechos de "dia anterior" e "dia
+   seguinte": abstrações que exigem que a pessoa imagine as datas e situe
+   sozinha o pedido dentro do desenho. Agora os trilhos mostram as duas datas
+   reais, uma marca vertical mostra ONDE o pedido caiu, e em cada trilho fica
+   destacado o dia que aquele lado atribui a ele. A divergência deixa de ser
+   uma regra a entender e passa a ser uma coisa a ver.
 
    O recorte é a virada, não o dia inteiro: numa régua de 24 horas a hora em
-   questão teria 4% da largura e o desenho não mostraria nada. */
-function TrilhoDoDia({ rotulo, corte }: { rotulo: string; corte: string }) {
+   questão teria 4% da largura e o desenho não mostraria nada. O trilho vai das
+   23:00 às 02:00 — três horas, cada uma valendo um terço da largura. */
+const CORTE_AQUI = 33.333;
+const CORTE_ML = 66.666;
+const UMA_HORA = 60 * 60 * 1000;
+
+const soHora = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+const soData = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
+
+/** Onde a marca do pedido cai no trilho, em % da largura.
+ *
+ *  Os pedidos desta tela estão todos na hora 00:xx — é essa a definição da
+ *  lista. Se algum dia chegar um fora dela, a marca vai para o meio da hora em
+ *  disputa em vez de escapar do desenho: melhor uma marca aproximada do que
+ *  uma que aponta para fora do trilho e desmente o próprio diagrama. */
+function posicaoNoTrilho(data: Date) {
+  const partes = soHora.formatToParts(data);
+  const hora = Number(partes.find((parte) => parte.type === "hour")?.value ?? "0");
+  const minuto = Number(partes.find((parte) => parte.type === "minute")?.value ?? "0");
+  if (hora !== 0) return 50;
+  return CORTE_AQUI + (minuto / 60) * CORTE_AQUI;
+}
+
+function TrilhoDoDia({ rotulo, corte, diaAnterior, diaSeguinte, posicaoPedido }: {
+  rotulo: string;
+  corte: number;
+  diaAnterior: string;
+  diaSeguinte: string;
+  posicaoPedido: number;
+}) {
+  // Qual dos dois trechos contém o pedido. É o trecho destacado — e como o
+  // corte muda de lugar em cada trilho, o destaque cai em lados opostos nos
+  // dois. Essa oposição é o desenho inteiro numa imagem só.
+  const noTrechoDaEsquerda = posicaoPedido < corte;
   return (
     <div>
       <p className="text-[10px] font-bold uppercase tracking-[.06em] text-muted-foreground">{rotulo}</p>
@@ -171,69 +211,97 @@ function TrilhoDoDia({ rotulo, corte }: { rotulo: string; corte: string }) {
           precisa cobrir as BARRAS e só elas. Uma faixa única atravessando o
           bloco todo passava por cima do rótulo do segundo trilho e o apagava —
           o desenho ficava mais confuso do que a prosa que ele veio substituir. */}
-      <div className="relative mt-1 flex h-6 overflow-hidden rounded-[0.45rem] border border-border">
+      <div className="relative mt-1 flex h-7 overflow-hidden rounded-[0.45rem] border border-border">
         <div
-          className="flex shrink-0 items-center justify-end overflow-hidden pr-2"
-          style={{ width: corte, background: "var(--muted)" }}
-        >
-          <span className="truncate text-[10px] font-semibold text-muted-foreground">{copyLimite.diagrama.ontem}</span>
-        </div>
-        <div
-          className="flex min-w-0 flex-1 items-center pl-2"
-          style={{ background: "color-mix(in srgb, var(--info) 14%, transparent)" }}
-        >
-          <span className="truncate text-[10px] font-bold" style={{ color: AZUL_LIMITE }}>{copyLimite.diagrama.hoje}</span>
-        </div>
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0"
+          className="flex shrink-0 items-center justify-end overflow-hidden px-1.5"
           style={{
-            left: "33.333%",
-            width: "33.333%",
-            background: "color-mix(in srgb, var(--info) 15%, transparent)",
+            width: `${corte}%`,
+            background: noTrechoDaEsquerda ? "color-mix(in srgb, var(--info) 20%, transparent)" : "var(--muted)",
           }}
-        />
+        >
+          <span
+            className={`truncate text-[10.5px] tabular-nums ${noTrechoDaEsquerda ? "font-extrabold" : "font-medium text-muted-foreground"}`}
+            style={noTrechoDaEsquerda ? { color: AZUL_LIMITE } : undefined}
+          >
+            {diaAnterior}
+          </span>
+        </div>
+        <div
+          className="flex min-w-0 flex-1 items-center px-1.5"
+          style={{
+            background: noTrechoDaEsquerda ? "var(--muted)" : "color-mix(in srgb, var(--info) 20%, transparent)",
+          }}
+        >
+          <span
+            className={`truncate text-[10.5px] tabular-nums ${noTrechoDaEsquerda ? "font-medium text-muted-foreground" : "font-extrabold"}`}
+            style={noTrechoDaEsquerda ? undefined : { color: AZUL_LIMITE }}
+          >
+            {diaSeguinte}
+          </span>
+        </div>
       </div>
     </div>
   );
 }
 
-function DiagramaViradaDoDia() {
+function DiagramaViradaDoDia({ ancora }: { ancora: PedidoNoLimite }) {
   const d = copyLimite.diagrama;
+  const posicao = posicaoNoTrilho(ancora.createdAt);
+  // O trecho da esquerda de cada trilho é sempre o dia do ML e o da direita o
+  // daqui: é exatamente essa defasagem de uma hora que o desenho existe para
+  // mostrar, e ela é a mesma nos dois trilhos — só o corte muda de lugar.
+  const dataAqui = soData.format(ancora.createdAt);
+  const dataMl = soData.format(new Date(ancora.createdAt.getTime() - UMA_HORA));
+
   return (
     <figure className="shrink-0 rounded-[0.95rem] border border-border p-3">
-      <figcaption className="text-[11.5px] font-bold uppercase tracking-[.08em]" style={{ color: AZUL_LIMITE }}>
+      <figcaption className="text-[11.5px] font-bold uppercase leading-snug tracking-[.08em]" style={{ color: AZUL_LIMITE }}>
         {d.titulo}
       </figcaption>
 
-      <div className="relative mt-2.5">
+      {/* O pedido concreto, nomeado antes do desenho. Sem isto os trilhos são
+          um diagrama genérico; com isto são a explicação de uma linha que a
+          pessoa está vendo na lista ao lado, com o mesmo número. */}
+      <p className="mt-2 text-[10px] font-bold uppercase tracking-[.06em] text-muted-foreground">{d.exemploRotulo}</p>
+      <p className="truncate text-[12px] font-semibold tabular-nums text-foreground">
+        {ancora.providerOrderId ? `#${ancora.providerOrderId}` : copyLimite.pedidoSem} · {soHora.format(ancora.createdAt)}
+      </p>
+
+      <div className="relative mt-2">
         {/* As duas bordas da hora em disputa, atravessando o desenho inteiro:
             onde o nosso dia vira (33%) e onde o do ML vira (66%). Linhas, e não
             um retângulo preenchido — o preenchimento mora dentro de cada barra
             (ver TrilhoDoDia), e aqui só se costura uma coisa à outra, passando
-            pelo rótulo sem apagá-lo. É a distância entre estas duas linhas que
-            é a divergência. */}
-        {["33.333%", "66.666%"].map((x) => (
+            pelo rótulo sem apagá-lo. */}
+        {[CORTE_AQUI, CORTE_ML].map((x) => (
           <span
             key={x}
             aria-hidden="true"
             className="pointer-events-none absolute inset-y-0 w-0"
-            style={{ left: x, borderLeft: "1px dashed color-mix(in srgb, var(--info) 55%, transparent)" }}
+            style={{ left: `${x}%`, borderLeft: "1px dashed color-mix(in srgb, var(--info) 55%, transparent)" }}
           />
         ))}
+        {/* A marca do pedido: linha cheia e escura, para não se confundir com
+            os dois cortes tracejados. É o único elemento do desenho que
+            representa um fato, e não uma regra. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 z-10 w-0"
+          style={{ left: `${posicao}%`, borderLeft: "2px solid var(--foreground)" }}
+        />
         <div className="relative flex flex-col gap-2">
-          <TrilhoDoDia rotulo={d.aqui} corte="33.333%" />
-          <TrilhoDoDia rotulo={d.ml} corte="66.666%" />
+          <TrilhoDoDia rotulo={d.aqui} corte={CORTE_AQUI} diaAnterior={dataMl} diaSeguinte={dataAqui} posicaoPedido={posicao} />
+          <TrilhoDoDia rotulo={d.ml} corte={CORTE_ML} diaAnterior={dataMl} diaSeguinte={dataAqui} posicaoPedido={posicao} />
         </div>
       </div>
 
-      {/* Régua: só os dois horários que importam, cada um sob o corte do
-          trilho correspondente. */}
+      {/* Régua: os dois horários de corte, cada um sob a linha tracejada
+          correspondente, e a faixa da hora em disputa entre eles. */}
       <div className="relative mt-1.5 h-4">
-        <span className="absolute -translate-x-1/2 text-[10px] font-bold tabular-nums text-muted-foreground" style={{ left: "33.333%" }}>
+        <span className="absolute -translate-x-1/2 text-[10px] font-bold tabular-nums text-muted-foreground" style={{ left: `${CORTE_AQUI}%` }}>
           00:00
         </span>
-        <span className="absolute -translate-x-1/2 text-[10px] font-bold tabular-nums text-muted-foreground" style={{ left: "66.666%" }}>
+        <span className="absolute -translate-x-1/2 text-[10px] font-bold tabular-nums text-muted-foreground" style={{ left: `${CORTE_ML}%` }}>
           01:00
         </span>
         <span
@@ -244,7 +312,23 @@ function DiagramaViradaDoDia() {
         </span>
       </div>
 
-      <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">{d.legenda}</p>
+      {/* O veredito, que é a conclusão que o desenho vinha construindo: as duas
+          datas do MESMO pedido, uma ao lado da outra. Empilha no estreito —
+          são duas datas curtas, mas com os rótulos por extenso a linha não cabe
+          numa coluna de 18rem. */}
+      <div
+        className="mt-2.5 flex flex-col gap-1 rounded-[0.7rem] px-2.5 py-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-x-3"
+        style={{ background: "color-mix(in srgb, var(--info) 8%, transparent)" }}
+      >
+        <p className="text-[11px] leading-tight text-muted-foreground">
+          {d.vereditoAqui} <span className="text-[12.5px] font-extrabold tabular-nums text-foreground">{dataAqui}</span>
+        </p>
+        <p className="text-[11px] leading-tight text-muted-foreground">
+          {d.vereditoMl} <span className="text-[12.5px] font-extrabold tabular-nums text-foreground">{dataMl}</span>
+        </p>
+      </div>
+
+      <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{d.legenda}</p>
     </figure>
   );
 }
@@ -281,6 +365,10 @@ export function JanelaLimiteDoDia({ dados, aberto, setAberto }: {
   const somaAtras = somarLimite(soAqui);
   const diferenca = somaAdiante - somaAtras;
 
+  // O exemplo do desenho sai da ponta que existe — e quando as duas existem,
+  // da primeira, que é a que aparece no alto da coluna ao lado.
+  const ancora = soNoMercadoLivre[0] ?? soAqui[0];
+
   const subtitle = (quantidade === 1 ? copyLimite.subtitleUm : copyLimite.subtitleMuitos)
     .replace("{n}", String(quantidade));
 
@@ -304,7 +392,7 @@ export function JanelaLimiteDoDia({ dados, aberto, setAberto }: {
         <div className="flex min-h-0 flex-col gap-2.5 md:w-[18rem] md:shrink-0 md:overflow-y-auto lg:w-[20rem] xl:w-[22rem]">
           <p className="shrink-0 text-[12.5px] leading-relaxed text-muted-foreground">{copyLimite.explanation}</p>
 
-          <DiagramaViradaDoDia />
+          <DiagramaViradaDoDia ancora={ancora} />
 
           {/* `mt-auto` cola a ressalva no pé da coluna quando sobra espaço:
               ela qualifica tudo que está acima, e boiando logo abaixo do
@@ -352,12 +440,14 @@ export function JanelaLimiteDoDia({ dados, aberto, setAberto }: {
               dica={copyLimite.aheadHint}
               linhas={soNoMercadoLivre}
               soma={somaAdiante}
+              idAncora={ancora.id}
             />
             <GrupoLimiteDoDia
               titulo={copyLimite.behindTitle}
               dica={copyLimite.behindHint}
               linhas={soAqui}
               soma={somaAtras}
+              idAncora={ancora.id}
             />
           </div>
         </div>

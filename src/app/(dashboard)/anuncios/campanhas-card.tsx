@@ -8,7 +8,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
-import { Card, CardHead, MarcaBadge, RotuloComInfo } from "./anuncios-primitives";
+import { BadgeStatusCampanha, Card, CardHead, MarcaBadge, RotuloComInfo } from "./anuncios-primitives";
 import { Roas } from "./roas";
 import { tint } from "@/shared/design-system/color";
 
@@ -27,11 +27,6 @@ function formatarDataCriacao(valor: string | null) {
   return valor ? dataCurta.format(new Date(valor)) : "Não informada";
 }
 
-const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
-  active: { label: "Ativa", cor: "var(--success)" },
-  paused: { label: "Pausada", cor: "var(--warning)" },
-};
-
 const COR_PRIORIDADE: Record<Alerta["prioridade"], string> = {
   critico: "var(--destructive)",
   importante: "var(--escala-2)",
@@ -48,16 +43,6 @@ const ORDEM_PRIORIDADE_LOCAL: Record<Alerta["prioridade"], number> = {
   informativo: 2,
   oportunidade: 3,
 };
-
-function BadgeStatus({ status }: { status: string }) {
-  const info = STATUS_LABEL[status] ?? { label: status, cor: "var(--muted-foreground)" };
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tint(info.cor, 9), color: info.cor }}>
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: info.cor }} />
-      {info.label}
-    </span>
-  );
-}
 
 function plural(valor: number, singular: string, pluralTexto: string) {
   return valor === 1 ? singular : pluralTexto;
@@ -121,14 +106,21 @@ function descricaoStatus(campanhas: CampanhaVisaoGeral[]) {
     total[campanha.status] = (total[campanha.status] ?? 0) + 1;
     return total;
   }, {});
-  const ativas = contagem.active ?? 0;
+  // Os dois canais nomeiam os mesmos estados de formas diferentes (o ML manda
+  // active/paused, a Shopee ongoing/paused/ended/closed). Contar só os nomes do
+  // ML jogava toda campanha da Shopee em "outro status" — a frase dizia "0
+  // ativas, 0 pausadas, 11 em outro status" para uma lista onde 8 estavam
+  // rodando. Mesma unificação da tabela, ver STATUS_CAMPANHA.
+  const ativas = (contagem.active ?? 0) + (contagem.ongoing ?? 0);
   const pausadas = contagem.paused ?? 0;
-  const outros = campanhas.length - ativas - pausadas;
+  const encerradas = (contagem.ended ?? 0) + (contagem.closed ?? 0);
+  const outros = campanhas.length - ativas - pausadas - encerradas;
   const partes = [
     `${inteiro.format(ativas)} ${plural(ativas, "ativa", "ativas")}`,
     `${inteiro.format(pausadas)} ${plural(pausadas, "pausada", "pausadas")}`,
   ];
 
+  if (encerradas > 0) partes.push(`${inteiro.format(encerradas)} ${plural(encerradas, "encerrada", "encerradas")}`);
   if (outros > 0) partes.push(`${inteiro.format(outros)} em outro status`);
 
   return {
@@ -223,7 +215,7 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
                     <span className="min-w-0 truncate">{campanha.nome}</span>
                     <AtencaoLinha alertas={alertasPorCampanhaId.get(campanha.campanhaId) ?? []} />
                   </h4>
-                  <BadgeStatus status={campanha.status} />
+                  <BadgeStatusCampanha status={campanha.status} />
                 </div>
                 {/* ROAS saiu da grade de 2 colunas — era o 3º item de uma
                     grade de 4, sobrava sozinho na última linha e o
@@ -278,7 +270,7 @@ export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGe
                         <AtencaoLinha alertas={alertasPorCampanhaId.get(campanha.campanhaId) ?? []} />
                       </span>
                     </td>
-                    <td className="px-3 py-2.5"><BadgeStatus status={campanha.status} /></td>
+                    <td className="px-3 py-2.5"><BadgeStatusCampanha status={campanha.status} /></td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-xs tabular-nums text-muted-foreground">{formatarDataCriacao(campanha.criadaEm)}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
                       {campanha.orcamento !== null ? moeda.format(campanha.orcamento) : "Sem orçamento"}

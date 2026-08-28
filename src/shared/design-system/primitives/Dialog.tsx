@@ -86,9 +86,15 @@ export function Dialog({ open, onOpenChange, title, description, children, class
             <button
               type="button"
               aria-label="Fechar"
+              // Borda e fundo permanentes, não só no hover: em tela cheia o X
+              // flutuava sobre o cabeçalho como um glifo solto, e só ao passar
+              // o mouse é que virava botão — no toque, onde não existe hover,
+              // ele nunca virava. `z-10` porque em `fill` o cabeçalho e o
+              // conteúdo encostam nele, e `shrink-0` de nada adianta em algo
+              // posicionado absoluto.
               className={cn(
-                "absolute inline-flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-                fullscreen ? "right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] sm:right-5" : "right-2.5 top-2.5",
+                "absolute z-10 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card/80 text-muted-foreground backdrop-blur-sm transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--info)]",
+                fullscreen ? "right-3 top-[calc(env(safe-area-inset-top)+0.5rem)] sm:right-5 sm:top-[calc(env(safe-area-inset-top)+0.75rem)]" : "right-2.5 top-2.5",
               )}
             >
               <X size={fullscreen ? 20 : 16} />

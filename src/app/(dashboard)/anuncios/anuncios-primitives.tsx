@@ -25,6 +25,43 @@ const copyJanela = anunciosConfig.janela;
  *  dobra — o seletor de marca no topo da página já sai de vista ao rolar,
  *  e sem isso não dá pra saber a que marca aquele card pertence sem rolar
  *  de volta. */
+/* ── Status de campanha, nas palavras de quem lê ──────────────────────────
+   A coluna mostrava "ongoing" e "closed" em inglês. Não era descuido de
+   tradução: o mapa cobria só os estados do Mercado Livre (active/paused), e
+   os da Shopee — ongoing/paused/ended/closed — caíam no ramo de fallback, que
+   imprime o valor cru que veio da API.
+
+   Os dois canais nomeiam a mesma coisa de formas diferentes, e essa diferença
+   não interessa a ninguém que esteja lendo a lista: "ongoing" e "active" são a
+   campanha rodando, "ended" e "closed" são a campanha terminada. Aqui elas
+   viram uma palavra só, em português, e a origem do dado deixa de vazar para a
+   tela.
+
+   O mapa vivia duplicado em campanhas-card e campanhas-cliente. Duas cópias de
+   uma tabela de tradução são duas chances de a próxima situação ser traduzida
+   em um lugar e ficar em inglês no outro — que é exatamente o que aconteceu.
+
+   O fallback continua imprimindo o valor cru de propósito: se um canal passar
+   a mandar um estado novo, é melhor ver "suspended" na tela e poder ir atrás
+   do que ver um rótulo genérico que esconde a novidade. */
+export const STATUS_CAMPANHA: Record<string, { label: string; cor: string }> = {
+  active: { label: "Ativa", cor: "var(--success)" },
+  ongoing: { label: "Ativa", cor: "var(--success)" },
+  paused: { label: "Pausada", cor: "var(--warning)" },
+  ended: { label: "Encerrada", cor: "var(--muted-foreground)" },
+  closed: { label: "Encerrada", cor: "var(--muted-foreground)" },
+};
+
+export function BadgeStatusCampanha({ status }: { status: string }) {
+  const info = STATUS_CAMPANHA[status] ?? { label: status, cor: "var(--muted-foreground)" };
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tint(info.cor, 9), color: info.cor }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: info.cor }} />
+      {info.label}
+    </span>
+  );
+}
+
 export function MarcaBadge({ brandSlug, brandLabel }: { brandSlug: string; brandLabel: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">

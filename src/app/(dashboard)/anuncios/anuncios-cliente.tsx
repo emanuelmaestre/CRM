@@ -553,7 +553,12 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
           seção. São páginas irmãs (Produtos, Histórico, Comparação,
           Campanhas completo), não sub-itens — por isso ganham linha própria
           aqui em cima, com peso de botão em vez de texto solto. */}
-      <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap lg:items-center">
+      {/* O último atalho, quando o total é ímpar, sobrava numa fileira só pra
+          ele e encostado à esquerda — parecia um botão órfão, desalinhado com
+          a grade parelha acima. Passa a ocupar as duas colunas e a se centrar
+          nelas. Só vale na grade do mobile: do `lg` em diante isto é uma
+          fileira flex e não há coluna nenhuma para atravessar. */}
+      <div className="grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2 [&>*:last-child:nth-child(odd)]:justify-self-center lg:flex lg:flex-wrap lg:items-center lg:[&>*:last-child:nth-child(odd)]:col-span-1">
         {/* Cada atalho leva a própria cor de identidade (mesmo selo com fundo
             tingido usado nos blocos do mosaico de Métricas) — antes eram 4
             botões cinza idênticos, difíceis de diferenciar num relance. A

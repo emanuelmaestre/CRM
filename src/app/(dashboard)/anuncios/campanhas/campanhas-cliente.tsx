@@ -12,7 +12,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterAnunciosDaCampanha, actionObterVisaoGeralAnuncios } from "../actions";
 import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
-import { Card, RotuloComInfo } from "../anuncios-primitives";
+import { BadgeStatusCampanha, Card, RotuloComInfo } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { AnuncioDaCampanha } from "@/modules/anuncios/application/campanha-detalhe.service";
 import type { CampanhaVisaoGeral, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
@@ -24,26 +24,11 @@ const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
-  active: { label: "Ativa", cor: "var(--success)" },
-  paused: { label: "Pausada", cor: "var(--warning)" },
-};
-
 const COR_SEVERIDADE: Record<SeveridadeDiagnostico, string> = {
   critico: "var(--destructive)",
   atencao: "var(--warning)",
   oportunidade: "var(--success)",
 };
-
-function BadgeStatus({ status }: { status: string }) {
-  const info = STATUS_LABEL[status] ?? { label: status, cor: "var(--muted-foreground)" };
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: tint(info.cor, 9), color: info.cor }}>
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: info.cor }} />
-      {info.label}
-    </span>
-  );
-}
 
 function LinhaDiagnostico({ diagnostico }: { diagnostico: Diagnostico }) {
   const cor = COR_SEVERIDADE[diagnostico.severidade];
@@ -198,7 +183,7 @@ function LinhaCampanha({ campanha, brandId, expandida, onToggle }: {
       >
         <ChevronDown size={15} className="shrink-0 text-muted-foreground transition-transform" style={{ transform: expandida ? "rotate(180deg)" : undefined }} />
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">{campanha.nome}</span>
-        <BadgeStatus status={campanha.status} />
+        <BadgeStatusCampanha status={campanha.status} />
         {campanha.diagnosticos.length > 0 && (
           <span className="hidden shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold sm:inline-flex" style={{ background: tint("var(--warning)", 9), color: "var(--warning)" }}>
             {campanha.diagnosticos.length} sinal{campanha.diagnosticos.length !== 1 ? "is" : ""}

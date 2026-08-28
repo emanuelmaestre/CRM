@@ -310,10 +310,24 @@ function EsqueletoFaturamento() {
    aqui a pergunta que se faz olhando o número grande é "quanto falta para
    bater", e a contagem sozinha não responde isso.
 
+   Isto já foi uma faixa de largura inteira em linha própria. A forma era
+   desproporcional ao peso do assunto: o conteúdo mede uns 370px e a faixa
+   esticava por toda a largura do card — num monitor, quase mil pixels de azul
+   vazio para anunciar dezenas de reais dentro de um total de milhares. Pior,
+   o pulso que chama atenção cobria `inset-0`: era meia tela piscando de quatro
+   em quatro segundos.
+
+   Agora é um item da linha de "pedidos" e "valor médio", que é o lugar certo
+   pela leitura — os três qualificam o número grande logo acima. O que o separa
+   dos outros dois não é mais o tamanho, é a cor e a moldura: ele é o único
+   clicável, e o único que fala de uma ressalva em vez de um componente da
+   conta. O pulso desceu para o ícone, onde chama a mesma atenção sem acender
+   um retângulo.
+
    Some inteira quando não há pedido na virada, quando o recorte de canal exclui
    o Mercado Livre ou quando não há período escolhido (a action devolve listas
    vazias nos três casos). */
-function FaixaFusoFaturamento({ dados, onClick }: { dados?: LimiteDoDia | null; onClick: () => void }) {
+function ChipFusoFaturamento({ dados, onClick }: { dados?: LimiteDoDia | null; onClick: () => void }) {
   const reduzir = useReducedMotion();
   if (!dados) return null;
   const { soNoMercadoLivre, soAqui } = dados;
@@ -332,26 +346,34 @@ function FaixaFusoFaturamento({ dados, onClick }: { dados?: LimiteDoDia | null; 
       whileHover={reduzir ? undefined : { y: -1 }}
       whileTap={reduzir ? undefined : { scale: 0.99 }}
       transition={springs.momentum}
-      className="relative mt-2.5 flex min-h-11 w-full items-center gap-2.5 overflow-hidden rounded-[0.85rem] border px-3.5 py-2.5 text-left"
+      // `max-w-full` com `min-w-0` dentro: a linha que hospeda o chip tem
+      // `flex-wrap`, então em tela estreita ele desce inteiro para a linha
+      // seguinte em vez de espremer os outros dois itens. A altura mínima
+      // existe só no celular, onde ele é um alvo de toque de verdade — no
+      // desktop ela só engordaria a linha.
+      className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border py-1 pl-2 pr-1.5 text-left sm:min-h-0"
       style={{
         borderColor: "color-mix(in srgb, var(--info) 30%, transparent)",
         background: "color-mix(in srgb, var(--info) 6%, transparent)",
       }}
     >
-      {/* Mesmo tique de relógio das outras duas portas de entrada — ver
-          SeloLimiteDoDia. */}
-      {!reduzir && (
-        <motion.span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "color-mix(in srgb, var(--info) 8%, transparent)" }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 1, 0] }}
-          transition={{ duration: 2.4, times: [0, 0.35, 0.7, 1], repeat: Infinity, repeatDelay: 4.4, ease: "easeInOut" }}
-        />
-      )}
-      <Clock size={14} strokeWidth={2} className="relative shrink-0" style={{ color: "var(--info)" }} />
-      <span className="relative min-w-0 flex-1 text-xs" style={{ color: "var(--info)" }}>
+      {/* Mesmo tique de relógio das outras duas portas de entrada (ver
+          SeloLimiteDoDia), agora contido no ícone: um halo de 20px em vez do
+          fundo inteiro do card. */}
+      <span className="relative inline-flex shrink-0 items-center justify-center">
+        {!reduzir && (
+          <motion.span
+            aria-hidden="true"
+            className="pointer-events-none absolute -inset-1 rounded-full"
+            style={{ background: "color-mix(in srgb, var(--info) 22%, transparent)" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 1, 0] }}
+            transition={{ duration: 2.4, times: [0, 0.35, 0.7, 1], repeat: Infinity, repeatDelay: 4.4, ease: "easeInOut" }}
+          />
+        )}
+        <Clock size={13} strokeWidth={2} className="relative" style={{ color: "var(--info)" }} />
+      </span>
+      <span className="min-w-0 truncate text-xs" style={{ color: "var(--info)" }}>
         <span className="font-bold tabular-nums">
           {(quantidade === 1 ? copyLimite.badgeContadorUm : copyLimite.badgeContadorMuitos).replace("{n}", String(quantidade))}
         </span>
@@ -359,7 +381,7 @@ function FaixaFusoFaturamento({ dados, onClick }: { dados?: LimiteDoDia | null; 
         <span className="font-bold tabular-nums">{moeda.format(diferenca)}</span>
         <span className="opacity-80"> {copyLimite.faixaSufixo}</span>
       </span>
-      <ChevronRight size={15} className="relative shrink-0" style={{ color: "var(--info)" }} />
+      <ChevronRight size={13} className="shrink-0" style={{ color: "var(--info)" }} />
     </motion.button>
   );
 }
@@ -541,17 +563,14 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                   <Receipt size={13} strokeWidth={2} className="shrink-0 opacity-70" />
                   <span className="font-semibold tabular-nums text-foreground">{liquido ? dados?.ticketMedioLiquido : dados?.ticketMedio}</span> {copy.ticketLabel}
                 </span>
-              </div>
 
-              {/* Terceira linha, largura inteira: o mesmo desencontro de fuso
-                  que Vendas explica, só que medido em dinheiro — é o valor que
-                  falta para este total bater com o painel do Mercado Livre.
-                  Vem depois de "pedidos" e "valor médio" porque é da mesma
-                  natureza (compõe a leitura do número grande), mas ganha linha
-                  própria e corpo de faixa: não é um pedaço do faturamento, é
-                  uma ressalva sobre ele, e um terceiro item solto na mesma
-                  linha se leria como mais um componente da conta. */}
-              <FaixaFusoFaturamento dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
+                {/* Terceiro item da mesma linha: o desencontro de fuso que
+                    Vendas explica, medido em dinheiro. Vem depois de "pedidos"
+                    e "valor médio" porque é da mesma natureza — os três
+                    qualificam o número grande acima. `gap-x-5` já separa os
+                    itens; a moldura e a cor é que dizem que só este é clicável. */}
+                <ChipFusoFaturamento dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
+              </div>
 
               <div className="mt-2.5 sm:mt-3">
                 {/* Leitura do ponto sob o cursor. Fica em posição fixa em vez de
