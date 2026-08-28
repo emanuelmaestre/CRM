@@ -422,14 +422,38 @@
     },
     "loadError": "Erro ao carregar pedidos.",
     "limiteDoDia": {
-      "badge": "{n} em outro dia no ML",
+      "badge": "Pedidos na virada do dia",
+      "badgeDica": "Abrir a explicação da diferença com o Mercado Livre",
       "title": "Por que o total não bate com o Mercado Livre",
+      "subtitleUm": "1 pedido caiu na hora em que o dia vira para o Mercado Livre",
+      "subtitleMuitos": "{n} pedidos caíram na hora em que o dia vira para o Mercado Livre",
       "explanation": "O Mercado Livre fecha o dia pelo relógio dele, uma hora atrás do nosso. Estes pedidos caíram nessa hora de virada — são os mesmos pedidos, contados em dias diferentes. Nenhum está faltando aqui.",
+      "comoFunciona": [
+        {
+          "titulo": "O dia do ML começa 1 hora depois",
+          "texto": "O relógio do Mercado Livre está uma hora atrás do horário de Brasília. O dia dele vai das 01:00 de hoje às 01:00 de amanhã; o desta tela vai de 00:00 a 00:00."
+        },
+        {
+          "titulo": "A venda dessa hora cai em dias diferentes",
+          "texto": "Um pedido feito entre 00:00 e 01:00 é de hoje para esta tela e de ontem para o Mercado Livre. O pedido é o mesmo: muda só o dia em que cada lado o coloca."
+        },
+        {
+          "titulo": "É exatamente isso que separa os dois totais",
+          "texto": "A diferença entre o painel do Mercado Livre e o total desta tela é a soma dos pedidos listados abaixo. Nenhum deles está faltando, atrasado ou fora da sincronização."
+        }
+      ],
       "aheadTitle": "O ML conta no período, aqui não",
       "aheadHint": "Vendidos na primeira hora depois do fim do período. É o que faz o total desta tela ficar abaixo do painel dele.",
       "behindTitle": "Aqui conta, o ML não",
       "behindHint": "Vendidos na primeira hora do dia inicial. O ML joga esses para o dia anterior.",
-      "reconcile": "Diferença que isto explica: {valor}"
+      "grupoVazio": "Nenhum pedido nesta ponta do período.",
+      "grupoResumoUm": "1 pedido · {valor} na soma",
+      "grupoResumoMuitos": "{n} pedidos · {valor} na soma",
+      "pedidoSem": "sem número no ML",
+      "reconcile": "Diferença que isto explica: {valor}",
+      "reconcileDica": "Some este valor ao total desta tela e você chega ao número que o Mercado Livre mostra para o mesmo período.",
+      "reconcileZero": "As duas pontas se anulam: os totais fecham iguais mesmo com pedidos na virada do dia.",
+      "rodape": "Cancelados e devolvidos aparecem na lista, mas ficam fora da soma — o Faturamento desta tela também os exclui."
     },
     "brandSelector": {
       "label": "Marca",

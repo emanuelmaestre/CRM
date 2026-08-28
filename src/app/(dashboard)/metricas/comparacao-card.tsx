@@ -8,7 +8,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover, type CalculoItem } from "@/shared/design-system/primitives/CalculoPopover";
-import { springs } from "@/shared/design-system/motion-variants";
+import { eases, springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import metricasConfig from "@/config/metricas.json";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
@@ -359,18 +359,65 @@ function CumprimentoPedidos({ pv }: { pv: PosVendaMarcaComTaxa }) {
   );
 }
 
+/* ── Selo de líder ────────────────────────────────────────────────
+   Ouro em vez da cor da marca: quem lidera muda a cada critério, e um selo
+   que troca de cor junto obrigava a reler para saber se aquilo era destaque
+   ou identidade. O ouro é sempre o mesmo, então significa uma coisa só.
+
+   A varredura de luz atravessa o selo a cada ~4s — o intervalo é longo de
+   propósito: um brilho contínuo viraria ruído no canto do olho enquanto a
+   pessoa lê os números, e o que se quer é que o topo da lista se anuncie
+   sozinho de vez em quando. A coroa balança no mesmo instante, então o
+   movimento inteiro se lê como UM gesto, não dois enfeites soltos. Nada
+   disso monta sob `prefers-reduced-motion`: sobra o selo dourado parado,
+   que já carrega o significado sem depender do movimento. */
+function SeloLider({ reduzir }: { reduzir: boolean | null }) {
+  const pulsar = reduzir
+    ? undefined
+    : { repeat: Infinity, repeatDelay: 3.2, duration: 1.05, ease: eases.emphasized };
+
+  return (
+    <motion.span
+      layout={!reduzir}
+      className="relative inline-flex shrink-0 items-center gap-1 overflow-hidden rounded-full border px-2 py-0.5 text-[10px] font-bold"
+      style={{
+        borderColor: "var(--dourado-borda)",
+        background: "linear-gradient(115deg, var(--dourado-claro), var(--dourado-brilho) 55%, var(--dourado-claro))",
+        color: "var(--dourado)",
+      }}
+      initial={reduzir ? false : { scale: 0.72, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={springs.settleFast}
+    >
+      {!reduzir && (
+        <motion.span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 w-6 -skew-x-12"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent)" }}
+          initial={{ left: "-30%" }}
+          animate={{ left: "115%" }}
+          transition={pulsar}
+        />
+      )}
+      <motion.span
+        aria-hidden="true"
+        className="relative inline-flex"
+        animate={reduzir ? undefined : { rotate: [0, -12, 9, 0], scale: [1, 1.14, 1] }}
+        transition={pulsar}
+      >
+        <Crown size={10} />
+      </motion.span>
+      <span className="relative">{copy.lider}</span>
+    </motion.span>
+  );
+}
+
 type PosVendaMarcaComTaxa = PosVendaResultado["marcas"][number];
 
-export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posVenda, canais, filtro, onChangeFiltro }: {
+export function ComparacaoCard({ dados, carregando, acaoSlot, posVenda, canais, filtro, onChangeFiltro }: {
   dados: SaudeLojaResultado | null;
   carregando: boolean;
   acaoSlot?: HTMLElement | null;
-  /** Quando os números de cada marca foram calculados — vem de uma consulta
-   *  ao vivo (não é dado sincronizado com timestamp próprio por marca), então
-   *  é o mesmo instante em todos os cards, repetido em cada um a pedido:
-   *  quem olha um card sozinho vê de quando é aquele número sem precisar
-   *  achar o relógio lá em cima do painel. */
-  atualizadoEm?: Date | null;
   /** Ex-card "Pós-venda" — ver CumprimentoPedidos acima. */
   posVenda?: PosVendaResultado | null;
   /** Filtro de canal (Mercado Livre/Shopee/TikTok Shop) na mesma linha das
@@ -403,6 +450,26 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
     () => ordenadas.reduce((maior, marca) => Math.max(maior, valorDe(marca, criterio) ?? 0), 0),
     [ordenadas, criterio],
   );
+
+  /** Colocação de cada marca no critério ativo. Empate divide o mesmo lugar
+   *  (1º, 1º, 3º — como em competição): em Cancelamento duas marcas em 0%
+   *  são comuns, e chamar uma delas de "2º" inventaria uma diferença que o
+   *  número não tem. Marca sem valor fica de fora do mapa: ela está no fim da
+   *  lista por não ter sido medida, não por ter perdido. */
+  const posicoes = useMemo(() => {
+    const mapa = new Map<string, number>();
+    let valorAnterior: number | null = null;
+    let posicaoAnterior = 0;
+    ordenadas.forEach((marca, indice) => {
+      const valor = valorDe(marca, criterio);
+      if (valor === null) return;
+      const posicao = valorAnterior !== null && valor === valorAnterior ? posicaoAnterior : indice + 1;
+      mapa.set(marca.brandId, posicao);
+      valorAnterior = valor;
+      posicaoAnterior = posicao;
+    });
+    return mapa;
+  }, [ordenadas, criterio]);
 
   const abasCriterio = (
     // Mobile: grade de 3 colunas, tudo visível numa tela só, sem arrastar
@@ -481,15 +548,17 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
             const valor = valorDe(marca, criterio);
             const cor = corDaMarca(marca.marca);
             // A barra e o número grande são sempre a cor da marca — é o fio
-            // condutor visual do card. O alerta semântico (Score, Nota,
-            // Cancelamento têm um "bom"/"ruim" objetivo) não desaparece: ele
-            // migra pra um pontinho ao lado do número, em vez de tomar conta
-            // da cor inteira do card.
+            // condutor visual do card. O alerta semântico (Cancelamento tem um
+            // "bom"/"ruim" objetivo) não desaparece: ele migra pra um pontinho
+            // ao lado do número, em vez de tomar conta da cor inteira do card.
             const corDestaque = cor;
             const corAlerta = corDoIndicador(criterio, valor);
+            const posicao = posicoes.get(marca.brandId) ?? null;
             // Em Cancelamento, 0% é o melhor resultado possível — não faz
             // sentido negar a coroa só porque o valor "não é maior que zero".
-            const lider = indice === 0 && valor !== null && (CRITERIO_MENOR_VENCE[criterio] === true || valor > 0);
+            // Pelo lugar, e não pelo índice: com empate no topo, as duas
+            // marcas em 1º são líderes — uma delas seria "1º" sem coroa.
+            const lider = posicao === 1 && valor !== null && (CRITERIO_MENOR_VENCE[criterio] === true || valor > 0);
             const pv = posVenda?.marcas.find((item) => item.brandId === marca.brandId);
             return (
               <motion.li
@@ -516,6 +585,28 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-2">
+                    {/* Posição vem antes da marca: em classificação se lê "1º,
+                        quem" — e o mesmo lugar fixo na linha deixa a ordem
+                        legível de relance, sem depender de comparar números.
+                        Marca sem valor no critério não recebe posição: ela
+                        está no fim da lista por não ter sido medida, e
+                        numerá-la afirmaria uma colocação que não existe. */}
+                    {posicao !== null && (
+                      <motion.span
+                        layout={!reduzir}
+                        aria-label={`${posicao}º lugar`}
+                        className="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-extrabold tabular-nums"
+                        // O 1º lugar é dourado como o selo ao lado — ouro é a
+                        // convenção de pódio e dispensa legenda. Os demais
+                        // ficam neutros: se todo lugar fosse colorido, o
+                        // primeiro deixaria de saltar.
+                        style={lider
+                          ? { background: "var(--dourado-brilho)", color: "var(--dourado)" }
+                          : { background: "var(--muted)", color: "var(--muted-foreground)" }}
+                      >
+                        {posicao}º
+                      </motion.span>
+                    )}
                     {isBrandSlug(marca.marca)
                       ? (
                         <span className="inline-flex items-center rounded-[0.6rem] px-2 py-1" style={{ background: tint(cor, 8) }}>
@@ -523,15 +614,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
                         </span>
                       )
                       : <span className="truncate text-sm font-bold text-foreground">{marca.marcaLabel}</span>}
-                    {lider && (
-                      <motion.span
-                        layout={!reduzir}
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
-                        style={{ background: tint(cor, 10), color: cor }}
-                      >
-                        <Crown size={10} /> {copy.lider}
-                      </motion.span>
-                    )}
+                    {lider && <SeloLider reduzir={reduzir} />}
                   </span>
                   <span className="flex shrink-0 items-center gap-1.5">
                     {corAlerta && (
@@ -561,11 +644,16 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
 
                 {pv && <CumprimentoPedidos pv={pv} />}
 
-                {atualizadoEm && (
-                  <p className="mt-2.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                    <RefreshCw size={9} /> Atualizado em {dataHoraCard.format(atualizadoEm)}
-                  </p>
-                )}
+                {/* A data da última SINCRONIZAÇÃO, não a do instante em que a
+                    tela leu o banco: aquela mudava a cada F5 e dizia
+                    "Atualizado agora" mesmo com o canal sem ser consultado
+                    desde ontem — parecia atualizado sem estar. */}
+                <p className="mt-2.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <RefreshCw size={9} />
+                  {marca.sincronizadoEm
+                    ? `Sincronizado em ${dataHoraCard.format(new Date(marca.sincronizadoEm))}`
+                    : "Nunca sincronizado"}
+                </p>
               </motion.li>
             );
           })}

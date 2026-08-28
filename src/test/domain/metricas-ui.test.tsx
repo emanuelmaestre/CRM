@@ -61,6 +61,7 @@ function marca(parcial: Partial<SaudeMarca> = {}): SaudeMarca {
     taxaRecorrencia: null,
     receitaTotalRecorrencia: 0,
     receitaRecorrente: 0,
+    sincronizadoEm: "2026-08-14T09:30:00.000Z",
     ...parcial,
   };
 }
@@ -155,13 +156,46 @@ describe("cards de Métricas", () => {
     expect(screen.queryByText(/nenhuma conta do mercado livre conectada/i)).not.toBeInTheDocument();
   });
 
-  it("escreve nota ausente como texto explicativo, nunca como zero", () => {
+  it("escreve indicador ausente como texto explicativo, nunca como zero", () => {
     render(<ComparacaoCard dados={resultado()} carregando={false} />);
-    const nota = screen.getByText("Nota").closest("div");
-    expect(within(nota as HTMLElement).getByText("Sem avaliação")).toBeInTheDocument();
+    const cancelamento = screen.getByText("Cancelamento").closest("div");
+    expect(within(cancelamento as HTMLElement).getByText("Sem dado")).toBeInTheDocument();
     // Reclamações foram removidas do produto e não devem reaparecer por
     // dados legados ainda presentes no contrato de saúde.
     expect(screen.queryByText("2 (1 em mediação)")).not.toBeInTheDocument();
+  });
+
+  /* O carimbo do rodapé é a data da última sincronização com o canal, não o
+     instante em que a tela leu o banco — este último dizia "atualizado agora"
+     mesmo com o canal sem ser consultado havia dias. */
+  it("carimba a data da sincronização e admite quando ela nunca aconteceu", () => {
+    const { unmount } = render(<ComparacaoCard dados={resultado()} carregando={false} />);
+    expect(screen.getByText(/^Sincronizado em/)).toBeInTheDocument();
+    unmount();
+
+    render(<ComparacaoCard dados={resultado({ marcas: [marca({ sincronizadoEm: null })] })} carregando={false} />);
+    expect(screen.getByText("Nunca sincronizado")).toBeInTheDocument();
+    expect(screen.queryByText(/^Sincronizado em/)).not.toBeInTheDocument();
+  });
+
+  /* Empate divide o mesmo lugar: duas marcas com o mesmo valor médio são 1º e
+     1º, e a seguinte é 3º — chamar a segunda de "2º" inventaria uma diferença
+     que o número não tem. */
+  it("numera a classificação e reparte o lugar entre empatadas", () => {
+    const outra = "22222222-2222-4222-8222-222222222222";
+    const terceira = "33333333-3333-4333-8333-333333333333";
+    render(<ComparacaoCard carregando={false} dados={resultado({
+      marcas: [
+        marca(),
+        marca({ brandId: outra, marca: "wuwu", marcaLabel: "WUWU" }),
+        marca({ brandId: terceira, marca: "outra", marcaLabel: "OUTRA", ticketMedio: 120, ticketMedioLabel: "R$ 120,00" }),
+      ],
+    })} />);
+
+    const lugares = screen.getAllByText(/^\d+º$/).map((no) => no.textContent);
+    expect(lugares).toEqual(["1º", "1º", "3º"]);
+    // Empate no topo coroa as duas: uma delas apareceria como "1º" sem líder.
+    expect(screen.getAllByText("Líder")).toHaveLength(2);
   });
 
   it("mostra somente métricas patrocinadas do período e separa publicações sem veiculação", async () => {

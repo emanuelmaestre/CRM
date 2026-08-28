@@ -723,14 +723,13 @@ export function Mosaico({
         dados={saude.dados}
         carregando={carregandoSaude}
         acaoSlot={acaoSlot}
-        atualizadoEm={carregadoEm}
         posVenda={posVendaAtual}
         canais={canais}
         filtro={filtroGlobal}
         onChangeFiltro={setFiltroGlobal}
       />
     ),
-  }), [saude.dados, carregandoSaude, carregadoEm, posVendaAtual, canais, filtroGlobal]);
+  }), [saude.dados, carregandoSaude, posVendaAtual, canais, filtroGlobal]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",

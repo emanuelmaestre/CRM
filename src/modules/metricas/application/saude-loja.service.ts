@@ -9,6 +9,7 @@ import {
   pedido,
   produto,
   produtoCanal,
+  sincronizacaoExecucao,
 } from "@/shared/lib/db/schema";
 import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
 import {
@@ -121,6 +122,11 @@ export interface SaudeMarca {
   taxaRecorrencia: number | null;
   receitaTotalRecorrencia: number;
   receitaRecorrente: number;
+  /** Quando o canal foi consultado pela última vez e trouxe os pedidos desta
+   *  marca (ISO). É a idade real do dado — diferente do instante em que a
+   *  tela leu o banco, que muda a cada F5 mesmo sem sincronização nenhuma.
+   *  Null = nunca sincronizado com sucesso no recorte de canal escolhido. */
+  sincronizadoEm: string | null;
 }
 
 export interface SaudeLojaResultado {
@@ -342,6 +348,7 @@ export async function obterSaudeLoja(
     reclamacoes,
     contasDesconectadas,
     crescimentoPorMarca,
+    sincronizacaoPorMarca,
   ] = await Promise.all([
     ctx.db
       .select({
@@ -428,8 +435,30 @@ export async function obterSaudeLoja(
     }),
     leve ? Promise.resolve<ContaDesconectada[]>([]) : obterContasDesconectadas(ctx).catch((): ContaDesconectada[] => []),
     obterCrescimentoPorMarca(ctx, { inicio, fim, brandIds: idsVisiveis, canais }),
+    // Última vez que os PEDIDOS desta marca vieram do canal — é o que estes
+    // números medem, então é a data honesta para carimbar no card. Só
+    // execução com o módulo concluído conta: uma que falhou no meio não
+    // deixou o dado novo. Sem janela de período: a pergunta é "quando
+    // sincronizou pela última vez", não "sincronizou dentro do período".
+    ctx.db
+      .select({
+        brandId: channelAccount.brandId,
+        sincronizadoEm: sql<Date | null>`max(${sincronizacaoExecucao.finalizadoEm})`,
+      })
+      .from(sincronizacaoExecucao)
+      .innerJoin(channelAccount, eq(channelAccount.id, sincronizacaoExecucao.channelAccountId))
+      .where(and(
+        eq(sincronizacaoExecucao.orgId, ctx.orgId),
+        inArray(channelAccount.brandId, idsVisiveis),
+        eq(sincronizacaoExecucao.pedidosStatus, "concluido"),
+        // O recorte de canal do card vale aqui também: olhando só a Shopee,
+        // a data que interessa é a da Shopee, não a do Mercado Livre.
+        ...(canais.length > 0 ? [inArray(channelAccount.tipo, canais as ("mercadolivre" | "shopee" | "tiktokshop")[])] : []),
+      ))
+      .groupBy(channelAccount.brandId),
   ]);
 
+  const sincronizacoes = new Map(sincronizacaoPorMarca.map((linha) => [linha.brandId, linha.sincronizadoEm]));
   const vendas = new Map(vendasPorMarca.map((linha) => [linha.brandId, linha]));
   const avaliacoes = new Map<string, { nota: number | null; avaliacoes: number }>();
   for (const linha of avaliacoesPorMarca) {
@@ -518,6 +547,14 @@ export async function obterSaudeLoja(
       taxaRecorrencia: crescimentoMarca?.taxaRecorrencia ?? null,
       receitaTotalRecorrencia: crescimentoMarca?.receitaTotalRecorrencia ?? 0,
       receitaRecorrente: crescimentoMarca?.receitaRecorrente ?? 0,
+      // O driver devolve `timestamptz` ora como Date, ora como string, conforme
+      // o caminho da consulta — normalizado aqui para o contrato ser sempre ISO.
+      sincronizadoEm: (() => {
+        const bruto = sincronizacoes.get(item.id) ?? null;
+        if (bruto === null) return null;
+        const data = bruto instanceof Date ? bruto : new Date(bruto);
+        return Number.isNaN(data.getTime()) ? null : data.toISOString();
+      })(),
     };
   });
 

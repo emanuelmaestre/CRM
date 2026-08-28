@@ -83,6 +83,21 @@
   --acento-2: #7058D3;  /* índigo */
   --acento-3: #C42E79;  /* rosa   */
 
+  /* ── Ouro de primeiro lugar ──
+     Exceção deliberada às regras acima: não é acento de card nem estado
+     semântico, é a convenção de pódio — ouro significa "primeiro" para
+     qualquer pessoa, sem legenda. Vale só para a marca líder da comparação;
+     usar em qualquer outro lugar gasta o significado.
+
+     São três tons porque um selo metálico precisa dos três: o texto/coroa
+     (--dourado, 5.4:1 sobre o fundo do próprio selo, portanto legível),
+     o corpo do selo (--dourado-claro) e o ponto de luz do gradiente
+     (--dourado-brilho), que é o que a varredura do brilho atravessa. */
+  --dourado: #8A6A00;
+  --dourado-claro: #FFF7DE;
+  --dourado-brilho: #FBE7A6;
+  --dourado-borda: #E6C765;
+
   /* Estado de seleção (filtro ativo, linha marcada, checkbox). Era o roxo da
      WUWU em ~30 lugares: um filtro selecionado ficava visualmente idêntico a
      um item da marca WUWU, justamente nas telas que existem para separar as
