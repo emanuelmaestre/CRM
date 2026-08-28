@@ -28,7 +28,7 @@ import { CampanhasCard } from "./campanhas-card";
 import { KpisPrincipais } from "./kpis-principais";
 import { OrganicoCard } from "./organico-card";
 import { RotuloComInfo, SectionLabel } from "./anuncios-primitives";
-import type { VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
+import type { MarcaIndisponivel, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
 
 const copy = anunciosConfig;
 
@@ -250,10 +250,13 @@ function HaloSelecao({ ativo, cor, reduzir }: { ativo: boolean; cor: string; red
   );
 }
 
-export function SeletorMarca({ marcas, ativa, onChange }: {
+export function SeletorMarca({ marcas, ativa, onChange, indisponiveis = [] }: {
   marcas: VisaoGeralMarca[];
   ativa: string | null;
   onChange: (brandId: string) => void;
+  /** Marcas ativas sem anúncio no canal escolhido. Opcional porque as
+   *  sub-páginas do módulo ainda não calculam essa lista. */
+  indisponiveis?: MarcaIndisponivel[];
 }) {
   const reduzir = useReducedMotion();
   return (
@@ -281,6 +284,29 @@ export function SeletorMarca({ marcas, ativa, onChange }: {
           </motion.button>
         );
       })}
+
+      {/* Marca ativa que não anuncia neste canal: fica apagada e travada, com
+          o mesmo ícone de tomada usado no canal ainda não integrado, em vez de
+          sumir da fileira. Some sem explicação, o usuário não distingue "não
+          anuncia aqui" de "quebrou" — foi exatamente a dúvida que a KARZI
+          causou ao desaparecer quando a Shopee era selecionada. */}
+      {indisponiveis.map((marca) => (
+        <button
+          key={marca.brandId}
+          type="button"
+          disabled
+          aria-disabled="true"
+          title={`${marca.brandLabel} não tem anúncios neste canal`}
+          aria-label={`${marca.brandLabel} — sem anúncios neste canal`}
+          onClick={() => toast.info(`${marca.brandLabel} não tem anúncios neste canal.`)}
+          className="relative inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card/40 px-4 opacity-50"
+        >
+          {isBrandSlug(marca.brandSlug)
+            ? <BrandLogo brand={marca.brandSlug} height={17} />
+            : <span className="text-sm font-semibold text-foreground">{marca.brandLabel}</span>}
+          <PlugZap2 size={14} className="text-muted-foreground" />
+        </button>
+      ))}
     </div>
   );
 }
@@ -466,7 +492,12 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
           <SeletorCanalAnuncios />
         </div>
         <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
-          <SeletorMarca marcas={dados.marcas} ativa={marca.brandId} onChange={setMarcaAtiva} />
+          <SeletorMarca
+            marcas={dados.marcas}
+            ativa={marca.brandId}
+            onChange={setMarcaAtiva}
+            indisponiveis={dados.marcasIndisponiveis}
+          />
         </div>
         <span className="hidden h-px flex-1 bg-border md:block" />
         <div className="order-3 flex w-full justify-center md:order-none md:contents">

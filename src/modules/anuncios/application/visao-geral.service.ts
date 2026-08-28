@@ -82,8 +82,23 @@ export interface VisaoGeralMarca {
   oportunidades: Oportunidade[];
 }
 
+/** Marca que existe e está ativa, mas não tem nenhum anúncio na plataforma
+ *  escolhida — a KARZI não opera Shopee, por exemplo.
+ *
+ *  Vem separada de `marcas` de propósito: some do consolidado e dos cards
+ *  (não há o que somar), mas continua aparecendo no seletor, apagada e
+ *  travada. Antes ela simplesmente desaparecia da fileira, e não havia como
+ *  distinguir "não anuncia aqui" de "quebrou e sumiu". */
+export interface MarcaIndisponivel {
+  brandId: string;
+  brandSlug: string;
+  brandLabel: string;
+}
+
 export interface VisaoGeralResultado {
   marcas: VisaoGeralMarca[];
+  /** Ativas, mas sem anúncio nenhum na plataforma escolhida. */
+  marcasIndisponiveis: MarcaIndisponivel[];
   /** Consolidado das marcas visíveis — soma simples, não ponderada (ao
    *  contrário do Score de Saúde em Métricas): aqui o que importa é o
    *  investimento e retorno agregados, não uma nota composta. */
@@ -168,6 +183,7 @@ export async function obterVisaoGeral(
     .sort(compararPorOrdemDeMarca);
 
   const resultado: VisaoGeralMarca[] = [];
+  const indisponiveis: MarcaIndisponivel[] = [];
   const idsDasMarcas = marcas.map((marca) => marca.id);
 
   /* Antes este trecho vivia dentro do laço abaixo: para cada marca saíam duas
@@ -235,7 +251,17 @@ export async function obterVisaoGeral(
     const ultimoSnapshot = ultimoPorMarca.get(marca.id) ?? null;
     const ultimaData = ultimoSnapshot?.data ?? null;
 
-    if (!ultimaData) continue; // marca sem nenhum snapshot ainda — nem aparece na lista
+    // Sem nenhum snapshot nesta plataforma a marca sai dos números, mas não
+    // some da tela: vai para `marcasIndisponiveis` e o seletor a mostra
+    // apagada e travada, como já faz com canal ainda não integrado.
+    if (!ultimaData) {
+      indisponiveis.push({
+        brandId: marca.id,
+        brandSlug: marca.slug,
+        brandLabel: getBrandConfig(marca.slug)?.label ?? marca.nome,
+      });
+      continue;
+    }
 
     // Sem período, cada marca fica só com as linhas do próprio dia mais
     // recente: a consulta trouxe os dias mais recentes de todas as marcas
@@ -358,7 +384,10 @@ export async function obterVisaoGeral(
 
   return {
     marcas: resultado,
+    marcasIndisponiveis: indisponiveis,
     resumoConsolidado: agregarResumo(todasCampanhas),
+    // Continua olhando só `resultado`: uma marca indisponível não é dado, é a
+    // ausência dele — contá-la aqui esconderia o estado de "nada sincronizado".
     semDados: resultado.length === 0,
   };
 }
