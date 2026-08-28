@@ -32,6 +32,15 @@ export const A24_pollPedidos = inngest.createFunction(
     id: "A24-poll-pedidos",
     name: `A24 — Contingência de ingestão de pedidos (a cada ${INTERVALO_POLL_HORAS}h)`,
     concurrency: { limit: 1 },
+    /* Sem repetição automática. O `throw` abaixo só acontece quando NENHUMA
+       conta respondeu, e isso é causa sistêmica por definição — credencial
+       vencida, proxy fora, canal fora do ar. As 4 tentativas padrão do
+       Inngest não consertam nada disso: refazem o polling de todas as contas
+       em minutos e queimam a cota do proxy de IP fixo, que é o gargalo real
+       aqui. O erro continua sendo lançado, então o painel do Inngest e o
+       monitor de jobs seguem sinalizando a falha; quem repete o trabalho é o
+       cron, e a janela de busca (INTERVALO + 1h) cobre a volta perdida. */
+    retries: 0,
     triggers: [{ cron: `0 */${INTERVALO_POLL_HORAS} * * *` }],
   },
   async ({ step, attempt }) => {

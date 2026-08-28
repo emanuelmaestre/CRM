@@ -86,6 +86,13 @@ export const A31_sincronizarConta = inngest.createFunction(
   {
     id: "A31-sincronizar-conta",
     name: "A31 — Sincronização manual de conta (fila completa)",
+    /* `idempotency` impede a MESMA execução de rodar duas vezes, não impede
+       contas diferentes de sincronizarem ao mesmo tempo — e era o único job
+       do projeto sem teto de concorrência. Duas marcas com backfill de 90
+       dias em paralelo disputam banco e a mesma cota de proxy, e é justamente
+       depois de conectar uma conta nova que isso acontece. Uma de cada vez:
+       a segunda espera em fila em vez de as duas ficarem lentas. */
+    concurrency: { limit: 1 },
     idempotency: "event.data.execucaoId",
     triggers: [{ event: "canal/sincronizacao.solicitada" }],
   },
