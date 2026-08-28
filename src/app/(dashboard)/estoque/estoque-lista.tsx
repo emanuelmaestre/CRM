@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  AlertTriangle, Check, Eye, Hourglass, Loader2, PackageX, PlugZap2,
+  AlertTriangle, Check, Eye, EyeOff, Hourglass, Loader2, PackageX, PlugZap2,
   Search,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -42,7 +42,7 @@ type Produto = {
   canais?: string[];
 };
 
-type Filtro = "todos" | "abaixo_minimo" | "sem_estoque" | "parados" | "sem_minimo";
+type Filtro = "todos" | "abaixo_minimo" | "sem_estoque" | "parados" | "pausados" | "sem_minimo";
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 
 type Indicadores = Awaited<ReturnType<typeof actionIndicadoresEstoque>>;
@@ -90,8 +90,8 @@ const CORES_ESTADO: Record<EstadoLinha, string | null> = {
 };
 
 /* ── Indicador em card ─────────────────────────────────────────
-   Sempre existem os 3 — sumir com a categoria zerada foi o que gerou a
-   dúvida "cadê o card de abaixo do mínimo?" quando só sobrava um dos três
+   Sempre existem os 4 — sumir com a categoria zerada foi o que gerou a
+   dúvida "cadê o card de abaixo do mínimo?" quando só sobrava um deles
    com valor. Em vez de esconder, o card com valor 0 se apaga pra cor neutra:
    continua nomeando a categoria, sem competir visualmente com quem realmente
    precisa de atenção. */
@@ -139,7 +139,7 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
 }) {
   const hc = copy.health;
 
-  // Falha em buscar o resumo (sem_minimo/abaixo_minimo/sem_estoque/parados)
+  // Falha em buscar o resumo (sem_minimo/abaixo_minimo/sem_estoque/parados/pausados)
   // não trava a tela — a lista de produtos abaixo é o que importa de
   // verdade, e ela já carrega independente disso. Sem card de erro aqui.
   if (erro) return null;
@@ -186,11 +186,28 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
         ? <span className="hidden sm:inline">{dinheiro.format(indicadores.capitalParado)} {copy.indicators.capitalPrefix}</span>
         : undefined,
     },
+    {
+      // Tem o que vender e não está à venda: saldo > 0 com o anúncio pausado
+      // no canal. É o único dos quatro que não fala do saldo em si — o saldo
+      // está certo, o que está errado é a vitrine —, e por isso ganha a
+      // legenda: sem ela o número seria confundido com mais um corte de
+      // estoque. Mesmo tom de "Parados" (informativo, não urgente): nada aqui
+      // vira ruptura hoje, mas cada linha é dinheiro parado por engano.
+      id: "pausados" as Filtro,
+      label: copy.indicators.paused,
+      labelCurto: "Fora do ar",
+      valor: indicadores.pausados,
+      icon: EyeOff,
+      tom: "neutro" as const,
+      sub: indicadores.pausados > 0
+        ? <span className="hidden sm:inline">{copy.indicators.pausedSub}</span>
+        : undefined,
+    },
   ];
 
   const semRegua = indicadores.semMinimo;
   const monitorados = Math.max(indicadores.total - semRegua, 0);
-  // Catálogo redondo de verdade — nada em nenhuma das 3 categorias e nada
+  // Catálogo redondo de verdade — nada em nenhuma das 4 categorias e nada
   // sem régua: aí sim vale trocar os cards por uma linha só de "tudo certo".
   const tudoZerado = cardsTodos.every((card) => card.valor === 0) && semRegua === 0;
   const cards = tudoZerado ? [] : cardsTodos;
@@ -208,7 +225,11 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
           // a mais (R$ parado) que os outros dois não têm. Esticar os 3 pra
           // mesma altura (padrão do grid) fica mais coeso que 3 caixas de
           // tamanhos diferentes lado a lado.
-          className="grid grid-cols-3 gap-2.5 sm:gap-3"
+          // Quatro em uma linha só a partir do tablet: no celular, quatro
+          // colunas dariam ~80px por card e o número — que é a única coisa que
+          // se lê de longe — teria de encolher junto. Duas por duas mantêm o
+          // número no tamanho em que ele funciona.
+          className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3"
         >
           {cards.map((card) => (
             <motion.div key={card.id} variants={entradaExagerada}>
@@ -273,6 +294,7 @@ function TrilhoEstado({ indicadores, filtro, onFiltro, className }: {
         { value: "abaixo_minimo", label: copy.filters.belowMin, contagem: indicadores?.abaixoMinimo, cor: COR.critico },
         { value: "sem_estoque", label: copy.filters.outOfStock, contagem: indicadores?.semEstoque, cor: COR.atencao },
         { value: "parados", label: copy.filters.stalled, contagem: indicadores?.parados, cor: COR.neutro },
+        { value: "pausados", label: copy.filters.paused, contagem: indicadores?.pausados, cor: COR.info },
       ]}
     />
   );
@@ -857,7 +879,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   // mínimo" é boa, "nada com esses filtros" é só ajuste de busca.
   const ilustracaoVazio = !filtrando
     ? "restock"
-    : filtro === "abaixo_minimo" || filtro === "sem_estoque"
+    : filtro === "abaixo_minimo" || filtro === "sem_estoque" || filtro === "pausados"
       ? "healthyStock"
       : filtro === "parados"
         ? "deadStock"

@@ -278,6 +278,8 @@
       "belowMin": "Abaixo do mínimo",
       "outOfStock": "Sem estoque",
       "stalled": "Parados",
+      "paused": "Fora do ar",
+      "pausedSub": "com saldo e sem vitrine",
       "divergences": "Divergências",
       "capitalPrefix": "parados",
       "loadError": "Erro ao carregar indicadores."
@@ -287,6 +289,7 @@
       "belowMin": "Abaixo do mínimo",
       "outOfStock": "Sem estoque",
       "stalled": "Parados",
+      "paused": "Fora do ar (pausado ou encerrado)",
       "noMin": "Sem mínimo"
     },
     "minimum": {

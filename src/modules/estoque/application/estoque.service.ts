@@ -203,6 +203,55 @@ function condicaoCanal(orgId: string, canalTipos: string | readonly string[]): S
   )`;
 }
 
+/** Os status que cada canal usa para dizer "este anúncio não está na vitrine".
+ *  O ML manda `paused` (pausado pelo vendedor) e `closed` (encerrado); a Shopee
+ *  manda `UNLIST`. São o mesmo fato comercial em três palavras diferentes, e a
+ *  comparação ignora a caixa porque o que está gravado é o status cru da API,
+ *  não um valor normalizado nosso. */
+const STATUS_FORA_DA_VITRINE = ["paused", "closed", "unlist"] as const;
+
+/** Fora do ar: o produto tem vínculo ativo no canal e NENHUM anúncio à venda.
+ *
+ *  A pergunta não é "tem algum anúncio pausado?" — essa acusa produto que está
+ *  vendendo. O W760-G/BL_2 é o caso real: encerrado no Mercado Livre e normal
+ *  na Shopee. Ele está à venda, e só entra aqui quando a tela está filtrada no
+ *  Mercado Livre — onde a frase "fora do ar" é verdadeira. Por isso são dois
+ *  EXISTS: um acha o anúncio apagado, o outro garante que não sobrou nenhum
+ *  aceso. Ambos respeitam o canal selecionado no topo.
+ *
+ *  Status desconhecido (`null`, de vínculo que a sincronização ainda não
+ *  visitou) conta como aceso de propósito: silêncio não é prova de que o
+ *  anúncio caiu, e acusar por falta de informação é o erro mais caro dos dois
+ *  — manda a pessoa procurar problema onde talvez não haja. */
+function condicaoPausado(orgId: string, canalTipos?: string[]): SQL {
+  // `tipo` é enum no schema e o filtro chega da tela como `string[]` — já
+  // restrito aos canais de venda pelo zod da action, então a asserção só
+  // reafirma o que aquela validação garantiu. Um tipo fora do enum aqui não
+  // quebraria nada: viraria uma condição que não casa com linha nenhuma.
+  const tipos = canalTipos && canalTipos.length > 0
+    ? (canalTipos as (typeof channelAccount.tipo.enumValues)[number][])
+    : null;
+  const noCanal = tipos ? sql`and ${inArray(channelAccount.tipo, tipos)}` : sql``;
+  const vinculo = (condicaoStatus: SQL) => sql`(
+    select 1 from ${produtoCanal}
+    inner join ${channelAccount} on ${channelAccount.id} = ${produtoCanal.channelAccountId}
+    where ${produtoCanal.produtoId} = ${produto.id}
+      and ${produtoCanal.orgId} = ${orgId}
+      and ${produtoCanal.ativo} = true
+      and ${condicaoStatus}
+      ${noCanal}
+  )`;
+  // `sql.join` e não o array direto: interpolado inteiro, o drizzle o manda
+  // como UM parâmetro só e o `in` recebe um valor em vez de uma lista.
+  const apagado = sql`lower(${produtoCanal.statusAnuncio}) in (${sql.join(
+    STATUS_FORA_DA_VITRINE.map((status) => sql`${status}`),
+    sql`, `,
+  )})`;
+  return sql`exists ${vinculo(apagado)} and not exists ${vinculo(
+    sql`(${produtoCanal.statusAnuncio} is null or not (${apagado}))`,
+  )}`;
+}
+
 export async function listarProdutos(
   ctx: CrudContext,
   opts: {
@@ -210,6 +259,7 @@ export async function listarProdutos(
     busca?: string;
     estado?: EstadoEstoque;
     canalTipos?: string[];
+    apenasPausados?: boolean;
     ids?: string[];
     limit?: number;
     offset?: number;
@@ -231,6 +281,10 @@ export async function listarProdutos(
   const SALDO = saldoExpr(ctx.orgId, opts.canalTipos);
   if (opts.estado) filters.push(condicaoEstado(opts.estado, SALDO));
   if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanal(ctx.orgId, opts.canalTipos));
+  // O `saldo > 0` acompanha a condição de pausado onde quer que ela apareça:
+  // é a mesma pergunta do card ("tem o que vender e não está à venda"), e uma
+  // lista com regra mais larga que o número que a abriu seria outra coisa.
+  if (opts.apenasPausados) filters.push(sql`${SALDO} > 0`, condicaoPausado(ctx.orgId, opts.canalTipos));
   // Lista vazia significa "nenhum produto casa" (ex.: filtro de parados sem
   // resultado) — sem o guarda, inArray com [] geraria SQL inválido.
   if (opts.ids) filters.push(opts.ids.length > 0 ? inArray(produto.id, opts.ids) : sql`false`);
@@ -299,6 +353,11 @@ export async function contarIndicadoresEstoque(
       abaixoMinimo: sql<number>`count(*) filter (where ${condicaoEstado("abaixo_minimo", SALDO)})`,
       semEstoque: sql<number>`count(*) filter (where ${condicaoEstado("sem_estoque", SALDO)})`,
       semMinimo: sql<number>`count(*) filter (where ${condicaoEstado("sem_minimo", SALDO)})`,
+      // Só conta quem tem saldo: anúncio pausado de produto zerado está
+      // pausado pelo motivo certo, e misturá-lo aqui faria deste card um eco
+      // do "Zerados" ao lado. O que ele cobra é o outro caso — tem o que
+      // vender e não está à venda.
+      pausados: sql<number>`count(*) filter (where ${SALDO} > 0 and ${condicaoPausado(ctx.orgId, opts.canalTipos)})`,
     })
     .from(produto)
     .where(and(...filters));
@@ -308,6 +367,7 @@ export async function contarIndicadoresEstoque(
     abaixoMinimo: Number(linha?.abaixoMinimo ?? 0),
     semEstoque: Number(linha?.semEstoque ?? 0),
     semMinimo: Number(linha?.semMinimo ?? 0),
+    pausados: Number(linha?.pausados ?? 0),
   };
 }
 

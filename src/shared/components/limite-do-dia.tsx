@@ -132,10 +132,18 @@ function GrupoLimiteDoDia({ titulo, dica, linhas, soma }: {
     .replace("{valor}", dinheiro.format(soma));
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col rounded-[0.95rem] border border-border bg-muted/30 p-3.5">
-      <p className="text-[11.5px] font-bold uppercase tracking-[.08em]" style={{ color: AZUL_LIMITE }}>{titulo}</p>
-      <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{dica}</p>
-      <p className="mt-2 text-[12.5px] font-bold tabular-nums text-foreground">{resumo}</p>
+    <section
+      className="flex min-h-0 flex-1 flex-col rounded-[0.95rem] border bg-card p-3 shadow-sm"
+      style={{ borderColor: "color-mix(in srgb, var(--info) 30%, var(--border))" }}
+    >
+      {/* Titulo e resumo dividem a linha quando cabem: eram tres linhas de
+          cabecalho por painel, e cada uma saia da lista — a parte que a pessoa
+          veio ver e a unica aqui sem tamanho previsivel. */}
+      <div className="flex shrink-0 flex-wrap items-baseline gap-x-2.5">
+        <p className="text-[11.5px] font-bold uppercase tracking-[.08em]" style={{ color: AZUL_LIMITE }}>{titulo}</p>
+        <p className="text-[12.5px] font-bold tabular-nums text-foreground">{resumo}</p>
+      </div>
+      <p className="mt-0.5 shrink-0 text-[11.5px] leading-snug text-muted-foreground">{dica}</p>
       <ul className="mt-1.5 min-h-0 flex-1 divide-y divide-border/70 overflow-y-auto">
         {linhas.map((item) => <LinhaPedidoNoLimite key={item.id} item={item} />)}
       </ul>
@@ -163,7 +171,7 @@ function TrilhoDoDia({ rotulo, corte }: { rotulo: string; corte: string }) {
           precisa cobrir as BARRAS e só elas. Uma faixa única atravessando o
           bloco todo passava por cima do rótulo do segundo trilho e o apagava —
           o desenho ficava mais confuso do que a prosa que ele veio substituir. */}
-      <div className="relative mt-1 flex h-7 overflow-hidden rounded-[0.45rem] border border-border">
+      <div className="relative mt-1 flex h-6 overflow-hidden rounded-[0.45rem] border border-border">
         <div
           className="flex shrink-0 items-center justify-end overflow-hidden pr-2"
           style={{ width: corte, background: "var(--muted)" }}
@@ -193,12 +201,12 @@ function TrilhoDoDia({ rotulo, corte }: { rotulo: string; corte: string }) {
 function DiagramaViradaDoDia() {
   const d = copyLimite.diagrama;
   return (
-    <figure className="rounded-[0.95rem] border border-border p-3.5">
+    <figure className="shrink-0 rounded-[0.95rem] border border-border p-3">
       <figcaption className="text-[11.5px] font-bold uppercase tracking-[.08em]" style={{ color: AZUL_LIMITE }}>
         {d.titulo}
       </figcaption>
 
-      <div className="relative mt-3">
+      <div className="relative mt-2.5">
         {/* As duas bordas da hora em disputa, atravessando o desenho inteiro:
             onde o nosso dia vira (33%) e onde o do ML vira (66%). Linhas, e não
             um retângulo preenchido — o preenchimento mora dentro de cada barra
@@ -236,7 +244,7 @@ function DiagramaViradaDoDia() {
         </span>
       </div>
 
-      <p className="mt-3 text-[11.5px] leading-relaxed text-muted-foreground">{d.legenda}</p>
+      <p className="mt-2.5 text-[11px] leading-relaxed text-muted-foreground">{d.legenda}</p>
     </figure>
   );
 }
@@ -293,15 +301,15 @@ export function JanelaLimiteDoDia({ dados, aberto, setAberto }: {
             mesma explicação ficar estreita demais no tablet e larga demais no
             monitor. As listas, que só têm nome e valor por linha, aceitam
             qualquer largura — então é a elas que sobra o resto. */}
-        <div className="flex min-h-0 flex-col gap-3.5 md:w-[19rem] md:shrink-0 md:overflow-y-auto lg:w-[22rem] xl:w-[24rem]">
-          <p className="text-[13px] leading-relaxed text-muted-foreground">{copyLimite.explanation}</p>
+        <div className="flex min-h-0 flex-col gap-2.5 md:w-[18rem] md:shrink-0 md:overflow-y-auto lg:w-[20rem] xl:w-[22rem]">
+          <p className="shrink-0 text-[12.5px] leading-relaxed text-muted-foreground">{copyLimite.explanation}</p>
 
           <DiagramaViradaDoDia />
 
           {/* `mt-auto` cola a ressalva no pé da coluna quando sobra espaço:
               ela qualifica tudo que está acima, e boiando logo abaixo do
               desenho pareceria uma legenda dele. */}
-          <p className="border-t border-border pt-3 text-[11.5px] leading-relaxed text-muted-foreground md:mt-auto">
+          <p className="shrink-0 border-t border-border pt-2.5 text-[11px] leading-relaxed text-muted-foreground md:mt-auto">
             {copyLimite.rodape}
           </p>
         </div>
@@ -318,7 +326,7 @@ export function JanelaLimiteDoDia({ dados, aberto, setAberto }: {
             // inteira e sobrava um vão de um caractere para a dica, que descia
             // letra por letra. `flex-wrap` não resolvia — o vão existia, e para
             // o flex isso basta para tentar caber ali.
-            className="flex shrink-0 flex-col gap-1 rounded-[0.95rem] px-4 py-3 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1"
+            className="flex shrink-0 flex-col gap-1 rounded-[0.95rem] px-3.5 py-2.5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1"
             style={{ background: "color-mix(in srgb, var(--info) 8%, transparent)" }}
           >
             {diferenca === 0 ? (
@@ -365,9 +373,9 @@ export function JanelaLimiteDoDia({ dados, aberto, setAberto }: {
           um quinto da altura que ocupava. E o lugar faz sentido: eles são o
           detalhamento, o que se lê depois de já ter visto o desenho e a conta —
           não o que se lê primeiro. */}
-      <ol className="mt-4 grid shrink-0 gap-2.5 sm:grid-cols-3">
+      <ol className="mt-3 grid shrink-0 gap-2 sm:grid-cols-3">
         {copyLimite.comoFunciona.map((passo, indice) => (
-          <li key={passo.titulo} className="flex gap-2.5 rounded-[0.8rem] border border-border px-3 py-2.5">
+          <li key={passo.titulo} className="flex gap-2.5 rounded-[0.8rem] border border-border px-3 py-2">
             <span
               aria-hidden="true"
               className="mt-[3px] inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full text-[10px] font-extrabold text-white"

@@ -46,16 +46,37 @@ export function Dialog({ open, onOpenChange, title, description, children, class
           <div
             className={cn(
               fullscreen
-                ? "shrink-0 border-b border-border px-4 py-4 pr-14 sm:px-8 sm:py-5"
+                ? preencher
+                  // Com `fill` a altura é o recurso escasso: tudo que o
+                  // cabeçalho toma sai da lista lá embaixo. Então ele encolhe —
+                  // menos respiro, e título e subtítulo na MESMA linha assim
+                  // que há largura, em vez de duas linhas empilhadas.
+                  ? "shrink-0 border-b border-border px-4 py-2.5 pr-14 sm:px-8 sm:py-3"
+                  : "shrink-0 border-b border-border px-4 py-4 pr-14 sm:px-8 sm:py-5"
                 : "mb-4 pr-10",
             )}
           >
-            <div className={cn(fullscreen && "mx-auto w-full", fullscreen && (preencher ? "max-w-7xl" : "max-w-5xl"))}>
-              <DialogPrimitive.Title className={cn("font-semibold text-foreground", fullscreen ? "text-lg sm:text-xl" : "text-base")}>
+            <div
+              className={cn(
+                fullscreen && "mx-auto w-full",
+                fullscreen && (preencher ? "max-w-7xl sm:flex sm:flex-wrap sm:items-baseline sm:gap-x-3" : "max-w-5xl"),
+              )}
+            >
+              <DialogPrimitive.Title
+                className={cn(
+                  "font-semibold text-foreground",
+                  fullscreen ? (preencher ? "text-base sm:text-lg" : "text-lg sm:text-xl") : "text-base",
+                )}
+              >
                 {title}
               </DialogPrimitive.Title>
               {description && (
-                <DialogPrimitive.Description className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                <DialogPrimitive.Description
+                  className={cn(
+                    "leading-relaxed text-muted-foreground",
+                    preencher ? "mt-0.5 text-[12.5px] sm:mt-0" : "mt-1.5 text-sm",
+                  )}
+                >
                   {description}
                 </DialogPrimitive.Description>
               )}
@@ -81,8 +102,8 @@ export function Dialog({ open, onOpenChange, title, description, children, class
             // seguinte.
             <div
               className={cn(
-                "min-h-0 flex-1 px-4 py-5 sm:px-8 sm:py-6",
-                preencher ? "overflow-y-auto md:overflow-hidden" : "overflow-y-auto",
+                "min-h-0 flex-1 px-4 sm:px-8",
+                preencher ? "overflow-y-auto py-3.5 sm:py-4 md:overflow-hidden" : "overflow-y-auto py-5 sm:py-6",
               )}
             >
               <div className={cn("mx-auto w-full", preencher ? "max-w-7xl md:flex md:h-full md:flex-col" : "max-w-5xl")}>

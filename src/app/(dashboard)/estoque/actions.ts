@@ -16,7 +16,7 @@ import { assertPerfil } from "@/shared/lib/crud-factory";
 import { compararPorOrdemDeMarca } from "@/shared/config/brands";
 
 const BrandIdSchema = z.string().uuid();
-const EstadoSchema = z.enum(["abaixo_minimo", "sem_estoque", "sem_minimo", "parados"]);
+const EstadoSchema = z.enum(["abaixo_minimo", "sem_estoque", "sem_minimo", "parados", "pausados"]);
 const CanalVendaSchema = z.enum(["mercadolivre", "shopee", "tiktokshop"]);
 
 export async function actionListarProdutos(opts: {
@@ -43,8 +43,11 @@ export async function actionListarProdutos(opts: {
   const consulta = listarProdutos(ctx, {
     brandIds: brandIdsValidados,
     busca: opts.busca?.trim(),
-    estado: estado === "parados" ? undefined : (estado as EstadoEstoque | undefined),
+    estado: estado === "parados" || estado === "pausados" ? undefined : (estado as EstadoEstoque | undefined),
     canalTipos: canalTiposValidados,
+    // "pausados" não é estado de saldo: é uma condição sobre o anúncio no
+    // canal, então viaja por fora de `estado`, como os ids de "parados".
+    apenasPausados: estado === "pausados",
     ids: idsParados,
     limit: 50,
     offset,
