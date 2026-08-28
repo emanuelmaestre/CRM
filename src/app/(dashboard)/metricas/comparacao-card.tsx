@@ -23,7 +23,7 @@ const copy = metricasConfig.comparacaoCard;
 const ACENTO = "var(--acento-3)";
 const dataHoraCard = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
-type Criterio = "score" | "faturamento" | "pedidos" | "ticketMedio" | "notaMedia" | "cancelamento" | "recorrencia";
+type Criterio = "ticketMedio" | "cancelamento" | "recorrencia";
 
 /** Cancelamento é o único critério onde "menor" vence — os outros ranqueiam
  *  do maior pro menor. Sem essa distinção, ordenar por Cancelamento colocaria
@@ -33,11 +33,7 @@ const CRITERIO_MENOR_VENCE: Partial<Record<Criterio, true>> = { cancelamento: tr
 /** Valor bruto do critério — é o que ordena e o que dimensiona a barra. */
 function valorDe(marca: SaudeMarca, criterio: Criterio): number | null {
   switch (criterio) {
-    case "score": return marca.score;
-    case "faturamento": return marca.faturamento;
-    case "pedidos": return marca.pedidos;
     case "ticketMedio": return marca.ticketMedio;
-    case "notaMedia": return marca.notaMedia;
     case "cancelamento": return marca.taxaCancelamento;
     case "recorrencia": return marca.taxaRecorrencia;
   }
@@ -46,11 +42,7 @@ function valorDe(marca: SaudeMarca, criterio: Criterio): number | null {
 /** Mesmo valor, escrito como a pessoa espera ver aquele indicador. */
 function rotuloDe(marca: SaudeMarca, criterio: Criterio): string {
   switch (criterio) {
-    case "score": return marca.score === null ? "Sem dado" : String(marca.score);
-    case "faturamento": return marca.faturamentoLabel;
-    case "pedidos": return String(marca.pedidos);
     case "ticketMedio": return marca.ticketMedioLabel;
-    case "notaMedia": return marca.notaMedia === null ? "Sem avaliação" : `${marca.notaMedia.toFixed(1)} ★`;
     case "cancelamento": return marca.taxaCancelamento === null ? "Sem dado" : `${marca.taxaCancelamento}%`;
     case "recorrencia": return marca.taxaRecorrencia === null ? "Sem dado" : `${marca.taxaRecorrencia}%`;
   }
@@ -61,23 +53,14 @@ function corDaMarca(slug: string): string {
 }
 
 /** Cor da barra/número quando o critério tem um "bom" e um "ruim" objetivos
- *  (Score, Nota média, Cancelamento) — aí a cor precisa significar isso
- *  (vermelho = alerta), diferente de Faturamento/Pedidos/Ticket/Recorrência,
- *  onde não existe um "ruim" absoluto e a cor é só a identidade da marca; uma
- *  marca com cor vermelha no topo do ranking de faturamento não deveria
- *  parecer um problema. Retorna `null` para esses casos — quem chama cai de
- *  volta pra cor da marca. */
+ *  (hoje só Cancelamento) — aí a cor precisa significar isso (vermelho =
+ *  alerta), diferente de Valor médio/Recorrência, onde não existe um "ruim"
+ *  absoluto e a cor é só a identidade da marca; uma marca com cor vermelha no
+ *  topo do ranking não deveria parecer um problema. Retorna `null` para esses
+ *  casos — quem chama cai de volta pra cor da marca. */
 function corDoIndicador(criterio: Criterio, valor: number | null): string | null {
   if (valor === null) return "var(--muted-foreground)";
   switch (criterio) {
-    case "score":
-      if (valor >= 80) return "var(--success)";
-      if (valor >= 50) return "var(--warning)";
-      return "var(--destructive)";
-    case "notaMedia":
-      if (valor >= 4.5) return "var(--success)";
-      if (valor >= 3.5) return "var(--warning)";
-      return "var(--destructive)";
     case "cancelamento":
       if (valor <= 2) return "var(--success)";
       if (valor <= 5) return "var(--warning)";
@@ -115,49 +98,19 @@ interface CampoNumero {
   formatarNumero?: (valorAnimado: number) => string;
 }
 
-/** Cada critério do seletor de cima (Score/Faturamento/Pedidos/Ticket
- *  médio/Nota média) já vira o número grande + a barra no topo do card —
- *  repeti-lo aqui embaixo, dentro da tira, seria a mesma informação duas
- *  vezes na tela. `chaveCampo` é o nome do campo que corresponde a cada
- *  critério, pra essa duplicata ser filtrada sem precisar duplicar a
- *  lista de campos. */
+/** Cada critério do seletor de cima (Valor médio/Cancelamento/Recorrência)
+ *  já vira o número grande + a barra no topo do card — repeti-lo aqui
+ *  embaixo, dentro da tira, seria a mesma informação duas vezes na tela.
+ *  É o nome do campo que corresponde a cada critério, pra essa duplicata
+ *  ser filtrada sem precisar duplicar a lista de campos. */
 const CAMPO_DO_CRITERIO: Record<Criterio, string | null> = {
-  score: null,
-  faturamento: "Faturamento",
-  pedidos: "Pedidos",
   ticketMedio: "Valor médio por pedido",
-  notaMedia: "Nota",
   cancelamento: "Cancelamento",
   recorrencia: "Recorrência",
 };
 
 function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; periodoLabel: string; criterio: Criterio }) {
   const campos: CampoNumero[] = [
-    {
-      label: "Faturamento", valor: marca.faturamentoLabel, valorNumerico: marca.faturamento, formatarNumero: (v) => moeda.format(v),
-      calculo: {
-        titulo: "Faturamento",
-        significado: "Soma do valor de todos os pedidos aprovados da marca no período, sem incluir os cancelados ou devolvidos.",
-        formula: "soma do valor de cada pedido válido no período",
-        resultado: marca.faturamentoLabel,
-        itens: [
-          { label: "Pedidos considerados", valor: inteiro.format(marca.pedidos) },
-          { label: "Valor médio por pedido", valor: marca.ticketMedioLabel },
-        ],
-        nota: "Pedidos cancelados ou devolvidos não entram nesta soma. Eles são medidos separadamente em Cancelamento.",
-      },
-    },
-    {
-      label: "Pedidos", valor: String(marca.pedidos), valorNumerico: marca.pedidos, formatarNumero: (v) => inteiro.format(Math.round(v)),
-      calculo: {
-        titulo: "Pedidos",
-        significado: "Quantidade de pedidos aprovados da marca no período. Esta é a mesma base usada para calcular Faturamento e Valor médio por pedido.",
-        formula: "contagem de pedidos válidos (sem cancelados ou devolvidos) no período",
-        resultado: String(marca.pedidos),
-        itens: [{ label: "Total no período", valor: inteiro.format(marca.pedidos) }],
-        nota: "Pedidos cancelados ou devolvidos ficam de fora daqui e entram na conta de Cancelamento.",
-      },
-    },
     {
       label: "Valor médio por pedido", valor: marca.ticketMedioLabel, valorNumerico: marca.ticketMedio, formatarNumero: (v) => moeda.format(v),
       calculo: {
@@ -170,21 +123,6 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
           { label: "Pedidos", valor: inteiro.format(marca.pedidos) },
         ],
         nota: "O valor sobe quando poucos pedidos caros elevam a média. Analise-o junto com o volume de Pedidos, e não isoladamente.",
-      },
-    },
-    {
-      label: "Nota",
-      valor: marca.notaMedia === null ? "Sem avaliação" : `${marca.notaMedia.toFixed(1)} ★`,
-      ...(marca.notaMedia === null ? {} : { valorNumerico: marca.notaMedia, formatarNumero: (v: number) => `${v.toFixed(1)} ★` }),
-      calculo: {
-        titulo: "Nota média",
-        significado: "Média das avaliações que os clientes deixaram para os pedidos da marca no período. Quanto mais próximo de 5, melhor a experiência percebida.",
-        formula: "média simples das notas (1 a 5) dadas pelos clientes no período",
-        resultado: marca.notaMedia === null ? "Sem avaliação" : `${marca.notaMedia.toFixed(1)} ★`,
-        itens: marca.notaMedia === null ? [] : [{ label: "Nota média no período", valor: `${marca.notaMedia.toFixed(1)} ★` }],
-        nota: marca.notaMedia === null
-          ? "Ainda não há avaliações registradas neste período. Por isso, não existe uma nota para mostrar."
-          : "Considera todas as avaliações recebidas no período, não só as 5 estrelas.",
       },
     },
     {
@@ -443,7 +381,7 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
   filtro?: CardFiltro;
   onChangeFiltro?: (filtro: CardFiltro) => void;
 }) {
-  const [criterio, setCriterio] = useState<Criterio>("score");
+  const [criterio, setCriterio] = useState<Criterio>("ticketMedio");
   const reduzir = useReducedMotion();
 
   const ordenadas = useMemo(() => {
@@ -467,17 +405,18 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, atualizadoEm, posV
   );
 
   const abasCriterio = (
-    // Mobile: grade de 2 colunas, tudo visível numa tela só, sem arrastar
-    // pro lado — o wrap antigo em linha só (flex-wrap) ficava torto (2, depois
-    // 3, depois 1 item por linha); grid alinha as bordas certinho mesmo com
-    // 7 opções de texto de tamanhos bem diferentes. Desktop mantém a fileira
+    // Mobile: grade de 3 colunas, tudo visível numa tela só, sem arrastar
+    // pro lado e sem sobrar buraco na linha — são exatamente 3 critérios.
+    // O wrap antigo em linha só (flex-wrap) ficava torto; grid alinha as
+    // bordas certinho mesmo com textos de tamanhos bem diferentes. Desktop
+    // mantém a fileira
     // única de sempre, com espaço de sobra pra não precisar de grade.
     // `basis-full` no mobile: força a própria linha (nunca tenta dividir
     // espaço com o filtro de canal/Período acima). A borda + respiro fica
     // num wrapper por fora da caixa cinza — dentro dela a borda cortaria o
     // próprio fundo `bg-muted` a meio caminho, ficando estranho.
     <div className="mt-3 basis-full border-t border-border pt-3 sm:mt-0 sm:basis-auto sm:border-t-0 sm:pt-0">
-    <div className="grid grid-cols-2 gap-1 rounded-[0.75rem] bg-muted p-1 sm:flex sm:flex-wrap sm:gap-0.5" role="tablist" aria-label={copy.ordenarPor}>
+    <div className="grid grid-cols-3 gap-1 rounded-[0.75rem] bg-muted p-1 sm:flex sm:flex-wrap sm:gap-0.5" role="tablist" aria-label={copy.ordenarPor}>
       {copy.criterios.map((opcao) => {
         const ativo = opcao.chave === criterio;
         return (

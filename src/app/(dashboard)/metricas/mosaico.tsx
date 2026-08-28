@@ -703,9 +703,9 @@ export function Mosaico({
     explicacao: {
       resumo: "Coloca as marcas ativas lado a lado e utiliza os mesmos critérios de medição. A liderança muda conforme o critério escolhido nas abas.",
       pontos: [
-        { titulo: "Sete critérios, um de cada vez", texto: "Pontuação, Faturamento, Pedidos, Valor médio por pedido, Nota, Cancelamento e Recorrência: a ordenação e a barra seguem o critério ativo." },
+        { titulo: "Três critérios, um de cada vez", texto: "Valor médio por pedido, Cancelamento e Recorrência: a ordenação e a barra seguem o critério ativo." },
         { titulo: "Cor de cada linha é a da marca", texto: "O destaque visual (barra, borda, número) é sempre a identidade da marca, não muda com o critério." },
-        { titulo: "Ponto de alerta ao lado do número", texto: "Pontuação, Nota e Cancelamento possuem faixas objetivas. Um ponto colorido indica quando o valor requer atenção." },
+        { titulo: "Ponto de alerta ao lado do número", texto: "Cancelamento possui faixas objetivas. Um ponto colorido indica quando o valor requer atenção." },
         { titulo: "Cumprimento de pedidos", texto: "A barra embaixo de cada marca mostra o que aconteceu com os pedidos do período: entregues, em andamento, cancelados, devolvidos." },
       ],
       dica: "Cancelamento é o único critério em que o menor valor lidera. Por isso, 0% aparece no topo da classificação, e não no fim.",

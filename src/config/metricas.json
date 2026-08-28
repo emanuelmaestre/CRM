@@ -50,24 +50,8 @@
     "ordenarPor": "Ordenar por",
     "criterios": [
       {
-        "chave": "score",
-        "label": "Pontuação"
-      },
-      {
-        "chave": "faturamento",
-        "label": "Faturamento"
-      },
-      {
-        "chave": "pedidos",
-        "label": "Pedidos"
-      },
-      {
         "chave": "ticketMedio",
         "label": "Valor médio por pedido"
-      },
-      {
-        "chave": "notaMedia",
-        "label": "Nota média"
       },
       {
         "chave": "cancelamento",
