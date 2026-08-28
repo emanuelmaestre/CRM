@@ -358,13 +358,14 @@ describe("contratos dos providers de marketplace", () => {
     });
   });
 
-  it("usa o financeiro individual quando a Shopee recusa o endpoint em lote", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({
+  /** As duas primeiras respostas de qualquer volta de `buscarPedidos`:
+   *  a lista de pedidos e o detalhe deles. O financeiro vem depois. */
+  function respostasDePedidoShopee() {
+    return [
+      new Response(JSON.stringify({
         response: { order_list: [{ order_sn: "SHP-FALLBACK" }] },
-      }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
+      }), { status: 200 }),
+      new Response(JSON.stringify({
         response: { order_list: [{
           order_sn: "SHP-FALLBACK",
           order_status: "READY_TO_SHIP",
@@ -373,11 +374,22 @@ describe("contratos dos providers de marketplace", () => {
           create_time: 1_784_779_900,
           item_list: [{ item_id: 1, model_id: 0, item_sku: "SKU-1", model_quantity_purchased: 1, model_discounted_price: 45.9 }],
         }] },
-      }), { status: 200 }))
+      }), { status: 200 }),
+    ];
+  }
+
+  it("usa o financeiro individual quando o lote falha por instabilidade", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
+    const [lista, detalhe] = respostasDePedidoShopee();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(lista)
+      .mockResolvedValueOnce(detalhe)
+      // Falha que NÃO é de permissão: um pedido do lote sem escrow liberado
+      // ainda derruba a resposta inteira, e os demais têm o valor.
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        error: "error_api_permission",
-        message: "No permission to current api.",
-      }), { status: 403 }))
+        error: "error_param",
+        message: "escrow not ready for one of the orders",
+      }), { status: 400 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         response: {
           order_sn: "SHP-FALLBACK",
@@ -402,6 +414,32 @@ describe("contratos dos providers de marketplace", () => {
     });
     expect(String(fetchMock.mock.calls[3][0])).toContain("/payment/get_escrow_detail");
     expect(String(fetchMock.mock.calls[3][0])).toContain("order_sn=SHP-FALLBACK");
+  });
+
+  /* 403 de permissão vale para o app inteiro, não para aquele lote: insistir
+     no endpoint individual multiplicava por 20 as chamadas condenadas e
+     queimava a cota do proxy de IP fixo — 989 chamadas 403 em sete dias na
+     conta real. O pedido entra sem financeiro, e a A34 preenche quando a
+     Shopee liberar a categoria Payment. */
+  it("não tenta o endpoint individual quando a Shopee nega permissão no lote", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
+    const [lista, detalhe] = respostasDePedidoShopee();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(lista)
+      .mockResolvedValueOnce(detalhe)
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        error: "error_api_permission",
+        message: "No permission to current api.",
+      }), { status: 403 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const creds = { partnerId: "1", partnerKey: "secret", shopId: "2", accessToken: "token" };
+    const pedidos = await new ShopeeProvider(creds, creds)
+      .buscarPedidos(new Date("2026-07-20T05:00:00.000Z"));
+
+    // O pedido operacional continua chegando inteiro; só o financeiro falta.
+    expect(pedidos[0]).toMatchObject({ providerOrderId: "SHP-FALLBACK", frete: undefined, valorLiquido: undefined });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
 });

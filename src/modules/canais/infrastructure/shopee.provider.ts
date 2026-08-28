@@ -531,12 +531,34 @@ export class ShopeeProvider implements ChannelProvider {
     });
   }
 
+  /** 401/403, ou a Shopee dizendo em texto que o app não tem permissão para a
+   *  categoria — o `error_api_permission` que ela devolve com HTTP 403 (mesmo
+   *  erro que já barrava o app de catálogo na API de Pedidos). Não é falha
+   *  daquele pedido nem instabilidade: repetir não muda o resultado. */
+  private static ehFalhaDeAutorizacao(error: unknown): boolean {
+    return /HTTP (401|403)|permission|auth/i.test(String(error));
+  }
+
   /** Busca o financeiro em lotes recomendados de até 20 pedidos. Falha desse
    * endpoint não pode apagar o pedido operacional: pedidos novos ou ainda não
    * pagos às vezes não têm escrow disponível. A reconciliação periódica tenta
-   * novamente e preenche os valores assim que a Shopee os liberar. */
+   * novamente e preenche os valores assim que a Shopee os liberar.
+   *
+   * ATENÇÃO — em 28/08/2026 este endpoint respondia 403 em 100% das chamadas:
+   * 495 em `get_escrow_detail_batch` e 494 em `get_escrow_detail` em sete dias,
+   * nenhuma bem-sucedida, enquanto `get_order_list` e `get_order_detail` do
+   * MESMO app respondiam 200. É permissão de categoria: o app "Elisa Lima
+   * Pedidos" não tem a API de Payment/Finance liberada no console da Shopee.
+   * Enquanto não tiver, todo pedido da Shopee entra sem frete, sem desconto,
+   * sem acréscimo, sem `valor_liquido` e sem taxa de marketplace por item — e o
+   * "Faturamento líquido" da Shopee sai igual ao bruto, sem a comissão que ela
+   * de fato cobra. Não é bug de código: é autorização a pedir à Shopee.
+   * Quando liberar, nada aqui precisa mudar e nem é preciso reimportar na mão:
+   * `reconciliarFinanceiroPedido` (ingestao-pedido.service.ts) preenche os
+   * valores dos pedidos já gravados na próxima passada da A34. */
   private async buscarFinanceiroPedidos(orderSns: string[]): Promise<Map<string, ShopeeOrderIncome>> {
     const resultado = new Map<string, ShopeeOrderIncome>();
+    let semPermissaoFinanceira = false;
     for (let inicio = 0; inicio < orderSns.length; inicio += 20) {
       const lote = orderSns.slice(inicio, inicio + 20);
       try {
@@ -558,30 +580,55 @@ export class ShopeeProvider implements ChannelProvider {
           if (item.order_income) resultado.set(item.order_sn, item.order_income);
         }
       } catch (error) {
-        console.warn(`[Shopee] financeiro em lote indisponível para ${lote.length} pedido(s); tentando endpoint individual:`, error);
-        for (const orderSn of lote) {
-          try {
-            const res = await shopeeFetch(this.urlPedidos("/payment/get_escrow_detail", { order_sn: orderSn }), {
-              signal: AbortSignal.timeout(10000),
-            });
-            const data = await res.json() as {
-              error?: string;
-              message?: string;
-              response?: { order_sn?: string; order_income?: ShopeeOrderIncome };
-            };
-            if (!res.ok || data.error) {
-              throw new Error(`HTTP ${res.status}: ${data.message ?? data.error ?? "resposta financeira recusada"}`);
+        /* Autorização negada no lote também nega no individual — é o mesmo app
+           e a mesma categoria de API. Tentar um a um aqui só multiplicava por
+           20 as chamadas condenadas. O retry individual continua valendo para
+           o que ele foi feito: lote que falhou por um pedido sem escrow ainda
+           liberado, onde os outros 19 têm. */
+        if (ShopeeProvider.ehFalhaDeAutorizacao(error)) {
+          semPermissaoFinanceira = true;
+        } else {
+          console.warn(`[Shopee] financeiro em lote indisponível para ${lote.length} pedido(s); tentando endpoint individual:`, error);
+          for (const orderSn of lote) {
+            try {
+              const res = await shopeeFetch(this.urlPedidos("/payment/get_escrow_detail", { order_sn: orderSn }), {
+                signal: AbortSignal.timeout(10000),
+              });
+              const data = await res.json() as {
+                error?: string;
+                message?: string;
+                response?: { order_sn?: string; order_income?: ShopeeOrderIncome };
+              };
+              if (!res.ok || data.error) {
+                throw new Error(`HTTP ${res.status}: ${data.message ?? data.error ?? "resposta financeira recusada"}`);
+              }
+              if (data.response?.order_income) {
+                resultado.set(data.response.order_sn ?? orderSn, data.response.order_income);
+              }
+            } catch (individualError) {
+              console.warn(`[Shopee] financeiro individual indisponível para ${orderSn}:`, individualError);
+              // 401/403 é falha de autorização do app, não do pedido. Repetir a
+              // mesma chamada para o restante do lote só gastaria Webshare.
+              if (ShopeeProvider.ehFalhaDeAutorizacao(individualError)) {
+                semPermissaoFinanceira = true;
+                break;
+              }
             }
-            if (data.response?.order_income) {
-              resultado.set(data.response.order_sn ?? orderSn, data.response.order_income);
-            }
-          } catch (individualError) {
-            console.warn(`[Shopee] financeiro individual indisponível para ${orderSn}:`, individualError);
-            // 401/403 é falha de autorização do app, não do pedido. Repetir a
-            // mesma chamada para o restante do lote só gastaria Webshare.
-            if (/HTTP (401|403)|permission|auth/i.test(String(individualError))) break;
           }
         }
+      }
+      /* Autorização negada vale para o app inteiro, não para aquele lote: os
+         próximos lotes vão receber o mesmo 403. Antes o laço seguia mesmo
+         assim e cada sincronização gastava duas chamadas por lote em algo que
+         não tinha como dar certo — em sete dias foram 989 chamadas 403, todas
+         consumindo a cota do proxy de IP fixo, que é o gargalo real aqui. */
+      if (semPermissaoFinanceira) {
+        console.warn(
+          "[Shopee] app sem permissão para a API de Payment — financeiro dos pedidos "
+          + `não será preenchido nesta volta (${orderSns.length - inicio - lote.length} pedido(s) restantes pulados). `
+          + "Liberar a categoria Payment/Finance para o app de Pedidos no console da Shopee.",
+        );
+        break;
       }
     }
     return resultado;
