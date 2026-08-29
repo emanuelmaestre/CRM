@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
@@ -29,10 +28,6 @@ type CatalogItem = {
 };
 
 export type Avaliacao = CatalogItem & { brand: string; brandLabel: string };
-/** Quantos comentários deste anúncio existem mas caem fora do período
- *  escolhido — 0 quando não há filtro de data ativo. `opinioes` já vem
- *  recortada para o período; isto é só o que sobrou de fora. */
-type AvaliacaoFiltrada = Avaliacao & { ocultasPorPeriodo: number };
 type FiltroNota = "todas" | "com_avaliacao" | "sem_avaliacao";
 type Comprador = { clienteId: string; clienteNome: string; pedidoId: string; pedidoCriadoEm: string };
 
@@ -60,13 +55,6 @@ const ESTRELAS: Array<{ chave: keyof MLDistribuicaoNotas; rotulo: string }> = [
 ];
 
 const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
-
-// toISOString() converte pro fuso UTC — perto da meia-noite local isso troca
-// o dia. Montar a string a partir de getFullYear/Month/Date mantém o dia local.
-function paraDataInput(data: Date): string {
-  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
-}
-const hoje = paraDataInput(new Date());
 
 /* Trocar de aba desmonta este componente. Sem guardar o resultado, cada volta
    refaz a consulta inteira ao Mercado Livre — que é 1 requisição por anúncio,
@@ -332,17 +320,12 @@ function Opiniao({ opiniao, comprador, pedido }: { opiniao: OpiniaoRica; comprad
 /* ── Linha de anúncio ──────────────────────────────────────────
    Fechada mostra o veredito (nota + volume). Aberta revela a
    distribuição e o que os compradores escreveram. */
-function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, pedidosDaAvaliacao, ocultasPorPeriodo }: {
+function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, pedidosDaAvaliacao }: {
   item: Avaliacao;
   aberta: boolean;
   onAlternar: () => void;
   identificacoes: Record<string, Comprador>;
   pedidosDaAvaliacao: Record<string, PedidoDaAvaliacao>;
-  /** Quantos comentários deste anúncio existem mas caíram fora do período
-   *  escolhido — 0 quando não há filtro de data ativo. Sem isto, um anúncio
-   *  com opinião de verdade (só que antiga) mostraria "ninguém comentou",
-   *  o que seria mentira. */
-  ocultasPorPeriodo: number;
 }) {
   const reduzido = useReducedMotion();
   const temOpinioes = item.opinioes.length > 0;
@@ -450,12 +433,6 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, pedidosDaAvali
                       <Opiniao key={opiniao.id} opiniao={opiniao} comprador={identificacoes[opiniao.id]} pedido={pedidosDaAvaliacao[opiniao.id]} />
                     ))}
                   </>
-                ) : ocultasPorPeriodo > 0 ? (
-                  <p className="py-4 text-sm text-muted-foreground">
-                    {ocultasPorPeriodo === 1
-                      ? "1 comentário escrito, fora do período escolhido acima."
-                      : `${ocultasPorPeriodo} comentários escritos, fora do período escolhido acima.`}
-                  </p>
                 ) : (
                   <p className="py-4 text-sm text-muted-foreground">
                     Este anúncio tem estrelas, mas ninguém deixou comentário escrito.
@@ -498,9 +475,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
   // para pesquisar; a lista acompanha no próximo quadro disponível.
   const buscaAdiada = useDeferredValue(busca);
   const [nota, setNota] = useState<FiltroNota>("todas");
-  // Pré-selecionado em Hoje, igual ao resto do app.
-  const [dataInicio, setDataInicio] = useState(hoje);
-  const [dataFim, setDataFim] = useState(hoje);
   const [abertos, setAbertos] = useState<ReadonlySet<string>>(new Set());
   const [identificacoes, setIdentificacoes] = useState<Record<string, Comprador>>({});
   const [pedidosDaAvaliacao, setPedidosDaAvaliacao] = useState<Record<string, PedidoDaAvaliacao>>({});
@@ -617,19 +591,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
 
   const semFiltro = marcasAtivas.size === 0 && canaisAtivos.size === 0;
 
-  // O catálogo do Mercado Livre só dá nota média e distribuição como
-  // histórico vitalício — não dá pra recortar por data (ver o aviso no
-  // ícone de info ao lado de "Notas"). O que o período FILTRA de verdade
-  // são os comentários com texto, que têm data própria por opinião.
-  const periodoAtivo = Boolean(dataInicio || dataFim);
-  const dentroDoPeriodo = useCallback((iso: string | null) => {
-    if (!iso) return false;
-    const dia = iso.slice(0, 10);
-    if (dataInicio && dia < dataInicio) return false;
-    if (dataFim && dia > dataFim) return false;
-    return true;
-  }, [dataInicio, dataFim]);
-
   const filtrados = useMemo(() => {
     const termo = buscaAdiada.trim().toLocaleLowerCase("pt-BR");
     const resultado = itens
@@ -640,11 +601,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
         if (nota === "com_avaliacao" && item.ratingAverage === null) return false;
         if (nota === "sem_avaliacao" && item.ratingAverage !== null) return false;
         return true;
-      })
-      .map((item): AvaliacaoFiltrada => {
-        if (!periodoAtivo) return { ...item, ocultasPorPeriodo: 0 };
-        const opinioesNoPeriodo = item.opinioes.filter((opiniao) => dentroDoPeriodo(opiniao.criadaEm));
-        return { ...item, opinioes: opinioesNoPeriodo, ocultasPorPeriodo: item.opinioes.length - opinioesNoPeriodo.length };
       });
 
     // "Notas" (sem filtro) é o modo neutro — sem ordenar, a lista aparecia
@@ -664,16 +620,14 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
       });
     }
     return resultado;
-  }, [itens, buscaAdiada, nota, marcasAtivas, canaisAtivos, periodoAtivo, dentroDoPeriodo]);
+  }, [itens, buscaAdiada, nota, marcasAtivas, canaisAtivos]);
 
   const assinaturaFiltro = useMemo(() => [
     [...marcasAtivas].sort().join(","),
     [...canaisAtivos].sort().join(","),
     buscaAdiada,
     nota,
-    dataInicio,
-    dataFim,
-  ].join("|"), [marcasAtivas, canaisAtivos, buscaAdiada, nota, dataInicio, dataFim]);
+  ].join("|"), [marcasAtivas, canaisAtivos, buscaAdiada, nota]);
   // Ao trocar qualquer filtro o primeiro lote é usado já neste render, sem
   // esperar um effect (que só rodaria depois de montar a lista antiga inteira).
   const limiteVisivel = paginacao.assinatura === assinaturaFiltro
@@ -731,11 +685,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                     valor: String(distribuicao?.[chave] ?? 0),
                     fracao: totalOpinioes > 0 ? (distribuicao?.[chave] ?? 0) / totalOpinioes : undefined,
                   }))}
-                  nota={
-                    periodoAtivo
-                      ? "A nota média e a distribuição por estrela representam todo o histórico do canal, que não permite filtrar esses dados por data. O período escolhido acima filtra somente os comentários com texto na lista abaixo."
-                      : "A nota média e a distribuição por estrela representam todo o histórico do canal, sem recorte por período, que não permite esse filtro. Somente os comentários com texto podem ser filtrados por data; veja o filtro abaixo."
-                  }
+                  nota="A nota média e a distribuição por estrela representam todo o histórico do canal, sem recorte por data — o canal não permite esse filtro."
                 />
               )}
             </span>
@@ -775,12 +725,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
               className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[rgba(155,48,217,.5)]"
             />
           </label>
-          {/* "Hoje" saiu como botão avulso — o próprio popover de Período já
-              tem um atalho "Hoje" lá dentro (ver CalendarioPopoverRange), o
-              botão daqui fora só duplicava a mesma ação e tomava espaço.
-              Sem ele, Notas/Período cabem numa linha só, inclusive
-              no mobile (o par que sobrava forçava a quebra em 2 duplas
-              antes); flex-wrap continua de garantia pra telas bem estreitas. */}
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <SelectPopover
               valor={nota}
@@ -790,15 +734,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                 { value: "com_avaliacao", label: "Com avaliações" },
                 { value: "sem_avaliacao", label: "Sem avaliações" },
               ]}
-            />
-            {/* Filtra só os comentários com texto (ver aviso no ícone de
-                info acima) — a nota média e a distribuição não têm como ser
-                recortadas por data, o Mercado Livre não expõe isso. */}
-            <CalendarioPopoverRange
-              rotulo="Período"
-              valor={{ inicio: dataInicio, fim: dataFim }}
-              max={hoje}
-              onChange={({ inicio, fim }) => { setDataInicio(inicio); setDataFim(fim); }}
             />
           </div>
         </div>
@@ -825,7 +760,6 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                   onAlternar={() => alternar(chave)}
                   identificacoes={identificacoes}
                   pedidosDaAvaliacao={pedidosDaAvaliacao}
-                  ocultasPorPeriodo={item.ocultasPorPeriodo}
                 />
               );
             })}
