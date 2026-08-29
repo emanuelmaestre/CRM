@@ -188,7 +188,14 @@ export function BloqueioAtualizacao({ progresso, tela }: {
 
   return (
     <motion.div
-      className="fixed inset-0 z-20 grid place-items-center bg-background px-6"
+      /* z-40 para ficar ACIMA das barras de navegação (z-30). Elas já estavam
+         inertes durante o bloqueio, mas apareciam por cima da cobertura: menu
+         visível e morto ao mesmo tempo, que é pior do que menu nenhum.
+         pointer-events some na saída — durante o meio segundo do fade a
+         cobertura ainda cobre a tela e engoliria o primeiro clique. */
+      className={`fixed inset-0 z-40 grid place-items-center bg-background px-6 ${
+        concluindo ? "pointer-events-none" : ""
+      }`}
       initial={reduzir ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
