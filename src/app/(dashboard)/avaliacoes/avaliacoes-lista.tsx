@@ -14,6 +14,7 @@ import { springs } from "@/shared/design-system/motion-variants";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
+import { moeda } from "@/shared/design-system/format";
 import type { MLDistribuicaoNotas, MLOpiniao } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
 type CatalogItem = {
@@ -34,6 +35,19 @@ export type Avaliacao = CatalogItem & { brand: string; brandLabel: string };
 type AvaliacaoFiltrada = Avaliacao & { ocultasPorPeriodo: number };
 type FiltroNota = "todas" | "com_avaliacao" | "sem_avaliacao";
 type Comprador = { clienteId: string; clienteNome: string; pedidoId: string; pedidoCriadoEm: string };
+
+/** O pedido que originou a avaliação — só na Shopee, que manda o `order_sn`
+ *  dentro do comentário. Não é o mesmo que `Comprador`, que é uma dedução do
+ *  Mercado Livre por janela de tempo: aqui o vínculo é exato, e a tela pode
+ *  mostrar valor e itens sem ressalva. */
+type PedidoDaAvaliacao = {
+  clienteId: string;
+  clienteNome: string;
+  pedidoId: string;
+  pedidoCriadoEm: string;
+  total: string;
+  itens: Array<{ nome: string; quantidade: number }>;
+};
 
 const ITENS_POR_LOTE = 30;
 
@@ -175,7 +189,7 @@ type OpiniaoRica = MLOpiniao & {
    dedução por cruzamento que o ML obriga — e os dois casos não podem ter a
    mesma cara, senão a certeza e o palpite viram a mesma coisa aos olhos de
    quem lê. */
-function Opiniao({ opiniao, comprador }: { opiniao: OpiniaoRica; comprador?: Comprador }) {
+function Opiniao({ opiniao, comprador, pedido }: { opiniao: OpiniaoRica; comprador?: Comprador; pedido?: PedidoDaAvaliacao }) {
   const fotos = opiniao.fotos ?? [];
   const videos = opiniao.videos ?? [];
   const temMidia = fotos.length > 0 || videos.length > 0;
@@ -250,11 +264,40 @@ function Opiniao({ opiniao, comprador }: { opiniao: OpiniaoRica; comprador?: Com
         </div>
       )}
 
-      {opiniao.pedidoCanal && (
+      {/* Com o pedido do CRM em mãos, o número solto do canal vira o pedido
+          de verdade: quem comprou, quanto pagou e o que levou, com as duas
+          fichas a um clique. Sem ele — pedido anterior ao histórico
+          importado — sobra o número, que ainda serve para procurar no painel
+          da Shopee. */}
+      {pedido ? (
+        <div className="mt-2 rounded-lg border border-border bg-muted/30 px-2.5 py-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
+            <Link
+              href={`/clientes/${pedido.clienteId}`}
+              className="inline-flex items-center gap-1 font-semibold text-success transition-colors hover:underline"
+            >
+              <UserCheck size={11} strokeWidth={2.5} /> {pedido.clienteNome}
+            </Link>
+            <span className="font-semibold tabular-nums text-foreground">{moeda.format(Number(pedido.total))}</span>
+            <Link
+              href={`/vendas/pedidos/${pedido.pedidoId}`}
+              className="ml-auto inline-flex items-center gap-1 font-mono text-muted-foreground transition-colors hover:text-foreground"
+              title={`Pedido ${opiniao.pedidoCanal} de ${formatarData(pedido.pedidoCriadoEm)}`}
+            >
+              {opiniao.pedidoCanal} <ExternalLink size={10} />
+            </Link>
+          </div>
+          {pedido.itens.length > 0 && (
+            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+              {pedido.itens.map((item) => `${item.quantidade}× ${item.nome}`).join(" · ")}
+            </p>
+          )}
+        </div>
+      ) : opiniao.pedidoCanal ? (
         <p className="mt-2 font-mono text-[11px] text-muted-foreground">
           <span className="font-sans font-semibold">Pedido:</span> {opiniao.pedidoCanal}
         </p>
-      )}
+      ) : null}
     </article>
   );
 }
@@ -262,11 +305,12 @@ function Opiniao({ opiniao, comprador }: { opiniao: OpiniaoRica; comprador?: Com
 /* ── Linha de anúncio ──────────────────────────────────────────
    Fechada mostra o veredito (nota + volume). Aberta revela a
    distribuição e o que os compradores escreveram. */
-function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeriodo }: {
+function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, pedidosDaAvaliacao, ocultasPorPeriodo }: {
   item: Avaliacao;
   aberta: boolean;
   onAlternar: () => void;
   identificacoes: Record<string, Comprador>;
+  pedidosDaAvaliacao: Record<string, PedidoDaAvaliacao>;
   /** Quantos comentários deste anúncio existem mas caíram fora do período
    *  escolhido — 0 quando não há filtro de data ativo. Sem isto, um anúncio
    *  com opinião de verdade (só que antiga) mostraria "ninguém comentou",
@@ -375,7 +419,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, ocultasPorPeri
                       O que escreveram
                     </p>
                     {item.opinioes.map((opiniao) => (
-                      <Opiniao key={opiniao.id} opiniao={opiniao} comprador={identificacoes[opiniao.id]} />
+                      <Opiniao key={opiniao.id} opiniao={opiniao} comprador={identificacoes[opiniao.id]} pedido={pedidosDaAvaliacao[opiniao.id]} />
                     ))}
                   </>
                 ) : ocultasPorPeriodo > 0 ? (
@@ -431,6 +475,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
   const [dataFim, setDataFim] = useState(hoje);
   const [abertos, setAbertos] = useState<ReadonlySet<string>>(new Set());
   const [identificacoes, setIdentificacoes] = useState<Record<string, Comprador>>({});
+  const [pedidosDaAvaliacao, setPedidosDaAvaliacao] = useState<Record<string, PedidoDaAvaliacao>>({});
   const [paginacao, setPaginacao] = useState({ assinatura: "", limite: ITENS_POR_LOTE });
 
   // Cruzamento com pedidos é uma chamada à parte, depois que as opiniões já
@@ -454,12 +499,21 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
         listingId: item.listingId,
         opinioes: item.opinioes.map((o) => ({ id: o.id, criadaEm: o.criadaEm })),
       }));
-    if (itensComOpinioes.length === 0) return;
+    // Avaliações da Shopee que trazem o pedido de origem: viajam à parte, na
+    // mesma requisição, e voltam com cliente, valor e itens de verdade.
+    const vinculos = itens
+      .filter((item) => item.canal === "shopee")
+      .flatMap((item) => item.opinioes
+        .filter((o) => o.pedidoCanal)
+        .map((o) => ({ id: o.id, pedidoCanal: o.pedidoCanal as string })));
+    if (itensComOpinioes.length === 0 && vinculos.length === 0) return;
     let ativo = true;
-    fetch("/api/ml/avaliacoes/identificar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itens: itensComOpinioes }) })
+    fetch("/api/ml/avaliacoes/identificar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itens: itensComOpinioes, vinculos }) })
       .then((response) => response.ok ? response.json() : null)
-      .then((body: { identificacoes?: Record<string, Comprador> } | null) => {
-        if (ativo && body?.identificacoes) setIdentificacoes(body.identificacoes);
+      .then((body: { identificacoes?: Record<string, Comprador>; pedidos?: Record<string, PedidoDaAvaliacao> } | null) => {
+        if (!ativo || !body) return;
+        if (body.identificacoes) setIdentificacoes(body.identificacoes);
+        if (body.pedidos) setPedidosDaAvaliacao(body.pedidos);
       })
       .catch(() => {});
     return () => { ativo = false; };
@@ -742,6 +796,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                   aberta={abertos.has(chave)}
                   onAlternar={() => alternar(chave)}
                   identificacoes={identificacoes}
+                  pedidosDaAvaliacao={pedidosDaAvaliacao}
                   ocultasPorPeriodo={item.ocultasPorPeriodo}
                 />
               );

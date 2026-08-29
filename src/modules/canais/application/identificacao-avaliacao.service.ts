@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { cliente, pedido, pedidoItem, produtoCanal } from "@/shared/lib/db/schema";
+import { cliente, pedido, pedidoItem, produto, produtoCanal } from "@/shared/lib/db/schema";
 
 /* ── Provável comprador de uma opinião ────────────────────────────
    O Mercado Livre não expõe quem escreveu a opinião — é anônima por política
@@ -25,6 +25,88 @@ export interface CompradorIdentificado {
   clienteNome: string;
   pedidoId: string;
   pedidoCriadoEm: string;
+}
+
+/* ── Comprador de uma avaliação da Shopee ──────────────────────────
+   Aqui não há dedução nenhuma. A Shopee manda o `order_sn` do pedido dentro
+   do próprio comentário, então isto é uma junção por chave, não um palpite
+   por janela de tempo como o cruzamento do Mercado Livre acima.
+
+   Medido contra os dados reais em 28/08/2026, antes de escrever: de 319
+   `order_sn` distintos vindos das avaliações das duas lojas, 316 acharam o
+   pedido no CRM — 99,1%, e todos os 316 com cliente preenchido. Os três sem
+   par são de 21/05 a 06/06, anteriores ao pedido Shopee mais antigo que o CRM
+   tem (28/05/2026): não são falha da junção, são pedido que nunca foi
+   importado.
+
+   Por isso esta função devolve dado ou nada, sem "provável": se o `order_sn`
+   não está no CRM, é porque o pedido não está lá. */
+export interface PedidoDaAvaliacao {
+  clienteId: string;
+  clienteNome: string;
+  pedidoId: string;
+  pedidoCriadoEm: string;
+  total: string;
+  itens: Array<{ nome: string; quantidade: number }>;
+}
+
+/** Uma consulta para todas as avaliações da tela — nunca uma por opinião. */
+export async function vincularAvaliacoesAPedidos(
+  orgId: string,
+  opinioes: Array<{ id: string; pedidoCanal: string }>,
+): Promise<Map<string, PedidoDaAvaliacao>> {
+  const resultado = new Map<string, PedidoDaAvaliacao>();
+  const sns = [...new Set(opinioes.map((o) => o.pedidoCanal).filter(Boolean))];
+  if (sns.length === 0) return resultado;
+
+  const pedidos = await db
+    .select({
+      pedidoId: pedido.id,
+      providerOrderId: pedido.providerOrderId,
+      clienteId: pedido.clienteId,
+      clienteNome: cliente.nome,
+      total: pedido.total,
+      criadoEm: pedido.createdAt,
+    })
+    .from(pedido)
+    .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
+    .where(and(
+      eq(pedido.orgId, orgId),
+      eq(pedido.canal, "shopee"),
+      inArray(pedido.providerOrderId, sns),
+    ));
+  if (pedidos.length === 0) return resultado;
+
+  /* Os itens vêm numa segunda consulta, não num join com o cabeçalho:
+     `pedido_item` é 1:N e juntá-lo aqui multiplicaria a linha do pedido,
+     obrigando a deduplicar cliente e total depois — o mesmo tropeço que
+     inflou o faturamento numa consulta de diagnóstico neste projeto. */
+  const itensPorPedido = new Map<string, Array<{ nome: string; quantidade: number }>>();
+  const linhasItens = await db
+    .select({ pedidoId: pedidoItem.pedidoId, nome: produto.nome, quantidade: pedidoItem.quantidade })
+    .from(pedidoItem)
+    .innerJoin(produto, eq(produto.id, pedidoItem.produtoId))
+    .where(inArray(pedidoItem.pedidoId, pedidos.map((p) => p.pedidoId)));
+  for (const linha of linhasItens) {
+    const lista = itensPorPedido.get(linha.pedidoId) ?? [];
+    lista.push({ nome: linha.nome, quantidade: linha.quantidade });
+    itensPorPedido.set(linha.pedidoId, lista);
+  }
+
+  const porSn = new Map(pedidos.map((p) => [p.providerOrderId ?? "", p]));
+  for (const opiniao of opinioes) {
+    const p = porSn.get(opiniao.pedidoCanal);
+    if (!p) continue;
+    resultado.set(opiniao.id, {
+      clienteId: p.clienteId,
+      clienteNome: p.clienteNome,
+      pedidoId: p.pedidoId,
+      pedidoCriadoEm: p.criadoEm.toISOString(),
+      total: p.total,
+      itens: itensPorPedido.get(p.pedidoId) ?? [],
+    });
+  }
+  return resultado;
 }
 
 /** Uma chamada só para todos os anúncios/opiniões da tela — nunca uma
