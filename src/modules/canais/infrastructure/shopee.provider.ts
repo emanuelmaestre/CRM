@@ -12,12 +12,34 @@ interface ShopeeCredentials {
   accessToken: string;
 }
 
+/* Campos além do mínimo do ML: a Shopee entrega em `get_comment` coisas que
+   o Mercado Livre simplesmente não expõe, e guardar só o denominador comum
+   deixava a avaliação vaga na tela — nota e texto, quando havia texto.
+   Verificado ao vivo em 28/08/2026 contra as duas lojas (125 comentários):
+   `order_sn` e `buyer_username` vêm em 100% deles, e 13% (WUWU) a 32%
+   (Armarinhos Lima) trazem foto ou vídeo. Tudo isso estava sendo descartado
+   no mapeamento.
+
+   São opcionais porque `MLOpiniao` divide a mesma tela e nunca vai ter esses
+   campos — quem renderiza checa a presença, não o canal. */
 export interface ShopeeOpiniao {
   id: string;
   titulo: string | null;
   conteudo: string | null;
   nota: number;
   criadaEm: string | null;
+  /** Quem escreveu. Na Shopee é público (aparece no anúncio), diferente do
+   *  ML, onde a opinião é anônima por política e só dá pra deduzir por
+   *  cruzamento com pedidos. */
+  autor?: string | null;
+  /** `order_sn` do pedido que originou a avaliação. Esta é a diferença que
+   *  mais importa: no ML o comprador é DEDUZIDO (e só quando há um candidato
+   *  único na janela); aqui o próprio canal diz qual pedido é, sem chute. */
+  pedidoCanal?: string | null;
+  fotos?: string[];
+  videos?: string[];
+  /** Avaliação ocultada na vitrine da Shopee. Continua contando na média. */
+  oculta?: boolean;
 }
 
 export interface ShopeeAnuncioAvaliacao {
@@ -864,13 +886,24 @@ export class ShopeeProvider implements ChannelProvider {
 
   async listarAvaliacoes(): Promise<ShopeeAnuncioAvaliacao[]> {
     garantirNaoPausado();
+    /* A forma abaixo foi conferida contra a API ao vivo (28/08/2026), não
+       deduzida da documentação: `get_comment` devolve onze campos por
+       comentário. Os que ficaram de fora são `editable` (se o comprador
+       ainda pode editar — não muda nada para quem vende), `model_id` e
+       `model_id_list` (variação: vieram zerados em 125 de 125 comentários,
+       então guardar seria guardar zero). `comment_reply` NÃO existe nesta
+       resposta — quem quiser "avaliações sem resposta do vendedor" precisa
+       de outro endpoint, não dá pra derivar daqui. */
     type ShopeeComentario = {
       comment_id?: number | string;
       item_id: number;
+      order_sn?: string;
       comment?: string;
       rating_star?: number;
       create_time?: number;
       buyer_username?: string;
+      hidden?: boolean;
+      media?: { image_url_list?: string[]; video_url_list?: string[] };
     };
 
     const comentarios: ShopeeComentario[] = [];
@@ -953,15 +986,32 @@ export class ShopeeProvider implements ChannelProvider {
         // por cursor antes de chegar neste ponto — o custo da chamada já foi
         // pago, então descartar comentário com texto depois seria perder
         // dado que já está em mãos sem motivo.
+        /* Antes o filtro era `c.comment`: avaliação sem texto era jogada
+           fora. Mas ela não é vazia — traz nota, autor, o pedido de origem e
+           às vezes foto ou vídeo SEM uma palavra escrita. Em 125 comentários
+           reais, só 22% (WUWU) e 40% (Armarinhos Lima) tinham texto; o resto
+           contava para a média e não aparecia em lugar nenhum. Agora entra
+           também a avaliação que só tem foto ou vídeo — que é conteúdo de
+           verdade, e dos mais úteis.
+
+           O corte continua existindo, e não é por `order_sn`: esse campo vem
+           em 100% dos comentários, então filtrar por ele seria não filtrar
+           nada e despejar na tela uma linha por estrela solta. Nota sem texto
+           e sem mídia já está representada na média e na distribuição. */
         opinioes: lista
-          .filter((c) => c.comment)
+          .filter((c) => c.comment?.trim() || c.media?.image_url_list?.length || c.media?.video_url_list?.length)
           .sort((a, b) => (b.create_time ?? 0) - (a.create_time ?? 0))
           .map((c) => ({
             id: String(c.comment_id ?? `${itemId}-${c.create_time}`),
             titulo: null,
-            conteudo: c.comment ?? null,
+            conteudo: c.comment?.trim() ? c.comment : null,
             nota: c.rating_star ?? 0,
             criadaEm: c.create_time ? new Date(c.create_time * 1000).toISOString() : null,
+            autor: c.buyer_username ?? null,
+            pedidoCanal: c.order_sn ?? null,
+            fotos: c.media?.image_url_list ?? [],
+            videos: c.media?.video_url_list ?? [],
+            oculta: c.hidden === true,
           })),
       };
     });

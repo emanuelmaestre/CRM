@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, Loader2, Search, Star, UserCheck } from "lucide-react";
+import { ChevronDown, ExternalLink, EyeOff, Loader2, Search, Star, UserCheck, Video } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -23,7 +23,7 @@ type CatalogItem = {
   ratingAverage: number | null;
   reviewsTotal: number | null;
   ratingLevels: MLDistribuicaoNotas | null;
-  opinioes: MLOpiniao[];
+  opinioes: OpiniaoRica[];
   canal?: "mercadolivre" | "shopee";
 };
 
@@ -154,16 +154,54 @@ function Distribuicao({ niveis, compacto }: { niveis: MLDistribuicaoNotas; compa
   );
 }
 
+/** Campos que só a Shopee entrega. Opcionais porque a mesma tela mostra as
+ *  opiniões do Mercado Livre, que nunca os terão — quem renderiza checa a
+ *  presença do dado, não o canal. */
+type OpiniaoRica = MLOpiniao & {
+  autor?: string | null;
+  pedidoCanal?: string | null;
+  fotos?: string[];
+  videos?: string[];
+  oculta?: boolean;
+};
+
 /* ── Uma opinião ───────────────────────────────────────────────
    Estrelas e data no topo, título em destaque, texto abaixo — a mesma
-   ordem de leitura da página do anúncio no Mercado Livre. */
-function Opiniao({ opiniao, comprador }: { opiniao: MLOpiniao; comprador?: Comprador }) {
+   ordem de leitura da página do anúncio no Mercado Livre.
+
+   Na Shopee a opinião deixa de ser anônima: o canal manda o autor e o
+   `order_sn` do pedido em 100% dos comentários (medido ao vivo em 28/08/2026,
+   125 de 125). Por isso o crachá do comprador aqui é uma AFIRMAÇÃO, não a
+   dedução por cruzamento que o ML obriga — e os dois casos não podem ter a
+   mesma cara, senão a certeza e o palpite viram a mesma coisa aos olhos de
+   quem lê. */
+function Opiniao({ opiniao, comprador }: { opiniao: OpiniaoRica; comprador?: Comprador }) {
+  const fotos = opiniao.fotos ?? [];
+  const videos = opiniao.videos ?? [];
+  const temMidia = fotos.length > 0 || videos.length > 0;
+
   return (
     <article className="border-b border-border py-3 last:border-0">
       <div className="flex flex-wrap items-center gap-2">
         <RatingStars nota={opiniao.nota} size={12} />
         <span className="text-[11px] tabular-nums text-muted-foreground">{formatarData(opiniao.criadaEm)}</span>
-        {comprador && (
+        {opiniao.autor && (
+          <span
+            title="Nome de usuário informado pela Shopee — o canal identifica quem avaliou, diferente do Mercado Livre."
+            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground"
+          >
+            <UserCheck size={10} strokeWidth={2.5} /> {opiniao.autor}
+          </span>
+        )}
+        {opiniao.oculta && (
+          <span
+            title="Ocultada na vitrine da Shopee. Continua contando na nota média do anúncio."
+            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
+          >
+            <EyeOff size={10} strokeWidth={2.5} /> Oculta
+          </span>
+        )}
+        {comprador && !opiniao.autor && (
           <Link
             href={`/clientes/${comprador.clienteId}`}
             title={`Único comprador deste anúncio no período. Pedido de ${formatarData(comprador.pedidoCriadoEm)}. O Mercado Livre não confirma quem escreveu a opinião; isto é uma dedução por cruzamento de dados, não uma certeza fornecida pelo canal.`}
@@ -174,8 +212,48 @@ function Opiniao({ opiniao, comprador }: { opiniao: MLOpiniao; comprador?: Compr
         )}
       </div>
       {opiniao.titulo && <h4 className="mt-1.5 text-sm font-bold text-foreground">{opiniao.titulo}</h4>}
-      {opiniao.conteudo && (
-        <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{opiniao.conteudo}</p>
+      {opiniao.conteudo
+        ? <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{opiniao.conteudo}</p>
+        : temMidia && (
+          /* Avaliação só com foto/vídeo não é avaliação vazia — antes ela era
+             descartada no provider e o anúncio parecia não ter comentário
+             nenhum. Dizer que não há texto evita a leitura de que o CRM
+             perdeu o conteúdo. */
+          <p className="mt-1 text-sm italic leading-relaxed text-muted-foreground">Sem texto — o cliente avaliou com {fotos.length > 0 && videos.length > 0 ? "foto e vídeo" : fotos.length > 0 ? (fotos.length === 1 ? "uma foto" : "fotos") : (videos.length === 1 ? "um vídeo" : "vídeos")}.</p>
+        )}
+
+      {temMidia && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {fotos.map((url) => (
+            /* <img> cru em vez de next/image: são URLs do CDN da Shopee, cujo
+               host muda por região e não está na allowlist do next.config.
+               Miniatura de 56px não justifica abrir o domínio inteiro para o
+               otimizador — e um host não listado faria o next/image falhar em
+               vez de degradar. */
+            <a key={url} href={url} target="_blank" rel="noopener noreferrer" className="press-feedback">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="Foto enviada pelo cliente na avaliação" loading="lazy" className="size-14 rounded-lg border border-border object-cover transition-transform hover:scale-105" />
+            </a>
+          ))}
+          {videos.map((url) => (
+            <a
+              key={url}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abrir o vídeo enviado pelo cliente"
+              className="press-feedback grid size-14 place-items-center rounded-lg border border-border bg-muted text-muted-foreground transition-colors hover:bg-muted/70"
+            >
+              <Video size={18} />
+            </a>
+          ))}
+        </div>
+      )}
+
+      {opiniao.pedidoCanal && (
+        <p className="mt-2 font-mono text-[11px] text-muted-foreground">
+          <span className="font-sans font-semibold">Pedido:</span> {opiniao.pedidoCanal}
+        </p>
       )}
     </article>
   );
@@ -363,8 +441,15 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     if (itens.length === 0) return;
     // Não serializa os centenas de anúncios sem comentário: eles não podem
     // produzir identificação e só ocupavam CPU/rede logo após a hidratação.
+    //
+    // A Shopee também fica de fora, e por um motivo mais forte que economia:
+    // este cruzamento é uma DEDUÇÃO, criada porque o Mercado Livre esconde
+    // quem avaliou. A Shopee informa o autor e o pedido diretamente, em 100%
+    // dos comentários — rodar o palpite ao lado da certeza só produziria um
+    // segundo crachá, capaz de discordar do primeiro e sem meio de saber
+    // qual está certo.
     const itensComOpinioes = itens
-      .filter((item) => item.opinioes.length > 0)
+      .filter((item) => item.opinioes.length > 0 && item.canal !== "shopee")
       .map((item) => ({
         listingId: item.listingId,
         opinioes: item.opinioes.map((o) => ({ id: o.id, criadaEm: o.criadaEm })),
