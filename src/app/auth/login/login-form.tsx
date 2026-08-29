@@ -8,10 +8,17 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { eases, escalonamento, fadeUp, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
+import { DESTINO_PADRAO_POS_LOGIN } from "@/shared/lib/auth/destino-pos-login";
 
 const copy = pagesConfig.login;
 
-export function LoginForm() {
+export function LoginForm({ destino = DESTINO_PADRAO_POS_LOGIN }: {
+  /** Para onde ir depois de entrar. Vem do `?next=` que o proxy escreveu ao
+   *  barrar a rota, já validado no servidor (ver destino-pos-login). Antes
+   *  daqui o formulário ia sempre para Métricas e o parâmetro nunca era
+   *  lido — quem clicava num link protegido perdia o destino no login. */
+  destino?: string;
+}) {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -39,7 +46,7 @@ export function LoginForm() {
       // tempo suficiente pra animação do botão (morph + check) ser percebida
       // sem virar um atraso perceptível no fluxo de login.
       window.setTimeout(() => {
-        router.replace("/metricas");
+        router.replace(destino);
         router.refresh();
       }, reduzir ? 150 : 900);
     } catch {

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { destinoSeguroPosLogin } from "@/shared/lib/auth/destino-pos-login";
 
 const PUBLIC_PATHS = new Set([
   "/",
@@ -73,15 +74,26 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
     }
     const url = request.nextUrl.clone();
+    /* O destino leva a query junto, e a URL do login vai limpa.
+       `clone()` traz a query da rota barrada, então `/estoque?filtro=parados`
+       virava `/auth/login?filtro=parados&next=/estoque`: os parâmetros
+       vazavam para o login e o destino voltava sem o recorte. */
+    const destino = `${pathname}${request.nextUrl.search}`;
     url.pathname = "/auth/login";
-    url.searchParams.set("next", pathname);
+    url.search = "";
+    url.searchParams.set("next", destino);
     return copyCookies(supabaseResponse, NextResponse.redirect(url));
   }
 
   if (isAuthenticated && isLoginRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/metricas";
-    url.search = "";
+    /* Quem já tem sessão e cai no login ainda carrega o `next` que o proxy
+       escreveu — sessão renovada em outra aba, ou um F5 na tela de login. Sem
+       honrar o destino aqui, o recorte do link se perdia mesmo com a pessoa
+       logada, que é justamente o caso que esta correção existe para resolver. */
+    const url = new URL(
+      destinoSeguroPosLogin(request.nextUrl.searchParams.get("next")),
+      request.nextUrl.origin,
+    );
     return copyCookies(supabaseResponse, NextResponse.redirect(url));
   }
 
