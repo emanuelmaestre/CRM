@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, real, integer, boolean,
+  pgTable, uuid, text, timestamp, jsonb, pgEnum, index, uniqueIndex, primaryKey, real, integer, boolean,
 } from "drizzle-orm/pg-core";
 import { org, brand } from "./org";
 
@@ -177,4 +177,28 @@ export const shopeeAvaliacaoAnuncio = pgTable("shopee_avaliacao_anuncio", {
   uniqueIndex("uq_shopee_avaliacao_org_item").on(t.orgId, t.itemId),
   index("idx_shopee_avaliacao_org_atualizado").on(t.orgId, t.atualizadoEm),
   index("idx_shopee_avaliacao_brand").on(t.brandId),
+]);
+
+/** Última vez que uma origem de dado da conta foi CONFERIDA contra o canal —
+ *  não a última vez que mudou.
+ *
+ *  Existe porque o portão de entrada das telas precisa responder "isto ainda
+ *  é o que o canal tem?" e a única resposta disponível era a última execução
+ *  da Central de Sincronização (A31). Só que o caminho normal de um pedido
+ *  não passa por ali: chega por webhook, ou pela contingência do A24, e
+ *  nenhum dos dois escreve em `sincronizacao_execucao`. O portão então
+ *  enxergava dado velho cinco minutos depois de cada A31 e mandava
+ *  sincronizar de novo — a cada entrada de tela, gastando a cota do proxy
+ *  justamente para redescobrir o pedido que o webhook já tinha trazido.
+ *
+ *  Uma linha por conta+módulo, sobrescrita: é um relógio, não um histórico. */
+export const canalVerificacao = pgTable("canal_verificacao", {
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  channelAccountId: uuid("channel_account_id").notNull().references(() => channelAccount.id),
+  /** Mesmo vocabulário de MODULOS_SINCRONIZACAO ("pedidos", "catalogo", ...). */
+  modulo: text("modulo").notNull(),
+  verificadoEm: timestamp("verificado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.channelAccountId, t.modulo] }),
+  index("idx_canal_verificacao_org").on(t.orgId),
 ]);

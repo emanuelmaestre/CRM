@@ -11,6 +11,7 @@ import {
   TAMANHO_FATIA_CATALOGO,
 } from "@/modules/estoque/application/importar-catalogo.service";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { filtrarPedidosPendentes } from "@/modules/canais/application/pedidos-pendentes.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import {
   classificarCausa,
@@ -324,9 +325,14 @@ export const A31_sincronizarConta = inngest.createFunction(
         const parcial = await step.run(
           `pedidos-processar-${channelAccountId}-janela-${indice}`,
           async () => {
+            /* A janela é sobreposta de propósito; sem este filtro ela relia
+               por inteiro, a cada passagem, os pedidos que já estavam gravados
+               e liquidados. */
+            const filtrarPendentes = (candidatos: ReadonlyArray<{ providerOrderId: string; statusExterno: string }>) =>
+              filtrarPedidosPendentes(orgId, channelAccountId, candidatos);
             const pedidos = porJanela
-              ? await porJanela.buscar(janela.inicioMs, janela.fimMs)
-              : await provider.buscarPedidos(new Date(janela.inicioMs));
+              ? await porJanela.buscar(janela.inicioMs, janela.fimMs, { filtrarPendentes })
+              : await provider.buscarPedidos(new Date(janela.inicioMs), { filtrarPendentes });
             const saida = {
               encontrados: pedidos.length,
               novos: 0,

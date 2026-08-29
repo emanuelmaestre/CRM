@@ -2,6 +2,7 @@ import { and, count, desc, eq, gte, sql } from "drizzle-orm";
 import { startOfDay, subDays, startOfMonth } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { shopeeApiCall } from "@/shared/lib/db/schema";
+import { FRANQUIA_MENSAL_BYTES, OVERHEAD_POR_CHAMADA_BYTES } from "@/shared/lib/shopee-consumo";
 
 /** Quantidade de chamadas feitas via shopeeFetch — provider, webhook e
  *  renovação de token, tudo que sai pro proxy de IP fixo (Webshare), que é
@@ -23,7 +24,15 @@ export async function obterUsoApiShopee(ctx: CrudContext): Promise<{
 
   const uso = {
     total: count(),
-    bytes: sql<number>`coalesce(sum(coalesce(${shopeeApiCall.requestBytes}, 0) + coalesce(${shopeeApiCall.responseBytes}, 0)), 0)`,
+    /* Mesma soma que o freio preventivo do proxy usa, incluindo a
+       estimativa de cabeçalhos — ver shopee-consumo.ts. Contas diferentes nos
+       dois lados fariam a tela mostrar folga justamente quando o freio já
+       tivesse cortado as coletas secundárias. */
+    bytes: sql<number>`coalesce(sum(
+      coalesce(${shopeeApiCall.requestBytes}, 0)
+      + coalesce(${shopeeApiCall.responseBytes}, 0)
+      + ${OVERHEAD_POR_CHAMADA_BYTES}
+    ), 0)`,
   };
   const [hoje, ultimos7Dias, esteMes, porCaminho] = await Promise.all([
     ctx.db
@@ -55,7 +64,7 @@ export async function obterUsoApiShopee(ctx: CrudContext): Promise<{
     esteMes: Number(esteMes.total),
     bytesHoje: Number(hoje.bytes),
     bytesEsteMes: Number(esteMes.bytes),
-    percentualFranquia: Math.min(100, Math.round((Number(esteMes.bytes) / (1024 ** 3)) * 10_000) / 100),
+    percentualFranquia: Math.min(100, Math.round((Number(esteMes.bytes) / FRANQUIA_MENSAL_BYTES) * 10_000) / 100),
     porCaminho: porCaminho.map((linha) => ({
       caminho: linha.caminho,
       total: Number(linha.total),

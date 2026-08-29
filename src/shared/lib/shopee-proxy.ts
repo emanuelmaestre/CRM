@@ -2,6 +2,7 @@ import { ProxyAgent } from "undici";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { shopeeApiCall } from "@/shared/lib/db/schema";
+import { LIMITE_PRIORIZACAO_BYTES, OVERHEAD_POR_CHAMADA_BYTES } from "@/shared/lib/shopee-consumo";
 
 /* ── Proxy de IP fixo para a API da Shopee ────────────────────────
    A Shopee pode exigir lista branca de IP de saída — as funções serverless
@@ -46,6 +47,18 @@ function caminhoDaChamada(input: string | URL): string {
   }
 }
 
+/** Cabeçalhos explícitos da chamada. Os que o undici acrescenta sozinho
+ *  (host, accept, user-agent) entram pela estimativa fixa do orçamento. */
+function tamanhoCabecalhos(headers: HeadersInit | undefined): number {
+  if (!headers) return 0;
+  const pares: Array<[string, string]> = headers instanceof Headers
+    ? [...headers.entries()]
+    : Array.isArray(headers)
+      ? headers.map(([chave, valor]) => [chave, valor] as [string, string])
+      : Object.entries(headers);
+  return pares.reduce((total, [chave, valor]) => total + chave.length + String(valor).length + 4, 0);
+}
+
 function tamanhoCorpo(body: BodyInit | null | undefined): number {
   if (!body) return 0;
   if (typeof body === "string") return new TextEncoder().encode(body).byteLength;
@@ -56,11 +69,47 @@ function tamanhoCorpo(body: BodyInit | null | undefined): number {
   return 0;
 }
 
-function tamanhoResposta(response: Response): number | null {
-  const bruto = response.headers.get("content-length");
-  if (!bruto) return null;
-  const valor = Number(bruto);
-  return Number.isFinite(valor) && valor >= 0 ? Math.round(valor) : null;
+/** Status que não podem ter corpo — reconstruir a resposta com um buffer
+ *  vazio nestes casos lança TypeError. */
+const SEM_CORPO = new Set([204, 205, 304]);
+
+/** Quanto a resposta pesou, e a resposta que o chamador vai consumir.
+ *
+ *  O cabeçalho "content-length" sozinho não serve: boa parte das respostas
+ *  da Shopee vem em "transfer-encoding: chunked" e ele simplesmente não
+ *  existe. Registrar nulo nesses casos deixava a coluna vazia — e o freio de
+ *  cota, que soma com coalesce(..., 0), nunca chegaria ao limite porque o
+ *  consumo inteiro valia zero. Aqui o corpo é lido e medido; o chamador
+ *  recebe uma resposta equivalente, com o mesmo corpo. São respostas JSON
+ *  pequenas: bufferizar é o que o .json() do chamador já ia fazer.
+ *
+ *  Quando "content-length" existe ele vence, porque é o tamanho que passou
+ *  pelo fio, que é o que a Webshare cobra. O corpo medido pode estar
+ *  descomprimido e aí superestima — superestimar é o lado seguro para um
+ *  orçamento. */
+async function medirResposta(response: Response): Promise<{ bytes: number | null; resposta: Response }> {
+  const declarado = Number(response.headers.get("content-length"));
+  const temDeclarado = Number.isFinite(declarado) && declarado >= 0;
+
+  if (SEM_CORPO.has(response.status) || !response.body) {
+    return { bytes: temDeclarado ? Math.round(declarado) : 0, resposta: response };
+  }
+
+  try {
+    const corpo = await response.arrayBuffer();
+    return {
+      bytes: temDeclarado ? Math.round(declarado) : corpo.byteLength,
+      resposta: new Response(corpo, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      }),
+    };
+  } catch {
+    // Corpo que não pôde ser lido (aborto no meio) continua sendo uma chamada
+    // que gastou cota: registra o que der e devolve a resposta original.
+    return { bytes: temDeclarado ? Math.round(declarado) : null, resposta: response };
+  }
 }
 
 function registrarChamada(
@@ -88,7 +137,6 @@ function registrarChamada(
   });
 }
 
-const LIMITE_PRIORIZACAO_BYTES = 800 * 1024 * 1024;
 const CACHE_ORCAMENTO_MS = 5 * 60_000;
 let orcamentoCache: { usado: number; expiraEm: number } | null = null;
 
@@ -113,7 +161,11 @@ async function respeitarOrcamento(input: string | URL): Promise<void> {
       inicioMes.setHours(0, 0, 0, 0);
       const usado = await db
         .select({
-          total: sql<number>`coalesce(sum(coalesce(${shopeeApiCall.requestBytes}, 0) + coalesce(${shopeeApiCall.responseBytes}, 0)), 0)`,
+          total: sql<number>`coalesce(sum(
+            coalesce(${shopeeApiCall.requestBytes}, 0)
+            + coalesce(${shopeeApiCall.responseBytes}, 0)
+            + ${OVERHEAD_POR_CHAMADA_BYTES}
+          ), 0)`,
         })
         .from(shopeeApiCall)
         .where(and(eq(shopeeApiCall.orgId, orgId), gte(shopeeApiCall.criadoEm, inicioMes)))
@@ -146,12 +198,15 @@ const TIMEOUT_POR_TENTATIVA_MS = 8000;
 export async function shopeeFetch(input: string | URL, init: RequestInit = {}): Promise<Response> {
   await respeitarOrcamento(input);
   const inicio = performance.now();
-  const requestBytes = new TextEncoder().encode(String(input)).byteLength + tamanhoCorpo(init.body);
+  const requestBytes = new TextEncoder().encode(String(input)).byteLength
+    + tamanhoCabecalhos(init.headers)
+    + tamanhoCorpo(init.body);
   const agentes = obterAgentesProxy();
   if (agentes.length === 0) {
     const res = await fetch(input, init);
-    registrarChamada(input, res.status, res.ok, requestBytes, tamanhoResposta(res), Math.round(performance.now() - inicio));
-    return res;
+    const { bytes, resposta } = await medirResposta(res);
+    registrarChamada(input, res.status, res.ok, requestBytes, bytes, Math.round(performance.now() - inicio));
+    return resposta;
   }
 
   let ultimoErro: unknown;
@@ -160,8 +215,9 @@ export async function shopeeFetch(input: string | URL, init: RequestInit = {}): 
     const signal = init.signal ? AbortSignal.any([init.signal, timeoutTentativa]) : timeoutTentativa;
     try {
       const res = await fetch(input, { ...init, signal, dispatcher } as RequestInit & { dispatcher: ProxyAgent });
-      registrarChamada(input, res.status, res.ok, requestBytes, tamanhoResposta(res), Math.round(performance.now() - inicio));
-      return res;
+      const { bytes, resposta } = await medirResposta(res);
+      registrarChamada(input, res.status, res.ok, requestBytes, bytes, Math.round(performance.now() - inicio));
+      return resposta;
     } catch (error) {
       ultimoErro = error;
     }

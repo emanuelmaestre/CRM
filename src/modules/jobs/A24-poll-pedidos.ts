@@ -2,8 +2,10 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { filtrarPedidosPendentes } from "@/modules/canais/application/pedidos-pendentes.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
+import { registrarVerificacaoCanal } from "@/modules/canais/application/verificacao-canal.service";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
 import { inngest } from "@/shared/lib/inngest/client";
@@ -96,7 +98,13 @@ export const A24_pollPedidos = inngest.createFunction(
           if (!provider) {
             throw new Error(`Provider ${conta.tipo}/${conta.brandSlug} não suportado.`);
           }
-          const pedidos = await step.run(`buscar-${conta.id}`, () => provider.buscarPedidos(desde));
+          /* A janela cobre INTERVALO + 1h e por isso revisita as mesmas
+             horas a cada volta. O filtro deixa passar só o que mudou desde a
+             última leitura — em dia sem venda nova, a volta inteira custa uma
+             listagem por conta em vez de listagem, detalhe e repasse. */
+          const pedidos = await step.run(`buscar-${conta.id}`, () => provider.buscarPedidos(desde, {
+            filtrarPendentes: (candidatos) => filtrarPedidosPendentes(conta.orgId, conta.id, candidatos),
+          }));
           let novos = 0;
           let ignorados = 0;
           let falhasSemCausaConhecida = 0;
@@ -134,6 +142,14 @@ export const A24_pollPedidos = inngest.createFunction(
           if (pedidos.length > 0 && ignorados === pedidos.length && falhasSemCausaConhecida > 0) {
             throw new Error(`Nenhum dos ${pedidos.length} pedido(s) pôde ser importado — ver logs [A24].`);
           }
+          /* A conta acabou de ser conferida contra o canal. Sem este
+              carimbo, o portão de entrada das telas só enxerga a Central de
+              Sincronização e conclui que o dado está velho cinco minutos
+              depois dela — mandando buscar de novo, a cada tela aberta, o que
+              esta volta já trouxe. */
+          await step.run(`marcar-verificado-${conta.id}`, () =>
+            registrarVerificacaoCanal(conta.orgId, conta.id, "pedidos"),
+          );
           resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos, ignorados });
         } catch (error) {
           resultados.push({ contaId: conta.id, encontrados: 0, novos: 0, erro: String(error) });

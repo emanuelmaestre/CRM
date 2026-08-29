@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { EmptyState, type IllustrationType } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
@@ -122,7 +123,7 @@ function EsqueletoLista() {
 }
 
 /* ── Casca de card de lista ───────────────────────────────────── */
-function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazioDescricao, scope, total, exibidos, children }: {
+function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazioDescricao, scope, total, exibidos, verTudo, children }: {
   vazio: boolean;
   carregando: boolean;
   semFiltro: boolean;
@@ -134,6 +135,11 @@ function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazi
   total?: number;
   /** Quantos itens foram renderizados. Deve coincidir com o total. */
   exibidos?: number;
+  /** Para onde ir quando o card mostra só os primeiros. O card entrega o
+   *  recorte mais relevante; a lista inteira mora no módulo dono do dado, e
+   *  sem este caminho os itens além do corte simplesmente não tinham como ser
+   *  vistos. */
+  verTudo?: { href: string; rotulo: string };
   children: React.ReactNode;
 }) {
   // Troca de conteúdo é feita por crossfade (AnimatePresence), nunca por
@@ -163,8 +169,15 @@ function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazi
           ) : (
             <motion.div key="lista" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               {total !== undefined && exibidos !== undefined && total > exibidos && (
-                <p className="mx-5 mt-4 rounded-lg bg-muted/50 px-3 py-2 text-[11.5px] text-muted-foreground">
-                  Exibindo os {exibidos} mais relevantes de <strong className="font-semibold text-foreground">{total} itens no total</strong>.
+                <p className="mx-5 mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-1 rounded-lg bg-muted/50 px-3 py-2 text-[11.5px] text-muted-foreground">
+                  <span>
+                    Exibindo os {exibidos} mais relevantes de <strong className="font-semibold text-foreground">{total} itens no total</strong>.
+                  </span>
+                  {verTudo && (
+                    <Link href={verTudo.href} className="font-semibold text-foreground underline underline-offset-2">
+                      {verTudo.rotulo}
+                    </Link>
+                  )}
                 </p>
               )}
               <motion.ul variants={stagger} initial="hidden" animate="show" className="mt-4">
@@ -347,6 +360,7 @@ export function ReposicaoCard({ itens, total, carregando, semFiltro, scope, acao
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
         total={total}
         exibidos={lista.length}
+        verTudo={{ href: "/estoque?filtro=abaixo_minimo", rotulo: "Ver todos no Estoque" }}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -677,6 +691,7 @@ export function ParadosCard({ itens, total, carregando, semFiltro, scope, acaoSl
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
         total={total}
         exibidos={lista.length}
+        verTudo={{ href: "/estoque?filtro=parados", rotulo: "Ver todos no Estoque" }}
       >
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);

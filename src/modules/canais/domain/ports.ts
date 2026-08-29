@@ -54,8 +54,16 @@ export interface SaudeConector {
   verificadoEm: Date;
 }
 
+/** Quem chama decide, olhando o banco, o que da janela ainda precisa ser
+ *  lido por inteiro. Ver `filtrarPedidosPendentes`. */
+export interface OpcoesBuscaPedidos {
+  filtrarPendentes?: (
+    candidatos: ReadonlyArray<{ providerOrderId: string; statusExterno: string }>,
+  ) => Promise<string[]>;
+}
+
 export interface ChannelProvider {
-  buscarPedidos(desde: Date): Promise<PedidoNormalizado[]>;
+  buscarPedidos(desde: Date, opcoes?: OpcoesBuscaPedidos): Promise<PedidoNormalizado[]>;
   /** Fatia o intervalo em pedaços que cabem num `step.run` do Inngest.
    *
    *  Quem implementa o par `janelasDePedidos`/`buscarPedidosDaJanela` permite
@@ -65,8 +73,20 @@ export interface ChannelProvider {
    *  para sempre. Quem não implementa cai no `buscarPedidos` inteiro, que é o
    *  suficiente para canal de volume baixo. */
   janelasDePedidos?(desde: Date, ate?: Date): Array<{ inicioMs: number; fimMs: number }>;
-  /** Uma janela de `janelasDePedidos` — as duas andam juntas. */
-  buscarPedidosDaJanela?(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]>;
+  /** Uma janela de `janelasDePedidos` — as duas andam juntas.
+   *
+   *  `filtrarPendentes` deixa quem chama decidir, olhando o banco, quais
+   *  pedidos da janela ainda valem uma leitura de detalhe. Existe porque a
+   *  janela de contingência revisita as mesmas horas várias vezes por dia: sem
+   *  o filtro, todo pedido já importado e já liquidado era relido inteiro —
+   *  detalhe e repasse — a cada passagem, gastando cota do proxy para
+   *  reescrever exatamente o que já estava gravado. Provider que não recebe o
+   *  filtro continua lendo tudo, que é o comportamento antigo. */
+  buscarPedidosDaJanela?(
+    inicioMs: number,
+    fimMs: number,
+    opcoes?: OpcoesBuscaPedidos,
+  ): Promise<PedidoNormalizado[]>;
   sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void>;
   consultarEstoque(referencia: EstoqueCanalRef): Promise<number>;
   saude(): Promise<SaudeConector>;

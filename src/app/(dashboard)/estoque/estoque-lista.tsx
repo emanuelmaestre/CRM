@@ -42,7 +42,17 @@ type Produto = {
   canais?: string[];
 };
 
-type Filtro = "todos" | "abaixo_minimo" | "sem_estoque" | "parados" | "pausados" | "sem_minimo";
+export type Filtro = "todos" | "abaixo_minimo" | "sem_estoque" | "parados" | "pausados" | "sem_minimo";
+
+const FILTROS_VALIDOS: ReadonlySet<string> = new Set<Filtro>([
+  "todos", "abaixo_minimo", "sem_estoque", "parados", "pausados", "sem_minimo",
+]);
+
+/** O recorte pedido na URL, ou "todos". A URL é digitável: valor desconhecido
+ *  não pode virar um filtro que a tela não sabe aplicar. */
+export function filtroDaUrl(valor: string | undefined): Filtro {
+  return FILTROS_VALIDOS.has(valor ?? "") ? valor as Filtro : "todos";
+}
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 
 type Indicadores = Awaited<ReturnType<typeof actionIndicadoresEstoque>>;
@@ -636,12 +646,17 @@ type ConsultaEstoque = Awaited<ReturnType<typeof actionListarProdutos>>;
 type ContagemCanaisEstoque = NonNullable<ConsultaEstoque["canais"]>;
 type ContagemMarcasEstoque = NonNullable<ConsultaEstoque["marcas"]>;
 
-export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
+export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [], filtroInicial = "todos" }: {
   /** Contagens já resolvidas no servidor (ver page.tsx) — chegam junto com o
    *  HTML, então as pílulas de filtro aparecem no primeiro quadro em vez de
    *  esperarem duas idas ao servidor depois que o JavaScript liga. */
   marcasIniciais?: ContagemMarcasEstoque;
   canaisIniciais?: ContagemCanaisEstoque;
+  /* Recorte com que a tela abre. Vem da URL, resolvido no servidor (ver
+     page.tsx): é o que deixa o "ver todos" dos cards de Métricas cair direto
+     na lista certa daqui, em vez de na lista completa com a pessoa tendo que
+     reencontrar o recorte no braço. */
+  filtroInicial?: Filtro;
 }) {
   const reduzir = useReducedMotion();
   const [produtos, setProdutos]   = useState<Produto[]>([]);
@@ -654,7 +669,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [brandIds, setBrandIds]   = useState<ReadonlySet<string>>(new Set());
   const [canaisSelecionados, setCanaisSelecionados] = useState<ReadonlySet<CanalVenda>>(new Set());
   const [canais, setCanais]       = useState<ContagemCanaisEstoque>(canaisIniciais);
-  const [filtro, setFiltro]       = useState<Filtro>("todos");
+  const [filtro, setFiltro]       = useState<Filtro>(filtroInicial ?? "todos");
   const [canManage, setCanManage] = useState(false);
   const requestId = useRef(0);
   const filterRequestId = useRef(0);

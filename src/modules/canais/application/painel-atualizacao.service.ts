@@ -16,6 +16,7 @@ import {
   type FonteVersao,
   type VersoesPorFonte,
 } from "../domain/versao-fontes";
+import { obterVerificacoesPorConta } from "./verificacao-canal.service";
 
 export const TELAS_ATUALIZAVEIS = [
   "vendas",
@@ -264,7 +265,7 @@ async function atualidadePorConta(ctx: CrudContext) {
 export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualizavel) {
   const modulosDaTela = MODULOS_EXTERNOS_POR_TELA[tela];
 
-  const [contas, execucoes, sucessos, versoes] = await Promise.all([
+  const [contas, execucoes, sucessos, versoes, verificacoes] = await Promise.all([
     ctx.db
       .select({
         id: channelAccount.id,
@@ -285,6 +286,7 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
     ultimasExecucoes(ctx),
     atualidadePorConta(ctx),
     versoesDados(ctx, tela),
+    obterVerificacoesPorConta(ctx.db, ctx.orgId),
   ]);
 
   const execucaoPorConta = new Map(execucoes.map((execucao) => [execucao.channelAccountId, execucao]));
@@ -329,6 +331,7 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
     /* Atualidade por módulo: o que o painel mostra em cada linha. Fica fora
        de `modulos` de propósito — aquele só existe enquanto há execução, e a
        idade do dado precisa aparecer mesmo com tudo parado. */
+    const relogio = verificacoes.get(conta.id) ?? {};
     const atualidade = modulosDisponiveis.map((modulo) => {
       const ultimoSucesso = iso(historico?.[`${modulo}_sucesso`] ?? null);
       const ultimaTentativa = iso(historico?.[`${modulo}_tentativa`] ?? null);
@@ -340,6 +343,14 @@ export async function obterPainelAtualizacao(ctx: CrudContext, tela: TelaAtualiz
         label: ROTULOS_MODULO[modulo],
         ultimoSucesso,
         ultimaTentativa,
+        /* Quando o dado foi conferido pela última vez, por QUALQUER caminho: a
+           Central (A31), o webhook do canal ou as rotinas de contingência.
+           `ultimoSucesso` sozinho só enxerga a Central, e o caminho normal de
+           um pedido não passa por ela — era isso que fazia o portão de entrada
+           mandar sincronizar cinco minutos depois de cada execução, a cada
+           tela aberta. A Central continua exibindo `ultimoSucesso`; este campo
+           é do portão. */
+        ultimaConfirmacao: maiorVersao([ultimoSucesso, relogio[modulo] ?? null]),
         // Quantos segundos faltam pro intervalo mínimo. Zero = liberado.
         esperarSegundos: esperaAte > agora ? Math.ceil((esperaAte - agora) / 1000) : 0,
       };

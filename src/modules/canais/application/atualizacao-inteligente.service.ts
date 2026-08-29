@@ -39,6 +39,9 @@ export interface EstadoAtualizacaoTela {
   versoes: PainelAtualizacao["versoes"];
   fontes: Array<keyof PainelAtualizacao["versoes"]>;
   mensagem?: string;
+  /** Idade do dado que ficou na tela quando a confirmação falhou. É o que a
+   *  tarja mostra — "dados de 10h32" — em vez de esconder tudo. */
+  confirmadoAte?: string | null;
 }
 function dataValida(valor: string | null | undefined): number | null {
   if (!valor) return null;
@@ -57,8 +60,14 @@ function modulosVencidos(
   agora: number,
 ): ModuloSincronizacao[] {
   return conta.atualidade.flatMap((item) => {
-    const sucesso = dataValida(item.ultimoSucesso);
-    return sucesso !== null && agora - sucesso <= FRESCOR_AUTOMATICO_MS[item.modulo]
+    /* `ultimaConfirmacao`, não `ultimoSucesso`: o caminho normal de um pedido
+       é o webhook, que não escreve execução nenhuma. Medir o frescor só pela
+       Central fazia o portão declarar "vencido" cinco minutos depois de cada
+       A31 e mandar buscar de novo o pedido que já estava no banco — uma
+       sincronização por entrada de tela, que é exatamente o gasto de cota que
+       este serviço existe para evitar. */
+    const confirmado = dataValida(item.ultimaConfirmacao ?? item.ultimoSucesso);
+    return confirmado !== null && agora - confirmado <= FRESCOR_AUTOMATICO_MS[item.modulo]
       ? []
       : [item.modulo];
   });
@@ -115,6 +124,21 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
     vencidos.some(({ conta }) => conta.id === falha.contaId),
   );
 
+  /* Quem não pode disparar sincronização não pode destravar a própria tela.
+     Prendê-lo atrás da porcentagem seria um bloqueio sem saída — o vendedor
+     ficaria olhando 0% para sempre. Ele vê o dado que existe; quem confirma
+     é o gestor, pela mesma rotina. */
+  if (!painel.podeSincronizar) {
+    return {
+      tela: painel.tela,
+      situacao: "pronto",
+      progresso: 100,
+      versao: painel.versao,
+      versoes: painel.versoes,
+      fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
+    };
+  }
+
   return {
     tela: painel.tela,
     situacao: algumaExecucaoViva ? "atualizando" : temFalha ? "erro" : "pendente",
@@ -123,9 +147,28 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
     versoes: painel.versoes,
     fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
     ...(temFalha && !algumaExecucaoViva
-      ? { mensagem: "Não foi possível atualizar agora." }
+      ? {
+        mensagem: "Não foi possível atualizar agora.",
+        /* A idade do dado que continua na tela. Sem isto a tarja teria que
+           dizer só "falhou", e o operador não saberia se está olhando o de
+           dez minutos atrás ou o de ontem. */
+        confirmadoAte: confirmacaoMaisAntiga(vencidos),
+      }
       : {}),
   };
+}
+
+/** O carimbo mais ATRASADO entre os módulos que falharam — é ele que
+ *  descreve honestamente a tela, não o mais recente. */
+function confirmacaoMaisAntiga(
+  vencidos: Array<{ conta: PainelAtualizacao["contas"][number]; modulo: ModuloSincronizacao }>,
+): string | null {
+  const carimbos = vencidos.flatMap(({ conta, modulo }) => {
+    const item = conta.atualidade.find((linha) => linha.modulo === modulo);
+    const valor = item?.ultimaConfirmacao ?? item?.ultimoSucesso ?? null;
+    return valor ? [valor] : [];
+  });
+  return carimbos.length === 0 ? null : carimbos.sort()[0];
 }
 
 export async function obterEstadoAtualizacaoTela(
@@ -138,9 +181,12 @@ export async function obterEstadoAtualizacaoTela(
 /**
  * Confirma a entrada da tela sem executar sincronização completa.
  *
- * A autorização da rota já confirmou o usuário e a organização. A cópia do
- * contexto com perfil administrativo é interna e serve apenas para reutilizar
- * a fila protegida; nenhum perfil adicional é concedido ao navegador.
+ * Roda com o perfil real de quem abriu a tela. Uma cópia do contexto com
+ * perfil administrativo passaria por cima do `assertPerfil` da fila e faria
+ * qualquer pessoa logada disparar chamadas de marketplace só por navegar —
+ * logo depois de o botão manual ter sido retirado das telas justamente para
+ * concentrar essa decisão. Perfil sem permissão não dispara nada e também não
+ * fica preso: `resumirEstado` devolve "pronto" para ele.
  */
 export async function iniciarAtualizacaoTela(
   ctx: CrudContext,
@@ -153,13 +199,13 @@ export async function iniciarAtualizacaoTela(
   const painel = await obterPainelAtualizacao(ctx, tela);
   const agora = Date.now();
   const erros: unknown[] = [];
-  const contextoInterno: CrudContext = { ...ctx, perfil: "admin" };
+  if (!painel.podeSincronizar) return resumirEstado(painel);
 
   for (const conta of painel.contas) {
     const vencidos = modulosVencidos(conta, agora);
     if (vencidos.length === 0 || execucaoViva(conta, agora)) continue;
     try {
-      await dispararSincronizacaoConta(contextoInterno, conta.id, {
+      await dispararSincronizacaoConta(ctx, conta.id, {
         modulos: vencidos,
         // Webhook é a via principal. Se ele atrasar, seis horas de sobreposição
         // são suficientes para recuperar o pedido sem reler um dia inteiro a

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import type { ChannelProvider, EstoqueCanalRef, OpcoesBuscaPedidos, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { obterShopeeBaseUrl, obterShopeeAppCredenciais, canalTokenShopee, urlProdutoShopee, type ShopeeApp } from "@/shared/config/shopee-env";
@@ -483,14 +483,18 @@ export class ShopeeProvider implements ChannelProvider {
   }
 
   /** Uma janela só — ver `janelasDePedidos`. */
-  async buscarPedidosDaJanela(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]> {
-    return this.buscarPedidosJanela(inicioMs, fimMs);
+  async buscarPedidosDaJanela(
+    inicioMs: number,
+    fimMs: number,
+    opcoes: OpcoesBuscaPedidos = {},
+  ): Promise<PedidoNormalizado[]> {
+    return this.buscarPedidosJanela(inicioMs, fimMs, opcoes);
   }
 
-  async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
+  async buscarPedidos(desde: Date, opcoes: OpcoesBuscaPedidos = {}): Promise<PedidoNormalizado[]> {
     const pedidos: PedidoNormalizado[] = [];
     for (const { inicioMs, fimMs } of this.janelasDePedidos(desde)) {
-      pedidos.push(...await this.buscarPedidosJanela(inicioMs, fimMs));
+      pedidos.push(...await this.buscarPedidosJanela(inicioMs, fimMs, opcoes));
     }
     return pedidos;
   }
@@ -512,8 +516,11 @@ export class ShopeeProvider implements ChannelProvider {
    *  em silêncio — e a janela é de 15 dias, com dias de 23 pedidos numa marca
    *  só (09/08/2026). Pedido que não entra aqui não é sincronizado nunca mais,
    *  porque as sincronizações seguintes pedem janelas mais recentes. */
-  private async listarOrderSnsDaJanela(timeFrom: number, timeTo: number): Promise<string[]> {
-    const sns: string[] = [];
+  private async listarOrderSnsDaJanela(
+    timeFrom: number,
+    timeTo: number,
+  ): Promise<Array<{ providerOrderId: string; statusExterno: string }>> {
+    const sns: Array<{ providerOrderId: string; statusExterno: string }> = [];
     let cursor = "";
 
     for (let pagina = 0; pagina < ShopeeProvider.MAX_PAGINAS_PEDIDOS; pagina++) {
@@ -537,11 +544,21 @@ export class ShopeeProvider implements ChannelProvider {
       const listData = await listRes.json() as {
         error?: string;
         message?: string;
-        response?: { order_list?: { order_sn: string }[]; more?: boolean; next_cursor?: string };
+        response?: {
+          order_list?: { order_sn: string; order_status?: string }[];
+          more?: boolean;
+          next_cursor?: string;
+        };
       };
       if (listData.error) throw new Error(`Shopee get_order_list: ${listData.message ?? listData.error}`);
 
-      sns.push(...(listData.response?.order_list ?? []).map((order) => order.order_sn));
+      /* O status vem de graça nesta listagem e é o que permite decidir, sem
+         gastar mais nenhuma chamada, se o pedido mudou de estágio desde a
+         última vez que foi lido. */
+      sns.push(...(listData.response?.order_list ?? []).map((order) => ({
+        providerOrderId: order.order_sn,
+        statusExterno: order.order_status ?? "",
+      })));
 
       const proximoCursor = listData.response?.next_cursor ?? "";
       // Cursor repetido significaria pedir a mesma página para sempre.
@@ -552,11 +569,24 @@ export class ShopeeProvider implements ChannelProvider {
     throw new Error(`Shopee get_order_list continuou paginando após ${ShopeeProvider.MAX_PAGINAS_PEDIDOS} páginas.`);
   }
 
-  private async buscarPedidosJanela(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]> {
+  private async buscarPedidosJanela(
+    inicioMs: number,
+    fimMs: number,
+    opcoes: OpcoesBuscaPedidos = {},
+  ): Promise<PedidoNormalizado[]> {
     const timeFrom = Math.floor(inicioMs / 1000);
     const timeTo = Math.floor(fimMs / 1000);
 
-    const sns = await this.listarOrderSnsDaJanela(timeFrom, timeTo);
+    const candidatos = await this.listarOrderSnsDaJanela(timeFrom, timeTo);
+    if (candidatos.length === 0) return [];
+
+    /* Só o que ainda tem algo a aprender segue para o detalhe. A listagem
+       acima já custou a chamada; o caro são as duas seguintes (detalhe e
+       repasse), e numa janela de contingência a maioria dos pedidos já está
+       gravada e liquidada. Sem filtro, o comportamento é o de antes. */
+    const sns = opcoes.filtrarPendentes
+      ? await opcoes.filtrarPendentes(candidatos)
+      : candidatos.map((item) => item.providerOrderId);
     if (sns.length === 0) return [];
 
     // Detalhes em lotes de 50 — com a paginação acima, uma janela cheia passa

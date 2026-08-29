@@ -7,6 +7,7 @@ import { resolverChannelProvider } from "@/modules/canais/infrastructure/provide
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
+import { registrarVerificacaoCanal } from "@/modules/canais/application/verificacao-canal.service";
 
 /** Quanto tempo o anúncio precisa ficar "closed"/não encontrado, sem
  *  interrupção, antes do produto ser desativado de verdade. Uma execução
@@ -395,6 +396,24 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
           },
         });
       }
+    }
+
+    /* Saldo e espelho do anúncio acabaram de ser conferidos: é isto que a
+       tela de Estoque chama de "catálogo". Marcar aqui evita que abrir Estoque
+       dispare uma varredura de catálogo da Shopee — a coleta mais cara que
+       existe na integração — logo depois desta, que acabou de rodar. Conta que
+       falhou fica de fora de propósito. */
+    const contasComFalha = new Set(falhas.map((falha) => falha.channelAccountId));
+    const contasConferidas = [...new Set(
+      conectados.map((item) => item.channelAccountId).filter((id) => !contasComFalha.has(id)),
+    )];
+    if (contasConferidas.length > 0) {
+      await step.run("marcar-catalogo-verificado", async () => {
+        for (const channelAccountId of contasConferidas) {
+          await registrarVerificacaoCanal(orgId, channelAccountId, "catalogo");
+        }
+        return { contas: contasConferidas.length };
+      });
     }
 
     if (coletados === 0 && conectados.length > 0) {

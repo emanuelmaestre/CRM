@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { registrarVerificacaoCanal } from "@/modules/canais/application/verificacao-canal.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
@@ -252,6 +253,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       itens: detalhe.itens,
       criadoEm: new Date(),
     });
+
+    /* Carimbo de "conferido agora" para o portão de entrada das telas. O
+       webhook é o caminho NORMAL do pedido, e era justamente ele que o portão
+       não enxergava: sem esta linha, cinco minutos depois da última execução
+       da Central toda tela aberta mandava sincronizar de novo o pedido que
+       este webhook acabou de gravar. */
+    await registrarVerificacaoCanal(conta.orgId, conta.channelAccountId, "pedidos");
 
     return NextResponse.json({ ok: true, pedidoId, novo });
   } catch (err) {

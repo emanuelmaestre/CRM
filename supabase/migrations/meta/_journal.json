@@ -414,6 +414,13 @@
       "when": 1788014441695,
       "tag": "0058_crazy_shiver_man",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1788016884771,
+      "tag": "0059_rainy_eternity",
+      "breakpoints": true
     }
   ]
 }
