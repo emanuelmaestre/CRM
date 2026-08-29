@@ -90,3 +90,55 @@ describe("filtros de Avaliações", () => {
     expect(karzi).toHaveAttribute("aria-pressed", "false");
   });
 });
+
+/* Bug encontrado em 29/08/2026 olhando a tela em produção: o cabeçalho dizia
+   "0 opiniões" e média "—" com 43 anúncios da Shopee carregados, um deles com
+   127 opiniões e nota 4,8 exibida na própria linha.
+
+   Causa: os dois canais gravam a distribuição por estrela com chaves
+   diferentes no mesmo campo jsonb — o Mercado Livre usa `uma..cinco`, a Shopee
+   usa "1".."5" — e a tela só sabia ler a forma do ML. Todo anúncio da Shopee
+   entrava valendo zero, sem erro nenhum: nada quebrava, o número só estava
+   errado. É o tipo de falha que sobrevive porque ninguém confere a soma. */
+describe("distribuição de notas com os dois formatos de canal", () => {
+  function comNiveis(niveis: unknown, canal: "mercadolivre" | "shopee"): Avaliacao {
+    const [base] = itens(1, canal === "shopee" ? "wuwu" : "karzi", canal, 1);
+    return { ...base, ratingLevels: niveis as Avaliacao["ratingLevels"] };
+  }
+
+  it("soma o formato da Shopee, que usa 1..5 em vez de uma..cinco", () => {
+    render(<AvaliacoesCliente itensIniciais={[
+      comNiveis({ "1": 0, "2": 0, "3": 1, "4": 0, "5": 3 }, "shopee"),
+    ]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Shopee" }));
+    fireEvent.click(screen.getByRole("button", { name: "WUWU" }));
+
+    expect(screen.getByText(/4 opiniões/)).toBeInTheDocument();
+    expect(screen.queryByText(/0 opiniões/)).not.toBeInTheDocument();
+  });
+
+  it("continua somando o formato do Mercado Livre", () => {
+    render(<AvaliacoesCliente itensIniciais={[
+      comNiveis({ uma: 1, duas: 0, tres: 0, quatro: 0, cinco: 1 }, "mercadolivre"),
+    ]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Mercado Livre" }));
+    fireEvent.click(screen.getByRole("button", { name: "KARZI" }));
+
+    expect(screen.getByText(/2 opiniões/)).toBeInTheDocument();
+  });
+
+  it("soma os dois canais juntos sem perder nenhum lado", () => {
+    render(<AvaliacoesCliente itensIniciais={[
+      comNiveis({ "1": 0, "2": 0, "3": 0, "4": 0, "5": 3 }, "shopee"),
+      comNiveis({ uma: 0, duas: 0, tres: 0, quatro: 0, cinco: 2 }, "mercadolivre"),
+    ]} />);
+    fireEvent.click(screen.getByRole("button", { name: "Shopee" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mercado Livre" }));
+    fireEvent.click(screen.getByRole("button", { name: "WUWU" }));
+    // Exato: com um anúncio da KARZI na tela, /karzi/i casa com o chip de
+    // filtro e também com a linha do anúncio.
+    fireEvent.click(screen.getByRole("button", { name: "KARZI" }));
+
+    expect(screen.getByText(/5 opiniões/)).toBeInTheDocument();
+  });
+});

@@ -79,15 +79,42 @@ function cacheValido(): boolean {
   return cacheAvaliacoes !== null && Date.now() - cacheAvaliacoes.buscadoEm < CACHE_TTL_MS;
 }
 
+/** Os dois canais gravam a distribuição por estrela com chaves diferentes no
+ *  mesmo campo jsonb: o Mercado Livre usa `uma..cinco`, a Shopee usa `"1".."5"`
+ *  (ver `listarAvaliacoes` no shopee.provider). A tela lia só a forma do ML, e
+ *  por isso TODO anúncio da Shopee entrava valendo zero — cabeçalho em "0
+ *  opiniões", média "—" e as cinco barras vazias, mesmo num anúncio com 127
+ *  opiniões e nota 4,8 exibida ao lado. O sintoma era silencioso: nada quebrava,
+ *  o número só estava errado.
+ *
+ *  Normalizado na LEITURA de propósito. Consertar na gravação exigiria
+ *  ressincronizar as duas lojas para valer, e deixaria errado tudo que já está
+ *  guardado; aqui as coletas antigas passam a somar sem coleta nova. */
+function normalizarNiveis(bruto: MLDistribuicaoNotas | null): MLDistribuicaoNotas | null {
+  if (!bruto || typeof bruto !== "object") return null;
+  const cru = bruto as unknown as Record<string, unknown>;
+  const grau = (nome: string, digito: string): number => {
+    const valor = Number(cru[nome] ?? cru[digito]);
+    return Number.isFinite(valor) ? valor : 0;
+  };
+  return {
+    uma: grau("uma", "1"),
+    duas: grau("duas", "2"),
+    tres: grau("tres", "3"),
+    quatro: grau("quatro", "4"),
+    cinco: grau("cinco", "5"),
+  };
+}
+
 function somarDistribuicoes(itens: Avaliacao[]): MLDistribuicaoNotas | null {
-  const comNiveis = itens.filter((item) => item.ratingLevels !== null);
+  const comNiveis = itens.map((item) => normalizarNiveis(item.ratingLevels)).filter((n) => n !== null);
   if (comNiveis.length === 0) return null;
-  return comNiveis.reduce<MLDistribuicaoNotas>((total, item) => ({
-    uma: total.uma + (item.ratingLevels?.uma ?? 0),
-    duas: total.duas + (item.ratingLevels?.duas ?? 0),
-    tres: total.tres + (item.ratingLevels?.tres ?? 0),
-    quatro: total.quatro + (item.ratingLevels?.quatro ?? 0),
-    cinco: total.cinco + (item.ratingLevels?.cinco ?? 0),
+  return comNiveis.reduce<MLDistribuicaoNotas>((total, niveis) => ({
+    uma: total.uma + niveis.uma,
+    duas: total.duas + niveis.duas,
+    tres: total.tres + niveis.tres,
+    quatro: total.quatro + niveis.quatro,
+    cinco: total.cinco + niveis.cinco,
   }), { uma: 0, duas: 0, tres: 0, quatro: 0, cinco: 0 });
 }
 
@@ -319,7 +346,8 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, pedidosDaAvali
 }) {
   const reduzido = useReducedMotion();
   const temOpinioes = item.opinioes.length > 0;
-  const temDetalhe = temOpinioes || item.ratingLevels !== null;
+  const niveisDoAnuncio = normalizarNiveis(item.ratingLevels);
+  const temDetalhe = temOpinioes || niveisDoAnuncio !== null;
   const baixa = item.ratingAverage !== null && item.ratingAverage < 4;
   // opinioes já vem ordenada da mais nova pra mais antiga (ver provider), então
   // a primeira é a última opinião recebida — dá pra mostrar sem expandir a linha.
@@ -394,7 +422,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, pedidosDaAvali
           >
             <div className="grid gap-5 bg-muted/25 px-4 pb-5 pt-4 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
               <div>
-                {item.ratingLevels && <Distribuicao niveis={item.ratingLevels} compacto />}
+                {niveisDoAnuncio && <Distribuicao niveis={niveisDoAnuncio} compacto />}
                 {item.permalink && (
                   <a
                     href={item.permalink}
