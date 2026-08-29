@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularProgressoExecucao,
+  inicioMinimoExecucaoViva,
+  LIMITE_EXECUCAO_ABANDONADA_MS,
   progressoDoModulo,
   progressoDoResultado,
   resultadoOmitido,
@@ -72,5 +74,30 @@ describe("progresso da sincronização", () => {
     // O resumo traz as três chaves sempre; omitido continua valendo.
     expect(resultadoOmitido({ progresso: 100, omitido: true, desativado: null })).toBe(true);
     expect(resultadoOmitido({ progresso: 42, omitido: null, desativado: null })).toBe(false);
+  });
+});
+
+/* A Shopee/WUWU sumiu das quatro voltas diarias entre 27 e 29/08/2026: duas
+   execucoes travadas (36h e 60h abertas) faziam o cron trata-las como "ja tem
+   sincronizacao rodando" e pular a conta em todas as voltas. Nada aparecia
+   como erro — a Central so mostra a ultima sync que TERMINOU —, e a unica
+   forma de destravar era clicar em Sincronizar, porque o caminho manual ja
+   aplicava a regra de abandono que faltava no cron. */
+describe("execucao viva x execucao abandonada", () => {
+  const agora = new Date("2026-08-29T12:17:00.000Z");
+
+  it("corta exatamente no limite de abandono", () => {
+    expect(inicioMinimoExecucaoViva(agora).getTime())
+      .toBe(agora.getTime() - LIMITE_EXECUCAO_ABANDONADA_MS);
+  });
+
+  it("execucao recente continua viva e segura a conta", () => {
+    const recente = new Date(agora.getTime() - 5 * 60_000);
+    expect(recente.getTime()).toBeGreaterThan(inicioMinimoExecucaoViva(agora).getTime());
+  });
+
+  it("execucao aberta ha horas nao segura mais a conta", () => {
+    const travada = new Date(agora.getTime() - 36 * 60 * 60_000);
+    expect(travada.getTime()).toBeLessThan(inicioMinimoExecucaoViva(agora).getTime());
   });
 });

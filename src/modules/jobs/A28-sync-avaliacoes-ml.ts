@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
@@ -11,6 +11,7 @@ import { finalizarJob, iniciarJob } from "./job-monitor";
 import { obterReputacao } from "@/modules/metricas/application/reputacao.service";
 import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
+import { inicioMinimoExecucaoViva } from "@/modules/canais/domain/sincronizacao-progresso";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 
 /** Atualiza avaliações sem concentrar centenas de chamadas em um único step.
@@ -55,8 +56,14 @@ export const A28_syncAvaliacoesML = inngest.createFunction(
       let contasVerificadas = 0;
       const ctx: CrudContext = { orgId, perfil: "admin", db };
       for (const conta of contas) {
-        // Uma sincronização manual viva ganha prioridade. O cron não duplica
-        // as mesmas chamadas (principalmente Shopee/Webshare) para essa conta.
+        /* Uma sincronização manual VIVA ganha prioridade: o cron não duplica
+           as mesmas chamadas (principalmente Shopee/Webshare) para essa conta.
+           "Viva" precisa da idade, não só de `finalizado_em` nulo — execução
+           que morreu no meio fica aberta para sempre e, sem esta régua, tirava
+           a conta de todas as voltas seguintes em silêncio. É a mesma regra que
+           `dispararSincronizacaoConta` já aplicava no caminho manual, e a razão
+           de "clicar em Sincronizar" resolver: o clique encerrava a linha
+           morta que o cron continuava respeitando. */
         const execucaoId = await step.run(`progresso-iniciar-${conta.id}`, async () => {
           const ativa = await db.select({ id: sincronizacaoExecucao.id })
             .from(sincronizacaoExecucao)
@@ -64,6 +71,7 @@ export const A28_syncAvaliacoesML = inngest.createFunction(
               eq(sincronizacaoExecucao.orgId, orgId),
               eq(sincronizacaoExecucao.channelAccountId, conta.id),
               isNull(sincronizacaoExecucao.finalizadoEm),
+              gt(sincronizacaoExecucao.iniciadoEm, inicioMinimoExecucaoViva()),
             ))
             .limit(1)
             .then((linhas) => linhas[0]);

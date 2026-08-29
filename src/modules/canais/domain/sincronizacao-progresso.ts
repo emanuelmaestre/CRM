@@ -6,6 +6,23 @@
  *  era o anel parado em 36% com nada rodando). */
 export const LIMITE_EXECUCAO_ABANDONADA_MS = 30 * 60 * 1_000;
 
+/** A partir de quando uma execução ainda conta como VIVA.
+ *
+ *  Uma execução sem `finalizado_em` nem sempre está rodando: o job pode ter
+ *  morrido no meio (timeout do Inngest, deploy no meio do caminho) e deixado a
+ *  linha aberta para sempre. Quem trata "aberta" como "viva" sem olhar a idade
+ *  passa a pular aquela conta em TODA volta seguinte — e a conta some da rotina
+ *  sem nenhum erro aparecer, porque a Central só mostra a última sync que
+ *  terminou.
+ *
+ *  Aconteceu com a Shopee/WUWU: duas execuções travadas em 27/08/2026 (uma
+ *  aberta por 36h, outra por 60h) tiraram a conta das quatro voltas diárias até
+ *  28-29/08, e só um clique manual destravava — o caminho manual já aplicava
+ *  esta régua, o cron não. */
+export function inicioMinimoExecucaoViva(agora: Date = new Date()): Date {
+  return new Date(agora.getTime() - LIMITE_EXECUCAO_ABANDONADA_MS);
+}
+
 /** Intervalo mínimo entre duas verificações manuais do mesmo módulo na
  *  mesma conta. Existe pra que dois cliques (ou duas pessoas) não gastem
  *  cota da Shopee/Webshare refazendo em seguida o que acabou de rodar. */
