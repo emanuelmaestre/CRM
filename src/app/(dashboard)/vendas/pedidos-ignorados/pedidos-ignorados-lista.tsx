@@ -1,10 +1,11 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  CircleSlash, Clock3, Loader2, RotateCw, Undo2,
+  ArrowLeft, CircleSlash, Clock3, Loader2, RotateCw, Undo2,
   PackageSearch, UserRoundX, Bug, HelpCircle, type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -187,7 +188,10 @@ function Pendencia({ linha, podeDescartar }: {
             {moeda.format(Number(linha.total))}
           </span>
         )}
-        <span className="text-[11px] text-muted-foreground">pedido de {dataCurta(linha.pedidoEm)}</span>
+        {/* "pedido de 05/06" era ambíguo ao lado de "hoje"/"há 3d", que fala
+            do tempo na fila: davam a impressão de ser a mesma data medida de
+            dois jeitos. O rótulo agora nomeia o que a data é. */}
+        <span className="text-[11px] text-muted-foreground">Pedido criado em {dataCurta(linha.pedidoEm)}</span>
       </div>
 
       {linha.skus.length > 0 && (
@@ -328,6 +332,15 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
+      {/* Esta tela se chega por um link dentro de /vendas e não tem entrada
+          no menu — sem a volta, a única saída era o botão do navegador ou
+          reentrar por Vendas no topo. Mesmo padrão das telas de Publicidade. */}
+      <Link
+        href="/vendas"
+        className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft size={13} /> Voltar para Vendas
+      </Link>
       <PageHeader
         title="Pedidos ignorados"
         description="Pedidos que o canal entregou e o CRM não conseguiu importar. A fila se limpa sozinha na próxima sincronização quando a causa deixa de existir."
