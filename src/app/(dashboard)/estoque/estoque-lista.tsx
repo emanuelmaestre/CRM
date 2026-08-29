@@ -195,12 +195,18 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
       // vira ruptura hoje, mas cada linha é dinheiro parado por engano.
       id: "pausados" as Filtro,
       label: copy.indicators.paused,
-      labelCurto: "Fora do ar",
+      // No celular o card tem ~110px de texto: "Pausado/Encerrado" quebraria
+      // em duas linhas e desalinharia a altura dos quatro. Mesma solução dos
+      // outros três, que já encurtam ("Abaixo mín.", "Zerados").
+      labelCurto: "Pausados",
       valor: indicadores.pausados,
       icon: EyeOff,
       tom: "neutro" as const,
+      // Negrito porque a legenda aqui não é rodapé: "com saldo" é a metade da
+      // informação que o número sozinho não dá — é o que separa "anúncio fora
+      // do ar" de "anúncio fora do ar com mercadoria parada na prateleira".
       sub: indicadores.pausados > 0
-        ? <span className="hidden sm:inline">{copy.indicators.pausedSub}</span>
+        ? <span className="hidden font-bold sm:inline">{copy.indicators.pausedSub}</span>
         : undefined,
     },
   ];
