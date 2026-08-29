@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle, ArrowLeft, BarChart3, Gauge, Hourglass, Info, Megaphone,
-  Package, RefreshCw, ShoppingBag, SlidersHorizontal, TrendingDown, TrendingUp, X,
+  Package, ShoppingBag, SlidersHorizontal, TrendingDown, TrendingUp, X,
 } from "lucide-react";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -608,17 +608,11 @@ export function MosaicoRedesign() {
             ))}
           </div>
 
-          {/* Segundo lugar do indicador de progresso (o primeiro é o hero,
-              logo abaixo): este cantinho alterna entre "atualizado às" e
-              "consultando os canais", sem forma nenhuma, só o número real
-              de painéis que já responderam — ver o efeito que calcula
-              `painesProntos` mais acima. */}
-          <span className="hidden items-center gap-1.5 text-[11px] xl:inline-flex" style={{ color: "var(--sd-sub)" }}>
-            <RefreshCw size={12} className={estadoEfetivo === "carregando" ? "animate-spin" : undefined} />
-            {estadoEfetivo === "carregando"
-              ? (mostrarProgresso ? `Consultando os canais · ${painesProntos} de ${TOTAL_PAINEIS}` : "Consultando os canais…")
-              : "Atualizado às 17:24"}
-          </span>
+          {estadoEfetivo === "carregando" && mostrarProgresso && (
+            <span className="hidden text-[11px] font-bold tabular-nums xl:inline-flex" style={{ color: "var(--sd-sub)" }}>
+              {Math.round((painesProntos / TOTAL_PAINEIS) * 100)}%
+            </span>
+          )}
         </div>
       </div>
 

@@ -27,6 +27,7 @@ const LIMITE_GIRO_BAIXO_POR_SEMANA = 10;
 const DIAS_PARA_PARADO = 15;
 
 /** Quantos itens cada lista traz. Lista curta é lista que se lê. */
+const LIMITE_ITENS_LISTA = 50;
 
 export type Granularidade = "dia" | "semana" | "mes";
 
@@ -620,7 +621,7 @@ export async function obterDashboardData(
     .sort((a, b) => b.venda.quantidade - a.venda.quantidade || b.venda.receita - a.venda.receita);
 
   const maiorQuantidade = rankingVendasCompleto[0]?.venda.quantidade ?? 0;
-  const maisVendidos: ProdutoMaisVendido[] = rankingVendasCompleto.map(({ item, venda }) => ({
+  const maisVendidos: ProdutoMaisVendido[] = rankingVendasCompleto.slice(0, LIMITE_ITENS_LISTA).map(({ item, venda }) => ({
     ...base(item),
     quantidade: venda.quantidade,
     quantidadeAnterior: vendasAnterioresPorProduto.get(item.id)?.quantidade ?? 0,
@@ -661,7 +662,7 @@ export async function obterDashboardData(
     // Menor giro primeiro; empate desempata por dinheiro parado — o que dói mais.
     .sort((a, b) => a.quantidade - b.quantidade || b.valorParadoNumerico - a.valorParadoNumerico);
   const giroBaixoValorParadoNumerico = giroBaixoCompleto.reduce((soma, item) => soma + item.valorParadoNumerico, 0);
-  const giroBaixo: ProdutoGiroBaixo[] = giroBaixoCompleto.map(({ valorParadoNumerico, ...resto }) => ({
+  const giroBaixo: ProdutoGiroBaixo[] = giroBaixoCompleto.slice(0, LIMITE_ITENS_LISTA).map(({ valorParadoNumerico, ...resto }) => ({
       ...resto,
       valorParado: formatCurrency(valorParadoNumerico),
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
@@ -687,7 +688,7 @@ export async function obterDashboardData(
     // Maior capital imobilizado primeiro — é o que justifica liquidar.
     .sort((a, b) => b.valorParadoNumerico - a.valorParadoNumerico);
   const paradosValorParadoNumerico = paradosCompletos.reduce((soma, item) => soma + item.valorParadoNumerico, 0);
-  const parados: ProdutoParado[] = paradosCompletos.map(({ valorParadoNumerico, ...resto }) => ({
+  const parados: ProdutoParado[] = paradosCompletos.slice(0, LIMITE_ITENS_LISTA).map(({ valorParadoNumerico, ...resto }) => ({
       ...resto,
       valorParado: formatCurrency(valorParadoNumerico),
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
@@ -727,7 +728,7 @@ export async function obterDashboardData(
       if (b.coberturaDias !== null) return 1;
       return b.urgencia - a.urgencia;
     });
-  const reposicao = reposicaoCompleta;
+  const reposicao = reposicaoCompleta.slice(0, LIMITE_ITENS_LISTA);
 
   // Uma leitura local para as quatro listas. Produtos repetidos entre cards
   // não geram trabalho extra relevante e cada objeto recebe o mesmo snapshot.

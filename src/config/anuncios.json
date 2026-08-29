@@ -2,9 +2,6 @@
   "_doc": {
     "proposito": "Textos da Visão Geral de Anúncios patrocinados do Mercado Livre."
   },
-  "header": {
-    "eyebrow": "Última sincronização"
-  },
   "kpis": {
     "investimento": "Investimento (dinheiro gasto em anúncios)",
     "receita": "Receita atribuída (venda que veio do anúncio)",
@@ -173,7 +170,7 @@
   "organico": {
     "titulo": "Publicidade × Orgânico",
     "descricao": "Quanto das vendas depende de mídia paga, nesta janela de dados.",
-    "semVenda": "Nenhuma venda (paga ou orgânica) registrada na última sincronização.",
+    "semVenda": "Nenhuma venda paga ou orgânica encontrada no período.",
     "semOrganico": "A Shopee não informa venda orgânica",
     "semOrganicoDescricao": "O relatório de Publicidade da Shopee só devolve o que veio de anúncio — ela não separa a venda que teria acontecido sem mídia paga. Sem esse número não dá para dizer quanto do resultado depende de publicidade, e por isso TACOS e dependência de mídia ficam sem dado neste canal. No Mercado Livre o card continua completo."
   },

@@ -238,9 +238,17 @@ async function ultimasExecucoes(ctx: CrudContext): Promise<ExecucaoLinha[]> {
  *  só, não uma consulta por módulo. */
 async function atualidadePorConta(ctx: CrudContext) {
   const agregados = MODULOS_SINCRONIZACAO.map((modulo) => sql`
-    max(finalizado_em) filter (where ${sql.identifier(`${modulo}_status`)} = 'concluido')
+    max(finalizado_em) filter (
+      where ${sql.identifier(`${modulo}_status`)} = 'concluido'
+        and coalesce(${sql.identifier(`${modulo}_resultado`)} ->> 'omitido', 'false') <> 'true'
+        and coalesce(${sql.identifier(`${modulo}_resultado`)} ->> 'desativado', 'false') <> 'true'
+    )
       as ${sql.identifier(`${modulo}_sucesso`)},
-    max(iniciado_em) filter (where ${sql.identifier(`${modulo}_status`)} <> 'pendente')
+    max(iniciado_em) filter (
+      where ${sql.identifier(`${modulo}_status`)} <> 'pendente'
+        and coalesce(${sql.identifier(`${modulo}_resultado`)} ->> 'omitido', 'false') <> 'true'
+        and coalesce(${sql.identifier(`${modulo}_resultado`)} ->> 'desativado', 'false') <> 'true'
+    )
       as ${sql.identifier(`${modulo}_tentativa`)}
   `);
 

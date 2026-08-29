@@ -1,4 +1,5 @@
 import { ProxyAgent } from "undici";
+import { and, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { shopeeApiCall } from "@/shared/lib/db/schema";
 
@@ -37,19 +38,96 @@ function obterAgentesProxy(): ProxyAgent[] {
 // consumo da cota do proxy, sem precisar tocar em nenhum call site. Nunca
 // atrasa nem derruba a chamada real: dispara depois, em paralelo, e engole
 // o próprio erro se a gravação falhar.
-function registrarChamada(input: string | URL, statusCode: number | null, ok: boolean): void {
+function caminhoDaChamada(input: string | URL): string {
+  try {
+    return new URL(input).pathname;
+  } catch {
+    return String(input);
+  }
+}
+
+function tamanhoCorpo(body: BodyInit | null | undefined): number {
+  if (!body) return 0;
+  if (typeof body === "string") return new TextEncoder().encode(body).byteLength;
+  if (body instanceof URLSearchParams) return new TextEncoder().encode(body.toString()).byteLength;
+  if (body instanceof ArrayBuffer) return body.byteLength;
+  if (ArrayBuffer.isView(body)) return body.byteLength;
+  if (typeof Blob !== "undefined" && body instanceof Blob) return body.size;
+  return 0;
+}
+
+function tamanhoResposta(response: Response): number | null {
+  const bruto = response.headers.get("content-length");
+  if (!bruto) return null;
+  const valor = Number(bruto);
+  return Number.isFinite(valor) && valor >= 0 ? Math.round(valor) : null;
+}
+
+function registrarChamada(
+  input: string | URL,
+  statusCode: number | null,
+  ok: boolean,
+  requestBytes: number,
+  responseBytes: number | null,
+  durationMs: number,
+): void {
   const orgId = process.env.DEFAULT_ORG_ID;
   if (!orgId) return;
-  let caminho: string;
-  try {
-    const url = new URL(input);
-    caminho = url.pathname; // nunca loga query string: carrega access_token/sign
-  } catch {
-    caminho = String(input);
-  }
-  db.insert(shopeeApiCall).values({ orgId, caminho, statusCode, ok }).catch((error: unknown) => {
+  // Nunca loga query string: ela carrega access_token/sign.
+  const caminho = caminhoDaChamada(input);
+  db.insert(shopeeApiCall).values({
+    orgId,
+    caminho,
+    statusCode,
+    ok,
+    requestBytes,
+    responseBytes,
+    durationMs,
+  }).catch((error: unknown) => {
     console.error("[shopee-proxy] falha ao registrar chamada", error);
   });
+}
+
+const LIMITE_PRIORIZACAO_BYTES = 800 * 1024 * 1024;
+const CACHE_ORCAMENTO_MS = 5 * 60_000;
+let orcamentoCache: { usado: number; expiraEm: number } | null = null;
+
+function caminhoEssencial(caminho: string): boolean {
+  return caminho.includes("/auth/")
+    || caminho.includes("/order/")
+    || caminho.includes("get_escrow_detail");
+}
+
+/** Aos 800 MB preserva autenticação e pedidos e pausa coletas secundárias. */
+async function respeitarOrcamento(input: string | URL): Promise<void> {
+  const caminho = caminhoDaChamada(input);
+  if (caminhoEssencial(caminho)) return;
+  const orgId = process.env.DEFAULT_ORG_ID;
+  if (!orgId) return;
+
+  const agora = Date.now();
+  if (!orcamentoCache || orcamentoCache.expiraEm <= agora) {
+    try {
+      const inicioMes = new Date();
+      inicioMes.setDate(1);
+      inicioMes.setHours(0, 0, 0, 0);
+      const usado = await db
+        .select({
+          total: sql<number>`coalesce(sum(coalesce(${shopeeApiCall.requestBytes}, 0) + coalesce(${shopeeApiCall.responseBytes}, 0)), 0)`,
+        })
+        .from(shopeeApiCall)
+        .where(and(eq(shopeeApiCall.orgId, orgId), gte(shopeeApiCall.criadoEm, inicioMes)))
+        .then((rows) => Number(rows[0]?.total ?? 0));
+      orcamentoCache = { usado, expiraEm: agora + CACHE_ORCAMENTO_MS };
+    } catch {
+      // Telemetria nunca derruba a operação se a migration ainda não chegou.
+      return;
+    }
+  }
+
+  if (orcamentoCache.usado >= LIMITE_PRIORIZACAO_BYTES) {
+    throw new Error("Limite preventivo da Webshare atingido; coleta secundária adiada.");
+  }
 }
 
 // Cada tentativa (proxy principal, depois backup) ganha seu próprio relógio
@@ -66,10 +144,13 @@ const TIMEOUT_POR_TENTATIVA_MS = 8000;
  *  SHOPEE_PROXY_URL_BACKUP também estiver definida, tenta o segundo proxy
  *  quando o primeiro falha ao nível de conexão (ver comentário acima). */
 export async function shopeeFetch(input: string | URL, init: RequestInit = {}): Promise<Response> {
+  await respeitarOrcamento(input);
+  const inicio = performance.now();
+  const requestBytes = new TextEncoder().encode(String(input)).byteLength + tamanhoCorpo(init.body);
   const agentes = obterAgentesProxy();
   if (agentes.length === 0) {
     const res = await fetch(input, init);
-    registrarChamada(input, res.status, res.ok);
+    registrarChamada(input, res.status, res.ok, requestBytes, tamanhoResposta(res), Math.round(performance.now() - inicio));
     return res;
   }
 
@@ -79,12 +160,12 @@ export async function shopeeFetch(input: string | URL, init: RequestInit = {}): 
     const signal = init.signal ? AbortSignal.any([init.signal, timeoutTentativa]) : timeoutTentativa;
     try {
       const res = await fetch(input, { ...init, signal, dispatcher } as RequestInit & { dispatcher: ProxyAgent });
-      registrarChamada(input, res.status, res.ok);
+      registrarChamada(input, res.status, res.ok, requestBytes, tamanhoResposta(res), Math.round(performance.now() - inicio));
       return res;
     } catch (error) {
       ultimoErro = error;
     }
   }
-  registrarChamada(input, null, false);
+  registrarChamada(input, null, false, requestBytes, null, Math.round(performance.now() - inicio));
   throw ultimoErro;
 }

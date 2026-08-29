@@ -165,17 +165,10 @@ describe("cards de Métricas", () => {
     expect(screen.queryByText("2 (1 em mediação)")).not.toBeInTheDocument();
   });
 
-  /* O carimbo do rodapé é a data da última sincronização com o canal, não o
-     instante em que a tela leu o banco — este último dizia "atualizado agora"
-     mesmo com o canal sem ser consultado havia dias. */
-  it("carimba a data da sincronização e admite quando ela nunca aconteceu", () => {
-    const { unmount } = render(<ComparacaoCard dados={resultado()} carregando={false} />);
-    expect(screen.getByText(/^Sincronizado em/)).toBeInTheDocument();
-    unmount();
-
-    render(<ComparacaoCard dados={resultado({ marcas: [marca({ sincronizadoEm: null })] })} carregando={false} />);
-    expect(screen.getByText("Nunca sincronizado")).toBeInTheDocument();
-    expect(screen.queryByText(/^Sincronizado em/)).not.toBeInTheDocument();
+  it("não exibe carimbo de sincronização dentro do módulo", () => {
+    render(<ComparacaoCard dados={resultado()} carregando={false} />);
+    expect(screen.queryByText(/sincronizado em/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nunca sincronizado/i)).not.toBeInTheDocument();
   });
 
   /* Empate divide o mesmo lugar: duas marcas com o mesmo valor médio são 1º e
@@ -356,8 +349,7 @@ describe("cards de Métricas", () => {
     expect(screen.getByText("Não aplicável")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Entenda o indicador Pontuação de qualidade" }));
     expect(screen.getByText(/não publica nota de qualidade/i)).toBeInTheDocument();
-    // Dado de snapshot não pode se passar por consulta ao vivo.
-    expect(screen.getByText(/última sincronização de publicidade/i)).toBeInTheDocument();
+    expect(screen.queryByText(/última sincronização de publicidade/i)).not.toBeInTheDocument();
 
     const chamada = obterPublicacoes.mock.calls.at(0)?.[0] as { canal?: string } | undefined;
     expect(chamada?.canal).toBe("shopee");

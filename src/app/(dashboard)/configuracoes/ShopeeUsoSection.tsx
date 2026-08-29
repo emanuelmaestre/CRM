@@ -9,6 +9,12 @@ type UsoApiShopee = Awaited<ReturnType<typeof actionObterUsoApiShopee>>;
 
 const numero = new Intl.NumberFormat("pt-BR");
 
+function tamanho(bytes: number) {
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} MB`;
+  if (bytes >= 1024) return `${(bytes / 1024).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} KB`;
+  return `${numero.format(bytes)} B`;
+}
+
 function Metrica({ label, valor }: { label: string; valor: number }) {
   return (
     <div className="flex-1 rounded-[0.9rem] border border-border bg-background/55 px-4 py-3">
@@ -47,6 +53,19 @@ export function ShopeeUsoSection({ data, loading }: { data: UsoApiShopee | null;
         <Metrica label="Este mês" valor={data.esteMes} />
       </div>
 
+      <div className="mt-3 rounded-[0.9rem] border border-border bg-background/55 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 text-[12px]">
+          <span className="font-semibold text-foreground">Transferência medida neste mês</span>
+          <span className="font-bold tabular-nums text-foreground">{tamanho(data.bytesEsteMes)} · {data.percentualFranquia}%</span>
+        </div>
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-foreground transition-[width]"
+            style={{ width: `${Math.min(data.percentualFranquia, 100)}%` }}
+          />
+        </div>
+      </div>
+
       {data.porCaminho.length > 0 && (
         <div className="mt-4">
           <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[.06em] text-muted-foreground">
@@ -61,7 +80,7 @@ export function ShopeeUsoSection({ data, loading }: { data: UsoApiShopee | null;
                   className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold tabular-nums"
                   style={{ background: tint("var(--foreground)", 8), color: "var(--foreground)" }}
                 >
-                  {numero.format(linha.total)}
+                  {numero.format(linha.total)} · {tamanho(linha.bytes)}
                 </span>
               </li>
             ))}

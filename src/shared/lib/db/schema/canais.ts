@@ -123,6 +123,9 @@ export const shopeeApiCall = pgTable("shopee_api_call", {
   caminho: text("caminho").notNull(),
   statusCode: integer("status_code"),
   ok: boolean("ok").notNull(),
+  requestBytes: integer("request_bytes"),
+  responseBytes: integer("response_bytes"),
+  durationMs: integer("duration_ms"),
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index("idx_shopee_api_call_org_criado").on(t.orgId, t.criadoEm),

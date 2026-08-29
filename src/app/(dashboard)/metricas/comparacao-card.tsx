@@ -16,12 +16,10 @@ import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primit
 import { ScopeRow, type CardFiltro, type ScopeCanal } from "./painel/scope-row";
 import { tint } from "@/shared/design-system/color";
 import { inteiro, moeda, moedaCompacta } from "@/shared/design-system/format";
-import { RefreshCw } from "lucide-react";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 
 const copy = metricasConfig.comparacaoCard;
 const ACENTO = "var(--acento-3)";
-const dataHoraCard = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 type Criterio = "ticketMedio" | "cancelamento" | "recorrencia";
 
@@ -644,16 +642,6 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, posVenda, canais, 
 
                 {pv && <CumprimentoPedidos pv={pv} />}
 
-                {/* A data da última SINCRONIZAÇÃO, não a do instante em que a
-                    tela leu o banco: aquela mudava a cada F5 e dizia
-                    "Atualizado agora" mesmo com o canal sem ser consultado
-                    desde ontem — parecia atualizado sem estar. */}
-                <p className="mt-2.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <RefreshCw size={9} />
-                  {marca.sincronizadoEm
-                    ? `Sincronizado em ${dataHoraCard.format(new Date(marca.sincronizadoEm))}`
-                    : "Nunca sincronizado"}
-                </p>
               </motion.li>
             );
           })}

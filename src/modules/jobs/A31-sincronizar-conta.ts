@@ -291,68 +291,51 @@ export const A31_sincronizarConta = inngest.createFunction(
       const porJanela = provider.janelasDePedidos && provider.buscarPedidosDaJanela
         ? { janelas: provider.janelasDePedidos.bind(provider), buscar: provider.buscarPedidosDaJanela.bind(provider) }
         : null;
-      // Sem anotação de tipo de propósito: o Inngest serializa entre steps e
-      // `criadoEm` volta como string, não Date. Quem normaliza é o laço de
-      // ingestão logo abaixo (`new Date(pedidoBruto.criadoEm)`).
-      const pedidos = porJanela
-        ? await (async () => {
-          const acumulado = [];
-          for (const [indice, janela] of porJanela.janelas(dataDesde).entries()) {
-            const daJanela = await step.run(
-              `pedidos-buscar-${channelAccountId}-janela-${indice}`,
-              () => porJanela.buscar(janela.inicioMs, janela.fimMs),
-            );
-            acumulado.push(...daJanela);
+      /* Cada step busca E ingere uma janela curta, retornando só contagens.
+       * Antes, os arrays completos voltavam do step de busca, eram guardados
+       * pelo Inngest e reapareciam no payload de cada reinvocação da função.
+       * Em uma conta com 1.073 pedidos isso transformava dados temporários em
+       * centenas de MB de Fast Origin Transfer na Vercel.
+       *
+       * Um dia por step mantém o trabalho bem abaixo do timeout normal e
+       * limita o estado persistido a poucos bytes. A idempotência continua em
+       * `ingerirPedido`; se um step repetir, pedido nenhum é duplicado. */
+      const janelas = porJanela
+        ? porJanela.janelas(dataDesde).flatMap((janela) => {
+          const partes: Array<{ inicioMs: number; fimMs: number }> = [];
+          const maximoMs = 24 * 60 * 60_000;
+          for (let inicioMs = janela.inicioMs; inicioMs <= janela.fimMs;) {
+            const fimMs = Math.min(janela.fimMs, inicioMs + maximoMs - 1);
+            partes.push({ inicioMs, fimMs });
+            inicioMs = fimMs + 1;
           }
-          return acumulado;
-        })()
-        : await step.run(`pedidos-buscar-${channelAccountId}`, () => provider.buscarPedidos(dataDesde));
-      await step.run("pedidos-progresso-busca", () => atualizarProgresso("pedidos", 20, {
-        processados: 0,
-        total: pedidos.length,
-        desde: dataDesde.toISOString(),
-      }));
+          return partes;
+        })
+        : [{ inicioMs: dataDesde.getTime(), fimMs: Date.now() }];
+
       let novos = 0;
-      // Falha de UM pedido não derruba a leva. Um pedido ruim é sempre
-      // possível — anúncio removido depois da venda (ErroSkuSemProduto),
-      // comprador que colide com um cadastro existente, dado que o canal
-      // devolveu fora do formato. Abortar tudo no primeiro erro fazia nenhum
-      // pedido entrar, inclusive os bons, e escondia os demais problemas: cada
-      // sincronização revelava só o próximo erro da fila, um de cada vez.
-      // Agora a leva termina e o que falhou vai no resultado, junto.
+      let encontrados = 0;
       const skusSemProduto = new Set<string>();
       const motivosDeFalha = new Set<string>();
       let ignorados = 0;
       let falhasSemCausaConhecida = 0;
-      // EM LOTE, não um step por pedido.
-      //
-      // O Inngest limita ~1000 steps por execução de função. Um step por
-      // pedido mais um de progresso a cada dez gastava 1073 + 107 + os do
-      // catálogo e das janelas: passava de mil por volta do pedido 880. Foi
-      // exatamente o que aconteceu em produção em 27/08/2026 — duas execuções
-      // independentes da Shopee/WUWU pararam no MESMO ponto, 880 de 1073,
-      // com 288 ignorados idênticos. Não era o token nem a busca: era a
-      // trava de steps, e nenhum clique em "Sincronizar" ia passar dali.
-      //
-      // Um step por lote de 25 derruba o gasto para ~45 steps na mesma leva.
-      // Cada lote leva uns 75s (≈3s por pedido, quase tudo latência de banco
-      // entre regiões), bem dentro dos 300s de `maxDuration`. Reexecutar um
-      // lote é seguro: `ingerirPedido` é idempotente — reconhece o pedido já
-      // importado por `providerOrderId` e não duplica.
-      const TAMANHO_LOTE_PEDIDOS = 25;
-      for (let inicio = 0; inicio < pedidos.length; inicio += TAMANHO_LOTE_PEDIDOS) {
-        const lote = pedidos.slice(inicio, inicio + TAMANHO_LOTE_PEDIDOS);
+
+      for (const [indice, janela] of janelas.entries()) {
         const parcial = await step.run(
-          `pedidos-ingerir-${channelAccountId}-lote-${inicio}`,
+          `pedidos-processar-${channelAccountId}-janela-${indice}`,
           async () => {
+            const pedidos = porJanela
+              ? await porJanela.buscar(janela.inicioMs, janela.fimMs)
+              : await provider.buscarPedidos(new Date(janela.inicioMs));
             const saida = {
+              encontrados: pedidos.length,
               novos: 0,
               ignorados: 0,
               falhasSemCausaConhecida: 0,
               motivos: [] as string[],
               skus: [] as string[],
             };
-            for (const pedidoBruto of lote) {
+            for (const pedidoBruto of pedidos) {
               const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
               try {
                 const ingerido = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
@@ -390,17 +373,25 @@ export const A31_sincronizarConta = inngest.createFunction(
             return saida;
           },
         );
+        encontrados += parcial.encontrados;
         novos += parcial.novos;
         ignorados += parcial.ignorados;
         falhasSemCausaConhecida += parcial.falhasSemCausaConhecida;
         for (const motivo of parcial.motivos) motivosDeFalha.add(motivo);
         for (const sku of parcial.skus) skusSemProduto.add(sku);
 
-        const processados = Math.min(inicio + lote.length, pedidos.length);
-        await step.run(`pedidos-progresso-${processados}`, () => atualizarProgresso(
+        const janelasProcessadas = indice + 1;
+        await step.run(`pedidos-progresso-janela-${janelasProcessadas}`, () => atualizarProgresso(
           "pedidos",
-          pedidos.length > 0 ? 20 + (processados / pedidos.length) * 75 : 95,
-          { processados, total: pedidos.length, novos, ignorados, desde: dataDesde.toISOString() },
+          5 + (janelasProcessadas / Math.max(janelas.length, 1)) * 90,
+          {
+            janelasProcessadas,
+            totalJanelas: janelas.length,
+            encontrados,
+            novos,
+            ignorados,
+            desde: dataDesde.toISOString(),
+          },
         ));
       }
       // Se NENHUM pedido entrou e todos falharam, o problema PODE ser
@@ -412,13 +403,13 @@ export const A31_sincronizarConta = inngest.createFunction(
       // 26/08/2026 na ARMARINHOS LIMA. Por isso o freio exige ao menos uma
       // falha SEM causa conhecida: quando toda a leva parou em erro de
       // pedido (ErroSkuSemProduto), isso é `ignorados`, não falha da conta.
-      if (pedidos.length > 0 && ignorados === pedidos.length && falhasSemCausaConhecida > 0) {
+      if (encontrados > 0 && ignorados === encontrados && falhasSemCausaConhecida > 0) {
         throw new Error(
-          `Nenhum dos ${pedidos.length} pedido(s) pôde ser importado: ${[...motivosDeFalha].join(" | ")}`,
+          `Nenhum dos ${encontrados} pedido(s) pôde ser importado: ${[...motivosDeFalha].join(" | ")}`,
         );
       }
       return {
-        encontrados: pedidos.length,
+        encontrados,
         novos,
         ...(ignorados > 0
           ? {

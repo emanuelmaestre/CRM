@@ -134,11 +134,14 @@ function useDadosDoCard(
   periodo: Periodo,
   filtro: CardFiltro,
   versaoDashboard: number,
+  inicial: { chave: string; dados: DashboardData } | null = null,
 ) {
   const periodoBusca = periodoEfetivo(periodo);
   const chave = `${chaveFiltro(periodoBusca, filtro)}|v${versaoDashboard}`;
   const semFiltro = semFiltroDefinido(filtro);
-  const [resultado, setResultado] = useState<{ chave: string; dados: DashboardData | null }>({ chave: "", dados: null });
+  const [resultado, setResultado] = useState<{ chave: string; dados: DashboardData | null }>(() =>
+    inicial?.chave === chave ? inicial : { chave: "", dados: null },
+  );
 
   useEffect(() => {
     if (semFiltro) return;
@@ -233,6 +236,7 @@ const TOUR: CoachMarkStep[] = [
 export function Mosaico({
   marcasIniciais = [], canaisIniciais = [], saudeInicial = null,
   posVendaInicial = null, posVendaInicialChave = null, snapshotInicial,
+  dashboardInicial = null, dashboardInicialChave = null,
 }: {
   /* O mosaico é a soma de seis buscas independentes, todas resolvidas no
      servidor e entregues dentro do HTML (ver page.tsx). */
@@ -245,6 +249,8 @@ export function Mosaico({
    *  adivinhar — e adivinhava errado (ver o estado de pós-venda abaixo). */
   posVendaInicialChave?: string | null;
   snapshotInicial?: SnapshotMetricas | null;
+  dashboardInicial?: DashboardData | null;
+  dashboardInicialChave?: string | null;
 }) {
   const params = useSearchParams();
   const cardAberto = params.get("card");
@@ -253,7 +259,14 @@ export function Mosaico({
   const [periodo, setPeriodo] = useState<Periodo>({ inicio: hoje, fim: hoje });
   const [marcas, setMarcas] = useState<ScopeMarca[]>(marcasIniciais);
   const [canais, setCanais] = useState<ScopeCanal[]>(canaisIniciais);
-  const cache = useRef(new Map<string, Promise<DashboardData>>());
+  const cache = useRef(new Map<string, Promise<DashboardData>>(
+    dashboardInicial && dashboardInicialChave
+      ? [[dashboardInicialChave, Promise.resolve(dashboardInicial)]]
+      : [],
+  ));
+  const dashboardPrecarregado = dashboardInicial && dashboardInicialChave
+    ? { chave: dashboardInicialChave, dados: dashboardInicial }
+    : null;
   /* ── Invalidação por fonte ────────────────────────────────────────
      Antes havia um contador só: qualquer mudança — um pedido novo que fosse
      — limpava o cache inteiro e refazia os cinco cartões, Saúde, Pós-venda e
@@ -315,11 +328,11 @@ export function Mosaico({
     });
   }, [marcas, canais]);
 
-  const faturamento = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard);
-  const reposicao = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard);
-  const maisVendidos = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard);
-  const giroBaixo = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard);
-  const parados = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard);
+  const faturamento = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
+  const reposicao = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
+  const maisVendidos = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
+  const giroBaixo = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
+  const parados = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
 
   // Estas duas já vieram prontas do servidor quando há dado inicial — refazê-las
   // aqui só repetiria no navegador o que acabou de chegar no HTML.
@@ -359,15 +372,13 @@ export function Mosaico({
   // alimenta a maioria dos cards, então marca "última atualização" quando
   // ela responde — setado no próprio .then(), não num efeito à parte, pra
   // não disparar um segundo render encadeado à toa.
-  const [carregadoEm, setCarregadoEm] = useState<Date | null>(saudeInicial ? new Date() : null);
-
   const primeiraSaude = useRef(Boolean(saudeInicial));
 
   useEffect(() => {
     if (primeiraSaude.current) { primeiraSaude.current = false; return; }
     let ativo = true;
     actionObterSaudeLoja({ inicio, fim, brandIds: brandIdsEscolhidos, canais: canaisEscolhidos })
-      .then((resultado) => { if (ativo) { setSaude({ chave, dados: resultado }); setCarregadoEm(new Date()); } })
+      .then((resultado) => { if (ativo) setSaude({ chave, dados: resultado }); })
       .catch(() => {
         if (!ativo) return;
         setSaude({ chave, dados: null });
@@ -812,7 +823,7 @@ export function Mosaico({
         { titulo: "Cobertura estimada", texto: "Quando houve venda no período, a cobertura é calculada dividindo o saldo pelo consumo médio diário. Exemplo: saldo 19 e três vendas em um dia resultam em aproximadamente seis dias de cobertura. Trata-se de uma estimativa, não de uma garantia." },
         { titulo: "Ordem e status", texto: "Produtos com menor cobertura aparecem primeiro. Quando não há venda suficiente para estimar a cobertura, a prioridade considera o quanto o saldo ficou abaixo do mínimo. O selo informa se o anúncio está ativo, pausado, em revisão ou encerrado." },
       ],
-      dica: "Saldo e status vêm da última sincronização disponível. Este painel avisa sobre quantidade; ele não confirma prazo de compra, fornecedor ou mercadoria já encomendada.",
+      dica: "Saldo e status vêm dos dados confirmados pelo canal e das movimentações de pedidos. Este painel avisa sobre quantidade; ele não confirma prazo de compra, fornecedor ou mercadoria já encomendada.",
     },
     /* Barra = dias de cobertura restantes (barra curta = acaba antes =
        mais urgente, que é a mesma ordem da lista). Produtos sem consumo

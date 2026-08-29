@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { CheckCircle2, RefreshCw } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { stagger } from "@/shared/design-system/motion-variants";
@@ -18,7 +18,6 @@ import type { VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/ap
 import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.alertasDetalhe;
-const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 type Filtro = "todos" | Exclude<PrioridadeAlerta, "informativo">;
 
@@ -97,8 +96,7 @@ export function AlertasClienteDetalhe() {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
-      {/* Mesma fileira das outras telas do módulo: canal, marca e o horário da
-          última sincronização à direita. */}
+      {/* Mesma fileira de filtros das outras telas do módulo. */}
       <div className="flex flex-wrap items-center gap-3">
         <SeletorCanalAnuncios />
         <SeletorMarca
@@ -108,10 +106,6 @@ export function AlertasClienteDetalhe() {
           indisponiveis={dados.marcasIndisponiveis}
         />
         <span className="h-px flex-1 bg-border" />
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <RefreshCw size={11} />
-          {marca.sincronizadoEm ? dataHora.format(new Date(marca.sincronizadoEm)) : "Nunca sincronizado"}
-        </span>
       </div>
 
       <AvisoJanela janela={dados.janela} fim={marca.janela.fim} />

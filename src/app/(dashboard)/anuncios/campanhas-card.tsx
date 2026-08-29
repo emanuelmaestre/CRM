@@ -10,7 +10,6 @@ import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { BadgeStatusCampanha, Card, CardHead, MarcaBadge, RotuloComInfo } from "./anuncios-primitives";
 import { Roas } from "./roas";
-import { tint } from "@/shared/design-system/color";
 
 const copy = anunciosConfig.campanhas;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });

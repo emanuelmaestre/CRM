@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowLeft, Package, RefreshCw, Sparkles, Trophy } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Package, Sparkles, Trophy } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
@@ -20,7 +20,6 @@ import type { MarcaIndisponivel, VisaoGeralMarca } from "@/modules/anuncios/appl
 
 const copy = anunciosConfig.produtosDetalhe;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const dataCurta = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 type Filtro = "todos" | "recomendados" | "desperdicio";
@@ -138,21 +137,13 @@ export function ProdutosClienteDetalhe() {
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
-      {/* Mobile: "Voltar" e "Atualizado em" dividem a mesma linha — no
-          desktop o link mora sozinho lá em cima (ver page.tsx) e o horário
-          fica na fileira de filtros, à direita; no mobile as duas linhas
-          juntas seriam desperdício de espaço vertical. */}
-      <div className="flex items-center justify-between gap-2 md:hidden">
+      <div className="flex items-center gap-2 md:hidden">
         <Link
           href="/publicidade"
           className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft size={13} /> {anunciosConfig.produtosDetalhe.voltar}
         </Link>
-        <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <RefreshCw size={11} />
-          {dados?.sincronizadoEm ? dataHora.format(new Date(dados.sincronizadoEm)) : "Nunca sincronizado"}
-        </span>
       </div>
 
       {/* Marca + filtros de recomendação numa fileira só — eram 2 linhas
@@ -176,10 +167,6 @@ export function ProdutosClienteDetalhe() {
           <SeletorMarca marcas={marcas} ativa={marca.brandId} onChange={setMarcaAtiva} indisponiveis={marcasIndisponiveis} />
         </div>
         <span className="hidden h-px min-w-4 flex-1 bg-border md:block" />
-        <span className="hidden items-center gap-1.5 text-[11px] text-muted-foreground md:inline-flex">
-          <RefreshCw size={11} />
-          {dados?.sincronizadoEm ? dataHora.format(new Date(dados.sincronizadoEm)) : "Nunca sincronizado"}
-        </span>
       </div>
 
       {dados && dados.desperdicio.itens.length > 0 && (

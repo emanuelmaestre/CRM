@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Mosaico } from "./mosaico";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import { actionObterPosVenda, actionObterSnapshotAnterior } from "./actions";
+import { actionObterDashboardData } from "./painel/actions";
 import pagesConfig from "@/config/pages.json";
 
 export const metadata = { title: pagesConfig.metricas.metadataTitle };
@@ -30,7 +31,18 @@ async function ConteudoMetricas() {
   const hoje = hojeEmSaoPaulo();
   const canalPadrao = canais.some((canal) => canal.tipo === "mercadolivre") ? ["mercadolivre"] : [];
   const marcasPadrao = marcas.map((marca) => marca.brandId).sort();
-  const posVenda = await actionObterPosVenda({ inicio: hoje, fim: hoje, brandIds: marcasPadrao, canais: canalPadrao }).catch(() => null);
+  const canaisPadrao = canais.filter((canal) => canal.conectado).map((canal) => canal.tipo).sort();
+  const dashboardInicialChave = `${hoje}..${hoje}|${marcasPadrao.join(",")}|${canaisPadrao.join(",")}|v0`;
+  const [posVenda, dashboardInicial] = await Promise.all([
+    actionObterPosVenda({ inicio: hoje, fim: hoje, brandIds: marcasPadrao, canais: canalPadrao }).catch(() => null),
+    actionObterDashboardData({
+      granularidade: "dia",
+      brandId: marcasPadrao,
+      canal: canaisPadrao,
+      inicio: hoje,
+      fim: hoje,
+    }).catch(() => null),
+  ]);
 
   return (
     <Mosaico
@@ -39,6 +51,8 @@ async function ConteudoMetricas() {
       posVendaInicial={posVenda}
       posVendaInicialChave={`${hoje}..${hoje}|${marcasPadrao.join(",")}|${[...canalPadrao].sort().join(",")}`}
       snapshotInicial={snapshotOntem}
+      dashboardInicial={dashboardInicial}
+      dashboardInicialChave={dashboardInicial ? dashboardInicialChave : null}
     />
   );
 }

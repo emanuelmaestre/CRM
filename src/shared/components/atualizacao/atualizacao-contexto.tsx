@@ -1,211 +1,191 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { motion, useReducedMotion } from "framer-motion";
 import { emitirAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
-import { actionDispararAtualizacaoModulo } from "@/app/(dashboard)/atualizacao-actions";
-import type {
-  PainelAtualizacao,
-  TelaAtualizavel,
-} from "@/modules/canais/application/painel-atualizacao.service";
-import { fontesAlteradas } from "@/modules/canais/domain/versao-fontes";
-import type { ModuloSincronizacao } from "@/modules/canais/domain/sincronizacao-progresso";
+import { fontesAlteradas, type VersoesPorFonte } from "@/modules/canais/domain/versao-fontes";
+import type { EstadoAtualizacaoTela } from "@/modules/canais/application/atualizacao-inteligente.service";
+import type { TelaAtualizavel } from "@/modules/canais/application/painel-atualizacao.service";
 
-/* ── Um poller, não dois ────────────────────────────────────────────────
-   O toggle é montado duas vezes (cabeçalho desktop e cabeçalho mobile).
-   Antes cada instância mantinha o seu próprio estado e o seu próprio
-   intervalo, e a que não correspondia ao tamanho de tela abortava dentro da
-   função de consulta — dois timers vivos pra um dado só. Agora a consulta
-   mora aqui, uma vez, e os dois gatilhos só desenham o que este contexto
-   entrega. */
-
-const INTERVALO_ATIVO_MS = 5_000;
-const INTERVALO_BASE_MS = 45_000;
-const INTERVALO_MAXIMO_MS = 180_000;
-
-type ValorContexto = {
-  tela: TelaAtualizavel | null;
-  painel: PainelAtualizacao | null;
-  /** Primeira carga desta sessão — só aqui é honesto mostrar "consultando". */
-  primeiraCarga: boolean;
-  /** O painel na tela é de outra rota e ainda não foi confirmado para esta. */
-  desatualizado: boolean;
-  atualizandoLocal: boolean;
-  contaDisparando: string | null;
-  atualizarSomenteTela: () => void;
-  verificarConta: (channelAccountId: string, modulo: ModuloSincronizacao) => Promise<void>;
-};
-
-const Contexto = createContext<ValorContexto | null>(null);
-
-export function useAtualizacao(): ValorContexto {
-  const valor = useContext(Contexto);
-  if (!valor) throw new Error("useAtualizacao precisa do AtualizacaoProvider.");
-  return valor;
-}
+const POLLING_ATIVO_MS = 3_000;
+const POLLING_PRONTO_MS = 60_000;
 
 function telaDoCaminho(pathname: string): TelaAtualizavel | null {
   if (pathname.startsWith("/vendas")) return "vendas";
   if (pathname.startsWith("/avaliacoes")) return "avaliacoes";
   if (pathname.startsWith("/estoque")) return "estoque";
   if (pathname.startsWith("/metricas") || pathname === "/dashboard") return "metricas";
-  if (pathname.startsWith("/anuncios")) return "anuncios";
-  if (pathname.startsWith("/configuracoes")) return "configuracoes";
+  if (pathname.startsWith("/anuncios") || pathname.startsWith("/publicidade")) return "anuncios";
   if (pathname.startsWith("/clientes")) return "clientes";
-  if (pathname.startsWith("/importacao")) return "importacao";
-  if (pathname.startsWith("/auditoria")) return "auditoria";
   return null;
 }
 
+function NumeroPercentual({ valor }: { valor: number }) {
+  const reduzir = useReducedMotion();
+  return (
+    <motion.span
+      key={valor}
+      initial={reduzir ? false : { opacity: 0.45, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: reduzir ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+      className="text-[clamp(2.75rem,8vw,5.5rem)] font-black tabular-nums tracking-[-0.06em] text-foreground"
+    >
+      {Math.round(valor)}<span className="ml-1 text-[0.42em] text-muted-foreground">%</span>
+    </motion.span>
+  );
+}
+function BloqueioAtualizacao({
+  progresso,
+  falhou,
+  tentarNovamente,
+}: {
+  progresso: number;
+  falhou: boolean;
+  tentarNovamente: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-20 grid place-items-center bg-background px-6 pt-[calc(3.5rem_+_env(safe-area-inset-top))] md:pt-14"
+      role="status"
+      aria-live="polite"
+      aria-label={falhou ? "Não foi possível atualizar agora" : `Atualização em ${progresso} por cento`}
+    >
+      {falhou ? (
+        <div className="flex max-w-sm flex-col items-center text-center">
+          <p className="text-sm font-semibold text-foreground">Não foi possível atualizar agora.</p>
+          <button
+            type="button"
+            onClick={tentarNovamente}
+            className="press-feedback mt-4 inline-flex h-10 items-center justify-center rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      ) : (
+        <NumeroPercentual valor={progresso} />
+      )}
+    </div>
+  );
+}
+
+/** Portão de entrada: o conteúdo só é revelado depois da confirmação. */
 export function AtualizacaoProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const tela = telaDoCaminho(pathname);
+  const [estado, setEstado] = useState<EstadoAtualizacaoTela | null>(null);
+  const [falhou, setFalhou] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
+  const versoes = useRef<VersoesPorFonte | null>(null);
+  const recarregarAoConcluir = useRef(false);
 
-  const [painel, setPainel] = useState<PainelAtualizacao | null>(null);
-  const [primeiraCarga, setPrimeiraCarga] = useState(true);
-  const [contaDisparando, setContaDisparando] = useState<string | null>(null);
-  const [atualizandoLocal, iniciarAtualizacaoLocal] = useTransition();
-
-  const consultando = useRef(false);
-  const versoesRef = useRef<PainelAtualizacao["versoes"] | null>(null);
-  const semMudanca = useRef(0);
-
-  const consultar = useCallback(async (motivo: "rotina" | "foco" | "manual" = "rotina") => {
-    if (!tela || consultando.current) return;
-    if (motivo === "rotina" && document.visibilityState === "hidden") return;
-    consultando.current = true;
-    try {
-      const resposta = await fetch(`/api/atualizacao/${tela}`, {
-        cache: "no-store",
-        headers: { accept: "application/json" },
-      });
-      if (!resposta.ok) throw new Error(String(resposta.status));
-      const proximo = await resposta.json() as PainelAtualizacao;
-
-      const anteriores = versoesRef.current;
-      const alteradas = fontesAlteradas(anteriores, proximo.versoes);
-      versoesRef.current = proximo.versoes;
-
-      setPainel(proximo);
-      setPrimeiraCarga(false);
-
-      if (alteradas.length > 0) {
-        semMudanca.current = 0;
-        /* A tela relê sozinha só o que a fonte alterada afeta. O
-           router.refresh() saiu daqui de propósito: ele refazia todo o
-           RSC da rota em cima do recarregamento que a própria lista já
-           dispara — o mesmo dado, duas vezes. */
-        emitirAtualizacaoLocal(tela, proximo.versao, alteradas);
-      } else if (anteriores) {
-        semMudanca.current += 1;
-      }
-    } catch {
-      /* O cabeçalho não derruba a página. Mantém o último painel bom na
-         tela e tenta de novo no próximo ciclo ou ao voltar o foco. */
-      semMudanca.current += 1;
-    } finally {
-      consultando.current = false;
-    }
+  const consultar = useCallback(async (iniciar: boolean, signal?: AbortSignal) => {
+    if (!tela) return null;
+    const resposta = await fetch(`/api/atualizacao/${tela}`, {
+      method: iniciar ? "POST" : "GET",
+      cache: "no-store",
+      headers: { accept: "application/json" },
+      signal,
+    });
+    if (!resposta.ok) throw new Error(String(resposta.status));
+    return await resposta.json() as EstadoAtualizacaoTela;
   }, [tela]);
 
-  // Troca de rota: o painel anterior CONTINUA na tela até o novo chegar —
-  // ele só deixa de valer para a rota atual (ver `desatualizado`, derivado
-  // logo abaixo). Zerar o estado aqui era o que fazia o botão piscar
-  // "consultando" a cada navegação, mesmo sem nada ter mudado.
+  const tentarNovamente = useCallback(() => {
+    setFalhou(false);
+    setEstado(null);
+    setTentativa((valor) => valor + 1);
+  }, []);
+
   useEffect(() => {
     if (!tela) return;
-    versoesRef.current = null;
-    semMudanca.current = 0;
-    const inicial = window.setTimeout(() => void consultar("manual"), 0);
-    return () => window.clearTimeout(inicial);
-  }, [consultar, tela]);
-
-  const emAndamento = painel?.emAndamento ?? false;
-
-  /* Ritmo do polling.
-     Enquanto algo roda, 5s — é quando a porcentagem importa. Parado, começa
-     em 45s e vai dobrando até 3 min depois de checagens seguidas sem
-     novidade: numa aba esquecida aberta o dia inteiro isso é a diferença
-     entre 80 e 20 consultas por hora. Voltar o foco zera o recuo e checa na
-     hora, então o frescor percebido não muda.
-
-     É um timeout que se reagenda, não um intervalo fixo: assim o recuo é
-     lido no momento de agendar (dentro do callback) em vez de durante a
-     renderização, e uma consulta lenta nunca se sobrepõe à seguinte. */
-  useEffect(() => {
-    if (!tela) return;
+    const controlador = new AbortController();
     let timer = 0;
-    const agendar = () => {
-      const espera = emAndamento
-        ? INTERVALO_ATIVO_MS
-        : Math.min(INTERVALO_BASE_MS * 2 ** Math.min(semMudanca.current, 2), INTERVALO_MAXIMO_MS);
-      timer = window.setTimeout(() => { void consultar("rotina").then(agendar); }, espera);
+    let ativo = true;
+    recarregarAoConcluir.current = false;
+
+    const falhar = () => { if (ativo) setFalhou(true); };
+
+    const aplicar = (proximo: EstadoAtualizacaoTela | null) => {
+      if (!ativo || !proximo) return;
+      const alteradas = fontesAlteradas(versoes.current, proximo.versoes);
+      versoes.current = proximo.versoes;
+      setEstado(proximo);
+
+      if (proximo.situacao === "erro") {
+        setFalhou(true);
+        return;
+      }
+
+      if (proximo.situacao === "pendente") {
+        recarregarAoConcluir.current = true;
+        void consultar(true, controlador.signal).then(aplicar).catch(falhar);
+        return;
+      }
+
+      if (proximo.situacao === "atualizando") {
+        recarregarAoConcluir.current = true;
+        timer = window.setTimeout(() => {
+          void consultar(false, controlador.signal).then(aplicar).catch(falhar);
+        }, POLLING_ATIVO_MS);
+        return;
+      }
+
+      if (alteradas.length > 0) {
+        emitirAtualizacaoLocal(tela, proximo.versao, alteradas);
+        router.refresh();
+      }
+
+      if (recarregarAoConcluir.current) {
+        // O conteúdo sob a cobertura nasceu antes da confirmação. Recarregar
+        // uma vez faz Server Components e estados cliente nascerem do banco
+        // já atualizado, sem revelar o snapshot anterior.
+        window.location.reload();
+        return;
+      }
+
+      timer = window.setTimeout(() => {
+        if (document.visibilityState === "visible") {
+          void consultar(false, controlador.signal).then(aplicar).catch(() => undefined);
+        }
+      }, POLLING_PRONTO_MS);
     };
-    agendar();
+
+    void consultar(true, controlador.signal).then(aplicar).catch(falhar);
 
     const aoVoltar = () => {
-      if (document.visibilityState !== "visible") return;
-      semMudanca.current = 0;
-      void consultar("foco");
+      if (document.visibilityState !== "visible" || !ativo) return;
+      window.clearTimeout(timer);
+      void consultar(false, controlador.signal).then(aplicar).catch(() => undefined);
     };
     document.addEventListener("visibilitychange", aoVoltar);
     window.addEventListener("focus", aoVoltar);
+
     return () => {
+      ativo = false;
+      controlador.abort();
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", aoVoltar);
       window.removeEventListener("focus", aoVoltar);
     };
-  }, [consultar, emAndamento, tela]);
+  }, [consultar, pathname, router, tela, tentativa]);
 
-  const atualizarSomenteTela = useCallback(() => {
-    if (!tela) return;
-    iniciarAtualizacaoLocal(() => {
-      emitirAtualizacaoLocal(tela, painel?.versao);
-      router.refresh();
-      void consultar("manual");
-    });
-  }, [consultar, painel?.versao, router, tela]);
+  if (!tela) return children;
+  const pronto = estado?.situacao === "pronto" && !falhou;
 
-  const verificarConta = useCallback(async (channelAccountId: string, modulo: ModuloSincronizacao) => {
-    setContaDisparando(channelAccountId);
-    try {
-      await actionDispararAtualizacaoModulo({ channelAccountId, modulo });
-      toast.success("Entrou na fila. Os dados atuais continuam na tela.");
-      semMudanca.current = 0;
-      await consultar("manual");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Não foi possível iniciar a verificação.");
-    } finally {
-      setContaDisparando(null);
-    }
-  }, [consultar]);
-
-  const valor = useMemo<ValorContexto>(() => ({
-    tela,
-    painel,
-    primeiraCarga: primeiraCarga && painel === null,
-    // Derivado, não guardado: o painel na tela é de outra rota enquanto a
-    // consulta da rota nova não voltou.
-    desatualizado: painel !== null && painel.tela !== tela,
-    atualizandoLocal,
-    contaDisparando,
-    atualizarSomenteTela,
-    verificarConta,
-  }), [
-    atualizandoLocal, atualizarSomenteTela, contaDisparando,
-    painel, primeiraCarga, tela, verificarConta,
-  ]);
-
-  return <Contexto.Provider value={valor}>{children}</Contexto.Provider>;
+  return (
+    <>
+      <div className="contents" aria-hidden={!pronto} inert={!pronto ? true : undefined}>
+        {children}
+      </div>
+      {!pronto && (
+        <BloqueioAtualizacao
+          progresso={estado?.progresso ?? 0}
+          falhou={falhou}
+          tentarNovamente={tentarNovamente}
+        />
+      )}
+    </>
+  );
 }

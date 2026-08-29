@@ -30,12 +30,6 @@ const periodoLabel = (inicio: string, fim: string) => `${formatarDataCurta(inici
 // no formato "YYYY-MM-DD" de inicio/fim — formatarDataCurta quebraria nele.
 const formatarDataPublicacao = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-// Sincronização precisa da hora: o snapshot de publicidade roda de manhã, e
-// "28/08" sozinho não distingue o dado de hoje cedo do de ontem à noite.
-const formatarDataHoraSincronizacao = (iso: string) => new Date(iso).toLocaleString("pt-BR", {
-  day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo",
-});
-
 // A nota de qualidade era sempre cinza neutro, tivesse 5/100 ou 95/100 — sem
 // nenhuma pista de cor pra escanear rápido quais publicações precisam de
 // atenção antes de ler o número.
@@ -234,15 +228,6 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
     const dados = resultados[chaveDe(brandId, canal)];
     return dados ? [dados.resumo] : [];
   });
-  /* Quando a Shopee está no ar, os números dela são do último snapshot
-     diário e não "de agora" como os do Mercado Livre — a data precisa
-     aparecer, senão o card mistura duas idades de dado em silêncio. */
-  const sincronizacaoShopee = pares.reduce<string | null>((maior, { brandId, canal }) => {
-    if (canal !== "shopee") return maior;
-    const quando = resultados[chaveDe(brandId, canal)]?.sincronizadoEm ?? null;
-    if (!quando) return maior;
-    return !maior || quando > maior ? quando : maior;
-  }, null);
   const algumParcial = pares.some(({ brandId, canal }) => resultados[chaveDe(brandId, canal)]?.parcial);
   // null só acontece pelo .catch da busca (a service nunca retorna null em
   // sucesso) — sem essa checagem, "deu erro" e "não tem publicação" caíam
@@ -498,17 +483,6 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
               <p className="mb-3 text-xs text-muted-foreground">
                 Anúncios patrocinados{multiplasMarcas ? ` · ${brandIds.length} marcas` : ""}{multiplosCanais ? " · 2 canais" : ""} · {periodo}
               </p>
-
-              {/* O Mercado Livre é consultado na hora; a Shopee vem do
-                  snapshot diário de publicidade. Sem esta linha, os dois
-                  números apareceriam lado a lado como se tivessem a mesma
-                  idade. */}
-              {sincronizacaoShopee && (
-                <p className="mb-3 text-[11px] text-muted-foreground">
-                  Números da Shopee conforme a última sincronização de publicidade, em {formatarDataHoraSincronizacao(sincronizacaoShopee)}.
-                  {canais.includes("mercadolivre") ? " Os do Mercado Livre são consultados na hora." : ""}
-                </p>
-              )}
 
               {totalComVeiculacao > itensCombinados.length && (
                 <p className="mb-3 text-[11px] text-muted-foreground">
