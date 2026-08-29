@@ -1226,39 +1226,54 @@ export function Mosaico({
         {/* Permanece dentro do container compartilhado de 1440px para que a
             proporção do mosaico seja a mesma em Safari, Windows e telas 2xl. */}
         <div data-coachmark="mosaico-grade">
-          {/* Mobile: 1x2x2x2x1 — Faturamento sozinho na primeira linha
-              (col-span-2), os demais em pares no meio, Estoque Parado
-              sozinho na última linha (col-span-2 também). Mesmo estilo
-              "grande" (com preview) em todos; o card escuro/linha-única do
-              hero é só tablet/desktop (ver abaixo) — aqui os dois destaques
-              aparentam iguais aos demais, só que ocupando a largura toda. */}
-          <ul className="grid grid-cols-2 items-start gap-3 lg:hidden">
+          {/* Mobile: 1x2x2x2x1 — Faturamento sozinho na primeira linha, os
+              demais em pares no meio, Estoque Parado sozinho na última. Mesmo
+              estilo "grande" (com preview) em todos; o card escuro/linha-única
+              do hero é só tablet/desktop (ver abaixo) — aqui os dois destaques
+              aparentam iguais aos demais, só que ocupando a largura toda.
+
+              Os pares vivem numa grade PRÓPRIA, com `auto-rows-fr`: cada card
+              tem uma quantidade diferente de conteúdo no preview (Vendem mais
+              lista três produtos, Pontuação da loja mostra só um anel), e com
+              a altura saindo do conteúdo os seis ficavam visivelmente
+              desiguais entre uma linha e outra. Igualar pela mais alta é o que
+              faz a coluna parecer uma grade, e não cards soltos.
+
+              A grade é separada de propósito: com Faturamento e Estoque parado
+              dentro dela, `auto-rows-fr` esticaria TODAS as linhas até a altura
+              do Faturamento, que é o card mais alto da tela — o vazio enorme
+              que o comentário da versão desktop, logo abaixo, descreve. */}
+          <div className="flex flex-col gap-3 lg:hidden">
             {destaque && (
-              <Bloco
-                key={destaque.bloco.id}
-                def={destaque.bloco}
-                focado={destaque.bloco.id === cardAberto}
-                onAbrir={() => abrir(destaque.bloco.id)}
-                variante="grande"
-                className="col-span-2"
-                ativoLayout={!ehDesktop}
-              />
+              <ul>
+                <Bloco
+                  key={destaque.bloco.id}
+                  def={destaque.bloco}
+                  focado={destaque.bloco.id === cardAberto}
+                  onAbrir={() => abrir(destaque.bloco.id)}
+                  variante="grande"
+                  ativoLayout={!ehDesktop}
+                />
+              </ul>
             )}
-            {restoMobile.map(({ bloco }) => (
-              <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} variante="grande" ativoLayout={!ehDesktop} />
-            ))}
+            <ul className="grid auto-rows-fr grid-cols-2 gap-3">
+              {restoMobile.map(({ bloco }) => (
+                <Bloco key={bloco.id} def={bloco} focado={bloco.id === cardAberto} onAbrir={() => abrir(bloco.id)} variante="grande" ativoLayout={!ehDesktop} />
+              ))}
+            </ul>
             {destaqueFinal && (
-              <Bloco
-                key={destaqueFinal.bloco.id}
-                def={destaqueFinal.bloco}
-                focado={destaqueFinal.bloco.id === cardAberto}
-                onAbrir={() => abrir(destaqueFinal.bloco.id)}
-                variante="grande"
-                className="col-span-2"
-                ativoLayout={!ehDesktop}
-              />
+              <ul>
+                <Bloco
+                  key={destaqueFinal.bloco.id}
+                  def={destaqueFinal.bloco}
+                  focado={destaqueFinal.bloco.id === cardAberto}
+                  onAbrir={() => abrir(destaqueFinal.bloco.id)}
+                  variante="grande"
+                  ativoLayout={!ehDesktop}
+                />
+              </ul>
             )}
-          </ul>
+          </div>
 
           {/* Tablet/desktop: um card em destaque no topo (Faturamento, linha
               inteira) e os demais numa grade de 2 colunas (4 a partir de
