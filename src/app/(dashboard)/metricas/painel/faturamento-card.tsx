@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Check, ChevronRight, Clock, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, Check, ChevronRight, Clock, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
@@ -113,18 +113,21 @@ function GraficoSerie({ serie, aoFocar, cores, altura = "h-36" }: {
    que entra (check) e o que fica de fora (traço) — a mesma leitura usada
    pra explicar taxa/frete no popover de variação (CalculoPopover, mais
    abaixo), só que aqui o foco é o valor em si, não a variação dele. */
-function ItemRegra({ tipo, children }: { tipo: "entra" | "fora"; children: React.ReactNode }) {
+/** `atencao` existe porque a lista do Líquido tem um terceiro caso: não é
+ *  "entra" nem "fica de fora", é "depende do canal informar". Pintar isso de
+ *  cinza junto com as exclusões escondia justamente a parte que muda o
+ *  significado do número. */
+function ItemRegra({ tipo, children }: { tipo: "entra" | "fora" | "atencao"; children: React.ReactNode }) {
+  const estilo =
+    tipo === "entra" ? { background: tint("var(--success)", 16), color: "var(--success)" }
+    : tipo === "atencao" ? { background: tint("var(--warning)", 18), color: "var(--warning)" }
+    : { background: "var(--muted)", color: "var(--muted-foreground)" };
   return (
     <li className="flex items-start gap-2 text-[12.5px] leading-relaxed text-muted-foreground">
-      <span
-        className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full"
-        style={
-          tipo === "entra"
-            ? { background: tint("var(--success)", 16), color: "var(--success)" }
-            : { background: "var(--muted)", color: "var(--muted-foreground)" }
-        }
-      >
-        {tipo === "entra" ? <Check size={11} strokeWidth={3} /> : <Minus size={11} strokeWidth={3} />}
+      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full" style={estilo}>
+        {tipo === "entra" ? <Check size={11} strokeWidth={3} />
+          : tipo === "atencao" ? <AlertTriangle size={10} strokeWidth={3} />
+          : <Minus size={11} strokeWidth={3} />}
       </span>
       <span>{children}</span>
     </li>
@@ -184,19 +187,38 @@ function EntendaFaturamentoBotao({ compacto = false }: { compacto?: boolean }) {
             <p className="text-sm font-bold text-foreground">Líquido</p>
           </div>
           <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
-            É o valor bruto depois de descontar o que sai do bolso do vendedor em cada venda.
+            É o que <strong className="font-bold text-foreground">sobra da venda para você</strong> depois que o
+            canal cobra o que é dele. Vem de duas origens diferentes, e a diferença importa:
           </p>
           <ul className="mt-3 flex flex-col gap-2">
-            <ItemRegra tipo="entra">Desconta a taxa do marketplace por item, quando o canal informa esse valor</ItemRegra>
-            <ItemRegra tipo="entra">Desconta o frete pago pelo vendedor</ItemRegra>
+            <ItemRegra tipo="entra">
+              <strong className="font-semibold text-foreground">Quando o canal informa o repasse</strong> (Shopee),
+              é o número dele, não uma conta nossa: já vem com comissão, taxa de transação, tarifa de campanha e
+              ajustes que só o canal conhece.
+            </ItemRegra>
+            <ItemRegra tipo="atencao">
+              <strong className="font-semibold text-foreground">Quando o canal não informa</strong> (Mercado Livre),
+              o valor é estimado: bruto menos as taxas que conhecemos por item, menos o frete. Como nem toda tarifa
+              aparece, a estimativa tende a ficar <strong className="font-semibold text-foreground">acima</strong> do
+              que cai de fato na conta.
+            </ItemRegra>
             <ItemRegra tipo="fora">Não desconta desconto ou acréscimo aplicado ao pedido</ItemRegra>
-            <ItemRegra tipo="fora">Não desconta o custo do produto</ItemRegra>
+            <ItemRegra tipo="fora">Não desconta o custo do produto — por isso líquido não é lucro</ItemRegra>
           </ul>
         </div>
       </div>
 
       <p className="mt-4 rounded-[0.85rem] px-3 py-2.5 text-[12px] font-medium leading-relaxed" style={{ background: tint("var(--selecionado)", 8), color: "var(--foreground)" }}>
         Cancelamento e devolução nunca entram em nenhum dos dois valores, bruto ou líquido, em nenhuma hipótese.
+      </p>
+
+      {/* A frase que fecha o entendimento: bruto responde "quanto vendi",
+          líquido responde "quanto sobrou". Sem isso, as duas listas explicam o
+          cálculo sem dizer para que serve cada número. */}
+      <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
+        Em resumo: o <strong className="font-semibold text-foreground">bruto</strong> responde quanto você vendeu; o{" "}
+        <strong className="font-semibold text-foreground">líquido</strong>, quanto sobrou depois do canal. O que sobra
+        do seu bolso — custo do produto, embalagem, imposto — não entra em nenhum dos dois.
       </p>
     </AnimatedInfoPopover>
   );
