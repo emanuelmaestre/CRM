@@ -219,6 +219,31 @@ export function HealthyStockIllustration() {
   );
 }
 
+/* Fila de importação vazia (Pedidos ignorados): dois pacotes já passaram
+   pelo portal e viraram silhueta neutra à esquerda; o terceiro atravessa
+   agora, com o gradiente da marca e o visto. A leitura é "passou", não
+   "está vazio" — a tela vazia aqui é a boa notícia, e uma caixa fechada
+   sozinha (o desenho óbvio) diria o contrário. */
+export function FilaLimpaIllustration() {
+  return (
+    <svg width="88" height="64" viewBox="0 0 88 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="6" y="52" width="76" height="4" rx="2" fill="var(--muted)" />
+      <rect x="8" y="36" width="14" height="16" rx="3" fill="var(--muted)" />
+      <rect x="26" y="32" width="14" height="20" rx="3" fill="var(--muted)" />
+      <path d="M52 14v38M78 14v38" stroke="var(--border)" strokeWidth="2" strokeLinecap="round" />
+      <rect x="56" y="28" width="18" height="24" rx="4" fill="var(--card)" stroke="url(#fila-grad)" strokeWidth="2" />
+      <path d="M56 36h18" stroke="url(#fila-grad)" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M60 20.5l3.4 3.8L71 15" stroke="url(#fila-grad)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <defs>
+        <linearGradient id="fila-grad" x1="52" y1="15" x2="80" y2="50" gradientUnits="userSpaceOnUse">
+          <stop stopColor="var(--karzi)" />
+          <stop offset="1" stopColor="var(--selecionado)" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
 export function GenericIllustration() {
   return (
     <svg width="88" height="64" viewBox="0 0 88 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

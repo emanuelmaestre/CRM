@@ -13,7 +13,7 @@ import {
   RevenueIllustration, BestSellersIllustration, RestockIllustration,
   SlowMovingIllustration, DeadStockIllustration, ComplaintsIllustration,
   NoThresholdIllustration, HealthyStockIllustration, ReviewsIllustration,
-  PublicidadeIllustration,
+  PublicidadeIllustration, FilaLimpaIllustration,
 } from "./illustrations";
 
 const icons: Record<string, LucideIcon> = {
@@ -37,6 +37,7 @@ const icons: Record<string, LucideIcon> = {
   healthyStock: CheckCircle2,
   reviews:      MessageSquare,
   publicidade:  BarChart2,
+  filaLimpa:    CheckCircle2,
 };
 
 // Ilustrações SVG customizadas para os tipos mais visíveis (dashboard, inbox,
@@ -58,6 +59,7 @@ const illustrations: Partial<Record<string, () => React.ReactElement>> = {
   healthyStock: HealthyStockIllustration,
   reviews: ReviewsIllustration,
   publicidade: PublicidadeIllustration,
+  filaLimpa: FilaLimpaIllustration,
 };
 
 export type IllustrationType = keyof typeof icons;

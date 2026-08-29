@@ -102,6 +102,73 @@ describe("fila de pedidos ignorados", () => {
 
   it("fila vazia não é erro — é a operação saudável", () => {
     render(<PedidosIgnoradosLista linhas={[]} podeDescartar incluirFechados={false} />);
-    expect(screen.getByText(/nenhum pedido ignorado/i)).toBeInTheDocument();
+    expect(screen.getByText(/nenhum pedido ficou de fora/i)).toBeInTheDocument();
+  });
+
+  /* A tela agrupa por causa justamente para NÃO repetir a explicação em cada
+     linha. Estes testes travam essa economia: ela é invisível com um pedido
+     só e some sem barulho se alguém voltar a renderizar o texto por item. */
+  it("explica a causa uma vez só, mesmo com vários pedidos do mesmo motivo", () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[
+          linha({ id: "a", providerOrderId: "AAA" }),
+          linha({ id: "b", providerOrderId: "BBB" }),
+          linha({ id: "c", providerOrderId: "CCC" }),
+        ]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    expect(screen.getAllByText("Motivo")).toHaveLength(1);
+    expect(screen.getAllByText("O que fazer")).toHaveLength(1);
+    expect(screen.getByText("AAA")).toBeInTheDocument();
+    expect(screen.getByText("CCC")).toBeInTheDocument();
+  });
+
+  it("separa as causas em grupos e diz onde cada uma se resolve", () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[
+          linha({ id: "a", causa: "sku_sem_produto" }),
+          linha({ id: "b", causa: "cliente_duplicado", providerOrderId: "BBB" }),
+        ]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    expect(screen.getByText("SKU sem produto")).toBeInTheDocument();
+    expect(screen.getByText("Cliente duplicado")).toBeInTheDocument();
+    expect(screen.getByText("Sai sozinho")).toBeInTheDocument();
+    expect(screen.getByText("Depende de você")).toBeInTheDocument();
+  });
+
+  it("soma o dinheiro parado na fila — é o motivo de a tela existir", () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[
+          linha({ id: "a", total: "89.90" }),
+          linha({ id: "b", total: "10.10", providerOrderId: "BBB" }),
+        ]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    expect(screen.getByText(/100,00/)).toBeInTheDocument();
+  });
+
+  it("não conta pedido descartado como dinheiro parado", () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[
+          linha({ id: "a", total: "89.90" }),
+          linha({ id: "b", total: "500.00", providerOrderId: "BBB", descartadoEm: new Date() }),
+        ]}
+        podeDescartar
+        incluirFechados
+      />,
+    );
+    expect(screen.getByText(/1 pedido fora do CRM/)).toBeInTheDocument();
+    expect(screen.queryByText(/589,90/)).not.toBeInTheDocument();
   });
 });
