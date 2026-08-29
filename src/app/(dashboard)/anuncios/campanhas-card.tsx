@@ -70,6 +70,13 @@ function AtencaoLinha({ alertas }: { alertas: Alerta[] }) {
   ));
   const cor = COR_PRIORIDADE[maisGrave.prioridade];
   const resumo = `${alertas.length} ${plural(alertas.length, "sinal", "sinais")} de atenção nesta campanha`;
+  /* Duas colunas só quando há o que pôr nas duas. O `ul` desenha as
+     divisórias com o próprio fundo (bg-border) aparecendo pelo gap-px entre
+     os `li`; com um alerta só, a segunda célula do grid não existe e esse
+     fundo cinza fica exposto como um bloco vazio ao lado do texto. Pela mesma
+     razão a largura larga (38rem) só vale no caso de duas colunas: com um
+     alerta ela deixava metade do balão em branco. */
+  const duasColunas = alertas.length > 1;
 
   return (
     <AnimatedInfoPopover
@@ -87,11 +94,19 @@ function AtencaoLinha({ alertas }: { alertas: Alerta[] }) {
       align="start"
       sideOffset={6}
       collisionPadding={12}
-      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card text-left shadow-[0_16px_40px_rgba(14,15,19,.20)] lg:w-[min(38rem,calc(100vw-1.5rem))]"
+      className={`z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-xl border border-border bg-card text-left shadow-[0_16px_40px_rgba(14,15,19,.20)]${duasColunas ? " lg:w-[min(38rem,calc(100vw-1.5rem))]" : ""}`}
     >
-          <ul className="grid gap-px overflow-hidden rounded-xl bg-border lg:grid-cols-2">
-            {alertas.map((alerta) => (
-              <li key={alerta.chave} className="flex items-start gap-2 bg-card px-3 py-2.5">
+          <ul className={`grid gap-px overflow-hidden rounded-xl bg-border${duasColunas ? " lg:grid-cols-2" : ""}`}>
+            {alertas.map((alerta, indice) => (
+              /* Número ímpar de alertas deixa a última célula sozinha na
+                 linha, e a metade vazia mostra o mesmo fundo cinza. Ela
+                 ocupa as duas colunas para fechar a grade. */
+              <li
+                key={alerta.chave}
+                className={`flex items-start gap-2 bg-card px-3 py-2.5${
+                  duasColunas && alertas.length % 2 === 1 && indice === alertas.length - 1 ? " lg:col-span-2" : ""
+                }`}
+              >
                 <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: COR_PRIORIDADE[alerta.prioridade] }} />
                 <p className="text-[12px] leading-relaxed text-foreground">{alerta.descricao}</p>
               </li>
