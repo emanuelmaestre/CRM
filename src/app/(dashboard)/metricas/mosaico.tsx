@@ -582,6 +582,21 @@ export function Mosaico({
     marcas.filter((marca) => filtroGlobal.brandId.includes(marca.brandId)).map((marca) => ({ slug: marca.slug, label: marca.nome })),
   [marcas, filtroGlobal.brandId]);
 
+  /* O escopo que o "Ver todos no Estoque" leva junto.
+   *
+   *  Antes o link saía só com `?filtro=`, e recorte sozinho não abre lista
+   *  nenhuma lá: o Estoque exige empresa escolhida antes de mostrar produto.
+   *  Quem clica aqui já tem empresa e canal marcados — o card nem desenha
+   *  lista sem isso —, então o link carrega os dois e a pessoa reencontra a
+   *  mesma lista que estava olhando, completa. Marca vai por slug: link
+   *  legível, sem identificador interno espalhado. */
+  const escopoDoLinkEstoque = useMemo(() => ({
+    marcas: marcas
+      .filter((marca) => filtroGlobal.brandId.includes(marca.brandId))
+      .map((marca) => marca.slug),
+    canais: canaisEscolhidos,
+  }), [marcas, filtroGlobal.brandId, canaisEscolhidos]);
+
   const dadosFaturamento = faturamento.dados?.faturamento ?? null;
   const blocoFaturamento = useMemo<BlocoDef>(() => ({
     id: "faturamento",
@@ -848,11 +863,12 @@ export function Mosaico({
         carregando={reposicao.carregando}
         semFiltro={reposicao.semFiltro}
         scope={escopo}
+        escopoLink={escopoDoLinkEstoque}
         acaoSlot={acaoSlot}
         acaoTopoSlot={acaoTopoSlot}
       />
     ),
-  }), [reposicao, escopo, chipsDoFiltro, snapshotComparavel]);
+  }), [reposicao, escopo, escopoDoLinkEstoque, chipsDoFiltro, snapshotComparavel]);
 
   const blocoMaisVendidos = useMemo<BlocoDef>(() => ({
     id: "maisVendidos",
@@ -1028,11 +1044,12 @@ export function Mosaico({
         carregando={parados.carregando}
         semFiltro={parados.semFiltro}
         scope={escopo}
+        escopoLink={escopoDoLinkEstoque}
         acaoSlot={acaoSlot}
         acaoTopoSlot={acaoTopoSlot}
       />
     ),
-  }), [parados, escopo, chipsDoFiltro, snapshotComparavel]);
+  }), [parados, escopo, escopoDoLinkEstoque, chipsDoFiltro, snapshotComparavel]);
 
   // Só existe com marca conectada — um bloco que abriria vazio não vira bloco.
   const blocoPublicacoes = useMemo<BlocoDef | null>(() => {

@@ -212,6 +212,7 @@
     },
     "escolha": {
       "title": "Escolha uma empresa para começar",
+      "titleComFiltro": "Escolha uma empresa para ver \"{filtro}\"",
       "loadingHint": "Carregando…",
       "readyHint": "Pronto"
     },

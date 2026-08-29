@@ -306,6 +306,31 @@ function TrilhoEstado({ indicadores, filtro, onFiltro, className }: {
   );
 }
 
+/** Rótulo do recorte ativo, para o convite dizer o que já está aplicado.
+ *
+ *  "todos" fica de fora de propósito: não há recorte para anunciar. */
+const ROTULO_DO_FILTRO: Partial<Record<Filtro, string>> = {
+  sem_minimo: copy.rail.noRule,
+  abaixo_minimo: copy.filters.belowMin,
+  sem_estoque: copy.filters.outOfStock,
+  parados: copy.filters.stalled,
+  pausados: copy.filters.paused,
+};
+
+/** O convite muda de texto quando chega com recorte.
+ *
+ *  Sem isto, quem vinha do "Ver todos no Estoque" lia "Escolha uma empresa
+ *  para começar" com o recorte aplicado e invisível — as pílulas de filtro só
+ *  aparecem depois que existe escopo. A pessoa escolhia a empresa e via uma
+ *  lista já filtrada que ela não pediu ali, sem nada explicando de onde o
+ *  recorte tinha saído. */
+function tituloDaEscolha(filtro: Filtro): string {
+  const rotulo = ROTULO_DO_FILTRO[filtro];
+  return rotulo
+    ? copy.escolha.titleComFiltro.replace("{filtro}", rotulo)
+    : copy.escolha.title;
+}
+
 /* ── Divergências ──────────────────────────────────────────────
    Reconciliação noturna (A5) marca, humano decide — a correção nunca
    é automática. Só aparece quando existe algo pendente: painel que
@@ -636,7 +661,13 @@ type ConsultaEstoque = Awaited<ReturnType<typeof actionListarProdutos>>;
 type ContagemCanaisEstoque = NonNullable<ConsultaEstoque["canais"]>;
 type ContagemMarcasEstoque = NonNullable<ConsultaEstoque["marcas"]>;
 
-export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [], filtroInicial = "todos" }: {
+export function EstoqueLista({
+  marcasIniciais = [],
+  canaisIniciais = [],
+  filtroInicial = "todos",
+  marcasSelecionadasIniciais = [],
+  canaisSelecionadosIniciais = [],
+}: {
   /** Contagens já resolvidas no servidor (ver page.tsx) — chegam junto com o
    *  HTML, então as pílulas de filtro aparecem no primeiro quadro em vez de
    *  esperarem duas idas ao servidor depois que o JavaScript liga. */
@@ -647,6 +678,12 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [], filtroI
      na lista certa daqui, em vez de na lista completa com a pessoa tendo que
      reencontrar o recorte no braço. */
   filtroInicial?: Filtro;
+  /* O escopo que veio junto do recorte. Sem ele o "ver todos" caía no convite
+     "escolha uma empresa" — o recorte aplicado, invisível, e nenhum produto
+     na tela —, porque empresa/canal é o que define escopo aqui, e recorte
+     não. Já vêm validados contra as marcas visíveis (ver page.tsx). */
+  marcasSelecionadasIniciais?: string[];
+  canaisSelecionadosIniciais?: CanalVenda[];
 }) {
   const reduzir = useReducedMotion();
   const [produtos, setProdutos]   = useState<Produto[]>([]);
@@ -656,8 +693,9 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [], filtroI
   const [busca, setBusca]         = useState("");
   // Empresa e canal aceitam mais de uma marcada ao mesmo tempo — Set em vez de
   // string, com o mesmo toggle de sempre (clicar na ativa desmarca).
-  const [brandIds, setBrandIds]   = useState<ReadonlySet<string>>(new Set());
-  const [canaisSelecionados, setCanaisSelecionados] = useState<ReadonlySet<CanalVenda>>(new Set());
+  const [brandIds, setBrandIds]   = useState<ReadonlySet<string>>(() => new Set(marcasSelecionadasIniciais));
+  const [canaisSelecionados, setCanaisSelecionados] =
+    useState<ReadonlySet<CanalVenda>>(() => new Set(canaisSelecionadosIniciais));
   const [canais, setCanais]       = useState<ContagemCanaisEstoque>(canaisIniciais);
   const [filtro, setFiltro]       = useState<Filtro>(filtroInicial ?? "todos");
   const [canManage, setCanManage] = useState(false);
@@ -1031,7 +1069,7 @@ export function EstoqueLista({ marcasIniciais = [], canaisIniciais = [], filtroI
         >
           <EmptyState
             illustration="restock"
-            title={copy.escolha.title}
+            title={tituloDaEscolha(filtro)}
             description={
               <span className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground">
                 <Check size={12} strokeWidth={3} style={{ color: COR.ok }} />

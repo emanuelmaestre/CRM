@@ -9,6 +9,10 @@ import { listItem, springs, stagger } from "@/shared/design-system/motion-varian
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+/* O endereço do "Ver todos" é montado pelo mesmo módulo que o Estoque usa
+   para lê-lo — assim as duas pontas não podem divergir no nome dos
+   parâmetros, que foi como o recorte se perdeu da primeira vez. */
+import { linkParaEstoque } from "@/app/(dashboard)/estoque/filtro-estoque";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import type {
@@ -329,12 +333,16 @@ function statusAnuncioInfoReposicao(item: ProdutoReposicao): { label: string; cl
   return MAPA[item.statusAnuncio];
 }
 
-export function ReposicaoCard({ itens, total, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
+export function ReposicaoCard({ itens, total, carregando, semFiltro, scope, escopoLink, acaoSlot, acaoTopoSlot }: {
   itens: ProdutoReposicao[] | null;
   total: number;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
+  /** Empresa e canal marcados agora. Viajam no "Ver todos": recorte sozinho
+   *  nao abre lista no Estoque, la quem define escopo e empresa/canal. Sem
+   *  isto o link caia no convite "escolha uma empresa", de maos vazias. */
+  escopoLink?: { marcas: string[]; canais: string[] };
   /** Nó do cabeçalho do Foco (desktop) onde o botão Status é portado, junto
    *  do filtro de marca/canal — ver `AcaoSlotFiltro`, que já é `hidden
    *  sm:flex` por conta própria. */
@@ -360,7 +368,7 @@ export function ReposicaoCard({ itens, total, carregando, semFiltro, scope, acao
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
         total={total}
         exibidos={lista.length}
-        verTudo={{ href: "/estoque?filtro=abaixo_minimo", rotulo: "Ver todos no Estoque" }}
+        verTudo={{ href: linkParaEstoque({ filtro: "abaixo_minimo", ...escopoLink }), rotulo: "Ver todos no Estoque" }}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -650,12 +658,16 @@ function EntendaStatusBotao() {
   );
 }
 
-export function ParadosCard({ itens, total, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
+export function ParadosCard({ itens, total, carregando, semFiltro, scope, escopoLink, acaoSlot, acaoTopoSlot }: {
   itens: ProdutoParado[] | null;
   total: number;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
+  /** Empresa e canal marcados agora. Viajam no "Ver todos": recorte sozinho
+   *  nao abre lista no Estoque, la quem define escopo e empresa/canal. Sem
+   *  isto o link caia no convite "escolha uma empresa", de maos vazias. */
+  escopoLink?: { marcas: string[]; canais: string[] };
   /** Nó do cabeçalho do Foco (desktop) onde o botão "Entenda os status" é
    *  portado, junto do filtro de marca/canal — ver `AcaoSlotFiltro`, que já
    *  é `hidden sm:flex` por conta própria. */
@@ -691,7 +703,7 @@ export function ParadosCard({ itens, total, carregando, semFiltro, scope, acaoSl
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
         total={total}
         exibidos={lista.length}
-        verTudo={{ href: "/estoque?filtro=parados", rotulo: "Ver todos no Estoque" }}
+        verTudo={{ href: linkParaEstoque({ filtro: "parados", ...escopoLink }), rotulo: "Ver todos no Estoque" }}
       >
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);
