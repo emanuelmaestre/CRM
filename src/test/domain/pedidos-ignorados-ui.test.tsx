@@ -31,7 +31,15 @@ function linha(sobrescreve: Partial<PedidoIgnoradoLinha> = {}): PedidoIgnoradoLi
     ultimaVezEm: new Date("2026-08-27T10:00:00Z"),
     descartadoEm: null,
     compradorNome: "Maria Souza",
+    compradorUsuario: "mariasouza",
+    compradorTelefone: "******41",
     total: "89.90",
+    frete: "12.30",
+    desconto: "5.00",
+    acrescimo: "0.00",
+    valorLiquido: "63.45",
+    statusCanal: "completed",
+    itens: [{ sku: "W613-BL", quantidade: 2, precoUnitario: "41.30", taxaMarketplace: "9.45" }],
     pedidoEm: "2026-08-14T10:00:00Z",
     reprocessavel: true,
     ...sobrescreve,
@@ -171,4 +179,72 @@ describe("fila de pedidos ignorados", () => {
     expect(screen.getByText(/1 pedido fora do CRM/)).toBeInTheDocument();
     expect(screen.queryByText(/589,90/)).not.toBeInTheDocument();
   });
+
+  /* O payload do pedido recusado e gravado inteiro, mas a tela so lia tres
+     campos dele. O resto — repasse, frete, taxa, status no canal — ficava
+     invisivel, e quem precisava decidir sobre um pedido tinha de abrir o
+     painel do marketplace. */
+  it("abre os detalhes com o financeiro completo do pedido", async () => {
+    render(<PedidosIgnoradosLista linhas={[linha()]} podeDescartar incluirFechados={false} />);
+
+    // Fechado por padrao: a fila existe para ser varrida rapido.
+    expect(screen.queryByText("Repasse")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /ver detalhes/i }));
+
+    await waitFor(() => expect(screen.getByText("Repasse")).toBeInTheDocument());
+    expect(screen.getByText("R$ 63,45")).toBeInTheDocument();
+    expect(screen.getByText("R$ 12,30")).toBeInTheDocument();
+    expect(screen.getByText("mariasouza")).toBeInTheDocument();
+    expect(screen.getByText(/2 un\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /ocultar detalhes/i })).toBeInTheDocument();
+  });
+
+  /* O status chega cru do canal ("completed"). Mostrar assim seria um segundo
+     vocabulario para o mesmo pedido, diferente do que Vendas usa. */
+  it("traduz o status do canal em vez de mostrar o termo cru", async () => {
+    render(<PedidosIgnoradosLista linhas={[linha()]} podeDescartar incluirFechados={false} />);
+    fireEvent.click(screen.getByRole("button", { name: /ver detalhes/i }));
+
+    await waitFor(() => expect(screen.getByText(/Concluído no canal/)).toBeInTheDocument());
+    expect(screen.queryByText(/completed/i)).not.toBeInTheDocument();
+  });
+
+  /* Pedido cancelado na origem nunca vira receita. Sem esse aviso, alguem
+     gasta tempo recuperando um pedido que nao existe mais — foi o caso de um
+     dos tres pedidos reais da fila em 28/08/2026. */
+  it("avisa quando o pedido ja foi cancelado no canal", async () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[linha({ statusCanal: "cancelled" })]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /ver detalhes/i }));
+
+    await waitFor(() => expect(screen.getByText(/Cancelado no canal/)).toBeInTheDocument());
+    expect(screen.getByText(/nao vira receita/i)).toBeInTheDocument();
+  });
+
+  /* Sem payload (pendencia antiga, gravada antes destes campos) a tela nao
+     pode quebrar nem mostrar "R$ NaN". */
+  it("aguenta pendencia sem financeiro guardado", async () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[linha({
+          total: null, frete: null, desconto: null, acrescimo: null,
+          valorLiquido: null, statusCanal: null, itens: [],
+          compradorUsuario: null, compradorTelefone: null,
+        })]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /ver detalhes/i }));
+
+    await waitFor(() => expect(screen.getByText("Repasse")).toBeInTheDocument());
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
+  });
+
 });

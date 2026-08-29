@@ -130,19 +130,69 @@ export type PedidoIgnoradoLinha = {
   primeiraVezEm: Date;
   ultimaVezEm: Date;
   descartadoEm: Date | null;
-  /** Do payload guardado, pra tela mostrar sem bater na API do canal. */
+  /** Do payload guardado, pra tela mostrar sem bater na API do canal.
+   *
+   *  O pedido recusado é gravado INTEIRO em `payload` — quando ele finalmente
+   *  entra, entra completo. Expor esses campos não custa consulta nenhuma: já
+   *  vinham na mesma linha, só não eram lidos. Ver o detalhe aqui é o que
+   *  permite decidir sem abrir o pedido no painel do canal. */
   compradorNome: string | null;
+  compradorUsuario: string | null;
+  compradorTelefone: string | null;
   total: string | null;
+  frete: string | null;
+  desconto: string | null;
+  acrescimo: string | null;
+  valorLiquido: string | null;
+  /** Status cru do canal (`completed`, `cancelled`…). A tradução fica na
+   *  tela, junto do mapa que o resto de Vendas já usa. */
+  statusCanal: string | null;
+  itens: ItemPedidoIgnorado[];
   pedidoEm: string | null;
   reprocessavel: boolean;
 };
 
-function doPayload(payload: unknown): Pick<PedidoIgnoradoLinha, "compradorNome" | "total" | "pedidoEm"> {
+export type ItemPedidoIgnorado = {
+  sku: string | null;
+  quantidade: number | null;
+  precoUnitario: string | null;
+  taxaMarketplace: string | null;
+};
+
+/** Campos monetários chegam como string ("54.90"); só os repassamos adiante,
+ *  sem converter para número — arredondar aqui criaria uma segunda versão do
+ *  valor, diferente da que o pedido terá quando entrar. */
+function texto(valor: unknown): string | null {
+  return typeof valor === "string" ? valor : typeof valor === "number" ? String(valor) : null;
+}
+
+type CamposDoPayload = Pick<PedidoIgnoradoLinha,
+  | "compradorNome" | "compradorUsuario" | "compradorTelefone" | "total" | "frete"
+  | "desconto" | "acrescimo" | "valorLiquido" | "statusCanal" | "itens" | "pedidoEm">;
+
+function doPayload(payload: unknown): CamposDoPayload {
   const p = (payload ?? {}) as Record<string, unknown>;
+  const itensBrutos = Array.isArray(p.itens) ? p.itens : [];
   return {
-    compradorNome: typeof p.clienteNome === "string" ? p.clienteNome : null,
-    total: typeof p.total === "string" ? p.total : null,
-    pedidoEm: typeof p.criadoEm === "string" ? p.criadoEm : null,
+    compradorNome: texto(p.clienteNome),
+    compradorUsuario: texto(p.clienteExternalId),
+    compradorTelefone: texto(p.clienteTelefone),
+    total: texto(p.total),
+    frete: texto(p.frete),
+    desconto: texto(p.desconto),
+    acrescimo: texto(p.acrescimo),
+    valorLiquido: texto(p.valorLiquido),
+    statusCanal: texto(p.status),
+    itens: itensBrutos.map((bruto) => {
+      const item = (bruto ?? {}) as Record<string, unknown>;
+      return {
+        sku: texto(item.skuExterno),
+        quantidade: typeof item.quantidade === "number" ? item.quantidade : null,
+        precoUnitario: texto(item.precoUnitario),
+        taxaMarketplace: texto(item.taxaMarketplace),
+      };
+    }),
+    pedidoEm: texto(p.criadoEm),
   };
 }
 

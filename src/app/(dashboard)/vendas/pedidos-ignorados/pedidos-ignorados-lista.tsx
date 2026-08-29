@@ -1,11 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowLeft, CircleSlash, Clock3, Loader2, RotateCw, Undo2,
+  ArrowLeft, ChevronDown, CircleSlash, Clock3, Loader2, RotateCw, Undo2,
   PackageSearch, UserRoundX, Bug, HelpCircle, type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,7 +16,9 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { isBrandSlug } from "@/shared/config/brands";
 import { moeda } from "@/shared/design-system/format";
 import { springs, stagger, fadeUp } from "@/shared/design-system/motion-variants";
-import type { PedidoIgnoradoLinha } from "@/modules/vendas/application/pedidos-ignorados.service";
+import { mapearStatusPedido } from "@/modules/canais/domain/order-status";
+import pagesConfig from "@/config/pages.json";
+import type { ItemPedidoIgnorado, PedidoIgnoradoLinha } from "@/modules/vendas/application/pedidos-ignorados.service";
 import { actionDescartarPedidoIgnorado, actionReprocessarPedidoIgnorado } from "./actions";
 
 /* ── Por que esta tela é agrupada por causa ────────────────────────────
@@ -116,6 +118,9 @@ function Pendencia({ linha, podeDescartar }: {
   const fechado = linha.descartadoEm !== null;
   const parado = diasParado(linha.primeiraVezEm);
 
+  const [detalheAberto, setDetalheAberto] = useState(false);
+  const idDetalhe = useId();
+
   function reprocessar() {
     iniciar(async () => {
       const resultado = await actionReprocessarPedidoIgnorado(linha.id);
@@ -202,8 +207,12 @@ function Pendencia({ linha, podeDescartar }: {
         </div>
       )}
 
-      {(linha.reprocessavel && !fechado) || podeDescartar ? (
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+      <DetalhePedido linha={linha} aberto={detalheAberto} id={idDetalhe} />
+
+      {/* A barra de acoes existe sempre: mesmo sem reprocessar nem descartar,
+          "Ver detalhes" e uma acao — antes a linha podia terminar sem nenhum
+          jeito de saber mais sobre o pedido. */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {/* Sem botão de reprocessar em `payload_invalido`: a falha é
               determinística — mesmo payload, mesmo validador, mesmo erro.
               Oferecer o botão ali só gasta o tempo de quem clica. */}
@@ -229,9 +238,156 @@ function Pendencia({ linha, podeDescartar }: {
               {fechado ? "Devolver à fila" : "Não recuperável"}
             </button>
           )}
+
+          {/* Empurrado para a direita no desktop (ml-auto) e primeiro da
+              proxima linha no celular: e leitura, nao decisao — nao deve
+              disputar a atencao com "Tentar novamente". */}
+          <button
+            type="button"
+            onClick={() => setDetalheAberto((atual) => !atual)}
+            aria-expanded={detalheAberto}
+            aria-controls={idDetalhe}
+            className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted sm:ml-auto"
+          >
+            <motion.span
+              aria-hidden="true"
+              className="inline-flex"
+              animate={{ rotate: detalheAberto ? 180 : 0 }}
+              transition={reduzir ? { duration: 0 } : springs.settleFast}
+            >
+              <ChevronDown size={12} />
+            </motion.span>
+            {detalheAberto ? "Ocultar detalhes" : "Ver detalhes"}
+          </button>
         </div>
-      ) : null}
     </motion.li>
+  );
+}
+
+const STATUS_LABELS: Record<string, string> = pagesConfig.pedidos.statusLabels;
+
+/** O status vem cru do canal ("completed", "cancelled"). Traduz pelo MESMO
+ *  mapa que o resto de Vendas usa — dois vocabularios para o mesmo pedido
+ *  seria pior que nao mostrar. */
+function rotuloStatus(statusCanal: string | null): string | null {
+  if (!statusCanal) return null;
+  return STATUS_LABELS[mapearStatusPedido(statusCanal)] ?? statusCanal;
+}
+
+/** Uma medida do detalhe. `tabular-nums` em tudo que e numero para as colunas
+ *  alinharem verticalmente mesmo com larguras diferentes. */
+function Medida({ rotulo, valor, cor }: { rotulo: string; valor: string; cor?: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</dt>
+      {/* title porque o valor trunca em coluna estreita (celular em pe, nome
+          de comprador longo): o texto inteiro continua alcançavel. */}
+      <dd title={valor} className="truncate text-[13px] font-bold tabular-nums" style={{ color: cor ?? "var(--foreground)" }}>{valor}</dd>
+    </div>
+  );
+}
+
+/** Item do pedido. A taxa some quando e zero — na maioria dos pedidos
+ *  recusados o repasse nem chegou a ser calculado. */
+function ItemLinha({ item }: { item: ItemPedidoIgnorado }) {
+  const taxa = Number(item.taxaMarketplace ?? 0);
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
+      <span className="rounded-md bg-card px-1.5 py-0.5 font-mono text-[11px] text-foreground">{item.sku ?? "sem SKU"}</span>
+      <span className="tabular-nums text-muted-foreground">
+        {item.quantidade ?? "?"} un. × {item.precoUnitario === null ? "—" : moeda.format(Number(item.precoUnitario))}
+      </span>
+      {taxa > 0 && <span className="tabular-nums text-muted-foreground">· taxa {moeda.format(taxa)}</span>}
+    </li>
+  );
+}
+
+/** Tudo que o CRM guardou do pedido recusado.
+ *
+ *  O payload e gravado inteiro na fila, entao nada aqui custa uma consulta a
+ *  mais — so nao estava sendo lido. Fica fechado por padrao porque a fila
+ *  existe para ser varrida rapido; quem precisa decidir sobre UM pedido abre
+ *  o dele sem que os outros cresçam junto. */
+function DetalhePedido({ linha, aberto, id }: { linha: PedidoIgnoradoLinha; aberto: boolean; id: string }) {
+  const reduzir = useReducedMotion();
+  const status = rotuloStatus(linha.statusCanal);
+  const cancelado = linha.statusCanal !== null && mapearStatusPedido(linha.statusCanal) === "cancelado";
+  const taxaTotal = linha.itens.reduce((soma, item) => soma + Number(item.taxaMarketplace ?? 0), 0);
+  const dinheiro = (valor: string | null) => (valor === null ? "—" : moeda.format(Number(valor)));
+
+  return (
+    <AnimatePresence initial={false}>
+      {aberto && (
+        <motion.div
+          key="detalhe"
+          id={id}
+          /* Altura animada em vez de fade puro: o cartao empurra os vizinhos
+             para baixo, e ver esse empurrao acontecer e o que explica de onde
+             o bloco saiu. Com "reduzir movimento" vira corte seco. */
+          initial={reduzir ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          animate={reduzir ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+          exit={reduzir ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          transition={reduzir ? { duration: 0 } : springs.settleFast}
+          className="overflow-hidden"
+        >
+          <div className="mt-2.5 rounded-xl border border-border bg-muted/30 p-3">
+            {status && (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                  style={{
+                    background: `color-mix(in srgb, ${cancelado ? "var(--destructive)" : "var(--info)"} 14%, transparent)`,
+                    color: cancelado ? "var(--destructive)" : "var(--info)",
+                  }}
+                >
+                  {status} no canal
+                </span>
+                {/* Pedido cancelado nunca vira receita: quem olha a fila
+                    precisa saber disso ANTES de gastar tempo recuperando. */}
+                {cancelado && <span className="text-[11px] text-muted-foreground">nao vira receita mesmo se entrar</span>}
+              </div>
+            )}
+
+            {/* 2 colunas no celular em pe, 3 em tela media (e no celular
+                deitado, que ganha largura), 6 no desktop: a linha de valores
+                nunca fica com uma coluna orfa. */}
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-3 xl:grid-cols-6">
+              <Medida rotulo="Total" valor={dinheiro(linha.total)} />
+              <Medida rotulo="Frete" valor={dinheiro(linha.frete)} />
+              <Medida rotulo="Desconto" valor={dinheiro(linha.desconto)} />
+              <Medida rotulo="Acrescimo" valor={dinheiro(linha.acrescimo)} />
+              <Medida rotulo="Taxa do canal" valor={taxaTotal > 0 ? moeda.format(taxaTotal) : "—"} />
+              <Medida
+                rotulo="Repasse"
+                valor={dinheiro(linha.valorLiquido)}
+                cor={linha.valorLiquido && Number(linha.valorLiquido) > 0 ? "var(--success)" : undefined}
+              />
+            </dl>
+
+            {linha.itens.length > 0 && (
+              <ul className="mt-3 grid gap-1.5 border-t border-border pt-3">
+                {linha.itens.map((item, indice) => (
+                  <ItemLinha key={`${item.sku ?? "item"}-${indice}`} item={item} />
+                ))}
+              </ul>
+            )}
+
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-border pt-3 sm:grid-cols-4">
+              <Medida rotulo="Comprador" valor={linha.compradorNome ?? "—"} />
+              <Medida rotulo="Usuario no canal" valor={linha.compradorUsuario ?? "—"} />
+              <Medida rotulo="Telefone" valor={linha.compradorTelefone ?? "—"} />
+              <Medida rotulo="Tentativas" valor={String(linha.tentativas)} />
+            </dl>
+
+            {/* O motivo cru fecha o bloco: e o texto que o desenvolvedor le
+                quando a causa classificada nao basta. */}
+            <p className="mt-3 break-words border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Erro registrado:</span> {linha.motivo}
+            </p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
