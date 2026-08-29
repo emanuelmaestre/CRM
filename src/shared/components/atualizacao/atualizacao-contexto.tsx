@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { CloudOff, Loader2, RotateCw, X } from "lucide-react";
 import { BloqueioAtualizacao } from "./bloqueio-atualizacao";
 import { entradaVeioDoLogin, limparEntradaPosLogin } from "@/shared/lib/auth/entrada-pos-login";
 import { emitirAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
@@ -55,6 +56,39 @@ function rotularCarimbo(iso: string | null | undefined): string | null {
   return dia === hoje ? hora : `${dia} ${hora}`;
 }
 
+/** "Mercado Livre e Shopee" — nomes de canal do jeito que se fala. */
+function listarCanais(canais: string[]): string {
+  if (canais.length <= 1) return canais[0] ?? "";
+  return `${canais.slice(0, -1).join(", ")} e ${canais.at(-1)}`;
+}
+
+function relogioRegressivo(segundos: number): string {
+  return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, "0")}`;
+}
+
+const faltamSegundos = (ate: number) => Math.max(0, Math.ceil((ate - Date.now()) / 1000));
+
+/** Conta até o instante em que uma nova tentativa passa a valer a pena.
+ *
+ *  O que falta é sempre calculado do relógio na hora de desenhar — o efeito
+ *  só bate o segundo. Guardar o número em estado obrigaria a ressincronizá-lo
+ *  a cada resposta do servidor, e uma aba que ficou em segundo plano voltaria
+ *  exibindo o valor de quando saiu. */
+function useEsperaRestante(liberadoEm: number): number {
+  const [, bater] = useState(0);
+
+  useEffect(() => {
+    if (liberadoEm <= Date.now()) return;
+    const relogio = window.setInterval(() => {
+      bater((valor) => valor + 1);
+      if (faltamSegundos(liberadoEm) === 0) window.clearInterval(relogio);
+    }, 1_000);
+    return () => window.clearInterval(relogio);
+  }, [liberadoEm]);
+
+  return faltamSegundos(liberadoEm);
+}
+
 /** Tarja de dado não confirmado.
  *
  *  Substitui o apagão que existia aqui. Esconder a tela inteira porque um
@@ -62,34 +96,107 @@ function rotularCarimbo(iso: string | null | undefined): string | null {
  *  estava perfeita no banco e os dados do outro canal — e o "Tentar
  *  novamente" caía no intervalo mínimo entre verificações e voltava a
  *  falhar. Dado antigo com a hora dele estampada não é dado apresentado como
- *  atual; tela vazia é operação parada. */
+ *  atual; tela vazia é operação parada.
+ *
+ *  Três decisões de lugar e de comportamento, todas nascidas de ver a tarja
+ *  em uso:
+ *
+ *  1. Mora no RODAPÉ. No topo ela cobria a faixa de filtros — as marcas e o
+ *     seletor de período de Métricas ficavam embaixo dela — e o aviso de que
+ *     o dado é velho impedia justamente de trocar o recorte do dado.
+ *  2. Diz QUEM não respondeu. "Não foi possível confirmar" não informa se o
+ *     problema é geral ou de um canal só; com o nome, quem lê já sabe qual
+ *     metade da tela está velha.
+ *  3. O botão sabe quando não adianta. O servidor recusa nova verificação
+ *     dentro do intervalo mínimo, então clicar antes disso só devolve o mesmo
+ *     erro. Enquanto a espera corre, o botão mostra o relógio em vez de
+ *     prometer o que não entrega. */
 function TarjaNaoConfirmado({
   carimbo,
+  canais,
+  liberadoEm,
+  ocupado,
   tentarNovamente,
+  dispensar,
 }: {
   carimbo: string | null;
+  canais: string[];
+  liberadoEm: number;
+  ocupado: boolean;
   tentarNovamente: () => void;
+  dispensar: () => void;
 }) {
+  const reduzir = useReducedMotion() ?? false;
+  const espera = useEsperaRestante(liberadoEm);
+  const esperando = espera > 0;
+
+  const motivo = canais.length > 0
+    ? `${listarCanais(canais)} ${canais.length > 1 ? "não responderam" : "não respondeu"}.`
+    : "Os canais não responderam agora.";
+
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="fixed inset-x-0 top-[calc(3.75rem_+_env(safe-area-inset-top))] z-20 mx-auto flex w-fit max-w-[min(94vw,42rem)] items-center gap-3 rounded-full border border-border bg-card/95 px-4 py-2 shadow-lg backdrop-blur-md md:top-16"
+    <motion.div
+      /* Acima do conteúdo, ao lado das barras de navegação (z-30) — nunca por
+         cima delas: no celular a tarja fica logo em cima da barra inferior, e
+         cobrir os ícones para avisar de dado velho seria trocar um problema
+         por outro. */
+      className="material-thick fixed inset-x-3 bottom-[calc(var(--bottom-nav-h,64px)_+_env(safe-area-inset-bottom)_+_0.75rem)] z-30 mx-auto flex w-fit max-w-[min(100%,34rem)] flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-3.5 py-2.5 md:bottom-6"
+      initial={reduzir ? false : { opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduzir ? { opacity: 0 } : { opacity: 0, y: 14 }}
+      transition={{ duration: reduzir ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+      aria-busy={ocupado || undefined}
     >
-      <span className="size-2 shrink-0 rounded-full bg-amber-500" aria-hidden />
-      <p className="text-xs font-medium text-muted-foreground">
-        {carimbo
-          ? <>Dados de <strong className="font-semibold text-foreground">{carimbo}</strong>. Não foi possível confirmar agora.</>
-          : "Não foi possível confirmar os dados agora."}
-      </p>
-      <button
-        type="button"
-        onClick={tentarNovamente}
-        className="press-feedback shrink-0 rounded-full border border-border px-3 py-1 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-      >
-        Tentar novamente
-      </button>
-    </div>
+      <span className="shrink-0" aria-hidden>
+        {ocupado
+          ? <Loader2 size={17} className="animate-spin text-muted-foreground" />
+          : <CloudOff size={17} className="text-amber-500" />}
+      </span>
+
+      {/* Só o texto é região viva: com o botão dentro, o leitor de tela
+          reanunciaria a tarja inteira a cada segundo do relógio regressivo. */}
+      <div role="status" aria-live="polite" className="min-w-[11rem] flex-1">
+        <p className="text-[0.8125rem] font-semibold leading-snug text-foreground">
+          {ocupado
+            ? "Confirmando com os canais…"
+            : carimbo
+              ? <>Mostrando os dados de <span className="tabular-nums">{carimbo}</span></>
+              : "Dados sem confirmação agora"}
+        </p>
+        <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+          {ocupado
+            ? carimbo ? `Os dados de ${carimbo} seguem na tela.` : "Os dados atuais seguem na tela."
+            : motivo}
+        </p>
+      </div>
+
+      <div className="ml-auto flex shrink-0 items-center gap-1">
+        {!ocupado && (
+          <button
+            type="button"
+            onClick={tentarNovamente}
+            disabled={esperando}
+            title={esperando
+              ? `Os canais foram consultados há pouco. Nova tentativa em ${relogioRegressivo(espera)}.`
+              : undefined}
+            className="press-feedback inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-55"
+          >
+            <RotateCw size={13} aria-hidden />
+            {esperando
+              ? <span className="tabular-nums">Em {relogioRegressivo(espera)}</span>
+              : "Tentar novamente"}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={dispensar}
+          aria-label="Dispensar o aviso"
+          className="press-feedback rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X size={15} aria-hidden />
+        </button>
+      </div>
+    </motion.div>
   );
 }
 
@@ -117,6 +224,12 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
   const [tentativa, setTentativa] = useState(0);
   const [geracao, setGeracao] = useState(0);
   const [refrescando, iniciarRefresco] = useTransition();
+  /* Estado da tarja: o clique em "Tentar novamente" acontece DENTRO dela, sem
+     nunca voltar a cobrir a tela. */
+  const [reconfirmando, setReconfirmando] = useState(false);
+  const [dispensada, setDispensada] = useState(false);
+  const [liberadoEm, setLiberadoEm] = useState(0);
+  const retomadaSilenciosa = useRef(false);
   const versoes = useRef<VersoesPorFonte | null>(null);
 
   useEffect(() => { limparEntradaPosLogin(); }, []);
@@ -133,10 +246,15 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
     return await resposta.json() as EstadoAtualizacaoTela;
   }, [tela]);
 
+  /* Retentar NÃO é reentrar na tela.
+     Antes este botão zerava a entrada e a cobertura em tela cheia voltava por
+     cima de tudo — quem clicava perdia a tela que estava lendo para esperar de
+     novo o mesmo canal que acabara de falhar. Agora a confirmação corre por
+     baixo: o conteúdo continua no lugar, a tarja vira "confirmando…" e só sai
+     quando o dado é de fato confirmado. */
   const tentarNovamente = useCallback(() => {
-    setFalhou(false);
-    setEntradaResolvida(false);
-    setEstado(null);
+    retomadaSilenciosa.current = true;
+    setReconfirmando(true);
     setTentativa((valor) => valor + 1);
   }, []);
 
@@ -147,17 +265,25 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
     let ativo = true;
     let ultimoFoco = 0;
     let disparos = 0;
+    const silenciosa = retomadaSilenciosa.current;
+    retomadaSilenciosa.current = false;
     /* Dispensado só na primeira tela da sessão que veio do login. A partir da
-       segunda o portão volta a valer normalmente. */
-    let resolvida = portaoDispensado.current;
+       segunda o portão volta a valer normalmente. Numa retomada silenciosa o
+       portão também não entra: a tela já está aberta e assim continua. */
+    let resolvida = portaoDispensado.current || silenciosa;
     portaoDispensado.current = false;
     let aguardandoConclusao = false;
     /* Zerado a cada troca de tela. Sem isto, o mapa de versões de Vendas (só
        "pedidos") era comparado com o de Métricas (cinco fontes), as quatro
        fontes novas apareciam como "mudaram" e cada navegação entre módulos
        disparava um router.refresh() supérfluo — a página inteira de Métricas
-       renderizando de novo no servidor logo depois de já ter renderizado. */
-    versoes.current = null;
+       renderizando de novo no servidor logo depois de já ter renderizado.
+       A retomada silenciosa preserva o mapa de propósito: é a comparação com
+       ele que faz a tela reler o banco quando a confirmação enfim vem. */
+    if (!silenciosa) {
+      versoes.current = null;
+      setDispensada(false);
+    }
 
     const resolver = () => {
       if (resolvida) return;
@@ -165,9 +291,14 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
       setEntradaResolvida(true);
     };
 
-    // Teto do bloqueio: passou disto, o conteúdo aparece com a tarja.
+    /* Teto do bloqueio: passou disto, o conteúdo aparece com a tarja. O mesmo
+       teto encerra o giro do "confirmando…" — o poll continua, mas a tarja
+       volta a devolver a decisão a quem está olhando, em vez de girar sem
+       prazo. */
     const relogioLimite = window.setTimeout(() => {
-      if (!ativo || resolvida) return;
+      if (!ativo) return;
+      setReconfirmando(false);
+      if (resolvida) return;
       setFalhou(true);
       resolver();
     }, LIMITE_BLOQUEIO_MS);
@@ -175,6 +306,7 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
     const falhar = () => {
       if (!ativo) return;
       setFalhou(true);
+      setReconfirmando(false);
       resolver();
     };
 
@@ -190,6 +322,9 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
       const alteradas = fontesAlteradas(versoes.current, proximo.versoes);
       versoes.current = proximo.versoes;
       setEstado(proximo);
+      /* Instante em que o servidor volta a aceitar uma verificação. É ele que
+         vira o relógio no botão da tarja. */
+      setLiberadoEm(proximo.esperarSegundos ? Date.now() + proximo.esperarSegundos * 1_000 : 0);
 
       if (proximo.situacao === "atualizando") {
         if (!resolvida) aguardandoConclusao = true;
@@ -206,19 +341,27 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
           void consultar(true, controlador.signal).then(aplicar).catch(falhar);
           return;
         }
-        if (!resolvida) { setFalhou(true); resolver(); }
+        setFalhou(true);
+        setReconfirmando(false);
+        resolver();
         agendar(POLLING_PRONTO_MS);
         return;
       }
 
       if (proximo.situacao === "erro") {
         setFalhou(true);
+        setReconfirmando(false);
         resolver();
         agendar(POLLING_PRONTO_MS);
         return;
       }
 
       setFalhou(false);
+      setReconfirmando(false);
+      /* Confirmou: a dispensa anterior morre com o problema que ela escondia.
+         Sem isto, uma falha nova depois desta ficaria muda até trocar de
+         tela. */
+      setDispensada(false);
       if (aguardandoConclusao) {
         aguardandoConclusao = false;
         /* O conteúdo sob a cobertura nasceu antes da confirmação. Antes isto
@@ -266,6 +409,11 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
   if (!tela) return children;
 
   const bloqueado = !entradaResolvida || refrescando;
+  /* "Ocupado" cobre os dois jeitos de estar trabalhando: o clique que ainda
+     não voltou do servidor e a sincronização que o próprio servidor confirma
+     estar rodando. Nos dois casos, oferecer "Tentar novamente" seria convidar
+     a empilhar pedido em cima de pedido. */
+  const ocupado = reconfirmando || estado?.situacao === "atualizando";
 
   return (
     <>
@@ -279,12 +427,19 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
           <BloqueioAtualizacao key="bloqueio" progresso={estado?.progresso ?? 0} tela={tela} />
         )}
       </AnimatePresence>
-      {!bloqueado && falhou && (
-        <TarjaNaoConfirmado
-          carimbo={rotularCarimbo(estado?.confirmadoAte ?? estado?.versao)}
-          tentarNovamente={tentarNovamente}
-        />
-      )}
+      <AnimatePresence>
+        {!bloqueado && falhou && !dispensada && (
+          <TarjaNaoConfirmado
+            key="tarja"
+            carimbo={rotularCarimbo(estado?.confirmadoAte ?? estado?.versao)}
+            canais={estado?.canais ?? []}
+            liberadoEm={liberadoEm}
+            ocupado={ocupado}
+            tentarNovamente={tentarNovamente}
+            dispensar={() => setDispensada(true)}
+          />
+        )}
+      </AnimatePresence>
     </>
   );
 }

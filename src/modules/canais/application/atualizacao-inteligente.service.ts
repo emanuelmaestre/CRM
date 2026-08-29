@@ -42,6 +42,15 @@ export interface EstadoAtualizacaoTela {
   /** Idade do dado que ficou na tela quando a confirmação falhou. É o que a
    *  tarja mostra — "dados de 10h32" — em vez de esconder tudo. */
   confirmadoAte?: string | null;
+  /** Quem não respondeu, pelo nome que a pessoa conhece ("Mercado Livre").
+   *  Sem isto a tarja só sabe dizer que "não deu", e quem lê não tem como
+   *  saber se a tela inteira está velha ou só a metade de um canal. */
+  canais?: string[];
+  /** Quanto falta, em segundos, para o servidor voltar a aceitar uma
+   *  verificação. Enquanto correr, mandar confirmar de novo devolve o mesmo
+   *  erro — e é isso que desliga o botão da tarja em vez de deixá-lo
+   *  prometendo o que não entrega. */
+  esperarSegundos?: number;
 }
 function dataValida(valor: string | null | undefined): number | null {
   if (!valor) return null;
@@ -139,6 +148,8 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
     };
   }
 
+  const esperar = esperaParaNovaTentativa(vencidos);
+
   return {
     tela: painel.tela,
     situacao: algumaExecucaoViva ? "atualizando" : temFalha ? "erro" : "pendente",
@@ -146,6 +157,7 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
     versao: painel.versao,
     versoes: painel.versoes,
     fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
+    ...(esperar > 0 ? { esperarSegundos: esperar } : {}),
     ...(temFalha && !algumaExecucaoViva
       ? {
         mensagem: "Não foi possível atualizar agora.",
@@ -153,9 +165,39 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
            dizer só "falhou", e o operador não saberia se está olhando o de
            dez minutos atrás ou o de ontem. */
         confirmadoAte: confirmacaoMaisAntiga(vencidos),
+        canais: canaisEmFalha(painel, vencidos),
       }
       : {}),
   };
+}
+
+/** Quanto falta para o intervalo mínimo de verificação liberar uma nova
+ *  tentativa — o maior entre os módulos vencidos, porque basta um ainda
+ *  bloqueado para a confirmação voltar incompleta.
+ *
+ *  A fila recusa quem pede de novo dentro do intervalo, e essa recusa chegava
+ *  na tela como o mesmo "não foi possível" de sempre: o botão "Tentar
+ *  novamente" era uma promessa que só sabia falhar, e a pessoa clicava várias
+ *  vezes até desistir. Com o prazo na mão, a tarja mostra o relógio. */
+function esperaParaNovaTentativa(
+  vencidos: Array<{ conta: PainelAtualizacao["contas"][number]; modulo: ModuloSincronizacao }>,
+): number {
+  return vencidos.reduce((maior, { conta, modulo }) => {
+    const item = conta.atualidade.find((linha) => linha.modulo === modulo);
+    return Math.max(maior, item?.esperarSegundos ?? 0);
+  }, 0);
+}
+
+/** Os canais que de fato falharam entre os vencidos, sem repetir marca. */
+function canaisEmFalha(
+  painel: PainelAtualizacao,
+  vencidos: Array<{ conta: PainelAtualizacao["contas"][number]; modulo: ModuloSincronizacao }>,
+): string[] {
+  return [...new Set(
+    painel.falhas
+      .filter((falha) => vencidos.some(({ conta }) => conta.id === falha.contaId))
+      .map((falha) => falha.canalLabel),
+  )];
 }
 
 /** O carimbo mais ATRASADO entre os módulos que falharam — é ele que

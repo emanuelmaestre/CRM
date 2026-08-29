@@ -4,6 +4,7 @@ import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { filtrarPedidosPendentes } from "@/modules/canais/application/pedidos-pendentes.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
+import { classificarCausa, registrarPedidoIgnorado } from "@/modules/vendas/application/pedidos-ignorados.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { registrarVerificacaoCanal } from "@/modules/canais/application/verificacao-canal.service";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
@@ -123,6 +124,26 @@ export const A24_pollPedidos = inngest.createFunction(
                 console.warn(
                   `[A24] pedido ${pedido.providerOrderId} (${conta.tipo}/${conta.brandSlug}) pulado: ${motivo}`,
                 );
+                /* O log não é o registro: ele expira, ninguém o lê por hábito
+                   e nenhuma tela o consulta. Só o A31 (sincronização manual)
+                   gravava o pedido recusado — e é justamente ESTE job, o que
+                   roda sozinho de 3 em 3 horas, que atende o dia a dia. O
+                   resultado foi 15 vendas da ARMARINHOS LIMA perdidas em
+                   agosto/2026 sem deixar rastro, descobertas só ao comparar o
+                   faturamento com o painel do Mercado Livre 20 dias depois.
+                   Aqui o pedido recusado vira linha em `pedido_ignorado`, com
+                   causa e payload, e a fila da tela passa a enxergar também o
+                   que a rotina automática recusou. */
+                await registrarPedidoIgnorado({
+                  orgId: conta.orgId,
+                  brandId: conta.brandId,
+                  channelAccountId: conta.id,
+                  providerOrderId: pedido.providerOrderId,
+                  causa: classificarCausa(error),
+                  motivo,
+                  skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
+                  payload: pedido as unknown as Record<string, unknown>,
+                });
                 // Mesma distinção do A31: causa conhecida daquele pedido
                 // (SKU sem produto na marca) não conta pro freio sistêmico.
                 return { pedidoId: "", novo: false, falhou: true, porPedido: ehErroSkuSemProduto(error) };

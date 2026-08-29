@@ -30,7 +30,11 @@ function resposta(situacao: Situacao, progresso: number, extras: Record<string, 
     versoes: { pedidos: "2026-08-29T13:32:00.000Z" },
     fontes: ["pedidos"],
     ...(situacao === "erro"
-      ? { mensagem: "Não foi possível atualizar agora.", confirmadoAte: "2026-08-29T13:32:00.000Z" }
+      ? {
+        mensagem: "Não foi possível atualizar agora.",
+        confirmadoAte: "2026-08-29T13:32:00.000Z",
+        canais: ["Mercado Livre"],
+      }
       : {}),
     ...extras,
   }), { status: 200, headers: { "content-type": "application/json" } });
@@ -71,13 +75,19 @@ describe("confirmação inteligente na entrada dos módulos", () => {
     render(<AtualizacaoProvider><p>R$ 1.234,00</p></AtualizacaoProvider>);
 
     await waitFor(() => expect(screen.getByText("R$ 1.234,00").parentElement).toHaveAttribute("aria-hidden", "false"));
-    expect(screen.getByText(/Não foi possível confirmar agora/)).toBeInTheDocument();
+    expect(screen.getByText(/Mostrando os dados de/)).toBeInTheDocument();
     // 13h32 UTC é 10h32 em São Paulo: a tarja fala a hora de quem lê a tela.
     expect(screen.getByText("10h32")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
+    // Quem não respondeu, pelo nome: "não deu" sozinho não diz se a tela
+    // inteira está velha ou só a metade de um canal.
+    expect(screen.getByText("Mercado Livre não respondeu.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Tentar novamente/ })).toBeInTheDocument();
   });
 
-  it("tentar novamente refaz a confirmação e tira a tarja quando dá certo", async () => {
+  /* A regressão seguinte: retentar zerava a entrada e a cobertura em tela
+     cheia voltava por cima de tudo. Quem clicava perdia a tela que estava
+     lendo para esperar de novo o mesmo canal que acabara de falhar. */
+  it("tentar novamente confirma por baixo, sem voltar a cobrir a tela", async () => {
     const buscar = vi.fn()
       .mockResolvedValueOnce(resposta("erro", 42))
       .mockResolvedValue(resposta("pronto", 100));
@@ -85,11 +95,41 @@ describe("confirmação inteligente na entrada dos módulos", () => {
 
     render(<AtualizacaoProvider><p>Faturamento</p></AtualizacaoProvider>);
 
-    await screen.findByRole("button", { name: "Tentar novamente" });
-    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    await screen.findByRole("button", { name: /Tentar novamente/ });
+    fireEvent.click(screen.getByRole("button", { name: /Tentar novamente/ }));
 
-    await waitFor(() => expect(screen.queryByText(/Não foi possível confirmar agora/)).not.toBeInTheDocument());
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByText("Faturamento").parentElement).toHaveAttribute("aria-hidden", "false");
+
+    await waitFor(() => expect(screen.queryByText(/Mostrando os dados de/)).not.toBeInTheDocument());
     expect(metodos(buscar)).toEqual(["POST", "POST"]);
+  });
+
+  /* O servidor recusa nova verificação dentro do intervalo mínimo. Sem o
+     prazo na tela, "Tentar novamente" é uma promessa que só sabe falhar — a
+     pessoa clica até desistir e nada muda. */
+  it("desliga o botão enquanto o intervalo mínimo do canal não vence", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      resposta("erro", 42, { esperarSegundos: 184 }),
+    ));
+
+    render(<AtualizacaoProvider><p>Faturamento</p></AtualizacaoProvider>);
+
+    const botao = await screen.findByRole("button", { name: /Em 3:0/ });
+    expect(botao).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Tentar novamente/ })).not.toBeInTheDocument();
+  });
+
+  it("a tarja pode ser dispensada sem parar a confirmação em segundo plano", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta("erro", 42)));
+
+    render(<AtualizacaoProvider><p>Faturamento</p></AtualizacaoProvider>);
+
+    await screen.findByRole("button", { name: /Tentar novamente/ });
+    fireEvent.click(screen.getByRole("button", { name: "Dispensar o aviso" }));
+
+    await waitFor(() => expect(screen.queryByText(/Mostrando os dados de/)).not.toBeInTheDocument());
+    expect(screen.getByText("Faturamento").parentElement).toHaveAttribute("aria-hidden", "false");
   });
 
   /* Só a ENTRADA manda confirmar. Enquanto a tela fica aberta o relógio
@@ -104,7 +144,7 @@ describe("confirmação inteligente na entrada dos módulos", () => {
 
     await waitFor(() => expect(screen.getByText("Faturamento").parentElement).toHaveAttribute("aria-hidden", "false"));
     expect(metodos(buscar).filter((metodo) => metodo === "POST")).toHaveLength(2);
-    expect(screen.getByText(/Não foi possível confirmar/)).toBeInTheDocument();
+    expect(screen.getByText(/Os canais não responderam/)).toBeInTheDocument();
   });
 
   /* A queixa que originou isto: o contador em tela cheia aparecia logo depois
