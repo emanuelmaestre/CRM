@@ -16,6 +16,8 @@ vi.mock("@/shared/lib/atualizacao-local", () => ({
 }));
 
 const { AtualizacaoProvider } = await import("@/shared/components/atualizacao/atualizacao-contexto");
+const { marcarEntradaPosLogin, limparEntradaPosLogin } =
+  await import("@/shared/lib/auth/entrada-pos-login");
 
 type Situacao = "pronto" | "erro" | "pendente" | "atualizando";
 
@@ -40,6 +42,7 @@ function metodos(mock: ReturnType<typeof vi.fn>): string[] {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  limparEntradaPosLogin();
 });
 
 afterEach(() => {
@@ -102,6 +105,36 @@ describe("confirmação inteligente na entrada dos módulos", () => {
     await waitFor(() => expect(screen.getByText("Faturamento").parentElement).toHaveAttribute("aria-hidden", "false"));
     expect(metodos(buscar).filter((metodo) => metodo === "POST")).toHaveLength(2);
     expect(screen.getByText(/Não foi possível confirmar/)).toBeInTheDocument();
+  });
+
+  /* A queixa que originou isto: o contador em tela cheia aparecia logo depois
+     da senha e era lido como "o login travou". A confirmação continua
+     acontecendo — ela só deixa de ser pedágio nessa primeira tela. */
+  it("não cobre a tela quando a entrada veio do login, mas ainda confirma", async () => {
+    const buscar = vi.fn().mockResolvedValue(resposta("pendente", 10));
+    vi.stubGlobal("fetch", buscar);
+    marcarEntradaPosLogin();
+
+    render(<AtualizacaoProvider><p>Faturamento</p></AtualizacaoProvider>);
+
+    expect(screen.getByText("Faturamento").parentElement).toHaveAttribute("aria-hidden", "false");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    await waitFor(() => expect(buscar).toHaveBeenCalled());
+    expect(metodos(buscar)[0]).toBe("POST");
+  });
+
+  it("a dispensa vale só para a primeira tela: a seguinte volta a ter o portão", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta("pendente", 10)));
+    marcarEntradaPosLogin();
+
+    const { unmount } = render(<AtualizacaoProvider><p>Faturamento</p></AtualizacaoProvider>);
+    expect(screen.getByText("Faturamento").parentElement).toHaveAttribute("aria-hidden", "false");
+    unmount();
+
+    // Nova montagem do painel, já sem a marca: o portão cobre de novo.
+    render(<AtualizacaoProvider><p>Estoque</p></AtualizacaoProvider>);
+    expect(screen.getByText("Estoque").parentElement).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
   });
 
   it("fora dos módulos com canal não bloqueia nem consulta nada", () => {

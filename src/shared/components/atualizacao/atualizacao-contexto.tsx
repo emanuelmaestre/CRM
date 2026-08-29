@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
+import { BloqueioAtualizacao } from "./bloqueio-atualizacao";
+import { entradaVeioDoLogin, limparEntradaPosLogin } from "@/shared/lib/auth/entrada-pos-login";
 import { emitirAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import { fontesAlteradas, type VersoesPorFonte } from "@/modules/canais/domain/versao-fontes";
 import type { EstadoAtualizacaoTela } from "@/modules/canais/application/atualizacao-inteligente.service";
@@ -51,34 +53,6 @@ function rotularCarimbo(iso: string | null | undefined): string | null {
   const dia = new Intl.DateTimeFormat("pt-BR", { timeZone: fuso }).format(data);
   const hoje = new Intl.DateTimeFormat("pt-BR", { timeZone: fuso }).format(new Date());
   return dia === hoje ? hora : `${dia} ${hora}`;
-}
-
-function NumeroPercentual({ valor }: { valor: number }) {
-  const reduzir = useReducedMotion();
-  return (
-    <motion.span
-      key={valor}
-      initial={reduzir ? false : { opacity: 0.45, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: reduzir ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
-      className="text-[clamp(2.75rem,8vw,5.5rem)] font-black tabular-nums tracking-[-0.06em] text-foreground"
-    >
-      {Math.round(valor)}<span className="ml-1 text-[0.42em] text-muted-foreground">%</span>
-    </motion.span>
-  );
-}
-
-function BloqueioAtualizacao({ progresso }: { progresso: number }) {
-  return (
-    <div
-      className="fixed inset-0 z-20 grid place-items-center bg-background px-6 pt-[calc(3.5rem_+_env(safe-area-inset-top))] md:pt-14"
-      role="status"
-      aria-live="polite"
-      aria-label={`Atualização em ${progresso} por cento`}
-    >
-      <NumeroPercentual valor={progresso} />
-    </div>
-  );
 }
 
 /** Tarja de dado não confirmado.
@@ -134,11 +108,18 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
   const tela = telaDoCaminho(pathname);
   const [estado, setEstado] = useState<EstadoAtualizacaoTela | null>(null);
   const [falhou, setFalhou] = useState(false);
-  const [entradaResolvida, setEntradaResolvida] = useState(false);
+  /* Ver entrada-pos-login: logo depois da senha, confirmar em tela cheia é
+     lido como "o login travou". A confirmação continua rodando — só não
+     cobra pedágio nessa primeira tela. */
+  const [semPortaoNaEntrada] = useState(entradaVeioDoLogin);
+  const [entradaResolvida, setEntradaResolvida] = useState(semPortaoNaEntrada);
+  const portaoDispensado = useRef(semPortaoNaEntrada);
   const [tentativa, setTentativa] = useState(0);
   const [geracao, setGeracao] = useState(0);
   const [refrescando, iniciarRefresco] = useTransition();
   const versoes = useRef<VersoesPorFonte | null>(null);
+
+  useEffect(() => { limparEntradaPosLogin(); }, []);
 
   const consultar = useCallback(async (iniciar: boolean, signal?: AbortSignal) => {
     if (!tela) return null;
@@ -166,7 +147,10 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
     let ativo = true;
     let ultimoFoco = 0;
     let disparos = 0;
-    let resolvida = false;
+    /* Dispensado só na primeira tela da sessão que veio do login. A partir da
+       segunda o portão volta a valer normalmente. */
+    let resolvida = portaoDispensado.current;
+    portaoDispensado.current = false;
     let aguardandoConclusao = false;
     /* Zerado a cada troca de tela. Sem isto, o mapa de versões de Vendas (só
        "pedidos") era comparado com o de Métricas (cinco fontes), as quatro
@@ -288,7 +272,13 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
       <div className="contents" key={geracao} aria-hidden={bloqueado} inert={bloqueado ? true : undefined}>
         {children}
       </div>
-      {bloqueado && <BloqueioAtualizacao progresso={estado?.progresso ?? 0} />}
+      {/* AnimatePresence para que a cobertura saia levando a contagem até 100
+          em vez de sumir no número em que estava. */}
+      <AnimatePresence>
+        {bloqueado && (
+          <BloqueioAtualizacao key="bloqueio" progresso={estado?.progresso ?? 0} tela={tela} />
+        )}
+      </AnimatePresence>
       {!bloqueado && falhou && (
         <TarjaNaoConfirmado
           carimbo={rotularCarimbo(estado?.confirmadoAte ?? estado?.versao)}

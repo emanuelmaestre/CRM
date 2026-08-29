@@ -9,6 +9,7 @@ import { ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { eases, escalonamento, fadeUp, springs, transicao, variantes } from "@/shared/design-system/motion-variants";
 import pagesConfig from "@/config/pages.json";
 import { DESTINO_PADRAO_POS_LOGIN } from "@/shared/lib/auth/destino-pos-login";
+import { marcarEntradaPosLogin } from "@/shared/lib/auth/entrada-pos-login";
 
 const copy = pagesConfig.login;
 
@@ -46,6 +47,10 @@ export function LoginForm({ destino = DESTINO_PADRAO_POS_LOGIN }: {
       // tempo suficiente pra animação do botão (morph + check) ser percebida
       // sem virar um atraso perceptível no fluxo de login.
       window.setTimeout(() => {
+        /* A tela que abre agora não leva o portão de confirmação em cima. Ver
+           entrada-pos-login: o contador em tela cheia logo depois da senha é
+           lido como travamento do login, não como conferência de canal. */
+        marcarEntradaPosLogin();
         router.replace(destino);
         router.refresh();
       }, reduzir ? 150 : 900);
