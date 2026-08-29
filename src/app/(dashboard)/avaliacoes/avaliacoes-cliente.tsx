@@ -5,7 +5,7 @@ import { AvaliacoesLista, type Avaliacao } from "./avaliacoes-lista";
 import { EmpresasRow, CanaisRow } from "./filtro-escopo";
 import {
   BRAND_SLUGS,
-  ajustarMarcasSelecionadasAosCanais,
+  marcasDosCanaisEscolhidos,
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
 
@@ -46,8 +46,7 @@ export function AvaliacoesCliente({ itensIniciais }: {
     if (proximosCanais.has(tipo)) proximosCanais.delete(tipo); else proximosCanais.add(tipo);
     const canaisLista = [...proximosCanais];
     setCanaisAtivos(proximosCanais);
-    setMarcasAtivas((atuais) => new Set(ajustarMarcasSelecionadasAosCanais(
-      [...atuais],
+    setMarcasAtivas(new Set(marcasDosCanaisEscolhidos(
       canaisLista,
       BRAND_SLUGS.map((slug) => ({ id: slug, slug })),
     )));

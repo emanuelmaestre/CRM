@@ -19,7 +19,8 @@ import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import {
-  ajustarMarcasSelecionadasAosCanais,
+  empresaSemCanalEscolhido,
+  marcasDosCanaisEscolhidos,
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
@@ -443,7 +444,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
   // Sem marca ou canal escolhidos não há o que carregar: a tela mostra o
   // convite, e as contagens de marca/canal (rápidas) já estão aquecendo por
   // trás para quando a escolha acontecer.
-  const escopoDefinido = brandIds.length > 0 || canaisSel.length > 0;
+  const faltaCanal = empresaSemCanalEscolhido(brandIds, canaisSel);
+  const escopoDefinido = !faltaCanal && (brandIds.length > 0 || canaisSel.length > 0);
 
   useAtualizacaoLocal("vendas", useCallback(() => {
     if (!escopoDefinido) return;
@@ -492,8 +494,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
       ? canaisSel.filter((canal) => canal !== tipo)
       : [...canaisSel, tipo];
     setCanaisSel(proximosCanais);
-    setBrandIds((atuais) => ajustarMarcasSelecionadasAosCanais(
-      atuais,
+    setBrandIds(marcasDosCanaisEscolhidos(
       proximosCanais,
       marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
     ));
@@ -610,7 +611,12 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
           transition={springs.settleFast}
           className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
-          <EmptyState illustration="revenue" title="Escolha uma empresa ou canal para começar" />
+          <EmptyState
+            illustration="revenue"
+            title={faltaCanal
+              ? "Escolha também um canal para ver os pedidos da empresa"
+              : "Escolha um canal para começar"}
+          />
         </motion.div>
       ) : (
       <div className="flex flex-col gap-4">

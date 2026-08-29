@@ -10,7 +10,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
 import { springs } from "@/shared/design-system/motion-variants";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { empresaSemCanalEscolhido, getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import { moeda } from "@/shared/design-system/format";
@@ -589,7 +589,8 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itens]);
 
-  const semFiltro = marcasAtivas.size === 0 && canaisAtivos.size === 0;
+  const faltaCanal = empresaSemCanalEscolhido(marcasAtivas, canaisAtivos);
+  const semFiltro = (marcasAtivas.size === 0 && canaisAtivos.size === 0) || faltaCanal;
 
   const filtrados = useMemo(() => {
     const termo = buscaAdiada.trim().toLocaleLowerCase("pt-BR");
@@ -656,8 +657,10 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
       <div className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.06)]">
         <EmptyState
           illustration="reviews"
-          title="Selecione um filtro"
-          description="Escolha uma marca ou canal acima para ver as opiniões."
+          title={faltaCanal ? "Falta o canal" : "Selecione um filtro"}
+          description={faltaCanal
+            ? "Escolha também um canal acima para ver as opiniões da empresa."
+            : "Escolha um canal acima para ver as opiniões."}
         />
       </div>
     );

@@ -36,15 +36,21 @@ describe("filtros de Avaliações", () => {
       expect(filtro).toBeEnabled();
     }
 
+    // O canal acende as empresas que operam nele — as três, aqui.
     fireEvent.click(mercadoLivre);
     expect(mercadoLivre).toHaveAttribute("aria-pressed", "true");
-    // O canal não marca empresa nenhuma sozinho.
-    expect(karzi).toHaveAttribute("aria-pressed", "false");
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
+    expect(armarinhos).toHaveAttribute("aria-pressed", "true");
+    expect(wuwu).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Mostrando 30 de 65 anúncios")).toBeInTheDocument();
 
-    fireEvent.click(karzi);
+    // Desmarcar estreita: sobra a KARZI, com os 15 anúncios dela.
+    fireEvent.click(armarinhos);
+    fireEvent.click(wuwu);
     expect(karzi).toHaveAttribute("aria-pressed", "true");
     expect(screen.getAllByText(/^Produto /)).toHaveLength(15);
 
+    // E devolver Armarinhos Lima traz os 65 de volta.
     fireEvent.click(armarinhos);
     expect(armarinhos).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Mostrando 30 de 65 anúncios")).toBeInTheDocument();
@@ -73,17 +79,19 @@ describe("filtros de Avaliações", () => {
     const shopee = screen.getByRole("button", { name: "Shopee" });
     const karzi = screen.getByRole("button", { name: /Karzi/i });
 
+    // A Shopee não acende a KARZI: ela não opera nesse canal.
     fireEvent.click(shopee);
     expect(karzi).toHaveAttribute("aria-disabled", "true");
     expect(karzi).toHaveAttribute("aria-pressed", "false");
 
-    // Com o Mercado Livre junto ela volta a operar — mas quem marca é o clique.
+    // Com o Mercado Livre junto ela volta a operar e acende.
     fireEvent.click(mercadoLivre);
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
+    // E continua livre pra desligar e ligar de novo.
+    fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(karzi);
-    expect(karzi).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(mercadoLivre);
     expect(karzi).toHaveAttribute("aria-disabled", "true");
@@ -111,7 +119,6 @@ describe("distribuição de notas com os dois formatos de canal", () => {
       comNiveis({ "1": 0, "2": 0, "3": 1, "4": 0, "5": 3 }, "shopee"),
     ]} />);
     fireEvent.click(screen.getByRole("button", { name: "Shopee" }));
-    fireEvent.click(screen.getByRole("button", { name: "WUWU" }));
 
     expect(screen.getByText(/4 opiniões/)).toBeInTheDocument();
     expect(screen.queryByText(/0 opiniões/)).not.toBeInTheDocument();
@@ -122,7 +129,6 @@ describe("distribuição de notas com os dois formatos de canal", () => {
       comNiveis({ uma: 1, duas: 0, tres: 0, quatro: 0, cinco: 1 }, "mercadolivre"),
     ]} />);
     fireEvent.click(screen.getByRole("button", { name: "Mercado Livre" }));
-    fireEvent.click(screen.getByRole("button", { name: "KARZI" }));
 
     expect(screen.getByText(/2 opiniões/)).toBeInTheDocument();
   });
@@ -134,10 +140,6 @@ describe("distribuição de notas com os dois formatos de canal", () => {
     ]} />);
     fireEvent.click(screen.getByRole("button", { name: "Shopee" }));
     fireEvent.click(screen.getByRole("button", { name: "Mercado Livre" }));
-    fireEvent.click(screen.getByRole("button", { name: "WUWU" }));
-    // Exato: com um anúncio da KARZI na tela, /karzi/i casa com o chip de
-    // filtro e também com a linha do anúncio.
-    fireEvent.click(screen.getByRole("button", { name: "KARZI" }));
 
     expect(screen.getByText(/5 opiniões/)).toBeInTheDocument();
   });

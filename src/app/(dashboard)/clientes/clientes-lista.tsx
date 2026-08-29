@@ -15,7 +15,8 @@ import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import {
-  ajustarMarcasSelecionadasAosCanais,
+  empresaSemCanalEscolhido,
+  marcasDosCanaisEscolhidos,
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
@@ -280,7 +281,9 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
   // Sem marca, canal ou busca escolhidos não há o que carregar: a tela
   // mostra o convite, e as contagens de marca/canal (rápidas) já estão
   // aquecendo por trás para quando a escolha acontecer.
-  const escopoDefinido = brandIds.size > 0 || canaisSelecionados.size > 0 || busca.trim() !== "";
+  const faltaCanal = empresaSemCanalEscolhido(brandIds, canaisSelecionados);
+  const escopoDefinido = !faltaCanal
+    && (brandIds.size > 0 || canaisSelecionados.size > 0 || busca.trim() !== "");
 
   useEffect(() => {
     if (!escopoDefinido) return;
@@ -313,8 +316,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
     else proximosCanais.add(tipo);
     const canaisLista = [...proximosCanais];
     setCanaisSelecionados(proximosCanais);
-    setBrandIds((atuais) => new Set(ajustarMarcasSelecionadasAosCanais(
-      [...atuais],
+    setBrandIds(new Set(marcasDosCanaisEscolhidos(
       canaisLista,
       marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
     )));
@@ -388,7 +390,7 @@ export function ClientesLista({ marcasIniciais = [], canaisIniciais = [] }: {
           transition={transicao(reduzir, springs.settleFast)}
           className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
-          <EmptyState illustration="clients" title={copy.escolha.title} />
+          <EmptyState illustration="clients" title={faltaCanal ? copy.escolha.semCanal : copy.escolha.title} />
         </motion.div>
       ) : (
       <motion.div

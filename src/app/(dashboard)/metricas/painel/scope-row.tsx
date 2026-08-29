@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import {
-  ajustarMarcasSelecionadasAosCanais,
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
+  marcasDosCanaisEscolhidos,
 } from "@/shared/config/brands";
 import channelsConfig from "@/config/channels.json";
 
@@ -102,8 +102,7 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
 
   function alternarCanal(tipo: string) {
     const proximosCanais = alternar(filtro.canal, tipo);
-    const proximasMarcas = ajustarMarcasSelecionadasAosCanais(
-      filtro.brandId,
+    const proximasMarcas = marcasDosCanaisEscolhidos(
       proximosCanais,
       marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
     );

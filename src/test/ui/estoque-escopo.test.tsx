@@ -78,8 +78,12 @@ beforeEach(() => {
       });
     }
     // Com mais de uma empresa marcada, a lista soma o catálogo de cada uma —
-    // é o comportamento que distingue multi-seleção de um simples radio.
-    const selecionadas = MARCAS.filter((m) => opts.brandIds?.includes(m.brandId) && m.total > 0);
+    // é o comportamento que distingue multi-seleção de um simples radio. Sem
+    // empresa marcada, a consulta é a do canal inteiro e entram todas.
+    const noEscopo = opts.brandIds?.length
+      ? MARCAS.filter((m) => opts.brandIds!.includes(m.brandId))
+      : MARCAS;
+    const selecionadas = noEscopo.filter((m) => m.total > 0);
     if (selecionadas.length === 0) {
       return Promise.resolve({ data: [], total: 0, permissions: { canManage: true }, marcas: MARCAS, canais: CANAIS, indicadores: null });
     }
@@ -129,22 +133,47 @@ describe("Estoque — escopo por empresa", () => {
     );
   });
 
-  it("escolher a empresa revela a lista; clicar de novo volta para a tela limpa", async () => {
+  it("empresa sem canal não abre a lista — o convite continua no lugar dela", async () => {
     render(<EstoqueLista />);
 
     const karzi = await screen.findByRole("button", { name: "KARZI" });
     fireEvent.click(karzi);
 
+    // Marcada, sim; mas empresa sozinha significaria somar os três canais,
+    // que é justamente o que a tela não mostra (ver `empresaSemCanalEscolhido`).
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByTestId("estoque-escolha-empresa")).toBeInTheDocument();
+    expect(screen.queryByTestId("estoque-table")).not.toBeInTheDocument();
+    expect(listarProdutos).not.toHaveBeenCalled();
+
+    // O canal completa o escopo e só então a lista aparece.
+    fireEvent.click(await screen.findByRole("button", { name: /^Mercado Livre/ }));
     expect(await screen.findByTestId("estoque-table")).toBeInTheDocument();
-    expect(screen.queryByTestId("estoque-escolha-empresa")).not.toBeInTheDocument();
+  });
+
+  it("o canal abre a lista e acende as empresas dele; tirar o canal volta à tela limpa", async () => {
+    render(<EstoqueLista />);
+
+    const karzi = await screen.findByRole("button", { name: "KARZI" });
+    const wuwu = await screen.findByRole("button", { name: "WUWU" });
+    const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
+
+    // Canal sozinho já é escopo: entra o canal inteiro, com as empresas que
+    // operam nele marcadas no filtro.
+    fireEvent.click(ml);
+    expect(await screen.findByTestId("estoque-table")).toBeInTheDocument();
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
+    expect(wuwu).toHaveAttribute("aria-pressed", "true");
     // Cartão mobile e tabela coexistem no DOM (quem esconde um dos dois é o
     // CSS, que o jsdom não aplica), então o nome aparece duas vezes.
     expect((await screen.findAllByText("Produto KARZI")).length).toBeGreaterThan(0);
 
-    fireEvent.click(karzi);
-
+    // Tirar o canal apaga tudo: empresa sem canal não mostra dado.
+    fireEvent.click(ml);
     expect(await screen.findByTestId("estoque-escolha-empresa")).toBeInTheDocument();
     expect(screen.queryByTestId("estoque-table")).not.toBeInTheDocument();
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
+    expect(wuwu).toHaveAttribute("aria-pressed", "false");
   });
 
   it("recontagem das empresas acompanha o(s) canal(is) selecionado(s)", async () => {
@@ -153,9 +182,20 @@ describe("Estoque — escopo por empresa", () => {
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
-    // Canal sozinho não é escopo (e não marca empresa nenhuma no lugar de
-    // quem clicou) — a empresa continua sendo um clique à parte.
-    fireEvent.click(karzi);
+    // O canal leva junto as empresas que operam nele.
+    await waitFor(() => {
+      expect(listarProdutos).toHaveBeenCalledWith(
+        expect.objectContaining({
+          brandIds: MARCAS.map((marca) => marca.brandId),
+          canalTipos: ["mercadolivre"],
+        }),
+      );
+    });
+
+    // Desmarcar as outras duas deixa o recorte na KARZI sozinha.
+    fireEvent.click(await screen.findByRole("button", { name: "WUWU" }));
+    fireEvent.click(await screen.findByRole("button", { name: "ARMARINHOS LIMA" }));
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
 
     await waitFor(() => {
       expect(listarProdutos).toHaveBeenCalledWith(
@@ -167,31 +207,23 @@ describe("Estoque — escopo por empresa", () => {
     });
   });
 
-  it("Mercado Livre não marca empresa nenhuma sozinho; a KARZI abre a lista no clique dela", async () => {
+  it("com o canal ligado, a empresa continua livre pra desligar e ligar de novo", async () => {
     render(<EstoqueLista />);
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     const karzi = await screen.findByRole("button", { name: "KARZI" });
     fireEvent.click(ml);
-
-    expect(karzi).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByTestId("estoque-table")).not.toBeInTheDocument();
-
-    fireEvent.click(karzi);
-    await waitFor(() => {
-      expect(listarProdutos).toHaveBeenCalledWith(
-        expect.objectContaining({
-          brandIds: [MARCAS[0].brandId],
-          canalTipos: ["mercadolivre"],
-        }),
-      );
-    });
-    expect(karzi).toHaveAttribute("aria-pressed", "true");
     expect(await screen.findByTestId("estoque-table")).toBeInTheDocument();
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
 
-    // E dá pra desmarcar com o Mercado Livre ligado — a trava que não deixava.
+    // A trava antiga: o Mercado Livre grudava a empresa e não deixava tirar.
     fireEvent.click(karzi);
     await waitFor(() => expect(karzi).toHaveAttribute("aria-pressed", "false"));
+    // Sai do recorte, mas a lista do canal continua na tela.
+    expect(screen.getByTestId("estoque-table")).toBeInTheDocument();
+
+    fireEvent.click(karzi);
+    await waitFor(() => expect(karzi).toHaveAttribute("aria-pressed", "true"));
   });
 
   it("bloqueia a KARZI quando somente a Shopee esta selecionada", async () => {
@@ -206,11 +238,11 @@ describe("Estoque — escopo por empresa", () => {
     expect(karzi).toHaveAttribute("aria-disabled", "true");
     expect(karzi).toHaveAttribute("aria-pressed", "false");
 
-    // Com o Mercado Livre junto ela volta a operar, mas só marca no clique.
+    // Com o Mercado Livre junto ela volta a operar — e acende com o canal.
     fireEvent.click(ml);
-    expect(karzi).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(karzi);
+    expect(karzi).toHaveAttribute("aria-pressed", "false");
 
     fireEvent.click(ml);
     expect(karzi).toHaveAttribute("aria-disabled", "true");
@@ -223,13 +255,30 @@ describe("Estoque — escopo por empresa", () => {
     const karzi = await screen.findByRole("button", { name: "KARZI" });
     const wuwu = await screen.findByRole("button", { name: "WUWU" });
 
-    fireEvent.click(karzi);
+    // Aqui o assunto é multi-seleção de empresa, não a recontagem por canal
+    // (essa tem teste próprio acima): as contagens ficam paradas para as duas
+    // empresas seguirem clicáveis com o Mercado Livre ligado.
+    listarProdutos.mockImplementation((opts: { brandIds?: string[] } = {}) => {
+      const selecionadas = MARCAS.filter((m) => opts.brandIds?.includes(m.brandId) && m.total > 0);
+      return Promise.resolve({
+        data: selecionadas.map((m) => produtoDe(m.brandId, `SKU-${m.slug}`, `Produto ${m.name}`, m.slug, m.name)),
+        total: selecionadas.reduce((soma, m) => soma + m.total, 0),
+        permissions: { canManage: true },
+        marcas: MARCAS, canais: CANAIS, indicadores: null,
+      });
+    });
+
+    // Canal primeiro: sem ele, empresa marcada não abre lista nenhuma. Ele
+    // já traz as duas acesas.
+    fireEvent.click(await screen.findByRole("button", { name: /^Mercado Livre/ }));
     expect(await screen.findByTestId("estoque-table")).toBeInTheDocument();
-    expect(karzi).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(wuwu);
+    // Desmarcar e remarcar a KARZI não mexe na WUWU — não é um radio, é um
+    // conjunto.
+    fireEvent.click(karzi);
+    await waitFor(() => expect(karzi).toHaveAttribute("aria-pressed", "false"));
+    fireEvent.click(karzi);
 
-    // As duas seguem marcadas — não é um radio, é um conjunto.
     await waitFor(() => expect(karzi).toHaveAttribute("aria-pressed", "true"));
     expect(wuwu).toHaveAttribute("aria-pressed", "true");
 
@@ -294,13 +343,9 @@ describe("Estoque — escopo por empresa", () => {
 
     const ml = await screen.findByRole("button", { name: /^Mercado Livre/ });
     fireEvent.click(ml);
-    fireEvent.click(await screen.findByRole("button", { name: "KARZI" }));
     await waitFor(() => {
       expect(listarProdutos).toHaveBeenCalledWith(
-        expect.objectContaining({
-          brandIds: [MARCAS[0].brandId],
-          canalTipos: ["mercadolivre"],
-        }),
+        expect.objectContaining({ canalTipos: ["mercadolivre"] }),
       );
     });
     expect(ml).toHaveAttribute("aria-pressed", "true");

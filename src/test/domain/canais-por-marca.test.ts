@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   BRAND_SLUGS,
-  ajustarMarcasSelecionadasAosCanais,
   canaisDaMarca,
+  empresaSemCanalEscolhido,
   marcaDisponivelNosCanais,
+  marcasDosCanaisEscolhidos,
 } from "@/shared/config/brands";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
 
@@ -36,18 +37,37 @@ describe("canais de venda por marca", () => {
     expect(marcaDisponivelNosCanais("karzi", [])).toBe(true);
   });
 
-  it("nao marca empresa sozinha ao escolher um canal, so tira a incompativel", () => {
+  it("escolher um canal acende as empresas que operam nele", () => {
     const marcas = [
       { id: "karzi-id", slug: "karzi" },
       { id: "wuwu-id", slug: "wuwu" },
     ];
 
-    // Mercado Livre nao acrescenta a KARZI: quem escolhe a empresa e o usuario.
-    expect(ajustarMarcasSelecionadasAosCanais([], ["mercadolivre"], marcas)).toEqual([]);
-    expect(ajustarMarcasSelecionadasAosCanais(["wuwu-id"], ["mercadolivre"], marcas)).toEqual(["wuwu-id"]);
-    // KARZI selecionada continua selecionada com Mercado Livre, e da pra tirar.
-    expect(ajustarMarcasSelecionadasAosCanais(["karzi-id"], ["mercadolivre"], marcas)).toEqual(["karzi-id"]);
-    // Shopee, onde a KARZI nao opera, e o unico caso que remove.
-    expect(ajustarMarcasSelecionadasAosCanais(["karzi-id", "wuwu-id"], ["shopee"], marcas)).toEqual(["wuwu-id"]);
+    // Mercado Livre traz as duas: o canal e a porta de entrada da lista.
+    expect(marcasDosCanaisEscolhidos(["mercadolivre"], marcas)).toEqual(["karzi-id", "wuwu-id"]);
+    // Shopee acende so quem opera nela — a KARZI fica de fora.
+    expect(marcasDosCanaisEscolhidos(["shopee"], marcas)).toEqual(["wuwu-id"]);
+    // Uniao de canais: basta operar em um deles.
+    expect(marcasDosCanaisEscolhidos(["mercadolivre", "shopee"], marcas)).toEqual(["karzi-id", "wuwu-id"]);
+    // Sem canal nao sobra empresa marcada — empresa sem canal nao mostra dado.
+    expect(marcasDosCanaisEscolhidos([], marcas)).toEqual([]);
+  });
+});
+
+describe("empresa sem canal escolhido", () => {
+  it("so bloqueia quando ha empresa marcada e nenhum canal", () => {
+    expect(empresaSemCanalEscolhido(["karzi-id"], [])).toBe(true);
+    // Canal sozinho continua sendo um recorte valido: um canal, com as
+    // empresas que operam nele dentro.
+    expect(empresaSemCanalEscolhido([], ["mercadolivre"])).toBe(false);
+    expect(empresaSemCanalEscolhido(["karzi-id"], ["mercadolivre"])).toBe(false);
+    // Nada marcado nao e "empresa sem canal" — e a tela limpa de sempre.
+    expect(empresaSemCanalEscolhido([], [])).toBe(false);
+  });
+
+  it("le array e Set, que e como as telas guardam a selecao", () => {
+    expect(empresaSemCanalEscolhido(new Set(["karzi-id"]), new Set())).toBe(true);
+    expect(empresaSemCanalEscolhido(new Set(["karzi-id"]), ["shopee"])).toBe(false);
+    expect(empresaSemCanalEscolhido([], new Set(["shopee"]))).toBe(false);
   });
 });

@@ -24,21 +24,32 @@ function SeletorTeste() {
 }
 
 describe("compatibilidade entre canais e marcas", () => {
-  it("Mercado Livre nao marca a KARZI sozinho, e ela continua livre pra ligar e desligar", () => {
+  it("Mercado Livre acende as empresas dele, e cada uma continua livre pra ligar e desligar", () => {
     render(<SeletorTeste />);
 
     const mercadoLivre = screen.getByRole("button", { name: "Mercado Livre" });
     const karzi = screen.getByRole("button", { name: "KARZI" });
+    const wuwu = screen.getByRole("button", { name: "WUWU" });
 
+    // O canal é a porta de entrada: escolhê-lo traz as empresas que operam
+    // nele já marcadas.
     fireEvent.click(mercadoLivre);
+    expect(karzi).toHaveAttribute("aria-pressed", "true");
+    expect(wuwu).toHaveAttribute("aria-pressed", "true");
+
+    // O ponto da reclamação antiga continua valendo: dá pra desmarcar uma
+    // delas com o Mercado Livre ligado, e a outra fica.
+    fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "false");
+    expect(wuwu).toHaveAttribute("aria-pressed", "true");
 
     fireEvent.click(karzi);
     expect(karzi).toHaveAttribute("aria-pressed", "true");
 
-    // O ponto da reclamação: com o Mercado Livre ligado, dá pra desmarcar.
-    fireEvent.click(karzi);
+    // Tirar o último canal apaga tudo: empresa sem canal não mostra dado.
+    fireEvent.click(mercadoLivre);
     expect(karzi).toHaveAttribute("aria-pressed", "false");
+    expect(wuwu).toHaveAttribute("aria-pressed", "false");
   });
 
   it("bloqueia a KARZI quando sobra apenas Shopee, canal onde ela nao opera", () => {
@@ -46,11 +57,11 @@ describe("compatibilidade entre canais e marcas", () => {
 
     const shopee = screen.getByRole("button", { name: "Shopee" });
     const karzi = screen.getByRole("button", { name: "KARZI" });
-
-    fireEvent.click(karzi);
-    expect(karzi).toHaveAttribute("aria-pressed", "true");
+    const wuwu = screen.getByRole("button", { name: "WUWU" });
 
     fireEvent.click(shopee);
+    // Shopee acende so quem opera nela.
+    expect(wuwu).toHaveAttribute("aria-pressed", "true");
     expect(karzi).toHaveAttribute("aria-pressed", "false");
     expect(karzi).toHaveAttribute("aria-disabled", "true");
     expect(karzi).toHaveAttribute("title", "KARZI não opera nos canais selecionados.");

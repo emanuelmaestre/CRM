@@ -27,7 +27,8 @@ import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import {
-  ajustarMarcasSelecionadasAosCanais,
+  empresaSemCanalEscolhido,
+  marcasDosCanaisEscolhidos,
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
@@ -324,8 +325,13 @@ const ROTULO_DO_FILTRO: Partial<Record<Filtro, string>> = {
  *  aparecem depois que existe escopo. A pessoa escolhia a empresa e via uma
  *  lista já filtrada que ela não pediu ali, sem nada explicando de onde o
  *  recorte tinha saído. */
-function tituloDaEscolha(filtro: Filtro): string {
+function tituloDaEscolha(filtro: Filtro, faltaCanal: boolean): string {
   const rotulo = ROTULO_DO_FILTRO[filtro];
+  if (faltaCanal) {
+    return rotulo
+      ? copy.escolha.semCanalComFiltro.replace("{filtro}", rotulo)
+      : copy.escolha.semCanal;
+  }
   return rotulo
     ? copy.escolha.titleComFiltro.replace("{filtro}", rotulo)
     : copy.escolha.title;
@@ -777,16 +783,20 @@ export function EstoqueLista({
     });
   }, []);
 
-  /* A empresa é o que abre a lista — canal sozinho não abre. Um canal tem as
-     três empresas dentro, então revelar a lista por canal traria justamente as
-     três misturadas, que é o que a tela existe para evitar. Canal segue como
-     estreitador: recontagem as pílulas de empresa e, depois de escolhida uma,
-     recorta a lista dela. Busca abre porque um SKU já é um escopo exato.
+  /* O canal é o que abre a lista: escolhido um canal, entram todas as empresas
+     que operam nele, e marcar uma empresa depois estreita o recorte. Busca
+     abre porque um SKU já é um escopo exato.
+
+     O caminho inverso não abre: empresa marcada sem canal marcado significaria
+     somar Mercado Livre + Shopee + TikTok no mesmo produto, e aqui o saldo é
+     o MAIOR entre os canais, nunca a soma (ver `empresaSemCanalEscolhido`).
 
      Sem escopo não há o que carregar: a tela mostra o convite. O que sobrou de
      uma seleção anterior fica em memória sem ser renderizado, então voltar
      para a empresa não provoca aquecimento em segundo plano. */
-  const escopoDefinido = brandIds.size > 0 || busca.trim() !== "";
+  const faltaCanal = empresaSemCanalEscolhido(brandIds, canaisSelecionados);
+  const escopoDefinido = !faltaCanal
+    && (canaisSelecionados.size > 0 || brandIds.size > 0 || busca.trim() !== "");
 
   useAtualizacaoLocal("estoque", useCallback(() => {
     if (!escopoDefinido) return;
@@ -794,13 +804,13 @@ export function EstoqueLista({
     carregarIndicadores(brandIdsArray, canaisArray);
   }, [escopoDefinido, carregar, carregarIndicadores, brandIdsArray, canaisArray, busca, filtro]), { fontes: ["estoque"] });
 
-  // Recuperação leve para navegação cliente ou falha do carregamento inicial.
-  // Também mantém as contagens cruzadas quando só o canal está marcado, sem
-  // buscar produtos, indicadores ou bloquear os controles.
+  // Recuperação leve para navegação cliente ou falha do carregamento inicial:
+  // sem marca nem canal na tela não há filtro para tocar. As contagens
+  // cruzadas por canal não passam mais por aqui — quando há canal marcado há
+  // escopo, e a busca de produtos já devolve o contexto atualizado.
   useEffect(() => {
     const precisaRecuperarIniciais = marcas.length === 0 && canais.length === 0;
-    const somenteCanalMudou = !escopoDefinido && canaisSelecionados.size > 0;
-    if (!precisaRecuperarIniciais && !somenteCanalMudou) return;
+    if (!precisaRecuperarIniciais) return;
 
     const currentRequest = ++filterRequestId.current;
     actionObterFiltrosEstoque({
@@ -915,8 +925,7 @@ export function EstoqueLista({
     else proximosCanais.add(tipo);
     const canaisLista = [...proximosCanais];
     setCanaisSelecionados(proximosCanais);
-    setBrandIds((atuais) => new Set(ajustarMarcasSelecionadasAosCanais(
-      [...atuais],
+    setBrandIds(new Set(marcasDosCanaisEscolhidos(
       canaisLista,
       marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
     )));
@@ -1069,7 +1078,7 @@ export function EstoqueLista({
         >
           <EmptyState
             illustration="restock"
-            title={tituloDaEscolha(filtro)}
+            title={tituloDaEscolha(filtro, faltaCanal)}
             description={
               <span className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground">
                 <Check size={12} strokeWidth={3} style={{ color: COR.ok }} />

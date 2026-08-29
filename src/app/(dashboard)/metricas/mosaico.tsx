@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { stagger } from "@/shared/design-system/motion-variants";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { empresaSemCanalEscolhido, getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import metricasConfig from "@/config/metricas.json";
 
@@ -88,7 +88,8 @@ function chaveFiltro(periodo: Periodo, filtro: CardFiltro) {
 }
 
 function semFiltroDefinido(filtro: CardFiltro) {
-  return filtro.brandId.length === 0 && filtro.canal.length === 0;
+  return (filtro.brandId.length === 0 && filtro.canal.length === 0)
+    || empresaSemCanalEscolhido(filtro.brandId, filtro.canal);
 }
 
 /** Cópia local da mesma conta de `snapshot-metricas.service.ts` — não dá
@@ -328,6 +329,11 @@ export function Mosaico({
     });
   }, [marcas, canais]);
 
+  /* Empresa marcada e nenhum canal marcado: o mosaico inteiro para. Cada
+     card já respeita isso por dentro (ver `semFiltroDefinido`), mas Saúde da
+     loja — que alimenta Score e Comparação — buscava por fora dessa régua. */
+  const escopoIncompleto = empresaSemCanalEscolhido(filtroGlobal.brandId, filtroGlobal.canal);
+
   const faturamento = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
   const reposicao = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
   const maisVendidos = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
@@ -376,6 +382,7 @@ export function Mosaico({
 
   useEffect(() => {
     if (primeiraSaude.current) { primeiraSaude.current = false; return; }
+    if (escopoIncompleto) return;
     let ativo = true;
     actionObterSaudeLoja({ inicio, fim, brandIds: brandIdsEscolhidos, canais: canaisEscolhidos })
       .then((resultado) => { if (ativo) setSaude({ chave, dados: resultado }); })
@@ -385,9 +392,10 @@ export function Mosaico({
         toast.error(metricasConfig.erros.carregar, { id: "metricas-saude" });
       });
     return () => { ativo = false; };
-  }, [chave, inicio, fim, brandIdsEscolhidos, canaisEscolhidos, versaoSaude]);
+  }, [chave, inicio, fim, brandIdsEscolhidos, canaisEscolhidos, versaoSaude, escopoIncompleto]);
 
-  const carregandoSaude = saude.chave !== chave;
+  const carregandoSaude = !escopoIncompleto && saude.chave !== chave;
+  const dadosSaude = escopoIncompleto ? null : saude.dados;
 
   /* ── Pós-venda, Recomendações e Publicações (1ª marca) ──
      Esses três buscavam de dentro do próprio card, e o card só montava
@@ -505,11 +513,15 @@ export function Mosaico({
      esvaziava o card em vez de mostrar os anúncios dela. Sem filtro de canal
      = todos os canais com publicidade, e um canal sem publicidade (TikTok)
      simplesmente não entra na lista. */
-  const canaisPublicacoes = useMemo<PlataformaAnuncios[]>(() => (
-    filtroGlobal.canal.length === 0
+  const canaisPublicacoes = useMemo<PlataformaAnuncios[]>(() => {
+    // Empresa marcada sem canal marcado não vira "todas as plataformas":
+    // é escopo incompleto, e o card espera a escolha (ver
+    // `empresaSemCanalEscolhido`).
+    if (empresaSemCanalEscolhido(filtroGlobal.brandId, filtroGlobal.canal)) return [];
+    return filtroGlobal.canal.length === 0
       ? [...PLATAFORMAS_ANUNCIOS]
-      : PLATAFORMAS_ANUNCIOS.filter((canal) => filtroGlobal.canal.includes(canal))
-  ), [filtroGlobal.canal]);
+      : PLATAFORMAS_ANUNCIOS.filter((canal) => filtroGlobal.canal.includes(canal));
+  }, [filtroGlobal.brandId, filtroGlobal.canal]);
   const publicacoesNoEscopo = canaisPublicacoes.length > 0;
   const periodoPublicacoes = periodoEfetivo(periodo);
   const chavePublicacoes = `${periodoPublicacoes.inicio}..${periodoPublicacoes.fim}|${idsPublicacoes.join(",")}|${canaisPublicacoes.join(",")}`;
@@ -688,23 +700,24 @@ export function Mosaico({
     // próprio cabeçalho (ACENTO) — antes esse fallback divergia da cor real
     // do card. Com dado, o score manda: a cor representa a saúde atual, não
     // uma identidade fixa.
-    accent: saude.dados?.faixaGeralCor ?? "var(--acento-2)",
+    accent: dadosSaude?.faixaGeralCor ?? "var(--acento-2)",
     carregando: carregandoSaude,
+    semFiltro: escopoIncompleto,
     resumo: {
-      valor: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
-        ? String(Math.round(saude.dados.scoreGeral))
+      valor: dadosSaude?.scoreGeral !== null && dadosSaude?.scoreGeral !== undefined
+        ? String(Math.round(dadosSaude.scoreGeral))
         : null,
-      legenda: saude.dados?.faixaGeralLabel ?? blocosCopy.score.legenda,
+      legenda: dadosSaude?.faixaGeralLabel ?? blocosCopy.score.legenda,
       // Variação real contra a foto de ontem (job A30) quando ela já
       // existe; sem base ainda, cai no "/100" pra não deixar o card mudo.
-      variacao: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
-        ? calcularVariacao(Math.round(saude.dados.scoreGeral), snapshotComparavel?.scoreGeral ?? null)
+      variacao: dadosSaude?.scoreGeral !== null && dadosSaude?.scoreGeral !== undefined
+        ? calcularVariacao(Math.round(dadosSaude.scoreGeral), snapshotComparavel?.scoreGeral ?? null)
         : null,
-      sinal: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
+      sinal: dadosSaude?.scoreGeral !== null && dadosSaude?.scoreGeral !== undefined
         ? { texto: "/100", tom: "neutro" as const }
         : undefined,
-      alerta: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined && saude.dados.scoreGeral < 50
-        ? { nivel: saude.dados.scoreGeral < 30 ? "critico" : "atencao", texto: saude.dados.faixaGeralLabel ?? "Atenção" }
+      alerta: dadosSaude?.scoreGeral !== null && dadosSaude?.scoreGeral !== undefined && dadosSaude.scoreGeral < 50
+        ? { nivel: dadosSaude.scoreGeral < 30 ? "critico" : "atencao", texto: dadosSaude.faixaGeralLabel ?? "Atenção" }
         : null,
     },
     explicacao: {
@@ -716,7 +729,7 @@ export function Mosaico({
       ],
       dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso na pontuação exibida.",
     },
-    preview: saude.dados?.scoreGeral !== null && saude.dados?.scoreGeral !== undefined
+    preview: dadosSaude?.scoreGeral !== null && dadosSaude?.scoreGeral !== undefined
       // "PONTOS" no lugar da faixa ("EXCELENTE" etc.): a faixa não cabe
       // num anel de 56px em nenhum tamanho de fonte, mas ela já aparece
       // como texto normal embaixo do número no corpo do card — "pontos" é
@@ -729,8 +742,8 @@ export function Mosaico({
           {/* Menor no mobile: o anel dividia a linha com o número/legenda
               ("WUWU lidera" cortava do mesmo jeito aqui) — 40px no lugar de
               56px libera espaço sem perder legibilidade do "89" dentro. */}
-          <span className="lg:hidden"><AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={40} /></span>
-          <span className="hidden lg:inline-block"><AnelScore valor={saude.dados.scoreGeral} cor={saude.dados.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} /></span>
+          <span className="lg:hidden"><AnelScore valor={dadosSaude.scoreGeral} cor={dadosSaude.faixaGeralCor ?? "var(--acento-2)"} tamanho={40} /></span>
+          <span className="hidden lg:inline-block"><AnelScore valor={dadosSaude.scoreGeral} cor={dadosSaude.faixaGeralCor ?? "var(--acento-2)"} tamanho={56} /></span>
         </>
       )
       : undefined,
@@ -739,11 +752,11 @@ export function Mosaico({
     previewAlinhamento: "start",
     chips: chipsDoFiltro,
     temLegendaStatus: true,
-    render: (acaoSlot) => <ScoreCard dados={saude.dados} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
-  }), [saude.dados, carregandoSaude, snapshotComparavel, chipsDoFiltro]);
+    render: (acaoSlot) => <ScoreCard dados={dadosSaude} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
+  }), [dadosSaude, carregandoSaude, escopoIncompleto, snapshotComparavel, chipsDoFiltro]);
 
   const blocoComparacao = useMemo<BlocoDef>(() => {
-    const marcasPorFaturamento = [...(saude.dados?.marcas ?? [])]
+    const marcasPorFaturamento = [...(dadosSaude?.marcas ?? [])]
       .sort((a, b) => b.faturamento - a.faturamento);
     const lider = marcasPorFaturamento[0];
     const vantagemDaLider = calcularVantagemPercentualDaLider(
@@ -758,8 +771,9 @@ export function Mosaico({
     // Mesma cor do ACENTO em comparacao-card.tsx.
     accent: "var(--acento-3)",
     carregando: carregandoSaude,
+    semFiltro: escopoIncompleto,
     resumo: {
-      valor: saude.dados ? String(saude.dados.marcas.length) : null,
+      valor: dadosSaude ? String(dadosSaude.marcas.length) : null,
       // Quem está na frente por faturamento vira parte da legenda — a
       // resposta que o card dá antes de ser aberto.
       legenda: lider ? `${lider.marcaLabel} lidera em faturamento` : blocosCopy.comparacao.legenda,
@@ -780,15 +794,15 @@ export function Mosaico({
       ],
       dica: "Cancelamento é o único critério em que o menor valor lidera. Por isso, 0% aparece no topo da classificação, e não no fim.",
     },
-    preview: saude.dados && saude.dados.marcas.length > 0
-      ? <BarrasMarca dados={saude.dados.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel, valor: marca.faturamento }))} />
+    preview: dadosSaude && dadosSaude.marcas.length > 0
+      ? <BarrasMarca dados={dadosSaude.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel, valor: marca.faturamento }))} />
       : undefined,
     previewAlinhamento: "start",
     // As marcas que ESTE card compara já respeitam o filtro global.
-    chips: saude.dados?.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })) ?? [],
+    chips: dadosSaude?.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel })) ?? [],
     render: (acaoSlot) => (
       <ComparacaoCard
-        dados={saude.dados}
+        dados={dadosSaude}
         carregando={carregandoSaude}
         acaoSlot={acaoSlot}
         posVenda={posVendaAtual}
@@ -798,7 +812,7 @@ export function Mosaico({
       />
     ),
     });
-  }, [saude.dados, carregandoSaude, posVendaAtual, canais, filtroGlobal]);
+  }, [dadosSaude, carregandoSaude, escopoIncompleto, posVendaAtual, canais, filtroGlobal]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",
@@ -1247,7 +1261,7 @@ export function Mosaico({
                 que já existe dentro do próprio popover de Período (ver
                 CalendarioPopoverRange) — pedido explícito pra tirar da
                 barra de escopo global. */}
-            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={saude.dados?.periodoLabel} semHoje />
+            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={dadosSaude?.periodoLabel} semHoje />
           </div>
         </div>
 
@@ -1351,7 +1365,7 @@ export function Mosaico({
             <BarraPeriodo
               periodo={periodo}
               trocarDatas={trocarDatas}
-              periodoLabel={saude.dados?.periodoLabel}
+              periodoLabel={dadosSaude?.periodoLabel}
               accent={blocoAberto?.accent}
               semHoje={blocoAberto?.id === "comparacao" || blocoAberto?.id === "faturamento"}
             />
