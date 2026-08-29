@@ -50,9 +50,6 @@ const resumoInicial: Resumo = {
   canceladosValor: 0,
   devolvidosQtd: 0,
   devolvidosValor: 0,
-  freteTotal: 0,
-  descontosTotal: 0,
-  taxasTotal: 0,
   liquidoTotal: 0,
 };
 
@@ -560,8 +557,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
           calendário (De:/Até:) ficavam idênticos e sem rótulo visível, um
           embaixo do outro — impossível saber qual era qual. Agora: busca
           sozinha (é o controle principal), status+Período juntos (são
-          atalhos de refinar). O PDF saiu daqui — foi morar perto do
-          contador de pedidos, que é o que ele exporta. */}
+          atalhos de refinar). */}
       <div className="mb-4 flex flex-col gap-2 rounded-[1.25rem] border border-border bg-card/70 p-3 shadow-[0_2px_12px_rgba(14,15,19,.04)] md:grid md:grid-cols-[minmax(200px,1fr)_auto] md:items-center">
         <label className="relative block">
           <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

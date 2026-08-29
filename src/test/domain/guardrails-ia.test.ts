@@ -20,7 +20,7 @@ describe("Guardrails da IA (§11)", () => {
   describe("Saída estruturada e aprovação humana", () => {
     it("usa JSON Schema estrito e sem propriedades extras", () => {
       expect(OPENAI_JSON_SCHEMAS.sugestao_campanha.additionalProperties).toBe(false);
-      expect(OPENAI_JSON_SCHEMAS.documento_executivo.required).toContain("recomendacoes");
+      expect(OPENAI_JSON_SCHEMAS.insight_funil.required).toContain("numerosFonte");
     });
 
     it("só permite decidir sugestão pendente e não expirada", () => {

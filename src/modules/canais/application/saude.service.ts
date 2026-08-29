@@ -243,7 +243,7 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
   const prontidao: PainelSaudeData["prontidao"] = [
     readinessFromMissing("env-core", "Ambiente base", CORE_ENV, "Variáveis essenciais configuradas."),
     readinessFromMissing("inngest", "Inngest", INNGEST_ENV, "Chaves do Inngest presentes para tarefas e notificações automáticas internas."),
-    readinessFromMissing("openai", "OpenAI", OPENAI_ENV, "Chave OpenAI presente para IA e documentos executivos."),
+    readinessFromMissing("openai", "OpenAI", OPENAI_ENV, "Chave OpenAI presente para os recursos de IA."),
     {
       id: "external-sends",
       label: "Envios externos",

@@ -404,7 +404,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
   // janela junto, e escolher um período uma vez o mantém nos dois canais.
   //
   // Isso também resolve o que o vazio já resolvia antes: sem o fallback, o
-  // resto do componente (busca, exportar PDF, período anterior) fazia
+  // resto do componente (busca, período anterior) fazia
   // `new Date("T12:00:00")` (Invalid Date) e mandava "NaN-NaN-NaN" pro
   // servidor, quebrando a tela.
   const [periodo, setPeriodo] = useState({ inicio: "", fim: "" });
@@ -500,10 +500,10 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
       {/* Header — marca + última sincronização, sempre visível: nunca deixar
           o usuário pensar que o número é em tempo real quando não é. */}
-      {/* Antes, PDF/sincronização/atualizar viviam soltos na mesma linha
-          flex do resto — no mobile, quando a linha estourava, o botão de
-          atualizar sobrava sozinho longe do texto que ele atualiza. Agora
-          formam um grupo só, que quebra (ou não) como unidade. */}
+      {/* Antes, sincronização e atualizar viviam soltos na mesma linha flex
+          do resto — no mobile, quando a linha estourava, o botão de atualizar
+          sobrava sozinho longe do texto que ele atualiza. Agora formam um
+          grupo só, que quebra (ou não) como unidade. */}
       {/* Mobile: canal em cima, empresas embaixo, Período por último — cada
           grupo com `w-full` para ocupar a própria fileira, e `md:contents`
           desfazendo o agrupamento a partir do md, de volta à fileira única.
@@ -539,7 +539,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
         </div>
       </div>
 
-      {/* Risco separador só no mobile, entre o grupo de Período/PDF/sincronizar
+      {/* Risco separador só no mobile, entre o grupo de Período/sincronizar
           e a fileira de atalhos abaixo — mesma lógica do risco acima, entre
           marca/canal e período (esmaecido nas pontas, não de ponta a ponta). */}
       <span

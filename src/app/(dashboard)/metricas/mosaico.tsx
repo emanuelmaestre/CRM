@@ -178,7 +178,8 @@ function useDadosDoCard(
    mesmo estado (props vindas de `Mosaico`), então nunca desincronizam.
    Exportar em PDF saiu por completo (o botão exportava sempre o mesmo
    resumo Score+Atendimento+Pós-venda, sem relação com o card em foco —
-   decisão tomada com o usuário). */
+   decisão tomada com o usuário). Em 28/08/2026 o PDF saiu do produto
+   inteiro, não só daqui. */
 function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent, semHoje }: {
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;

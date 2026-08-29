@@ -8,7 +8,6 @@ import { A9_reguaAniversario } from "@/modules/jobs/A9-regua-aniversario";
 import { A10_reguaReativacao } from "@/modules/jobs/A10-regua-reativacao";
 import { A11_cancelarOptout } from "@/modules/jobs/A11-cancelar-optout";
 import { A13_scoresCliente } from "@/modules/jobs/A13-scores-cliente";
-import { A17_documentosAutomaticos } from "@/modules/jobs/A17-documentos-automaticos";
 import { A20_backupVerificacao } from "@/modules/jobs/A20-backup-verificacao";
 import { A21_guardaConsumoIA } from "@/modules/jobs/A21-guarda-consumo-ia";
 import { A22_lgpdRetencao } from "@/modules/jobs/A22-lgpd-retencao";
@@ -52,7 +51,6 @@ export const { GET, POST, PUT } = serve({
     A14_scoresProduto,
     A15_insightsFunil,
     A16_sugestoesCampanha,
-    A17_documentosAutomaticos,
     A18_saudeConectores,
     A20_backupVerificacao,
     A21_guardaConsumoIA,

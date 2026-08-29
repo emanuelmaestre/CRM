@@ -5,9 +5,9 @@ import { llmRun, sugestaoCampanha, insight, scoreCliente } from "@/shared/lib/db
 import { emitirEvento } from "@/shared/events";
 import {
   MODELOS, calcularCusto,
-  SugestaoCampanhaOutputSchema, InsightOutputSchema, DocumentoExecutivoOutputSchema,
+  SugestaoCampanhaOutputSchema, InsightOutputSchema,
   OPENAI_JSON_SCHEMAS,
-  type SugestaoCampanhaOutput, type InsightOutput, type DocumentoExecutivoOutput,
+  type SugestaoCampanhaOutput, type InsightOutput,
 } from "../domain/guardrails";
 import { startOfMonth } from "date-fns";
 
@@ -286,46 +286,6 @@ export async function listarSugestoes(orgId: string, status?: string) {
   const conditions = [eq(sugestaoCampanha.orgId, orgId)];
   if (status) conditions.push(eq(sugestaoCampanha.status, status));
   return db.select().from(sugestaoCampanha).where(and(...conditions));
-}
-
-export async function gerarDocumentoExecutivo(
-  orgId: string,
-  dados: {
-    receitaTotal: number;
-    totalPedidos: number;
-    canaisAtivos: number;
-    clientesEmRisco: number;
-    sugestoesPendentes: number;
-    periodo: string;
-  },
-): Promise<DocumentoExecutivoOutput> {
-  const promptVersion = "documento-executivo-v1";
-  const sistemaPrompt = `Você é um consultor de CRM sênior gerando um relatório executivo em português brasileiro.
-Analise os KPIs fornecidos e produza um documento executivo conciso.
-Responda SOMENTE em JSON com: titulo, resumo, destaques (array de strings), alertas (array de strings), recomendacoes (array de strings).
-Seja objetivo, use números reais dos dados, evite jargão excessivo.`;
-
-  const userPrompt = `KPIs do período ${dados.periodo}:
-- Receita total: R$ ${dados.receitaTotal.toFixed(2)}
-- Total de pedidos: ${dados.totalPedidos}
-- Canais ativos: ${dados.canaisAtivos}
-- Clientes em risco de churn (score ≥ 60): ${dados.clientesEmRisco}
-- Sugestões de campanha pendentes: ${dados.sugestoesPendentes}
-
-Gere um relatório executivo com destaques positivos, alertas e recomendações de ação.`;
-
-  return chamarOpenAIEstruturado({
-    orgId,
-    modelo: MODELOS.insight,
-    finalidade: "documento_executivo",
-    promptVersion,
-    schemaName: "documento_executivo",
-    schema: DocumentoExecutivoOutputSchema,
-    mensagens: [
-      { role: "system", content: sistemaPrompt },
-      { role: "user", content: userPrompt },
-    ],
-  });
 }
 
 export async function listarInsights(orgId: string, limite = 5) {

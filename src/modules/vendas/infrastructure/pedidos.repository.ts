@@ -96,14 +96,11 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       canceladosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'cancelado'), 0)`,
       devolvidosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'devolvido')`,
       devolvidosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'devolvido'), 0)`,
-      freteTotal: sql<string>`coalesce(sum(${pedido.frete}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
-      descontosTotal: sql<string>`coalesce(sum(${pedido.desconto}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
-      // Taxa cobrada pelo canal, somada por pedido numa subconsulta em vez de
-      // um join: `pedido_item` é 1:N e juntá-lo aqui multiplicaria o cabeçalho
-      // do pedido pelo número de itens, inflando faturamento e ticket médio.
-      taxasTotal: sql<string>`coalesce(sum(${TAXA_DO_PEDIDO}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
       // Mesma regra do detalhe do pedido e de Métricas: o repasse informado
-      // pelo canal manda; sem ele, a estimativa total - taxas - frete.
+      // pelo canal manda; sem ele, a estimativa total - taxas - frete. Somado
+      // por subconsulta e não por join: `pedido_item` é 1:N e juntá-lo aqui
+      // multiplicaria o cabeçalho do pedido pelo número de itens, inflando
+      // faturamento e ticket médio.
       liquidoTotal: sql<string>`coalesce(sum(${LIQUIDO_DO_PEDIDO}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
     })
     .from(pedido)
@@ -119,9 +116,6 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
     canceladosValor: Number(resumo?.canceladosValor ?? 0),
     devolvidosQtd: Number(resumo?.devolvidosQtd ?? 0),
     devolvidosValor: Number(resumo?.devolvidosValor ?? 0),
-    freteTotal: Number(resumo?.freteTotal ?? 0),
-    descontosTotal: Number(resumo?.descontosTotal ?? 0),
-    taxasTotal: Number(resumo?.taxasTotal ?? 0),
     liquidoTotal: Number(resumo?.liquidoTotal ?? 0),
   };
 }

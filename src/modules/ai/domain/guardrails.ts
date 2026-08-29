@@ -40,16 +40,6 @@ export const InsightOutputSchema = z.object({
 export type SugestaoCampanhaOutput = z.infer<typeof SugestaoCampanhaOutputSchema>;
 export type InsightOutput = z.infer<typeof InsightOutputSchema>;
 
-export const DocumentoExecutivoOutputSchema = z.object({
-  titulo: z.string().min(5).max(150),
-  resumo: z.string().min(50).max(3000),
-  destaques: z.array(z.string()).min(1).max(10),
-  alertas: z.array(z.string()).min(0).max(10),
-  recomendacoes: z.array(z.string()).min(1).max(10),
-});
-
-export type DocumentoExecutivoOutput = z.infer<typeof DocumentoExecutivoOutputSchema>;
-
 export const OPENAI_JSON_SCHEMAS = {
   sugestao_campanha: {
     type: "object", additionalProperties: false,
@@ -80,17 +70,6 @@ export const OPENAI_JSON_SCHEMAS = {
         },
       },
       confianca: { type: "number", minimum: 0, maximum: 1 },
-    },
-  },
-  documento_executivo: {
-    type: "object", additionalProperties: false,
-    required: ["titulo", "resumo", "destaques", "alertas", "recomendacoes"],
-    properties: {
-      titulo: { type: "string", minLength: 5, maxLength: 150 },
-      resumo: { type: "string", minLength: 50, maxLength: 3000 },
-      destaques: { type: "array", minItems: 1, maxItems: 10, items: { type: "string" } },
-      alertas: { type: "array", minItems: 0, maxItems: 10, items: { type: "string" } },
-      recomendacoes: { type: "array", minItems: 1, maxItems: 10, items: { type: "string" } },
     },
   },
 } as const;

@@ -47,23 +47,6 @@ export async function actionListarPedidosDetalhados(opts: {
   };
 }
 
-export async function actionListarPedidosParaPdf(opts: {
-  brandIds?: string[];
-  canais?: string[];
-  statuses?: string[];
-  busca?: string;
-  inicio?: string;
-  fim?: string;
-} = {}) {
-  const ctx = await getCrudContext();
-  const filtros = normalizarConsultaPedidos(opts);
-  const [result, resumo] = await Promise.all([
-    listarPedidosDetalhados(ctx, { ...filtros, limit: 5000, offset: 0 }),
-    resumirPedidos(ctx, filtros),
-  ]);
-  return { ...result, resumo };
-}
-
 export async function actionContarPedidosPorMarca(canais?: string[]) {
   const ctx = await getCrudContext();
   const { canais: canaisValidados } = normalizarConsultaPedidos({ canais });
