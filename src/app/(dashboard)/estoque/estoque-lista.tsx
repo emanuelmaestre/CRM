@@ -14,6 +14,7 @@ import {
   actionIndicadoresEstoque, actionDefinirEstoqueMinimoEmLote,
   actionObterFiltrosEstoque,
 } from "./actions";
+import type { Filtro } from "./filtro-estoque";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -42,17 +43,6 @@ type Produto = {
   canais?: string[];
 };
 
-export type Filtro = "todos" | "abaixo_minimo" | "sem_estoque" | "parados" | "pausados" | "sem_minimo";
-
-const FILTROS_VALIDOS: ReadonlySet<string> = new Set<Filtro>([
-  "todos", "abaixo_minimo", "sem_estoque", "parados", "pausados", "sem_minimo",
-]);
-
-/** O recorte pedido na URL, ou "todos". A URL é digitável: valor desconhecido
- *  não pode virar um filtro que a tela não sabe aplicar. */
-export function filtroDaUrl(valor: string | undefined): Filtro {
-  return FILTROS_VALIDOS.has(valor ?? "") ? valor as Filtro : "todos";
-}
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 
 type Indicadores = Awaited<ReturnType<typeof actionIndicadoresEstoque>>;

@@ -1,4 +1,8 @@
-import { EstoqueLista, filtroDaUrl } from "./estoque-lista";
+import { EstoqueLista } from "./estoque-lista";
+/* De `filtro-estoque`, não de `estoque-lista`: aquele é "use client" e o
+   servidor não consegue CHAMAR o que vem de lá — só renderizar como
+   componente. Ver o cabeçalho de filtro-estoque.ts. */
+import { filtroDaUrl } from "./filtro-estoque";
 import { actionObterFiltrosEstoque } from "./actions";
 import pagesConfig from "@/config/pages.json";
 
