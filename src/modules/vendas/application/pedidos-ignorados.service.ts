@@ -283,8 +283,14 @@ export async function resumirPedidosIgnorados(
     // estreitamento acontece aqui, no limite entre os dois mundos.
     filtros.push(inArray(canaisSuportados, opts.canais as TipoDeConta[]));
   }
-  if (opts.inicio) filtros.push(sql`(${pedidoIgnorado.payload}->>'criadoEm')::timestamptz >= ${opts.inicio}`);
-  if (opts.fim) filtros.push(sql`(${pedidoIgnorado.payload}->>'criadoEm')::timestamptz <= ${opts.fim}`);
+  /* `toISOString()`, e não o Date: dentro de um fragmento `sql` cru o
+     parâmetro vai direto para o driver, que só aceita string ou Buffer — um
+     Date ali derruba a consulta inteira com "The string argument must be of
+     type string". Nas colunas tipadas (`gte(pedido.createdAt, data)`) o
+     drizzle converte sozinho; aqui, não. Foi assim que a tela de Vendas
+     quebrou em produção em 30/08/2026, minutos depois do deploy. */
+  if (opts.inicio) filtros.push(sql`(${pedidoIgnorado.payload}->>'criadoEm')::timestamptz >= ${opts.inicio.toISOString()}`);
+  if (opts.fim) filtros.push(sql`(${pedidoIgnorado.payload}->>'criadoEm')::timestamptz <= ${opts.fim.toISOString()}`);
 
   const [linha] = await db
     .select({
