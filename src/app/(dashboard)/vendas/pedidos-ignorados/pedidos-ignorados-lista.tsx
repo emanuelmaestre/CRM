@@ -19,20 +19,21 @@ import { springs, stagger, fadeUp } from "@/shared/design-system/motion-variants
 import { mapearStatusPedido } from "@/modules/canais/domain/order-status";
 import pagesConfig from "@/config/pages.json";
 import type { ItemPedidoIgnorado, PedidoIgnoradoLinha } from "@/modules/vendas/application/pedidos-ignorados.service";
-import { actionDescartarPedidoIgnorado, actionReprocessarPedidoIgnorado } from "./actions";
+import { actionDescartarPedidoIgnorado, actionReprocessarFilaAberta, actionReprocessarPedidoIgnorado } from "./actions";
 
-/* ── Por que esta tela é agrupada por causa ────────────────────────────
-   A versão anterior era uma lista plana em que cada cartão repetia, por
-   extenso, a explicação da sua causa. Com trinta pendências de SKU sem
-   produto, o mesmo parágrafo aparecia trinta vezes e a informação que
-   diferencia uma linha da outra (qual pedido, de quem, há quanto tempo)
-   ficava espremida entre repetições.
+/* ── Onde mora a explicação ───────────────────────────────────────────
+   Duas coisas diferentes já foram chamadas de "explicação" nesta tela, e a
+   divisão atual é o que sobrou de tentar as duas.
 
-   Agrupar inverte isso: a explicação aparece UMA vez, no topo do grupo, com
-   espaço para ser didática de verdade; as linhas embaixo ficam curtas e
-   comparáveis entre si. É o mesmo conteúdo ocupando menos tela e dizendo
-   mais — e o número de blocos de texto passa a crescer com o número de
-   CAUSAS (no máximo quatro), não com o número de pedidos. */
+   A REGRA GERAL da causa ("falta o produto do SKU vendido") é igual para as
+   quarenta linhas do grupo, então fica uma vez só, no cabeçalho, em uma
+   frase. Repeti-la por cartão foi o que inchou a versão antiga.
+
+   O DIAGNÓSTICO do pedido — qual SKU faltou, qual comprador colidiu, se ele
+   está cancelado no canal, quantas vezes já foi tentado — muda de linha para
+   linha e por isso vive dentro do cartão, sempre aberto. É a resposta à
+   pergunta que traz alguém a esta tela ("por que ESTE pedido não entrou?"),
+   e nenhuma delas é adivinhável a partir do texto do grupo. */
 
 type Tom = "voce" | "sozinho" | "nosso" | "neutro";
 
@@ -47,40 +48,122 @@ const TONS: Record<Tom, { etiqueta: string; cor: string }> = {
   neutro:  { etiqueta: "Sem classificação", cor: "var(--muted-foreground)" },
 };
 
+type Diagnostico = { motivo: string; resolucao: string };
+
+const NOMES_CANAL: Record<string, string> = {
+  mercadolivre: "Mercado Livre",
+  shopee: "Shopee",
+};
+
+function nomeCanal(canal: string): string {
+  return NOMES_CANAL[canal] ?? canal;
+}
+
+/** Os SKUs que ESTA linha cita. A pendência guarda os SKUs que derrubaram a
+ *  ingestão, mas linhas antigas foram gravadas sem eles — aí os itens do
+ *  payload servem, que é a mesma informação por outro caminho. */
+function skusDaLinha(linha: PedidoIgnoradoLinha): string[] {
+  if (linha.skus.length > 0) return linha.skus;
+  return [...new Set(linha.itens.map((item) => item.sku).filter((sku): sku is string => Boolean(sku)))];
+}
+
+function listaLegivel(itens: string[]): string {
+  if (itens.length <= 1) return itens[0] ?? "";
+  if (itens.length === 2) return `${itens[0]} e ${itens[1]}`;
+  return `${itens.slice(0, 2).join(", ")} e mais ${itens.length - 2}`;
+}
+
+/** Qual campo colidiu, lido do nome do índice único que o banco recusou.
+ *  Saber que foi o TELEFONE (e não o e-mail) é o que diz onde procurar o
+ *  cadastro conflitante — "cliente duplicado" sozinho não diz. */
+function campoDuplicado(linha: PedidoIgnoradoLinha): { rotulo: string; valor: string | null } {
+  if (/telefone/i.test(linha.motivo)) return { rotulo: "telefone", valor: linha.compradorTelefone };
+  if (/email|e_mail/i.test(linha.motivo)) return { rotulo: "e-mail", valor: null };
+  if (/documento|cpf|cnpj/i.test(linha.motivo)) return { rotulo: "documento", valor: null };
+  return { rotulo: "cadastro", valor: linha.compradorUsuario };
+}
+
+/** O campo que o validador recusou, quando o erro carrega o caminho. */
+function campoInvalido(motivo: string): string | null {
+  const achado = /"path"\s*:\s*\[\s*"([^"]+)"/.exec(motivo) ?? /path:\s*\[\s*'?"?([\w.]+)/.exec(motivo);
+  return achado?.[1] ?? null;
+}
+
+/** O erro cru cabe numa frase: o texto inteiro vive em "Ver detalhes". */
+function primeiraFrase(texto: string): string {
+  const limpo = texto.replace(/\s+/g, " ").trim();
+  const corte = limpo.slice(0, 160);
+  return corte.length < limpo.length ? `${corte}…` : corte;
+}
+
 const CAUSAS: Record<string, {
   rotulo: string;
   icone: LucideIcon;
   tom: Tom;
-  aconteceu: string;
-  fazer: string;
+  /** Uma linha no cabeçalho do grupo: a regra geral da causa. O diagnóstico
+   *  de verdade — com o SKU, o comprador, o status deste pedido — mora no
+   *  cartão, porque é lá que ele muda de uma linha para a outra. */
+  resumo: string;
+  diagnostico: (linha: PedidoIgnoradoLinha) => Diagnostico;
 }> = {
   sku_sem_produto: {
     rotulo: "SKU sem produto",
     icone: PackageSearch,
     tom: "sozinho",
-    aconteceu: "O pedido cita um SKU que ainda não existe como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora.",
-    fazer: "Nada, na maioria das vezes: quando o catálogo do canal sincronizar e trouxer esse SKU, a pendência entra sozinha. Se o SKU não existe nem no canal, ele foi apagado ou renomeado lá — aí é corrigir no anúncio.",
+    resumo: "Falta no CRM o produto do SKU que o pedido vendeu. Costuma entrar sozinho quando o catálogo do canal sincroniza.",
+    diagnostico: (linha) => {
+      const skus = skusDaLinha(linha);
+      const canal = nomeCanal(linha.canal);
+      return {
+        motivo: skus.length === 0
+          ? "O pedido cita um SKU que ainda não existe como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora."
+          : `${skus.length === 1 ? `O SKU ${skus[0]} não existe` : `Os SKUs ${listaLegivel(skus)} não existem`} como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora.`,
+        resolucao: skus.length === 0
+          ? `Tente novamente depois da próxima sincronização do catálogo da ${linha.marca}. Se não entrar, abra "Ver detalhes": o erro registrado diz qual SKU faltou.`
+          : `Procure ${skus.length === 1 ? skus[0] : "esses SKUs"} nos anúncios da ${linha.marca} no ${canal}. Se ainda estiver lá, a próxima sincronização do catálogo cria o produto e a pendência sai sozinha — "Tentar novamente" antecipa isso. Se o SKU foi renomeado ou apagado no ${canal}, corrija o anúncio primeiro: nenhuma tentativa aqui cria produto que o canal não tem.`,
+      };
+    },
   },
   cliente_duplicado: {
     rotulo: "Cliente duplicado",
     icone: UserRoundX,
     tom: "voce",
-    aconteceu: "O comprador colidiu com um cadastro que já existe. Na Shopee isso é comum e não é erro seu: o telefone vem mascarado, então compradores diferentes chegam com o mesmo valor e disputam o mesmo cliente.",
-    fazer: "Resolve-se aqui dentro, não na loja. Tentar novamente costuma bastar quando o cadastro conflitante já foi ajustado; se insistir, o caminho é separar os clientes antes de reprocessar.",
+    resumo: "O cadastro do comprador colidiu com um cliente que já existe. Resolve-se aqui dentro, não no painel do canal.",
+    diagnostico: (linha) => {
+      const campo = campoDuplicado(linha);
+      const comprador = linha.compradorNome ?? "O comprador";
+      const mascarado = linha.canal === "shopee" && campo.rotulo === "telefone";
+      return {
+        motivo: `${comprador} chegou com ${campo.rotulo}${campo.valor ? ` ${campo.valor}` : ""} já usado por outro cliente do CRM, e o cadastro foi recusado.${mascarado ? " Na Shopee o telefone vem mascarado, então compradores diferentes chegam com o mesmo valor — não é erro de cadastro seu." : ""}`,
+        resolucao: `Abra Clientes e procure por ${campo.valor ?? comprador}: junte os cadastros se for a mesma pessoa, ou separe-os se forem duas. Feito isso, "Tentar novamente" aqui traz o pedido. Mexer no ${nomeCanal(linha.canal)} não muda nada — o conflito é de dado do CRM.`,
+      };
+    },
   },
   payload_invalido: {
     rotulo: "Formato inesperado",
     icone: Bug,
     tom: "nosso",
-    aconteceu: "O canal devolveu o pedido num formato que o CRM não sabe ler. A falha está do nosso lado, não no seu cadastro nem no anúncio.",
-    fazer: "Não há botão de tentar novamente de propósito: o mesmo pedido passaria pelo mesmo validador e daria exatamente o mesmo erro. Some quando o CRM aprender esse formato.",
+    resumo: "O canal mandou o pedido num formato que o CRM não sabe ler. É falha nossa, e não há o que fazer na loja.",
+    diagnostico: (linha) => {
+      const campo = campoInvalido(linha.motivo);
+      const canal = nomeCanal(linha.canal);
+      return {
+        motivo: campo
+          ? `O ${canal} devolveu este pedido com o campo "${campo}" num formato que o CRM não sabe ler. A falha está do nosso lado, não no seu cadastro nem no anúncio.`
+          : `O ${canal} devolveu este pedido num formato que o CRM não sabe ler. A falha está do nosso lado, não no seu cadastro nem no anúncio.`,
+        resolucao: `Nada a fazer nesta tela — repare que não existe "Tentar novamente" aqui: o pedido guardado é o mesmo e passaria pelo mesmo validador, dando exatamente este erro de novo. Ele sai da fila quando o CRM aprender esse formato; o texto em "Ver detalhes" é o que o desenvolvedor precisa.`,
+      };
+    },
   },
   desconhecida: {
     rotulo: "Não classificada",
     icone: HelpCircle,
     tom: "neutro",
-    aconteceu: "A importação falhou por um motivo que ainda não tem classificação própria no CRM.",
-    fazer: "Vale tentar novamente: falhas passageiras (rede, limite da API do canal) caem aqui e costumam passar na segunda tentativa.",
+    resumo: "Falha sem classificação própria — em geral tropeço passageiro de rede ou de limite da API do canal.",
+    diagnostico: (linha) => ({
+      motivo: `A importação parou em: "${primeiraFrase(linha.motivo)}" — um erro que ainda não tem classificação própria no CRM.`,
+      resolucao: `Vale clicar em "Tentar novamente": falhas passageiras (rede fora, limite da API do ${nomeCanal(linha.canal)}) caem aqui e costumam passar na segunda tentativa.`,
+    }),
   },
 };
 
@@ -92,6 +175,38 @@ const ORDEM_CAUSAS = ["cliente_duplicado", "desconhecida", "sku_sem_produto", "p
 
 function causaDe(chave: string) {
   return CAUSAS[chave] ?? CAUSAS.desconhecida;
+}
+
+/** O que aconteceu com ESTE pedido e o que fazer com ELE.
+ *
+ *  Parte do texto da causa e deixa o estado da própria linha sobrescrever o
+ *  conselho, porque o estado manda mais que a causa: um pedido cancelado no
+ *  canal não vira receita nem se entrar (recuperá-lo é trabalho jogado fora),
+ *  e um pedido já descartado não pede ação nenhuma até voltar para a fila.
+ *  Sem isso, a tela mandaria caçar SKU de pedido cancelado. */
+function diagnosticoDe(linha: PedidoIgnoradoLinha): Diagnostico {
+  const base = causaDe(linha.causa).diagnostico(linha);
+  const cancelado = linha.statusCanal !== null && mapearStatusPedido(linha.statusCanal) === "cancelado";
+
+  if (linha.descartadoEm !== null) {
+    return {
+      ...base,
+      resolucao: `Marcado como não recuperável em ${dataCurta(linha.descartadoEm)}: não conta mais na fila e ninguém precisa fazer nada. Para voltar a tentar, use "Devolver à fila".`,
+    };
+  }
+  if (cancelado) {
+    return {
+      ...base,
+      resolucao: `Este pedido está cancelado no ${nomeCanal(linha.canal)}: mesmo que entre, não vira receita. Recuperá-lo não muda faturamento nenhum — o caminho aqui é "Não recuperável", que tira da fila sem apagar o registro.`,
+    };
+  }
+  if (linha.tentativas >= 3 && linha.reprocessavel) {
+    return {
+      ...base,
+      resolucao: `${base.resolucao} Já são ${linha.tentativas} tentativas com o mesmo resultado — insistir sem mudar nada fora desta tela não deve bastar.`,
+    };
+  }
+  return base;
 }
 
 function diasParado(desde: Date): number {
@@ -117,6 +232,9 @@ function Pendencia({ linha, podeDescartar }: {
   const reduzir = useReducedMotion();
   const fechado = linha.descartadoEm !== null;
   const parado = diasParado(linha.primeiraVezEm);
+  const causa = causaDe(linha.causa);
+  const tom = TONS[causa.tom];
+  const diagnostico = diagnosticoDe(linha);
 
   const [detalheAberto, setDetalheAberto] = useState(false);
   const idDetalhe = useId();
@@ -206,6 +324,23 @@ function Pendencia({ linha, podeDescartar }: {
           ))}
         </div>
       )}
+
+      {/* Sempre visível, nunca atrás de "Ver detalhes": quem abre esta tela
+          está justamente perguntando por que o pedido não entrou. Escondê-lo
+          num acordeão faria a resposta custar um clique por linha. */}
+      <div
+        className="mt-2.5 rounded-lg border-l-2 py-0.5 pl-2.5"
+        style={{ borderColor: `color-mix(in srgb, ${tom.cor} 55%, transparent)` }}
+      >
+        <p className="text-[11.5px] leading-relaxed text-muted-foreground">
+          <span className="font-bold text-foreground">Por que ficou de fora: </span>
+          {diagnostico.motivo}
+        </p>
+        <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
+          <span className="font-bold" style={{ color: tom.cor }}>Como resolver: </span>
+          {diagnostico.resolucao}
+        </p>
+      </div>
 
       <DetalhePedido linha={linha} aberto={detalheAberto} id={idDetalhe} />
 
@@ -434,20 +569,11 @@ function GrupoCausa({ chave, linhas, podeDescartar }: {
           </span>
         </div>
 
-        {/* Rótulos explícitos em vez de um parágrafo corrido: a pessoa que já
-            conhece a causa pula direto para "O que fazer" sem reler o
-            diagnóstico. Dois rótulos é o limite — um terceiro (por que
-            aconteceu, como evitar) transformaria a tela em manual. */}
-        <dl className="mt-3 grid gap-2.5 sm:grid-cols-2">
-          <div>
-            <dt className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Motivo</dt>
-            <dd className="mt-0.5 text-xs leading-relaxed text-foreground">{causa.aconteceu}</dd>
-          </div>
-          <div>
-            <dt className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">O que fazer</dt>
-            <dd className="mt-0.5 text-xs leading-relaxed text-foreground">{causa.fazer}</dd>
-          </div>
-        </dl>
+        {/* Uma linha só: a regra geral da causa. O diagnóstico completo desceu
+            para dentro de cada cartão, onde ele fala do pedido daquela linha
+            (qual SKU, qual comprador, cancelado ou não) em vez de repetir o
+            mesmo parágrafo quarenta vezes. */}
+        <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">{causa.resumo}</p>
       </div>
 
       <motion.ul layout variants={stagger} initial="hidden" animate="show" className="mt-2 flex flex-col gap-1.5">
@@ -482,6 +608,30 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
     0,
   );
 
+  /* ── Tentar a fila inteira ────────────────────────────────────────────
+     Uma fila grande costuma ter uma causa só: alguma coisa mudou no CRM e
+     agora todas entram. Com quarenta pendências, clicar quarenta vezes no
+     mesmo botão não é decisão de operação, é trabalho braçal. O servidor
+     tenta em fatias e devolve quantas sobraram — daí o botão dizer "faltam
+     N" em vez de fingir que fez tudo. */
+  const router = useRouter();
+  const [tentandoTodos, iniciarLote] = useTransition();
+  const reprocessaveis = abertas.filter((linha) => linha.reprocessavel).length;
+
+  function tentarTodos() {
+    iniciarLote(async () => {
+      try {
+        const { tentados, resolvidos, restantes } = await actionReprocessarFilaAberta();
+        if (resolvidos > 0) toast.success(`${resolvidos} de ${tentados} entraram no CRM.`);
+        else toast.error(`Nenhum dos ${tentados} entrou — o motivo de cada um foi atualizado abaixo.`);
+        if (restantes > 0) toast.info(`Faltam ${restantes} na fila. Clique de novo para continuar.`);
+      } catch {
+        toast.error("Não foi possível tentar a fila agora.");
+      }
+      router.refresh();
+    });
+  }
+
   const grupos = ORDEM_CAUSAS
     .map((chave) => ({ chave, linhas: linhas.filter((linha) => linha.causa === chave) }))
     .filter((grupo) => grupo.linhas.length > 0);
@@ -501,12 +651,26 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
         title="Pedidos ignorados"
         description="Pedidos que o canal entregou e o CRM não conseguiu importar. A fila se limpa sozinha na próxima sincronização quando a causa deixa de existir."
         actions={
-          <a
-            href={incluirFechados ? "/vendas/pedidos-ignorados" : "/vendas/pedidos-ignorados?historico=1"}
-            className="press-feedback inline-flex h-10 items-center rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted"
-          >
-            {incluirFechados ? "Ver só a fila aberta" : "Ver histórico completo"}
-          </a>
+          <>
+            {reprocessaveis > 1 && !incluirFechados && (
+              <button
+                type="button"
+                onClick={tentarTodos}
+                disabled={tentandoTodos}
+                className="press-feedback inline-flex h-10 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+              >
+                {tentandoTodos
+                  ? <><Loader2 size={13} className="animate-spin" /> Tentando…</>
+                  : <><RotateCw size={13} /> Tentar todos ({reprocessaveis})</>}
+              </button>
+            )}
+            <a
+              href={incluirFechados ? "/vendas/pedidos-ignorados" : "/vendas/pedidos-ignorados?historico=1"}
+              className="press-feedback inline-flex h-10 items-center rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted"
+            >
+              {incluirFechados ? "Ver só a fila aberta" : "Ver histórico completo"}
+            </a>
+          </>
         }
       />
 

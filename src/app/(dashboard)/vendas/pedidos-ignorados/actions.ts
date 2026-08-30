@@ -6,6 +6,7 @@ import {
   contarPedidosIgnoradosAbertos,
   descartarPedidoIgnorado,
   listarPedidosIgnorados,
+  reprocessarFilaAberta,
   reprocessarPedidoIgnorado,
 } from "@/modules/vendas/application/pedidos-ignorados.service";
 
@@ -28,6 +29,16 @@ export async function actionListarPedidosIgnorados(incluirFechados = false) {
 export async function actionReprocessarPedidoIgnorado(id: string) {
   const ctx = await getCrudContext();
   const resultado = await reprocessarPedidoIgnorado(ctx, id);
+  revalidatePath("/vendas/pedidos-ignorados");
+  revalidatePath("/vendas");
+  return resultado;
+}
+
+/** Tenta a fila inteira (em fatias de `TAMANHO_LOTE_REPROCESSO`). Sem exigir
+ *  perfil: tentar de novo não destrói nada — quem destrói é descartar. */
+export async function actionReprocessarFilaAberta() {
+  const ctx = await getCrudContext();
+  const resultado = await reprocessarFilaAberta(ctx);
   revalidatePath("/vendas/pedidos-ignorados");
   revalidatePath("/vendas");
   return resultado;

@@ -1,10 +1,12 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { pedidoIgnorado } from "@/shared/lib/db/schema/vendas";
 import { channelAccount } from "@/shared/lib/db/schema/canais";
 import { brand } from "@/shared/lib/db/schema/org";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { isBrandSlug } from "@/shared/config/brands";
 import type { PedidoNormalizado } from "@/modules/canais/domain/ports";
 
 export type CausaPedidoIgnorado =
@@ -266,15 +268,61 @@ export async function contarPedidosIgnoradosAbertos(ctx: { orgId: string }): Pro
   return linha?.total ?? 0;
 }
 
-/** Reprocessa o pedido a partir do payload guardado — SEM chamar o canal.
+/** O payload volta do jsonb com `criadoEm` em texto; a ingestão espera Date. */
+function converterPayload(payload: unknown): PedidoNormalizado | null {
+  if (!payload) return null;
+  const bruto = payload as PedidoNormalizado & { criadoEm: string };
+  return { ...bruto, criadoEm: new Date(bruto.criadoEm) } as PedidoNormalizado;
+}
+
+/* ── Quando o que está guardado não basta ──────────────────────────────
  *
- *  O que muda entre uma tentativa e outra não é o pedido: é o CRM. Pedido é
- *  imutável no canal, e corrigir o SKU de um anúncio não reescreve a venda
- *  antiga, que continua carregando o SKU velho. O que destrava é o produto
- *  passar a existir com aquele SKU — foi o que aconteceu com os pedidos W613,
- *  travados porque o catálogo não criava as variações (ver a correção do
- *  `has_model` em shopee.provider.ts). Por isso rebuscar na API seria mais
- *  caro e não mais eficaz.
+ *  O payload da fila é uma fotografia do pedido como o canal o entregou NO
+ *  DIA em que ele foi recusado — e a fotografia envelhece junto com o
+ *  formato. Os pedidos parados desde junho foram gravados antes de
+ *  `listingId` existir em `PedidoNormalizado`, então reprocessá-los do
+ *  payload só repete a busca por SKU que já falhou, mesmo com a ingestão
+ *  agora sabendo casar pelo anúncio.
+ *
+ *  Um item sem `listingId` é o sinal: ou a foto é velha, ou o canal não sabe
+ *  preencher. Rebuscar no Mercado Livre custa uma chamada e devolve o pedido
+ *  no formato de hoje. Falhar aqui não é fatal — devolve null e o reprocesso
+ *  segue com o payload guardado, que ainda pode entrar pelo SKU. */
+function faltaOAnuncio(pedidoNormalizado: PedidoNormalizado | null): boolean {
+  if (!pedidoNormalizado) return true;
+  return pedidoNormalizado.itens.some((item) => !item.listingId);
+}
+
+async function rebuscarNoCanal(linha: {
+  canal: string;
+  brandSlug: string;
+  providerOrderId: string;
+}): Promise<PedidoNormalizado | null> {
+  if (linha.canal !== "mercadolivre" || !isBrandSlug(linha.brandSlug)) return null;
+  try {
+    const provider = await criarMLProvider(linha.brandSlug);
+    return await provider.buscarPedidoPorId(linha.providerOrderId);
+  } catch {
+    // Token vencido, pedido apagado no canal, rede fora: nada disso deve
+    // impedir a tentativa com o que já temos em mãos.
+    return null;
+  }
+}
+
+/** Reprocessa o pedido, rebuscando no canal quando o payload guardado não
+ *  carrega o anúncio da venda (ver `faltaOAnuncio`).
+ *
+ *  Na maioria das vezes o que muda entre uma tentativa e outra não é o
+ *  pedido: é o CRM. Pedido é imutável no canal, e corrigir o SKU de um
+ *  anúncio não reescreve a venda antiga, que continua carregando o SKU velho.
+ *  O que destrava é o produto passar a existir com aquele SKU — foi o que
+ *  aconteceu com os pedidos W613, travados porque o catálogo não criava as
+ *  variações. Por isso a rebusca é exceção, não regra: só acontece quando o
+ *  próprio payload denuncia que está velho.
+ *
+ *  O que vier da rebusca é gravado de volta no payload, inclusive quando a
+ *  ingestão falha de novo: a próxima tentativa já começa do formato novo, sem
+ *  pagar outra chamada à API.
  *
  *  Seguro de repetir: `ingerirPedido` é idempotente por `providerOrderId`. */
 export async function reprocessarPedidoIgnorado(
@@ -282,24 +330,41 @@ export async function reprocessarPedidoIgnorado(
   id: string,
 ): Promise<{ ok: true; jaExistia: boolean } | { ok: false; motivo: string }> {
   const [linha] = await db
-    .select()
+    .select({
+      brandId: pedidoIgnorado.brandId,
+      channelAccountId: pedidoIgnorado.channelAccountId,
+      providerOrderId: pedidoIgnorado.providerOrderId,
+      skus: pedidoIgnorado.skus,
+      payload: pedidoIgnorado.payload,
+      brandSlug: brand.slug,
+      canal: channelAccount.tipo,
+    })
     .from(pedidoIgnorado)
+    .innerJoin(brand, eq(brand.id, pedidoIgnorado.brandId))
+    .innerJoin(channelAccount, eq(channelAccount.id, pedidoIgnorado.channelAccountId))
     .where(and(eq(pedidoIgnorado.id, id), eq(pedidoIgnorado.orgId, ctx.orgId)))
     .limit(1);
 
   if (!linha) return { ok: false, motivo: "Pendência não encontrada." };
-  if (!linha.payload) {
-    // Linha antiga, gravada antes de o payload passar a ser guardado.
+
+  const guardado = converterPayload(linha.payload);
+  const rebuscado = faltaOAnuncio(guardado) ? await rebuscarNoCanal(linha) : null;
+  const pedidoNormalizado = rebuscado ?? guardado;
+  if (!pedidoNormalizado) {
+    // Linha antiga, gravada antes de o payload passar a ser guardado, e o
+    // canal não devolveu o pedido agora.
     return { ok: false, motivo: "Este pedido foi registrado sem o conteúdo original; só a próxima sincronização pode trazê-lo de volta." };
   }
-
-  const bruto = linha.payload as unknown as PedidoNormalizado & { criadoEm: string };
-  const pedidoNormalizado = { ...bruto, criadoEm: new Date(bruto.criadoEm) } as PedidoNormalizado;
+  // `criadoEm` é Date e a coluna é jsonb: sem o round-trip por JSON, a data
+  // iria como objeto vazio e o payload voltaria pior do que estava.
+  const payloadAtualizado = rebuscado
+    ? (JSON.parse(JSON.stringify(rebuscado)) as Record<string, unknown>)
+    : null;
 
   try {
     const resultado = await ingerirPedido(ctx.orgId, linha.brandId, linha.channelAccountId, pedidoNormalizado);
     await db.update(pedidoIgnorado)
-      .set({ resolvidoEm: new Date() })
+      .set({ resolvidoEm: new Date(), ...(payloadAtualizado ? { payload: payloadAtualizado } : {}) })
       .where(eq(pedidoIgnorado.id, id));
     return { ok: true, jaExistia: !resultado.novo };
   } catch (error) {
@@ -314,11 +379,70 @@ export async function reprocessarPedidoIgnorado(
         skus: ehErroSkuSemProduto(error) && error.skus?.length ? error.skus : linha.skus,
         tentativas: sql`${pedidoIgnorado.tentativas} + 1`,
         ultimaVezEm: new Date(),
+        ...(payloadAtualizado ? { payload: payloadAtualizado } : {}),
       })
       .where(eq(pedidoIgnorado.id, id));
     return { ok: false, motivo };
   }
 }
+
+/** Quantas pendências uma única passada tenta.
+ *
+ *  Cada tentativa pode custar uma rebusca no canal (três chamadas à API do
+ *  Mercado Livre: pedido, endereço e frete) mais a transação da ingestão.
+ *  Vinte cabem folgados no tempo de uma Server Action; a fila inteira de uma
+ *  vez, não — e estourar no meio deixaria metade do trabalho feito sem
+ *  ninguém saber quais. Sobrando pendência, o retorno diz quantas, e clicar
+ *  de novo continua de onde parou. */
+export const TAMANHO_LOTE_REPROCESSO = 20;
+
+/** Tenta a fila aberta de uma vez, da mais antiga para a mais nova.
+ *
+ *  Existe porque a correção que destravou a fila é sempre a mesma para todo
+ *  mundo — o catálogo passou a enxergar anúncio fora do ar, a ingestão passou
+ *  a casar pelo anúncio — e nada disso muda de um pedido para o outro. Com 40
+ *  pendências, clicar quarenta vezes no mesmo botão não é decisão de
+ *  operação: é trabalho braçal.
+ *
+ *  Uma a uma, em série e sem transação única: pedido que falha não derruba os
+ *  outros, e cada um já sai da fila (ou atualiza a própria causa) no momento
+ *  em que é tentado. */
+export async function reprocessarFilaAberta(ctx: { orgId: string }): Promise<{
+  tentados: number;
+  resolvidos: number;
+  restantes: number;
+}> {
+  const fila = await db
+    .select({ id: pedidoIgnorado.id })
+    .from(pedidoIgnorado)
+    .where(and(
+      eq(pedidoIgnorado.orgId, ctx.orgId),
+      isNull(pedidoIgnorado.resolvidoEm),
+      isNull(pedidoIgnorado.descartadoEm),
+      inArray(pedidoIgnorado.causa, [...CAUSAS_REPROCESSAVEIS]),
+    ))
+    .orderBy(pedidoIgnorado.primeiraVezEm)
+    .limit(TAMANHO_LOTE_REPROCESSO);
+
+  let resolvidos = 0;
+  for (const pendencia of fila) {
+    const resultado = await reprocessarPedidoIgnorado(ctx, pendencia.id);
+    if (resultado.ok) resolvidos += 1;
+  }
+
+  const [restantes] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(pedidoIgnorado)
+    .where(and(
+      eq(pedidoIgnorado.orgId, ctx.orgId),
+      isNull(pedidoIgnorado.resolvidoEm),
+      isNull(pedidoIgnorado.descartadoEm),
+      inArray(pedidoIgnorado.causa, [...CAUSAS_REPROCESSAVEIS]),
+    ));
+
+  return { tentados: fila.length, resolvidos, restantes: restantes?.total ?? 0 };
+}
+
 
 /** Tira da fila o que nunca vai entrar. Não apaga: a linha continua lá, com
  *  quem descartou e quando — a proporção entre resolvido e descartado é o que
