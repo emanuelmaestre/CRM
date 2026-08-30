@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/shared/lib/db";
-import { auditLog, brand, channelAccount, eventoDominio, produto, produtoCanal } from "@/shared/lib/db/schema";
+import { brand, channelAccount, eventoDominio, produto, produtoCanal } from "@/shared/lib/db/schema";
 import { cliente, clienteIdentidade } from "@/shared/lib/db/schema/clientes";
 import { pedido, pedidoItem } from "@/shared/lib/db/schema/vendas";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
@@ -26,6 +26,18 @@ const orgId = process.env.DEFAULT_ORG_ID;
 if (!orgId) throw new Error("DEFAULT_ORG_ID é obrigatória para o teste integrado de ingestão de pedidos.");
 
 const sufixo = randomUUID().slice(0, 8);
+/* ── Uma marca de teste, fixa, para sempre ────────────────────────────────
+   `audit_log` é append-only por trigger (`prevent_audit_log_mutation`), e a
+   ingestão escreve auditoria quando cria produto. Marca que já gerou uma
+   linha dessas NUNCA pode ser apagada — a FK de audit_log segura o delete, e
+   apagar a auditoria é justamente o que o banco proíbe.
+
+   Com sufixo aleatório, cada execução deixava uma marca nova e inapagável no
+   banco: em 30/08/2026 havia duas aparecendo na barra de filtros de /vendas,
+   em produção. Slug fixo troca "uma marca por execução" por "uma marca, e
+   só" — inativa, invisível na tela, reaproveitada na próxima volta. O sufixo
+   continua isolando o resto (SKUs, números de pedido, compradores). */
+const SLUG_MARCA_TESTE = "teste_ingestao";
 let brandId: string;
 let contaMercadoLivreId: string;
 let contaShopeeId: string;
@@ -37,23 +49,32 @@ const clientesParaLimpar: string[] = [];
 const produtosParaLimpar: string[] = [];
 
 beforeAll(async () => {
-  /* Marca de teste que sobrou de uma execução anterior é marca que APARECE na
-     barra de filtros de /vendas, em produção — foi o que aconteceu em
-     30/08/2026, com duas "Teste ingestao" visíveis para o usuário. Uma
-     execução interrompida no meio (timeout do banco remoto, Ctrl+C) não roda o
-     afterAll, então a entrada também limpa. Desativar em vez de apagar porque
-     o que trava o delete é justamente o rastro que não se apaga sozinho
-     (audit_log); invisível já resolve o problema de quem olha a tela. */
+  /* Resíduo das execuções antigas, de quando cada uma criava a sua: some da
+     barra de filtros de /vendas sem tentar um delete que o banco recusaria. */
   await db.update(brand)
     .set({ active: false, updatedAt: new Date() })
     .where(and(eq(brand.orgId, orgId), like(brand.slug, "teste_ingestao_%")));
 
-  const [marca] = await db.insert(brand).values({
-    orgId,
-    name: `Teste ingestao ${sufixo}`,
-    slug: `teste_ingestao_${sufixo}`,
-  }).returning({ id: brand.id });
-  brandId = marca.id;
+  const existente = await db
+    .select({ id: brand.id })
+    .from(brand)
+    .where(and(eq(brand.orgId, orgId), eq(brand.slug, SLUG_MARCA_TESTE)))
+    .then((linhas) => linhas[0]);
+
+  if (existente) {
+    brandId = existente.id;
+  } else {
+    const [marca] = await db.insert(brand).values({
+      orgId,
+      name: "Teste de ingestao (automatico)",
+      slug: SLUG_MARCA_TESTE,
+    }).returning({ id: brand.id });
+    brandId = marca.id;
+  }
+
+  /* Inativa sempre: a marca existe para o teste, não para a operação, e é o
+     que a mantém fora da barra de filtros. A ingestão não olha `active`. */
+  await db.update(brand).set({ active: false, updatedAt: new Date() }).where(eq(brand.id, brandId));
 
   const [contaMl] = await db.insert(channelAccount).values({
     orgId,
@@ -118,23 +139,19 @@ afterAll(async () => {
     await limpar(() => db.delete(produtoCanal).where(eq(produtoCanal.produtoId, id)));
     await limpar(() => db.delete(produto).where(eq(produto.id, id)));
   }
-  // A ingestão publica eventos de domínio referenciando a marca — sem apagar
-  // antes, o delete da marca esbarra na FK de evento_dominio. O mesmo vale
-  // para o audit_log do produto criado a partir do anúncio do pedido.
+  // Eventos de domínio saem; auditoria NÃO — o banco recusa (append-only), e
+  // insistir só enchia o stderr de erro esperado a cada execução.
   if (brandId) {
     await limpar(() => db.delete(eventoDominio).where(eq(eventoDominio.brandId, brandId)));
-    await limpar(() => db.delete(auditLog).where(eq(auditLog.brandId, brandId)));
   }
   for (const id of [contaShopeeId, contaMercadoLivreId]) {
     if (!id) continue;
     await limpar(() => db.delete(channelAccount).where(eq(channelAccount.id, id)));
   }
-  if (brandId) {
-    // Desativa ANTES de tentar apagar: se o delete esbarrar em alguma FK que
-    // este teste não conhece, a marca some da tela do mesmo jeito.
-    await limpar(() => db.update(brand).set({ active: false, updatedAt: new Date() }).where(eq(brand.id, brandId)));
-    await limpar(() => db.delete(brand).where(eq(brand.id, brandId)));
-  }
+  /* A marca fica, inativa e vazia, esperando a próxima execução: o rastro de
+     auditoria que ela já gerou não pode ser apagado, então apagá-la nunca vai
+     ser possível. O que importa é não deixar DADO para trás — pedido,
+     cliente, produto e conta de canal saem todos acima. */
 });
 
 // Banco real: cada ingestão faz várias idas e voltas e ainda publica eventos.

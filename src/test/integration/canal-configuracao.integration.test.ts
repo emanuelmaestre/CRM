@@ -32,14 +32,26 @@ beforeAll(async () => {
     .set({ active: false, updatedAt: new Date() })
     .where(and(eq(brand.orgId, orgId), like(brand.slug, "teste_canais_%")));
 
-  brandSlug = `teste_canais_${randomUUID().slice(0, 8)}`;
-  const [marcaTeste] = await db.insert(brand).values({
+  /* Slug fixo, e não um por execução: este teste grava auditoria, e
+     `audit_log` é append-only por trigger — marca que gerou auditoria não
+     pode mais ser apagada. Com sufixo aleatório, cada volta deixava uma marca
+     nova e inapagável no banco de produção (eram cinco em 30/08/2026). Uma
+     só, inativa e reaproveitada, resolve. */
+  brandSlug = "teste_canais";
+  const existente = await db.select({ id: brand.id }).from(brand)
+    .where(and(eq(brand.orgId, orgId), eq(brand.slug, brandSlug)))
+    .then((linhas) => linhas[0]);
+  brandId = existente?.id ?? await db.insert(brand).values({
     orgId,
-    name: "Teste integração canais",
+    name: "Teste de canais (automatico)",
     slug: brandSlug,
-  }).returning({ id: brand.id });
-  brandId = marcaTeste.id;
-  marcasParaLimpar.push(marcaTeste.id);
+  }).returning({ id: brand.id }).then((linhas) => linhas[0].id);
+  /* Ativa enquanto o teste roda: `criarContaCanalConfiguracao` recusa marca
+     inativa ("Marca nao pertence a organizacao"), que é a regra certa para a
+     tela. O afterAll desativa de novo — a janela em que ela existiria na
+     interface é a duração do teste, como já era antes. */
+  await db.update(brand).set({ active: true, updatedAt: new Date() }).where(eq(brand.id, brandId));
+  marcasParaLimpar.push(brandId);
 
   const [armarinhos] = await db.select({ id: brand.id }).from(brand)
     .where(and(eq(brand.orgId, orgId), eq(brand.slug, "armarinhos_lima")));

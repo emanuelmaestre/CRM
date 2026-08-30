@@ -18,6 +18,7 @@
     "test:rls": "node scripts/test-rls.mjs",
     "test:phase-b:integration": "node scripts/test-phase-b-integration.mjs",
     "test:phase-b:gates": "vitest run --config vitest.integration.config.mts",
+    "test:integration": "node --env-file=.env.local ./node_modules/vitest/vitest.mjs run --config vitest.integration.config.mts",
     "test:phase-b:production": "node scripts/verify-phase-b-production.mjs",
     "test:phase-c:gates": "vitest run src/test/domain/scoring.test.ts src/test/domain/guardrails-ia.test.ts",
     "db:generate": "drizzle-kit generate",
