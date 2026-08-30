@@ -41,14 +41,22 @@ type Tom = "voce" | "sozinho" | "nosso" | "neutro";
  *  faz depois de ler. Sem isso, as quatro causas parecem a mesma coisa:
  *  "deu erro". Com isso, a fila se divide em "eu preciso agir", "vai sair
  *  sozinho" e "não adianta insistir". */
-const TONS: Record<Tom, { etiqueta: string; cor: string }> = {
-  voce:    { etiqueta: "Depende de você", cor: "var(--warning)" },
-  sozinho: { etiqueta: "Sai sozinho",     cor: "var(--info)" },
-  nosso:   { etiqueta: "É problema do CRM", cor: "var(--destructive)" },
-  neutro:  { etiqueta: "Sem classificação", cor: "var(--muted-foreground)" },
+const TONS: Record<Tom, { etiqueta: string; explicacao: string; cor: string }> = {
+  voce:    { etiqueta: "Depende de você", explicacao: "Estes pedidos só entram depois de alguém corrigir alguma coisa — esperar não resolve.", cor: "var(--warning)" },
+  sozinho: { etiqueta: "Sai sozinho",     explicacao: "Estes pedidos costumam entrar na próxima sincronização automática, sem ninguém fazer nada. Os passos do cartão servem para antecipar ou para os casos em que não sai.", cor: "var(--info)" },
+  nosso:   { etiqueta: "É problema do CRM", explicacao: "A falha é do sistema, não do seu cadastro nem do anúncio. Não há o que fazer no canal.", cor: "var(--destructive)" },
+  neutro:  { etiqueta: "Sem classificação", explicacao: "O CRM ainda não sabe agrupar este erro. Em geral é tropeço passageiro e passa na segunda tentativa.", cor: "var(--muted-foreground)" },
 };
 
-type Diagnostico = { motivo: string; resolucao: string };
+/** O diagnóstico de UM pedido: por que ele ficou de fora e o que fazer com
+ *  ele, em passos numerados.
+ *
+ *  Passos e não parágrafo porque quem abre esta tela está no meio de uma
+ *  tarefa, não lendo documentação: precisa saber qual é o PRIMEIRO clique. E
+ *  as condições vêm ditas por extenso ("se achou o anúncio…", "se não
+ *  achou…") porque o que é óbvio para quem escreveu o CRM não é óbvio para
+ *  quem só quer o pedido dentro do sistema. */
+type Diagnostico = { motivo: string; passos: string[] };
 
 const NOMES_CANAL: Record<string, string> = {
   mercadolivre: "Mercado Livre",
@@ -114,13 +122,26 @@ const CAUSAS: Record<string, {
     diagnostico: (linha) => {
       const skus = skusDaLinha(linha);
       const canal = nomeCanal(linha.canal);
+      const alvo = skus.length === 1 ? skus[0] : listaLegivel(skus);
       return {
         motivo: skus.length === 0
           ? "O pedido cita um SKU que ainda não existe como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora."
-          : `${skus.length === 1 ? `O SKU ${skus[0]} não existe` : `Os SKUs ${listaLegivel(skus)} não existem`} como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora.`,
-        resolucao: skus.length === 0
-          ? `Tente novamente depois da próxima sincronização do catálogo da ${linha.marca}. Se não entrar, abra "Ver detalhes": o erro registrado diz qual SKU faltou.`
-          : `Procure ${skus.length === 1 ? skus[0] : "esses SKUs"} nos anúncios da ${linha.marca} no ${canal}. Se ainda estiver lá, a próxima sincronização do catálogo cria o produto e a pendência sai sozinha — "Tentar novamente" antecipa isso. Se o SKU foi renomeado ou apagado no ${canal}, corrija o anúncio primeiro: nenhuma tentativa aqui cria produto que o canal não tem.`,
+          : `${skus.length === 1 ? `O SKU ${skus[0]} não existe` : `Os SKUs ${alvo} não existem`} como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora.`,
+        passos: skus.length === 0
+          ? [
+              `Abra "Ver detalhes" aqui embaixo e leia a linha "Erro registrado": é ela que diz qual SKU faltou. Esta pendência é antiga e foi gravada antes de o CRM guardar o SKU separado.`,
+              `Com o SKU em mãos, procure por ele nos anúncios da ${linha.marca} no ${canal}.`,
+              `Existe anúncio com esse SKU? Não mexa em nada: o produto entra no CRM na próxima sincronização automática do catálogo e esta linha some sozinha.`,
+              `Não quer esperar a sincronização? Clique em "Tentar novamente" aqui embaixo — o CRM rebusca o pedido no ${canal} na hora.`,
+            ]
+          : [
+              `Copie o SKU ${alvo} — é o código no chip cinza logo acima, dentro deste mesmo cartão.`,
+              `Abra os anúncios da ${linha.marca} no ${canal} e busque por esse SKU.`,
+              `SE ACHOU um anúncio com ele: não mexa em nada no canal. O produto nasce no CRM na próxima sincronização automática do catálogo e a pendência sai sozinha. Para não esperar, clique em "Tentar novamente" aqui embaixo.`,
+              `SE NÃO ACHOU: o SKU foi renomeado, ou o anúncio saiu do ar depois da venda. O pedido guarda o SKU do dia da compra e nunca é reescrito — por isso ele continua procurando ${alvo}. Devolva esse SKU ao anúncio no ${canal} e só então volte para cá.`,
+              `De volta aqui, clique em "Tentar novamente". Dando certo, a linha desaparece da fila na hora.`,
+              `Falhou de novo? Abra "Ver detalhes" e leia "Erro registrado": o motivo pode ter mudado. Se o anúncio não existe mais e não vale recriá-lo, clique em "Não recuperável" — o pedido sai da fila e continua guardado no histórico.`,
+            ],
       };
     },
   },
@@ -131,11 +152,19 @@ const CAUSAS: Record<string, {
     resumo: "O cadastro do comprador colidiu com um cliente que já existe. Resolve-se aqui dentro, não no painel do canal.",
     diagnostico: (linha) => {
       const campo = campoDuplicado(linha);
-      const comprador = linha.compradorNome ?? "O comprador";
+      const comprador = linha.compradorNome ?? "o comprador";
+      const busca = campo.valor ?? comprador;
       const mascarado = linha.canal === "shopee" && campo.rotulo === "telefone";
       return {
-        motivo: `${comprador} chegou com ${campo.rotulo}${campo.valor ? ` ${campo.valor}` : ""} já usado por outro cliente do CRM, e o cadastro foi recusado.${mascarado ? " Na Shopee o telefone vem mascarado, então compradores diferentes chegam com o mesmo valor — não é erro de cadastro seu." : ""}`,
-        resolucao: `Abra Clientes e procure por ${campo.valor ?? comprador}: junte os cadastros se for a mesma pessoa, ou separe-os se forem duas. Feito isso, "Tentar novamente" aqui traz o pedido. Mexer no ${nomeCanal(linha.canal)} não muda nada — o conflito é de dado do CRM.`,
+        motivo: `${linha.compradorNome ?? "O comprador"} chegou com ${campo.rotulo}${campo.valor ? ` ${campo.valor}` : ""} já usado por outro cliente do CRM, e o cadastro foi recusado.${mascarado ? " Na Shopee o telefone vem mascarado, então compradores diferentes chegam com o mesmo valor — não é erro de cadastro seu." : ""}`,
+        passos: [
+          `Comece clicando em "Tentar novamente" — sim, antes de investigar qualquer coisa. O CRM passou a reaproveitar o cliente que já tem o mesmo ${campo.rotulo} em vez de insistir em criar outro, e a maior parte destas pendências é anterior a essa correção: elas entram já na primeira tentativa.`,
+          `Entrou? Acabou. A linha some da fila e o pedido fica pendurado no cliente que já existia — nenhum cadastro novo é criado.`,
+          `Falhou de novo? Copie ${busca}, abra Clientes no menu do topo e busque por esse dado.`,
+          `Compare o cliente que aparecer com o comprador deste pedido (nome, ${campo.rotulo} e usuário no canal estão em "Ver detalhes"). É a MESMA pessoa: não crie nada, o CRM vai usar esse cadastro. São pessoas DIFERENTES: edite o ${campo.rotulo} de um dos dois em Clientes, para os dois pararem de disputar o mesmo valor.${mascarado ? " É o caso comum na Shopee, por causa do telefone mascarado." : ""}`,
+          `Com os cadastros ajustados, volte para cá e clique em "Tentar novamente".`,
+          `Não procure nada no painel do ${nomeCanal(linha.canal)}: o conflito é de dado do CRM, e mexer no anúncio ou na venda lá não muda nada aqui.`,
+        ],
       };
     },
   },
@@ -151,7 +180,13 @@ const CAUSAS: Record<string, {
         motivo: campo
           ? `O ${canal} devolveu este pedido com o campo "${campo}" num formato que o CRM não sabe ler. A falha está do nosso lado, não no seu cadastro nem no anúncio.`
           : `O ${canal} devolveu este pedido num formato que o CRM não sabe ler. A falha está do nosso lado, não no seu cadastro nem no anúncio.`,
-        resolucao: `Nada a fazer nesta tela — repare que não existe "Tentar novamente" aqui: o pedido guardado é o mesmo e passaria pelo mesmo validador, dando exatamente este erro de novo. Ele sai da fila quando o CRM aprender esse formato; o texto em "Ver detalhes" é o que o desenvolvedor precisa.`,
+        passos: [
+          `Não procure nada no ${canal} nem em Clientes: nada do que você fizer lá muda este erro, porque ele é do CRM.`,
+          `Repare que este cartão não tem o botão "Tentar novamente", e isso é de propósito: o pedido guardado é o mesmo e passaria pelo mesmo validador, dando exatamente este erro outra vez.`,
+          `Abra "Ver detalhes" aqui embaixo e copie a linha inteira de "Erro registrado".`,
+          `Mande esse texto junto com o número da venda deste cartão para quem cuida do CRM${campo ? `, dizendo que o campo é "${campo}"` : ""}. É com isso que dá para ensinar esse formato ao sistema.`,
+          `Enquanto ninguém mexe no CRM, a linha fica aqui parada. Se este pedido é antigo e você não quer mais vê-lo na fila, clique em "Não recuperável": ele sai da lista sem ser apagado do histórico.`,
+        ],
       };
     },
   },
@@ -162,7 +197,13 @@ const CAUSAS: Record<string, {
     resumo: "Falha sem classificação própria — em geral tropeço passageiro de rede ou de limite da API do canal.",
     diagnostico: (linha) => ({
       motivo: `A importação parou em: "${primeiraFrase(linha.motivo)}" — um erro que ainda não tem classificação própria no CRM.`,
-      resolucao: `Vale clicar em "Tentar novamente": falhas passageiras (rede fora, limite da API do ${nomeCanal(linha.canal)}) caem aqui e costumam passar na segunda tentativa.`,
+      passos: [
+        `Clique em "Tentar novamente". A maior parte do que cai aqui é tropeço passageiro — rede fora, limite de chamadas da API do ${nomeCanal(linha.canal)} — e passa na segunda tentativa.`,
+        `Entrou? Acabou: a linha some da fila sozinha, sem mais nenhum passo.`,
+        `Falhou? Abra "Ver detalhes" e leia "Erro registrado". Esse texto é regravado a cada tentativa, então ele mostra o erro de AGORA, não o da primeira vez.`,
+        `Se o erro novo falar de SKU ou de cliente, não faça nada aqui: no próximo carregamento da página esta linha muda de grupo sozinha e passa a mostrar os passos daquela causa.`,
+        `Repetiu o mesmo erro duas ou três vezes? Pare de clicar: copie "Erro registrado" e o número da venda e mande para quem cuida do CRM.`,
+      ],
     }),
   },
 };
@@ -177,35 +218,53 @@ function causaDe(chave: string) {
   return CAUSAS[chave] ?? CAUSAS.desconhecida;
 }
 
-/** O que aconteceu com ESTE pedido e o que fazer com ELE.
+/** O que aconteceu com ESTE pedido e o que fazer com ELE, passo a passo.
  *
- *  Parte do texto da causa e deixa o estado da própria linha sobrescrever o
- *  conselho, porque o estado manda mais que a causa: um pedido cancelado no
- *  canal não vira receita nem se entrar (recuperá-lo é trabalho jogado fora),
- *  e um pedido já descartado não pede ação nenhuma até voltar para a fila.
- *  Sem isso, a tela mandaria caçar SKU de pedido cancelado. */
+ *  Parte dos passos da causa e deixa o estado da própria linha sobrescrever o
+ *  roteiro, porque o estado manda mais que a causa: um pedido cancelado no
+ *  canal não vira receita nem se entrar (caçar o SKU dele é trabalho jogado
+ *  fora), e um pedido já descartado não pede ação nenhuma até voltar para a
+ *  fila. Sem isso, a tela mandaria seguir seis passos para recuperar dinheiro
+ *  que não existe. */
 function diagnosticoDe(linha: PedidoIgnoradoLinha): Diagnostico {
-  const base = causaDe(linha.causa).diagnostico(linha);
+  const causa = causaDe(linha.causa);
+  const base = causa.diagnostico(linha);
+  const canal = nomeCanal(linha.canal);
   const cancelado = linha.statusCanal !== null && mapearStatusPedido(linha.statusCanal) === "cancelado";
 
   if (linha.descartadoEm !== null) {
     return {
       ...base,
-      resolucao: `Marcado como não recuperável em ${dataCurta(linha.descartadoEm)}: não conta mais na fila e ninguém precisa fazer nada. Para voltar a tentar, use "Devolver à fila".`,
+      passos: [
+        `Não há nada a fazer: alguém marcou esta pendência como "Não recuperável" em ${dataCurta(linha.descartadoEm)}, e ela não conta mais na fila nem nos números do topo.`,
+        `O pedido não foi apagado — ele continua guardado no histórico, e é por isso que você está vendo esta linha agora.`,
+        `Mudou de ideia? Clique em "Devolver à fila" aqui embaixo: a linha volta a contar e os passos de "${causa.rotulo}" voltam a valer.`,
+      ],
     };
   }
+
   if (cancelado) {
     return {
       ...base,
-      resolucao: `Este pedido está cancelado no ${nomeCanal(linha.canal)}: mesmo que entre, não vira receita. Recuperá-lo não muda faturamento nenhum — o caminho aqui é "Não recuperável", que tira da fila sem apagar o registro.`,
+      passos: [
+        `Antes de qualquer coisa, confira em "Ver detalhes": o status deste pedido no ${canal} é "Cancelado".`,
+        `Pedido cancelado não vira receita nem se entrar no CRM. Recuperá-lo não muda faturamento, não muda Métricas e não muda comissão — o trabalho seria jogado fora.`,
+        `Por isso o caminho normal aqui é clicar em "Não recuperável": a linha sai da fila e o pedido continua guardado no histórico, nada é apagado.`,
+        `Só insista com "Tentar novamente" se você tem motivo para achar que o cancelamento está errado — e, nesse caso, confirme antes no painel do ${canal}.`,
+      ],
     };
   }
+
   if (linha.tentativas >= 3 && linha.reprocessavel) {
     return {
       ...base,
-      resolucao: `${base.resolucao} Já são ${linha.tentativas} tentativas com o mesmo resultado — insistir sem mudar nada fora desta tela não deve bastar.`,
+      passos: [
+        ...base.passos,
+        `Atenção antes de clicar mais uma vez: já são ${linha.tentativas} tentativas com o mesmo resultado. Se os passos acima que dependem do canal ou de Clientes ainda não foram feitos, clicar de novo vai dar exatamente no mesmo.`,
+      ],
     };
   }
+
   return base;
 }
 
@@ -279,7 +338,18 @@ function Pendencia({ linha, podeDescartar }: {
       {pendente && <span aria-hidden="true" className="absolute inset-0 z-10 animate-pulse bg-card/60" />}
 
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-        <span className="font-mono text-sm font-bold tracking-tight text-foreground">{linha.providerOrderId}</span>
+        {/* O número da venda era o texto mais destacado do cartão e o único
+            sem rótulo: dava para confundir com SKU, com o ID do comprador ou
+            com um código interno do CRM. O rótulo diz o que é, o logo ao lado
+            diz de onde vem, e o title soletra a frase inteira para quem
+            precisa colar esse número na busca do canal. */}
+        <span
+          className="inline-flex items-baseline gap-1.5"
+          title={`Venda ${linha.providerOrderId} no ${nomeCanal(linha.canal)} — o mesmo número que aparece no painel do canal`}
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Venda nº</span>
+          <span className="font-mono text-sm font-bold tracking-tight text-foreground">{linha.providerOrderId}</span>
+        </span>
         <ChannelLogo canal={linha.canal} size="sm" variant="logo" />
         {isBrandSlug(linha.marcaSlug)
           ? <BrandLogo brand={linha.marcaSlug} height={14} />
@@ -333,13 +403,20 @@ function Pendencia({ linha, podeDescartar }: {
         style={{ borderColor: `color-mix(in srgb, ${tom.cor} 55%, transparent)` }}
       >
         <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-          <span className="font-bold text-foreground">Por que ficou de fora: </span>
+          <span className="font-bold text-foreground">Por que este pedido ficou de fora: </span>
           {diagnostico.motivo}
         </p>
-        <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
-          <span className="font-bold" style={{ color: tom.cor }}>Como resolver: </span>
-          {diagnostico.resolucao}
-        </p>
+        {/* Lista numerada de verdade (<ol>), não frases coladas num
+            parágrafo: o número dá ordem ("faça isto primeiro"), o leitor
+            consegue parar no meio e voltar depois, e cada passo vira uma
+            unidade que dá para ler em pé, com o celular na mão, dentro do
+            painel do canal. */}
+        <p className="mt-2 text-[11.5px] font-bold" style={{ color: tom.cor }}>Como resolver, passo a passo:</p>
+        <ol className="mt-1 grid list-decimal gap-1 pl-4 marker:font-bold marker:text-muted-foreground">
+          {diagnostico.passos.map((passo, indice) => (
+            <li key={indice} className="pl-0.5 text-[11.5px] leading-relaxed text-muted-foreground">{passo}</li>
+          ))}
+        </ol>
       </div>
 
       <DetalhePedido linha={linha} aberto={detalheAberto} id={idDetalhe} />
@@ -356,6 +433,7 @@ function Pendencia({ linha, podeDescartar }: {
               type="button"
               onClick={reprocessar}
               disabled={pendente}
+              title="Tenta importar este pedido de novo, agora. Quando a foto guardada está velha, o CRM rebusca o pedido no canal antes. Não duplica nada: se ele já tiver entrado, a pendência só é encerrada."
               className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
             >
               {pendente ? <Loader2 size={12} className="animate-spin" /> : <RotateCw size={12} />}
@@ -367,6 +445,9 @@ function Pendencia({ linha, podeDescartar }: {
               type="button"
               onClick={() => descartar(fechado)}
               disabled={pendente}
+              title={fechado
+                ? "Devolve a pendência para a fila: ela volta a contar nos números do topo e a pedir ação."
+                : "Tira da fila sem apagar nada: o pedido continua no histórico e dá para devolvê-lo depois. Use quando não há mais o que fazer — anúncio excluído, pedido cancelado."}
               className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
             >
               {fechado ? <Undo2 size={12} /> : <CircleSlash size={12} />}
@@ -382,7 +463,10 @@ function Pendencia({ linha, podeDescartar }: {
             onClick={() => setDetalheAberto((atual) => !atual)}
             aria-expanded={detalheAberto}
             aria-controls={idDetalhe}
-            className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted sm:ml-auto"
+            /* Cinza-claro fazia o rótulo parecer legenda, não botão: já estava
+               em font-bold, mas com a cor apagada o negrito não aparecia. Com
+               a cor do texto normal o peso finalmente se lê. */
+            className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted sm:ml-auto"
           >
             <motion.span
               aria-hidden="true"
@@ -411,10 +495,13 @@ function rotuloStatus(statusCanal: string | null): string | null {
 
 /** Uma medida do detalhe. `tabular-nums` em tudo que e numero para as colunas
  *  alinharem verticalmente mesmo com larguras diferentes. */
-function Medida({ rotulo, valor, cor }: { rotulo: string; valor: string; cor?: string }) {
+function Medida({ rotulo, valor, cor, dica }: { rotulo: string; valor: string; cor?: string; dica?: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</dt>
+      {/* A coluna só cabe uma palavra ("Repasse"), e uma palavra sozinha não
+          ensina nada a quem nunca viu o termo. A dica no hover explica sem
+          gastar linha na grade. */}
+      <dt title={dica} className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</dt>
       {/* title porque o valor trunca em coluna estreita (celular em pe, nome
           de comprador longo): o texto inteiro continua alcançavel. */}
       <dd title={valor} className="truncate text-[13px] font-bold tabular-nums" style={{ color: cor ?? "var(--foreground)" }}>{valor}</dd>
@@ -487,13 +574,18 @@ function DetalhePedido({ linha, aberto, id }: { linha: PedidoIgnoradoLinha; aber
                 deitado, que ganha largura), 6 no desktop: a linha de valores
                 nunca fica com uma coluna orfa. */}
             <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-3 xl:grid-cols-6">
-              <Medida rotulo="Total" valor={dinheiro(linha.total)} />
-              <Medida rotulo="Frete" valor={dinheiro(linha.frete)} />
-              <Medida rotulo="Desconto" valor={dinheiro(linha.desconto)} />
-              <Medida rotulo="Acrescimo" valor={dinheiro(linha.acrescimo)} />
-              <Medida rotulo="Taxa do canal" valor={taxaTotal > 0 ? moeda.format(taxaTotal) : "—"} />
+              <Medida rotulo="Total" valor={dinheiro(linha.total)} dica="O que o comprador pagou, do jeito que o canal informou." />
+              <Medida rotulo="Frete" valor={dinheiro(linha.frete)} dica="Frete cobrado nesta venda, já incluído no total." />
+              <Medida rotulo="Desconto" valor={dinheiro(linha.desconto)} dica="Descontos aplicados na venda (cupom, promoção do canal)." />
+              <Medida rotulo="Acrescimo" valor={dinheiro(linha.acrescimo)} dica="Valores somados à venda pelo canal, quando houver." />
+              <Medida
+                rotulo="Taxa do canal"
+                valor={taxaTotal > 0 ? moeda.format(taxaTotal) : "—"}
+                dica="Comissão que o canal cobra desta venda, somando todos os itens. Aparece como — quando o canal ainda não calculou."
+              />
               <Medida
                 rotulo="Repasse"
+                dica="O que sobra para você depois das taxas — é o valor que o canal deposita. Aparece como — enquanto o canal não fecha a conta desta venda."
                 valor={dinheiro(linha.valorLiquido)}
                 cor={linha.valorLiquido && Number(linha.valorLiquido) > 0 ? "var(--success)" : undefined}
               />
@@ -508,16 +600,28 @@ function DetalhePedido({ linha, aberto, id }: { linha: PedidoIgnoradoLinha; aber
             )}
 
             <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-border pt-3 sm:grid-cols-4">
-              <Medida rotulo="Comprador" valor={linha.compradorNome ?? "—"} />
-              <Medida rotulo="Usuario no canal" valor={linha.compradorUsuario ?? "—"} />
-              <Medida rotulo="Telefone" valor={linha.compradorTelefone ?? "—"} />
-              <Medida rotulo="Tentativas" valor={String(linha.tentativas)} />
+              <Medida rotulo="Comprador" valor={linha.compradorNome ?? "—"} dica="Nome como o canal entregou. É por ele (ou pelo telefone) que se procura o cadastro em Clientes." />
+              <Medida
+                rotulo={`ID do comprador no ${nomeCanal(linha.canal)}`}
+                valor={linha.compradorUsuario ?? "—"}
+                dica={`Número que identifica o comprador dentro do ${nomeCanal(linha.canal)} — não é o número da venda nem um código do CRM.`}
+              />
+              <Medida
+                rotulo="Telefone"
+                valor={linha.compradorTelefone ?? "—"}
+                dica="Telefone que veio do canal. Na Shopee ele vem mascarado, e é justamente o que faz compradores diferentes colidirem no mesmo cadastro."
+              />
+              <Medida
+                rotulo="Tentativas"
+                valor={String(linha.tentativas)}
+                dica="Quantas vezes este pedido já tentou entrar — contando as sincronizações automáticas, não só os seus cliques."
+              />
             </dl>
 
             {/* O motivo cru fecha o bloco: e o texto que o desenvolvedor le
                 quando a causa classificada nao basta. */}
             <p className="mt-3 break-words border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
-              <span className="font-semibold text-foreground">Erro registrado:</span> {linha.motivo}
+              <span className="font-semibold text-foreground">Erro registrado (texto técnico, para quem cuida do CRM):</span> {linha.motivo}
             </p>
           </div>
         </motion.div>
@@ -564,6 +668,7 @@ function GrupoCausa({ chave, linhas, podeDescartar }: {
           <span
             className="ml-auto rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
             style={{ borderColor: `color-mix(in srgb, ${tom.cor} 30%, transparent)`, color: tom.cor }}
+            title={tom.explicacao}
           >
             {tom.etiqueta}
           </span>
@@ -649,7 +754,7 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
       </Link>
       <PageHeader
         title="Pedidos ignorados"
-        description="Pedidos que o canal entregou e o CRM não conseguiu importar. A fila se limpa sozinha na próxima sincronização quando a causa deixa de existir."
+        description="Vendas que aconteceram no canal mas não entraram no CRM — elas não contam em Vendas nem em Métricas enquanto estiverem aqui. Cada cartão diz por que aquele pedido ficou de fora e o passo a passo para trazê-lo. Boa parte sai sozinha na próxima sincronização, quando a causa deixa de existir."
         actions={
           <>
             {reprocessaveis > 1 && !incluirFechados && (
@@ -657,6 +762,7 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
                 type="button"
                 onClick={tentarTodos}
                 disabled={tentandoTodos}
+                title="Tenta a fila inteira de uma vez, da pendência mais antiga para a mais nova, em fatias de 20. Nada é descartado: o que não entrar continua na lista, com o motivo atualizado."
                 className="press-feedback inline-flex h-10 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
               >
                 {tentandoTodos
@@ -688,8 +794,10 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
               são o conteúdo de verdade desta tela. */}
           <motion.p variants={fadeUp} className="mb-4 text-xs font-semibold text-muted-foreground">
             {abertas.length} {abertas.length === 1 ? "pedido fora do CRM" : "pedidos fora do CRM"}
-            {valorParado > 0 && <> · <span className="text-foreground">{moeda.format(valorParado)}</span> parados</>}
-            {maisAntiga > 0 && <> · o mais antigo há {maisAntiga}d</>}
+            {valorParado > 0 && (
+              <> · <span className="text-foreground">{moeda.format(valorParado)}</span> em vendas que não contam no faturamento</>
+            )}
+            {maisAntiga > 0 && <> · o mais antigo está parado há {maisAntiga} {maisAntiga === 1 ? "dia" : "dias"}</>}
             {incluirFechados && ` · ${linhas.length - abertas.length} fechados`}
           </motion.p>
 
