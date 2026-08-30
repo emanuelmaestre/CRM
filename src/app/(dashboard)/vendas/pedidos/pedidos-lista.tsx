@@ -57,6 +57,10 @@ const resumoInicial: Resumo = {
 
 const limiteDoDiaInicial: LimiteDoDia = { soNoMercadoLivre: [], soAqui: [] };
 
+function chaveConsulta(marcas: string[] = [], canais: string[] = [], statuses: readonly string[] = [], busca = "", inicio = "", fim = "") {
+  return JSON.stringify({ marcas, canais, statuses, busca, inicio, fim });
+}
+
 function inicioDoDia(data: string): string | undefined {
   return data ? `${data}T00:00:00-03:00` : undefined;
 }
@@ -364,6 +368,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
   const [pendencias, setPendencias] = useState<Pendencias>({ quantidade: 0, valor: 0 });
+  const [consultaDoResumo, setConsultaDoResumo] = useState<string | null>(null);
   /* Uma janela só, para a única porta que hoje leva até ela: o card de fuso
      na grade de indicadores. Guarda PARA QUAL conjunto de pedidos foi aberta,
      e não um booleano: trocar o filtro troca os pedidos da fronteira, e um
@@ -402,6 +407,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
     const currentRequest = ++requestId.current;
     startTransition(async () => {
       setLoading(true);
+      setConsultaDoResumo(null);
       try {
         const res = await actionListarPedidosDetalhados({
           brandIds: marcas?.length ? marcas : undefined,
@@ -417,6 +423,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         setResumo(res.resumo);
         setLimiteDoDia(res.limiteDoDia);
         setPendencias(res.pendencias);
+        setConsultaDoResumo(chaveConsulta(marcas, canaisAtual, statusesAtual, buscaAtual, inicio, fim));
         setMarcas(res.marcas);
         /* As contagens de marca voltam já cruzadas com o canal escolhido (ver
            contarPedidosPorMarca): total 0 aqui quer dizer "esta marca não tem
@@ -689,16 +696,15 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         )}
       </motion.section>
 
-      {/* Logo abaixo dos cards, porque é o card de Faturamento que ele
-          explica — e acima da lista, porque a pergunta "por que não bate com
-          o painel do canal?" vem antes de olhar pedido por pedido. */}
+      {/* Explica a composição local sem prometer equivalência com o painel oficial. */}
       <ConferenciaCanal
         canais={canaisSel}
         faturamento={resumo.faturamento}
         canceladosValor={resumo.canceladosValor + resumo.devolvidosValor}
-        limiteDoDia={limiteDoDia}
         pendencias={pendencias}
-        temPeriodo={Boolean(dataInicial && dataFinal)}
+        periodo={{ inicio: dataInicial, fim: dataFinal }}
+        temFiltrosAdicionais={Boolean(buscaAplicada || statusesAtivos.length)}
+        dadosAtuais={!loading && consultaDoResumo === chaveConsulta(brandIds, canaisSel, statusesAtivos, buscaAplicada, dataInicial, dataFinal)}
       />
 
       <motion.section
