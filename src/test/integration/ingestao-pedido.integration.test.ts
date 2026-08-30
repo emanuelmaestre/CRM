@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/shared/lib/db";
-import { brand, channelAccount, eventoDominio, produto, produtoCanal } from "@/shared/lib/db/schema";
+import { auditLog, brand, channelAccount, eventoDominio, produto, produtoCanal } from "@/shared/lib/db/schema";
 import { cliente, clienteIdentidade } from "@/shared/lib/db/schema/clientes";
 import { pedido, pedidoItem } from "@/shared/lib/db/schema/vendas";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
@@ -33,6 +33,8 @@ let produtoId: string;
 
 const pedidosParaLimpar: string[] = [];
 const clientesParaLimpar: string[] = [];
+/** Produtos que a própria ingestão cria a partir do anúncio do pedido. */
+const produtosParaLimpar: string[] = [];
 
 beforeAll(async () => {
   const [marca] = await db.insert(brand).values({
@@ -100,14 +102,17 @@ afterAll(async () => {
     await limpar(() => db.delete(clienteIdentidade).where(eq(clienteIdentidade.clienteId, id)));
     await limpar(() => db.delete(cliente).where(eq(cliente.id, id)));
   }
-  if (produtoId) {
-    await limpar(() => db.delete(produtoCanal).where(eq(produtoCanal.produtoId, produtoId)));
-    await limpar(() => db.delete(produto).where(eq(produto.id, produtoId)));
+  for (const id of new Set([...produtosParaLimpar, produtoId])) {
+    if (!id) continue;
+    await limpar(() => db.delete(produtoCanal).where(eq(produtoCanal.produtoId, id)));
+    await limpar(() => db.delete(produto).where(eq(produto.id, id)));
   }
   // A ingestão publica eventos de domínio referenciando a marca — sem apagar
-  // antes, o delete da marca esbarra na FK de evento_dominio.
+  // antes, o delete da marca esbarra na FK de evento_dominio. O mesmo vale
+  // para o audit_log do produto criado a partir do anúncio do pedido.
   if (brandId) {
     await limpar(() => db.delete(eventoDominio).where(eq(eventoDominio.brandId, brandId)));
+    await limpar(() => db.delete(auditLog).where(eq(auditLog.brandId, brandId)));
   }
   for (const id of [contaShopeeId, contaMercadoLivreId]) {
     if (!id) continue;
@@ -195,6 +200,104 @@ describe.sequential("ingestão de pedidos — colisão de cliente e match de SKU
         eq(clienteIdentidade.externalId, `shopee-buyer-2-${sufixo}`),
       ));
     if (identidade) clientesParaLimpar.push(identidade.clienteId);
+  });
+
+  /* O SKU do pedido é o que ele era no dia da compra; o do anúncio muda. Os
+     três casos abaixo são os que deixaram 40 pedidos da WUWU parados (R$
+     1.344,20, 03/06 a 04/08/2026). */
+  it("casa pelo anúncio quando o SKU do pedido foi renomeado depois da venda", async () => {
+    const resultado = await ingerirPedido(orgId, brandId, contaMercadoLivreId, {
+      providerOrderId: `ML-${sufixo}-RENOMEADO`,
+      canal: "mercadolivre",
+      clienteExternalId: `ml-buyer-renomeado-${sufixo}`,
+      clienteNome: "Comprador Anúncio Renomeado",
+      status: "paid",
+      total: "10.00",
+      itens: [{
+        // Este SKU não existe em produto nenhum da marca — só o anúncio é
+        // conhecido, pelo vínculo criado no beforeAll.
+        skuExterno: `SKU_ANTIGO_${sufixo}`,
+        quantidade: 1,
+        precoUnitario: "10.00",
+        listingId: `MLB-${sufixo}`,
+        titulo: "Título que não deve criar produto novo",
+      }],
+      criadoEm: new Date(),
+    });
+    pedidosParaLimpar.push(resultado.pedidoId);
+
+    const itens = await db.select({ produtoId: pedidoItem.produtoId })
+      .from(pedidoItem)
+      .where(eq(pedidoItem.pedidoId, resultado.pedidoId));
+    expect(itens[0].produtoId).toBe(produtoId);
+
+    // Nenhum cadastro novo: o produto físico é o mesmo, só o SKU mudou.
+    const duplicado = await db.select({ id: produto.id })
+      .from(produto)
+      .where(and(eq(produto.orgId, orgId), eq(produto.brandId, brandId), eq(produto.sku, `SKU_ANTIGO_${sufixo}`)));
+    expect(duplicado).toHaveLength(0);
+
+    const [identidade] = await db.select({ clienteId: clienteIdentidade.clienteId })
+      .from(clienteIdentidade)
+      .where(and(eq(clienteIdentidade.orgId, orgId), eq(clienteIdentidade.externalId, `ml-buyer-renomeado-${sufixo}`)));
+    if (identidade) clientesParaLimpar.push(identidade.clienteId);
+  });
+
+  it("cria o produto pelo anúncio do pedido quando o catálogo não conhece o anúncio", async () => {
+    // Anúncio pausado ou excluído: a importação de catálogo não o enxerga, e
+    // sem isto o pedido ficava parado para sempre na fila de não importados.
+    const skuNovo = `SKU_FORA_DO_AR_${sufixo}`;
+    const resultado = await ingerirPedido(orgId, brandId, contaMercadoLivreId, {
+      providerOrderId: `ML-${sufixo}-FORA-DO-AR`,
+      canal: "mercadolivre",
+      clienteExternalId: `ml-buyer-fora-${sufixo}`,
+      clienteNome: "Comprador Anúncio Pausado",
+      status: "paid",
+      total: "24.90",
+      itens: [{
+        skuExterno: skuNovo,
+        quantidade: 1,
+        precoUnitario: "24.90",
+        listingId: `MLB-PAUSADO-${sufixo}`,
+        titulo: "Varal Oval 16 Prendedores",
+      }],
+      criadoEm: new Date(),
+    });
+    pedidosParaLimpar.push(resultado.pedidoId);
+    expect(resultado.novo).toBe(true);
+
+    const [criado] = await db.select({ id: produto.id, nome: produto.nome, preco: produto.preco })
+      .from(produto)
+      .where(and(eq(produto.orgId, orgId), eq(produto.brandId, brandId), eq(produto.sku, skuNovo)));
+    expect(criado).toMatchObject({ nome: "Varal Oval 16 Prendedores", preco: "24.90" });
+    produtosParaLimpar.push(criado.id);
+
+    // O vínculo é o que faz o próximo pedido do mesmo anúncio casar mesmo que
+    // o SKU mude de novo.
+    const [vinculo] = await db.select({ listingId: produtoCanal.externalListingId })
+      .from(produtoCanal)
+      .where(and(eq(produtoCanal.orgId, orgId), eq(produtoCanal.produtoId, criado.id)));
+    expect(vinculo.listingId).toBe(`MLB-PAUSADO-${sufixo}`);
+
+    const [identidade] = await db.select({ clienteId: clienteIdentidade.clienteId })
+      .from(clienteIdentidade)
+      .where(and(eq(clienteIdentidade.orgId, orgId), eq(clienteIdentidade.externalId, `ml-buyer-fora-${sufixo}`)));
+    if (identidade) clientesParaLimpar.push(identidade.clienteId);
+  });
+
+  it("continua recusando o pedido quando não há SKU conhecido nem anúncio", async () => {
+    // A fila de não importados continua sendo a rede de segurança: sem o
+    // anúncio, adivinhar o produto seria inventar dado.
+    await expect(ingerirPedido(orgId, brandId, contaMercadoLivreId, {
+      providerOrderId: `ML-${sufixo}-SEM-ANUNCIO`,
+      canal: "mercadolivre",
+      clienteExternalId: `ml-buyer-sem-anuncio-${sufixo}`,
+      clienteNome: "Comprador Sem Anúncio",
+      status: "paid",
+      total: "9.90",
+      itens: [{ skuExterno: `SKU_INEXISTENTE_${sufixo}`, quantidade: 1, precoUnitario: "9.90" }],
+      criadoEm: new Date(),
+    })).rejects.toThrow(/SKUs sem produto na marca/);
   });
 
   it("enriquece o financeiro quando a Shopee libera o escrow depois do primeiro webhook", async () => {

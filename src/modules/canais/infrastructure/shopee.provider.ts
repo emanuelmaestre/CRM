@@ -170,6 +170,9 @@ type ShopeeItem = {
   model_id?: number;
   item_sku?: string;
   model_sku?: string;
+  /** Nome do anúncio, já incluso em `item_list` — serve para criar o produto
+   *  quando o pedido chega de um anúncio que o catálogo não conhece. */
+  item_name?: string;
   model_quantity_purchased: number;
   model_discounted_price: number;
 };
@@ -638,6 +641,12 @@ export class ShopeeProvider implements ChannelProvider {
           quantidade: i.model_quantity_purchased,
           precoUnitario: String(i.model_discounted_price),
           taxaMarketplace: financeiro?.taxasMarketplace[indice],
+          // O anúncio da venda — ver o comentário em `PedidoNormalizado.itens`.
+          // Mesma régua do catálogo: `model_id` 0 significa anúncio sem
+          // variação, e ali o vínculo grava null.
+          listingId: i.item_id ? String(i.item_id) : undefined,
+          variationId: i.model_id ? String(i.model_id) : null,
+          titulo: i.item_name,
         })),
         criadoEm: new Date((detail?.create_time ?? 0) * 1000),
       };

@@ -43,6 +43,21 @@ export interface PedidoNormalizado {
      *  `sale_fee`; na Shopee, as tarifas do escrow são rateadas entre os itens
      *  preservando o total exato cobrado no pedido. */
     taxaMarketplace?: string;
+    /* ── O anúncio de onde a venda saiu ──────────────────────────────────
+     *
+     *  O pedido guarda o SKU congelado no momento da compra, e a importação
+     *  de catálogo só enxerga anúncio à venda. Das duas coisas juntas nasce o
+     *  pedido que nunca entra: anúncio pausado (produto nunca criado) ou SKU
+     *  renomeado depois da venda (produto existe, com outro nome). Foram 40
+     *  pedidos da WUWU, R$ 1.344,20, achados em 29/08/2026.
+     *
+     *  Levar o anúncio junto resolve os dois: a ingestão casa pelo vínculo do
+     *  anúncio quando o SKU não bate e, se nem o anúncio for conhecido, cria
+     *  o produto com o que o próprio pedido informa. Opcionais porque canal
+     *  que não souber preencher continua caindo no fluxo antigo. */
+    listingId?: string;
+    variationId?: string | null;
+    titulo?: string;
   }[];
   criadoEm: Date;
 }

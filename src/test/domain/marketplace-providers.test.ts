@@ -22,7 +22,11 @@ describe("contratos dos providers de marketplace", () => {
           total_amount: 49.9,
           shipping: { cost: 5 },
           buyer: { id: 9, nickname: "buyer" },
-          order_items: [{ item: { seller_sku: "SKU-1" }, quantity: 2, unit_price: 24.95 }],
+          order_items: [{
+            item: { id: "MLB-1", variation_id: 12345, seller_sku: "SKU-1", title: "Varal Oval" },
+            quantity: 2,
+            unit_price: 24.95,
+          }],
           date_created: "2026-07-23T06:00:00.000Z",
         }],
       }), { status: 200 }));
@@ -40,7 +44,18 @@ describe("contratos dos providers de marketplace", () => {
       providerOrderId: "123",
       canal: "mercadolivre",
       status: "paid",
-      itens: [{ skuExterno: "SKU-1", quantidade: 2, precoUnitario: "24.95" }],
+      // O anúncio vai junto do pedido: é o que permite casar a venda quando o
+      // SKU já não existe mais no catálogo (anúncio pausado, excluído ou SKU
+      // renomeado depois da venda).
+      itens: [{
+        skuExterno: "SKU-1",
+        quantidade: 2,
+        precoUnitario: "24.95",
+        taxaMarketplace: undefined,
+        listingId: "MLB-1",
+        variationId: "12345",
+        titulo: "Varal Oval",
+      }],
     })]);
     expect(String(fetchMock.mock.calls[1][0])).toContain("order.date_created.from=");
   });

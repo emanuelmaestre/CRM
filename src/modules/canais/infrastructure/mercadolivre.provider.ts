@@ -47,7 +47,7 @@ interface MLOrderDetail {
   shipping?: { id?: number; cost?: number };
   buyer: { id: number; nickname: string; email?: string };
   order_items: Array<{
-    item: { seller_sku?: string; title?: string };
+    item: { id?: string; variation_id?: number | string | null; seller_sku?: string; title?: string };
     quantity: number;
     unit_price: number;
     // Comissão do Mercado Livre por unidade do item — já vem nesta mesma
@@ -447,6 +447,12 @@ export function normalizarPedidoMercadoLivre(
       quantidade: item.quantity,
       precoUnitario: String(item.unit_price),
       taxaMarketplace: typeof item.sale_fee === "number" ? String(item.sale_fee) : undefined,
+      // O anúncio da venda — ver o comentário em `PedidoNormalizado.itens`.
+      // `variation_id` só existe em anúncio com variação; vem 0 ou ausente
+      // nos demais, e ali o vínculo do catálogo grava null.
+      listingId: item.item.id,
+      variationId: item.item.variation_id ? String(item.item.variation_id) : null,
+      titulo: item.item.title,
     })),
     criadoEm: new Date(order.date_created),
   };
@@ -872,7 +878,24 @@ export class MercadoLivreProvider implements ChannelProvider {
    *  de catálogo) nunca lê nota nenhuma do retorno, então chamava essa busca
    *  à toa em toda importação — puro desperdício de cota da API. Default
    *  `false`: quem precisa da nota pede explicitamente. */
-  async listarAnunciosAtivos(opcoes: { offset?: number; limit?: number; comAvaliacoes?: boolean } = {}): Promise<{
+  /** `incluirForaDoAr` tira o filtro `status=active` da busca.
+   *
+   *  Anúncio pausado continua tendo histórico de venda, e o produto precisa
+   *  existir no CRM para o pedido daquele SKU entrar. Só com os ativos, todo
+   *  pedido de anúncio pausado era recusado por "SKU sem produto" — 33 dos 40
+   *  pedidos parados da WUWU em 29/08/2026 vinham daí, de quatro anúncios.
+   *  Na conta da WUWU são 168 ativos contra 18 pausados: o custo da varredura
+   *  maior é pequeno e não se paga em cota nenhuma.
+   *
+   *  Não alcança anúncio EXCLUÍDO: `status=closed` devolve `paging.total` 0
+   *  nessa conta, conferido ao vivo. Para esses, quem resolve é a criação do
+   *  produto a partir do próprio pedido, na ingestão. */
+  async listarAnunciosAtivos(opcoes: {
+    offset?: number;
+    limit?: number;
+    comAvaliacoes?: boolean;
+    incluirForaDoAr?: boolean;
+  } = {}): Promise<{
     items: MLAnuncioCatalogo[];
     totalListings: number;
     offset: number;
@@ -881,10 +904,11 @@ export class MercadoLivreProvider implements ChannelProvider {
     const offset = Math.max(0, Math.trunc(opcoes.offset ?? 0));
     const limit = Math.min(50, Math.max(1, Math.trunc(opcoes.limit ?? 50)));
     const me = await this.get<{ id: string }>("/users/me");
+    const filtroStatus = opcoes.incluirForaDoAr ? "" : "status=active&";
     const search = await this.get<{
       results?: string[];
       paging?: { total?: number; offset?: number; limit?: number };
-    }>(`/users/${encodeURIComponent(me.id)}/items/search?status=active&offset=${offset}&limit=${limit}`);
+    }>(`/users/${encodeURIComponent(me.id)}/items/search?${filtroStatus}offset=${offset}&limit=${limit}`);
     const ids = search.results ?? [];
     if (ids.length === 0) {
       return { items: [], totalListings: search.paging?.total ?? 0, offset, limit };

@@ -78,7 +78,7 @@ export async function importarPaginaCatalogoMercadoLivre(
 ): Promise<{ produtosCriados: number; ignorados: number; total: number; proximoOffset: number; fim: boolean }> {
   const provider = await criarMLProvider(conta.brandSlug);
   const [pagina, vinculos] = await Promise.all([
-    provider.listarAnunciosAtivos({ offset, limit: TAMANHO_FATIA_CATALOGO }),
+    provider.listarAnunciosAtivos({ offset, limit: TAMANHO_FATIA_CATALOGO, incluirForaDoAr: true }),
     carregarVinculosDaConta(ctx, conta.channelAccountId),
   ]);
   let produtosCriados = 0;
@@ -370,7 +370,7 @@ async function importarCatalogoDaConta(ctx: CrudContext, conta: ContaParaImporta
     // retorno (só nome, preço e saldo), então não vale gastar a chamada
     // extra de /reviews/item por SKU — quem precisa disso é o módulo de
     // Avaliações, que já pede explicitamente (ver avaliacoes.service.ts).
-    const pagina = await provider.listarAnunciosAtivos({ offset, limit: 50 });
+    const pagina = await provider.listarAnunciosAtivos({ offset, limit: 50, incluirForaDoAr: true });
     for (const item of pagina.items) {
       const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-mercadolivre", "ml");
       if (resultado === "criado") produtosCriados += 1;

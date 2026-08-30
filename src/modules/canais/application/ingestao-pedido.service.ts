@@ -6,6 +6,7 @@ import { db } from "@/shared/lib/db";
 import { cliente, clienteIdentidade } from "@/shared/lib/db/schema/clientes";
 import { channelAccount } from "@/shared/lib/db/schema/canais";
 import { produto, produtoCanal } from "@/shared/lib/db/schema/estoque";
+import { auditLog } from "@/shared/lib/db/schema/auditoria";
 import { pedido, pedidoItem } from "@/shared/lib/db/schema/vendas";
 import {
   despacharEvento,
@@ -38,6 +39,137 @@ const PedidoIngestaoSchema = z.object({
     precoUnitario: z.string().regex(/^\d+(?:\.\d{1,2})?$/),
   })).min(1),
 });
+
+type Transacao = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/* ── O produto pelo anúncio do pedido ──────────────────────────────────────
+ *
+ *  Última tentativa antes de recusar um item por "SKU sem produto". Existe
+ *  porque o SKU sozinho não é chave estável: o pedido guarda o que o SKU era
+ *  no dia da compra, e o anúncio pode ter sido renomeado, pausado ou excluído
+ *  desde então. Medido em 29/08/2026 na WUWU — 40 pedidos parados, R$
+ *  1.344,20, de 03/06 a 04/08, todos de anúncio fora do ar ou de SKU trocado
+ *  depois da venda.
+ *
+ *  Duas saídas, nesta ordem:
+ *
+ *  1. O anúncio já tem vínculo nesta conta → é aquele produto, com outro nome
+ *     de SKU. Casar aqui evita criar um segundo cadastro do mesmo produto.
+ *  2. Anúncio desconhecido → o produto nasce com o que o próprio pedido
+ *     informa (SKU, título e preço da venda). Continua sendo o canal criando
+ *     o produto, nunca cadastro manual: o pedido é dado do canal como o
+ *     catálogo é. É o único caminho para anúncio EXCLUÍDO, que a busca de
+ *     itens do Mercado Livre não devolve mais (`status=closed` volta vazio).
+ *
+ *  Sem `listingId` (canal que ainda não preenche) ou sem título, devolve null
+ *  e o item segue recusado como antes — a fila de não importados continua
+ *  sendo a rede de segurança. */
+async function resolverPeloAnuncioDoPedido(
+  tx: Transacao,
+  entrada: {
+    orgId: string;
+    brandId: string;
+    channelAccountId: string;
+    userId: string | null;
+    item: PedidoNormalizado["itens"][number];
+  },
+): Promise<{ produtoId: string; evento?: PersistedDomainEvent } | null> {
+  const { orgId, brandId, channelAccountId, item } = entrada;
+  if (!item.listingId) return null;
+
+  const vinculado = await tx
+    .select({ produtoId: produtoCanal.produtoId })
+    .from(produtoCanal)
+    .innerJoin(produto, and(
+      eq(produto.id, produtoCanal.produtoId),
+      eq(produto.orgId, produtoCanal.orgId),
+    ))
+    .where(and(
+      eq(produtoCanal.orgId, orgId),
+      eq(produtoCanal.channelAccountId, channelAccountId),
+      eq(produtoCanal.externalListingId, item.listingId),
+      item.variationId
+        ? eq(produtoCanal.externalWarehouseId, item.variationId)
+        : isNull(produtoCanal.externalWarehouseId),
+      eq(produto.brandId, brandId),
+      isNull(produto.deletedAt),
+    ))
+    .then((rows) => rows[0]);
+  if (vinculado) return { produtoId: vinculado.produtoId };
+
+  if (!item.titulo) return null;
+
+  /* `onConflictDoNothing` + releitura em vez de insert direto: dois pedidos do
+     mesmo SKU novo podem estar sendo ingeridos ao mesmo tempo (o lock por
+     pedido não serializa isso), e o índice único (org, marca, sku) faria o
+     segundo estourar. */
+  const [criado] = await tx
+    .insert(produto)
+    .values({
+      orgId,
+      brandId,
+      sku: item.skuExterno,
+      nome: item.titulo,
+      preco: item.precoUnitario,
+      estoqueMinimo: 0,
+      ativo: true,
+    })
+    .onConflictDoNothing()
+    .returning();
+
+  const produtoId = criado?.id ?? await tx
+    .select({ id: produto.id })
+    .from(produto)
+    .where(and(
+      eq(produto.orgId, orgId),
+      eq(produto.brandId, brandId),
+      eq(produto.sku, item.skuExterno),
+      isNull(produto.deletedAt),
+    ))
+    .then((rows) => rows[0]?.id);
+  if (!produtoId) return null;
+
+  /* O vínculo é o que faz o PRÓXIMO pedido do mesmo anúncio casar pelo
+     caminho 1, mesmo que o SKU mude de novo. Sem saldo semeado de propósito:
+     o pedido não informa estoque, e inventar zero aqui seria dado que ninguém
+     mediu — quem preenche é a coleta (A5). */
+  await tx
+    .insert(produtoCanal)
+    .values({
+      orgId,
+      produtoId,
+      channelAccountId,
+      externalListingId: item.listingId,
+      externalSkuId: item.skuExterno,
+      externalWarehouseId: item.variationId ?? null,
+      ativo: true,
+    })
+    .onConflictDoNothing();
+
+  if (!criado) return { produtoId };
+
+  await tx.insert(auditLog).values({
+    orgId,
+    brandId,
+    autorId: entrada.userId,
+    autorTipo: entrada.userId ? "usuario" : "sistema",
+    entidade: "produto",
+    entidadeId: criado.id,
+    acao: "create",
+    depois: criado,
+  });
+
+  const evento = await persistirEvento({
+    tipo: "produto.criado",
+    orgId,
+    brandId,
+    entidade: "produto",
+    entidadeId: criado.id,
+    payload: { sku: criado.sku, nome: criado.nome, origem: "pedido-sem-catalogo" },
+  }, tx);
+
+  return { produtoId, evento };
+}
 
 export async function ingerirPedido(
   orgId: string,
@@ -137,9 +269,22 @@ export async function ingerirPedido(
     for (const vinculo of vinculosDoCanal) {
       if (vinculo.externalSkuId) produtoPorSku.set(vinculo.externalSkuId, vinculo.produtoId);
     }
+    // 3. O anúncio de onde a venda saiu, quando o SKU não resolve nada — ver
+    //    `resolverPeloAnuncioDoPedido`.
     const skusAusentes = skus.filter((sku) => !produtoPorSku.has(sku));
-    if (skusAusentes.length > 0) {
-      throw new ErroSkuSemProduto(skusAusentes);
+    const eventosDeProduto: PersistedDomainEvent[] = [];
+    for (const sku of skusAusentes) {
+      const item = p.itens.find((linha) => linha.skuExterno === sku)!;
+      const resolvido = await resolverPeloAnuncioDoPedido(tx, {
+        orgId, brandId, channelAccountId, userId: null, item,
+      });
+      if (!resolvido) continue;
+      produtoPorSku.set(sku, resolvido.produtoId);
+      if (resolvido.evento) eventosDeProduto.push(resolvido.evento);
+    }
+    const aindaAusentes = skusAusentes.filter((sku) => !produtoPorSku.has(sku));
+    if (aindaAusentes.length > 0) {
+      throw new ErroSkuSemProduto(aindaAusentes);
     }
 
     let clienteId: string;
@@ -323,7 +468,7 @@ export async function ingerirPedido(
       taxaMarketplace: item.taxaMarketplace ?? null,
     })));
 
-    const eventos: PersistedDomainEvent[] = [];
+    const eventos: PersistedDomainEvent[] = [...eventosDeProduto];
     eventos.push(await persistirEvento({
       tipo: "pedido.recebido",
       orgId,
