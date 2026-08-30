@@ -13,11 +13,6 @@ import {
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { filtrarPedidosPendentes } from "@/modules/canais/application/pedidos-pendentes.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
-import {
-  classificarCausa,
-  marcarPedidoIgnoradoResolvido,
-  registrarPedidoIgnorado,
-} from "@/modules/vendas/application/pedidos-ignorados.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { criarShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
@@ -98,12 +93,13 @@ export const A31_sincronizarConta = inngest.createFunction(
     triggers: [{ event: "canal/sincronizacao.solicitada" }],
   },
   async ({ event, step }) => {
-    const { orgId, channelAccountId, execucaoId, desde, modulos } = event.data as {
+    const { orgId, channelAccountId, execucaoId, desde, modulos, reconciliacao } = event.data as {
       orgId: string;
       channelAccountId: string;
       execucaoId: string;
       desde?: string;
       modulos?: ModuloSincronizacao[];
+      reconciliacao?: boolean;
     };
     const solicitados = new Set<ModuloSincronizacao>(
       modulos?.length ? modulos.filter((item) => MODULOS_SINCRONIZACAO.includes(item)) : MODULOS_SINCRONIZACAO,
@@ -331,8 +327,8 @@ export const A31_sincronizarConta = inngest.createFunction(
             const filtrarPendentes = (candidatos: ReadonlyArray<{ providerOrderId: string; statusExterno: string }>) =>
               filtrarPedidosPendentes(orgId, channelAccountId, candidatos);
             const pedidos = porJanela
-              ? await porJanela.buscar(janela.inicioMs, janela.fimMs, { filtrarPendentes })
-              : await provider.buscarPedidos(new Date(janela.inicioMs), { filtrarPendentes });
+              ? await porJanela.buscar(janela.inicioMs, janela.fimMs, reconciliacao ? {} : { filtrarPendentes })
+              : await provider.buscarPedidos(new Date(janela.inicioMs), reconciliacao ? {} : { filtrarPendentes });
             const saida = {
               encontrados: pedidos.length,
               novos: 0,
@@ -344,13 +340,13 @@ export const A31_sincronizarConta = inngest.createFunction(
             for (const pedidoBruto of pedidos) {
               const pedidoNormalizado = { ...pedidoBruto, criadoEm: new Date(pedidoBruto.criadoEm) };
               try {
-                const ingerido = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado);
+                const historico = reconciliacao || pedidoNormalizado.criadoEm.getTime() < Date.now() - 24 * 60 * 60_000;
+                const ingerido = await ingerirPedido(orgId, conta.brandId, channelAccountId, pedidoNormalizado, { historico });
                 if (ingerido.novo) saida.novos += 1;
                 // Fecha o laço: se este pedido já tinha sido recusado, a linha
                 // é marcada como resolvida em vez de apagada — o histórico de
                 // quanto tempo ficou parado é o que mostra se o processo de
                 // correção no canal está funcionando.
-                await marcarPedidoIgnoradoResolvido(orgId, channelAccountId, pedidoBruto.providerOrderId);
               } catch (error) {
                 // Falha de UM pedido não derruba o lote, do mesmo jeito que
                 // antes não derrubava a leva.
@@ -364,16 +360,7 @@ export const A31_sincronizarConta = inngest.createFunction(
                 // Registra o pedido recusado com a causa classificada. Sem
                 // isto o que sobrava era só a mensagem, sem repetição, sem
                 // saber qual pedido — e nenhuma tela conseguiria listar nada.
-                await registrarPedidoIgnorado({
-                  orgId,
-                  brandId: conta.brandId,
-                  channelAccountId,
-                  providerOrderId: pedidoBruto.providerOrderId,
-                  causa: classificarCausa(error),
-                  motivo,
-                  skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
-                  payload: pedidoBruto as unknown as Record<string, unknown>,
-                });
+
               }
             }
             return saida;
@@ -409,6 +396,9 @@ export const A31_sincronizarConta = inngest.createFunction(
       // 26/08/2026 na ARMARINHOS LIMA. Por isso o freio exige ao menos uma
       // falha SEM causa conhecida: quando toda a leva parou em erro de
       // pedido (ErroSkuSemProduto), isso é `ignorados`, não falha da conta.
+      if (reconciliacao && ignorados > 0) {
+        throw new Error(`Reconciliação incompleta: ${ignorados} de ${encontrados} pedidos pendentes. Ver Pedidos não importados.`);
+      }
       if (encontrados > 0 && ignorados === encontrados && falhasSemCausaConhecida > 0) {
         throw new Error(
           `Nenhum dos ${encontrados} pedido(s) pôde ser importado: ${[...motivosDeFalha].join(" | ")}`,
@@ -456,6 +446,7 @@ export const A31_sincronizarConta = inngest.createFunction(
       const listingIds: string[] = [];
       let anunciosSincronizados = 0;
       let offset = 0;
+      let completo = false;
       for (let pagina = 0; pagina < 200; pagina++) {
         const parcial = await step.run(`avaliacoes-ml-${offset}`, () =>
           sincronizarPaginaAvaliacoesMercadoLivre(orgId, channelAccountId, offset),
@@ -467,9 +458,10 @@ export const A31_sincronizarConta = inngest.createFunction(
           parcial.fim ? 95 : Math.min(90, 10 + (pagina + 1) * 4),
           { processados: anunciosSincronizados, etapa: "consultando_anuncios" },
         ));
-        if (parcial.fim) break;
+        if (parcial.fim) { completo = true; break; }
         offset = parcial.proximoOffset;
       }
+      if (!completo) throw new Error("Avaliações ML: limite de páginas atingido; cache não removido.");
       const limpeza = await step.run("avaliacoes-ml-limpar", () =>
         limparAvaliacoesForaDoCatalogoMercadoLivre(orgId, channelAccountId, listingIds),
       );

@@ -1,3 +1,4 @@
+import { saldoPublicado } from "@/modules/estoque/infrastructure/saldo-canais";
 import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "drizzle-orm";
 import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
@@ -5,7 +6,6 @@ import { liquidoDoPedido } from "@/modules/vendas/domain/liquido-pedido";
 import {
   brand,
   channelAccount,
-  estoqueCanalSaldo,
   pedido,
   pedidoItem,
   produto,
@@ -486,7 +486,7 @@ export async function obterDashboardData(
         nome: produto.nome,
         preco: produto.preco,
         estoqueMinimo: produto.estoqueMinimo,
-        saldo: sql<number>`coalesce((select max(${estoqueCanalSaldo.saldo}) from ${estoqueCanalSaldo} where ${estoqueCanalSaldo.produtoId} = ${produto.id} and ${estoqueCanalSaldo.orgId} = ${ctx.orgId}), 0)`,
+        saldo: saldoPublicado(ctx.orgId, canalFiltro),
         marca: brand.slug,
       })
       .from(produto)

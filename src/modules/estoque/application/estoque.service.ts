@@ -1,3 +1,4 @@
+import { saldoPublicado } from "../infrastructure/saldo-canais";
 import { and, count, eq, getTableColumns, gte, ilike, inArray, isNull, notInArray, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import {
@@ -118,20 +119,7 @@ export type EstadoEstoque = "abaixo_minimo" | "sem_estoque" | "sem_minimo";
  *
  *  Com filtro de canal ativo, o saldo passa a ser o daqueles canais apenas —
  *  a pergunta na tela deixa de ser "quanto tenho" e vira "quanto tenho ali". */
-function saldoExpr(orgId: string, canalTipos?: readonly string[]): SQL<number> {
-  const filtroCanal = canalTipos && canalTipos.length > 0
-    ? sql`and conta_saldo."tipo" in ${canalTipos}`
-    : sql``;
-  return sql<number>`coalesce((
-    select max(saldo_canal."saldo")
-    from "estoque_canal_saldo" saldo_canal
-    inner join "channel_account" conta_saldo
-      on conta_saldo."id" = saldo_canal."channel_account_id"
-    where saldo_canal."produto_id" = "produto"."id"
-      and saldo_canal."org_id" = ${orgId}
-      ${filtroCanal}
-  ), 0)`;
-}
+const saldoExpr = saldoPublicado;
 
 /** Saldo de cada canal separadamente, para a tela mostrar lado a lado em vez
  *  de um número só. Vem como json para não multiplicar a linha do produto. */
@@ -147,6 +135,8 @@ function saldosPorCanalExpr(orgId: string): SQL<Array<{ canal: string; saldo: nu
       on conta_saldo."id" = saldo_canal."channel_account_id"
     where saldo_canal."produto_id" = "produto"."id"
       and saldo_canal."org_id" = ${orgId}
+      and conta_saldo."status" = 'conectado'
+      and exists (select 1 from produto_canal pc where pc.id = saldo_canal.produto_canal_id and pc.org_id = saldo_canal.org_id and pc.ativo)
   ), '[]'::json)`;
 }
 
@@ -755,6 +745,7 @@ export async function buscarProdutoDetalhe(ctx: CrudContext, produtoId: string) 
       externalSkuId: produtoCanal.externalSkuId,
       ativo: produtoCanal.ativo,
       canalTipo: channelAccount.tipo,
+      contaStatus: channelAccount.status,
       saldo: estoqueCanalSaldo.saldo,
       verificadoEm: estoqueCanalSaldo.verificadoEm,
     })
@@ -764,7 +755,7 @@ export async function buscarProdutoDetalhe(ctx: CrudContext, produtoId: string) 
     .where(and(eq(produtoCanal.orgId, ctx.orgId), eq(produtoCanal.produtoId, produtoId)));
 
   // Mesmo lote anunciado em vários canais: o saldo do produto é o maior deles.
-  const saldo = canaisVinculados.reduce((maior, item) => Math.max(maior, item.saldo ?? 0), 0);
+  const saldo = canaisVinculados.filter((item) => item.ativo && item.contaStatus === "conectado").reduce((maior, item) => Math.max(maior, item.saldo ?? 0), 0);
 
   return { produto: produtoRow, saldo, canais: canaisVinculados };
 }

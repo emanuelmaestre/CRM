@@ -38,9 +38,12 @@ describe("normalização de status de pedido por canal", () => {
     expect(deveAplicarStatusMarketplace("concluido", "pago")).toBe(false);
   });
 
-  it("aplica cancelamento antes do envio e devolução depois do envio", () => {
+  it("aceita cancelamento tardio e devolução após conclusão, sem reabrir cancelados", () => {
     expect(deveAplicarStatusMarketplace("pago", "cancelado")).toBe(true);
-    expect(deveAplicarStatusMarketplace("enviado", "cancelado")).toBe(false);
+    expect(deveAplicarStatusMarketplace("enviado", "cancelado")).toBe(true);
+    expect(deveAplicarStatusMarketplace("concluido", "cancelado")).toBe(true);
+    expect(deveAplicarStatusMarketplace("concluido", "devolvido")).toBe(true);
+    expect(deveAplicarStatusMarketplace("cancelado", "pago")).toBe(false);
     expect(deveAplicarStatusMarketplace("enviado", "devolvido")).toBe(true);
   });
 });

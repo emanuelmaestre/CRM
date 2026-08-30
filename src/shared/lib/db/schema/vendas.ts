@@ -37,6 +37,9 @@ export const pedido = pgTable("pedido", {
   // payment/get_escrow_detail(.batch) e é mais preciso que reconstruir o
   // líquido somando manualmente dezenas de subsídios, tarifas e ajustes.
   valorLiquido: numeric("valor_liquido", { precision: 12, scale: 2 }),
+  // Evidência financeira independente do status operacional do CRM.
+  dadosOrigem: jsonb("dados_origem"),
+  atualizadoOrigemEm: timestamp("atualizado_origem_em", { withTimezone: true }),
   canceladoMotivo: text("cancelado_motivo"),
   origemIngestao: text("origem_ingestao").notNull().default("tempo_real"),
   importLoteId: uuid("import_lote_id").references(() => importLote.id),

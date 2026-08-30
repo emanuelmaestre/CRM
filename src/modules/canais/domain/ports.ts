@@ -35,12 +35,14 @@ export interface PedidoNormalizado {
    * `escrow_amount`, que inclui tarifas, subsídios e ajustes que não podem ser
    * reconstruídos com exatidão apenas a partir do total do comprador. */
   valorLiquido?: string;
+  dadosOrigem?: Record<string, unknown>;
+  atualizadoOrigemEm?: Date;
   itens: {
     skuExterno: string;
     quantidade: number;
     precoUnitario: string;
-    /** Comissão que o canal cobrou por este item. No Mercado Livre vem de
-     *  `sale_fee`; na Shopee, as tarifas do escrow são rateadas entre os itens
+    /** Comissão total da linha. No Mercado Livre é `sale_fee * quantidade`;
+     *  na Shopee, as tarifas do escrow são rateadas entre os itens
      *  preservando o total exato cobrado no pedido. */
     taxaMarketplace?: string;
     /* ── O anúncio de onde a venda saiu ──────────────────────────────────
@@ -72,6 +74,8 @@ export interface SaudeConector {
 /** Quem chama decide, olhando o banco, o que da janela ainda precisa ser
  *  lido por inteiro. Ver `filtrarPedidosPendentes`. */
 export interface OpcoesBuscaPedidos {
+  campoData?: "criacao" | "atualizacao";
+  ate?: Date;
   filtrarPendentes?: (
     candidatos: ReadonlyArray<{ providerOrderId: string; statusExterno: string }>,
   ) => Promise<string[]>;

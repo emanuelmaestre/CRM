@@ -1084,8 +1084,8 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
 
       {linhas.length === 0 ? (
         <EmptyState
-          title="Nenhum pedido ficou de fora"
-          description="Tudo que os canais entregaram foi importado. Esta tela só ganha conteúdo quando alguma importação falha — e ela some sozinha quando a causa deixa de existir."
+            title="Nenhuma pendência registrada nesta fila"
+            description="Isso não certifica que todos os pedidos foram importados. Confira o aviso de integridade acima: pode haver importações históricas pendentes ou coletas que falharam antes de identificar os pedidos."
           illustration="filaLimpa"
         />
       ) : (

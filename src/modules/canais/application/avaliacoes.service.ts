@@ -134,6 +134,7 @@ async function sincronizarAvaliacoesMercadoLivrePorConta(orgId: string, channelA
 }> {
   const contas = await listarContasMercadoLivreAvaliacoes(orgId, channelAccountId);
   let anunciosSincronizados = 0;
+  let ultimoErro: unknown;
 
   for (const conta of contas) {
     if (!isBrandSlug(conta.brandSlug)) continue;
@@ -199,9 +200,11 @@ async function sincronizarAvaliacoesMercadoLivrePorConta(orgId: string, channelA
       }
     } catch (error) {
       console.error(`[avaliacoes] sincronização falhou para ${conta.brandSlug}`, error);
+      ultimoErro = error;
     }
   }
 
+  if (ultimoErro) throw ultimoErro;
   return { contasVerificadas: contas.length, anunciosSincronizados };
 }
 
@@ -284,7 +287,7 @@ export async function sincronizarAvaliacoesShopeeConta(orgId: string, channelAcc
   // Deixa o erro subir (depois de tentar todas as contas) pra ferramenta de
   // Sincronização mostrar o motivo real na tela, em vez de "0 sincronizados"
   // silencioso — importa saber se falhou por permissão, IP, token, etc.
-  if (ultimoErro && anunciosSincronizados === 0) throw ultimoErro;
+  if (ultimoErro) throw ultimoErro;
 
   return { contasVerificadas: contas.length, anunciosSincronizados };
 }

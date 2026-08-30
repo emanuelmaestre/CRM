@@ -46,6 +46,12 @@ export function mapearStatusPedido(statusExterno: string): PedidoStatus {
     collected: "enviado",
     partially_collected: "enviado",
     partially_returned: "devolvido",
+    partially_refunded: "pago",
+    payment_required: "criado",
+    payment_in_process: "criado",
+    partially_paid: "criado",
+    confirmed: "criado",
+    invalid: "cancelado",
     pending: "criado",
     awaiting_shipment: "pago",
     awaiting_collection: "separado",
@@ -80,8 +86,9 @@ const progressao: Record<Exclude<PedidoStatus, "cancelado" | "devolvido">, numbe
 };
 
 export function deveAplicarStatusMarketplace(atual: PedidoStatus, proximo: PedidoStatus): boolean {
-  if (atual === proximo || ["concluido", "cancelado", "devolvido"].includes(atual)) return false;
-  if (proximo === "cancelado") return progressao[atual as keyof typeof progressao] <= 2;
+  if (atual === proximo || ["cancelado", "devolvido"].includes(atual)) return false;
+  if (proximo === "cancelado") return true;
   if (proximo === "devolvido") return progressao[atual as keyof typeof progressao] >= 3;
+  if (atual === "concluido") return false;
   return progressao[proximo] > progressao[atual as keyof typeof progressao];
 }

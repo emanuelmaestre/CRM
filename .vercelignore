@@ -7,3 +7,6 @@ coverage
 playwright-report
 test-results
 .codex-runtime
+docs/AUDITORIA-CONCILIACAO-2026-08-30.md
+docs/auditoria-conciliacao-evidencias-2026-08-30.json
+docs/conciliacao-*.json

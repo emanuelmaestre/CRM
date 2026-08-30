@@ -1,10 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { inicioColetaPedidos } from "@/modules/canais/domain/cobertura-pedidos";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
-import { filtrarPedidosPendentes } from "@/modules/canais/application/pedidos-pendentes.service";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
-import { classificarCausa, registrarPedidoIgnorado } from "@/modules/vendas/application/pedidos-ignorados.service";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { registrarVerificacaoCanal } from "@/modules/canais/application/verificacao-canal.service";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
@@ -28,7 +27,7 @@ import { finalizarJob, iniciarJob } from "./job-monitor";
    ~720 chamadas por dia no proxy de IP fixo — cota que é o gargalo real aqui —
    mesmo em dia sem nenhuma venda. */
 const INTERVALO_POLL_HORAS = 3;
-const JANELA_BUSCA_MS = (INTERVALO_POLL_HORAS + 1) * 60 * 60 * 1_000;
+const JANELA_BUSCA_MS = (INTERVALO_POLL_HORAS * 2 + 1) * 60 * 60 * 1_000;
 
 export const A24_pollPedidos = inngest.createFunction(
   {
@@ -42,7 +41,8 @@ export const A24_pollPedidos = inngest.createFunction(
        em minutos e queimam a cota do proxy de IP fixo, que é o gargalo real
        aqui. O erro continua sendo lançado, então o painel do Inngest e o
        monitor de jobs seguem sinalizando a falha; quem repete o trabalho é o
-       cron, e a janela de busca (INTERVALO + 1h) cobre a volta perdida. */
+       cron. A janela inicial cobre uma volta perdida; depois o marcador
+       persistido permite retomar falhas mais longas. */
     retries: 0,
     triggers: [{ cron: `0 */${INTERVALO_POLL_HORAS} * * *` }],
   },
@@ -69,6 +69,7 @@ export const A24_pollPedidos = inngest.createFunction(
             orgId: channelAccount.orgId,
             brandId: channelAccount.brandId,
             tipo: channelAccount.tipo,
+            meta: channelAccount.meta,
             brandSlug: brand.slug,
           })
           .from(channelAccount)
@@ -82,7 +83,7 @@ export const A24_pollPedidos = inngest.createFunction(
           )),
       );
 
-      const desde = new Date(Date.now() - JANELA_BUSCA_MS);
+      const ateIso = await step.run("fixar-fim-da-coleta", () => new Date().toISOString());
       const resultados: Array<{ contaId: string; encontrados: number; novos: number; ignorados?: number; erro?: string }> = [];
 
       for (const conta of contas) {
@@ -99,18 +100,22 @@ export const A24_pollPedidos = inngest.createFunction(
           if (!provider) {
             throw new Error(`Provider ${conta.tipo}/${conta.brandSlug} não suportado.`);
           }
-          /* A janela cobre INTERVALO + 1h e por isso revisita as mesmas
-             horas a cada volta. O filtro deixa passar só o que mudou desde a
-             última leitura — em dia sem venda nova, a volta inteira custa uma
-             listagem por conta em vez de listagem, detalhe e repasse. */
+          const meta = conta.meta as Record<string, unknown> | null;
+          const desde = inicioColetaPedidos(Date.parse(ateIso), meta?.pedidosUltimaColetaCompleta, JANELA_BUSCA_MS);
+          // Coleta alterações desde a última janela completa, com sobreposição.
+          // Só avançamos o marcador quando nenhum pedido ficou pendente.
           const pedidos = await step.run(`buscar-${conta.id}`, () => provider.buscarPedidos(desde, {
-            filtrarPendentes: (candidatos) => filtrarPedidosPendentes(conta.orgId, conta.id, candidatos),
+            campoData: "atualizacao", ate: new Date(ateIso),
           }));
           let novos = 0;
           let ignorados = 0;
           let falhasSemCausaConhecida = 0;
           for (const pedido of pedidos) {
-            const pedidoNormalizado = { ...pedido, criadoEm: new Date(pedido.criadoEm) };
+            const pedidoNormalizado = {
+              ...pedido,
+              criadoEm: new Date(pedido.criadoEm),
+              atualizadoOrigemEm: pedido.atualizadoOrigemEm ? new Date(pedido.atualizadoOrigemEm) : undefined,
+            };
             // Mesma regra do A31: um pedido ruim é problema daquele pedido, não
             // da conta — anúncio removido depois da venda (ErroSkuSemProduto),
             // comprador colidindo com cadastro existente, dado torto do canal.
@@ -134,16 +139,7 @@ export const A24_pollPedidos = inngest.createFunction(
                    Aqui o pedido recusado vira linha em `pedido_ignorado`, com
                    causa e payload, e a fila da tela passa a enxergar também o
                    que a rotina automática recusou. */
-                await registrarPedidoIgnorado({
-                  orgId: conta.orgId,
-                  brandId: conta.brandId,
-                  channelAccountId: conta.id,
-                  providerOrderId: pedido.providerOrderId,
-                  causa: classificarCausa(error),
-                  motivo,
-                  skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
-                  payload: pedido as unknown as Record<string, unknown>,
-                });
+
                 // Mesma distinção do A31: causa conhecida daquele pedido
                 // (SKU sem produto na marca) não conta pro freio sistêmico.
                 return { pedidoId: "", novo: false, falhou: true, porPedido: ehErroSkuSemProduto(error) };
@@ -168,9 +164,14 @@ export const A24_pollPedidos = inngest.createFunction(
               Sincronização e conclui que o dado está velho cinco minutos
               depois dela — mandando buscar de novo, a cada tela aberta, o que
               esta volta já trouxe. */
-          await step.run(`marcar-verificado-${conta.id}`, () =>
-            registrarVerificacaoCanal(conta.orgId, conta.id, "pedidos"),
-          );
+          if (ignorados === 0) {
+            await step.run(`marcar-verificado-${conta.id}`, async () => {
+              await db.update(channelAccount).set({
+                meta: sql`jsonb_set(coalesce(${channelAccount.meta}, '{}'::jsonb), '{pedidosUltimaColetaCompleta}', to_jsonb(${ateIso}::text), true)`,
+              }).where(and(eq(channelAccount.id, conta.id), eq(channelAccount.orgId, conta.orgId)));
+              await registrarVerificacaoCanal(conta.orgId, conta.id, "pedidos");
+            });
+          }
           resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos, ignorados });
         } catch (error) {
           resultados.push({ contaId: conta.id, encontrados: 0, novos: 0, erro: String(error) });

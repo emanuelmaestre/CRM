@@ -3,121 +3,26 @@ import { db } from "@/shared/lib/db";
 import { pedidoIgnorado } from "@/shared/lib/db/schema/vendas";
 import { channelAccount } from "@/shared/lib/db/schema/canais";
 import { brand } from "@/shared/lib/db/schema/org";
-import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
 import { criarShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
 import type { PedidoNormalizado } from "@/modules/canais/domain/ports";
+import { incorporarQuarentenaPedidos } from "./quarentena-pedidos.service";
 
-export type CausaPedidoIgnorado =
-  | "sku_sem_produto"
-  | "cliente_duplicado"
-  | "payload_invalido"
-  | "desconhecida";
-
-/** Traduz o erro da ingestão numa causa que a tela sabe explicar.
- *
- *  A classificação existe porque a AÇÃO é diferente em cada caso, e só duas
- *  delas se resolvem editando no canal:
- *
- *  - `sku_sem_produto`   → o operador acerta o anúncio na Shopee/ML
- *  - `cliente_duplicado` → dado do CRM, ninguém resolve na loja
- *  - `payload_invalido`  → bug nosso, ninguém resolve na loja
- *
- *  Mostrar só a mensagem crua fazia as quatro parecerem a mesma coisa. */
-export function classificarCausa(erro: unknown): CausaPedidoIgnorado {
-  if (ehErroSkuSemProduto(erro)) return "sku_sem_produto";
-  const texto = erro instanceof Error ? erro.message : String(erro);
-  // Índices únicos de cliente: uq_cliente_org_telefone_active e irmãos. A
-  // Shopee entrega telefone mascarado, então compradores diferentes colidem
-  // no mesmo valor — foi o que derrubou pedidos em 25/08/2026.
-  if (/uq_cliente_org_|duplicate key|insert into "cliente"/i.test(texto)) return "cliente_duplicado";
-  // Zod rejeitando o pedido antes de qualquer escrita.
-  if (/too_small|invalid_type|expected string|ZodError|"path"/i.test(texto)) return "payload_invalido";
-  return "desconhecida";
-}
-
-/** Uma linha por pedido recusado, POR CONTA — atualizada a cada tentativa.
- *
- *  Sem o upsert, cada sincronização criaria uma linha nova para os mesmos
- *  346 pedidos. `tentativas` acumula, e `ultimaVezEm` é o que diz se aquilo
- *  ainda está acontecendo ou é resquício de um problema já resolvido. */
-export async function registrarPedidoIgnorado(entrada: {
-  orgId: string;
-  brandId: string;
-  channelAccountId: string;
-  providerOrderId: string;
-  causa: CausaPedidoIgnorado;
-  motivo: string;
-  skus: string[];
-  payload: Record<string, unknown> | null;
-}): Promise<void> {
-  try {
-    await db.insert(pedidoIgnorado).values({
-      orgId: entrada.orgId,
-      brandId: entrada.brandId,
-      channelAccountId: entrada.channelAccountId,
-      providerOrderId: entrada.providerOrderId,
-      causa: entrada.causa,
-      motivo: entrada.motivo.slice(0, 500),
-      skus: entrada.skus.length > 0 ? entrada.skus : null,
-      payload: entrada.payload,
-    }).onConflictDoUpdate({
-      target: [pedidoIgnorado.channelAccountId, pedidoIgnorado.providerOrderId],
-      set: {
-        causa: entrada.causa,
-        motivo: entrada.motivo.slice(0, 500),
-        skus: entrada.skus.length > 0 ? entrada.skus : null,
-        payload: entrada.payload,
-        tentativas: sql`${pedidoIgnorado.tentativas} + 1`,
-        ultimaVezEm: new Date(),
-        // Voltou a falhar: reabre. Um pedido pode ser resolvido e quebrar de
-        // novo por outro motivo, e a tela precisa mostrá-lo de volta.
-        resolvidoEm: null,
-      },
-    });
-  } catch (error) {
-    // Registrar a pendência NUNCA pode derrubar a ingestão: ela é observação,
-    // não o trabalho. Se esta escrita falhar, o pedido segue contabilizado em
-    // `ignorados` no resultado da execução, como era antes desta tabela.
-    console.error(`[pedidos-ignorados] falha ao registrar ${entrada.providerOrderId}`, error);
-  }
-}
-
-/** Marca como resolvido quando o pedido finalmente entra. Silencioso quando
- *  não havia pendência — é o caso normal, a esmagadora maioria dos pedidos. */
-export async function marcarPedidoIgnoradoResolvido(
-  orgId: string,
-  channelAccountId: string,
-  providerOrderId: string,
-): Promise<void> {
-  try {
-    await db.update(pedidoIgnorado)
-      .set({ resolvidoEm: new Date() })
-      .where(and(
-        eq(pedidoIgnorado.orgId, orgId),
-        eq(pedidoIgnorado.channelAccountId, channelAccountId),
-        eq(pedidoIgnorado.providerOrderId, providerOrderId),
-        isNull(pedidoIgnorado.resolvidoEm),
-      ));
-  } catch (error) {
-    console.error(`[pedidos-ignorados] falha ao resolver ${providerOrderId}`, error);
-  }
-}
+import { type CausaPedidoIgnorado } from "./registro-pedido-ignorado";
+export { classificarCausa, registrarPedidoIgnorado, marcarPedidoIgnoradoResolvido, type CausaPedidoIgnorado } from "./registro-pedido-ignorado";
 
 /* ── Tela ─────────────────────────────────────────────────────────────── */
 
-/** Causas em que reprocessar tem chance de dar certo.
- *
- *  `payload_invalido` fica de fora porque a falha é DETERMINÍSTICA: o pedido
- *  guardado é o mesmo, o validador é o mesmo, o resultado vai ser o mesmo.
- *  Oferecer "tentar novamente" ali só gasta o tempo de quem clica — aquilo é
- *  bug do CRM e não há nada a fazer na loja. */
+/** Todas podem ser retentadas: a tentativa reconsulta o canal e usa o
+ * normalizador atual, inclusive quando a falha original era de formato. */
 export const CAUSAS_REPROCESSAVEIS: readonly CausaPedidoIgnorado[] = [
   "sku_sem_produto",
   "cliente_duplicado",
   "desconhecida",
+  "payload_invalido",
 ];
 
 export type PedidoIgnoradoLinha = {
@@ -320,31 +225,7 @@ export async function contarPedidosIgnoradosAbertos(ctx: { orgId: string }): Pro
   return linha?.total ?? 0;
 }
 
-/** O payload volta do jsonb com `criadoEm` em texto; a ingestão espera Date. */
-function converterPayload(payload: unknown): PedidoNormalizado | null {
-  if (!payload) return null;
-  const bruto = payload as PedidoNormalizado & { criadoEm: string };
-  return { ...bruto, criadoEm: new Date(bruto.criadoEm) } as PedidoNormalizado;
-}
-
-/* ── Quando o que está guardado não basta ──────────────────────────────
- *
- *  O payload da fila é uma fotografia do pedido como o canal o entregou NO
- *  DIA em que ele foi recusado — e a fotografia envelhece junto com o
- *  formato. Os pedidos parados desde junho foram gravados antes de
- *  `listingId` existir em `PedidoNormalizado`, então reprocessá-los do
- *  payload só repete a busca por SKU que já falhou, mesmo com a ingestão
- *  agora sabendo casar pelo anúncio.
- *
- *  Um item sem `listingId` é o sinal: ou a foto é velha, ou o canal não sabe
- *  preencher. Rebuscar no Mercado Livre custa uma chamada e devolve o pedido
- *  no formato de hoje. Falhar aqui não é fatal — devolve null e o reprocesso
- *  segue com o payload guardado, que ainda pode entrar pelo SKU. */
-function faltaOAnuncio(pedidoNormalizado: PedidoNormalizado | null): boolean {
-  if (!pedidoNormalizado) return true;
-  return pedidoNormalizado.itens.some((item) => !item.listingId);
-}
-
+/** Consulta sempre o estado atual: payload histórico não deve reverter ajustes. */
 async function rebuscarNoCanal(linha: {
   canal: string;
   brandSlug: string;
@@ -363,30 +244,18 @@ async function rebuscarNoCanal(linha: {
       const provider = await criarShopeeProvider(linha.brandSlug);
       return await provider.buscarPedidoPorId(linha.providerOrderId);
     }
+    if (linha.canal === "tiktokshop") {
+      const provider = await criarTikTokShopProvider(linha.brandSlug);
+      return (await provider.buscarPedidosPorIds([linha.providerOrderId]))[0] ?? null;
+    }
     return null;
   } catch {
-    // Token vencido, pedido apagado no canal, rede fora: nada disso deve
-    // impedir a tentativa com o que já temos em mãos.
+    // Sem resposta atual, a pendência continua aberta; não usa dados antigos.
     return null;
   }
 }
 
-/** Reprocessa o pedido, rebuscando no canal quando o payload guardado não
- *  carrega o anúncio da venda (ver `faltaOAnuncio`).
- *
- *  Na maioria das vezes o que muda entre uma tentativa e outra não é o
- *  pedido: é o CRM. Pedido é imutável no canal, e corrigir o SKU de um
- *  anúncio não reescreve a venda antiga, que continua carregando o SKU velho.
- *  O que destrava é o produto passar a existir com aquele SKU — foi o que
- *  aconteceu com os pedidos W613, travados porque o catálogo não criava as
- *  variações. Por isso a rebusca é exceção, não regra: só acontece quando o
- *  próprio payload denuncia que está velho.
- *
- *  O que vier da rebusca é gravado de volta no payload, inclusive quando a
- *  ingestão falha de novo: a próxima tentativa já começa do formato novo, sem
- *  pagar outra chamada à API.
- *
- *  Seguro de repetir: `ingerirPedido` é idempotente por `providerOrderId`. */
+/** Recuperação histórica idempotente, sem repetir efeitos operacionais. */
 export async function reprocessarPedidoIgnorado(
   ctx: { orgId: string },
   id: string,
@@ -409,13 +278,16 @@ export async function reprocessarPedidoIgnorado(
 
   if (!linha) return { ok: false, motivo: "Pendência não encontrada." };
 
-  const guardado = converterPayload(linha.payload);
-  const rebuscado = faltaOAnuncio(guardado) ? await rebuscarNoCanal(linha) : null;
-  const pedidoNormalizado = rebuscado ?? guardado;
+
+  await db.update(pedidoIgnorado).set({ ultimaVezEm: new Date() }).where(and(eq(pedidoIgnorado.id, id), eq(pedidoIgnorado.orgId, ctx.orgId)));
+  const rebuscado = await rebuscarNoCanal(linha);
+  // Nunca reescreve o financeiro de hoje com o payload de semanas atrás.
+  const pedidoNormalizado = rebuscado;
   if (!pedidoNormalizado) {
-    // Linha antiga, gravada antes de o payload passar a ser guardado, e o
-    // canal não devolveu o pedido agora.
-    return { ok: false, motivo: "Este pedido foi registrado sem o conteúdo original; só a próxima sincronização pode trazê-lo de volta." };
+    const motivo = "Não foi possível consultar o estado atual no canal. A pendência foi preservada; verifique a conexão e tente novamente.";
+    await db.update(pedidoIgnorado).set({ motivo, tentativas: sql`${pedidoIgnorado.tentativas} + 1` })
+      .where(and(eq(pedidoIgnorado.id, id), eq(pedidoIgnorado.orgId, ctx.orgId)));
+    return { ok: false, motivo };
   }
   // `criadoEm` é Date e a coluna é jsonb: sem o round-trip por JSON, a data
   // iria como objeto vazio e o payload voltaria pior do que estava.
@@ -424,26 +296,14 @@ export async function reprocessarPedidoIgnorado(
     : null;
 
   try {
-    const resultado = await ingerirPedido(ctx.orgId, linha.brandId, linha.channelAccountId, pedidoNormalizado);
+    const resultado = await ingerirPedido(ctx.orgId, linha.brandId, linha.channelAccountId, pedidoNormalizado, { historico: true });
     await db.update(pedidoIgnorado)
       .set({ resolvidoEm: new Date(), ...(payloadAtualizado ? { payload: payloadAtualizado } : {}) })
-      .where(eq(pedidoIgnorado.id, id));
+      .where(and(eq(pedidoIgnorado.id, id), eq(pedidoIgnorado.orgId, ctx.orgId)));
     return { ok: true, jaExistia: !resultado.novo };
   } catch (error) {
-    // Falhou de novo: atualiza causa e motivo, porque o erro pode ter mudado
-    // (o SKU entrou, e agora quem barra é o cliente duplicado). Mostrar o
-    // motivo velho faria o operador perseguir um problema já resolvido.
+    // A ingestão central já registrou causa, payload e tentativa.
     const motivo = error instanceof Error ? error.message : String(error);
-    await db.update(pedidoIgnorado)
-      .set({
-        causa: classificarCausa(error),
-        motivo: motivo.slice(0, 500),
-        skus: ehErroSkuSemProduto(error) && error.skus?.length ? error.skus : linha.skus,
-        tentativas: sql`${pedidoIgnorado.tentativas} + 1`,
-        ultimaVezEm: new Date(),
-        ...(payloadAtualizado ? { payload: payloadAtualizado } : {}),
-      })
-      .where(eq(pedidoIgnorado.id, id));
     return { ok: false, motivo };
   }
 }
@@ -474,6 +334,7 @@ export async function reprocessarFilaAberta(ctx: { orgId: string }): Promise<{
   resolvidos: number;
   restantes: number;
 }> {
+  await incorporarQuarentenaPedidos(ctx.orgId);
   const fila = await db
     .select({ id: pedidoIgnorado.id })
     .from(pedidoIgnorado)
@@ -483,7 +344,7 @@ export async function reprocessarFilaAberta(ctx: { orgId: string }): Promise<{
       isNull(pedidoIgnorado.descartadoEm),
       inArray(pedidoIgnorado.causa, [...CAUSAS_REPROCESSAVEIS]),
     ))
-    .orderBy(pedidoIgnorado.primeiraVezEm)
+    .orderBy(pedidoIgnorado.ultimaVezEm)
     .limit(TAMANHO_LOTE_REPROCESSO);
 
   let resolvidos = 0;
@@ -534,7 +395,7 @@ export async function reprocessarPedidosIgnorados(
       isNull(pedidoIgnorado.descartadoEm),
       inArray(pedidoIgnorado.causa, [...CAUSAS_REPROCESSAVEIS]),
     ))
-    .orderBy(pedidoIgnorado.primeiraVezEm)
+    .orderBy(pedidoIgnorado.ultimaVezEm)
     .limit(TAMANHO_LOTE_REPROCESSO);
 
   let resolvidos = 0;

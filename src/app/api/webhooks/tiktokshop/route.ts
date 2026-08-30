@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { buscarPedidoComRegistro } from "@/modules/canais/application/recepcao-pedido.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
@@ -94,8 +95,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const conta = await resolverContaWebhookMarketplace("tiktokshop", shop_id);
 
     const provider = await criarTikTokShopProvider(conta.brandSlug);
-    const pedido = (await provider.buscarPedidosPorIds([d.order_id]))[0];
-    if (!pedido) throw new Error(`TikTok Shop não retornou o pedido ${d.order_id}.`);
+    const orderId = d.order_id;
+    const pedido = await buscarPedidoComRegistro(conta, orderId, async () => {
+      const encontrado = (await provider.buscarPedidosPorIds([orderId]))[0];
+      if (!encontrado) throw new Error(`TikTok Shop não retornou o pedido ${orderId}.`);
+      return encontrado;
+    });
 
     const { pedidoId, novo } = await ingerirPedido(
       conta.orgId,

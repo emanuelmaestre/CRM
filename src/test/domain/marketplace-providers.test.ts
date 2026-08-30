@@ -29,6 +29,7 @@ describe("contratos dos providers de marketplace", () => {
           }],
           date_created: "2026-07-23T06:00:00.000Z",
         }],
+        paging: { total: 1 },
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -146,6 +147,7 @@ describe("contratos dos providers de marketplace", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({
         rating_average: 4.8,
         paging: { total: 27 },
+        reviews: Array.from({ length: 27 }, (_, id) => ({ id: String(id), rate: 5 })),
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -162,7 +164,7 @@ describe("contratos dos providers de marketplace", () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
-  it("mantém nota nula quando a consulta de avaliação falha, sem derrubar o catálogo", async () => {
+  it("sinaliza falha de avaliações em vez de produzir nota nula e apagar o cache", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: "seller-1" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
@@ -179,10 +181,7 @@ describe("contratos dos providers de marketplace", () => {
     const provider = new MercadoLivreProvider({
       clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
     });
-    const catalog = await provider.listarAnunciosAtivos({ comAvaliacoes: true });
-
-    expect(catalog.items).toHaveLength(1);
-    expect(catalog.items[0]).toMatchObject({ ratingAverage: null, reviewsTotal: null, title: "Produto sem avaliação" });
+    await expect(provider.listarAnunciosAtivos({ comAvaliacoes: true })).rejects.toThrow();
   });
 
   it("usa assinatura Shopee v2 e rejeita pedido sem detalhe", async () => {

@@ -110,9 +110,10 @@ describe("fila de pedidos ignorados", () => {
     expect(screen.queryByRole("button", { name: /não recuperável/i })).not.toBeInTheDocument();
   });
 
-  it("fila vazia não é erro — é a operação saudável", () => {
+  it("fila vazia informa seu limite sem certificar cobertura do canal", () => {
     render(<PedidosIgnoradosLista linhas={[]} podeDescartar incluirFechados={false} />);
-    expect(screen.getByText(/nenhum pedido ficou de fora/i)).toBeInTheDocument();
+    expect(screen.getByText(/nenhuma pendência registrada nesta fila/i)).toBeInTheDocument();
+    expect(screen.getByText(/não certifica que todos os pedidos/i)).toBeInTheDocument();
   });
 
   /* A divisão que esta tela faz do texto, e que estes testes trancam:

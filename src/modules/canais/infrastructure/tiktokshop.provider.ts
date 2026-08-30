@@ -1,5 +1,6 @@
 import crypto from "crypto";
-import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector } from "../domain/ports";
+import { proximoCursorSeguro } from "../domain/paginacao";
+import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector, OpcoesBuscaPedidos } from "../domain/ports";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { createClient } from "@supabase/supabase-js";
@@ -21,6 +22,7 @@ type TikTokOrder = {
   buyer_uid?: string;
   buyer_email?: string;
   create_time: number;
+  update_time?: number;
   line_items?: Array<{ seller_sku: string; sku_id?: string; quantity: number; sale_price: string }>;
 };
 
@@ -72,24 +74,45 @@ export class TikTokShopProvider implements ChannelProvider {
     return payload.data;
   }
 
-  async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
-    const data = await this.request<{ orders?: TikTokOrder[] }>("/order/202309/orders/search", {
-      method: "POST",
-      query: { page_size: "50" },
-      body: {
-        create_time_ge: Math.floor(desde.getTime() / 1000),
-        create_time_lt: Math.floor(Date.now() / 1000),
-      },
-    });
-
-    return this.normalizarPedidos(data.orders ?? []);
+  async buscarPedidos(desde: Date, opcoes: OpcoesBuscaPedidos = {}): Promise<PedidoNormalizado[]> {
+    const pedidos = new Map<string, TikTokOrder>();
+    const cursores = new Set<string>();
+    const ate = Math.floor((opcoes.ate?.getTime() ?? Date.now()) / 1000);
+    const campo = opcoes.campoData === "atualizacao" ? "update_time" : "create_time";
+    let cursor = "";
+    for (let pagina = 0; pagina < 200; pagina++) {
+      const data = await this.request<{ orders?: TikTokOrder[]; next_page_token?: string; total_count?: number }>("/order/202309/orders/search", {
+        method: "POST",
+        query: { page_size: "50", sort_order: "ASC", sort_field: campo, ...(cursor ? { page_token: cursor } : {}) },
+        body: { [`${campo}_ge`]: Math.floor(desde.getTime() / 1000), [`${campo}_lt`]: ate },
+      });
+      if (!Array.isArray(data.orders)) throw new Error("TikTok: listagem sem array de pedidos.");
+      for (const pedido of data.orders) pedidos.set(pedido.id, pedido);
+      const proximo = proximoCursorSeguro(cursor, data.next_page_token, Boolean(data.next_page_token), cursores, "TikTok pedidos");
+      if (proximo === null) {
+        if (data.total_count != null && pedidos.size < data.total_count) throw new Error("TikTok: pedidos incompletos sem continuação.");
+        // A listagem pode não trazer itens/pagamento: o detalhe é obrigatório.
+        return this.buscarPedidosPorIds([...pedidos.keys()]);
+      }
+      cursor = proximo;
+    }
+    throw new Error("TikTok: coleta incompleta após 200 páginas.");
   }
 
   async buscarPedidosPorIds(ids: string[]): Promise<PedidoNormalizado[]> {
-    const data = await this.request<{ orders?: TikTokOrder[] }>("/order/202309/orders", {
-      query: { ids: ids.join(",") },
-    });
-    return this.normalizarPedidos(data.orders ?? []);
+    const resultados: PedidoNormalizado[] = [];
+    const unicos = [...new Set(ids)];
+    for (let i = 0; i < unicos.length; i += 50) {
+      const lote = unicos.slice(i, i + 50);
+      const data = await this.request<{ orders?: TikTokOrder[] }>("/order/202309/orders", {
+        query: { ids: lote.join(",") },
+      });
+      if (!Array.isArray(data.orders) || lote.some((id) => !data.orders!.some((o) => o.id === id))) {
+        throw new Error("TikTok: detalhe de pedidos incompleto; repetir a coleta.");
+      }
+      resultados.push(...this.normalizarPedidos(data.orders.filter((o) => lote.includes(o.id))));
+    }
+    return resultados;
   }
 
   private normalizarPedidos(orders: TikTokOrder[]): PedidoNormalizado[] {
@@ -101,7 +124,7 @@ export class TikTokShopProvider implements ChannelProvider {
       clienteEmail: order.buyer_email,
       clienteTelefone: order.recipient_address?.phone_number,
       status: order.status.toLowerCase(),
-      total: order.payment?.total_amount ?? order.payment_info?.total_amount ?? "0",
+      total: order.payment?.total_amount ?? order.payment_info?.total_amount ?? "",
       frete: order.payment?.shipping_fee,
       itens: (order.line_items ?? []).map((item) => ({
         skuExterno: item.seller_sku,
@@ -109,6 +132,8 @@ export class TikTokShopProvider implements ChannelProvider {
         precoUnitario: item.sale_price,
       })),
       criadoEm: new Date(order.create_time * 1000),
+      atualizadoOrigemEm: order.update_time ? new Date(order.update_time * 1000) : undefined,
+      dadosOrigem: { status: order.status, financeiroInformado: !!(order.payment ?? order.payment_info) },
     }));
   }
 

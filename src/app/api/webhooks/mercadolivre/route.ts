@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
+import { buscarPedidoComRegistro } from "@/modules/canais/application/recepcao-pedido.service";
 import { registrarVerificacaoCanal } from "@/modules/canais/application/verificacao-canal.service";
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { criarMLProvider, obterTokenMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // desconto/acréscimo/taxa do marketplace, além de usar o frete visto
     // pelo comprador em vez do custo real pago pelo vendedor.
     const provider = await criarMLProvider(conta.brandSlug, { accessToken: conta.accessToken, refreshToken: conta.refreshToken });
-    const pedidoNormalizado = await trace.etapa("ml_api", () => provider.buscarPedidoPorId(orderId));
+    const pedidoNormalizado = await trace.etapa("ml_api", () => buscarPedidoComRegistro(conta, orderId, () => provider.buscarPedidoPorId(orderId)));
 
     const pedido = await trace.etapa("database", () => ingerirPedido(
       conta.orgId, conta.brandId, conta.channelAccountId, pedidoNormalizado,

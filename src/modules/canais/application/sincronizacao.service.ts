@@ -26,6 +26,7 @@ export async function dispararSincronizacaoConta(
      *  buraco que ela existe pra tapar é justamente o pedido que a janela
      *  curta já deixou pra trás. */
     desde?: Date;
+    reconciliacao?: boolean;
   } = {},
 ) {
   assertPerfil(ctx, ["admin", "gestor"]);
@@ -52,6 +53,7 @@ export async function dispararSincronizacaoConta(
     .limit(1)
     .then((rows) => rows[0]);
   if (ativa && Date.now() - ativa.iniciadoEm.getTime() <= LIMITE_EXECUCAO_ABANDONADA_MS) {
+    if (opcoes.reconciliacao) throw new Error("Reconciliação adiada: há outra execução ativa; sua janela não foi certificada.");
     return ativa;
   }
 
@@ -87,7 +89,7 @@ export async function dispararSincronizacaoConta(
      refazer na mão o que a rotina acabou de trazer é gasto puro de cota do
      Webshare. A fila completa de Configurações não passa por aqui: quem pede
      "sincronizar tudo" está pedindo explicitamente. */
-  if (opcoes.modulos?.length) {
+  if (opcoes.modulos?.length && !opcoes.reconciliacao) {
     const recentes = await ctx.db
       .select()
       .from(sincronizacaoExecucao)
@@ -141,6 +143,7 @@ export async function dispararSincronizacaoConta(
       channelAccountId,
       execucaoId: execucao.id,
       modulos: [...solicitados],
+      reconciliacao: opcoes.reconciliacao === true,
       // Atualização pontual de Pedidos é incremental. A fila completa de
       // Configurações continua sem `desde` e preserva a varredura de 90 dias.
       desde: opcoes.desde

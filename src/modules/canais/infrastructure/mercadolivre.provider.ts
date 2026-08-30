@@ -60,8 +60,13 @@ interface MLOrderDetail {
   // Também embutido na mesma resposta. `total_paid_amount - transaction_amount`
   // é o que o comprador pagou a mais que o nominal do pedido (ex.: juro de
   // parcelamento) — usado para compor `acrescimo`.
-  payments?: Array<{ total_paid_amount?: number; transaction_amount?: number }>;
+  payments?: Array<{ id?: number | string; status?: string; total_paid_amount?: number; transaction_amount?: number; transaction_amount_refunded?: number }>;
   date_created: string;
+  last_updated?: string;
+  date_last_updated?: string;
+  tags?: string[];
+  paid_amount?: number;
+  cancel_detail?: Record<string, unknown> | null;
   pack_id?: number | null;
 }
 
@@ -436,6 +441,13 @@ export function normalizarPedidoMercadoLivre(
     clienteEmail: order.buyer.email,
     clienteEndereco,
     status: order.status,
+    atualizadoOrigemEm: order.date_last_updated || order.last_updated ? new Date(order.date_last_updated ?? order.last_updated!) : undefined,
+    dadosOrigem: {
+      status: order.status, tags: order.tags ?? [], packId: order.pack_id ?? null,
+      valorPago: order.paid_amount ?? null, cancelamento: order.cancel_detail ?? null,
+      pagamentos: order.payments?.map((p) => ({ id: p.id, status: p.status, total: p.total_paid_amount, transacao: p.transaction_amount, reembolsado: p.transaction_amount_refunded })) ?? [],
+      totalProdutos: order.order_items.reduce((n, i) => n + Math.round(i.unit_price * i.quantity * 100), 0) / 100,
+    },
     total: String(order.total_amount),
     frete: custoEnvioVendedor == null ? undefined : String(custoEnvioVendedor),
     desconto: typeof order.coupon?.amount === "number" ? String(order.coupon.amount) : undefined,
@@ -443,10 +455,12 @@ export function normalizarPedidoMercadoLivre(
       ? String(order.payments.reduce((soma, p) => soma + Math.max(0, (p.total_paid_amount ?? 0) - (p.transaction_amount ?? 0)), 0))
       : undefined,
     itens: order.order_items.map((item) => ({
-      skuExterno: item.item.seller_sku ?? "",
+      skuExterno: item.item.seller_sku?.trim()
+        || (item.item.id ? `${item.item.id}${item.item.variation_id ? `-${item.item.variation_id}` : ""}` : ""),
       quantidade: item.quantity,
       precoUnitario: String(item.unit_price),
-      taxaMarketplace: typeof item.sale_fee === "number" ? String(item.sale_fee) : undefined,
+      // sale_fee é por unidade; o domínio guarda a taxa total da linha.
+      taxaMarketplace: typeof item.sale_fee === "number" ? (Math.round(item.sale_fee * item.quantity * 100) / 100).toFixed(2) : undefined,
       // O anúncio da venda — ver o comentário em `PedidoNormalizado.itens`.
       // `variation_id` só existe em anúncio com variação; vem 0 ou ausente
       // nos demais, e ali o vínculo do catálogo grava null.
@@ -677,15 +691,15 @@ export class MercadoLivreProvider implements ChannelProvider {
    *  contingência de 4h (A24) o teto ainda não era atingido, mas um dia de
    *  pico o atingiria — e pedido que não entra ali não volta nunca, porque a
    *  janela seguinte já passou dele. */
-  private async listarOrdersDaJanela(de: Date, ate?: Date): Promise<MLOrderDetail[]> {
+  private async listarOrdersDaJanela(de: Date, ate?: Date, campoData: "criacao" | "atualizacao" = "criacao"): Promise<MLOrderDetail[]> {
     const seller = await this.sellerId();
     const orders: MLOrderDetail[] = [];
 
     for (let pagina = 0; pagina < MercadoLivreProvider.MAX_PAGINAS_PEDIDOS; pagina += 1) {
       const params = new URLSearchParams({
         seller,
-        "order.date_created.from": de.toISOString(),
-        ...(ate ? { "order.date_created.to": ate.toISOString() } : {}),
+        [`order.${campoData === "atualizacao" ? "date_last_updated" : "date_created"}.from`]: de.toISOString(),
+        ...(ate ? { [`order.${campoData === "atualizacao" ? "date_last_updated" : "date_created"}.to`]: ate.toISOString() } : {}),
         // Explícito de propósito: é o padrão do ML, mas é ele que torna a
         // paginação estável — página nova não reordena as anteriores.
         sort: "date_asc",
@@ -699,11 +713,17 @@ export class MercadoLivreProvider implements ChannelProvider {
 
       const resultados = data.results ?? [];
       orders.push(...resultados);
-      if (resultados.length < MercadoLivreProvider.PAGINA_PEDIDOS) break;
-      if (orders.length >= (data.paging?.total ?? 0)) break;
+      if (!data.results || !data.paging || !Number.isFinite(data.paging.total)) {
+        throw new Error("Mercado Livre: busca de pedidos sem resultados/total válido.");
+      }
+      if (orders.length >= data.paging.total!) {
+        const unicos = [...new Map(orders.map((o) => [o.id, o])).values()];
+        if (unicos.length !== data.paging.total) throw new Error("Mercado Livre: paginação instável, pedidos duplicados ou total alterado. Repetir a janela.");
+        return unicos;
+      }
+      if (resultados.length === 0) throw new Error("Mercado Livre: página vazia antes de completar os pedidos.");
     }
-
-    return orders;
+    throw new Error("Mercado Livre: limite de paginação atingido sem completar os pedidos.");
   }
 
   private async enriquecerPedidos(orders: MLOrderDetail[]): Promise<PedidoNormalizado[]> {
@@ -718,16 +738,16 @@ export class MercadoLivreProvider implements ChannelProvider {
   }
 
   /** Uma janela só — ver `janelasDePedidos`. */
-  async buscarPedidosDaJanela(inicioMs: number, fimMs: number): Promise<PedidoNormalizado[]> {
-    return this.enriquecerPedidos(await this.listarOrdersDaJanela(new Date(inicioMs), new Date(fimMs)));
+  async buscarPedidosDaJanela(inicioMs: number, fimMs: number, opcoes: import("../domain/ports").OpcoesBuscaPedidos = {}): Promise<PedidoNormalizado[]> {
+    return this.enriquecerPedidos(await this.listarOrdersDaJanela(new Date(inicioMs), new Date(fimMs), opcoes.campoData));
   }
 
-  async buscarPedidos(desde: Date): Promise<PedidoNormalizado[]> {
+  async buscarPedidos(desde: Date, opcoes: import("../domain/ports").OpcoesBuscaPedidos = {}): Promise<PedidoNormalizado[]> {
     const pedidos: PedidoNormalizado[] = [];
-    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde)) {
-      pedidos.push(...await this.buscarPedidosDaJanela(inicioMs, fimMs));
+    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde, opcoes.ate)) {
+      pedidos.push(...await this.buscarPedidosDaJanela(inicioMs, fimMs, opcoes));
     }
-    return pedidos;
+    return [...new Map(pedidos.map((p) => [p.providerOrderId, p])).values()];
   }
 
   /** Busca ativa das mensagens pós-venda (chat dentro de um pedido já
@@ -843,16 +863,20 @@ export class MercadoLivreProvider implements ChannelProvider {
   private async buscarReviewsItem(id: string): Promise<MLReviewsResponse> {
     const reviews: NonNullable<MLReviewsResponse["reviews"]> = [];
     let primeira: MLReviewsResponse | null = null;
-    for (let pagina = 0; pagina < 10; pagina++) {
+    let completo = false;
+    for (let pagina = 0; pagina < 100; pagina++) {
       const data = await this.get<MLReviewsResponse>(
         `/reviews/item/${encodeURIComponent(id)}?limit=100&offset=${pagina * 100}`,
       );
       if (!primeira) primeira = data;
+      if (!Array.isArray(data.reviews) || !Number.isFinite(data.paging?.total)) throw new Error(`Avaliações ML ${id}: resposta incompleta.`);
       const lote = data.reviews ?? [];
       reviews.push(...lote);
       const total = data.paging?.total ?? reviews.length;
-      if (lote.length === 0 || reviews.length >= total) break;
+      if (reviews.length >= total) { completo = true; break; }
+      if (lote.length === 0) throw new Error(`Avaliações ML ${id}: página vazia antes do total informado.`);
     }
+    if (!completo) throw new Error(`Avaliações ML ${id}: coleta incompleta; resultado anterior preservado.`);
     // rating_average/rating_levels são agregados do anúncio inteiro, iguais
     // em qualquer página — só `reviews` muda entre elas, por isso a resposta
     // final reaproveita o resto da primeira página e troca só a lista.
@@ -862,12 +886,8 @@ export class MercadoLivreProvider implements ChannelProvider {
   private async buscarAvaliacoes(itemIds: string[]): Promise<MLRatings> {
     const unicos = [...new Set(itemIds)];
     const resultados = await Promise.all(unicos.map(async (id) => {
-      try {
-        const data = await this.buscarReviewsItem(id);
-        return [id, normalizarAvaliacoesItem(data)] as const;
-      } catch {
-        return [id, SEM_AVALIACAO] as const;
-      }
+      const data = await this.buscarReviewsItem(id);
+      return [id, normalizarAvaliacoesItem(data)] as const;
     }));
     return new Map(resultados);
   }
@@ -910,7 +930,9 @@ export class MercadoLivreProvider implements ChannelProvider {
       paging?: { total?: number; offset?: number; limit?: number };
     }>(`/users/${encodeURIComponent(me.id)}/items/search?${filtroStatus}offset=${offset}&limit=${limit}`);
     const ids = search.results ?? [];
+    if (!Array.isArray(search.results) || !Number.isFinite(search.paging?.total)) throw new Error("Mercado Livre: catálogo sem paginação válida.");
     if (ids.length === 0) {
+      if (offset < search.paging!.total!) throw new Error("Mercado Livre: catálogo incompleto antes do total informado.");
       return { items: [], totalListings: search.paging?.total ?? 0, offset, limit };
     }
 
@@ -924,6 +946,10 @@ export class MercadoLivreProvider implements ChannelProvider {
       .flat()
       .filter((response) => response.code === 200 && response.body)
       .map((response) => response.body as MLItemDetail);
+
+    if (opcoes.comAvaliacoes && ids.some((id) => !details.some((item) => item.id === id))) {
+      throw new Error("Mercado Livre: detalhes de anúncios incompletos; avaliações anteriores preservadas.");
+    }
 
     const ratings = opcoes.comAvaliacoes ? await this.buscarAvaliacoes(details.map((item) => item.id)) : undefined;
 

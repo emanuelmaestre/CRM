@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import { selecionarModelosShopee } from "../domain/modelo-estoque-shopee";
+import { proximoCursorSeguro } from "../domain/paginacao";
 import type { ChannelProvider, EstoqueCanalRef, OpcoesBuscaPedidos, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
@@ -183,6 +185,7 @@ type ShopeeDetail = {
   buyer_username?: string;
   total_amount?: number;
   create_time?: number;
+  update_time?: number;
   recipient_address?: { name: string; phone?: string };
   item_list?: ShopeeItem[];
 };
@@ -496,10 +499,10 @@ export class ShopeeProvider implements ChannelProvider {
 
   async buscarPedidos(desde: Date, opcoes: OpcoesBuscaPedidos = {}): Promise<PedidoNormalizado[]> {
     const pedidos: PedidoNormalizado[] = [];
-    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde)) {
+    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde, opcoes.ate)) {
       pedidos.push(...await this.buscarPedidosJanela(inicioMs, fimMs, opcoes));
     }
-    return pedidos;
+    return [...new Map(pedidos.map((p) => [p.providerOrderId, p])).values()];
   }
 
   /** Tamanho de página do get_order_list. A Shopee aceita até 100; 50 é o que
@@ -522,9 +525,11 @@ export class ShopeeProvider implements ChannelProvider {
   private async listarOrderSnsDaJanela(
     timeFrom: number,
     timeTo: number,
+    campoData: "criacao" | "atualizacao" = "criacao",
   ): Promise<Array<{ providerOrderId: string; statusExterno: string }>> {
     const sns: Array<{ providerOrderId: string; statusExterno: string }> = [];
     let cursor = "";
+    const cursoresVistos = new Set<string>();
 
     for (let pagina = 0; pagina < ShopeeProvider.MAX_PAGINAS_PEDIDOS; pagina++) {
       // get_order_list devolve só order_sn/order_status — os demais campos do
@@ -533,7 +538,7 @@ export class ShopeeProvider implements ChannelProvider {
       // response_optional_field does not support [buyer_username]" e a chamada
       // inteira falha. Todo o resto vem do get_order_detail.
       const listRes = await shopeeFetch(this.urlPedidos("/order/get_order_list", {
-        time_range_field: "create_time",
+        time_range_field: campoData === "atualizacao" ? "update_time" : "create_time",
         time_from: timeFrom,
         time_to: timeTo,
         page_size: ShopeeProvider.PAGINA_PEDIDOS,
@@ -563,10 +568,10 @@ export class ShopeeProvider implements ChannelProvider {
         statusExterno: order.order_status ?? "",
       })));
 
-      const proximoCursor = listData.response?.next_cursor ?? "";
-      // Cursor repetido significaria pedir a mesma página para sempre.
-      if (!listData.response?.more || !proximoCursor || proximoCursor === cursor) return sns;
-      cursor = proximoCursor;
+      if (!listData.response) throw new Error("Shopee get_order_list: resposta sem conteúdo.");
+      const proximo = proximoCursorSeguro(cursor, listData.response.next_cursor, listData.response.more, cursoresVistos, "Shopee get_order_list");
+      if (proximo === null) return [...new Map(sns.map((p) => [p.providerOrderId, p])).values()];
+      cursor = proximo;
     }
 
     throw new Error(`Shopee get_order_list continuou paginando após ${ShopeeProvider.MAX_PAGINAS_PEDIDOS} páginas.`);
@@ -580,7 +585,7 @@ export class ShopeeProvider implements ChannelProvider {
     const timeFrom = Math.floor(inicioMs / 1000);
     const timeTo = Math.floor(fimMs / 1000);
 
-    const candidatos = await this.listarOrderSnsDaJanela(timeFrom, timeTo);
+    const candidatos = await this.listarOrderSnsDaJanela(timeFrom, timeTo, opcoes.campoData);
     if (candidatos.length === 0) return [];
 
     /* Só o que ainda tem algo a aprender segue para o detalhe. A listagem
@@ -645,6 +650,12 @@ export class ShopeeProvider implements ChannelProvider {
         clienteNome: detail?.recipient_address?.name ?? comprador,
         clienteTelefone: detail?.recipient_address?.phone,
         status: (detail?.order_status ?? "").toLowerCase(),
+        atualizadoOrigemEm: detail?.update_time ? new Date(detail.update_time * 1000) : undefined,
+        dadosOrigem: {
+          status: detail?.order_status ?? null,
+          totalProdutos: (detail?.item_list ?? []).reduce((n, i) => n + Math.round(i.model_discounted_price * i.model_quantity_purchased * 100), 0) / 100,
+          financeiroInformado: financeiro !== undefined,
+        },
         total: financeiro?.total ?? String(detail?.total_amount ?? 0),
         frete: financeiro?.frete,
         desconto: financeiro?.desconto,
@@ -793,9 +804,8 @@ export class ShopeeProvider implements ChannelProvider {
 
   async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {
     garantirNaoPausado();
-    const item = referencia.skuId
-      ? { item_id: Number(referencia.listingId), model_list: [{ model_id: Number(referencia.skuId), normal_stock: saldo }] }
-      : { item_id: Number(referencia.listingId), normal_stock: saldo };
+    const modelos = await this.modelosParaEstoque(referencia);
+    const item = { item_id: Number(referencia.listingId), model_list: modelos.map((m) => ({ model_id: m.model_id, normal_stock: saldo })) };
     const res = await shopeeFetch(this.url("/product/update_stock"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -810,16 +820,13 @@ export class ShopeeProvider implements ChannelProvider {
 
   async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
     garantirNaoPausado();
-    const modelosDoItem = await this.listarModelosItem(Number(referencia.listingId));
-    const modelos = modelosDoItem.filter((modelo) => !referencia.skuId || String(modelo.model_id) === referencia.skuId);
-    if (referencia.skuId && modelos.length === 0) {
-      throw new Error(`Shopee não retornou o modelo ${referencia.skuId} do anúncio ${referencia.listingId}.`);
-    }
+    const modelos = await this.modelosParaEstoque(referencia);
     const saldo = modelos.reduce((total, modelo) => {
       const temEstoqueV2 = Boolean(
         modelo.stock_info_v2?.summary_info
         || modelo.stock_info_v2?.seller_stock,
       );
+      if (!temEstoqueV2 && modelo.normal_stock == null) throw new Error(`Shopee: saldo ausente para a variação ${modelo.model_id}.`);
       return total + (temEstoqueV2
         ? saldoDoEstoque(modelo.stock_info_v2)
         : Number(modelo.normal_stock ?? 0));
@@ -830,6 +837,23 @@ export class ShopeeProvider implements ChannelProvider {
     return saldo;
   }
 
+  /** Anúncio sem variações tem saldo no item base, e pode não ter model 0
+   * no get_model_list. Só usa esse caminho se has_model confirmar false. */
+  private async modelosParaEstoque(referencia: EstoqueCanalRef) {
+    const modelos = await this.listarModelosItem(Number(referencia.listingId));
+    if (modelos.length > 0) return selecionarModelosShopee(modelos, referencia);
+    const res = await shopeeFetch(this.url("/product/get_item_base_info", {
+      item_id_list: referencia.listingId,
+      response_optional_fields: "has_model,item_sku,stock_info_v2",
+    }), { signal: AbortSignal.timeout(10000) });
+    const data = await res.json() as { error?: string; response?: { item_list?: Array<{ item_id: number; has_model?: boolean; item_sku?: string; stock_info_v2?: ShopeeStockInfo }> } };
+    const item = data.response?.item_list?.find((i) => String(i.item_id) === referencia.listingId);
+    if (!res.ok || data.error || !item || item.has_model !== false) {
+      throw new Error(`Shopee: não foi possível confirmar saldo sem variações do anúncio ${referencia.listingId}.`);
+    }
+    return selecionarModelosShopee([{ model_id: 0, model_sku: item.item_sku, stock_info_v2: item.stock_info_v2, normal_stock: undefined as number | undefined }], referencia);
+  }
+
   /** Todos os itens ativos (à venda) da loja, paginados por offset — a
    *  Shopee só devolve 100 por página. Necessário porque `get_comment` (ver
    *  `listarAvaliacoes`) só lista quem TEM comentário; sem este catálogo,
@@ -837,8 +861,9 @@ export class ShopeeProvider implements ChannelProvider {
    *  simplesmente sumiria da tela inteira. */
   private async listarItemIdsAtivos(): Promise<number[]> {
     const itemIds: number[] = [];
+    const cursores = new Set<string>();
     let offset = 0;
-    for (let pagina = 0; pagina < 20; pagina++) {
+    for (let pagina = 0; pagina < 200; pagina++) {
       const res = await shopeeFetch(this.url("/product/get_item_list", {
         offset,
         page_size: 100,
@@ -855,13 +880,16 @@ export class ShopeeProvider implements ChannelProvider {
         response?: { item?: Array<{ item_id: number }>; next_offset?: number; has_next_page?: boolean };
       };
       if (data.error) throw new Error(`Shopee get_item_list: ${data.message ?? data.error}`);
+      if (!data.response || !Array.isArray(data.response.item)) throw new Error("Shopee: catálogo sem resposta válida.");
 
       const lote = data.response?.item ?? [];
       itemIds.push(...lote.map((i) => i.item_id));
-      if (!data.response?.has_next_page || lote.length === 0) break;
-      offset = data.response.next_offset ?? offset + lote.length;
+      const proximo = proximoCursorSeguro(String(offset), data.response.next_offset == null ? undefined : String(data.response.next_offset), Boolean(data.response.has_next_page), cursores, "Shopee catálogo");
+      if (proximo === null) return [...new Set(itemIds)];
+      if (lote.length === 0 || !Number.isFinite(Number(proximo))) throw new Error("Shopee: catálogo incompleto.");
+      offset = Number(proximo);
     }
-    return itemIds;
+    throw new Error("Shopee: limite atingido com catálogo incompleto.");
   }
 
   /** Comentários/avaliações da loja inteira, paginados por cursor — a Shopee
@@ -972,7 +1000,9 @@ export class ShopeeProvider implements ChannelProvider {
 
     const comentarios: ShopeeComentario[] = [];
     let cursor = "";
-    for (let pagina = 0; pagina < 10; pagina++) {
+    const cursoresVistos = new Set<string>();
+    let completo = false;
+    for (let pagina = 0; pagina < 100; pagina++) {
       const res = await shopeeFetch(this.url("/product/get_comment", {
         cursor,
         page_size: 100,
@@ -990,11 +1020,21 @@ export class ShopeeProvider implements ChannelProvider {
       if (data.error) throw new Error(`Shopee get_comment: ${data.message ?? data.error}`);
 
       const lote = data.response?.item_comment_list ?? [];
+      if (!data.response) throw new Error("Shopee get_comment: resposta sem conteúdo.");
       comentarios.push(...lote);
-      if (!data.response?.more || lote.length === 0) break;
-      cursor = data.response.next_cursor ?? "";
-      if (!cursor) break;
+      const proximo = proximoCursorSeguro(cursor, data.response.next_cursor, data.response.more, cursoresVistos, "Shopee get_comment");
+      if (proximo === null) { completo = true; break; }
+      cursor = proximo;
     }
+    if (!completo) throw new Error("Shopee get_comment: coleta incompleta após 100 páginas; cache anterior preservado.");
+    const vistos = new Set<string>();
+    const comentariosUnicos = comentarios.filter((c) => {
+      if (c.comment_id == null) return true;
+      const id = String(c.comment_id);
+      if (vistos.has(id)) return false;
+      vistos.add(id);
+      return true;
+    });
 
     const itemIdsAtivos = await this.listarItemIdsAtivos();
     if (itemIdsAtivos.length === 0 && comentarios.length === 0) return [];
@@ -1017,7 +1057,7 @@ export class ShopeeProvider implements ChannelProvider {
     }
 
     const porItem = new Map<number, ShopeeComentario[]>();
-    for (const c of comentarios) {
+    for (const c of comentariosUnicos) {
       const lista = porItem.get(c.item_id) ?? [];
       lista.push(c);
       porItem.set(c.item_id, lista);
@@ -1026,9 +1066,7 @@ export class ShopeeProvider implements ChannelProvider {
     // União: item ativo sem comentário nenhum entra com lista vazia (nota
     // nula); item com comentário mas já fora do catálogo ativo (removido/
     // pausado) fica de fora — mesma regra que o ML aplica aos anúncios dele.
-    const itemIdsResultado = itemIdsAtivos.length > 0
-      ? itemIdsAtivos
-      : [...porItem.keys()];
+    const itemIdsResultado = [...new Set([...itemIdsAtivos, ...porItem.keys()])];
 
     return itemIdsResultado.map((itemId) => {
       const lista = porItem.get(itemId) ?? [];

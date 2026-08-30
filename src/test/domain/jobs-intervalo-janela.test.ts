@@ -57,8 +57,8 @@ describe("A24 — janela de busca cobre o intervalo do cron", () => {
     expect(cron, "o cron deve derivar de INTERVALO_POLL_HORAS, não ser escrito à mão").not.toBeNull();
   });
 
-  it("a busca usa a janela, não um valor solto", () => {
-    expect(fonte).toContain("new Date(Date.now() - JANELA_BUSCA_MS)");
+  it("a busca combina o marcador persistido com a janela mínima", () => {
+    expect(fonte).toContain("inicioColetaPedidos(Date.parse(ateIso), meta?.pedidosUltimaColetaCompleta, JANELA_BUSCA_MS)");
   });
 });
 

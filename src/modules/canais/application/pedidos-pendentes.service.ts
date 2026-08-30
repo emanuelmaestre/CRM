@@ -58,6 +58,7 @@ export async function filtrarPedidosPendentes(
       if (atual.valorLiquido === null) return [candidato.providerOrderId];
       if (!candidato.statusExterno) return [candidato.providerOrderId];
       const proximo = mapearStatusPedido(candidato.statusExterno);
+      if (proximo !== atual.status) return [candidato.providerOrderId];
       return deveAplicarStatusMarketplace(atual.status, proximo)
         ? [candidato.providerOrderId]
         : [];

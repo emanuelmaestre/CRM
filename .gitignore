@@ -48,3 +48,8 @@ e2e/.auth/
 .playwright-mcp/
 /.codex-runtime/
 .codex-responsive-audit/
+
+# Evidencias comerciais privadas da auditoria de conciliacao
+/docs/AUDITORIA-CONCILIACAO-2026-08-30.md
+/docs/auditoria-conciliacao-evidencias-2026-08-30.json
+/docs/conciliacao-*.json

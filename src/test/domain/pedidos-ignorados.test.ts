@@ -51,8 +51,8 @@ describe("causas que aceitam reprocessamento", () => {
     expect(CAUSAS_REPROCESSAVEIS).toContain("cliente_duplicado");
   });
 
-  it("payload inválido NÃO pode: reprocessar daria exatamente o mesmo erro", () => {
-    expect(CAUSAS_REPROCESSAVEIS).not.toContain("payload_invalido");
+  it("payload inválido aceita nova consulta ao canal com normalizador corrigido", () => {
+    expect(CAUSAS_REPROCESSAVEIS).toContain("payload_invalido");
   });
 
   it("toda causa classificável está decidida — nenhuma fica sem resposta", () => {

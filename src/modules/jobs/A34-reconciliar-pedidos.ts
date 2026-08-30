@@ -1,10 +1,12 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { dispararSincronizacaoConta } from "@/modules/canais/application/sincronizacao.service";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { finalizarJob, iniciarJob } from "./job-monitor";
+import { incorporarQuarentenaPedidos } from "@/modules/vendas/application/quarentena-pedidos.service";
+import { reprocessarFilaAberta } from "@/modules/vendas/application/pedidos-ignorados.service";
 
 /* ── Por que este job existe ──────────────────────────────────────
    O caminho normal de um pedido novo é o webhook do canal. A contingência é a
@@ -54,6 +56,8 @@ export const A34_reconciliarPedidos = inngest.createFunction(
     }));
 
     try {
+      await step.run("incorporar-quarentena", () => incorporarQuarentenaPedidos(orgId));
+      await step.run("reprocessar-pendencias-antigas", () => reprocessarFilaAberta({ orgId }));
       const contas = await step.run("buscar-contas-conectadas", () =>
         db
           .select({ id: channelAccount.id, tipo: channelAccount.tipo, brandSlug: brand.slug })
@@ -65,6 +69,7 @@ export const A34_reconciliarPedidos = inngest.createFunction(
           .where(and(
             eq(channelAccount.orgId, orgId),
             eq(channelAccount.status, "conectado"),
+            inArray(channelAccount.tipo, ["mercadolivre", "shopee", "tiktokshop"]),
           )),
       );
 
@@ -91,6 +96,7 @@ export const A34_reconciliarPedidos = inngest.createFunction(
             const execucao = await dispararSincronizacaoConta(ctx, conta.id, {
               modulos: ["pedidos"],
               desde,
+              reconciliacao: true,
             });
             return { contaId: conta.id, tipo: conta.tipo, marca: conta.brandSlug, execucaoId: execucao.id };
           } catch (error) {
@@ -114,9 +120,9 @@ export const A34_reconciliarPedidos = inngest.createFunction(
       /* Nenhuma conta despachada é sinal de problema sistêmico (credencial,
          banco, evento não publicado) — aí vale falhar e ser visto no monitor.
          Uma ou outra pulada não é: a volta cumpriu o que dava pra cumprir. */
-      if (resumo.despachadas === 0) {
+      if (resumo.pulados > 0 || resumo.despachadas === 0) {
         throw new Error(
-          `A34 não conseguiu despachar nenhuma das ${resumo.contas} conta(s) conectada(s).`,
+          `A34 incompleta: ${resumo.despachadas} conta(s) despachadas e ${resumo.pulados} não despachadas. Conferir execuções por conta.`,
         );
       }
 

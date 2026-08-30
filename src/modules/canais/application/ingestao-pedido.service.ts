@@ -8,6 +8,7 @@ import { channelAccount } from "@/shared/lib/db/schema/canais";
 import { produto, produtoCanal } from "@/shared/lib/db/schema/estoque";
 import { auditLog } from "@/shared/lib/db/schema/auditoria";
 import { pedido, pedidoItem } from "@/shared/lib/db/schema/vendas";
+import { importLote } from "@/shared/lib/db/schema/reguas";
 import {
   despacharEvento,
   despacharEventosPendentes,
@@ -16,7 +17,9 @@ import {
   type PersistedDomainEvent,
 } from "@/shared/events";
 import type { PedidoNormalizado } from "../domain/ports";
-import { ErroSkuSemProduto } from "../domain/errors";
+import { ErroSkuSemProduto, ehErroSkuSemProduto } from "../domain/errors";
+import { podeAplicarVersaoPedido } from "../domain/versao-pedido";
+import { classificarCausa, registrarPedidoIgnorado, marcarPedidoIgnoradoResolvido } from "@/modules/vendas/application/registro-pedido-ignorado";
 import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, mapearStatusPedido } from "../domain/order-status";
 
 type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop";
@@ -33,6 +36,10 @@ const PedidoIngestaoSchema = z.object({
   providerOrderId: z.string().min(1),
   clienteExternalId: z.string().min(1),
   clienteNome: z.string().min(1),
+  status: z.string().min(1),
+  total: z.string().regex(/^\d+(?:\.\d{1,2})?$/),
+  criadoEm: z.date().min(new Date("2000-01-01")),
+  atualizadoOrigemEm: z.date().optional(),
   itens: z.array(z.object({
     skuExterno: z.string().min(1),
     quantidade: z.number().int().positive(),
@@ -41,6 +48,27 @@ const PedidoIngestaoSchema = z.object({
 });
 
 type Transacao = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Mantém a exigência do banco: toda entrada histórica precisa de um lote
+ * rastreável. Agrupa por conta e dia, na mesma transação do pedido. */
+async function loteRecuperacao(tx: Transacao, orgId: string, brandId: string, channelAccountId: string): Promise<string> {
+  const nomeArquivo = `Reconciliação API ${new Date().toISOString().slice(0, 10)}`;
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`recuperacao:${orgId}:${channelAccountId}:${nomeArquivo}`}, 0))`);
+  const existente = await tx.select({ id: importLote.id }).from(importLote).where(and(
+    eq(importLote.orgId, orgId), eq(importLote.brandId, brandId), eq(importLote.channelAccountId, channelAccountId),
+    eq(importLote.tipo, "reconciliacao_api"), eq(importLote.nomeArquivo, nomeArquivo),
+  )).then((rows) => rows[0]);
+  if (existente) {
+    await tx.update(importLote).set({ aceitos: sql`${importLote.aceitos} + 1`, totalLinhas: sql`coalesce(${importLote.totalLinhas}, 0) + 1`, finalizadoEm: new Date() })
+      .where(and(eq(importLote.id, existente.id), eq(importLote.orgId, orgId)));
+    return existente.id;
+  }
+  const [novo] = await tx.insert(importLote).values({ orgId, brandId, channelAccountId,
+    tipo: "reconciliacao_api", nomeArquivo, status: "concluido", fase: "concluido", progresso: 100,
+    aceitos: 1, totalLinhas: 1, finalizadoEm: new Date(), configuracao: { efeitosOperacionais: false },
+  }).returning({ id: importLote.id });
+  return novo.id;
+}
 
 /* ── O produto pelo anúncio do pedido ──────────────────────────────────────
  *
@@ -71,6 +99,7 @@ async function resolverPeloAnuncioDoPedido(
     brandId: string;
     channelAccountId: string;
     userId: string | null;
+    historico?: boolean;
     item: PedidoNormalizado["itens"][number];
   },
 ): Promise<{ produtoId: string; evento?: PersistedDomainEvent } | null> {
@@ -159,6 +188,7 @@ async function resolverPeloAnuncioDoPedido(
     depois: criado,
   });
 
+  if (entrada.historico) return { produtoId };
   const evento = await persistirEvento({
     tipo: "produto.criado",
     orgId,
@@ -175,7 +205,39 @@ export async function ingerirPedido(
   orgId: string,
   brandId: string,
   channelAccountId: string,
-  p: PedidoNormalizado
+  p: PedidoNormalizado,
+  opcoes: { historico?: boolean } = {},
+): Promise<{ pedidoId: string; novo: boolean }> {
+  p = { ...p, criadoEm: new Date(p.criadoEm), atualizadoOrigemEm: p.atualizadoOrigemEm ? new Date(p.atualizadoOrigemEm) : undefined };
+  // A mesma fila atende webhook, polling, recuperação e importação. Não
+  // registra payload de uma conta que não pertença ao escopo informado.
+  const conta = await db.select({ id: channelAccount.id }).from(channelAccount).where(and(
+    eq(channelAccount.id, channelAccountId), eq(channelAccount.orgId, orgId),
+    eq(channelAccount.brandId, brandId),
+    eq(channelAccount.tipo, toCanal(p.canal)),
+  )).then((rows) => rows[0]);
+  if (!conta) throw new Error("Conta de canal não pertence à organização e marca informadas.");
+  try {
+    const resultado = await persistirPedido(orgId, brandId, channelAccountId, p, opcoes);
+    await marcarPedidoIgnoradoResolvido(orgId, channelAccountId, p.providerOrderId);
+    return resultado;
+  } catch (error) {
+    await registrarPedidoIgnorado({
+      orgId, brandId, channelAccountId, providerOrderId: p.providerOrderId,
+      causa: classificarCausa(error), motivo: error instanceof Error ? error.message : String(error),
+      skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
+      payload: p as unknown as Record<string, unknown>,
+    });
+    throw error;
+  }
+}
+
+async function persistirPedido(
+  orgId: string,
+  brandId: string,
+  channelAccountId: string,
+  p: PedidoNormalizado,
+  opcoes: { historico?: boolean },
 ): Promise<{ pedidoId: string; novo: boolean }> {
   PedidoIngestaoSchema.parse({ orgId, brandId, channelAccountId, ...p });
   const canal = toCanal(p.canal);
@@ -191,8 +253,9 @@ export async function ingerirPedido(
     .then((r) => r[0]);
 
   if (existente) {
-    await reconciliarFinanceiroPedido(orgId, existente.id, p);
-    await reconciliarStatusPedido(orgId, brandId, existente.id, p.status);
+    if (await reconciliarFinanceiroPedido(orgId, existente.id, p)) {
+      await reconciliarStatusPedido(orgId, brandId, existente.id, p.status, opcoes.historico, p.atualizadoOrigemEm);
+    }
     return { pedidoId: existente.id, novo: false };
   }
 
@@ -276,7 +339,7 @@ export async function ingerirPedido(
     for (const sku of skusAusentes) {
       const item = p.itens.find((linha) => linha.skuExterno === sku)!;
       const resolvido = await resolverPeloAnuncioDoPedido(tx, {
-        orgId, brandId, channelAccountId, userId: null, item,
+        orgId, brandId, channelAccountId, userId: null, item, historico: opcoes.historico,
       });
       if (!resolvido) continue;
       produtoPorSku.set(sku, resolvido.produtoId);
@@ -441,6 +504,7 @@ export async function ingerirPedido(
     }
 
     const status = mapearStatusPedido(p.status);
+    const importLoteId = opcoes.historico ? await loteRecuperacao(tx, orgId, brandId, channelAccountId) : undefined;
     const [novoPedido] = await tx
       .insert(pedido)
       .values({
@@ -451,11 +515,16 @@ export async function ingerirPedido(
         providerOrderId: p.providerOrderId,
         canal,
         status,
+        origemIngestao: opcoes.historico ? "historico" : "tempo_real",
+        importLoteId,
+        importedAt: opcoes.historico ? new Date() : undefined,
         total: p.total,
         frete: p.frete ?? "0",
         desconto: p.desconto ?? "0",
         acrescimo: p.acrescimo ?? "0",
         valorLiquido: p.valorLiquido,
+        dadosOrigem: p.dadosOrigem,
+        atualizadoOrigemEm: p.atualizadoOrigemEm,
         createdAt: p.criadoEm,
       })
       .returning({ id: pedido.id });
@@ -468,6 +537,7 @@ export async function ingerirPedido(
       taxaMarketplace: item.taxaMarketplace ?? null,
     })));
 
+    if (opcoes.historico) return { pedidoId: novoPedido.id, eventos: [], novo: true };
     const eventos: PersistedDomainEvent[] = [...eventosDeProduto];
     eventos.push(await persistirEvento({
       tipo: "pedido.recebido",
@@ -515,16 +585,18 @@ export async function ingerirPedido(
       ))
       .then((rows) => rows[0]);
     if (!concorrente) throw error;
-    await reconciliarFinanceiroPedido(orgId, concorrente.id, p);
-    await reconciliarStatusPedido(orgId, brandId, concorrente.id, p.status);
+    if (await reconciliarFinanceiroPedido(orgId, concorrente.id, p)) {
+      await reconciliarStatusPedido(orgId, brandId, concorrente.id, p.status, opcoes.historico, p.atualizadoOrigemEm);
+    }
     return { pedidoId: concorrente.id, novo: false };
   }
 
   const { pedidoId, eventos, novo } = persistido;
 
   if (!novo) {
-    await reconciliarFinanceiroPedido(orgId, pedidoId, p);
-    await reconciliarStatusPedido(orgId, brandId, pedidoId, p.status);
+    if (await reconciliarFinanceiroPedido(orgId, pedidoId, p)) {
+      await reconciliarStatusPedido(orgId, brandId, pedidoId, p.status, opcoes.historico, p.atualizadoOrigemEm);
+    }
     return { pedidoId, novo: false };
   }
 
@@ -548,12 +620,19 @@ async function reconciliarFinanceiroPedido(
   orgId: string,
   pedidoId: string,
   p: PedidoNormalizado,
-): Promise<void> {
-  await db.transaction(async (tx) => {
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const atual = await tx.select({ atualizadoOrigemEm: pedido.atualizadoOrigemEm }).from(pedido)
+      .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId))).for("update").then((rows) => rows[0]);
+    if (!atual) return false;
+    if (!podeAplicarVersaoPedido(atual.atualizadoOrigemEm, p.atualizadoOrigemEm)) return false;
     const valores: Partial<typeof pedido.$inferInsert> = {
       total: p.total,
+      createdAt: p.criadoEm,
       updatedAt: new Date(),
     };
+    if (p.dadosOrigem !== undefined) valores.dadosOrigem = p.dadosOrigem;
+    if (p.atualizadoOrigemEm !== undefined) valores.atualizadoOrigemEm = p.atualizadoOrigemEm;
     if (p.frete !== undefined) valores.frete = p.frete;
     if (p.desconto !== undefined) valores.desconto = p.desconto;
     if (p.acrescimo !== undefined) valores.acrescimo = p.acrescimo;
@@ -562,7 +641,7 @@ async function reconciliarFinanceiroPedido(
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)));
 
     const temTaxas = p.itens.some((item) => item.taxaMarketplace !== undefined);
-    if (!temTaxas) return;
+    if (!temTaxas) return true;
     const itensPersistidos = await tx
       .select({
         id: pedidoItem.id,
@@ -587,6 +666,7 @@ async function reconciliarFinanceiroPedido(
         .set({ taxaMarketplace: (centavos / 100).toFixed(2) })
         .where(eq(pedidoItem.id, itensPersistidos[indice].id));
     }
+    return true;
   });
 }
 
@@ -595,6 +675,8 @@ async function reconciliarStatusPedido(
   brandId: string,
   pedidoId: string,
   statusExterno: string,
+  historico = false,
+  versaoOrigem?: Date,
 ): Promise<void> {
   const novoStatus = mapearStatusPedido(statusExterno);
   const resultado = await db.transaction(async (tx) => {
@@ -606,6 +688,7 @@ async function reconciliarStatusPedido(
         providerOrderId: pedido.providerOrderId,
         total: pedido.total,
         canceladoMotivo: pedido.canceladoMotivo,
+        atualizadoOrigemEm: pedido.atualizadoOrigemEm,
       })
       .from(pedido)
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)))
@@ -614,12 +697,13 @@ async function reconciliarStatusPedido(
     if (
       !atual
       || atual.brandId !== brandId
+      || !podeAplicarVersaoPedido(atual.atualizadoOrigemEm, versaoOrigem)
       || !deveAplicarStatusMarketplace(atual.status, novoStatus)
     ) {
       return [] as PersistedDomainEvent[];
     }
 
-    if (!deveExecutarEfeitosOperacionais(atual.origemIngestao as "tempo_real" | "historico")) {
+    if (historico || !deveExecutarEfeitosOperacionais(atual.origemIngestao as "tempo_real" | "historico")) {
       await tx
         .update(pedido)
         .set({ status: novoStatus, updatedAt: new Date() })
@@ -674,7 +758,7 @@ async function reconciliarStatusPedido(
   });
 
   for (const evento of resultado) await despacharEvento(evento);
-  if (resultado.length === 0) {
+  if (resultado.length === 0 && !historico) {
     // Uma repetição também atua como recuperação do outbox caso a primeira
     // publicação tenha falhado depois do commit do pedido.
     const recuperacao = await despacharEventosPendentes(orgId, 100);

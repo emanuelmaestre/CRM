@@ -183,6 +183,15 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
       falhas.push(...resultado.falhas);
     }
 
+    await step.run("registrar-pendencias-de-estoque", async () => {
+      for (const contaId of new Set(conectados.map((i) => i.channelAccountId))) {
+        const pendencias = falhas.filter((f) => f.channelAccountId === contaId)
+          .map((f) => ({ listingId: f.listingId, erro: f.erro }));
+        await db.execute(sql`update channel_account set meta=jsonb_set(coalesce(meta,'{}'::jsonb),'{estoquePendencias}',${JSON.stringify(pendencias)}::jsonb)
+          where id=${contaId} and org_id=${orgId}`);
+      }
+    });
+
     // ── Status do anúncio no ML (ativo/pausado/encerrado) ──────────────
     // O saldo sozinho não "avisa" quando um anúncio deixa de existir — ele
     // só fica congelado no último valor coletado, pra sempre. Isso é
