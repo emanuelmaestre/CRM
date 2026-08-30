@@ -9,11 +9,11 @@ test.describe("CRM Core — clientes e estoque", () => {
     await expect(page.getByText("Histórico")).toBeVisible();
   });
 
-  test("exibe o saldo real do livro-razão", async ({ page }) => {
+  test("não inventa saldo de canal desconectado", async ({ page }) => {
     await page.goto("/estoque?marcas=karzi&canais=mercadolivre");
     const buscaSku = page.getByPlaceholder(/buscar por SKU/i);
     await expect(buscaSku).toBeVisible();
     await buscaSku.fill("SYN-KAR-001");
-    await expect(page.locator('[data-testid="saldo-SYN-KAR-001"]:visible')).toContainText("18", { timeout: 15_000 });
+    await expect(page.locator('[data-testid="saldo-SYN-KAR-001"]:visible')).toContainText("0", { timeout: 15_000 });
   });
 });
