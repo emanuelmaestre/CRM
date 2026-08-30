@@ -253,6 +253,51 @@ export async function listarPedidosIgnorados(
   }));
 }
 
+/** O que a fila está segurando DENTRO de um recorte — a mesma marca, o mesmo
+ *  canal e o mesmo período que a tela de Vendas está mostrando.
+ *
+ *  Existe para a conferência com o painel do canal. Pedido recusado não conta
+ *  no faturamento do CRM e conta no do canal: é uma das três razões pelas
+ *  quais os dois números diferem, e a única que some quando alguém age.
+ *
+ *  A data da venda vive dentro do payload (`criadoEm`), não em coluna: a fila
+ *  guarda o pedido como o canal o entregou, e ele nunca chegou a virar linha
+ *  em `pedido`. Pendência antiga sem payload fica de fora do recorte por
+ *  data — sem a data não há como saber se ela pertence ao período, e chutar
+ *  seria pior do que omitir. */
+type TipoDeConta = typeof channelAccount.$inferSelect["tipo"];
+const canaisSuportados = channelAccount.tipo;
+
+export async function resumirPedidosIgnorados(
+  ctx: { orgId: string },
+  opts: { brandIds?: string[]; canais?: string[]; inicio?: Date; fim?: Date } = {},
+): Promise<{ quantidade: number; valor: number }> {
+  const filtros = [
+    eq(pedidoIgnorado.orgId, ctx.orgId),
+    isNull(pedidoIgnorado.resolvidoEm),
+    isNull(pedidoIgnorado.descartadoEm),
+  ];
+  if (opts.brandIds?.length) filtros.push(inArray(pedidoIgnorado.brandId, opts.brandIds));
+  if (opts.canais?.length) {
+    // A coluna é enum: o filtro vem da tela como string livre, então o
+    // estreitamento acontece aqui, no limite entre os dois mundos.
+    filtros.push(inArray(canaisSuportados, opts.canais as TipoDeConta[]));
+  }
+  if (opts.inicio) filtros.push(sql`(${pedidoIgnorado.payload}->>'criadoEm')::timestamptz >= ${opts.inicio}`);
+  if (opts.fim) filtros.push(sql`(${pedidoIgnorado.payload}->>'criadoEm')::timestamptz <= ${opts.fim}`);
+
+  const [linha] = await db
+    .select({
+      quantidade: sql<number>`count(*)::int`,
+      valor: sql<string>`coalesce(sum((${pedidoIgnorado.payload}->>'total')::numeric), 0)`,
+    })
+    .from(pedidoIgnorado)
+    .innerJoin(channelAccount, eq(channelAccount.id, pedidoIgnorado.channelAccountId))
+    .where(and(...filtros));
+
+  return { quantidade: linha?.quantidade ?? 0, valor: Number(linha?.valor ?? 0) };
+}
+
 /** Quantas pendências estão em aberto. Existe separado de
  *  `listarPedidosIgnorados` porque a tela de Vendas só precisa do número —
  *  carregar 500 linhas com payload para exibir "3" seria desperdício numa

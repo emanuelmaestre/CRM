@@ -26,6 +26,7 @@ import {
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
 import { CardLimiteDoDia, JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
+import { ConferenciaCanal, type Pendencias } from "./conferencia-canal";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
@@ -362,6 +363,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
+  const [pendencias, setPendencias] = useState<Pendencias>({ quantidade: 0, valor: 0 });
   /* Uma janela só, para a única porta que hoje leva até ela: o card de fuso
      na grade de indicadores. Guarda PARA QUAL conjunto de pedidos foi aberta,
      e não um booleano: trocar o filtro troca os pedidos da fronteira, e um
@@ -414,6 +416,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         setTotal(res.total);
         setResumo(res.resumo);
         setLimiteDoDia(res.limiteDoDia);
+        setPendencias(res.pendencias);
         setMarcas(res.marcas);
         /* As contagens de marca voltam já cruzadas com o canal escolhido (ver
            contarPedidosPorMarca): total 0 aqui quer dizer "esta marca não tem
@@ -685,6 +688,19 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
           </motion.div>
         )}
       </motion.section>
+
+      {/* Logo abaixo dos cards, porque é o card de Faturamento que ele
+          explica — e acima da lista, porque a pergunta "por que não bate com
+          o painel do canal?" vem antes de olhar pedido por pedido. */}
+      <ConferenciaCanal
+        canais={canaisSel}
+        faturamento={resumo.faturamento}
+        canceladosValor={resumo.canceladosValor + resumo.devolvidosValor}
+        limiteDoDia={limiteDoDia}
+        pendencias={pendencias}
+        temPeriodo={Boolean(dataInicial && dataFinal)}
+      />
+
       <motion.section
         initial={reduzir ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

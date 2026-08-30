@@ -8,6 +8,7 @@ import {
   listarPedidosNoLimiteDoDia, resumirPedidos,
 } from "@/modules/vendas/application/pedidos.service";
 import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedidos";
+import { resumirPedidosIgnorados } from "@/modules/vendas/application/pedidos-ignorados.service";
 
 /* ── Pedidos ──────────────────────────────────────────────────────────── */
 
@@ -22,7 +23,7 @@ export async function actionListarPedidosDetalhados(opts: {
 } = {}) {
   const ctx = await getCrudContext();
   const { offset, ...filtros } = normalizarConsultaPedidos(opts);
-  const [result, resumo, marcas, canais, limiteDoDia] = await Promise.all([
+  const [result, resumo, marcas, canais, limiteDoDia, pendencias] = await Promise.all([
     listarPedidosDetalhados(ctx, {
       ...filtros,
       limit: 50,
@@ -36,6 +37,15 @@ export async function actionListarPedidosDetalhados(opts: {
        já trocou. Sem recorte de data ou sem o Mercado Livre no filtro, a
        consulta devolve vazio sem tocar no banco. */
     listarPedidosNoLimiteDoDia(ctx, filtros),
+    /* Viaja junto pelo mesmo motivo do limite do dia: é a terceira parcela da
+       conferência com o painel do canal, e buscá-la em outra ida abriria a
+       janela em que a tela soma um período com o valor de outro. */
+    resumirPedidosIgnorados(ctx, {
+      brandIds: filtros.brandIds,
+      canais: filtros.canais,
+      inicio: filtros.inicio,
+      fim: filtros.fim,
+    }),
   ]);
   return {
     ...result,
@@ -43,6 +53,7 @@ export async function actionListarPedidosDetalhados(opts: {
     marcas,
     canais,
     limiteDoDia,
+    pendencias,
     permissions: { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" },
   };
 }
