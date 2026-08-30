@@ -98,30 +98,37 @@ const CAUSAS: Record<string, {
     rotulo: "SKU sem produto",
     icone: PackageSearch,
     tom: "sozinho",
-    resumo: "Falta no CRM o produto do SKU que o pedido vendeu. Costuma entrar sozinho quando o catálogo do canal sincroniza.",
+    resumo: "Falta no CRM o produto do SKU que o pedido vendeu — e desde 30/08/2026 isso deixou de ser um beco sem saída: se o anúncio não existe mais em lugar nenhum, o produto nasce do próprio pedido.",
     diagnostico: (linha) => {
       const skus = skusDaLinha(linha);
       const canal = nomeCanal(linha.canal);
       const alvo = skus.length === 1 ? skus[0] : listaLegivel(skus);
+      const oSku = skus.length === 0 ? "o SKU do pedido" : alvo;
       return {
         motivo: skus.length === 0
           ? "O pedido cita um SKU que ainda não existe como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora."
           : `${skus.length === 1 ? `O SKU ${skus[0]} não existe` : `Os SKUs ${alvo} não existem`} como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora.`,
-        passos: skus.length === 0
-          ? [
-              `Abra "Ver detalhes" aqui embaixo e leia a linha "Erro registrado": é ela que diz qual SKU faltou. Esta pendência é antiga e foi gravada antes de o CRM guardar o SKU separado.`,
-              `Com o SKU em mãos, procure por ele nos anúncios da ${linha.marca} no ${canal}.`,
-              `Existe anúncio com esse SKU? Não mexa em nada: o produto entra no CRM na próxima sincronização automática do catálogo e esta linha some sozinha.`,
-              `Não quer esperar a sincronização? Clique em "Tentar novamente" aqui embaixo — o CRM rebusca o pedido no ${canal} na hora.`,
-            ]
-          : [
-              `Copie o SKU ${alvo} — é o código no chip cinza logo acima, dentro deste mesmo cartão.`,
-              `Abra os anúncios da ${linha.marca} no ${canal} e busque por esse SKU.`,
-              `SE ACHOU um anúncio com ele: não mexa em nada no canal. O produto nasce no CRM na próxima sincronização automática do catálogo e a pendência sai sozinha. Para não esperar, clique em "Tentar novamente" aqui embaixo.`,
-              `SE NÃO ACHOU: o SKU foi renomeado, ou o anúncio saiu do ar depois da venda. O pedido guarda o SKU do dia da compra e nunca é reescrito — por isso ele continua procurando ${alvo}. Devolva esse SKU ao anúncio no ${canal} e só então volte para cá.`,
-              `De volta aqui, clique em "Tentar novamente". Dando certo, a linha desaparece da fila na hora.`,
-              `Falhou de novo? Abra "Ver detalhes" e leia "Erro registrado": o motivo pode ter mudado. Se o anúncio não existe mais e não vale recriá-lo, clique em "Não recuperável" — o pedido sai da fila e continua guardado no histórico.`,
-            ],
+        /* ── Por que "clique primeiro" e não "vá conferir no canal" ────────
+           Até 29/08/2026 este roteiro mandava caçar o anúncio, porque o
+           produto só podia nascer do catálogo — e catálogo só enxerga
+           anúncio à venda. Anúncio pausado ou excluído era beco sem saída:
+           39 dos 43 pedidos parados vinham daí.
+
+           O caminho mudou na ingestão (resolverPeloAnuncioDoPedido): a
+           tentativa rebusca o pedido no canal e resolve em três degraus —
+           casa pelo anúncio quando ele já tem produto com OUTRO SKU,
+           importa o anúncio quando ele existe mesmo pausado, e cria o
+           produto com o título e o preço da própria venda quando o anúncio
+           foi excluído. Mandar alguém abrir o painel do canal ANTES de
+           clicar virou, portanto, trabalho jogado fora. */
+        passos: [
+          `Clique em "Tentar novamente" — antes de abrir o ${canal}, antes de procurar qualquer coisa. Aqui isso é o primeiro passo, não o último.`,
+          `O CRM rebusca o pedido no ${canal} e tenta três caminhos sozinho, nesta ordem: (1) o anúncio da venda já tem produto no CRM com outro código — é o caso de SKU renomeado depois da venda, e ele casa sem criar cadastro nenhum; (2) o anúncio existe, mesmo pausado ou sem estoque — o produto nasce dele; (3) o anúncio foi excluído do ${canal} — aí o produto nasce do PRÓPRIO pedido, com o título e o preço que a venda registrou.`,
+          `Ou seja: não existir mais o produto, nem o anúncio, já não impede nada. Você não precisa recriar anúncio, nem devolver ${oSku} a lugar nenhum, nem esperar a próxima sincronização do catálogo.`,
+          `Entrou? Acabou. O pedido passa a contar em Vendas e em Métricas na hora, e o produto aparece em Estoque com o nome do anúncio.`,
+          `Vale uma conferida depois: produto que nasceu de um pedido vem com o preço daquela venda e sem estoque mínimo definido — se ele ainda é vendido, ajuste isso em Estoque. Se o anúncio está fora do ar, o Estoque já o mostra assim e não há o que fazer.`,
+          `Falhou mesmo assim? Abra "Ver detalhes" e leia "Erro registrado" — o motivo pode ter mudado (o produto entrou e agora quem barra é o cliente). Se o texto disser que o ${canal} não devolve mais este pedido, não há como recuperá-lo: clique em "Não recuperável" e ele sai da fila sem ser apagado do histórico.`,
+        ],
       };
     },
   },

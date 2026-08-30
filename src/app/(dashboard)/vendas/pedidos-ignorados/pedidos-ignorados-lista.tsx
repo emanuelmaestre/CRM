@@ -6,14 +6,15 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft, ArrowRight, Check, ChevronDown, CircleSlash, Clock3, ListChecks,
-  Loader2, RotateCw, Undo2, Wallet,
+  Loader2, RotateCw, Undo2, Wallet, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
-import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
-import { isBrandSlug } from "@/shared/config/brands";
+import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
+import { compararPorOrdemDeMarca, getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import channelsConfig from "@/config/channels.json";
 import { moeda } from "@/shared/design-system/format";
 import { springs, stagger, fadeUp } from "@/shared/design-system/motion-variants";
 import { mapearStatusPedido } from "@/modules/canais/domain/order-status";
@@ -421,6 +422,132 @@ function CartaoPedido({ linha, podeDescartar, passosDaEtapa }: {
   );
 }
 
+function brandColor(slug: string): string {
+  return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
+}
+
+function canalLabel(canal: string): string {
+  const items = channelsConfig.items as Record<string, { label?: string }>;
+  return items[canal]?.label ?? nomeCanal(canal);
+}
+
+/* ── Escopo: empresa e canal ──────────────────────────────────────────────
+   As opções saem da PRÓPRIA fila, não do cadastro de marcas e canais. Numa
+   tela de trabalho, oferecer "KARZI" quando a KARZI não tem pendência
+   nenhuma é oferecer um clique que só sabe esvaziar a tela — e a contagem
+   dentro de cada pílula já responde, antes do clique, onde está o problema.
+
+   Diferente das telas de medição (Vendas, Estoque, Métricas), aqui empresa
+   sem canal NÃO apaga o conteúdo: a regra de `empresaSemCanalEscolhido`
+   existe porque somar faturamento ou saldo entre canais mistura réguas. Esta
+   fila não mede nada — ela lista trabalho pendente, e "tudo da WUWU" é um
+   recorte legítimo de trabalho. */
+function PilulaEscopo({ ativo, cor, contagem, titulo, onClick, children }: {
+  ativo: boolean;
+  cor: string;
+  contagem: number;
+  titulo: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const reduzir = useReducedMotion();
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      aria-pressed={ativo}
+      title={titulo}
+      whileHover={reduzir ? undefined : { y: -2, scale: 1.03 }}
+      whileTap={reduzir ? undefined : { scale: 0.94 }}
+      className={`relative inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3.5 transition-colors ${
+        ativo ? "border-2 bg-card" : "border border-border/80 bg-card/40 hover:bg-card/70"
+      }`}
+      style={ativo ? { borderColor: cor } : undefined}
+    >
+      {children}
+      <span
+        className="rounded-full px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums"
+        style={{ background: `color-mix(in srgb, ${cor} 14%, transparent)`, color: cor }}
+      >
+        {contagem}
+      </span>
+    </motion.button>
+  );
+}
+
+function BarraEscopo({ marcas, canais, marcasSel, canaisSel, alternarMarca, alternarCanal, limpar }: {
+  marcas: { slug: string; nome: string; total: number }[];
+  canais: { tipo: string; total: number }[];
+  marcasSel: string[];
+  canaisSel: string[];
+  alternarMarca: (slug: string) => void;
+  alternarCanal: (tipo: string) => void;
+  limpar: () => void;
+}) {
+  const filtrando = marcasSel.length > 0 || canaisSel.length > 0;
+  /* Uma pílula sozinha não é escolha: com uma empresa só na fila, a barra
+     inteira vira enfeite que rouba altura da tela. */
+  const mostrarMarcas = marcas.length > 1;
+  const mostrarCanais = canais.length > 1;
+  if (!mostrarMarcas && !mostrarCanais) return null;
+
+  return (
+    <motion.div
+      variants={fadeUp}
+      className="mb-4 flex flex-wrap items-center gap-2 rounded-[1.25rem] border border-border bg-card/70 p-2.5"
+    >
+      {mostrarMarcas && marcas.map((marca) => (
+        <PilulaEscopo
+          key={marca.slug}
+          ativo={marcasSel.includes(marca.slug)}
+          cor={brandColor(marca.slug)}
+          contagem={marca.total}
+          titulo={`${marca.nome} — ${pedidosLabel(marca.total)} na fila`}
+          onClick={() => alternarMarca(marca.slug)}
+        >
+          {isBrandSlug(marca.slug)
+            ? <BrandLogo brand={marca.slug} height={15} />
+            : <span className="text-xs font-semibold text-foreground">{marca.nome}</span>}
+        </PilulaEscopo>
+      ))}
+
+      {mostrarMarcas && mostrarCanais && (
+        <span aria-hidden="true" className="mx-0.5 h-7 w-px bg-border" />
+      )}
+
+      {mostrarCanais && canais.map((canal) => (
+        <PilulaEscopo
+          key={canal.tipo}
+          ativo={canaisSel.includes(canal.tipo)}
+          cor={channelAccent(canal.tipo)}
+          contagem={canal.total}
+          titulo={`${canalLabel(canal.tipo)} — ${pedidosLabel(canal.total)} na fila`}
+          onClick={() => alternarCanal(canal.tipo)}
+        >
+          <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
+        </PilulaEscopo>
+      ))}
+
+      <AnimatePresence initial={false}>
+        {filtrando && (
+          <motion.button
+            key="limpar"
+            type="button"
+            onClick={limpar}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={springs.settleFast}
+            className="press-feedback ml-auto inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <X size={13} /> Limpar filtro
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 /** Título curto da etapa — é o que a trilha repete dezenas de vezes, então
  *  precisa caber numa linha e ainda dizer de que conserto se trata. */
 function tituloTarefa(tarefa: Tarefa): string {
@@ -799,15 +926,67 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
   // reprocessamento FALHAVA — a pendência sumia da tela sem ter saído da
   // fila, reaparecendo no próximo carregamento. Agora quem manda é o
   // servidor, e `router.refresh()` traz o estado real depois de cada ação.
-  const abertas = linhas.filter((linha) => linha.descartadoEm === null);
+  const [etapa, setEtapa] = useState(0);
+
+  /* ── Escopo escolhido ───────────────────────────────────────────────────
+     Filtra no cliente, sobre as linhas que já vieram: a fila é curta por
+     natureza (dezenas, não milhares) e o payload inteiro já está na mão.
+     Ida ao servidor a cada clique de pílula só acrescentaria espera. */
+  const [marcasSel, setMarcasSel] = useState<string[]>([]);
+  const [canaisSel, setCanaisSel] = useState<string[]>([]);
+
+  const marcasDaFila = useMemo(() => {
+    const porSlug = new Map<string, { slug: string; nome: string; total: number }>();
+    for (const linha of linhas) {
+      const atual = porSlug.get(linha.marcaSlug);
+      if (atual) atual.total += 1;
+      else porSlug.set(linha.marcaSlug, { slug: linha.marcaSlug, nome: linha.marca, total: 1 });
+    }
+    return [...porSlug.values()].sort(compararPorOrdemDeMarca);
+  }, [linhas]);
+
+  const canaisDaFila = useMemo(() => {
+    const porTipo = new Map<string, { tipo: string; total: number }>();
+    for (const linha of linhas) {
+      const atual = porTipo.get(linha.canal);
+      if (atual) atual.total += 1;
+      else porTipo.set(linha.canal, { tipo: linha.canal, total: 1 });
+    }
+    return [...porTipo.values()].sort((a, b) => b.total - a.total);
+  }, [linhas]);
+
+  const linhasNoEscopo = useMemo(() => linhas.filter((linha) =>
+    (marcasSel.length === 0 || marcasSel.includes(linha.marcaSlug))
+    && (canaisSel.length === 0 || canaisSel.includes(linha.canal))), [linhas, marcasSel, canaisSel]);
+
+  const filtrando = marcasSel.length > 0 || canaisSel.length > 0;
+
+  /* Trocar o escopo troca o roteiro inteiro: a etapa 5 do recorte anterior
+     não é a etapa 5 deste. Voltar ao começo é o único comportamento que não
+     deixa a pessoa numa etapa que ela não escolheu. */
+  const alternarMarca = useCallback((slug: string) => {
+    setEtapa(0);
+    setMarcasSel((atual) => atual.includes(slug) ? atual.filter((s) => s !== slug) : [...atual, slug]);
+  }, []);
+  const alternarCanal = useCallback((tipo: string) => {
+    setEtapa(0);
+    setCanaisSel((atual) => atual.includes(tipo) ? atual.filter((t) => t !== tipo) : [...atual, tipo]);
+  }, []);
+  const limparEscopo = useCallback(() => {
+    setEtapa(0);
+    setMarcasSel([]);
+    setCanaisSel([]);
+  }, []);
+
+
+  const abertas = linhasNoEscopo.filter((linha) => linha.descartadoEm === null);
   const valorParado = abertas.reduce((soma, linha) => soma + Number(linha.total ?? 0), 0);
   const maisAntiga = abertas.reduce<number>(
     (maior, linha) => Math.max(maior, diasParado(linha.primeiraVezEm)),
     0,
   );
 
-  const tarefas = useMemo(() => agruparEmTarefas(linhas), [linhas]);
-  const [etapa, setEtapa] = useState(0);
+  const tarefas = useMemo(() => agruparEmTarefas(linhasNoEscopo), [linhasNoEscopo]);
   /* A fila muda embaixo dos pés: um reprocesso que dá certo apaga a etapa
      inteira e o índice guardado passaria a apontar para o vazio. */
   const atual = Math.min(etapa, Math.max(tarefas.length - 1, 0));
@@ -843,7 +1022,13 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
   function tentarTodos() {
     iniciarFila(async () => {
       try {
-        const { tentados, resolvidos, restantes } = await actionReprocessarFilaAberta();
+        /* Com filtro ligado, o botão só pode agir sobre o que está na tela:
+           dizer "tentar todos (12)" e sair reprocessando os 43 seria mentir
+           sobre o alcance do clique — e gastar chamada de API com pedidos
+           que a pessoa acabou de tirar de vista. */
+        const { tentados, resolvidos, restantes } = filtrando
+          ? await actionReprocessarPedidosIgnorados(abertas.filter((linha) => linha.reprocessavel).map((linha) => linha.id))
+          : await actionReprocessarFilaAberta();
         if (resolvidos > 0) toast.success(`${resolvidos} de ${tentados} entraram no CRM.`);
         else toast.error(`Nenhum dos ${tentados} entrou — o motivo de cada um foi atualizado abaixo.`);
         if (restantes > 0) toast.info(`Faltam ${restantes} na fila. Clique de novo para continuar.`);
@@ -884,7 +1069,7 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
               >
                 {tentandoTodos
                   ? <><Loader2 size={13} className="animate-spin" /> Tentando…</>
-                  : <><RotateCw size={13} /> Tentar todos ({reprocessaveis})</>}
+                  : <><RotateCw size={13} /> {filtrando ? "Tentar os do filtro" : "Tentar todos"} ({reprocessaveis})</>}
               </button>
             )}
             <a
@@ -910,6 +1095,18 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
               que é a contagem de ETAPAS, não a de pedidos. Ver a diferença
               entre "43 pedidos" e "8 consertos" é o que faz a fila deixar de
               parecer intransponível. */}
+          {/* A barra fica FORA do teste de vazio: sem ela, um filtro que não
+              casa com nada esconderia o próprio botão de desfazê-lo. */}
+          <BarraEscopo
+            marcas={marcasDaFila}
+            canais={canaisDaFila}
+            marcasSel={marcasSel}
+            canaisSel={canaisSel}
+            alternarMarca={alternarMarca}
+            alternarCanal={alternarCanal}
+            limpar={limparEscopo}
+          />
+
           <motion.section
             variants={fadeUp}
             className="mb-5 grid gap-3 rounded-[1.25rem] border border-border bg-card p-4 sm:grid-cols-3 sm:items-center"
@@ -956,11 +1153,21 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
             </div>
           </motion.section>
 
+          {linhasNoEscopo.length === 0 && (
+            <motion.div variants={fadeUp}>
+              <EmptyState
+                title="Nada na fila com esse filtro"
+                description="A fila não está vazia — este recorte de empresa e canal é que não tem pendência nenhuma. Limpe o filtro para ver o resto."
+                illustration="slowMoving"
+              />
+            </motion.div>
+          )}
+
           {/* Duas colunas de verdade no desktop: o roteiro fica à vista
               enquanto se trabalha numa etapa, que é o que permite saber
               quanto falta sem perder o lugar. No celular a trilha vira a
               lista de cima, e o painel desce inteiro embaixo. */}
-          <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)]">
+          <div className={`grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] ${linhasNoEscopo.length === 0 ? "hidden" : ""}`}>
             <motion.aside variants={fadeUp} className="lg:sticky lg:top-4 lg:self-start">
               <div className="rounded-[1.25rem] border border-border bg-card p-3">
                 <div className="mb-2 flex items-baseline justify-between gap-2 px-1">

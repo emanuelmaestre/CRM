@@ -242,6 +242,58 @@ describe("fila de pedidos ignorados", () => {
     expect(screen.queryByText(/589,90/)).not.toBeInTheDocument();
   });
 
+  /* ── Escopo ────────────────────────────────────────────────────────────
+     O filtro é o que permite atacar uma loja de cada vez — e ele mexe em
+     tudo de uma vez (roteiro, números do topo e o alcance do botão de lote),
+     então quebrar em silêncio aqui seria caro. */
+  it("filtra a fila por empresa, e o roteiro se refaz junto", async () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[
+          linha({ id: "a", providerOrderId: "AAA", skus: ["SKU_A"], marca: "WUWU", marcaSlug: "wuwu" }),
+          linha({ id: "b", providerOrderId: "BBB", skus: ["SKU_B"], marca: "KARZI", marcaSlug: "karzi" }),
+        ]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    expect(screen.getByText(/Etapa 1 de 2/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /KARZI/i }));
+
+    await waitFor(() => expect(screen.getByText(/Etapa 1 de 1/)).toBeInTheDocument());
+    expect(screen.getByText("BBB")).toBeInTheDocument();
+    expect(screen.queryByText("AAA")).not.toBeInTheDocument();
+
+    // Sem saída, um filtro que zera a tela vira "fila vazia" mentirosa.
+    fireEvent.click(screen.getByRole("button", { name: /limpar filtro/i }));
+    await waitFor(() => expect(screen.getByText(/Etapa 1 de 2/)).toBeInTheDocument());
+  });
+
+  it("filtra por canal do mesmo jeito", async () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[
+          linha({ id: "a", providerOrderId: "AAA", skus: ["SKU_A"], canal: "shopee" }),
+          linha({ id: "b", providerOrderId: "BBB", skus: ["SKU_B"], canal: "mercadolivre" }),
+        ]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /mercado livre/i }));
+
+    await waitFor(() => expect(screen.getByText("BBB")).toBeInTheDocument());
+    expect(screen.queryByText("AAA")).not.toBeInTheDocument();
+  });
+
+  /* Com uma empresa e um canal só na fila, a barra inteira é enfeite: cada
+     pílula seria um botão que não muda nada. */
+  it("não mostra a barra de escopo quando não há o que escolher", () => {
+    render(<PedidosIgnoradosLista linhas={[linha()]} podeDescartar incluirFechados={false} />);
+    expect(screen.queryByRole("button", { name: /limpar filtro/i })).not.toBeInTheDocument();
+  });
+
   /* O payload do pedido recusado e gravado inteiro, mas a tela so lia tres
      campos dele. O resto — repasse, frete, taxa, status no canal — ficava
      invisivel, e quem precisava decidir sobre um pedido tinha de abrir o
