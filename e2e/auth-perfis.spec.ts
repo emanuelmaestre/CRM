@@ -4,8 +4,8 @@ test.describe("Autenticação e perfis", () => {
   test("admin acessa a área de configurações", async ({ page }) => {
     await page.goto("/configuracoes");
     await expect(page).toHaveURL(/\/configuracoes$/);
-    await expect(page.getByRole("heading", { name: "Configurações" })).toBeVisible();
-    await expect(page.getByText("Canais e integrações")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Usuários" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Canais e integrações" })).toBeVisible();
   });
 
   test("visitante é redirecionado para o login", async ({ page }) => {
