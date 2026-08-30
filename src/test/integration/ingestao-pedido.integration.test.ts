@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/shared/lib/db";
 import { auditLog, brand, channelAccount, eventoDominio, produto, produtoCanal } from "@/shared/lib/db/schema";
@@ -37,6 +37,17 @@ const clientesParaLimpar: string[] = [];
 const produtosParaLimpar: string[] = [];
 
 beforeAll(async () => {
+  /* Marca de teste que sobrou de uma execução anterior é marca que APARECE na
+     barra de filtros de /vendas, em produção — foi o que aconteceu em
+     30/08/2026, com duas "Teste ingestao" visíveis para o usuário. Uma
+     execução interrompida no meio (timeout do banco remoto, Ctrl+C) não roda o
+     afterAll, então a entrada também limpa. Desativar em vez de apagar porque
+     o que trava o delete é justamente o rastro que não se apaga sozinho
+     (audit_log); invisível já resolve o problema de quem olha a tela. */
+  await db.update(brand)
+    .set({ active: false, updatedAt: new Date() })
+    .where(and(eq(brand.orgId, orgId), like(brand.slug, "teste_ingestao_%")));
+
   const [marca] = await db.insert(brand).values({
     orgId,
     name: `Teste ingestao ${sufixo}`,
@@ -119,6 +130,9 @@ afterAll(async () => {
     await limpar(() => db.delete(channelAccount).where(eq(channelAccount.id, id)));
   }
   if (brandId) {
+    // Desativa ANTES de tentar apagar: se o delete esbarrar em alguma FK que
+    // este teste não conhece, a marca some da tela do mesmo jeito.
+    await limpar(() => db.update(brand).set({ active: false, updatedAt: new Date() }).where(eq(brand.id, brandId)));
     await limpar(() => db.delete(brand).where(eq(brand.id, brandId)));
   }
 });
