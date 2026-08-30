@@ -21,18 +21,27 @@ const { marcarEntradaPosLogin, limparEntradaPosLogin } =
 
 type Situacao = "pronto" | "erro" | "pendente" | "atualizando";
 
+/* A tarja mostra só a HORA quando o dado é de hoje e acrescenta a data quando
+   não é. Com um carimbo fixo no calendário, o teste passava no dia em que foi
+   escrito e ficava vermelho no dia seguinte — foi o que aconteceu com
+   29/08/2026, que virou "29/08/2026 10h32" em vez de "10h32". O carimbo agora
+   é sempre hoje às 13h32 UTC, que é 10h32 em São Paulo o ano inteiro (o
+   Brasil não tem mais horário de verão). */
+const HOJE_EM_SAO_PAULO = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+const CARIMBO = `${HOJE_EM_SAO_PAULO}T13:32:00.000Z`;
+
 function resposta(situacao: Situacao, progresso: number, extras: Record<string, unknown> = {}) {
   return new Response(JSON.stringify({
     tela: "metricas",
     situacao,
     progresso,
-    versao: "2026-08-29T13:32:00.000Z",
-    versoes: { pedidos: "2026-08-29T13:32:00.000Z" },
+    versao: CARIMBO,
+    versoes: { pedidos: CARIMBO },
     fontes: ["pedidos"],
     ...(situacao === "erro"
       ? {
         mensagem: "Não foi possível atualizar agora.",
-        confirmadoAte: "2026-08-29T13:32:00.000Z",
+        confirmadoAte: CARIMBO,
         canais: ["Mercado Livre"],
       }
       : {}),

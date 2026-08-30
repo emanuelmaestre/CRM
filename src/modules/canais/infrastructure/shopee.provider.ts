@@ -592,8 +592,19 @@ export class ShopeeProvider implements ChannelProvider {
       : candidatos.map((item) => item.providerOrderId);
     if (sns.length === 0) return [];
 
-    // Detalhes em lotes de 50 — com a paginação acima, uma janela cheia passa
-    // fácil desse teto e a chamada inteira falharia se mandasse tudo de uma vez.
+    return this.montarPedidos(sns);
+  }
+
+  /** Detalhe + repasse de uma lista de `order_sn`, já normalizados.
+   *
+   *  Separado da busca por janela porque a fila de não importados precisa do
+   *  mesmo trabalho para UM pedido: a foto guardada dos pedidos parados desde
+   *  junho é anterior ao `listingId`, e sem rebuscar no canal o reprocesso só
+   *  repete a busca por SKU que já falhou. Ver `buscarPedidoPorId`. */
+  private async montarPedidos(sns: string[]): Promise<PedidoNormalizado[]> {
+    // Detalhes em lotes de 50 — com a paginação da janela, uma volta cheia
+    // passa fácil desse teto e a chamada inteira falharia se mandasse tudo de
+    // uma vez.
     const detailMap = new Map<string, ShopeeDetail>();
     for (let inicio = 0; inicio < sns.length; inicio += ShopeeProvider.LOTE_DETALHE_PEDIDOS) {
       const lote = sns.slice(inicio, inicio + ShopeeProvider.LOTE_DETALHE_PEDIDOS);
@@ -609,7 +620,10 @@ export class ShopeeProvider implements ChannelProvider {
       const detailData = await detailRes.json() as { error?: string; message?: string; response?: { order_list?: ShopeeDetail[] } };
       if (detailData.error) throw new Error(`Shopee get_order_detail: ${detailData.message ?? detailData.error}`);
       for (const d of detailData.response?.order_list ?? []) {
-        detailMap.set(d.order_sn, d);
+        // Entrada nula no lote não pode derrubar os outros 49: quem não vier
+        // cai na conferência de `detalhesAusentes` logo abaixo, com o número
+        // do pedido no erro.
+        if (d?.order_sn) detailMap.set(d.order_sn, d);
       }
     }
 
@@ -651,6 +665,17 @@ export class ShopeeProvider implements ChannelProvider {
         criadoEm: new Date((detail?.create_time ?? 0) * 1000),
       };
     });
+  }
+
+  /** Um pedido específico, pelo `order_sn` — o par do `buscarPedidoPorId` do
+   *  Mercado Livre, e pelo mesmo motivo: sem ele, pedido recusado da Shopee
+   *  só pode ser reprocessado a partir da foto guardada, que nos casos antigos
+   *  não traz o anúncio da venda. Custa as mesmas duas chamadas de sempre
+   *  (detalhe e repasse), agora para um pedido só. */
+  async buscarPedidoPorId(providerOrderId: string): Promise<PedidoNormalizado> {
+    const [pedido] = await this.montarPedidos([providerOrderId]);
+    if (!pedido) throw new Error(`Shopee não retornou o pedido ${providerOrderId}.`);
+    return pedido;
   }
 
   /** 401/403, ou a Shopee dizendo em texto que o app não tem permissão para a

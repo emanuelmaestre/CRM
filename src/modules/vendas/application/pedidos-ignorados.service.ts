@@ -6,6 +6,7 @@ import { brand } from "@/shared/lib/db/schema/org";
 import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
+import { criarShopeeProvider, SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { isBrandSlug } from "@/shared/config/brands";
 import type { PedidoNormalizado } from "@/modules/canais/domain/ports";
 
@@ -298,10 +299,20 @@ async function rebuscarNoCanal(linha: {
   brandSlug: string;
   providerOrderId: string;
 }): Promise<PedidoNormalizado | null> {
-  if (linha.canal !== "mercadolivre" || !isBrandSlug(linha.brandSlug)) return null;
+  if (!isBrandSlug(linha.brandSlug)) return null;
   try {
-    const provider = await criarMLProvider(linha.brandSlug);
-    return await provider.buscarPedidoPorId(linha.providerOrderId);
+    if (linha.canal === "mercadolivre") {
+      const provider = await criarMLProvider(linha.brandSlug);
+      return await provider.buscarPedidoPorId(linha.providerOrderId);
+    }
+    /* A Shopee entra pelo mesmo portão que a busca por janela usa: enquanto o
+       app aprovado não tiver a categoria de Pedidos, `SHOPEE_PEDIDOS_LIBERADO`
+       segura tudo, e insistir aqui só gastaria cota do proxy para levar 403. */
+    if (linha.canal === "shopee" && SHOPEE_PEDIDOS_LIBERADO) {
+      const provider = await criarShopeeProvider(linha.brandSlug);
+      return await provider.buscarPedidoPorId(linha.providerOrderId);
+    }
+    return null;
   } catch {
     // Token vencido, pedido apagado no canal, rede fora: nada disso deve
     // impedir a tentativa com o que já temos em mãos.

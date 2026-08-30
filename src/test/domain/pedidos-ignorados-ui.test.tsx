@@ -113,25 +113,42 @@ describe("fila de pedidos ignorados", () => {
     expect(screen.getByText(/nenhum pedido ficou de fora/i)).toBeInTheDocument();
   });
 
-  /* A tela agrupa por causa justamente para NÃO repetir a explicação em cada
-     linha. Estes testes travam essa economia: ela é invisível com um pedido
-     só e some sem barulho se alguém voltar a renderizar o texto por item. */
-  it("explica a causa uma vez só, mesmo com vários pedidos do mesmo motivo", () => {
+  /* O agrupamento por causa dá a REGRA; o cartão dá o CASO. A tela chegou a
+     explicar só no cabeçalho do grupo, e aí quem olhava um pedido específico
+     não sabia qual SKU faltou nem o que fazer com aquele. Estes testes travam
+     a explicação por pedido — ela é invisível com um pedido só e some sem
+     barulho se alguém voltar a economizar texto no lugar errado. */
+  it("dá um diagnóstico por pedido, não um por grupo", () => {
     render(
       <PedidosIgnoradosLista
         linhas={[
-          linha({ id: "a", providerOrderId: "AAA" }),
-          linha({ id: "b", providerOrderId: "BBB" }),
-          linha({ id: "c", providerOrderId: "CCC" }),
+          linha({ id: "a", providerOrderId: "AAA", skus: ["SKU_A"] }),
+          linha({ id: "b", providerOrderId: "BBB", skus: ["SKU_B"] }),
+          linha({ id: "c", providerOrderId: "CCC", skus: ["SKU_C"] }),
         ]}
         podeDescartar
         incluirFechados={false}
       />,
     );
-    expect(screen.getAllByText("Motivo")).toHaveLength(1);
-    expect(screen.getAllByText("O que fazer")).toHaveLength(1);
+    expect(screen.getAllByText(/Por que este pedido ficou de fora/)).toHaveLength(3);
+    expect(screen.getAllByText(/Como resolver, passo a passo/)).toHaveLength(3);
     expect(screen.getByText("AAA")).toBeInTheDocument();
     expect(screen.getByText("CCC")).toBeInTheDocument();
+  });
+
+  it("o diagnóstico fala do SKU daquele pedido, não de um texto genérico", () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[
+          linha({ id: "a", providerOrderId: "AAA", skus: ["SKU_A"] }),
+          linha({ id: "b", providerOrderId: "BBB", skus: ["SKU_B"] }),
+        ]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    expect(screen.getAllByText(/SKU_A/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/SKU_B/).length).toBeGreaterThan(0);
   });
 
   it("separa as causas em grupos e diz onde cada uma se resolve", () => {
