@@ -14,10 +14,11 @@ import { test, expect } from "@playwright/test";
  * seguem o que está de fato em mosaico.tsx/bloco.tsx hoje.
  */
 test.describe("Métricas", () => {
-  async function fecharTourSeVisivel(page: import("@playwright/test").Page) {
-    const pular = page.getByRole("button", { name: /pular tour/i });
-    if (await pular.isVisible().catch(() => false)) await pular.click();
-  }
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("crm-leo:coachmarks:mosaico:v1", "seen");
+    });
+  });
 
   test("página carrega sem erro 500", async ({ page }) => {
     await page.goto("/metricas");
@@ -39,7 +40,6 @@ test.describe("Métricas", () => {
 
   test("abrir um bloco monta o card completo e Esc devolve ao mosaico", async ({ page }) => {
     await page.goto("/metricas");
-    await fecharTourSeVisivel(page);
     const bloco = page.getByRole("button", { name: /abrir pontuação da loja/i });
     await expect(bloco).toBeVisible({ timeout: 15_000 });
 
