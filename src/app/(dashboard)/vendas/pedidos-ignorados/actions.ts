@@ -8,6 +8,7 @@ import {
   listarPedidosIgnorados,
   reprocessarFilaAberta,
   reprocessarPedidoIgnorado,
+  reprocessarPedidosIgnorados,
 } from "@/modules/vendas/application/pedidos-ignorados.service";
 
 export async function actionContarPedidosIgnorados() {
@@ -39,6 +40,16 @@ export async function actionReprocessarPedidoIgnorado(id: string) {
 export async function actionReprocessarFilaAberta() {
   const ctx = await getCrudContext();
   const resultado = await reprocessarFilaAberta(ctx);
+  revalidatePath("/vendas/pedidos-ignorados");
+  revalidatePath("/vendas");
+  return resultado;
+}
+
+/** Tenta os pedidos de uma etapa do roteiro. Sem exigir perfil, pelo mesmo
+ *  motivo de `actionReprocessarFilaAberta`: tentar de novo não destrói nada. */
+export async function actionReprocessarPedidosIgnorados(ids: string[]) {
+  const ctx = await getCrudContext();
+  const resultado = await reprocessarPedidosIgnorados(ctx, ids);
   revalidatePath("/vendas/pedidos-ignorados");
   revalidatePath("/vendas");
   return resultado;

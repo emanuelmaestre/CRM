@@ -1,12 +1,12 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowLeft, ChevronDown, CircleSlash, Clock3, Loader2, RotateCw, Undo2,
-  PackageSearch, UserRoundX, Bug, HelpCircle, type LucideIcon,
+  ArrowLeft, ArrowRight, Check, ChevronDown, CircleSlash, Clock3, ListChecks,
+  Loader2, RotateCw, Undo2, Wallet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/shared/design-system/primitives/PageHeader";
@@ -19,272 +19,201 @@ import { springs, stagger, fadeUp } from "@/shared/design-system/motion-variants
 import { mapearStatusPedido } from "@/modules/canais/domain/order-status";
 import pagesConfig from "@/config/pages.json";
 import type { ItemPedidoIgnorado, PedidoIgnoradoLinha } from "@/modules/vendas/application/pedidos-ignorados.service";
-import { actionDescartarPedidoIgnorado, actionReprocessarFilaAberta, actionReprocessarPedidoIgnorado } from "./actions";
+import {
+  agruparEmTarefas, causaDe, dataCurta, diagnosticoDe, diasParado, nomeCanal, TONS,
+  type Tarefa,
+} from "./diagnostico";
+import {
+  actionDescartarPedidoIgnorado, actionReprocessarFilaAberta,
+  actionReprocessarPedidoIgnorado, actionReprocessarPedidosIgnorados,
+} from "./actions";
 
-/* ── Onde mora a explicação ───────────────────────────────────────────
-   Duas coisas diferentes já foram chamadas de "explicação" nesta tela, e a
-   divisão atual é o que sobrou de tentar as duas.
+/* ── Por que esta tela é um roteiro, e não uma lista ──────────────────────
+   A fila real de 30/08/2026 tinha 43 pedidos — e oito consertos. Dezessete
+   deles eram o mesmo SKU, do mesmo anúncio, com exatamente os mesmos seis
+   passos. A versão em lista mostrava esses seis passos dezessete vezes: quem
+   abria a tela via uma parede de texto repetido e não conseguia responder a
+   única pergunta que importa, que é "por onde eu começo?".
 
-   A REGRA GERAL da causa ("falta o produto do SKU vendido") é igual para as
-   quarenta linhas do grupo, então fica uma vez só, no cabeçalho, em uma
-   frase. Repeti-la por cartão foi o que inchou a versão antiga.
+   Aqui a fila vira um roteiro de ETAPAS, uma por conserto (ver
+   `agruparEmTarefas`). A trilha à esquerda mostra o roteiro inteiro de uma
+   vez — nada fica escondido atrás de "próximo" —, e o painel à direita abre
+   uma etapa por vez, com o passo a passo em tamanho de leitura e os pedidos
+   afetados logo abaixo.
 
-   O DIAGNÓSTICO do pedido — qual SKU faltou, qual comprador colidiu, se ele
-   está cancelado no canal, quantas vezes já foi tentado — muda de linha para
-   linha e por isso vive dentro do cartão, sempre aberto. É a resposta à
-   pergunta que traz alguém a esta tela ("por que ESTE pedido não entrou?"),
-   e nenhuma delas é adivinhável a partir do texto do grupo. */
+   A divisão do texto segue quem muda com o quê:
+   · o PASSO A PASSO é do conserto, igual para os 17 pedidos → fica na etapa;
+   · o MOTIVO é do pedido (qual SKU, qual comprador, cancelado ou não) → fica
+     no cartão, sempre visível;
+   · quando o estado de um pedido MUDA o roteiro dele (cancelado no canal, já
+     descartado, três tentativas sem sair do lugar), aí sim o cartão carrega
+     os próprios passos, destacados — porque ali a instrução da etapa não
+     vale, e seguir a do topo seria trabalho jogado fora. */
 
-type Tom = "voce" | "sozinho" | "nosso" | "neutro";
+const STATUS_LABELS: Record<string, string> = pagesConfig.pedidos.statusLabels;
 
-/** Onde a pendência se resolve — o eixo que realmente muda o que a pessoa
- *  faz depois de ler. Sem isso, as quatro causas parecem a mesma coisa:
- *  "deu erro". Com isso, a fila se divide em "eu preciso agir", "vai sair
- *  sozinho" e "não adianta insistir". */
-const TONS: Record<Tom, { etiqueta: string; explicacao: string; cor: string }> = {
-  voce:    { etiqueta: "Depende de você", explicacao: "Estes pedidos só entram depois de alguém corrigir alguma coisa — esperar não resolve.", cor: "var(--warning)" },
-  sozinho: { etiqueta: "Sai sozinho",     explicacao: "Estes pedidos costumam entrar na próxima sincronização automática, sem ninguém fazer nada. Os passos do cartão servem para antecipar ou para os casos em que não sai.", cor: "var(--info)" },
-  nosso:   { etiqueta: "É problema do CRM", explicacao: "A falha é do sistema, não do seu cadastro nem do anúncio. Não há o que fazer no canal.", cor: "var(--destructive)" },
-  neutro:  { etiqueta: "Sem classificação", explicacao: "O CRM ainda não sabe agrupar este erro. Em geral é tropeço passageiro e passa na segunda tentativa.", cor: "var(--muted-foreground)" },
-};
+/** O status vem cru do canal ("completed", "cancelled"). Traduz pelo MESMO
+ *  mapa que o resto de Vendas usa — dois vocabularios para o mesmo pedido
+ *  seria pior que nao mostrar. */
+function rotuloStatus(statusCanal: string | null): string | null {
+  if (!statusCanal) return null;
+  return STATUS_LABELS[mapearStatusPedido(statusCanal)] ?? statusCanal;
+}
 
-/** O diagnóstico de UM pedido: por que ele ficou de fora e o que fazer com
- *  ele, em passos numerados.
+function pedidosLabel(n: number): string {
+  return `${n} ${n === 1 ? "pedido" : "pedidos"}`;
+}
+
+/** Uma medida do detalhe. `tabular-nums` em tudo que e numero para as colunas
+ *  alinharem verticalmente mesmo com larguras diferentes. */
+function Medida({ rotulo, valor, cor, dica }: { rotulo: string; valor: string; cor?: string; dica?: string }) {
+  return (
+    <div className="min-w-0">
+      {/* A coluna só cabe uma palavra ("Repasse"), e uma palavra sozinha não
+          ensina nada a quem nunca viu o termo. A dica no hover explica sem
+          gastar linha na grade. */}
+      <dt title={dica} className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</dt>
+      {/* title porque o valor trunca em coluna estreita (celular em pe, nome
+          de comprador longo): o texto inteiro continua alcançavel. */}
+      <dd title={valor} className="truncate text-[13px] font-bold tabular-nums" style={{ color: cor ?? "var(--foreground)" }}>{valor}</dd>
+    </div>
+  );
+}
+
+/** Item do pedido. A taxa some quando e zero — na maioria dos pedidos
+ *  recusados o repasse nem chegou a ser calculado. */
+function ItemLinha({ item }: { item: ItemPedidoIgnorado }) {
+  const taxa = Number(item.taxaMarketplace ?? 0);
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
+      <span className="rounded-md bg-card px-1.5 py-0.5 font-mono text-[11px] text-foreground">{item.sku ?? "sem SKU"}</span>
+      <span className="tabular-nums text-muted-foreground">
+        {item.quantidade ?? "?"} un. × {item.precoUnitario === null ? "—" : moeda.format(Number(item.precoUnitario))}
+      </span>
+      {taxa > 0 && <span className="tabular-nums text-muted-foreground">· taxa {moeda.format(taxa)}</span>}
+    </li>
+  );
+}
+
+/** Tudo que o CRM guardou do pedido recusado.
  *
- *  Passos e não parágrafo porque quem abre esta tela está no meio de uma
- *  tarefa, não lendo documentação: precisa saber qual é o PRIMEIRO clique. E
- *  as condições vêm ditas por extenso ("se achou o anúncio…", "se não
- *  achou…") porque o que é óbvio para quem escreveu o CRM não é óbvio para
- *  quem só quer o pedido dentro do sistema. */
-type Diagnostico = { motivo: string; passos: string[] };
-
-const NOMES_CANAL: Record<string, string> = {
-  mercadolivre: "Mercado Livre",
-  shopee: "Shopee",
-};
-
-function nomeCanal(canal: string): string {
-  return NOMES_CANAL[canal] ?? canal;
-}
-
-/** Os SKUs que ESTA linha cita. A pendência guarda os SKUs que derrubaram a
- *  ingestão, mas linhas antigas foram gravadas sem eles — aí os itens do
- *  payload servem, que é a mesma informação por outro caminho. */
-function skusDaLinha(linha: PedidoIgnoradoLinha): string[] {
-  if (linha.skus.length > 0) return linha.skus;
-  return [...new Set(linha.itens.map((item) => item.sku).filter((sku): sku is string => Boolean(sku)))];
-}
-
-function listaLegivel(itens: string[]): string {
-  if (itens.length <= 1) return itens[0] ?? "";
-  if (itens.length === 2) return `${itens[0]} e ${itens[1]}`;
-  return `${itens.slice(0, 2).join(", ")} e mais ${itens.length - 2}`;
-}
-
-/** Qual campo colidiu, lido do nome do índice único que o banco recusou.
- *  Saber que foi o TELEFONE (e não o e-mail) é o que diz onde procurar o
- *  cadastro conflitante — "cliente duplicado" sozinho não diz. */
-function campoDuplicado(linha: PedidoIgnoradoLinha): { rotulo: string; valor: string | null } {
-  if (/telefone/i.test(linha.motivo)) return { rotulo: "telefone", valor: linha.compradorTelefone };
-  if (/email|e_mail/i.test(linha.motivo)) return { rotulo: "e-mail", valor: null };
-  if (/documento|cpf|cnpj/i.test(linha.motivo)) return { rotulo: "documento", valor: null };
-  return { rotulo: "cadastro", valor: linha.compradorUsuario };
-}
-
-/** O campo que o validador recusou, quando o erro carrega o caminho. */
-function campoInvalido(motivo: string): string | null {
-  const achado = /"path"\s*:\s*\[\s*"([^"]+)"/.exec(motivo) ?? /path:\s*\[\s*'?"?([\w.]+)/.exec(motivo);
-  return achado?.[1] ?? null;
-}
-
-/** O erro cru cabe numa frase: o texto inteiro vive em "Ver detalhes". */
-function primeiraFrase(texto: string): string {
-  const limpo = texto.replace(/\s+/g, " ").trim();
-  const corte = limpo.slice(0, 160);
-  return corte.length < limpo.length ? `${corte}…` : corte;
-}
-
-const CAUSAS: Record<string, {
-  rotulo: string;
-  icone: LucideIcon;
-  tom: Tom;
-  /** Uma linha no cabeçalho do grupo: a regra geral da causa. O diagnóstico
-   *  de verdade — com o SKU, o comprador, o status deste pedido — mora no
-   *  cartão, porque é lá que ele muda de uma linha para a outra. */
-  resumo: string;
-  diagnostico: (linha: PedidoIgnoradoLinha) => Diagnostico;
-}> = {
-  sku_sem_produto: {
-    rotulo: "SKU sem produto",
-    icone: PackageSearch,
-    tom: "sozinho",
-    resumo: "Falta no CRM o produto do SKU que o pedido vendeu. Costuma entrar sozinho quando o catálogo do canal sincroniza.",
-    diagnostico: (linha) => {
-      const skus = skusDaLinha(linha);
-      const canal = nomeCanal(linha.canal);
-      const alvo = skus.length === 1 ? skus[0] : listaLegivel(skus);
-      return {
-        motivo: skus.length === 0
-          ? "O pedido cita um SKU que ainda não existe como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora."
-          : `${skus.length === 1 ? `O SKU ${skus[0]} não existe` : `Os SKUs ${alvo} não existem`} como produto no CRM. Sem o produto, não há onde pendurar o item vendido, e o pedido inteiro fica de fora.`,
-        passos: skus.length === 0
-          ? [
-              `Abra "Ver detalhes" aqui embaixo e leia a linha "Erro registrado": é ela que diz qual SKU faltou. Esta pendência é antiga e foi gravada antes de o CRM guardar o SKU separado.`,
-              `Com o SKU em mãos, procure por ele nos anúncios da ${linha.marca} no ${canal}.`,
-              `Existe anúncio com esse SKU? Não mexa em nada: o produto entra no CRM na próxima sincronização automática do catálogo e esta linha some sozinha.`,
-              `Não quer esperar a sincronização? Clique em "Tentar novamente" aqui embaixo — o CRM rebusca o pedido no ${canal} na hora.`,
-            ]
-          : [
-              `Copie o SKU ${alvo} — é o código no chip cinza logo acima, dentro deste mesmo cartão.`,
-              `Abra os anúncios da ${linha.marca} no ${canal} e busque por esse SKU.`,
-              `SE ACHOU um anúncio com ele: não mexa em nada no canal. O produto nasce no CRM na próxima sincronização automática do catálogo e a pendência sai sozinha. Para não esperar, clique em "Tentar novamente" aqui embaixo.`,
-              `SE NÃO ACHOU: o SKU foi renomeado, ou o anúncio saiu do ar depois da venda. O pedido guarda o SKU do dia da compra e nunca é reescrito — por isso ele continua procurando ${alvo}. Devolva esse SKU ao anúncio no ${canal} e só então volte para cá.`,
-              `De volta aqui, clique em "Tentar novamente". Dando certo, a linha desaparece da fila na hora.`,
-              `Falhou de novo? Abra "Ver detalhes" e leia "Erro registrado": o motivo pode ter mudado. Se o anúncio não existe mais e não vale recriá-lo, clique em "Não recuperável" — o pedido sai da fila e continua guardado no histórico.`,
-            ],
-      };
-    },
-  },
-  cliente_duplicado: {
-    rotulo: "Cliente duplicado",
-    icone: UserRoundX,
-    tom: "voce",
-    resumo: "O cadastro do comprador colidiu com um cliente que já existe. Resolve-se aqui dentro, não no painel do canal.",
-    diagnostico: (linha) => {
-      const campo = campoDuplicado(linha);
-      const comprador = linha.compradorNome ?? "o comprador";
-      const busca = campo.valor ?? comprador;
-      const mascarado = linha.canal === "shopee" && campo.rotulo === "telefone";
-      return {
-        motivo: `${linha.compradorNome ?? "O comprador"} chegou com ${campo.rotulo}${campo.valor ? ` ${campo.valor}` : ""} já usado por outro cliente do CRM, e o cadastro foi recusado.${mascarado ? " Na Shopee o telefone vem mascarado, então compradores diferentes chegam com o mesmo valor — não é erro de cadastro seu." : ""}`,
-        passos: [
-          `Comece clicando em "Tentar novamente" — sim, antes de investigar qualquer coisa. O CRM passou a reaproveitar o cliente que já tem o mesmo ${campo.rotulo} em vez de insistir em criar outro, e a maior parte destas pendências é anterior a essa correção: elas entram já na primeira tentativa.`,
-          `Entrou? Acabou. A linha some da fila e o pedido fica pendurado no cliente que já existia — nenhum cadastro novo é criado.`,
-          `Falhou de novo? Copie ${busca}, abra Clientes no menu do topo e busque por esse dado.`,
-          `Compare o cliente que aparecer com o comprador deste pedido (nome, ${campo.rotulo} e usuário no canal estão em "Ver detalhes"). É a MESMA pessoa: não crie nada, o CRM vai usar esse cadastro. São pessoas DIFERENTES: edite o ${campo.rotulo} de um dos dois em Clientes, para os dois pararem de disputar o mesmo valor.${mascarado ? " É o caso comum na Shopee, por causa do telefone mascarado." : ""}`,
-          `Com os cadastros ajustados, volte para cá e clique em "Tentar novamente".`,
-          `Não procure nada no painel do ${nomeCanal(linha.canal)}: o conflito é de dado do CRM, e mexer no anúncio ou na venda lá não muda nada aqui.`,
-        ],
-      };
-    },
-  },
-  payload_invalido: {
-    rotulo: "Formato inesperado",
-    icone: Bug,
-    tom: "nosso",
-    resumo: "O canal mandou o pedido num formato que o CRM não sabe ler. É falha nossa, e não há o que fazer na loja.",
-    diagnostico: (linha) => {
-      const campo = campoInvalido(linha.motivo);
-      const canal = nomeCanal(linha.canal);
-      return {
-        motivo: campo
-          ? `O ${canal} devolveu este pedido com o campo "${campo}" num formato que o CRM não sabe ler. A falha está do nosso lado, não no seu cadastro nem no anúncio.`
-          : `O ${canal} devolveu este pedido num formato que o CRM não sabe ler. A falha está do nosso lado, não no seu cadastro nem no anúncio.`,
-        passos: [
-          `Não procure nada no ${canal} nem em Clientes: nada do que você fizer lá muda este erro, porque ele é do CRM.`,
-          `Repare que este cartão não tem o botão "Tentar novamente", e isso é de propósito: o pedido guardado é o mesmo e passaria pelo mesmo validador, dando exatamente este erro outra vez.`,
-          `Abra "Ver detalhes" aqui embaixo e copie a linha inteira de "Erro registrado".`,
-          `Mande esse texto junto com o número da venda deste cartão para quem cuida do CRM${campo ? `, dizendo que o campo é "${campo}"` : ""}. É com isso que dá para ensinar esse formato ao sistema.`,
-          `Enquanto ninguém mexe no CRM, a linha fica aqui parada. Se este pedido é antigo e você não quer mais vê-lo na fila, clique em "Não recuperável": ele sai da lista sem ser apagado do histórico.`,
-        ],
-      };
-    },
-  },
-  desconhecida: {
-    rotulo: "Não classificada",
-    icone: HelpCircle,
-    tom: "neutro",
-    resumo: "Falha sem classificação própria — em geral tropeço passageiro de rede ou de limite da API do canal.",
-    diagnostico: (linha) => ({
-      motivo: `A importação parou em: "${primeiraFrase(linha.motivo)}" — um erro que ainda não tem classificação própria no CRM.`,
-      passos: [
-        `Clique em "Tentar novamente". A maior parte do que cai aqui é tropeço passageiro — rede fora, limite de chamadas da API do ${nomeCanal(linha.canal)} — e passa na segunda tentativa.`,
-        `Entrou? Acabou: a linha some da fila sozinha, sem mais nenhum passo.`,
-        `Falhou? Abra "Ver detalhes" e leia "Erro registrado". Esse texto é regravado a cada tentativa, então ele mostra o erro de AGORA, não o da primeira vez.`,
-        `Se o erro novo falar de SKU ou de cliente, não faça nada aqui: no próximo carregamento da página esta linha muda de grupo sozinha e passa a mostrar os passos daquela causa.`,
-        `Repetiu o mesmo erro duas ou três vezes? Pare de clicar: copie "Erro registrado" e o número da venda e mande para quem cuida do CRM.`,
-      ],
-    }),
-  },
-};
-
-/* Ordem dos grupos: pelo que a pessoa pode fazer, não pelo tamanho. O grupo
-   que exige ação humana vem primeiro mesmo tendo duas linhas; o que se
-   resolve sozinho vem depois mesmo tendo trinta. Ordenar por quantidade
-   colocaria no topo justamente o bloco que não pede nada de ninguém. */
-const ORDEM_CAUSAS = ["cliente_duplicado", "desconhecida", "sku_sem_produto", "payload_invalido"];
-
-function causaDe(chave: string) {
-  return CAUSAS[chave] ?? CAUSAS.desconhecida;
-}
-
-/** O que aconteceu com ESTE pedido e o que fazer com ELE, passo a passo.
- *
- *  Parte dos passos da causa e deixa o estado da própria linha sobrescrever o
- *  roteiro, porque o estado manda mais que a causa: um pedido cancelado no
- *  canal não vira receita nem se entrar (caçar o SKU dele é trabalho jogado
- *  fora), e um pedido já descartado não pede ação nenhuma até voltar para a
- *  fila. Sem isso, a tela mandaria seguir seis passos para recuperar dinheiro
- *  que não existe. */
-function diagnosticoDe(linha: PedidoIgnoradoLinha): Diagnostico {
-  const causa = causaDe(linha.causa);
-  const base = causa.diagnostico(linha);
-  const canal = nomeCanal(linha.canal);
+ *  O payload e gravado inteiro na fila, entao nada aqui custa uma consulta a
+ *  mais — so nao estava sendo lido. Fica fechado por padrao porque a etapa
+ *  existe para ser varrida rapido; quem precisa decidir sobre UM pedido abre
+ *  o dele sem que os outros cresçam junto. */
+function DetalhePedido({ linha, aberto, id }: { linha: PedidoIgnoradoLinha; aberto: boolean; id: string }) {
+  const reduzir = useReducedMotion();
+  const status = rotuloStatus(linha.statusCanal);
   const cancelado = linha.statusCanal !== null && mapearStatusPedido(linha.statusCanal) === "cancelado";
+  const taxaTotal = linha.itens.reduce((soma, item) => soma + Number(item.taxaMarketplace ?? 0), 0);
+  const dinheiro = (valor: string | null) => (valor === null ? "—" : moeda.format(Number(valor)));
 
-  if (linha.descartadoEm !== null) {
-    return {
-      ...base,
-      passos: [
-        `Não há nada a fazer: alguém marcou esta pendência como "Não recuperável" em ${dataCurta(linha.descartadoEm)}, e ela não conta mais na fila nem nos números do topo.`,
-        `O pedido não foi apagado — ele continua guardado no histórico, e é por isso que você está vendo esta linha agora.`,
-        `Mudou de ideia? Clique em "Devolver à fila" aqui embaixo: a linha volta a contar e os passos de "${causa.rotulo}" voltam a valer.`,
-      ],
-    };
-  }
+  return (
+    <AnimatePresence initial={false}>
+      {aberto && (
+        <motion.div
+          key="detalhe"
+          id={id}
+          /* Altura animada em vez de fade puro: o cartao empurra os vizinhos
+             para baixo, e ver esse empurrao acontecer e o que explica de onde
+             o bloco saiu. Com "reduzir movimento" vira corte seco. */
+          initial={reduzir ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          animate={reduzir ? { opacity: 1 } : { opacity: 1, height: "auto" }}
+          exit={reduzir ? { opacity: 0 } : { opacity: 0, height: 0 }}
+          transition={reduzir ? { duration: 0 } : springs.settleFast}
+          className="overflow-hidden"
+        >
+          <div className="mt-2.5 rounded-xl border border-border bg-muted/30 p-3">
+            {status && (
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                  style={{
+                    background: `color-mix(in srgb, ${cancelado ? "var(--destructive)" : "var(--info)"} 14%, transparent)`,
+                    color: cancelado ? "var(--destructive)" : "var(--info)",
+                  }}
+                >
+                  {status} no canal
+                </span>
+                {/* Pedido cancelado nunca vira receita: quem olha a fila
+                    precisa saber disso ANTES de gastar tempo recuperando. */}
+                {cancelado && <span className="text-[11px] text-muted-foreground">nao vira receita mesmo se entrar</span>}
+              </div>
+            )}
 
-  if (cancelado) {
-    return {
-      ...base,
-      passos: [
-        `Antes de qualquer coisa, confira em "Ver detalhes": o status deste pedido no ${canal} é "Cancelado".`,
-        `Pedido cancelado não vira receita nem se entrar no CRM. Recuperá-lo não muda faturamento, não muda Métricas e não muda comissão — o trabalho seria jogado fora.`,
-        `Por isso o caminho normal aqui é clicar em "Não recuperável": a linha sai da fila e o pedido continua guardado no histórico, nada é apagado.`,
-        `Só insista com "Tentar novamente" se você tem motivo para achar que o cancelamento está errado — e, nesse caso, confirme antes no painel do ${canal}.`,
-      ],
-    };
-  }
+            {/* 2 colunas no celular em pe, 3 em tela media (e no celular
+                deitado, que ganha largura), 6 no desktop: a linha de valores
+                nunca fica com uma coluna orfa. */}
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-3 xl:grid-cols-6">
+              <Medida rotulo="Total" valor={dinheiro(linha.total)} dica="O que o comprador pagou, do jeito que o canal informou." />
+              <Medida rotulo="Frete" valor={dinheiro(linha.frete)} dica="Frete cobrado nesta venda, já incluído no total." />
+              <Medida rotulo="Desconto" valor={dinheiro(linha.desconto)} dica="Descontos aplicados na venda (cupom, promoção do canal)." />
+              <Medida rotulo="Acrescimo" valor={dinheiro(linha.acrescimo)} dica="Valores somados à venda pelo canal, quando houver." />
+              <Medida
+                rotulo="Taxa do canal"
+                valor={taxaTotal > 0 ? moeda.format(taxaTotal) : "—"}
+                dica="Comissão que o canal cobra desta venda, somando todos os itens. Aparece como — quando o canal ainda não calculou."
+              />
+              <Medida
+                rotulo="Repasse"
+                dica="O que sobra para você depois das taxas — é o valor que o canal deposita. Aparece como — enquanto o canal não fecha a conta desta venda."
+                valor={dinheiro(linha.valorLiquido)}
+                cor={linha.valorLiquido && Number(linha.valorLiquido) > 0 ? "var(--success)" : undefined}
+              />
+            </dl>
 
-  if (linha.tentativas >= 3 && linha.reprocessavel) {
-    return {
-      ...base,
-      passos: [
-        ...base.passos,
-        `Atenção antes de clicar mais uma vez: já são ${linha.tentativas} tentativas com o mesmo resultado. Se os passos acima que dependem do canal ou de Clientes ainda não foram feitos, clicar de novo vai dar exatamente no mesmo.`,
-      ],
-    };
-  }
+            {linha.itens.length > 0 && (
+              <ul className="mt-3 grid gap-1.5 border-t border-border pt-3">
+                {linha.itens.map((item, indice) => (
+                  <ItemLinha key={`${item.sku ?? "item"}-${indice}`} item={item} />
+                ))}
+              </ul>
+            )}
 
-  return base;
+            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-border pt-3 sm:grid-cols-4">
+              <Medida rotulo="Comprador" valor={linha.compradorNome ?? "—"} dica="Nome como o canal entregou. É por ele (ou pelo telefone) que se procura o cadastro em Clientes." />
+              <Medida
+                rotulo={`ID do comprador no ${nomeCanal(linha.canal)}`}
+                valor={linha.compradorUsuario ?? "—"}
+                dica={`Número que identifica o comprador dentro do ${nomeCanal(linha.canal)} — não é o número da venda nem um código do CRM.`}
+              />
+              <Medida
+                rotulo="Telefone"
+                valor={linha.compradorTelefone ?? "—"}
+                dica="Telefone que veio do canal. Na Shopee ele vem mascarado, e é justamente o que faz compradores diferentes colidirem no mesmo cadastro."
+              />
+              <Medida
+                rotulo="Tentativas"
+                valor={String(linha.tentativas)}
+                dica="Quantas vezes este pedido já tentou entrar — contando as sincronizações automáticas, não só os seus cliques."
+              />
+            </dl>
+
+            {/* O motivo cru fecha o bloco: e o texto que o desenvolvedor le
+                quando a causa classificada nao basta. */}
+            <p className="mt-3 break-words border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Erro registrado (texto técnico, para quem cuida do CRM):</span> {linha.motivo}
+            </p>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 }
 
-function diasParado(desde: Date): number {
-  return Math.max(0, Math.floor((Date.now() - new Date(desde).getTime()) / 86_400_000));
-}
-
-function dataCurta(valor: string | Date | null): string {
-  if (!valor) return "—";
-  const data = new Date(valor);
-  return Number.isNaN(data.getTime())
-    ? "—"
-    : data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
-
-/** Uma linha da fila. Curta de propósito: tudo que ela NÃO precisa dizer
- *  (o que aconteceu, o que fazer) já foi dito uma vez no cabeçalho do grupo. */
-function Pendencia({ linha, podeDescartar }: {
+/** Um pedido dentro da etapa.
+ *
+ *  Curto de propósito: o passo a passo do conserto está no topo da etapa e
+ *  vale para todos os cartões. O que sobra aqui é o que muda de um pedido
+ *  para o outro — quem comprou, quanto, há quanto tempo parado, por que ELE
+ *  ficou de fora — mais os botões, que agem sobre este pedido só. */
+function CartaoPedido({ linha, podeDescartar, passosDaEtapa }: {
   linha: PedidoIgnoradoLinha;
   podeDescartar: boolean;
+  /** Os passos que a etapa já mostrou. Quando os deste pedido são outros, o
+   *  cartão os traz para dentro; quando são os mesmos, repetir seria o ruído
+   *  que esta tela existe para remover. */
+  passosDaEtapa: string[];
 }) {
   const [pendente, iniciar] = useTransition();
   const router = useRouter();
@@ -294,6 +223,9 @@ function Pendencia({ linha, podeDescartar }: {
   const causa = causaDe(linha.causa);
   const tom = TONS[causa.tom];
   const diagnostico = diagnosticoDe(linha);
+  const passosProprios = diagnostico.passos.join("|") !== passosDaEtapa.join("|")
+    ? diagnostico.passos
+    : null;
 
   const [detalheAberto, setDetalheAberto] = useState(false);
   const idDetalhe = useId();
@@ -406,17 +338,23 @@ function Pendencia({ linha, podeDescartar }: {
           <span className="font-bold text-foreground">Por que este pedido ficou de fora: </span>
           {diagnostico.motivo}
         </p>
-        {/* Lista numerada de verdade (<ol>), não frases coladas num
-            parágrafo: o número dá ordem ("faça isto primeiro"), o leitor
-            consegue parar no meio e voltar depois, e cada passo vira uma
-            unidade que dá para ler em pé, com o celular na mão, dentro do
-            painel do canal. */}
-        <p className="mt-2 text-[11.5px] font-bold" style={{ color: tom.cor }}>Como resolver, passo a passo:</p>
-        <ol className="mt-1 grid list-decimal gap-1 pl-4 marker:font-bold marker:text-muted-foreground">
-          {diagnostico.passos.map((passo, indice) => (
-            <li key={indice} className="pl-0.5 text-[11.5px] leading-relaxed text-muted-foreground">{passo}</li>
-          ))}
-        </ol>
+
+        {/* Passos próprios só quando o pedido foge do roteiro da etapa —
+            cancelado no canal, já descartado, teimando na terceira tentativa.
+            Nesses casos seguir a instrução do topo seria trabalho perdido, e
+            o aviso precisa estar onde a pessoa está olhando. */}
+        {passosProprios && (
+          <>
+            <p className="mt-2 text-[11.5px] font-bold" style={{ color: tom.cor }}>
+              Este pedido pede outra coisa:
+            </p>
+            <ol className="mt-1 grid list-decimal gap-1 pl-4 marker:font-bold marker:text-muted-foreground">
+              {passosProprios.map((passo, indice) => (
+                <li key={indice} className="pl-0.5 text-[11.5px] leading-relaxed text-muted-foreground">{passo}</li>
+              ))}
+            </ol>
+          </>
+        )}
       </div>
 
       <DetalhePedido linha={linha} aberto={detalheAberto} id={idDetalhe} />
@@ -425,227 +363,213 @@ function Pendencia({ linha, podeDescartar }: {
           "Ver detalhes" e uma acao — antes a linha podia terminar sem nenhum
           jeito de saber mais sobre o pedido. */}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          {/* Sem botão de reprocessar em `payload_invalido`: a falha é
-              determinística — mesmo payload, mesmo validador, mesmo erro.
-              Oferecer o botão ali só gasta o tempo de quem clica. */}
-          {linha.reprocessavel && !fechado && (
-            <button
-              type="button"
-              onClick={reprocessar}
-              disabled={pendente}
-              title="Tenta importar este pedido de novo, agora. Quando a foto guardada está velha, o CRM rebusca o pedido no canal antes. Não duplica nada: se ele já tiver entrado, a pendência só é encerrada."
-              className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
-            >
-              {pendente ? <Loader2 size={12} className="animate-spin" /> : <RotateCw size={12} />}
-              Tentar novamente
-            </button>
-          )}
-          {podeDescartar && (
-            <button
-              type="button"
-              onClick={() => descartar(fechado)}
-              disabled={pendente}
-              title={fechado
-                ? "Devolve a pendência para a fila: ela volta a contar nos números do topo e a pedir ação."
-                : "Tira da fila sem apagar nada: o pedido continua no histórico e dá para devolvê-lo depois. Use quando não há mais o que fazer — anúncio excluído, pedido cancelado."}
-              className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
-            >
-              {fechado ? <Undo2 size={12} /> : <CircleSlash size={12} />}
-              {fechado ? "Devolver à fila" : "Não recuperável"}
-            </button>
-          )}
-
-          {/* Empurrado para a direita no desktop (ml-auto) e primeiro da
-              proxima linha no celular: e leitura, nao decisao — nao deve
-              disputar a atencao com "Tentar novamente". */}
+        {/* Sem botão de reprocessar em `payload_invalido`: a falha é
+            determinística — mesmo payload, mesmo validador, mesmo erro.
+            Oferecer o botão ali só gasta o tempo de quem clica. */}
+        {linha.reprocessavel && !fechado && (
           <button
             type="button"
-            onClick={() => setDetalheAberto((atual) => !atual)}
-            aria-expanded={detalheAberto}
-            aria-controls={idDetalhe}
-            /* Cinza-claro fazia o rótulo parecer legenda, não botão: já estava
-               em font-bold, mas com a cor apagada o negrito não aparecia. Com
-               a cor do texto normal o peso finalmente se lê. */
-            className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted sm:ml-auto"
+            onClick={reprocessar}
+            disabled={pendente}
+            title="Tenta importar este pedido de novo, agora. Quando a foto guardada está velha, o CRM rebusca o pedido no canal antes. Não duplica nada: se ele já tiver entrado, a pendência só é encerrada."
+            className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
           >
-            <motion.span
-              aria-hidden="true"
-              className="inline-flex"
-              animate={{ rotate: detalheAberto ? 180 : 0 }}
-              transition={reduzir ? { duration: 0 } : springs.settleFast}
-            >
-              <ChevronDown size={12} />
-            </motion.span>
-            {detalheAberto ? "Ocultar detalhes" : "Ver detalhes"}
+            {pendente ? <Loader2 size={12} className="animate-spin" /> : <RotateCw size={12} />}
+            Tentar novamente
           </button>
-        </div>
+        )}
+        {podeDescartar && (
+          <button
+            type="button"
+            onClick={() => descartar(fechado)}
+            disabled={pendente}
+            title={fechado
+              ? "Devolve a pendência para a fila: ela volta a contar nos números do topo e a pedir ação."
+              : "Tira da fila sem apagar nada: o pedido continua no histórico e dá para devolvê-lo depois. Use quando não há mais o que fazer — anúncio excluído, pedido cancelado."}
+            className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
+          >
+            {fechado ? <Undo2 size={12} /> : <CircleSlash size={12} />}
+            {fechado ? "Devolver à fila" : "Não recuperável"}
+          </button>
+        )}
+
+        {/* Empurrado para a direita no desktop (ml-auto) e primeiro da
+            proxima linha no celular: e leitura, nao decisao — nao deve
+            disputar a atencao com "Tentar novamente". */}
+        <button
+          type="button"
+          onClick={() => setDetalheAberto((atual) => !atual)}
+          aria-expanded={detalheAberto}
+          aria-controls={idDetalhe}
+          /* Cinza-claro fazia o rótulo parecer legenda, não botão: já estava
+             em font-bold, mas com a cor apagada o negrito não aparecia. Com
+             a cor do texto normal o peso finalmente se lê. */
+          className="press-feedback inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-foreground transition-colors hover:bg-muted sm:ml-auto"
+        >
+          <motion.span
+            aria-hidden="true"
+            className="inline-flex"
+            animate={{ rotate: detalheAberto ? 180 : 0 }}
+            transition={reduzir ? { duration: 0 } : springs.settleFast}
+          >
+            <ChevronDown size={12} />
+          </motion.span>
+          {detalheAberto ? "Ocultar detalhes" : "Ver detalhes"}
+        </button>
+      </div>
     </motion.li>
   );
 }
 
-const STATUS_LABELS: Record<string, string> = pagesConfig.pedidos.statusLabels;
-
-/** O status vem cru do canal ("completed", "cancelled"). Traduz pelo MESMO
- *  mapa que o resto de Vendas usa — dois vocabularios para o mesmo pedido
- *  seria pior que nao mostrar. */
-function rotuloStatus(statusCanal: string | null): string | null {
-  if (!statusCanal) return null;
-  return STATUS_LABELS[mapearStatusPedido(statusCanal)] ?? statusCanal;
+/** Título curto da etapa — é o que a trilha repete dezenas de vezes, então
+ *  precisa caber numa linha e ainda dizer de que conserto se trata. */
+function tituloTarefa(tarefa: Tarefa): string {
+  const causa = causaDe(tarefa.causa);
+  if (!tarefa.alvo) return causa.rotulo;
+  if (tarefa.causa === "sku_sem_produto") return tarefa.alvo;
+  if (tarefa.causa === "cliente_duplicado") return `Cadastro de ${tarefa.alvo}`;
+  if (tarefa.causa === "payload_invalido") return `Campo "${tarefa.alvo}"`;
+  return tarefa.alvo;
 }
 
-/** Uma medida do detalhe. `tabular-nums` em tudo que e numero para as colunas
- *  alinharem verticalmente mesmo com larguras diferentes. */
-function Medida({ rotulo, valor, cor, dica }: { rotulo: string; valor: string; cor?: string; dica?: string }) {
-  return (
-    <div className="min-w-0">
-      {/* A coluna só cabe uma palavra ("Repasse"), e uma palavra sozinha não
-          ensina nada a quem nunca viu o termo. A dica no hover explica sem
-          gastar linha na grade. */}
-      <dt title={dica} className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</dt>
-      {/* title porque o valor trunca em coluna estreita (celular em pe, nome
-          de comprador longo): o texto inteiro continua alcançavel. */}
-      <dd title={valor} className="truncate text-[13px] font-bold tabular-nums" style={{ color: cor ?? "var(--foreground)" }}>{valor}</dd>
-    </div>
-  );
-}
-
-/** Item do pedido. A taxa some quando e zero — na maioria dos pedidos
- *  recusados o repasse nem chegou a ser calculado. */
-function ItemLinha({ item }: { item: ItemPedidoIgnorado }) {
-  const taxa = Number(item.taxaMarketplace ?? 0);
-  return (
-    <li className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[12px]">
-      <span className="rounded-md bg-card px-1.5 py-0.5 font-mono text-[11px] text-foreground">{item.sku ?? "sem SKU"}</span>
-      <span className="tabular-nums text-muted-foreground">
-        {item.quantidade ?? "?"} un. × {item.precoUnitario === null ? "—" : moeda.format(Number(item.precoUnitario))}
-      </span>
-      {taxa > 0 && <span className="tabular-nums text-muted-foreground">· taxa {moeda.format(taxa)}</span>}
-    </li>
-  );
-}
-
-/** Tudo que o CRM guardou do pedido recusado.
+/** A trilha: o roteiro inteiro, visível de uma vez.
  *
- *  O payload e gravado inteiro na fila, entao nada aqui custa uma consulta a
- *  mais — so nao estava sendo lido. Fica fechado por padrao porque a fila
- *  existe para ser varrida rapido; quem precisa decidir sobre UM pedido abre
- *  o dele sem que os outros cresçam junto. */
-function DetalhePedido({ linha, aberto, id }: { linha: PedidoIgnoradoLinha; aberto: boolean; id: string }) {
+ *  Um wizard que só mostra a etapa atual esconde o tamanho do trabalho, e o
+ *  tamanho do trabalho é justamente o que decide se a pessoa começa agora ou
+ *  deixa para depois. Cada item diz quantos pedidos e quanto dinheiro estão
+ *  presos naquele conserto, e o marcador verde vai fechando o roteiro. */
+function Trilha({ tarefas, atual, aoEscolher }: {
+  tarefas: Tarefa[];
+  atual: number;
+  aoEscolher: (indice: number) => void;
+}) {
   const reduzir = useReducedMotion();
-  const status = rotuloStatus(linha.statusCanal);
-  const cancelado = linha.statusCanal !== null && mapearStatusPedido(linha.statusCanal) === "cancelado";
-  const taxaTotal = linha.itens.reduce((soma, item) => soma + Number(item.taxaMarketplace ?? 0), 0);
-  const dinheiro = (valor: string | null) => (valor === null ? "—" : moeda.format(Number(valor)));
 
   return (
-    <AnimatePresence initial={false}>
-      {aberto && (
-        <motion.div
-          key="detalhe"
-          id={id}
-          /* Altura animada em vez de fade puro: o cartao empurra os vizinhos
-             para baixo, e ver esse empurrao acontecer e o que explica de onde
-             o bloco saiu. Com "reduzir movimento" vira corte seco. */
-          initial={reduzir ? { opacity: 0 } : { opacity: 0, height: 0 }}
-          animate={reduzir ? { opacity: 1 } : { opacity: 1, height: "auto" }}
-          exit={reduzir ? { opacity: 0 } : { opacity: 0, height: 0 }}
-          transition={reduzir ? { duration: 0 } : springs.settleFast}
-          className="overflow-hidden"
-        >
-          <div className="mt-2.5 rounded-xl border border-border bg-muted/30 p-3">
-            {status && (
-              <div className="mb-3 flex flex-wrap items-center gap-2">
-                <span
-                  className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+    <ol className="flex flex-col gap-1">
+      {tarefas.map((tarefa, indice) => {
+        const causa = causaDe(tarefa.causa);
+        const tom = TONS[causa.tom];
+        const ativa = indice === atual;
+        const Icone = causa.icone;
+        return (
+          <li key={tarefa.id}>
+            <button
+              type="button"
+              onClick={() => aoEscolher(indice)}
+              aria-current={ativa ? "step" : undefined}
+              className="press-feedback relative flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-muted/60"
+            >
+              {/* O realce viaja de uma etapa para a outra em vez de piscar no
+                  lugar novo: é o que mostra que se trocou de etapa dentro do
+                  mesmo roteiro, e não que a tela inteira mudou. */}
+              {ativa && (
+                <motion.span
+                  layoutId="etapa-ativa"
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-xl border"
                   style={{
-                    background: `color-mix(in srgb, ${cancelado ? "var(--destructive)" : "var(--info)"} 14%, transparent)`,
-                    color: cancelado ? "var(--destructive)" : "var(--info)",
+                    borderColor: `color-mix(in srgb, ${tom.cor} 40%, transparent)`,
+                    background: `color-mix(in srgb, ${tom.cor} 8%, var(--card))`,
                   }}
-                >
-                  {status} no canal
+                  transition={reduzir ? { duration: 0 } : springs.settleFast}
+                />
+              )}
+              <span
+                className="relative grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-bold tabular-nums"
+                style={{
+                  background: tarefa.concluida
+                    ? "color-mix(in srgb, var(--success) 16%, transparent)"
+                    : `color-mix(in srgb, ${tom.cor} 14%, transparent)`,
+                  color: tarefa.concluida ? "var(--success)" : tom.cor,
+                }}
+              >
+                {tarefa.concluida ? <Check size={13} /> : indice + 1}
+              </span>
+              <span className="relative min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <Icone size={12} style={{ color: tom.cor }} className="shrink-0" />
+                  <span className={`truncate font-mono text-[12px] font-bold ${tarefa.concluida ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                    {tituloTarefa(tarefa)}
+                  </span>
                 </span>
-                {/* Pedido cancelado nunca vira receita: quem olha a fila
-                    precisa saber disso ANTES de gastar tempo recuperando. */}
-                {cancelado && <span className="text-[11px] text-muted-foreground">nao vira receita mesmo se entrar</span>}
-              </div>
-            )}
-
-            {/* 2 colunas no celular em pe, 3 em tela media (e no celular
-                deitado, que ganha largura), 6 no desktop: a linha de valores
-                nunca fica com uma coluna orfa. */}
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5 sm:grid-cols-3 xl:grid-cols-6">
-              <Medida rotulo="Total" valor={dinheiro(linha.total)} dica="O que o comprador pagou, do jeito que o canal informou." />
-              <Medida rotulo="Frete" valor={dinheiro(linha.frete)} dica="Frete cobrado nesta venda, já incluído no total." />
-              <Medida rotulo="Desconto" valor={dinheiro(linha.desconto)} dica="Descontos aplicados na venda (cupom, promoção do canal)." />
-              <Medida rotulo="Acrescimo" valor={dinheiro(linha.acrescimo)} dica="Valores somados à venda pelo canal, quando houver." />
-              <Medida
-                rotulo="Taxa do canal"
-                valor={taxaTotal > 0 ? moeda.format(taxaTotal) : "—"}
-                dica="Comissão que o canal cobra desta venda, somando todos os itens. Aparece como — quando o canal ainda não calculou."
-              />
-              <Medida
-                rotulo="Repasse"
-                dica="O que sobra para você depois das taxas — é o valor que o canal deposita. Aparece como — enquanto o canal não fecha a conta desta venda."
-                valor={dinheiro(linha.valorLiquido)}
-                cor={linha.valorLiquido && Number(linha.valorLiquido) > 0 ? "var(--success)" : undefined}
-              />
-            </dl>
-
-            {linha.itens.length > 0 && (
-              <ul className="mt-3 grid gap-1.5 border-t border-border pt-3">
-                {linha.itens.map((item, indice) => (
-                  <ItemLinha key={`${item.sku ?? "item"}-${indice}`} item={item} />
-                ))}
-              </ul>
-            )}
-
-            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 border-t border-border pt-3 sm:grid-cols-4">
-              <Medida rotulo="Comprador" valor={linha.compradorNome ?? "—"} dica="Nome como o canal entregou. É por ele (ou pelo telefone) que se procura o cadastro em Clientes." />
-              <Medida
-                rotulo={`ID do comprador no ${nomeCanal(linha.canal)}`}
-                valor={linha.compradorUsuario ?? "—"}
-                dica={`Número que identifica o comprador dentro do ${nomeCanal(linha.canal)} — não é o número da venda nem um código do CRM.`}
-              />
-              <Medida
-                rotulo="Telefone"
-                valor={linha.compradorTelefone ?? "—"}
-                dica="Telefone que veio do canal. Na Shopee ele vem mascarado, e é justamente o que faz compradores diferentes colidirem no mesmo cadastro."
-              />
-              <Medida
-                rotulo="Tentativas"
-                valor={String(linha.tentativas)}
-                dica="Quantas vezes este pedido já tentou entrar — contando as sincronizações automáticas, não só os seus cliques."
-              />
-            </dl>
-
-            {/* O motivo cru fecha o bloco: e o texto que o desenvolvedor le
-                quando a causa classificada nao basta. */}
-            <p className="mt-3 break-words border-t border-border pt-3 text-[11px] leading-relaxed text-muted-foreground">
-              <span className="font-semibold text-foreground">Erro registrado (texto técnico, para quem cuida do CRM):</span> {linha.motivo}
-            </p>
-          </div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+                <span className="mt-0.5 block truncate text-[11px] tabular-nums text-muted-foreground">
+                  {/* "fora da fila" e não "resolvida": no histórico completo
+                      esta etapa pode estar fechada porque alguém a descartou,
+                      que é o oposto de resolver. */}
+                  {tarefa.concluida
+                    ? "fora da fila"
+                    : `${pedidosLabel(tarefa.abertas.length)} · ${moeda.format(tarefa.valorParado)}`}
+                </span>
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
-/** Um grupo = uma causa. O cabeçalho carrega a explicação inteira, e é o
- *  único lugar da tela onde ela aparece. */
-function GrupoCausa({ chave, linhas, podeDescartar }: {
-  chave: string;
-  linhas: PedidoIgnoradoLinha[];
+/** A etapa aberta: o conserto explicado uma vez, e os pedidos que ele
+ *  destrava logo abaixo. */
+function PainelTarefa({ tarefa, indice, total, podeDescartar, aoNavegar }: {
+  tarefa: Tarefa;
+  indice: number;
+  total: number;
   podeDescartar: boolean;
+  aoNavegar: (direcao: 1 | -1) => void;
 }) {
-  const causa = causaDe(chave);
+  const router = useRouter();
+  const reduzir = useReducedMotion();
+  const causa = causaDe(tarefa.causa);
   const tom = TONS[causa.tom];
   const Icone = causa.icone;
-  const abertas = linhas.filter((l) => l.descartadoEm === null).length;
+  const [emLote, iniciarLote] = useTransition();
+  const [confirmandoDescarte, setConfirmandoDescarte] = useState(false);
+  /* Lista longa começa fechada: com dezessete cartões abertos, os passos que
+     acabaram de ser lidos saem da tela e a etapa vira de novo a parede de
+     texto que ela veio substituir. Até seis, abre — não vale um clique. */
+  const [pedidosAbertos, setPedidosAbertos] = useState(tarefa.linhas.length <= 6);
+
+  const ids = tarefa.abertas.filter((linha) => linha.reprocessavel).map((linha) => linha.id);
+
+  function tentarTarefa() {
+    iniciarLote(async () => {
+      try {
+        const { tentados, resolvidos, restantes } = await actionReprocessarPedidosIgnorados(ids);
+        if (resolvidos > 0) toast.success(`${resolvidos} de ${tentados} entraram no CRM.`);
+        else toast.error(`Nenhum dos ${tentados} entrou — o motivo de cada um foi atualizado abaixo.`);
+        if (restantes > 0) toast.info(`Faltam ${restantes} nesta etapa. Clique de novo para continuar.`);
+      } catch {
+        toast.error("Não foi possível tentar esta etapa agora.");
+      }
+      router.refresh();
+    });
+  }
+
+  function descartarTarefa() {
+    iniciarLote(async () => {
+      for (const linha of tarefa.abertas) {
+        await actionDescartarPedidoIgnorado(linha.id, false);
+      }
+      toast.success(`${pedidosLabel(tarefa.abertas.length)} fora da fila. Nada foi apagado.`);
+      setConfirmandoDescarte(false);
+      router.refresh();
+    });
+  }
 
   return (
-    <motion.section layout variants={fadeUp} className="mb-5">
+    <motion.section
+      key={tarefa.id}
+      initial={reduzir ? { opacity: 0 } : { opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduzir ? { opacity: 0 } : { opacity: 0, y: -10 }}
+      transition={reduzir ? { duration: 0 } : springs.settleFast}
+      className="min-w-0"
+      aria-label={`Etapa ${indice + 1} de ${total}: ${tituloTarefa(tarefa)}`}
+    >
       <div
-        className="rounded-[1.1rem] border p-4"
+        className="rounded-[1.25rem] border p-4 sm:p-5"
         style={{
           borderColor: `color-mix(in srgb, ${tom.cor} 22%, transparent)`,
           background: `color-mix(in srgb, ${tom.cor} 5%, var(--card))`,
@@ -653,18 +577,17 @@ function GrupoCausa({ chave, linhas, podeDescartar }: {
       >
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className="grid size-8 shrink-0 place-items-center rounded-full"
+            className="grid size-9 shrink-0 place-items-center rounded-full"
             style={{ background: `color-mix(in srgb, ${tom.cor} 14%, transparent)`, color: tom.cor }}
           >
-            <Icone size={16} />
+            <Icone size={18} />
           </span>
-          <h2 className="text-sm font-bold text-foreground">{causa.rotulo}</h2>
-          <span
-            className="rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums"
-            style={{ background: `color-mix(in srgb, ${tom.cor} 14%, transparent)`, color: tom.cor }}
-          >
-            {abertas} {abertas === 1 ? "pedido" : "pedidos"}
-          </span>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Etapa {indice + 1} de {total} · {causa.rotulo}
+            </p>
+            <h2 className="truncate font-mono text-base font-bold text-foreground">{tituloTarefa(tarefa)}</h2>
+          </div>
           <span
             className="ml-auto rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
             style={{ borderColor: `color-mix(in srgb, ${tom.cor} 30%, transparent)`, color: tom.cor }}
@@ -674,20 +597,190 @@ function GrupoCausa({ chave, linhas, podeDescartar }: {
           </span>
         </div>
 
-        {/* Uma linha só: a regra geral da causa. O diagnóstico completo desceu
-            para dentro de cada cartão, onde ele fala do pedido daquela linha
-            (qual SKU, qual comprador, cancelado ou não) em vez de repetir o
-            mesmo parágrafo quarenta vezes. */}
-        <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">{causa.resumo}</p>
+        {/* Os três números que decidem se esta etapa vale a próxima meia hora:
+            quantos pedidos, quanto dinheiro, e há quanto tempo estão parados. */}
+        <dl className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border/60 py-2.5">
+          <div className="flex items-baseline gap-1.5">
+            <dt className="text-[11px] text-muted-foreground">Pedidos presos</dt>
+            <dd className="text-sm font-bold tabular-nums text-foreground">{tarefa.abertas.length}</dd>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <dt className="text-[11px] text-muted-foreground">Fora do faturamento</dt>
+            <dd className="text-sm font-bold tabular-nums" style={{ color: "var(--success)" }}>
+              {moeda.format(tarefa.valorParado)}
+            </dd>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <dt className="text-[11px] text-muted-foreground">Parados há</dt>
+            <dd
+              className="text-sm font-bold tabular-nums"
+              style={{ color: tarefa.diasParado >= 7 ? "var(--destructive)" : "var(--foreground)" }}
+            >
+              {tarefa.diasParado === 0 ? "menos de 1 dia" : `${tarefa.diasParado} ${tarefa.diasParado === 1 ? "dia" : "dias"}`}
+            </dd>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <dt className="text-[11px] text-muted-foreground">Onde</dt>
+            <dd className="flex items-center gap-1.5">
+              <ChannelLogo canal={tarefa.canal} size="sm" variant="logo" />
+              {isBrandSlug(tarefa.marcaSlug)
+                ? <BrandLogo brand={tarefa.marcaSlug} height={13} />
+                : <span className="text-xs font-semibold text-foreground">{tarefa.marca}</span>}
+            </dd>
+          </div>
+        </dl>
+
+        <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
+          <span className="font-bold text-foreground">O que aconteceu: </span>
+          {causa.resumo}
+        </p>
+
+        {/* O passo a passo em tamanho de leitura, uma vez por conserto. É o
+            centro da tela: tudo o mais aqui existe para explicar de que
+            pedidos ele está falando. */}
+        <div className="mt-4">
+          <p className="flex items-center gap-1.5 text-[12px] font-bold" style={{ color: tom.cor }}>
+            <ListChecks size={14} /> Como resolver, passo a passo
+          </p>
+          <motion.ol
+            variants={stagger}
+            initial="hidden"
+            animate="show"
+            className="mt-2 grid gap-2"
+          >
+            {tarefa.diagnostico.passos.map((passo, i) => (
+              <motion.li key={i} variants={fadeUp} className="flex gap-2.5">
+                <span
+                  className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-[10px] font-bold tabular-nums"
+                  style={{ background: `color-mix(in srgb, ${tom.cor} 14%, transparent)`, color: tom.cor }}
+                >
+                  {i + 1}
+                </span>
+                <span className="text-[13px] leading-relaxed text-foreground/85">{passo}</span>
+              </motion.li>
+            ))}
+          </motion.ol>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {ids.length > 0 && (
+            <button
+              type="button"
+              onClick={tentarTarefa}
+              disabled={emLote}
+              title="Tenta de uma vez todos os pedidos desta etapa. Nada é descartado: o que não entrar continua na lista, com o motivo atualizado."
+              className="press-feedback inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ background: tom.cor }}
+            >
+              {emLote ? <Loader2 size={14} className="animate-spin" /> : <RotateCw size={14} />}
+              {emLote ? "Tentando…" : `Tentar ${ids.length === 1 ? "este pedido" : `os ${ids.length} pedidos`}`}
+            </button>
+          )}
+
+          {/* Descarte em massa em dois cliques. Um clique só, com dezessete
+              pedidos atrás, é o tipo de botão que se aperta sem querer — e
+              embora nada seja apagado, refazer é dezessete cliques. */}
+          {podeDescartar && tarefa.abertas.length > 0 && (
+            confirmandoDescarte ? (
+              <span className="inline-flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={descartarTarefa}
+                  disabled={emLote}
+                  className="press-feedback inline-flex h-10 items-center gap-1.5 rounded-xl border px-3 text-[13px] font-bold transition-colors disabled:opacity-60"
+                  style={{ borderColor: "var(--destructive)", color: "var(--destructive)" }}
+                >
+                  {emLote ? <Loader2 size={13} className="animate-spin" /> : <CircleSlash size={13} />}
+                  Confirmar: tirar {tarefa.abertas.length} da fila
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoDescarte(false)}
+                  className="press-feedback inline-flex h-10 items-center rounded-xl px-3 text-[13px] font-bold text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  Cancelar
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmandoDescarte(true)}
+                title="Para quando não há mais o que fazer — anúncio excluído, venda cancelada. Os pedidos saem da fila e continuam guardados no histórico."
+                className="press-feedback inline-flex h-10 items-center gap-1.5 rounded-xl border border-border px-3 text-[13px] font-bold text-muted-foreground transition-colors hover:bg-muted"
+              >
+                <CircleSlash size={13} />
+                Nenhum destes é recuperável
+              </button>
+            )
+          )}
+        </div>
       </div>
 
-      <motion.ul layout variants={stagger} initial="hidden" animate="show" className="mt-2 flex flex-col gap-1.5">
+      {/* Os pedidos da etapa. Depois do conserto, não antes: a pergunta que
+          eles respondem ("quais são?") só faz sentido quando já se sabe o que
+          fazer com eles. */}
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setPedidosAbertos((atual) => !atual)}
+          aria-expanded={pedidosAbertos}
+          className="press-feedback mb-2 inline-flex items-center gap-1.5 rounded-lg py-1 text-[12px] font-bold text-foreground"
+        >
+          <motion.span
+            aria-hidden="true"
+            className="inline-flex"
+            animate={{ rotate: pedidosAbertos ? 180 : 0 }}
+            transition={reduzir ? { duration: 0 } : springs.settleFast}
+          >
+            <ChevronDown size={13} />
+          </motion.span>
+          {pedidosAbertos ? "Ocultar" : "Ver"} {pedidosLabel(tarefa.linhas.length)} desta etapa
+        </button>
+
         <AnimatePresence initial={false}>
-          {linhas.map((linha) => (
-            <Pendencia key={linha.id} linha={linha} podeDescartar={podeDescartar} />
-          ))}
+          {pedidosAbertos && (
+            <motion.ul
+              layout
+              variants={stagger}
+              initial="hidden"
+              animate="show"
+              exit={reduzir ? { opacity: 0 } : { opacity: 0, height: 0 }}
+              className="flex flex-col gap-1.5 overflow-hidden"
+            >
+              {tarefa.linhas.map((linha) => (
+                <CartaoPedido
+                  key={linha.id}
+                  linha={linha}
+                  podeDescartar={podeDescartar}
+                  passosDaEtapa={tarefa.diagnostico.passos}
+                />
+              ))}
+            </motion.ul>
+          )}
         </AnimatePresence>
-      </motion.ul>
+      </div>
+
+      {/* Navegação embaixo também: depois de ler seis passos e olhar dezessete
+          pedidos, obrigar a subir até o topo para ir à próxima etapa é o tipo
+          de atrito que faz a pessoa fechar a tela no meio do roteiro. */}
+      <div className="mt-5 flex items-center justify-between gap-2 border-t border-border pt-4">
+        <button
+          type="button"
+          onClick={() => aoNavegar(-1)}
+          disabled={indice === 0}
+          className="press-feedback inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-[13px] font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+        >
+          <ArrowLeft size={14} /> Etapa anterior
+        </button>
+        <button
+          type="button"
+          onClick={() => aoNavegar(1)}
+          disabled={indice === total - 1}
+          className="press-feedback inline-flex h-10 items-center gap-1.5 rounded-xl border border-border bg-card px-3 text-[13px] font-bold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+        >
+          Próxima etapa <ArrowRight size={14} />
+        </button>
+      </div>
     </motion.section>
   );
 }
@@ -713,18 +806,42 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
     0,
   );
 
-  /* ── Tentar a fila inteira ────────────────────────────────────────────
-     Uma fila grande costuma ter uma causa só: alguma coisa mudou no CRM e
-     agora todas entram. Com quarenta pendências, clicar quarenta vezes no
-     mesmo botão não é decisão de operação, é trabalho braçal. O servidor
-     tenta em fatias e devolve quantas sobraram — daí o botão dizer "faltam
-     N" em vez de fingir que fez tudo. */
-  const router = useRouter();
-  const [tentandoTodos, iniciarLote] = useTransition();
-  const reprocessaveis = abertas.filter((linha) => linha.reprocessavel).length;
+  const tarefas = useMemo(() => agruparEmTarefas(linhas), [linhas]);
+  const [etapa, setEtapa] = useState(0);
+  /* A fila muda embaixo dos pés: um reprocesso que dá certo apaga a etapa
+     inteira e o índice guardado passaria a apontar para o vazio. */
+  const atual = Math.min(etapa, Math.max(tarefas.length - 1, 0));
 
+  const navegar = useCallback((direcao: 1 | -1) => {
+    setEtapa((indice) => Math.min(Math.max(indice + direcao, 0), tarefas.length - 1));
+  }, [tarefas.length]);
+
+  /* Setas do teclado percorrem o roteiro. Um roteiro de oito etapas lido no
+     desktop é exatamente o caso em que a mão já está no teclado — e o atalho
+     não atrapalha quem digita, porque sai de cena dentro de campo de texto. */
+  useEffect(() => {
+    function aoTeclar(evento: KeyboardEvent) {
+      const alvo = evento.target as HTMLElement | null;
+      if (alvo && /^(INPUT|TEXTAREA|SELECT)$/.test(alvo.tagName)) return;
+      if (evento.key === "ArrowRight") navegar(1);
+      if (evento.key === "ArrowLeft") navegar(-1);
+    }
+    window.addEventListener("keydown", aoTeclar);
+    return () => window.removeEventListener("keydown", aoTeclar);
+  }, [navegar]);
+
+  const router = useRouter();
+  const [tentandoTodos, iniciarFila] = useTransition();
+  const reprocessaveis = abertas.filter((linha) => linha.reprocessavel).length;
+  const resolvidas = tarefas.filter((tarefa) => tarefa.concluida).length;
+
+  /* ── Tentar a fila inteira ────────────────────────────────────────────
+     Continua existindo ao lado do roteiro, e não no lugar dele: quando a
+     correção que destravou a fila é a mesma para todo mundo — foi o caso das
+     40 pendências de agosto/2026 —, ler oito etapas para clicar oito vezes é
+     cerimônia. O servidor tenta em fatias e devolve quantas sobraram. */
   function tentarTodos() {
-    iniciarLote(async () => {
+    iniciarFila(async () => {
       try {
         const { tentados, resolvidos, restantes } = await actionReprocessarFilaAberta();
         if (resolvidos > 0) toast.success(`${resolvidos} de ${tentados} entraram no CRM.`);
@@ -737,12 +854,12 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
     });
   }
 
-  const grupos = ORDEM_CAUSAS
-    .map((chave) => ({ chave, linhas: linhas.filter((linha) => linha.causa === chave) }))
-    .filter((grupo) => grupo.linhas.length > 0);
-
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6">
+    /* Largura cheia, não a coluna estreita de leitura: aqui a tela é uma
+       bancada de trabalho — roteiro à esquerda, conserto à direita — e não um
+       texto corrido. Com `max-w-4xl` a trilha não cabia ao lado do painel e o
+       roteiro inteiro ficava escondido atrás de rolagem. */
+    <div className="mx-auto w-full max-w-[110rem] px-4 py-6 sm:px-6">
       {/* Esta tela se chega por um link dentro de /vendas e não tem entrada
           no menu — sem a volta, a única saída era o botão do navegador ou
           reentrar por Vendas no topo. Mesmo padrão das telas de Publicidade. */}
@@ -754,7 +871,7 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
       </Link>
       <PageHeader
         title="Pedidos ignorados"
-        description="Vendas que aconteceram no canal mas não entraram no CRM — elas não contam em Vendas nem em Métricas enquanto estiverem aqui. Cada cartão diz por que aquele pedido ficou de fora e o passo a passo para trazê-lo. Boa parte sai sozinha na próxima sincronização, quando a causa deixa de existir."
+        description="Vendas que aconteceram no canal mas não entraram no CRM — elas não contam em Vendas nem em Métricas enquanto estiverem aqui. A fila vira um roteiro: cada etapa é um conserto, com o passo a passo uma vez só e os pedidos que ele destrava logo abaixo."
         actions={
           <>
             {reprocessaveis > 1 && !incluirFechados && (
@@ -788,29 +905,108 @@ export function PedidosIgnoradosLista({ linhas, podeDescartar, incluirFechados }
         />
       ) : (
         <motion.div variants={stagger} initial="hidden" animate="show">
-          {/* Uma linha de resumo, não uma grade de cards. O que importa aqui
-              é quanto dinheiro está parado e há quanto tempo — dois números.
-              Cards dariam a eles o mesmo peso visual dos grupos abaixo, que
-              são o conteúdo de verdade desta tela. */}
-          <motion.p variants={fadeUp} className="mb-4 text-xs font-semibold text-muted-foreground">
-            {abertas.length} {abertas.length === 1 ? "pedido fora do CRM" : "pedidos fora do CRM"}
-            {valorParado > 0 && (
-              <> · <span className="text-foreground">{moeda.format(valorParado)}</span> em vendas que não contam no faturamento</>
-            )}
-            {maisAntiga > 0 && <> · o mais antigo está parado há {maisAntiga} {maisAntiga === 1 ? "dia" : "dias"}</>}
-            {incluirFechados && ` · ${linhas.length - abertas.length} fechados`}
-          </motion.p>
+          {/* Painel de situação: os dois números que dizem se isto é urgente
+              (dinheiro parado, dias parado) e o tamanho real do trabalho —
+              que é a contagem de ETAPAS, não a de pedidos. Ver a diferença
+              entre "43 pedidos" e "8 consertos" é o que faz a fila deixar de
+              parecer intransponível. */}
+          <motion.section
+            variants={fadeUp}
+            className="mb-5 grid gap-3 rounded-[1.25rem] border border-border bg-card p-4 sm:grid-cols-3 sm:items-center"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full" style={{ background: "color-mix(in srgb, var(--success) 12%, transparent)", color: "var(--success)" }}>
+                <Wallet size={17} />
+              </span>
+              <div>
+                <p className="text-[11px] text-muted-foreground">Fora do faturamento</p>
+                <p className="text-lg font-bold tabular-nums" style={{ color: "var(--success)" }}>{moeda.format(valorParado)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-full" style={{ background: "color-mix(in srgb, var(--info) 12%, transparent)", color: "var(--info)" }}>
+                <ListChecks size={17} />
+              </span>
+              <div>
+                <p className="text-[11px] text-muted-foreground">O trabalho de verdade</p>
+                <p className="text-lg font-bold tabular-nums text-foreground">
+                  {tarefas.length} {tarefas.length === 1 ? "conserto" : "consertos"}
+                  <span className="ml-1.5 text-[12px] font-semibold text-muted-foreground">
+                    para {pedidosLabel(abertas.length)}
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span
+                className="grid size-9 shrink-0 place-items-center rounded-full"
+                style={{
+                  background: `color-mix(in srgb, ${maisAntiga >= 7 ? "var(--destructive)" : "var(--muted-foreground)"} 12%, transparent)`,
+                  color: maisAntiga >= 7 ? "var(--destructive)" : "var(--muted-foreground)",
+                }}
+              >
+                <Clock3 size={17} />
+              </span>
+              <div>
+                <p className="text-[11px] text-muted-foreground">O mais antigo espera há</p>
+                <p className="text-lg font-bold tabular-nums text-foreground">
+                  {maisAntiga === 0 ? "menos de 1 dia" : `${maisAntiga} ${maisAntiga === 1 ? "dia" : "dias"}`}
+                </p>
+              </div>
+            </div>
+          </motion.section>
 
-          <AnimatePresence initial={false}>
-            {grupos.map((grupo) => (
-              <GrupoCausa
-                key={grupo.chave}
-                chave={grupo.chave}
-                linhas={grupo.linhas}
-                podeDescartar={podeDescartar}
-              />
-            ))}
-          </AnimatePresence>
+          {/* Duas colunas de verdade no desktop: o roteiro fica à vista
+              enquanto se trabalha numa etapa, que é o que permite saber
+              quanto falta sem perder o lugar. No celular a trilha vira a
+              lista de cima, e o painel desce inteiro embaixo. */}
+          <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)]">
+            <motion.aside variants={fadeUp} className="lg:sticky lg:top-4 lg:self-start">
+              <div className="rounded-[1.25rem] border border-border bg-card p-3">
+                <div className="mb-2 flex items-baseline justify-between gap-2 px-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Roteiro</p>
+                  <p className="text-[11px] font-semibold tabular-nums text-muted-foreground">
+                    {resolvidas} de {tarefas.length}
+                  </p>
+                </div>
+                {/* Barra de progresso do roteiro: cresce sozinha conforme as
+                    etapas fecham. É o único lugar da tela onde "quanto já
+                    andei" aparece como forma, e não como número. */}
+                <div className="mx-1 mb-3 h-1 overflow-hidden rounded-full bg-muted">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: "var(--success)" }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${tarefas.length === 0 ? 0 : (resolvidas / tarefas.length) * 100}%` }}
+                    transition={springs.settleFast}
+                  />
+                </div>
+                <Trilha tarefas={tarefas} atual={atual} aoEscolher={setEtapa} />
+                <p className="mt-2 px-1 text-[10.5px] leading-relaxed text-muted-foreground">
+                  Use as setas ← → do teclado para andar pelo roteiro.
+                </p>
+              </div>
+            </motion.aside>
+
+            <motion.div variants={fadeUp} className="min-w-0">
+              {/* `mode="wait"` para a etapa que sai terminar antes de a nova
+                  entrar: com as duas na tela ao mesmo tempo, o passo a passo
+                  de uma se misturava com o da outra por um instante — e é
+                  justamente esse texto que a pessoa está lendo. */}
+              <AnimatePresence mode="wait" initial={false}>
+                {tarefas[atual] && (
+                  <PainelTarefa
+                    key={tarefas[atual].id}
+                    tarefa={tarefas[atual]}
+                    indice={atual}
+                    total={tarefas.length}
+                    podeDescartar={podeDescartar}
+                    aoNavegar={navegar}
+                  />
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
         </motion.div>
       )}
     </div>

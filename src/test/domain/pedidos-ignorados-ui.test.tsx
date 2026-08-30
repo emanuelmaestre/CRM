@@ -57,7 +57,9 @@ describe("fila de pedidos ignorados", () => {
     render(<PedidosIgnoradosLista linhas={[linha()]} podeDescartar incluirFechados={false} />);
     expect(screen.getByText("250814ABC")).toBeInTheDocument();
     expect(screen.getByText("Maria Souza")).toBeInTheDocument();
-    expect(screen.getByText("W613-BL")).toBeInTheDocument();
+    // O SKU nomeia a etapa no roteiro E marca o cartão do pedido: é a mesma
+    // informação servindo a duas perguntas ("qual conserto?" e "qual pedido?").
+    expect(screen.getAllByText("W613-BL").length).toBeGreaterThan(1);
   });
 
   /* O bug que este teste tranca: a primeira versão guardava a lista em
@@ -113,30 +115,33 @@ describe("fila de pedidos ignorados", () => {
     expect(screen.getByText(/nenhum pedido ficou de fora/i)).toBeInTheDocument();
   });
 
-  /* O agrupamento por causa dá a REGRA; o cartão dá o CASO. A tela chegou a
-     explicar só no cabeçalho do grupo, e aí quem olhava um pedido específico
-     não sabia qual SKU faltou nem o que fazer com aquele. Estes testes travam
-     a explicação por pedido — ela é invisível com um pedido só e some sem
-     barulho se alguém voltar a economizar texto no lugar errado. */
-  it("dá um diagnóstico por pedido, não um por grupo", () => {
+  /* A divisão que esta tela faz do texto, e que estes testes trancam:
+
+     · o PASSO A PASSO é do conserto — três pedidos do mesmo SKU são UMA
+       etapa, e mostrar os mesmos seis passos três vezes é o ruído que fez a
+       versão anterior virar parede de texto;
+     · o MOTIVO é do pedido, e continua em cada cartão, sempre visível. */
+  it("junta pedidos do mesmo conserto numa etapa só e explica uma vez", () => {
     render(
       <PedidosIgnoradosLista
         linhas={[
           linha({ id: "a", providerOrderId: "AAA", skus: ["SKU_A"] }),
-          linha({ id: "b", providerOrderId: "BBB", skus: ["SKU_B"] }),
-          linha({ id: "c", providerOrderId: "CCC", skus: ["SKU_C"] }),
+          linha({ id: "b", providerOrderId: "BBB", skus: ["SKU_A"] }),
+          linha({ id: "c", providerOrderId: "CCC", skus: ["SKU_A"] }),
         ]}
         podeDescartar
         incluirFechados={false}
       />,
     );
+    // Um conserto, um passo a passo — e os três pedidos ainda visíveis.
+    expect(screen.getAllByText(/Como resolver, passo a passo/)).toHaveLength(1);
+    expect(screen.getByText(/Etapa 1 de 1/)).toBeInTheDocument();
     expect(screen.getAllByText(/Por que este pedido ficou de fora/)).toHaveLength(3);
-    expect(screen.getAllByText(/Como resolver, passo a passo/)).toHaveLength(3);
     expect(screen.getByText("AAA")).toBeInTheDocument();
     expect(screen.getByText("CCC")).toBeInTheDocument();
   });
 
-  it("o diagnóstico fala do SKU daquele pedido, não de um texto genérico", () => {
+  it("SKUs diferentes são consertos diferentes — uma etapa para cada", () => {
     render(
       <PedidosIgnoradosLista
         linhas={[
@@ -147,11 +152,47 @@ describe("fila de pedidos ignorados", () => {
         incluirFechados={false}
       />,
     );
-    expect(screen.getAllByText(/SKU_A/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/SKU_B/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Etapa 1 de 2/)).toBeInTheDocument();
+    // As duas aparecem no roteiro, mesmo com só uma aberta no painel.
+    expect(screen.getAllByText("SKU_A").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("SKU_B").length).toBeGreaterThan(0);
+    expect(screen.getByText("2 consertos", { exact: false })).toBeInTheDocument();
   });
 
-  it("separa as causas em grupos e diz onde cada uma se resolve", () => {
+  it("o diagnóstico do cartão fala do SKU daquele pedido", () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[linha({ id: "a", providerOrderId: "AAA", skus: ["SKU_A"] })]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    expect(screen.getByText(/O SKU SKU_A não existe/)).toBeInTheDocument();
+  });
+
+  /* Andar pelo roteiro é a operação mais repetida desta tela; se ela quebrar,
+     as etapas seguintes viram conteúdo inalcançável. */
+  it("navega entre as etapas do roteiro", async () => {
+    render(
+      <PedidosIgnoradosLista
+        linhas={[
+          linha({ id: "a", providerOrderId: "AAA", skus: ["SKU_A"] }),
+          linha({ id: "b", providerOrderId: "BBB", skus: ["SKU_B"] }),
+        ]}
+        podeDescartar
+        incluirFechados={false}
+      />,
+    );
+    expect(screen.getByText("AAA")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /próxima etapa/i }));
+
+    await waitFor(() => expect(screen.getByText(/Etapa 2 de 2/)).toBeInTheDocument());
+    expect(screen.getByText("BBB")).toBeInTheDocument();
+    expect(screen.queryByText("AAA")).not.toBeInTheDocument();
+  });
+
+  it("separa as causas em etapas e diz onde cada uma se resolve", () => {
     render(
       <PedidosIgnoradosLista
         linhas={[
@@ -162,10 +203,12 @@ describe("fila de pedidos ignorados", () => {
         incluirFechados={false}
       />,
     );
-    expect(screen.getByText("SKU sem produto")).toBeInTheDocument();
-    expect(screen.getByText("Cliente duplicado")).toBeInTheDocument();
-    expect(screen.getByText("Sai sozinho")).toBeInTheDocument();
+    // "Depende de você" abre o roteiro mesmo sendo a minoria: etapa que
+    // precisa de gente vem antes de etapa que se resolve sozinha.
+    expect(screen.getByText(/Etapa 1 de 2 · Cliente duplicado/)).toBeInTheDocument();
     expect(screen.getByText("Depende de você")).toBeInTheDocument();
+    // A outra causa continua visível no roteiro, à espera da vez.
+    expect(screen.getAllByText("W613-BL").length).toBeGreaterThan(0);
   });
 
   it("soma o dinheiro parado na fila — é o motivo de a tela existir", () => {
@@ -179,7 +222,9 @@ describe("fila de pedidos ignorados", () => {
         incluirFechados={false}
       />,
     );
-    expect(screen.getByText(/100,00/)).toBeInTheDocument();
+    // Duas vezes de propósito: o total da fila no topo e o da etapa aberta.
+    expect(screen.getAllByText("R$ 100,00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Fora do faturamento/).length).toBeGreaterThan(0);
   });
 
   it("não conta pedido descartado como dinheiro parado", () => {
@@ -193,7 +238,7 @@ describe("fila de pedidos ignorados", () => {
         incluirFechados
       />,
     );
-    expect(screen.getByText(/1 pedido fora do CRM/)).toBeInTheDocument();
+    expect(screen.getByText(/para 1 pedido/)).toBeInTheDocument();
     expect(screen.queryByText(/589,90/)).not.toBeInTheDocument();
   });
 

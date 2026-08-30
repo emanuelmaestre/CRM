@@ -455,6 +455,57 @@ export async function reprocessarFilaAberta(ctx: { orgId: string }): Promise<{
 }
 
 
+/** Tenta um conjunto escolhido — os pedidos de UMA etapa do roteiro.
+ *
+ *  Mesma mecânica de `reprocessarFilaAberta`, com a lista vindo de fora: na
+ *  tela, o conserto é por SKU (ou por conflito), e é ele que a pessoa acabou
+ *  de fazer no canal. Tentar a fila inteira depois de arrumar UM anúncio
+ *  gastaria chamada de API com pedidos que ninguém mexeu.
+ *
+ *  O teto por chamada é o mesmo, e pela mesma razão: cada tentativa pode
+ *  custar uma rebusca no canal, e estourar o tempo da Server Action deixaria
+ *  metade do trabalho feito sem ninguém saber qual metade. `restantes` conta
+ *  só os ids pedidos, não a fila toda — é o que faz o botão dizer a verdade
+ *  sobre a etapa em que a pessoa está. */
+export async function reprocessarPedidosIgnorados(
+  ctx: { orgId: string },
+  ids: string[],
+): Promise<{ tentados: number; resolvidos: number; restantes: number }> {
+  if (ids.length === 0) return { tentados: 0, resolvidos: 0, restantes: 0 };
+
+  const fila = await db
+    .select({ id: pedidoIgnorado.id })
+    .from(pedidoIgnorado)
+    .where(and(
+      eq(pedidoIgnorado.orgId, ctx.orgId),
+      inArray(pedidoIgnorado.id, ids),
+      isNull(pedidoIgnorado.resolvidoEm),
+      isNull(pedidoIgnorado.descartadoEm),
+      inArray(pedidoIgnorado.causa, [...CAUSAS_REPROCESSAVEIS]),
+    ))
+    .orderBy(pedidoIgnorado.primeiraVezEm)
+    .limit(TAMANHO_LOTE_REPROCESSO);
+
+  let resolvidos = 0;
+  for (const pendencia of fila) {
+    const resultado = await reprocessarPedidoIgnorado(ctx, pendencia.id);
+    if (resultado.ok) resolvidos += 1;
+  }
+
+  const [restantes] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(pedidoIgnorado)
+    .where(and(
+      eq(pedidoIgnorado.orgId, ctx.orgId),
+      inArray(pedidoIgnorado.id, ids),
+      isNull(pedidoIgnorado.resolvidoEm),
+      isNull(pedidoIgnorado.descartadoEm),
+      inArray(pedidoIgnorado.causa, [...CAUSAS_REPROCESSAVEIS]),
+    ));
+
+  return { tentados: fila.length, resolvidos, restantes: restantes?.total ?? 0 };
+}
+
 /** Tira da fila o que nunca vai entrar. Não apaga: a linha continua lá, com
  *  quem descartou e quando — a proporção entre resolvido e descartado é o que
  *  diz se o processo está funcionando ou se a fila só está sendo varrida pra
