@@ -30,6 +30,9 @@ test.describe("Navegação responsiva — 4 breakpoints", () => {
       const runtimeErrors: string[] = [];
       page.on("pageerror", (error) => runtimeErrors.push(error.message));
       await page.goto(rota);
+      if (rota === "/vendas/pedidos") {
+        await expect(page).toHaveURL(/\/vendas$/);
+      }
 
       // Não deve haver erro 500 na página
       await expect(page).not.toHaveTitle(/500|Error/i);
