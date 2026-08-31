@@ -35,6 +35,7 @@ import {
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
+import { AlertasEstoque } from "@/modules/canais/ui/qualidade-dados-contexto";
 
 type SaldoCanal = { canal: string; saldo: number; verificadoEm: string };
 
@@ -1072,6 +1073,7 @@ export function EstoqueLista({
           data-testid="estoque-escolha-empresa"
           className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
+          <div className="flex justify-end px-5 pt-4"><AlertasEstoque /></div>
           <EmptyState
             illustration="restock"
             title={tituloDaEscolha(filtro, falta ?? "ambos")}
@@ -1096,6 +1098,7 @@ export function EstoqueLista({
         <div className="px-5 py-4 border-b border-border flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
           <p className="text-sm font-semibold text-foreground">{copy.sectionTitle}</p>
           <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+            <AlertasEstoque />
             {/* Sem key: o total é dado crítico e não deve re-animar a cada
                 filtro (PRD §14.5 — "número não dança depois de carregado"). */}
             <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">

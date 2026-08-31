@@ -29,7 +29,7 @@ import {
 import { CardLimiteDoDia, JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 import { ConferenciaCanal, type Pendencias } from "./conferencia-canal";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
-import { NaoImportadosVendas } from "@/modules/canais/ui/qualidade-vendas-contexto";
+import { NaoImportadosVendas } from "@/modules/canais/ui/qualidade-dados-contexto";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
