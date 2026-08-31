@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, PlugZap2, PackageX } from "lucide-react";
+import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, PlugZap2 } from "lucide-react";
 import { actionConsultarFaturamentoOficial, actionListarPedidosDetalhados } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -29,6 +29,7 @@ import {
 import { CardLimiteDoDia, JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 import { ConferenciaCanal, type Pendencias } from "./conferencia-canal";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
+import { NaoImportadosVendas } from "@/modules/canais/ui/qualidade-vendas-contexto";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
@@ -672,6 +673,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
           transition={springs.settleFast}
           className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
+          <div className="flex justify-end px-5 pt-4"><NaoImportadosVendas quantidade={ignorados} /></div>
           <EmptyState
             illustration="revenue"
             title={convite.titulo}
@@ -773,20 +775,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {/* Só aparece quando há o que resolver. Um item fixo na navegação
-                global disputaria espaço na barra do celular com Métricas,
-                Vendas, Estoque e Publicidade por uma tela que, na operação
-                saudável, fica vazia — aqui o aviso nasce junto dos pedidos e
-                some sozinho quando a fila zera. */}
-            {ignorados > 0 && (
-              <a
-                href="/vendas/pedidos-ignorados"
-                className="press-feedback inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-500/20"
-              >
-                <PackageX size={13} />
-                {ignorados} {ignorados === 1 ? "não importado" : "não importados"}
-              </a>
-            )}
+            <NaoImportadosVendas quantidade={ignorados} />
           </div>
         </div>
 
