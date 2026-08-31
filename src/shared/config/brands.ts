@@ -35,32 +35,6 @@ export function marcaDisponivelNosCanais(slug: string, canais: readonly string[]
   return canais.some((canal) => canaisOperados.includes(canal));
 }
 
-/** As empresas que ficam marcadas quando o canal muda: todas as que operam
- *  nos canais escolhidos. O canal é a porta de entrada das listas — escolher
- *  o Mercado Livre traz o Mercado Livre inteiro, com as empresas dele acesas
- *  no filtro —, e a empresa depois serve para estreitar, desmarcando o que
- *  não interessa.
- *
- *  Sem canal nenhum, nada fica marcado: empresa sem canal não mostra dado
- *  (ver `empresaSemCanalEscolhido`), e deixar as pílulas acesas sobre um
- *  convite vazio seria dizer que há um recorte aplicado quando não há.
- *
- *  Os identificadores podem ser UUIDs ou slugs — quem chama passa o que a
- *  própria tela usa como chave da seleção.
- *
- *  Isto substituiu `ajustarMarcasSelecionadasAosCanais`, que só PODAVA a
- *  seleção (o canal nunca acendia empresa nenhuma). A poda continua aqui de
- *  graça: recalcular a partir dos canais já exclui quem não opera neles. */
-export function marcasDosCanaisEscolhidos(
-  canais: readonly string[],
-  marcas: readonly { id: string; slug: string }[],
-): string[] {
-  if (canais.length === 0) return [];
-  return marcas
-    .filter((marca) => marcaDisponivelNosCanais(marca.slug, canais))
-    .map((marca) => marca.id);
-}
-
 export function getBrandConfig(slug: string) {
   return isBrandSlug(slug) ? brandsConfig[slug] : null;
 }
@@ -77,25 +51,85 @@ export function compararPorOrdemDeMarca<T extends { slug: string }>(a: T, b: T):
   return (indiceA === -1 ? BRAND_SLUGS.length : indiceA) - (indiceB === -1 ? BRAND_SLUGS.length : indiceB);
 }
 
-/* ── Empresa sem canal não mostra dado ───────────────────────────────────
+/* ── Sem empresa E canal, a tela não chama informação ────────────────────
  *
- *  Regra de todo filtro que tem os dois eixos (Estoque, Pedidos, Clientes,
- *  Avaliações, Métricas): empresa marcada e nenhum canal marcado significaria
- *  "a KARZI somando Mercado Livre + Shopee + TikTok", e número somado entre
- *  canais é justamente o que estas telas existem para não mostrar — cada canal
- *  mede faturamento, saldo e reputação com régua própria (ver
+ *  Regra de todo filtro que tem os dois eixos (Vendas, Estoque, Clientes,
+ *  Avaliações, Métricas): a consulta só sai quando há **pelo menos uma
+ *  empresa e pelo menos um canal** escolhidos — e, nas telas que têm data,
+ *  também o período. Faltando qualquer um dos lados, a tela mostra o convite
+ *  e não vai ao banco.
+ *
+ *  Antes daqui a regra era mais frouxa: canal sozinho abria a tela, porque se
+ *  entendia que "Mercado Livre" já era um recorte legítimo com as empresas
+ *  dele dentro. Na prática isso obrigava o canal a acender as empresas
+ *  sozinho para a tela dizer o que estava somando — e era esse acendimento
+ *  automático que tirava da pessoa o controle do próprio filtro: clicar em um
+ *  canal marcava três empresas de uma vez, e desmarcar uma delas virava
+ *  trabalho de desfazer o que ninguém pediu.
+ *
+ *  Exigir os dois lados resolve os dois problemas juntos. O recorte passa a
+ *  ser sempre explícito — a pessoa diz qual empresa e qual canal —, e por
+ *  isso nenhuma pílula precisa mais se acender por conta própria: cada clique
+ *  liga ou desliga só a pílula clicada.
+ *
+ *  Continua valendo o motivo original de nunca abrir com um dos lados vazio:
+ *  "a KARZI somando Mercado Livre + Shopee + TikTok" é justamente o número
+ *  que estas telas existem para não mostrar, porque cada canal mede
+ *  faturamento, saldo e reputação com régua própria (ver
  *  `estoque-somente-canal`: o saldo do produto é o MAIOR entre os canais,
- *  nunca a soma).
- *
- *  Canal sozinho continua abrindo onde já abria: é um recorte legítimo (um
- *  canal, com as empresas que operam nele dentro). O que não abre é empresa
- *  sem canal. */
+ *  nunca a soma). */
 type Selecao = readonly string[] | ReadonlySet<string>;
 
 function quantosEscolhidos(selecao: Selecao): number {
   return "size" in selecao ? selecao.size : selecao.length;
 }
 
-export function empresaSemCanalEscolhido(marcas: Selecao, canais: Selecao): boolean {
-  return quantosEscolhidos(marcas) > 0 && quantosEscolhidos(canais) === 0;
+/** O que ainda falta para a tela poder consultar — `null` quando o escopo
+ *  está completo. As telas usam isto para escolher a frase do convite: pedir
+ *  só a empresa a quem já escolheu o canal é mais útil do que repetir o
+ *  pedido inteiro. */
+export function oQueFaltaNoEscopo(
+  marcas: Selecao,
+  canais: Selecao,
+): "empresa" | "canal" | "ambos" | null {
+  const temMarca = quantosEscolhidos(marcas) > 0;
+  const temCanal = quantosEscolhidos(canais) > 0;
+  if (temMarca && temCanal) return null;
+  if (temMarca) return "canal";
+  if (temCanal) return "empresa";
+  return "ambos";
+}
+
+export function escopoIncompleto(marcas: Selecao, canais: Selecao): boolean {
+  return oQueFaltaNoEscopo(marcas, canais) !== null;
+}
+
+/** A frase do convite, em um lugar só. Seis telas mostram este mesmo estado
+ *  vazio; com a frase escrita em cada uma delas, "canal" virava "loja" numa e
+ *  "empresa" virava "marca" noutra conforme quem mexeu por último — e o
+ *  vocabulário das pílulas é justamente o que a pessoa precisa reconhecer
+ *  para saber onde clicar.
+ *
+ *  O texto nomeia o que falta em vez de repetir a regra: quem já escolheu o
+ *  Mercado Livre não precisa ouvir de novo que canal é obrigatório. */
+export function conviteDeEscopo(falta: "empresa" | "canal" | "ambos"): {
+  titulo: string;
+  descricao: string;
+} {
+  if (falta === "empresa") {
+    return {
+      titulo: "Escolha uma empresa",
+      descricao: "O canal já está selecionado. Falta dizer de qual empresa você quer ver os números.",
+    };
+  }
+  if (falta === "canal") {
+    return {
+      titulo: "Escolha um canal",
+      descricao: "A empresa já está selecionada. Cada canal mede com régua própria, então é preciso dizer qual.",
+    };
+  }
+  return {
+    titulo: "Escolha uma empresa e um canal",
+    descricao: "Os números só aparecem com os dois lados definidos — uma empresa, um canal e o período.",
+  };
 }

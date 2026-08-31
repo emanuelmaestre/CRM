@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { CoachMarks, type CoachMarkStep } from "@/shared/design-system/primitives/CoachMarks";
 import { stagger } from "@/shared/design-system/motion-variants";
-import { empresaSemCanalEscolhido, getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { escopoIncompleto, getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import metricasConfig from "@/config/metricas.json";
 
@@ -88,8 +88,7 @@ function chaveFiltro(periodo: Periodo, filtro: CardFiltro) {
 }
 
 function semFiltroDefinido(filtro: CardFiltro) {
-  return (filtro.brandId.length === 0 && filtro.canal.length === 0)
-    || empresaSemCanalEscolhido(filtro.brandId, filtro.canal);
+  return escopoIncompleto(filtro.brandId, filtro.canal);
 }
 
 /** Cópia local da mesma conta de `snapshot-metricas.service.ts` — não dá
@@ -329,10 +328,10 @@ export function Mosaico({
     });
   }, [marcas, canais]);
 
-  /* Empresa marcada e nenhum canal marcado: o mosaico inteiro para. Cada
-     card já respeita isso por dentro (ver `semFiltroDefinido`), mas Saúde da
-     loja — que alimenta Score e Comparação — buscava por fora dessa régua. */
-  const escopoIncompleto = empresaSemCanalEscolhido(filtroGlobal.brandId, filtroGlobal.canal);
+/* Falta empresa ou falta canal: o mosaico inteiro para. Cada card já respeita
+     isso por dentro (ver `semFiltroDefinido`), mas Saúde da loja — que
+     alimenta Score e Comparação — buscava por fora dessa régua. */
+  const faltaEscopo = escopoIncompleto(filtroGlobal.brandId, filtroGlobal.canal);
 
   const faturamento = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
   const reposicao = useDadosDoCard(cache, periodo, filtroGlobal, versaoDashboard, dashboardPrecarregado);
@@ -382,7 +381,7 @@ export function Mosaico({
 
   useEffect(() => {
     if (primeiraSaude.current) { primeiraSaude.current = false; return; }
-    if (escopoIncompleto) return;
+    if (faltaEscopo) return;
     let ativo = true;
     actionObterSaudeLoja({ inicio, fim, brandIds: brandIdsEscolhidos, canais: canaisEscolhidos })
       .then((resultado) => { if (ativo) setSaude({ chave, dados: resultado }); })
@@ -392,10 +391,10 @@ export function Mosaico({
         toast.error(metricasConfig.erros.carregar, { id: "metricas-saude" });
       });
     return () => { ativo = false; };
-  }, [chave, inicio, fim, brandIdsEscolhidos, canaisEscolhidos, versaoSaude, escopoIncompleto]);
+  }, [chave, inicio, fim, brandIdsEscolhidos, canaisEscolhidos, versaoSaude, faltaEscopo]);
 
-  const carregandoSaude = !escopoIncompleto && saude.chave !== chave;
-  const dadosSaude = escopoIncompleto ? null : saude.dados;
+  const carregandoSaude = !faltaEscopo && saude.chave !== chave;
+  const dadosSaude = faltaEscopo ? null : saude.dados;
 
   /* ── Pós-venda, Recomendações e Publicações (1ª marca) ──
      Esses três buscavam de dentro do próprio card, e o card só montava
@@ -516,8 +515,8 @@ export function Mosaico({
   const canaisPublicacoes = useMemo<PlataformaAnuncios[]>(() => {
     // Empresa marcada sem canal marcado não vira "todas as plataformas":
     // é escopo incompleto, e o card espera a escolha (ver
-    // `empresaSemCanalEscolhido`).
-    if (empresaSemCanalEscolhido(filtroGlobal.brandId, filtroGlobal.canal)) return [];
+    // `escopoIncompleto`).
+    if (escopoIncompleto(filtroGlobal.brandId, filtroGlobal.canal)) return [];
     return filtroGlobal.canal.length === 0
       ? [...PLATAFORMAS_ANUNCIOS]
       : PLATAFORMAS_ANUNCIOS.filter((canal) => filtroGlobal.canal.includes(canal));
@@ -702,7 +701,7 @@ export function Mosaico({
     // uma identidade fixa.
     accent: dadosSaude?.faixaGeralCor ?? "var(--acento-2)",
     carregando: carregandoSaude,
-    semFiltro: escopoIncompleto,
+    semFiltro: faltaEscopo,
     resumo: {
       valor: dadosSaude?.scoreGeral !== null && dadosSaude?.scoreGeral !== undefined
         ? String(Math.round(dadosSaude.scoreGeral))
@@ -753,7 +752,7 @@ export function Mosaico({
     chips: chipsDoFiltro,
     temLegendaStatus: true,
     render: (acaoSlot) => <ScoreCard dados={dadosSaude} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
-  }), [dadosSaude, carregandoSaude, escopoIncompleto, snapshotComparavel, chipsDoFiltro]);
+  }), [dadosSaude, carregandoSaude, faltaEscopo, snapshotComparavel, chipsDoFiltro]);
 
   const blocoComparacao = useMemo<BlocoDef>(() => {
     const marcasPorFaturamento = [...(dadosSaude?.marcas ?? [])]
@@ -771,7 +770,7 @@ export function Mosaico({
     // Mesma cor do ACENTO em comparacao-card.tsx.
     accent: "var(--acento-3)",
     carregando: carregandoSaude,
-    semFiltro: escopoIncompleto,
+    semFiltro: faltaEscopo,
     resumo: {
       valor: dadosSaude ? String(dadosSaude.marcas.length) : null,
       // Quem está na frente por faturamento vira parte da legenda — a
@@ -812,7 +811,7 @@ export function Mosaico({
       />
     ),
     });
-  }, [dadosSaude, carregandoSaude, escopoIncompleto, posVendaAtual, canais, filtroGlobal]);
+  }, [dadosSaude, carregandoSaude, faltaEscopo, posVendaAtual, canais, filtroGlobal]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",

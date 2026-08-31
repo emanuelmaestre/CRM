@@ -438,7 +438,7 @@ function canalLabel(canal: string): string {
    dentro de cada pílula já responde, antes do clique, onde está o problema.
 
    Diferente das telas de medição (Vendas, Estoque, Métricas), aqui empresa
-   sem canal NÃO apaga o conteúdo: a regra de `empresaSemCanalEscolhido`
+   sem canal NÃO apaga o conteúdo: a regra de `escopoIncompleto`
    existe porque somar faturamento ou saldo entre canais mistura réguas. Esta
    fila não mede nada — ela lista trabalho pendente, e "tudo da WUWU" é um
    recorte legítimo de trabalho. */

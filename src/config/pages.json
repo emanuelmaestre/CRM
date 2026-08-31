@@ -89,8 +89,7 @@
       "disconnectedFootnote": "Canais esmaecidos ainda não estão conectados - conecte em Configurações para liberar o filtro."
     },
     "escolha": {
-      "title": "Escolha um canal para começar",
-      "semCanal": "Escolha também um canal para ver os clientes da empresa"
+      "readyHint": "Pronto"
     },
     "brandSelector": {
       "label": "Empresa",
@@ -212,10 +211,7 @@
       "countLabel": "{n} produtos"
     },
     "escolha": {
-      "title": "Escolha um canal para começar",
-      "titleComFiltro": "Escolha um canal para ver \"{filtro}\"",
-      "semCanal": "Escolha também um canal para ver os produtos da empresa",
-      "semCanalComFiltro": "Escolha também um canal para ver \"{filtro}\"",
+      "comFiltro": "{pedido} para ver \"{filtro}\"",
       "loadingHint": "Carregando…",
       "readyHint": "Pronto"
     },

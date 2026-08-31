@@ -4,8 +4,6 @@ import { useState } from "react";
 import { AvaliacoesLista, type Avaliacao } from "./avaliacoes-lista";
 import { EmpresasRow, CanaisRow } from "./filtro-escopo";
 import {
-  BRAND_SLUGS,
-  marcasDosCanaisEscolhidos,
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
 
@@ -46,9 +44,9 @@ export function AvaliacoesCliente({ itensIniciais }: {
     if (proximosCanais.has(tipo)) proximosCanais.delete(tipo); else proximosCanais.add(tipo);
     const canaisLista = [...proximosCanais];
     setCanaisAtivos(proximosCanais);
-    setMarcasAtivas(new Set(marcasDosCanaisEscolhidos(
-      canaisLista,
-      BRAND_SLUGS.map((slug) => ({ id: slug, slug })),
+    // Poda, não acende — mesma regra das outras telas.
+    setMarcasAtivas((atual) => new Set([...atual].filter(
+      (slug) => marcaDisponivelNosCanais(slug, canaisLista),
     )));
   }
 

@@ -10,7 +10,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { BotaoHoje } from "@/shared/design-system/primitives/BotaoHoje";
-import { empresaSemCanalEscolhido, isBrandSlug } from "@/shared/config/brands";
+import { escopoIncompleto, isBrandSlug } from "@/shared/config/brands";
 
 function hojeISO() {
   const d = new Date();
@@ -416,7 +416,7 @@ export function MosaicoRedesign() {
   // que o mosaico não tem escopo pra medir — os cards mostram o vazio, não
   // um número inventado sobre "todas as marcas".
   const semEscopo = (marcasSel.length === 0 && canaisSel.length === 0)
-    || empresaSemCanalEscolhido(marcasSel, canaisSel);
+    || escopoIncompleto(marcasSel, canaisSel);
   const estadoEfetivo: Estado = estado !== "normal" ? estado : semEscopo ? "vazio" : "normal";
 
   /* "N de 9 painéis prontos" — progresso REAL, não um timer decorativo: o

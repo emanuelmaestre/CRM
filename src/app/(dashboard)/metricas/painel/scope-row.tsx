@@ -9,7 +9,6 @@ import {
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
-  marcasDosCanaisEscolhidos,
 } from "@/shared/config/brands";
 import channelsConfig from "@/config/channels.json";
 
@@ -102,10 +101,13 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
 
   function alternarCanal(tipo: string) {
     const proximosCanais = alternar(filtro.canal, tipo);
-    const proximasMarcas = marcasDosCanaisEscolhidos(
-      proximosCanais,
-      marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
-    );
+    // O canal não acende empresa nenhuma — cada pílula liga e desliga só a si
+    // mesma. Mas ainda poda: empresa que não opera no canal escolhido sairia
+    // marcada por trás de uma pílula travada, sem como desmarcar.
+    const proximasMarcas = filtro.brandId.filter((id) => {
+      const marca = marcas.find((m) => m.brandId === id);
+      return !marca || marcaDisponivelNosCanais(marca.slug, proximosCanais);
+    });
     onChange({ brandId: proximasMarcas, canal: proximosCanais });
   }
 

@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   BRAND_SLUGS,
   canaisDaMarca,
-  empresaSemCanalEscolhido,
+  conviteDeEscopo,
+  escopoIncompleto,
   marcaDisponivelNosCanais,
-  marcasDosCanaisEscolhidos,
+  oQueFaltaNoEscopo,
 } from "@/shared/config/brands";
 import { CANAIS_VENDA } from "@/shared/config/canais-venda";
 
@@ -37,37 +38,40 @@ describe("canais de venda por marca", () => {
     expect(marcaDisponivelNosCanais("karzi", [])).toBe(true);
   });
 
-  it("escolher um canal acende as empresas que operam nele", () => {
-    const marcas = [
-      { id: "karzi-id", slug: "karzi" },
-      { id: "wuwu-id", slug: "wuwu" },
-    ];
-
-    // Mercado Livre traz as duas: o canal e a porta de entrada da lista.
-    expect(marcasDosCanaisEscolhidos(["mercadolivre"], marcas)).toEqual(["karzi-id", "wuwu-id"]);
-    // Shopee acende so quem opera nela — a KARZI fica de fora.
-    expect(marcasDosCanaisEscolhidos(["shopee"], marcas)).toEqual(["wuwu-id"]);
-    // Uniao de canais: basta operar em um deles.
-    expect(marcasDosCanaisEscolhidos(["mercadolivre", "shopee"], marcas)).toEqual(["karzi-id", "wuwu-id"]);
-    // Sem canal nao sobra empresa marcada — empresa sem canal nao mostra dado.
-    expect(marcasDosCanaisEscolhidos([], marcas)).toEqual([]);
-  });
 });
 
-describe("empresa sem canal escolhido", () => {
-  it("so bloqueia quando ha empresa marcada e nenhum canal", () => {
-    expect(empresaSemCanalEscolhido(["karzi-id"], [])).toBe(true);
-    // Canal sozinho continua sendo um recorte valido: um canal, com as
-    // empresas que operam nele dentro.
-    expect(empresaSemCanalEscolhido([], ["mercadolivre"])).toBe(false);
-    expect(empresaSemCanalEscolhido(["karzi-id"], ["mercadolivre"])).toBe(false);
-    // Nada marcado nao e "empresa sem canal" — e a tela limpa de sempre.
-    expect(empresaSemCanalEscolhido([], [])).toBe(false);
+describe("escopo so abre com empresa E canal", () => {
+  it("exige os dois lados: um sozinho nao abre a tela", () => {
+    // Antes, canal sozinho abria (e acendia as empresas dele automaticamente).
+    // Agora nao abre: o recorte tem que ser dito por inteiro.
+    expect(escopoIncompleto([], ["mercadolivre"])).toBe(true);
+    expect(escopoIncompleto(["karzi-id"], [])).toBe(true);
+    expect(escopoIncompleto([], [])).toBe(true);
+    expect(escopoIncompleto(["karzi-id"], ["mercadolivre"])).toBe(false);
+  });
+
+  it("aceita mais de uma empresa e mais de um canal ao mesmo tempo", () => {
+    // A regra e "pelo menos um de cada", nao "exatamente um de cada": a
+    // selecao segue sendo multipla nos dois eixos.
+    expect(escopoIncompleto(["karzi-id", "wuwu-id"], ["mercadolivre", "shopee"])).toBe(false);
+  });
+
+  it("nomeia o que falta, para a tela poder pedir so isso", () => {
+    expect(oQueFaltaNoEscopo([], ["mercadolivre"])).toBe("empresa");
+    expect(oQueFaltaNoEscopo(["karzi-id"], [])).toBe("canal");
+    expect(oQueFaltaNoEscopo([], [])).toBe("ambos");
+    expect(oQueFaltaNoEscopo(["karzi-id"], ["mercadolivre"])).toBeNull();
   });
 
   it("le array e Set, que e como as telas guardam a selecao", () => {
-    expect(empresaSemCanalEscolhido(new Set(["karzi-id"]), new Set())).toBe(true);
-    expect(empresaSemCanalEscolhido(new Set(["karzi-id"]), ["shopee"])).toBe(false);
-    expect(empresaSemCanalEscolhido([], new Set(["shopee"]))).toBe(false);
+    expect(escopoIncompleto(new Set(["karzi-id"]), new Set())).toBe(true);
+    expect(escopoIncompleto(new Set(["karzi-id"]), ["shopee"])).toBe(false);
+    expect(escopoIncompleto([], new Set(["shopee"]))).toBe(true);
+  });
+
+  it("da uma frase diferente para cada falta", () => {
+    const frases = (["empresa", "canal", "ambos"] as const).map((f) => conviteDeEscopo(f).titulo);
+    expect(new Set(frases).size).toBe(3);
+    for (const frase of frases) expect(frase.length).toBeGreaterThan(0);
   });
 });

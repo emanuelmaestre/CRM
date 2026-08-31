@@ -27,8 +27,9 @@ import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import {
-  empresaSemCanalEscolhido,
-  marcasDosCanaisEscolhidos,
+  escopoIncompleto,
+  oQueFaltaNoEscopo,
+  conviteDeEscopo,
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
@@ -325,16 +326,10 @@ const ROTULO_DO_FILTRO: Partial<Record<Filtro, string>> = {
  *  aparecem depois que existe escopo. A pessoa escolhia a empresa e via uma
  *  lista já filtrada que ela não pediu ali, sem nada explicando de onde o
  *  recorte tinha saído. */
-function tituloDaEscolha(filtro: Filtro, faltaCanal: boolean): string {
+function tituloDaEscolha(filtro: Filtro, falta: "empresa" | "canal" | "ambos"): string {
   const rotulo = ROTULO_DO_FILTRO[filtro];
-  if (faltaCanal) {
-    return rotulo
-      ? copy.escolha.semCanalComFiltro.replace("{filtro}", rotulo)
-      : copy.escolha.semCanal;
-  }
-  return rotulo
-    ? copy.escolha.titleComFiltro.replace("{filtro}", rotulo)
-    : copy.escolha.title;
+  const { titulo } = conviteDeEscopo(falta);
+  return rotulo ? copy.escolha.comFiltro.replace("{pedido}", titulo).replace("{filtro}", rotulo) : titulo;
 }
 
 /* ── Divergências ──────────────────────────────────────────────
@@ -789,14 +784,14 @@ export function EstoqueLista({
 
      O caminho inverso não abre: empresa marcada sem canal marcado significaria
      somar Mercado Livre + Shopee + TikTok no mesmo produto, e aqui o saldo é
-     o MAIOR entre os canais, nunca a soma (ver `empresaSemCanalEscolhido`).
+     o MAIOR entre os canais, nunca a soma (ver `escopoIncompleto`).
 
      Sem escopo não há o que carregar: a tela mostra o convite. O que sobrou de
      uma seleção anterior fica em memória sem ser renderizado, então voltar
      para a empresa não provoca aquecimento em segundo plano. */
-  const faltaCanal = empresaSemCanalEscolhido(brandIds, canaisSelecionados);
-  const escopoDefinido = !faltaCanal
-    && (canaisSelecionados.size > 0 || brandIds.size > 0 || busca.trim() !== "");
+  const falta = oQueFaltaNoEscopo(brandIds, canaisSelecionados);
+  const convite = conviteDeEscopo(falta ?? "ambos");
+  const escopoDefinido = !escopoIncompleto(brandIds, canaisSelecionados);
 
   useAtualizacaoLocal("estoque", useCallback(() => {
     if (!escopoDefinido) return;
@@ -925,10 +920,11 @@ export function EstoqueLista({
     else proximosCanais.add(tipo);
     const canaisLista = [...proximosCanais];
     setCanaisSelecionados(proximosCanais);
-    setBrandIds(new Set(marcasDosCanaisEscolhidos(
-      canaisLista,
-      marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
-    )));
+    // Poda, não acende — mesma regra de Vendas e Clientes.
+    setBrandIds((atual) => new Set([...atual].filter((id) => {
+      const marca = marcas.find((m) => m.brandId === id);
+      return !marca || marcaDisponivelNosCanais(marca.slug, canaisLista);
+    })));
   }
 
   const filtrando = filtro !== "todos" || busca.trim() !== "" || brandIds.size > 0 || canaisSelecionados.size > 0;
@@ -1078,11 +1074,14 @@ export function EstoqueLista({
         >
           <EmptyState
             illustration="restock"
-            title={tituloDaEscolha(filtro, faltaCanal)}
+            title={tituloDaEscolha(filtro, falta ?? "ambos")}
             description={
-              <span className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                <Check size={12} strokeWidth={3} style={{ color: COR.ok }} />
-                {copy.escolha.readyHint}
+              <span className="flex flex-col items-center gap-1.5">
+                <span className="text-[12px]">{convite.descricao}</span>
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                  <Check size={12} strokeWidth={3} style={{ color: COR.ok }} />
+                  {copy.escolha.readyHint}
+                </span>
               </span>
             }
           />

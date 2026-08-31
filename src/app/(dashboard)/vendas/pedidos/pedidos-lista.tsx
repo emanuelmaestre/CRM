@@ -19,8 +19,9 @@ import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
 import pagesConfig from "@/config/pages.json";
 import channelsConfig from "@/config/channels.json";
 import {
-  empresaSemCanalEscolhido,
-  marcasDosCanaisEscolhidos,
+  escopoIncompleto,
+  oQueFaltaNoEscopo,
+  conviteDeEscopo,
   getBrandConfig,
   isBrandSlug,
   marcaDisponivelNosCanais,
@@ -464,8 +465,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
   // Sem marca ou canal escolhidos não há o que carregar: a tela mostra o
   // convite, e as contagens de marca/canal (rápidas) já estão aquecendo por
   // trás para quando a escolha acontecer.
-  const faltaCanal = empresaSemCanalEscolhido(brandIds, canaisSel);
-  const escopoDefinido = !faltaCanal && (brandIds.length > 0 || canaisSel.length > 0);
+  const falta = oQueFaltaNoEscopo(brandIds, canaisSel);
+  const convite = conviteDeEscopo(falta ?? "ambos");
+  const escopoDefinido = !escopoIncompleto(brandIds, canaisSel) && dataInicial !== "" && dataFinal !== "";
 
   useAtualizacaoLocal("vendas", useCallback(() => {
     if (!escopoDefinido) return;
@@ -549,10 +551,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
       ? canaisSel.filter((canal) => canal !== tipo)
       : [...canaisSel, tipo];
     setCanaisSel(proximosCanais);
-    setBrandIds(marcasDosCanaisEscolhidos(
-      proximosCanais,
-      marcas.map((marca) => ({ id: marca.brandId, slug: marca.slug })),
-    ));
+    // O canal não acende empresa nenhuma (cada clique liga só a própria
+    // pílula), mas ainda PODA: empresa que não opera no canal agora escolhido
+    // sairia consultando um recorte que não pode existir — e, pior, ficaria
+    // marcada por trás de uma pílula travada, sem como desmarcar.
+    setBrandIds((atual) => atual.filter((id) => {
+      const marca = marcas.find((m) => m.brandId === id);
+      return !marca || marcaDisponivelNosCanais(marca.slug, proximosCanais);
+    }));
   }
 
   const filtrando = brandIds.length > 0 || canaisSel.length > 0 || statusGrupo !== "" || buscaAplicada !== "" || dataInicial !== "" || dataFinal !== "";
@@ -668,9 +674,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         >
           <EmptyState
             illustration="revenue"
-            title={faltaCanal
-              ? "Escolha também um canal para ver os pedidos da empresa"
-              : "Escolha um canal para começar"}
+            title={convite.titulo}
+            description={convite.descricao}
           />
         </motion.div>
       ) : (
