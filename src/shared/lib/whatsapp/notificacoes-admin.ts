@@ -166,6 +166,23 @@ const FORMATADORES: Partial<Record<DomainEventType, (
       `Pedido: ${providerOrderId ?? e.entidadeId} · valor: R$ ${total ?? "?"}`,
     ].filter(Boolean).join("\n");
   },
+  // Só entra aqui a divergência que a conferência NÃO conseguiu resolver
+  // sozinha (re-buscou na API e regravou, e mesmo assim a soma não fecha).
+  // `emitirEventoUnico` já segura a repetição no ritmo do cron — aqui a
+  // mensagem é o convite para alguém olhar caso a caso.
+  "conferencia.divergencia_persistente": (e, { empresa, canal }) => {
+    const { novas, totalPersistente, exemplos } = e.payload as {
+      novas?: number; totalPersistente?: number; exemplos?: string[];
+    };
+    return [
+      "🧮 *Conferência financeira travou*",
+      empresa ? `Empresa: ${empresa}` : null,
+      canal ? `Canal: ${canal}` : null,
+      `${novas ?? "?"} pedido(s) novo(s) sem fechar a soma dos elementos com o bruto — ${totalPersistente ?? "?"} no total.`,
+      exemplos?.length ? `Ex.: ${exemplos.slice(0, 5).join(", ")}` : null,
+      "A API já foi re-consultada e o resíduo continua. Abra Admin → Conferência financeira.",
+    ].filter(Boolean).join("\n");
+  },
 };
 
 export function whatsappAlertaConfigurado(): boolean {

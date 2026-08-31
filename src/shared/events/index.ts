@@ -50,6 +50,7 @@ export type DomainEventType =
   | "canal.desconectado"
   | "importacao.concluida"
   | "importacao.com_erros"
+  | "conferencia.divergencia_persistente"
   | "notificacao.interna"
   | "lgpd.anonimizacao_concluida"
   | "backup.executado"

@@ -31,6 +31,18 @@ const ROTINAS_AGENDADAS = [
     atrasoLimiteMinutos: 48 * 60,
   },
   {
+    nome: "A35-auditar-financeiro",
+    titulo: "Conferência financeira de pedidos",
+    categoria: "Pedidos",
+    // Confere a somatória dos elementos contra o bruto de cada canal e regrava
+    // pela API responsável quando não fecha — ver DIAS_AUDITORIA em
+    // A35-auditar-financeiro.ts. Roda logo após a A34; diário, com um dia
+    // inteiro de folga no limite de atraso.
+    agenda: "uma vez por dia",
+    cron: "0 6 * * *",
+    atrasoLimiteMinutos: 48 * 60,
+  },
+  {
     nome: "A18-saude-conectores",
     titulo: "Verificação de integridade dos conectores",
     categoria: "Canais",

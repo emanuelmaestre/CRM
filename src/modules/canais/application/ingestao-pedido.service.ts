@@ -20,6 +20,7 @@ import type { PedidoNormalizado } from "../domain/ports";
 import { ErroSkuSemProduto, ehErroSkuSemProduto } from "../domain/errors";
 import { podeAplicarVersaoPedido } from "../domain/versao-pedido";
 import { classificarCausa, registrarPedidoIgnorado, marcarPedidoIgnoradoResolvido } from "@/modules/vendas/application/registro-pedido-ignorado";
+import { conferirPedidoAposIngestao } from "@/modules/vendas/application/deteccao-conferencia";
 import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, mapearStatusPedido } from "../domain/order-status";
 
 type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop";
@@ -253,7 +254,7 @@ async function persistirPedido(
     .then((r) => r[0]);
 
   if (existente) {
-    if (await reconciliarFinanceiroPedido(orgId, existente.id, p)) {
+    if (await reconciliarFinanceiroPedido(orgId, existente.id, p, opcoes)) {
       await reconciliarStatusPedido(orgId, brandId, existente.id, p.status, opcoes.historico, p.atualizadoOrigemEm);
     }
     return { pedidoId: existente.id, novo: false };
@@ -537,6 +538,11 @@ async function persistirPedido(
       taxaMarketplace: item.taxaMarketplace ?? null,
     })));
 
+    // Confere a soma dos elementos já na entrada do pedido — mesma transação,
+    // sem chamada de API. Nunca lança. Fora da importação histórica (backstop
+    // do A35 cobre).
+    if (!opcoes.historico) await conferirPedidoAposIngestao(tx, orgId, novoPedido.id);
+
     if (opcoes.historico) return { pedidoId: novoPedido.id, eventos: [], novo: true };
     const eventos: PersistedDomainEvent[] = [...eventosDeProduto];
     eventos.push(await persistirEvento({
@@ -585,7 +591,7 @@ async function persistirPedido(
       ))
       .then((rows) => rows[0]);
     if (!concorrente) throw error;
-    if (await reconciliarFinanceiroPedido(orgId, concorrente.id, p)) {
+    if (await reconciliarFinanceiroPedido(orgId, concorrente.id, p, opcoes)) {
       await reconciliarStatusPedido(orgId, brandId, concorrente.id, p.status, opcoes.historico, p.atualizadoOrigemEm);
     }
     return { pedidoId: concorrente.id, novo: false };
@@ -594,7 +600,7 @@ async function persistirPedido(
   const { pedidoId, eventos, novo } = persistido;
 
   if (!novo) {
-    if (await reconciliarFinanceiroPedido(orgId, pedidoId, p)) {
+    if (await reconciliarFinanceiroPedido(orgId, pedidoId, p, opcoes)) {
       await reconciliarStatusPedido(orgId, brandId, pedidoId, p.status, opcoes.historico, p.atualizadoOrigemEm);
     }
     return { pedidoId, novo: false };
@@ -620,6 +626,7 @@ async function reconciliarFinanceiroPedido(
   orgId: string,
   pedidoId: string,
   p: PedidoNormalizado,
+  opcoes: { historico?: boolean } = {},
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const atual = await tx.select({ atualizadoOrigemEm: pedido.atualizadoOrigemEm }).from(pedido)
@@ -640,8 +647,17 @@ async function reconciliarFinanceiroPedido(
     await tx.update(pedido).set(valores)
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)));
 
+    // A conta da conferência financeira roda aqui, no instante em que o
+    // financeiro muda, e não numa varredura diária. Nunca lança. Na importação
+    // histórica fica de fora — são milhares de pedidos por volta e o backstop
+    // do A35 varre quem não tiver linha no ledger.
+    const conferir = () => (opcoes.historico ? Promise.resolve() : conferirPedidoAposIngestao(tx, orgId, pedidoId));
+
     const temTaxas = p.itens.some((item) => item.taxaMarketplace !== undefined);
-    if (!temTaxas) return true;
+    if (!temTaxas) {
+      await conferir();
+      return true;
+    }
     const itensPersistidos = await tx
       .select({
         id: pedidoItem.id,
@@ -666,6 +682,7 @@ async function reconciliarFinanceiroPedido(
         .set({ taxaMarketplace: (centavos / 100).toFixed(2) })
         .where(eq(pedidoItem.id, itensPersistidos[indice].id));
     }
+    await conferir();
     return true;
   });
 }

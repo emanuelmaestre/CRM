@@ -1,0 +1,1 @@
+ALTER TYPE "public"."conferencia_financeira_status" ADD VALUE 'detectado';

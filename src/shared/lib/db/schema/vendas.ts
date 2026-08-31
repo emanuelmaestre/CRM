@@ -171,3 +171,46 @@ export const pedidoIgnorado = pgTable("pedido_ignorado", {
   index("idx_pedido_ignorado_org_pendente").on(t.orgId, t.resolvidoEm),
   index("idx_pedido_ignorado_causa").on(t.orgId, t.causa),
 ]);
+
+/** Ledger da conferência financeira por pedido (job A35).
+ *
+ *  Cada linha é o LOG de um pedido cuja soma dos elementos não fechou com o
+ *  valor bruto que a API dona daquele número informou — depois de o agente
+ *  já ter re-buscado na API e regravado o que a fonte confirmou. O que sobra
+ *  aqui é resíduo que nenhuma re-busca resolveu (`persistente`), repasse que
+ *  o canal ainda não liberou (`aguardando`) ou a prova de que a divergência
+ *  foi corrigida (`resolvida`).
+ *
+ *  Uma linha por pedido, atualizada a cada passada — senão cada volta diária
+ *  criaria uma linha nova para a mesma divergência. O agente NUNCA grava aqui
+ *  um valor calculado por ele: `residuo_*` é diagnóstico, não correção. */
+export const conferenciaFinanceiraStatusEnum = pgEnum("conferencia_financeira_status", [
+  "persistente", "aguardando", "resolvida", "detectado",
+]);
+
+export const conferenciaFinanceira = pgTable("conferencia_financeira", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id").notNull().references(() => org.id),
+  brandId: uuid("brand_id").notNull().references(() => brand.id),
+  pedidoId: uuid("pedido_id").notNull().references(() => pedido.id),
+  canal: text("canal").notNull(),
+  providerOrderId: text("provider_order_id"),
+  brutoInformado: numeric("bruto_informado", { precision: 12, scale: 2 }).notNull(),
+  somaComponentes: numeric("soma_componentes", { precision: 12, scale: 2 }).notNull(),
+  residuoBrutoCentavos: integer("residuo_bruto_centavos").notNull(),
+  liquidoInformado: numeric("liquido_informado", { precision: 12, scale: 2 }),
+  liquidoReconstruido: numeric("liquido_reconstruido", { precision: 12, scale: 2 }),
+  residuoLiquidoCentavos: integer("residuo_liquido_centavos"),
+  classificacao: text("classificacao").notNull(),
+  status: conferenciaFinanceiraStatusEnum("status").notNull(),
+  tentativasRebusca: integer("tentativas_rebusca").notNull().default(0),
+  /** O log: itens, componentes, antes/depois da re-busca, quando a API foi consultada. */
+  componentes: jsonb("componentes").notNull(),
+  primeiraDeteccaoEm: timestamp("primeira_deteccao_em", { withTimezone: true }).notNull().defaultNow(),
+  ultimaVerificacaoEm: timestamp("ultima_verificacao_em", { withTimezone: true }).notNull().defaultNow(),
+  resolvidoEm: timestamp("resolvido_em", { withTimezone: true }),
+}, (t) => [
+  uniqueIndex("uq_conferencia_financeira_pedido").on(t.orgId, t.pedidoId),
+  index("idx_conferencia_financeira_org_status").on(t.orgId, t.status),
+  index("idx_conferencia_financeira_classificacao").on(t.orgId, t.classificacao),
+]);

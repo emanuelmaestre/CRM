@@ -225,8 +225,10 @@ export async function contarPedidosIgnoradosAbertos(ctx: { orgId: string }): Pro
   return linha?.total ?? 0;
 }
 
-/** Consulta sempre o estado atual: payload histórico não deve reverter ajustes. */
-async function rebuscarNoCanal(linha: {
+/** Consulta sempre o estado atual: payload histórico não deve reverter ajustes.
+ *  Exportada porque a conferência financeira (A35) re-busca pelo mesmo caminho:
+ *  estado atual do canal, com o mesmo tratamento de canal indisponível. */
+export async function rebuscarNoCanal(linha: {
   canal: string;
   brandSlug: string;
   providerOrderId: string;
