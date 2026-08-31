@@ -8,7 +8,7 @@
  *   node --import tsx --import ./scripts/register-server-only.mjs \
  *        --env-file=.env.local scripts/rodar-conferencia-agora.mts
  */
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { db, getDb } from "../src/shared/lib/db/index";
 import { brand } from "../src/shared/lib/db/schema/org";
 import { channelAccount } from "../src/shared/lib/db/schema/canais";
