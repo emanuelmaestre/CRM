@@ -788,7 +788,7 @@ export class MercadoLivreProvider implements ChannelProvider {
 
     for (const order of porId.values()) {
       const total = Number(order.total_amount);
-      if (!Number.isFinite(total)) {
+      if (order.total_amount == null || !Number.isFinite(total)) {
         throw new Error(`Mercado Livre: pedido ${order.id} sem total válido.`);
       }
       const centavos = Math.round(total * 100);

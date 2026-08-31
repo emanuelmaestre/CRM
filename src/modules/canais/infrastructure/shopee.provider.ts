@@ -552,7 +552,7 @@ export class ShopeeProvider implements ChannelProvider {
       for (const detalhe of detailData.response?.order_list ?? []) {
         if (!detalhe?.order_sn) continue;
         const total = Number(detalhe.total_amount);
-        if (!Number.isFinite(total)) throw new Error(`Shopee: pedido ${detalhe.order_sn} sem total válido.`);
+        if (detalhe.total_amount == null || !Number.isFinite(total)) throw new Error(`Shopee: pedido ${detalhe.order_sn} sem total válido.`);
         totaisPedido.set(detalhe.order_sn, total);
       }
     }

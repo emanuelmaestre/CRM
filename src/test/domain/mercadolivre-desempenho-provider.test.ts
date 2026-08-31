@@ -67,4 +67,11 @@ describe("fontes oficiais dos oito cards", () => {
       ? Response.json({ id: "seller-1" }) : Response.json({ results: [], paging: { total: 2 } })));
     await expect(provider.resumirFaturamentoOficial(inicio, fim, true, agora)).rejects.toThrow(/página vazia/);
   });
+
+  it("não transforma valor monetário nulo da origem em faturamento zero", async () => {
+    const { provider } = preparar();
+    vi.stubGlobal("fetch", vi.fn(async (entrada: string | URL) => String(entrada).endsWith("/users/me")
+      ? Response.json({ id: "seller-1" }) : Response.json({ results: [{ ...pedido(1, "2026-08-30T12:00:00Z"), total_amount: null }], paging: { total: 1 } })));
+    await expect(provider.resumirFaturamentoOficial(inicio, fim, true, agora)).rejects.toThrow(/sem total válido/);
+  });
 });
