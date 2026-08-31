@@ -8,11 +8,11 @@ function montar(props: Partial<React.ComponentProps<typeof ConferenciaCanal>> = 
 function abrir() { fireEvent.click(screen.getByRole("button", { name: /entenda os totais do CRM/i })); }
 
 describe("composição local sem falsa conciliação", () => {
-  it("não apresenta valor esperado do painel oficial no cabeçalho", () => {
+  it("mostra o faturamento atual do CRM no cabeçalho sem apresentá-lo como oficial", () => {
     montar();
     expect(screen.getByText(/não são uma conferência com o painel oficial/)).toBeInTheDocument();
+    expect(screen.getByTestId("faturamento-atual-crm")).toHaveTextContent(/R\$\s*1\.000,00/);
     expect(screen.queryByText(/Esperado no painel|Deve bater/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/R\$/)).not.toBeInTheDocument();
   });
   it("identifica as datas exatas e o fuso sem abrir o calendário", () => {
     montar();
@@ -50,6 +50,7 @@ describe("composição local sem falsa conciliação", () => {
   it("sem datas não exibe uma soma para comparação", () => {
     montar({ periodo: { inicio: "", fim: "" } }); abrir();
     expect(screen.getByText(/Escolha um período/)).toBeInTheDocument();
+    expect(screen.getByTestId("faturamento-atual-crm")).toHaveTextContent("Selecione o período");
     expect(screen.queryByText(/R\$/)).not.toBeInTheDocument();
   });
   it("avisa quando busca ou status restringem o total", () => {
@@ -59,6 +60,7 @@ describe("composição local sem falsa conciliação", () => {
   it("não apresenta a soma anterior enquanto os filtros atuais não têm resposta válida", () => {
     montar({ dadosAtuais: false }); abrir();
     expect(screen.getByRole("status")).toHaveTextContent(/Aguardando dados atualizados/);
+    expect(screen.getByTestId("faturamento-atual-crm")).toHaveTextContent("Atualizando…");
     expect(screen.queryByText(/R\$/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Nenhuma pendência/)).not.toBeInTheDocument();
   });

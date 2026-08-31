@@ -45,8 +45,16 @@ export function ConferenciaCanal({ canais, faturamento, canceladosValor, pendenc
           <span className="block text-[11.5px] text-muted-foreground">Estes valores não são uma conferência com o painel oficial.</span>
           <span className="mt-1 block text-[11.5px] text-muted-foreground">{temPeriodo ? `Período no CRM: ${data(periodo.inicio)} a ${data(periodo.fim)} · horário de Brasília.` : "Escolha um período para detalhar os totais."}</span>
         </span>
-        <span className="ml-auto text-[11.5px] font-semibold text-muted-foreground">Ver composição</span>
-        <motion.span aria-hidden="true" className="inline-flex text-muted-foreground" animate={{ rotate: aberto ? 180 : 0 }} transition={reduzir ? { duration: 0 } : springs.settleFast}><ChevronDown size={16} /></motion.span>
+        <span className="flex w-full shrink-0 items-center justify-between gap-3 pl-11 sm:ml-auto sm:w-auto sm:justify-start sm:gap-4 sm:pl-0">
+          <span className="text-left sm:text-right">
+            <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Faturamento atual no CRM</span>
+            <span data-testid="faturamento-atual-crm" aria-live="polite" className="block text-sm font-bold tabular-nums text-foreground">
+              {dadosAtuais && temPeriodo ? moeda.format(faturamento) : dadosAtuais ? "Selecione o período" : "Atualizando…"}
+            </span>
+          </span>
+          <span className="text-[11.5px] font-semibold text-muted-foreground">{aberto ? "Ocultar composição" : "Ver composição"}</span>
+          <motion.span aria-hidden="true" className="inline-flex text-muted-foreground" animate={{ rotate: aberto ? 180 : 0 }} transition={reduzir ? { duration: 0 } : springs.settleFast}><ChevronDown size={16} /></motion.span>
+        </span>
       </button>
       <AnimatePresence initial={false}>
         {aberto && (
