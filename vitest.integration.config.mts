@@ -52,6 +52,12 @@ export default defineConfig({
     fileParallelism: false,
   },
   resolve: {
-    alias: { "@": path.resolve(import.meta.dirname, "./src") },
+    alias: {
+      "@": path.resolve(import.meta.dirname, "./src"),
+      // Mesma fronteira que vitest.config.mts stuba: um modulo de servidor
+      // (ex.: deteccao-conferencia.ts) puxado pela cadeia de imports de
+      // ingestao-pedido.service.ts quebraria a resolucao aqui sem o alias.
+      "server-only": path.resolve(import.meta.dirname, "./src/test/stubs/server-only.ts"),
+    },
   },
 });
