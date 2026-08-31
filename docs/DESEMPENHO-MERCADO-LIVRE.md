@@ -51,7 +51,7 @@ dependem da atualização do próprio canal. Falha de visitas preserva as métri
 de pedidos, mas impede conversão; falha de uma conta impede total parcial; falha
 histórica não apaga o período atual. A diferença API/CRM continua visível.
 
-A continuação da Shopee mantém o mesmo cartão de conferência, com leitura de
-pedidos/financeiro e atualização a cada cinco minutos. A origem retornou HTTP 502
-para as duas lojas na validação de 30/08/2026; essa indisponibilidade é mostrada,
-sem substituir o valor oficial pelo valor local.
+A Shopee também apresenta os oito cards, preservando a conferência e a atualização
+a cada cinco minutos. Fontes e limitações estão em [DESEMPENHO-SHOPEE.md](DESEMPENHO-SHOPEE.md).
+Correção da validação local: as variáveis exportadas pela Vercel estavam mascaradas.
+O HTTP 502 observado localmente não comprova falha da Shopee em produção.

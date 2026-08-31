@@ -7,7 +7,8 @@ import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
-import { consolidarDesempenhoML, periodoAnteriorML, periodoDesempenhoML, type BaseDesempenhoML, type DesempenhoMercadoLivre } from "../domain/desempenho-mercadolivre";
+import { periodoDesempenhoML } from "../domain/desempenho-mercadolivre";
+import { consolidarDesempenho, periodoAnteriorDesempenho, type BaseDesempenhoCanal, type DesempenhoCanal } from "../domain/desempenho-canal";
 
 export type FaturamentoOficialCanal =
   | {
@@ -20,7 +21,7 @@ export type FaturamentoOficialCanal =
       totalPedidos: number;
       contasConsultadas: number;
       consultadoEm: string;
-      desempenho?: DesempenhoMercadoLivre;
+      desempenho?: DesempenhoCanal;
     }
   | { status: "indisponivel"; mensagem: string }
   | { status: "nao_aplicavel"; mensagem: string };
@@ -35,8 +36,8 @@ type ResumoOficial = {
   canceladosQtd: number;
   totalBruto: number;
   totalPedidos: number;
-  desempenho?: BaseDesempenhoML;
-  desempenhoAnterior?: BaseDesempenhoML | null;
+  desempenho?: BaseDesempenhoCanal;
+  desempenhoAnterior?: BaseDesempenhoCanal | null;
 };
 
 async function consultarFaturamentoOficial(
@@ -97,18 +98,19 @@ async function consultarFaturamentoOficial(
     const somarCentavos = (campo: "faturamento" | "canceladosValor" | "totalBruto") => (
       resumos.reduce((total, resumo) => total + Math.round(resumo[campo] * 100), 0) / 100
     );
-    let desempenho: DesempenhoMercadoLivre | undefined;
-    if (canal === "mercadolivre" && resumos.every((resumo) => resumo.desempenho)) {
-      const atual = consolidarDesempenhoML(resumos.map((resumo) => resumo.desempenho!));
+    let desempenho: DesempenhoCanal | undefined;
+    if (resumos.every((resumo) => resumo.desempenho)) {
+      const atual = consolidarDesempenho(resumos.map((resumo) => resumo.desempenho!));
       const anterior = resumos.every((resumo) => resumo.desempenhoAnterior)
-        ? consolidarDesempenhoML(resumos.map((resumo) => resumo.desempenhoAnterior!)) : null;
-      const periodo = periodoDesempenhoML(filtros.inicio, filtros.fim);
-      const periodoAnterior = periodoAnteriorML(periodo.inicio, periodo.fim);
+        ? consolidarDesempenho(resumos.map((resumo) => resumo.desempenhoAnterior!)) : null;
+      const periodo = canal === "mercadolivre" ? periodoDesempenhoML(filtros.inicio, filtros.fim) : { inicio: filtros.inicio, fim: filtros.fim };
+      const periodoAnterior = periodoAnteriorDesempenho(periodo.inicio, periodo.fim);
       const avisos: string[] = [];
-      if (atual.visitas === null) avisos.push("Visitas indisponíveis em uma ou mais contas. A conversão também fica indisponível; os pedidos continuam atualizados.");
+      if (canal === "shopee") avisos.push("A integração atual da Shopee não fornece visitas da loja por período. Visitas e conversão ficam indisponíveis; não usamos cliques de anúncios ou visualizações acumuladas como substitutos.");
+      else if (atual.visitas === null) avisos.push("Visitas indisponíveis em uma ou mais contas. A conversão também fica indisponível; os pedidos continuam atualizados.");
       if (atual.unidadesVendidas === null) avisos.push("A API não informou todas as quantidades de itens. Unidades e preço médio por unidade ficam indisponíveis.");
       if (!anterior) avisos.push("Não foi possível consultar todas as contas no período anterior. A comparação está indisponível.");
-      else if (anterior.visitas === null || anterior.unidadesVendidas === null) avisos.push("Alguns dados do período anterior estão indisponíveis. A comparação aparece somente nos indicadores completos.");
+      else if ((canal === "mercadolivre" && anterior.visitas === null) || anterior.unidadesVendidas === null) avisos.push("Alguns dados do período anterior estão indisponíveis. A comparação aparece somente nos indicadores completos.");
       if (periodo.fim > agora) avisos.push("O período atual ainda está em andamento. A comparação usa dias completos do período anterior e pode mudar até o fechamento.");
       desempenho = { atual, anterior, periodo: { inicio: periodo.inicio.toISOString(), fim: periodo.fim.toISOString() }, periodoAnterior: { inicio: periodoAnterior.inicio.toISOString(), fim: periodoAnterior.fim.toISOString() }, avisos };
     }
@@ -137,7 +139,7 @@ export function consultarFaturamentoOficialMercadoLivre(
 ): Promise<FaturamentoOficialCanal> {
   return consultarFaturamentoOficial(ctx, filtros, "mercadolivre", async (brandSlug, inicio, fim, agora) => {
     const provider = await criarMLProvider(brandSlug);
-    const periodo = periodoAnteriorML(inicio, fim);
+    const periodo = periodoAnteriorDesempenho(inicio, fim);
     const atual = await provider.resumirFaturamentoOficial(inicio, fim, true, agora);
     // Falha histórica não invalida os dados atuais; nunca comparar só parte das contas.
     const anterior = await provider.resumirFaturamentoOficial(periodo.inicio, periodo.fim, true, agora).catch(() => null);
@@ -149,8 +151,11 @@ export function consultarFaturamentoOficialShopee(
   ctx: CrudContext,
   filtros: { brandIds?: string[]; inicio?: Date; fim?: Date },
 ): Promise<FaturamentoOficialCanal> {
-  return consultarFaturamentoOficial(ctx, filtros, "shopee", async (brandSlug, inicio, fim) => {
+  return consultarFaturamentoOficial(ctx, filtros, "shopee", async (brandSlug, inicio, fim, agora) => {
     const provider = await criarShopeeProvider(brandSlug);
-    return provider.resumirFaturamentoOficial(inicio, fim);
+    const periodo = periodoAnteriorDesempenho(inicio, fim);
+    const atual = await provider.resumirFaturamentoOficial(inicio, fim, true, agora);
+    const anterior = await provider.resumirFaturamentoOficial(periodo.inicio, periodo.fim, true, agora).catch(() => null);
+    return { ...atual, desempenhoAnterior: anterior?.desempenho ?? null };
   });
 }

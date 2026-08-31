@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { selecionarModelosShopee } from "../domain/modelo-estoque-shopee";
 import { mapearStatusPedido } from "../domain/order-status";
+import type { BaseDesempenhoCanal } from "@/modules/vendas/domain/desempenho-canal";
 import { proximoCursorSeguro } from "../domain/paginacao";
 import type { ChannelProvider, EstoqueCanalRef, OpcoesBuscaPedidos, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
@@ -108,6 +109,7 @@ export interface ResumoFaturamentoOficialShopee {
   canceladosQtd: number;
   totalBruto: number;
   totalPedidos: number;
+  desempenho?: BaseDesempenhoCanal;
 }
 
 /** Aplica o comparador que a própria Shopee mandou. Sem valor ou sem alvo, não
@@ -515,13 +517,14 @@ export class ShopeeProvider implements ChannelProvider {
     return [...new Map(pedidos.map((p) => [p.providerOrderId, p])).values()];
   }
 
-  /** Resume o faturamento direto nas APIs oficiais sem carregar itens,
-   *  comprador ou endereço. Mantém a mesma fonte monetária da importação:
+  /** Resume o faturamento direto nas APIs oficiais, sem comprador ou endereço.
+   *  Para desempenho, lê também quantidades de itens no mesmo lote de detalhes.
+   *  Mantém a mesma fonte monetária da importação:
    *  `buyer_total_amount` do financeiro quando disponível e `total_amount`
    *  do pedido como fallback. */
-  async resumirFaturamentoOficial(desde: Date, ate: Date): Promise<ResumoFaturamentoOficialShopee> {
+  async resumirFaturamentoOficial(desde: Date, ate: Date, incluirDesempenho = false, agora = new Date(Date.now())): Promise<ResumoFaturamentoOficialShopee> {
     const pedidosPorId = new Map<string, { providerOrderId: string; statusExterno: string }>();
-    const fimConsulta = new Date(Math.min(ate.getTime(), Date.now()));
+    const fimConsulta = new Date(Math.min(ate.getTime(), agora.getTime()));
     for (const { inicioMs, fimMs } of this.janelasDePedidos(desde, fimConsulta)) {
       const pedidos = await this.listarOrderSnsDaJanela(
         Math.floor(inicioMs / 1000),
@@ -532,15 +535,18 @@ export class ShopeeProvider implements ChannelProvider {
 
     const sns = [...pedidosPorId.keys()];
     if (sns.length === 0) {
-      return { faturamento: 0, pedidosValidos: 0, canceladosValor: 0, canceladosQtd: 0, totalBruto: 0, totalPedidos: 0 };
+      return { faturamento: 0, pedidosValidos: 0, canceladosValor: 0, canceladosQtd: 0, totalBruto: 0, totalPedidos: 0,
+        ...(incluirDesempenho ? { desempenho: { vendasBrutas: 0, unidadesVendidas: 0, quantidadeVendas: 0, vendasCanceladas: 0, visitas: null } } : {}),
+      };
     }
 
     const totaisPedido = new Map<string, number>();
+    const unidadesPedido = new Map<string, number | null>();
     for (let inicio = 0; inicio < sns.length; inicio += ShopeeProvider.LOTE_DETALHE_PEDIDOS) {
       const lote = sns.slice(inicio, inicio + ShopeeProvider.LOTE_DETALHE_PEDIDOS);
       const detailRes = await shopeeFetch(this.urlPedidos("/order/get_order_detail", {
         order_sn_list: lote.join(","),
-        response_optional_fields: "total_amount",
+        response_optional_fields: incluirDesempenho ? "total_amount,item_list" : "total_amount",
       }), { signal: AbortSignal.timeout(15000) });
 
       if (!detailRes.ok) {
@@ -550,10 +556,19 @@ export class ShopeeProvider implements ChannelProvider {
       const detailData = await detailRes.json() as { error?: string; message?: string; response?: { order_list?: ShopeeDetail[] } };
       if (detailData.error) throw new Error(`Shopee get_order_detail: ${detailData.message ?? detailData.error}`);
       for (const detalhe of detailData.response?.order_list ?? []) {
-        if (!detalhe?.order_sn) continue;
+        if (!detalhe?.order_sn || !lote.includes(detalhe.order_sn)) continue;
         const total = Number(detalhe.total_amount);
         if (detalhe.total_amount == null || !Number.isFinite(total)) throw new Error(`Shopee: pedido ${detalhe.order_sn} sem total válido.`);
         totaisPedido.set(detalhe.order_sn, total);
+        // O detalhe pode ter status mais recente que a primeira listagem.
+        if (detalhe.order_status) pedidosPorId.get(detalhe.order_sn)!.statusExterno = detalhe.order_status;
+        if (incluirDesempenho) {
+          const itens = detalhe.item_list;
+          const unidades = Array.isArray(itens) && itens.length > 0
+            && itens.every((item) => item != null && Number.isSafeInteger(item.model_quantity_purchased) && item.model_quantity_purchased > 0)
+            ? itens.reduce((soma, item) => soma + item.model_quantity_purchased, 0) : null;
+          unidadesPedido.set(detalhe.order_sn, unidades);
+        }
       }
     }
 
@@ -567,6 +582,7 @@ export class ShopeeProvider implements ChannelProvider {
     let canceladosCentavos = 0;
     let pedidosValidos = 0;
     let canceladosQtd = 0;
+    let vendasCanceladas = 0;
 
     for (const pedido of pedidosPorId.values()) {
       const totalFinanceiro = financeiroMap.get(pedido.providerOrderId)?.buyer_total_amount;
@@ -574,6 +590,8 @@ export class ShopeeProvider implements ChannelProvider {
       if (!Number.isFinite(total)) throw new Error(`Shopee: pedido ${pedido.providerOrderId} sem total financeiro válido.`);
       const centavos = Math.round(total * 100);
       const status = mapearStatusPedido(pedido.statusExterno);
+      // IN_CANCEL é uma solicitação ainda em curso; só conta cancelamento confirmado.
+      if (pedido.statusExterno.toUpperCase() === "CANCELLED") vendasCanceladas += 1;
       if (status === "cancelado" || status === "devolvido") {
         canceladosCentavos += centavos;
         canceladosQtd += 1;
@@ -590,6 +608,15 @@ export class ShopeeProvider implements ChannelProvider {
       canceladosQtd,
       totalBruto: (faturamentoCentavos + canceladosCentavos) / 100,
       totalPedidos: pedidosPorId.size,
+      ...(incluirDesempenho ? { desempenho: {
+        vendasBrutas: (faturamentoCentavos + canceladosCentavos) / 100,
+        quantidadeVendas: pedidosPorId.size,
+        unidadesVendidas: sns.some((sn) => unidadesPedido.get(sn) == null) ? null : sns.reduce((soma, sn) => soma + unidadesPedido.get(sn)!, 0),
+        vendasCanceladas,
+        // Não há fonte de visitas por período na integração atual. Cliques de
+        // Ads e visualizações acumuladas de produtos não são substitutos.
+        visitas: null,
+      } } : {}),
     };
   }
 

@@ -34,6 +34,39 @@ function abrir(nome: RegExp = /mercado livre ao vivo/i) {
 }
 
 describe("faturamento oficial dos canais", () => {
+  it("mostra a grade da Shopee com seis indicadores calculáveis e duas limitações explícitas", () => {
+    montar({ canais: ["shopee"], faturamentoOficial: { ...oficial, desempenho: { ...desempenho, atual: { ...desempenho.atual, visitas: null, conversao: null }, anterior: { ...desempenho.anterior, visitas: null, conversao: null } } } });
+    abrir(/shopee ao vivo/i);
+    expect(screen.getAllByRole("button", { name: /Como é calculado:/ })).toHaveLength(8);
+    expect(screen.getByTestId("desempenho-shopee-vendasBrutas")).toHaveTextContent(/1\.050,00/);
+    expect(screen.getByTestId("desempenho-shopee-unidadesVendidas")).toHaveTextContent("21");
+    expect(screen.getByTestId("desempenho-shopee-precoMedioUnidade")).toHaveTextContent(/50,00/);
+    expect(screen.getByTestId("desempenho-shopee-quantidadeVendas")).toHaveTextContent("9");
+    expect(screen.getByTestId("desempenho-shopee-precoMedioVenda")).toHaveTextContent(/116,67/);
+    expect(screen.getByTestId("desempenho-shopee-vendasCanceladas")).toHaveTextContent("1");
+    expect(screen.getByTestId("desempenho-shopee-visitas")).toHaveTextContent("Indisponível");
+    expect(screen.getByTestId("desempenho-shopee-conversao")).toHaveTextContent("Indisponível");
+    expect(screen.getAllByText("Sem fonte por período")).toHaveLength(2);
+    expect(screen.getByText(/a cada 5 minutos/)).toBeInTheDocument();
+    expect(screen.queryByText(/Calendário da API de visitas/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Como é calculado: Visitas" }));
+    expect(screen.getByText(/A integração atual da Shopee não fornece visitas/)).toBeInTheDocument();
+  });
+
+  it("preserva a conferência da Shopee e não mistura a busca da lista com os cards", () => {
+    montar({ canais: ["shopee"], temFiltrosAdicionais: true, faturamentoOficial: { ...oficial, desempenho } });
+    abrir(/shopee ao vivo/i);
+    expect(screen.getByText(/A busca e o filtro de status da lista não se aplicam aqui/)).toBeInTheDocument();
+    expect(screen.getByText("CRM neste recorte")).toBeInTheDocument();
+    expect(screen.queryByTestId("diferenca-faturamento")).not.toBeInTheDocument();
+  });
+
+  it("não mostra dados antigos da Shopee ao trocar os filtros", () => {
+    montar({ canais: ["shopee"], dadosAtuais: false, faturamentoOficial: { ...oficial, desempenho } });
+    abrir(/shopee ao vivo/i);
+    expect(screen.queryByTestId("resumo-desempenho-shopee")).not.toBeInTheDocument();
+  });
+
   it("exibe os oito indicadores reais dentro da conferência com comparação e fórmula acessível", () => {
     montar({ faturamentoOficial: { ...oficial, desempenho } });
     abrir();

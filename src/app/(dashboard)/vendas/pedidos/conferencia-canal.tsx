@@ -8,7 +8,7 @@ import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { springs } from "@/shared/design-system/motion-variants";
 import { moeda } from "@/shared/design-system/format";
 import type { FaturamentoOficialCanal } from "@/modules/vendas/application/faturamento-oficial.service";
-import { ResumoDesempenhoML } from "./resumo-desempenho-ml";
+import { ResumoDesempenhoCanal } from "./resumo-desempenho-canal";
 
 export type Pendencias = { quantidade: number; valor: number };
 export type FaturamentoOficial = FaturamentoOficialCanal;
@@ -96,7 +96,7 @@ export function ConferenciaCanal({
               {valorCabecalho}
             </span>
           </span>
-          <span className="text-[11.5px] font-semibold text-muted-foreground">{canal === "mercadolivre" ? (aberto ? "Ocultar desempenho" : "Ver desempenho e conferência") : (aberto ? "Ocultar conferência" : "Ver conferência")}</span>
+          <span className="text-[11.5px] font-semibold text-muted-foreground">{canalAoVivo ? (aberto ? "Ocultar desempenho" : "Ver desempenho e conferência") : (aberto ? "Ocultar conferência" : "Ver conferência")}</span>
           <motion.span aria-hidden="true" className="inline-flex text-muted-foreground" animate={{ rotate: aberto ? 180 : 0 }} transition={reduzir ? { duration: 0 } : springs.settleFast}><ChevronDown size={16} /></motion.span>
         </span>
       </button>
@@ -112,8 +112,8 @@ export function ConferenciaCanal({
                 <>
                   {oficialOk ? (
                     <>
-                      {canal === "mercadolivre" && oficialOk.desempenho && <ResumoDesempenhoML desempenho={oficialOk.desempenho} temFiltrosAdicionais={temFiltrosAdicionais} />}
-                      {canal === "mercadolivre" && <h3 className="border-t border-border pt-3 text-sm font-bold text-foreground">Conferência de faturamento</h3>}
+                      {(canal === "mercadolivre" || canal === "shopee") && oficialOk.desempenho && <ResumoDesempenhoCanal canal={canal} desempenho={oficialOk.desempenho} temFiltrosAdicionais={temFiltrosAdicionais} />}
+                      <h3 className="border-t border-border pt-3 text-sm font-bold text-foreground">Conferência de faturamento</h3>
                       <dl className="space-y-2 text-[13px]">
                         <div className="flex flex-wrap justify-between gap-2"><dt>{nome} ao vivo ({oficialOk.pedidosValidos} pedidos válidos)</dt><dd className="font-semibold tabular-nums text-foreground">{moeda.format(oficialOk.faturamento)}</dd></div>
                         <div className="flex flex-wrap justify-between gap-2"><dt>CRM neste recorte</dt><dd className="font-semibold tabular-nums text-foreground">{moeda.format(faturamento)}</dd></div>
