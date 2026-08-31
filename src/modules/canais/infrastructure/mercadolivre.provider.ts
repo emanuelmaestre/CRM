@@ -2,7 +2,17 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   ChannelProvider, EnderecoEntregaNormalizado, EstoqueCanalRef, PedidoNormalizado, SaudeConector,
 } from "../domain/ports";
+import { mapearStatusPedido } from "../domain/order-status";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
+
+export interface ResumoFaturamentoOficialML {
+  faturamento: number;
+  pedidosValidos: number;
+  canceladosValor: number;
+  canceladosQtd: number;
+  totalBruto: number;
+  totalPedidos: number;
+}
 
 interface MLCredentials {
   clientId: string;
@@ -748,6 +758,48 @@ export class MercadoLivreProvider implements ChannelProvider {
       pedidos.push(...await this.buscarPedidosDaJanela(inicioMs, fimMs, opcoes));
     }
     return [...new Map(pedidos.map((p) => [p.providerOrderId, p])).values()];
+  }
+
+  /** Soma o recorte diretamente no `/orders/search`, sem buscar endereço ou
+   * custo de envio de cada pedido. É a leitura leve usada para comparar o
+   * faturamento local com a origem oficial sem transformar a abertura da tela
+   * em centenas de chamadas adicionais. */
+  async resumirFaturamentoOficial(desde: Date, ate: Date): Promise<ResumoFaturamentoOficialML> {
+    const porId = new Map<number, MLOrderDetail>();
+    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde, ate)) {
+      const orders = await this.listarOrdersDaJanela(new Date(inicioMs), new Date(fimMs));
+      for (const order of orders) porId.set(order.id, order);
+    }
+
+    let faturamentoCentavos = 0;
+    let canceladosCentavos = 0;
+    let pedidosValidos = 0;
+    let canceladosQtd = 0;
+
+    for (const order of porId.values()) {
+      const total = Number(order.total_amount);
+      if (!Number.isFinite(total)) {
+        throw new Error(`Mercado Livre: pedido ${order.id} sem total válido.`);
+      }
+      const centavos = Math.round(total * 100);
+      const status = mapearStatusPedido(order.status);
+      if (status === "cancelado" || status === "devolvido") {
+        canceladosCentavos += centavos;
+        canceladosQtd += 1;
+      } else {
+        faturamentoCentavos += centavos;
+        pedidosValidos += 1;
+      }
+    }
+
+    return {
+      faturamento: faturamentoCentavos / 100,
+      pedidosValidos,
+      canceladosValor: canceladosCentavos / 100,
+      canceladosQtd,
+      totalBruto: (faturamentoCentavos + canceladosCentavos) / 100,
+      totalPedidos: porId.size,
+    };
   }
 
   /** Busca ativa das mensagens pós-venda (chat dentro de um pedido já

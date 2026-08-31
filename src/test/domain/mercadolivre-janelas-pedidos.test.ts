@@ -4,10 +4,10 @@ import { MercadoLivreProvider } from "@/modules/canais/infrastructure/mercadoliv
 const CREDS = { clientId: "c", clientSecret: "s", accessToken: "t", refreshToken: "r" };
 const DIA = 24 * 60 * 60 * 1000;
 
-const pedidoFalso = (id: number) => ({
+const pedidoFalso = (id: number, status = "paid", total = 24.9) => ({
   id,
-  status: "paid",
-  total_amount: 24.9,
+  status,
+  total_amount: total,
   buyer: { id: 9, nickname: "comprador" },
   order_items: [{ item: { seller_sku: `SKU-${id}` }, quantity: 1, unit_price: 24.9 }],
   date_created: "2026-08-26T23:10:15.000-04:00",
@@ -130,5 +130,37 @@ describe("busca de pedidos do Mercado Livre", () => {
     const ate = new Date("2026-08-27T00:00:00.000Z");
     expect(provider.janelasDePedidos(ate, ate)).toHaveLength(0);
     expect(provider.janelasDePedidos(new Date(ate.getTime() + DIA), ate)).toHaveLength(0);
+  });
+
+  it("resume o faturamento oficial sem chamar endpoints de enriquecimento", async () => {
+    const chamadas: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (entrada: string | URL) => {
+      const url = new URL(String(entrada));
+      chamadas.push(url);
+      if (url.pathname === "/users/me") {
+        return new Response(JSON.stringify({ id: "seller-1" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({
+        results: [pedidoFalso(1, "paid", 100.1), pedidoFalso(2, "cancelled", 20.2), pedidoFalso(3, "returned", 30.3)],
+        paging: { total: 3 },
+      }), { status: 200 });
+    }));
+    const provider = new MercadoLivreProvider(CREDS);
+
+    const resumo = await provider.resumirFaturamentoOficial(
+      new Date("2026-08-26T00:00:00.000Z"),
+      new Date("2026-08-27T00:00:00.000Z"),
+    );
+
+    expect(resumo).toEqual({
+      faturamento: 100.1,
+      pedidosValidos: 1,
+      canceladosValor: 50.5,
+      canceladosQtd: 2,
+      totalBruto: 150.6,
+      totalPedidos: 3,
+    });
+    expect(chamadas.filter((url) => url.pathname.startsWith("/shipments/"))).toHaveLength(0);
+    expect(chamadas.filter((url) => url.pathname === "/orders/search")).toHaveLength(1);
   });
 });

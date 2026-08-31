@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, PlugZap2, PackageX } from "lucide-react";
-import { actionListarPedidosDetalhados } from "../actions";
+import { actionConsultarFaturamentoOficial, actionListarPedidosDetalhados } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -35,6 +35,7 @@ type ConsultaPedidos = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>
 type Marca = ConsultaPedidos["marcas"][number];
 type Canal = ConsultaPedidos["canais"][number];
 type Resumo = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["resumo"];
+type FaturamentoOficial = Awaited<ReturnType<typeof actionConsultarFaturamentoOficial>>;
 
 const copy = pagesConfig.pedidos;
 const PAGINA = 50;
@@ -368,6 +369,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
   const [pendencias, setPendencias] = useState<Pendencias>({ quantidade: 0, valor: 0 });
+  const [faturamentoOficial, setFaturamentoOficial] = useState<FaturamentoOficial | null>(null);
   const [consultaDoResumo, setConsultaDoResumo] = useState<string | null>(null);
   /* Uma janela só, para a única porta que hoje leva até ela: o card de fuso
      na grade de indicadores. Guarda PARA QUAL conjunto de pedidos foi aberta,
@@ -408,21 +410,29 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
     startTransition(async () => {
       setLoading(true);
       setConsultaDoResumo(null);
+      setFaturamentoOficial(null);
       try {
-        const res = await actionListarPedidosDetalhados({
+        const filtrosBase = {
           brandIds: marcas?.length ? marcas : undefined,
           canais: canaisAtual?.length ? canaisAtual : undefined,
-          statuses: statusesAtual?.length ? statusesAtual : undefined,
-          busca: buscaAtual || undefined,
           inicio: inicioDoDia(inicio ?? ""),
           fim: fimDoDia(fim ?? ""),
-        });
+        };
+        const [res, oficial] = await Promise.all([
+          actionListarPedidosDetalhados({
+            ...filtrosBase,
+            statuses: statusesAtual?.length ? statusesAtual : undefined,
+            busca: buscaAtual || undefined,
+          }),
+          actionConsultarFaturamentoOficial(filtrosBase),
+        ]);
         if (currentRequest !== requestId.current) return;
         setPedidos(res.data);
         setTotal(res.total);
         setResumo(res.resumo);
         setLimiteDoDia(res.limiteDoDia);
         setPendencias(res.pendencias);
+        setFaturamentoOficial(oficial);
         setConsultaDoResumo(chaveConsulta(marcas, canaisAtual, statusesAtual, buscaAtual, inicio, fim));
         setMarcas(res.marcas);
         /* As contagens de marca voltam já cruzadas com o canal escolhido (ver
@@ -700,6 +710,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
       <ConferenciaCanal
         canais={canaisSel}
         faturamento={resumo.faturamento}
+        faturamentoOficial={faturamentoOficial}
         canceladosValor={resumo.canceladosValor + resumo.devolvidosValor}
         pendencias={pendencias}
         periodo={{ inicio: dataInicial, fim: dataFinal }}

@@ -9,6 +9,7 @@ import {
 } from "@/modules/vendas/application/pedidos.service";
 import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 import { resumirPedidosIgnorados } from "@/modules/vendas/application/pedidos-ignorados.service";
+import { consultarFaturamentoOficialMercadoLivre } from "@/modules/vendas/application/faturamento-oficial.service";
 
 /* ── Pedidos ──────────────────────────────────────────────────────────── */
 
@@ -56,6 +57,20 @@ export async function actionListarPedidosDetalhados(opts: {
     pendencias,
     permissions: { canManage: ctx.perfil === "admin" || ctx.perfil === "gestor" },
   };
+}
+
+export async function actionConsultarFaturamentoOficial(opts: {
+  brandIds?: string[];
+  canais?: string[];
+  inicio?: string;
+  fim?: string;
+} = {}) {
+  const ctx = await getCrudContext();
+  const filtros = normalizarConsultaPedidos(opts);
+  if (filtros.canais?.length !== 1 || filtros.canais[0] !== "mercadolivre") {
+    return { status: "nao_aplicavel", mensagem: "Selecione somente o Mercado Livre para consultar o valor ao vivo." } as const;
+  }
+  return consultarFaturamentoOficialMercadoLivre(ctx, filtros);
 }
 
 export async function actionContarPedidosPorMarca(canais?: string[]) {
