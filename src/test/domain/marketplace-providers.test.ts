@@ -382,6 +382,12 @@ describe("contratos dos providers de marketplace", () => {
     });
   });
 
+  it("recusa valor financeiro malformado da Shopee em vez de gravar zero", () => {
+    expect(() => normalizarFinanceiroShopee({
+      buyer_total_amount: "valor-inválido",
+    } as never, [])).toThrow(/valor financeiro inválido/);
+  });
+
   /** As duas primeiras respostas de qualquer volta de `buscarPedidos`:
    *  a lista de pedidos e o detalhe deles. O financeiro vem depois. */
   function respostasDePedidoShopee() {

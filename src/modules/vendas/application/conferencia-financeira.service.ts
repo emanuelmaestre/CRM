@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, desc, eq, gte, inArray, isNotNull, notExists, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
 import { brand } from "@/shared/lib/db/schema/org";
 import { conferenciaFinanceira, pedido } from "@/shared/lib/db/schema/vendas";
@@ -10,19 +10,19 @@ import { emitirEventoUnico } from "@/shared/events";
 import { rebuscarNoCanal } from "./pedidos-ignorados.service";
 import {
   carregarItensConferencia,
-  conferirPedidoAposIngestao,
   fecharConferencias,
   fotoFinanceira,
   montarLog,
   paraConferencia,
   registrarConferencia,
+  versaoFinanceiraPedidoSql,
   CANAIS_CONFERENCIA,
   COLUNAS_PEDIDO_CONFERENCIA,
   STATUS_ABERTOS,
   type LinhaPedidoConferencia,
   type StatusConferencia,
 } from "./deteccao-conferencia";
-import { decomporPedido, type ItemConferencia } from "../domain/auditoria-financeira";
+import { decomporPedido, precisaResolver, type ItemConferencia } from "../domain/auditoria-financeira";
 
 const DIA_MS = 24 * 60 * 60 * 1_000;
 
@@ -31,9 +31,9 @@ const DIA_MS = 24 * 60 * 60 * 1_000;
    `deteccao-conferencia.ts`. O A35 aqui faz só a parte cara: re-buscar na API
    do canal e regravar. Três travas:
 
-   1. BACKSTOP, não motor — o sweep varre só pedido SEM linha no ledger (o que
-      a ingestão não pegou: histórico, ou algum caminho que não passou pelo
-      `reconciliarFinanceiroPedido`). Em regime, é quase vazio.
+   1. BACKSTOP, não motor — o sweep varre só pedido cuja versão financeira
+      ainda não foi verificada (histórico ou caminho anterior ao hook). A
+      marca de versão faz o cursor avançar mesmo quando o resultado é `ok`.
 
    2. COOLDOWN de 7 dias — divergência já `persistente` não é re-buscada de
       novo todo dia. Pedido travado há 3 semanas não conserta na 15ª chamada.
@@ -88,29 +88,64 @@ export async function auditarPedidosDaConta(
   };
   const exemplosNovos: string[] = [];
 
-  // ── 1. Backstop: pedido ingerido há pouco e ainda sem linha no ledger
-  // (importação histórica pula o hook; pedidos antigos idem).
+  // ── 1. Backstop em lote: bloqueia as versões lidas, carrega itens numa
+  // consulta e marca todas numa atualização. Fazer uma transação por pedido
+  // levava minutos e podia estourar o limite do agente antes do segundo lote.
   const backstopDesde = new Date(agora.getTime() - BACKSTOP_JANELA_MS);
-  const semLedger = await db
-    .select({ id: pedido.id })
-    .from(pedido)
-    .where(and(
-      eq(pedido.orgId, orgId),
-      eq(pedido.channelAccountId, channelAccountId),
-      gte(pedido.updatedAt, backstopDesde),
-      inArray(pedido.canal, [...CANAIS_CONFERENCIA]),
-      notExists(
-        db.select({ um: sql`1` }).from(conferenciaFinanceira).where(and(
-          eq(conferenciaFinanceira.orgId, orgId),
-          eq(conferenciaFinanceira.pedidoId, pedido.id),
-        )),
-      ),
-    ))
-    .limit(MAX_BACKSTOP);
-  for (const { id } of semLedger) {
-    await conferirPedidoAposIngestao(db, orgId, id);
-    resumo.backstop += 1;
-  }
+  resumo.backstop = await db.transaction(async (tx) => {
+    const linhas = await tx
+      .select(COLUNAS_PEDIDO_CONFERENCIA)
+      .from(pedido)
+      .where(and(
+        eq(pedido.orgId, orgId),
+        eq(pedido.channelAccountId, channelAccountId),
+        gte(pedido.updatedAt, backstopDesde),
+        inArray(pedido.canal, [...CANAIS_CONFERENCIA]),
+        sql`(${pedido.dadosOrigem}->'conferenciaFinanceiraVersao') is distinct from ${versaoFinanceiraPedidoSql()}`,
+      ))
+      .orderBy(pedido.updatedAt, pedido.id)
+      .limit(MAX_BACKSTOP)
+      .for("update");
+    if (linhas.length === 0) return 0;
+
+    const pedidoIds = linhas.map((linha) => linha.id);
+    const itensPorPedido = await carregarItensConferencia(tx, pedidoIds);
+    const ledgers = await tx.select({ pedidoId: conferenciaFinanceira.pedidoId, status: conferenciaFinanceira.status })
+      .from(conferenciaFinanceira)
+      .where(and(eq(conferenciaFinanceira.orgId, orgId), inArray(conferenciaFinanceira.pedidoId, pedidoIds)));
+    const statusPorPedido = new Map(ledgers.map((ledger) => [ledger.pedidoId, ledger.status]));
+    const semDivergencia: string[] = [];
+
+    for (const linha of linhas) {
+      const itens = itensPorPedido.get(linha.id) ?? [];
+      const decomposicao = decomporPedido(paraConferencia(linha as LinhaPedidoConferencia, itens, agora));
+      if (decomposicao.classificacao === "nao_aplicavel" || decomposicao.classificacao === "ok") {
+        semDivergencia.push(linha.id);
+        continue;
+      }
+      if (!precisaResolver(decomposicao.classificacao)) continue;
+
+      const statusAnterior = statusPorPedido.get(linha.id);
+      const status: StatusConferencia = decomposicao.classificacao === "aguardando_repasse"
+        ? "aguardando" : statusAnterior === "persistente" ? "persistente" : "detectado";
+      const antes = fotoFinanceira(linha as LinhaPedidoConferencia);
+      await registrarConferencia(tx, {
+        orgId, pedidoId: linha.id, brandId: linha.brandId, canal: linha.canal,
+        providerOrderId: linha.providerOrderId, decomposicao, status,
+        incrementarTentativa: false, agora,
+        log: montarLog({
+          inicial: decomposicao, final: decomposicao, itens,
+          antes, depois: null, origem: "ingestao", rebusca: "nao_tentada", apiConsultadaEm: null,
+        }),
+      });
+    }
+
+    await fecharConferencias(tx, orgId, semDivergencia);
+    await tx.update(pedido).set({
+      dadosOrigem: sql`jsonb_set(case when jsonb_typeof(${pedido.dadosOrigem}) = 'object' then ${pedido.dadosOrigem} else '{}'::jsonb end, '{conferenciaFinanceiraVersao}', ${versaoFinanceiraPedidoSql()}, true)`,
+    }).where(and(eq(pedido.orgId, orgId), inArray(pedido.id, pedidoIds)));
+    return linhas.length;
+  });
 
   // ── 2. Candidatos a re-busca: linhas abertas da conta.
   const candidatos = await db

@@ -154,11 +154,21 @@ describe("faturamento oficial dos canais", () => {
     expect(screen.queryByText(/R\$/)).not.toBeInTheDocument();
   });
 
-  it("preserva a composição local para canais sem consulta oficial", () => {
-    montar({ canais: ["tiktokshop"], faturamentoOficial: null });
-    expect(screen.getByTestId("faturamento-atual-crm")).toHaveTextContent(/R\$\s*1\.000,00/);
-    abrir(/entenda os totais do CRM/i);
-    expect(screen.getByText(/O valor oficial do TikTok Shop não é consultado/)).toBeInTheDocument();
+  it("não mostra zero local como se fosse o oficial quando o TikTok estiver indisponível", () => {
+    montar({ canais: ["tiktokshop"], faturamentoOficial: { status: "indisponivel", mensagem: "TikTok Shop sem conexão válida." } });
+    expect(screen.getByTestId("faturamento-oficial-tiktokshop")).toHaveTextContent("Indisponível");
+    expect(screen.queryByTestId("faturamento-atual-crm")).not.toBeInTheDocument();
+    abrir(/tiktok shop ao vivo/i);
+    expect(screen.getByRole("status")).toHaveTextContent(/sem conexão válida/);
+  });
+
+  it("compara o TikTok Shop ao vivo quando a API oficial responde", () => {
+    montar({ canais: ["tiktokshop"] });
+    expect(screen.getByTestId("faturamento-oficial-tiktokshop")).toHaveTextContent(/R\$\s*1\.000,00/);
+    abrir(/tiktok shop ao vivo/i);
+    expect(screen.getByText("Diferença (CRM − TikTok Shop)")).toBeInTheDocument();
+    expect(screen.getByText(/está igual ao TikTok Shop/)).toBeInTheDocument();
+    expect(screen.getByText(/endpoint oficial de pedidos do TikTok Shop/)).toBeInTheDocument();
   });
 
   it("mostra a Shopee ao vivo com a mesma comparação do Mercado Livre", () => {

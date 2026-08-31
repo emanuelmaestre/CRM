@@ -236,7 +236,10 @@ export interface ShopeeFinanceiroNormalizado {
 
 function valorFinanceiro(valor: unknown): number {
   const numero = Number(valor ?? 0);
-  return Number.isFinite(numero) ? numero : 0;
+  if (!Number.isFinite(numero) || typeof valor === "string" && !valor.trim()) {
+    throw new Error("Shopee: valor financeiro inválido; não substituir por zero.");
+  }
+  return numero;
 }
 
 function dinheiroApi(valor: number): string {

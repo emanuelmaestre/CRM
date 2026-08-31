@@ -488,7 +488,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
      às versões locais pelo useAtualizacaoLocal acima. */
   useEffect(() => {
     const canal = canaisSel.length === 1 ? canaisSel[0] : null;
-    if (!escopoDefinido || (canal !== "mercadolivre" && canal !== "shopee") || !dataInicial || !dataFinal) return;
+    if (!escopoDefinido || (canal !== "mercadolivre" && canal !== "shopee" && canal !== "tiktokshop") || !dataInicial || !dataFinal) return;
     let ativo = true;
     let consultando = false;
     const intervalo = window.setInterval(async () => {
@@ -504,12 +504,12 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         });
         if (ativo && consultaAtual === requestId.current) setFaturamentoOficial(oficial);
       } catch {
-        const nomeCanal = canal === "shopee" ? "Shopee" : "Mercado Livre";
+        const nomeCanal = canal === "shopee" ? "Shopee" : canal === "tiktokshop" ? "TikTok Shop" : "Mercado Livre";
         if (ativo && consultaAtual === requestId.current) setFaturamentoOficial({ status: "indisponivel", mensagem: `Não foi possível atualizar o canal ${nomeCanal} agora.` });
       } finally {
         consultando = false;
       }
-    }, canal === "shopee" ? 5 * 60_000 : 60_000);
+    }, canal === "mercadolivre" ? 60_000 : 5 * 60_000);
     return () => {
       ativo = false;
       window.clearInterval(intervalo);

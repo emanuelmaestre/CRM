@@ -7,6 +7,7 @@ import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { criarShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
+import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
 import { periodoDesempenhoML } from "../domain/desempenho-mercadolivre";
 import { consolidarDesempenho, periodoAnteriorDesempenho, type BaseDesempenhoCanal, type DesempenhoCanal } from "../domain/desempenho-canal";
 
@@ -43,11 +44,11 @@ type ResumoOficial = {
 async function consultarFaturamentoOficial(
   ctx: CrudContext,
   filtros: { brandIds?: string[]; inicio?: Date; fim?: Date },
-  canal: "mercadolivre" | "shopee",
+  canal: "mercadolivre" | "shopee" | "tiktokshop",
   resumir: (brandSlug: BrandSlug, inicio: Date, fim: Date, agora: Date) => Promise<ResumoOficial>,
 ): Promise<FaturamentoOficialCanal> {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
-  const nomeComArtigo = canal === "mercadolivre" ? "o Mercado Livre" : "a Shopee";
+  const nomeComArtigo = canal === "mercadolivre" ? "o Mercado Livre" : canal === "shopee" ? "a Shopee" : "o TikTok Shop";
 
   if (!filtros.inicio || !filtros.fim) {
     return { status: "nao_aplicavel", mensagem: "Selecione as datas de início e fim." };
@@ -157,5 +158,15 @@ export function consultarFaturamentoOficialShopee(
     const atual = await provider.resumirFaturamentoOficial(inicio, fim, true, agora);
     const anterior = await provider.resumirFaturamentoOficial(periodo.inicio, periodo.fim, true, agora).catch(() => null);
     return { ...atual, desempenhoAnterior: anterior?.desempenho ?? null };
+  });
+}
+
+export function consultarFaturamentoOficialTikTokShop(
+  ctx: CrudContext,
+  filtros: { brandIds?: string[]; inicio?: Date; fim?: Date },
+): Promise<FaturamentoOficialCanal> {
+  return consultarFaturamentoOficial(ctx, filtros, "tiktokshop", async (brandSlug, inicio, fim) => {
+    const provider = await criarTikTokShopProvider(brandSlug);
+    return provider.resumirFaturamentoOficial(inicio, fim);
   });
 }

@@ -19,6 +19,7 @@ import {
 import type { PedidoNormalizado } from "../domain/ports";
 import { ErroSkuSemProduto, ehErroSkuSemProduto } from "../domain/errors";
 import { podeAplicarVersaoPedido } from "../domain/versao-pedido";
+import { preservarFinanceiroConfirmado } from "../domain/financeiro-confirmado";
 import { classificarCausa, registrarPedidoIgnorado, marcarPedidoIgnoradoResolvido } from "@/modules/vendas/application/registro-pedido-ignorado";
 import { conferirPedidoAposIngestao } from "@/modules/vendas/application/deteccao-conferencia";
 import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, mapearStatusPedido } from "../domain/order-status";
@@ -629,21 +630,28 @@ async function reconciliarFinanceiroPedido(
   opcoes: { historico?: boolean } = {},
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
-    const atual = await tx.select({ atualizadoOrigemEm: pedido.atualizadoOrigemEm }).from(pedido)
+    const atual = await tx.select({ atualizadoOrigemEm: pedido.atualizadoOrigemEm, canal: pedido.canal,
+      valorLiquido: pedido.valorLiquido, dadosOrigem: pedido.dadosOrigem }).from(pedido)
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId))).for("update").then((rows) => rows[0]);
     if (!atual) return false;
     if (!podeAplicarVersaoPedido(atual.atualizadoOrigemEm, p.atualizadoOrigemEm)) return false;
+    const preservarFinanceiro = preservarFinanceiroConfirmado(atual, p);
     const valores: Partial<typeof pedido.$inferInsert> = {
-      total: p.total,
       createdAt: p.criadoEm,
       updatedAt: new Date(),
     };
-    if (p.dadosOrigem !== undefined) valores.dadosOrigem = p.dadosOrigem;
+    if (p.dadosOrigem !== undefined) valores.dadosOrigem = {
+      ...(atual.dadosOrigem as Record<string, unknown> | null), ...p.dadosOrigem,
+      ...(preservarFinanceiro ? { financeiroInformado: true } : {}),
+    };
     if (p.atualizadoOrigemEm !== undefined) valores.atualizadoOrigemEm = p.atualizadoOrigemEm;
-    if (p.frete !== undefined) valores.frete = p.frete;
-    if (p.desconto !== undefined) valores.desconto = p.desconto;
-    if (p.acrescimo !== undefined) valores.acrescimo = p.acrescimo;
-    if (p.valorLiquido !== undefined) valores.valorLiquido = p.valorLiquido;
+    if (!preservarFinanceiro) {
+      valores.total = p.total;
+      if (p.frete !== undefined) valores.frete = p.frete;
+      if (p.desconto !== undefined) valores.desconto = p.desconto;
+      if (p.acrescimo !== undefined) valores.acrescimo = p.acrescimo;
+      if (p.valorLiquido !== undefined) valores.valorLiquido = p.valorLiquido;
+    }
     await tx.update(pedido).set(valores)
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)));
 
@@ -654,7 +662,7 @@ async function reconciliarFinanceiroPedido(
     const conferir = () => (opcoes.historico ? Promise.resolve() : conferirPedidoAposIngestao(tx, orgId, pedidoId));
 
     const temTaxas = p.itens.some((item) => item.taxaMarketplace !== undefined);
-    if (!temTaxas) {
+    if (!temTaxas || preservarFinanceiro) {
       await conferir();
       return true;
     }

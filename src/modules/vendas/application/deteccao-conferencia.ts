@@ -67,6 +67,23 @@ export const COLUNAS_PEDIDO_CONFERENCIA = {
   createdAt: pedido.createdAt,
 } as const;
 
+export function versaoFinanceiraPedidoSql() {
+  return sql`jsonb_build_object(
+    'regra', 2,
+    'total', ${pedido.total},
+    'frete', ${pedido.frete},
+    'desconto', ${pedido.desconto},
+    'acrescimo', ${pedido.acrescimo},
+    'valorLiquido', ${pedido.valorLiquido},
+    'financeiroInformado', ${pedido.dadosOrigem}->'financeiroInformado',
+    'itens', coalesce((
+      select jsonb_agg(jsonb_build_array(pi.id, pi.preco_unitario, pi.quantidade, pi.taxa_marketplace) order by pi.id)
+      from pedido_item pi
+      where pi.pedido_id = ${pedido.id}
+    ), '[]'::jsonb)
+  )`;
+}
+
 export function paraConferencia(
   linha: LinhaPedidoConferencia,
   itens: ItemConferencia[],
@@ -251,9 +268,15 @@ export async function conferirPedidoAposIngestao(
     const agora = new Date();
     const itens = (await carregarItensConferencia(exec, [pedidoId])).get(pedidoId) ?? [];
     const decomposicao = decomporPedido(paraConferencia(linha as LinhaPedidoConferencia, itens, agora));
+    const marcarVerificado = async () => {
+      await exec.update(pedido).set({
+        dadosOrigem: sql`jsonb_set(case when jsonb_typeof(${pedido.dadosOrigem}) = 'object' then ${pedido.dadosOrigem} else '{}'::jsonb end, '{conferenciaFinanceiraVersao}', ${versaoFinanceiraPedidoSql()}, true)`,
+      }).where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)));
+    };
 
     if (decomposicao.classificacao === "nao_aplicavel" || decomposicao.classificacao === "ok") {
       await fecharConferencias(exec, orgId, [pedidoId]);
+      await marcarVerificado();
       return;
     }
     if (!precisaResolver(decomposicao.classificacao)) return;
@@ -286,6 +309,7 @@ export async function conferirPedidoAposIngestao(
         antes, depois: null, origem: "ingestao", rebusca: "nao_tentada", apiConsultadaEm: null,
       }),
     });
+    await marcarVerificado();
   } catch (erro) {
     console.warn(`[conferencia] detecção na ingestão falhou para o pedido ${pedidoId}:`, erro);
   }

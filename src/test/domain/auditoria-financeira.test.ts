@@ -94,7 +94,7 @@ describe("decomporPedido — Shopee", () => {
     expect(d.residuoLiquidoCentavos).toBe(-800);
   });
 
-  it("acusa divergência quando o comprador pagou mais que a soma dos elementos (caso +R$625)", () => {
+  it("não inventa divergência com componentes parciais do demonstrativo", () => {
     const d = decomporPedido(pedido({
       canal: "shopee",
       total: "725.00",
@@ -105,7 +105,7 @@ describe("decomporPedido — Shopee", () => {
       financeiroInformado: true,
       itens: [{ precoUnitario: "100.00", quantidade: 1 }],
     }));
-    expect(d.classificacao).toBe("divergente_bruto");
+    expect(d.classificacao).toBe("ok");
     expect(d.residuoBrutoCentavos).toBe(62500);
   });
 
@@ -149,7 +149,7 @@ describe("decomporPedido — Shopee", () => {
     expect(d.classificacao).toBe("ok");
   });
 
-  it("repasse muito abaixo da reconstrução é resíduo atípico", () => {
+  it("preserva repasse oficial mesmo quando ajustes não permitem reconstruí-lo", () => {
     const d = decomporPedido(pedido({
       canal: "shopee",
       total: "100.00",
@@ -160,7 +160,7 @@ describe("decomporPedido — Shopee", () => {
       itens: [{ precoUnitario: "100.00", quantidade: 1, taxaMarketplace: "10.00" }],
     }));
     // reconstruído = 100 − 10 − 0 = 90; resíduo = 5 − 90 = −85 (> banda de R$20)
-    expect(d.classificacao).toBe("residuo_liquido_atipico");
+    expect(d.classificacao).toBe("ok");
   });
 });
 

@@ -4,6 +4,7 @@ import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { createClient } from "@supabase/supabase-js";
+import { mapearStatusPedido } from "../domain/order-status";
 
 interface TikTokCredentials {
   appKey: string;
@@ -97,6 +98,46 @@ export class TikTokShopProvider implements ChannelProvider {
       cursor = proximo;
     }
     throw new Error("TikTok: coleta incompleta após 200 páginas.");
+  }
+
+  async resumirFaturamentoOficial(desde: Date, ate: Date): Promise<{
+    faturamento: number;
+    pedidosValidos: number;
+    canceladosValor: number;
+    canceladosQtd: number;
+    totalBruto: number;
+    totalPedidos: number;
+  }> {
+    const pedidos = await this.buscarPedidos(desde, { ate });
+    let faturamentoCentavos = 0;
+    let canceladosCentavos = 0;
+    let pedidosValidos = 0;
+    let canceladosQtd = 0;
+
+    for (const pedido of pedidos) {
+      const total = Number(pedido.total);
+      if (!pedido.total.trim() || !Number.isFinite(total)) {
+        throw new Error(`TikTok Shop: pedido ${pedido.providerOrderId} sem total válido.`);
+      }
+      const centavos = Math.round(total * 100);
+      const status = mapearStatusPedido(pedido.status);
+      if (status === "cancelado" || status === "devolvido") {
+        canceladosCentavos += centavos;
+        canceladosQtd += 1;
+      } else {
+        faturamentoCentavos += centavos;
+        pedidosValidos += 1;
+      }
+    }
+
+    return {
+      faturamento: faturamentoCentavos / 100,
+      pedidosValidos,
+      canceladosValor: canceladosCentavos / 100,
+      canceladosQtd,
+      totalBruto: (faturamentoCentavos + canceladosCentavos) / 100,
+      totalPedidos: pedidos.length,
+    };
   }
 
   async buscarPedidosPorIds(ids: string[]): Promise<PedidoNormalizado[]> {

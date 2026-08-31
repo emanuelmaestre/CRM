@@ -48,7 +48,7 @@ export function ConferenciaCanal({
 
   const canal = canais[0];
   const nome = NOME_CANAL[canal] ?? canal;
-  const canalAoVivo = canal === "mercadolivre" || canal === "shopee";
+  const canalAoVivo = canal === "mercadolivre" || canal === "shopee" || canal === "tiktokshop";
   const temPeriodo = Boolean(periodo.inicio && periodo.fim);
   const data = (iso: string) => iso.split("-").reverse().join("/");
   const totalImportado = (Math.round(faturamento * 100) + Math.round(canceladosValor * 100)) / 100;
@@ -120,7 +120,7 @@ export function ConferenciaCanal({
                         {!temFiltrosAdicionais && <div className="flex flex-wrap justify-between gap-2 border-t border-border pt-2 font-bold text-foreground"><dt>Diferença (CRM − {nome})</dt><dd data-testid="diferenca-faturamento" className="tabular-nums">{moeda.format(diferenca ?? 0)}</dd></div>}
                         <div className="flex flex-wrap justify-between gap-2"><dt>Total bruto da API ({oficialOk.totalPedidos} pedidos)</dt><dd className="font-semibold tabular-nums text-foreground">{moeda.format(oficialOk.totalBruto)}</dd></div>
                       </dl>
-                      {!temFiltrosAdicionais && diferenca === 0 && <p className="font-semibold text-foreground">O faturamento comparável do CRM está igual {canal === "shopee" ? "à Shopee" : "ao Mercado Livre"} neste momento.</p>}
+                      {!temFiltrosAdicionais && diferenca === 0 && <p className="font-semibold text-foreground">O faturamento comparável do CRM está igual {canal === "shopee" ? "à Shopee" : canal === "tiktokshop" ? "ao TikTok Shop" : "ao Mercado Livre"} neste momento.</p>}
                       {!temFiltrosAdicionais && diferenca !== 0 && <p className="font-semibold text-foreground">Há uma diferença de {moeda.format(Math.abs(diferenca ?? 0))}. A divergência permanece sinalizada para auditoria.</p>}
                       {temFiltrosAdicionais && <p className="font-semibold text-foreground">A API oficial consulta o período inteiro, mas o CRM está limitado por busca ou status. Limpe esses filtros para calcular a diferença.</p>}
                       <p>Consultado em {horaBrasilia.format(new Date(oficialOk.consultadoEm))}, em {oficialOk.contasConsultadas} conta(s). O faturamento comparável exclui cancelados e devolvidos nos dois lados; o total bruto da API volta a incluí-los.</p>
@@ -136,7 +136,7 @@ export function ConferenciaCanal({
                     <p>{pendencias.quantidade > 0 ? `${pendencias.quantidade} pendência(s) com data identificada neste período. Elas não são somadas automaticamente; o valor ao vivo acima continua vindo da origem.` : "Nenhuma pendência com data identificada neste período. A comparação ao vivo é que confirma o valor atual."}</p>
                     <Link href="/vendas/pedidos-ignorados" className="font-semibold text-foreground underline decoration-dotted underline-offset-2">Ver todas as pendências, inclusive sem data</Link>
                   </div>
-                  <p>Esta leitura vem {canal === "shopee" ? "das APIs oficiais de pedidos e financeiro da Shopee" : "do endpoint oficial de pedidos do Mercado Livre"} no período selecionado. Ela compara a mesma regra de faturamento do CRM; não se apresenta como reprodução de indicadores separados do painel oficial, cuja fórmula pode ser diferente.</p>
+                  <p>Esta leitura vem {canal === "shopee" ? "das APIs oficiais de pedidos e financeiro da Shopee" : canal === "tiktokshop" ? "do endpoint oficial de pedidos do TikTok Shop" : "do endpoint oficial de pedidos do Mercado Livre"} no período selecionado. Ela compara a mesma regra de faturamento do CRM; não se apresenta como reprodução de indicadores separados do painel oficial, cuja fórmula pode ser diferente.</p>
                 </>
               ) : (
                 <>

@@ -42,4 +42,31 @@ describe("TikTok Shop provider v202309", () => {
     const esperado = crypto.createHmac("sha256", "secret").update(base).digest("hex");
     expect(url.searchParams.get("sign")).toBe(esperado);
   });
+
+  it("resume o faturamento oficial separando cancelados", async () => {
+    const orders = [
+      { id: "pago", status: "DELIVERED", payment: { total_amount: "20.00" }, buyer_uid: "1", create_time: 1_719_999_000, line_items: [] },
+      { id: "cancelado", status: "CANCELLED", payment: { total_amount: "5.00" }, buyer_uid: "2", create_time: 1_719_999_100, line_items: [] },
+    ];
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 0, data: { orders } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ code: 0, data: { orders } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new TikTokShopProvider({
+      appKey: "app-key", appSecret: "secret", accessToken: "access-token", shopCipher: "shop-cipher",
+    });
+
+    await expect(provider.resumirFaturamentoOficial(
+      new Date("2024-07-03T00:00:00Z"),
+      new Date("2024-07-04T00:00:00Z"),
+    )).resolves.toEqual({
+      faturamento: 20,
+      pedidosValidos: 1,
+      canceladosValor: 5,
+      canceladosQtd: 1,
+      totalBruto: 25,
+      totalPedidos: 2,
+    });
+  });
 });

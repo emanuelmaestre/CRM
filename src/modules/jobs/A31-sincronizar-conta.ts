@@ -30,6 +30,7 @@ import {
   MODULOS_SINCRONIZACAO,
   type ModuloSincronizacao,
 } from "@/modules/canais/domain/sincronizacao-progresso";
+import { fatiarJanelasPedidos } from "@/modules/canais/domain/fatiar-janelas-pedidos";
 
 type ExecucaoPatch = Partial<typeof sincronizacaoExecucao.$inferInsert>;
 
@@ -262,7 +263,9 @@ export const A31_sincronizarConta = inngest.createFunction(
       }
       const provider = await resolverChannelProvider(conta.tipo, conta.brandSlug ?? "");
       if (!provider) return { encontrados: 0, novos: 0, ...semSuporte("Pedidos", conta.tipo) };
-      const dataDesde = desde ? new Date(desde) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1_000);
+      const fimColetaIso = await step.run(`pedidos-fixar-corte-${channelAccountId}`, () => new Date().toISOString());
+      const dataFim = new Date(fimColetaIso);
+      const dataDesde = desde ? new Date(desde) : new Date(dataFim.getTime() - 90 * 24 * 60 * 60 * 1_000);
       // A busca fica memoizada por step: concluído um, uma reexecução não
       // repete aquelas chamadas ao canal — era o que queimava a cota do proxy
       // em laço.
@@ -298,17 +301,8 @@ export const A31_sincronizarConta = inngest.createFunction(
        * limita o estado persistido a poucos bytes. A idempotência continua em
        * `ingerirPedido`; se um step repetir, pedido nenhum é duplicado. */
       const janelas = porJanela
-        ? porJanela.janelas(dataDesde).flatMap((janela) => {
-          const partes: Array<{ inicioMs: number; fimMs: number }> = [];
-          const maximoMs = 24 * 60 * 60_000;
-          for (let inicioMs = janela.inicioMs; inicioMs <= janela.fimMs;) {
-            const fimMs = Math.min(janela.fimMs, inicioMs + maximoMs - 1);
-            partes.push({ inicioMs, fimMs });
-            inicioMs = fimMs + 1;
-          }
-          return partes;
-        })
-        : [{ inicioMs: dataDesde.getTime(), fimMs: Date.now() }];
+        ? fatiarJanelasPedidos(porJanela.janelas(dataDesde, dataFim), 24 * 60 * 60_000)
+        : [{ inicioMs: dataDesde.getTime(), fimMs: dataFim.getTime() }];
 
       let novos = 0;
       let encontrados = 0;
@@ -328,7 +322,7 @@ export const A31_sincronizarConta = inngest.createFunction(
               filtrarPedidosPendentes(orgId, channelAccountId, candidatos);
             const pedidos = porJanela
               ? await porJanela.buscar(janela.inicioMs, janela.fimMs, reconciliacao ? {} : { filtrarPendentes })
-              : await provider.buscarPedidos(new Date(janela.inicioMs), reconciliacao ? {} : { filtrarPendentes });
+              : await provider.buscarPedidos(new Date(janela.inicioMs), { ate: new Date(janela.fimMs), ...(reconciliacao ? {} : { filtrarPendentes }) });
             const saida = {
               encontrados: pedidos.length,
               novos: 0,
@@ -384,6 +378,7 @@ export const A31_sincronizarConta = inngest.createFunction(
             novos,
             ignorados,
             desde: dataDesde.toISOString(),
+            ate: fimColetaIso,
           },
         ));
       }

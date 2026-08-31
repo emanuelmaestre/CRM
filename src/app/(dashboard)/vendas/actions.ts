@@ -9,7 +9,7 @@ import {
 } from "@/modules/vendas/application/pedidos.service";
 import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 import { resumirPedidosIgnorados } from "@/modules/vendas/application/pedidos-ignorados.service";
-import { consultarFaturamentoOficialMercadoLivre, consultarFaturamentoOficialShopee } from "@/modules/vendas/application/faturamento-oficial.service";
+import { consultarFaturamentoOficialMercadoLivre, consultarFaturamentoOficialShopee, consultarFaturamentoOficialTikTokShop } from "@/modules/vendas/application/faturamento-oficial.service";
 
 /* ── Pedidos ──────────────────────────────────────────────────────────── */
 
@@ -72,6 +72,7 @@ export async function actionConsultarFaturamentoOficial(opts: {
   }
   if (filtros.canais[0] === "mercadolivre") return consultarFaturamentoOficialMercadoLivre(ctx, filtros);
   if (filtros.canais[0] === "shopee") return consultarFaturamentoOficialShopee(ctx, filtros);
+  if (filtros.canais[0] === "tiktokshop") return consultarFaturamentoOficialTikTokShop(ctx, filtros);
   return { status: "nao_aplicavel", mensagem: "Este canal ainda não possui consulta oficial ao vivo." } as const;
 }
 

@@ -10,8 +10,9 @@
  *  serviço de aplicação — aqui não há I/O.
  *
  *  A regra do líquido continua sendo a de [[liquido-pedido.ts]]: o repasse do
- *  canal manda; a estimativa (`bruto − taxas − frete`) só serve de referência
- *  para medir o resíduo. */
+ *  canal manda. Na Shopee, o demonstrativo oficial pode conter vouchers,
+ *  reversões e ajustes que não possuem uma coluna equivalente no CRM; por
+ *  isso não se inventa divergência tentando reconstruir o escrow parcial. */
 
 import { liquidoFoiInformado } from "./liquido-pedido";
 
@@ -128,9 +129,9 @@ export const ESPEC_CANAL: Record<CanalConferencia, EspecCanal> = {
     confereLiquido: false,
     toleranciaLiquidoCentavos: () => 0,
   },
-  // `pedido.total` = `buyer_total_amount` (escrow) = o que o comprador pagou:
-  // itens + frete pago no checkout + tarifa do comprador − vouchers/moedas.
-  // Todos esses componentes já vêm normalizados em frete/acréscimo/desconto.
+  // `pedido.total` e `pedido.valor_liquido` vêm do demonstrativo oficial.
+  // A API não oferece uma decomposição universal que reconstrua ambos em
+  // todos os estados do pedido (cancelamento, reversa, subsídio e campanha).
   shopee: {
     somaComponentes: (p) => somaItens(p) + emCentavos(p.frete) + emCentavos(p.acrescimo) - emCentavos(p.desconto),
     toleranciaBrutoCentavos: 2,
@@ -195,6 +196,25 @@ export function decomporPedido(p: PedidoConferencia): DecomposicaoPedido {
     detalhe: "",
   };
 
+  if (espec.exigeRepasse && !temLiquido) {
+    const aguardando = p.idadeDias <= espec.diasGraciaRepasse;
+    return {
+      ...base,
+      classificacao: aguardando ? "aguardando_repasse" : "sem_repasse",
+      detalhe: aguardando
+        ? `Repasse ainda não liberado (pedido com ${Math.floor(p.idadeDias)} dia(s), carência de ${espec.diasGraciaRepasse}).`
+        : `Repasse ausente ${Math.floor(p.idadeDias)} dias após a compra — deveria ter sido liberado.`,
+    };
+  }
+
+  if (canal === "shopee") {
+    return {
+      ...base,
+      classificacao: "ok",
+      detalhe: "Bruto e repasse preservados do demonstrativo oficial da Shopee; composição parcial não usada como divergência.",
+    };
+  }
+
   if (espec.toleranciaBrutoCentavos == null) {
     return { ...base, classificacao: "nao_aplicavel", detalhe: "Canal ainda não decompõe o financeiro; conferência indisponível." };
   }
@@ -204,17 +224,6 @@ export function decomporPedido(p: PedidoConferencia): DecomposicaoPedido {
       ...base,
       classificacao: "divergente_bruto",
       detalhe: `Bruto ${real(bruto)} ≠ soma dos elementos ${real(soma)} (resíduo ${real(residuoBruto)}).`,
-    };
-  }
-
-  if (espec.exigeRepasse && !temLiquido) {
-    const aguardando = p.idadeDias <= espec.diasGraciaRepasse;
-    return {
-      ...base,
-      classificacao: aguardando ? "aguardando_repasse" : "sem_repasse",
-      detalhe: aguardando
-        ? `Repasse ainda não liberado (pedido com ${Math.floor(p.idadeDias)} dia(s), carência de ${espec.diasGraciaRepasse}).`
-        : `Repasse ausente ${Math.floor(p.idadeDias)} dias após a compra — deveria ter sido liberado.`,
     };
   }
 
