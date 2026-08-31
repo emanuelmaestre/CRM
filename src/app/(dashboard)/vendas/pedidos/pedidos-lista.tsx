@@ -478,6 +478,33 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandIds.join(","), canaisSel.join(","), statusGrupo, buscaAplicada, dataInicial, dataFinal, carregar, escopoDefinido]);
 
+  /* O valor oficial não pode depender de o webhook ter criado uma nova versão
+     local: foi justamente uma entrega perdida que a conferência ao vivo
+     revelou. Enquanto o recorte do Mercado Livre estiver aberto, consulta a
+     origem novamente a cada minuto; o carregamento completo continua reagindo
+     às versões locais pelo useAtualizacaoLocal acima. */
+  useEffect(() => {
+    if (!escopoDefinido || canaisSel.length !== 1 || canaisSel[0] !== "mercadolivre" || !dataInicial || !dataFinal) return;
+    let ativo = true;
+    const intervalo = window.setInterval(async () => {
+      try {
+        const oficial = await actionConsultarFaturamentoOficial({
+          brandIds: brandIds.length ? brandIds : undefined,
+          canais: canaisSel,
+          inicio: inicioDoDia(dataInicial),
+          fim: fimDoDia(dataFinal),
+        });
+        if (ativo) setFaturamentoOficial(oficial);
+      } catch {
+        if (ativo) setFaturamentoOficial({ status: "indisponivel", mensagem: "Não foi possível atualizar o Mercado Livre agora." });
+      }
+    }, 60_000);
+    return () => {
+      ativo = false;
+      window.clearInterval(intervalo);
+    };
+  }, [escopoDefinido, brandIds, canaisSel, dataInicial, dataFinal]);
+
   async function carregarMais() {
     setCarregandoMais(true);
     try {
