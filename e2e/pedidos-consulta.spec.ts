@@ -15,7 +15,8 @@ test("pedidos respeitam saúde do canal antes da consulta", async ({ page }) => 
 
   if (canalDesabilitado) {
     await expect(mercadoLivre).toHaveAttribute("aria-disabled", "true");
-    await expect(page.getByText("Escolha também um canal para ver os pedidos da empresa")).toBeVisible();
+    await expect(page.getByText("Escolha um canal", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "KARZI", exact: true })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByTestId("pedidos-lista")).toHaveCount(0);
     return;
   }
