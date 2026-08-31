@@ -122,3 +122,59 @@ describe("buscar um pedido da Shopee pelo order_sn", () => {
     await expect(provider.buscarPedidoPorId("NAO_EXISTE")).rejects.toThrow(/não retornou detalhes/);
   });
 });
+
+describe("faturamento oficial da Shopee", () => {
+  const CREDS_PEDIDOS = { partnerId: "2", partnerKey: "kp", shopId: "9", accessToken: "tp" };
+
+  it("soma a fonte financeira e exclui cancelados e devolvidos como o CRM", async () => {
+    vi.clearAllMocks();
+    const provider = new ShopeeProvider(CREDS, CREDS_PEDIDOS, CREDS_PEDIDOS);
+    vi.mocked(shopeeFetch).mockImplementation(async (entrada: string | URL) => {
+      const url = String(entrada);
+      const corpo = url.includes("get_order_list")
+        ? {
+            response: {
+              order_list: [
+                { order_sn: "VALIDO", order_status: "COMPLETED" },
+                { order_sn: "CANCELADO", order_status: "CANCELLED" },
+                { order_sn: "DEVOLVIDO", order_status: "TO_RETURN" },
+              ],
+              more: false,
+            },
+          }
+        : url.includes("get_order_detail")
+          ? {
+              response: {
+                order_list: [
+                  { order_sn: "VALIDO", total_amount: 100 },
+                  { order_sn: "CANCELADO", total_amount: 50 },
+                  { order_sn: "DEVOLVIDO", total_amount: 20 },
+                ],
+              },
+            }
+          : {
+              response: [
+                { escrow_detail: { order_sn: "VALIDO", order_income: { buyer_total_amount: 95 } } },
+                { escrow_detail: { order_sn: "CANCELADO", order_income: { buyer_total_amount: 45 } } },
+              ],
+            };
+      return { ok: true, status: 200, json: async () => corpo, text: async () => "" } as unknown as Response;
+    });
+
+    const resumo = await provider.resumirFaturamentoOficial(
+      new Date("2026-08-30T03:00:00.000Z"),
+      new Date("2026-08-31T02:59:59.999Z"),
+    );
+
+    expect(resumo).toEqual({
+      faturamento: 95,
+      pedidosValidos: 1,
+      canceladosValor: 65,
+      canceladosQtd: 2,
+      totalBruto: 160,
+      totalPedidos: 3,
+    });
+    const detalhe = vi.mocked(shopeeFetch).mock.calls.find(([entrada]) => String(entrada).includes("get_order_detail"));
+    expect(String(detalhe?.[0])).toContain("response_optional_fields=total_amount");
+  });
+});

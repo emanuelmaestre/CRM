@@ -4,6 +4,7 @@ import type {
 } from "../domain/ports";
 import { mapearStatusPedido } from "../domain/order-status";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
+import { periodoDesempenhoML, type BaseDesempenhoML } from "@/modules/vendas/domain/desempenho-mercadolivre";
 
 export interface ResumoFaturamentoOficialML {
   faturamento: number;
@@ -12,6 +13,7 @@ export interface ResumoFaturamentoOficialML {
   canceladosQtd: number;
   totalBruto: number;
   totalPedidos: number;
+  desempenho?: BaseDesempenhoML;
 }
 
 interface MLCredentials {
@@ -764,9 +766,12 @@ export class MercadoLivreProvider implements ChannelProvider {
    * custo de envio de cada pedido. É a leitura leve usada para comparar o
    * faturamento local com a origem oficial sem transformar a abertura da tela
    * em centenas de chamadas adicionais. */
-  async resumirFaturamentoOficial(desde: Date, ate: Date): Promise<ResumoFaturamentoOficialML> {
+  async resumirFaturamentoOficial(desde: Date, ate: Date, incluirDesempenho = false, agora = new Date(Date.now())): Promise<ResumoFaturamentoOficialML> {
+    const periodo = incluirDesempenho ? periodoDesempenhoML(desde, ate) : null;
+    // Uma leitura da união dos dois fusos; cada resumo filtra sua fronteira.
+    const fimBusca = periodo ? new Date(Math.min(Math.max(ate.getTime(), periodo.fim.getTime()), agora.getTime())) : ate;
     const porId = new Map<number, MLOrderDetail>();
-    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde, ate)) {
+    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde, fimBusca)) {
       const orders = await this.listarOrdersDaJanela(new Date(inicioMs), new Date(fimMs));
       for (const order of orders) porId.set(order.id, order);
     }
@@ -775,6 +780,11 @@ export class MercadoLivreProvider implements ChannelProvider {
     let canceladosCentavos = 0;
     let pedidosValidos = 0;
     let canceladosQtd = 0;
+    let unidadesVendidas: number | null = 0;
+    let vendasCanceladas = 0;
+    let vendasBrutasCentavos = 0;
+    let quantidadeVendas = 0;
+    let totalPedidos = 0;
 
     for (const order of porId.values()) {
       const total = Number(order.total_amount);
@@ -783,6 +793,22 @@ export class MercadoLivreProvider implements ChannelProvider {
       }
       const centavos = Math.round(total * 100);
       const status = mapearStatusPedido(order.status);
+      const criadoEm = new Date(order.date_created).getTime();
+      if (periodo && !Number.isFinite(criadoEm)) throw new Error("Mercado Livre: pedido sem data válida para o desempenho.");
+      if (periodo && criadoEm >= periodo.inicio.getTime() && criadoEm <= Math.min(periodo.fim.getTime(), agora.getTime())) {
+        vendasBrutasCentavos += centavos;
+        quantidadeVendas += 1;
+        // O card de cancelamentos não mistura devoluções nem pedidos inválidos.
+        if (order.status.toLowerCase() === "cancelled") vendasCanceladas += 1;
+        if (!Array.isArray(order.order_items) || order.order_items.length === 0
+          || order.order_items.some((item) => !Number.isSafeInteger(item.quantity) || item.quantity <= 0)) {
+          unidadesVendidas = null;
+        } else if (unidadesVendidas !== null) {
+          unidadesVendidas += order.order_items.reduce((soma, item) => soma + item.quantity, 0);
+        }
+      }
+      if (periodo && (criadoEm < desde.getTime() || criadoEm > Math.min(ate.getTime(), agora.getTime()))) continue;
+      totalPedidos += 1;
       if (status === "cancelado" || status === "devolvido") {
         canceladosCentavos += centavos;
         canceladosQtd += 1;
@@ -798,8 +824,36 @@ export class MercadoLivreProvider implements ChannelProvider {
       canceladosValor: canceladosCentavos / 100,
       canceladosQtd,
       totalBruto: (faturamentoCentavos + canceladosCentavos) / 100,
-      totalPedidos: porId.size,
+      totalPedidos,
+      ...(incluirDesempenho ? {
+        desempenho: {
+          vendasBrutas: vendasBrutasCentavos / 100,
+          quantidadeVendas,
+          unidadesVendidas,
+          vendasCanceladas,
+          // Uma falha em visitas não deve apagar os valores reais de pedidos.
+          visitas: await this.obterVisitasVendedor(desde, ate).catch(() => null),
+        },
+      } : {}),
     };
+  }
+
+  /** Abrange todos os anúncios da conta, inclusive os que não tiveram vendas.
+   * Fonte: https://developers.mercadolivre.com.br/recurso-visits */
+  async obterVisitasVendedor(desde: Date, ate: Date): Promise<number> {
+    const seller = await this.sellerId();
+    const periodo = periodoDesempenhoML(desde, ate);
+    const params = new URLSearchParams({ date_from: periodo.dataInicio, date_to: periodo.dataFim });
+    const resposta = await this.get<{ total_visits?: number; date_from?: string; date_to?: string }>(`/users/${seller}/items_visits?${params}`);
+    if (!Number.isSafeInteger(resposta.total_visits) || resposta.total_visits! < 0) {
+      throw new Error("Mercado Livre: resposta de visitas sem total válido.");
+    }
+    // Recusa outro calendário em vez de calcular conversão com bases distintas.
+    if (new Date(resposta.date_from ?? "").getTime() !== periodo.inicio.getTime()
+      || new Date(resposta.date_to ?? "").getTime() !== periodo.fim.getTime() - 86_400_000 + 1) {
+      throw new Error("Mercado Livre: visitas retornaram um calendário diferente do solicitado.");
+    }
+    return resposta.total_visits!;
   }
 
   /** Busca ativa das mensagens pós-venda (chat dentro de um pedido já

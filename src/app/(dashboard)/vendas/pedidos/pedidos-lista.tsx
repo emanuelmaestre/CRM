@@ -484,9 +484,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
      origem novamente a cada minuto; o carregamento completo continua reagindo
      às versões locais pelo useAtualizacaoLocal acima. */
   useEffect(() => {
-    if (!escopoDefinido || canaisSel.length !== 1 || canaisSel[0] !== "mercadolivre" || !dataInicial || !dataFinal) return;
+    const canal = canaisSel.length === 1 ? canaisSel[0] : null;
+    if (!escopoDefinido || (canal !== "mercadolivre" && canal !== "shopee") || !dataInicial || !dataFinal) return;
     let ativo = true;
+    let consultando = false;
     const intervalo = window.setInterval(async () => {
+      if (consultando || document.visibilityState === "hidden") return;
+      const consultaAtual = requestId.current;
+      consultando = true;
       try {
         const oficial = await actionConsultarFaturamentoOficial({
           brandIds: brandIds.length ? brandIds : undefined,
@@ -494,11 +499,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
           inicio: inicioDoDia(dataInicial),
           fim: fimDoDia(dataFinal),
         });
-        if (ativo) setFaturamentoOficial(oficial);
+        if (ativo && consultaAtual === requestId.current) setFaturamentoOficial(oficial);
       } catch {
-        if (ativo) setFaturamentoOficial({ status: "indisponivel", mensagem: "Não foi possível atualizar o Mercado Livre agora." });
+        const nomeCanal = canal === "shopee" ? "Shopee" : "Mercado Livre";
+        if (ativo && consultaAtual === requestId.current) setFaturamentoOficial({ status: "indisponivel", mensagem: `Não foi possível atualizar o canal ${nomeCanal} agora.` });
+      } finally {
+        consultando = false;
       }
-    }, 60_000);
+    }, canal === "shopee" ? 5 * 60_000 : 60_000);
     return () => {
       ativo = false;
       window.clearInterval(intervalo);

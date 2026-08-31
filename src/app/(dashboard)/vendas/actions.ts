@@ -9,7 +9,7 @@ import {
 } from "@/modules/vendas/application/pedidos.service";
 import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 import { resumirPedidosIgnorados } from "@/modules/vendas/application/pedidos-ignorados.service";
-import { consultarFaturamentoOficialMercadoLivre } from "@/modules/vendas/application/faturamento-oficial.service";
+import { consultarFaturamentoOficialMercadoLivre, consultarFaturamentoOficialShopee } from "@/modules/vendas/application/faturamento-oficial.service";
 
 /* ── Pedidos ──────────────────────────────────────────────────────────── */
 
@@ -67,10 +67,12 @@ export async function actionConsultarFaturamentoOficial(opts: {
 } = {}) {
   const ctx = await getCrudContext();
   const filtros = normalizarConsultaPedidos(opts);
-  if (filtros.canais?.length !== 1 || filtros.canais[0] !== "mercadolivre") {
-    return { status: "nao_aplicavel", mensagem: "Selecione somente o Mercado Livre para consultar o valor ao vivo." } as const;
+  if (filtros.canais?.length !== 1) {
+    return { status: "nao_aplicavel", mensagem: "Selecione somente um canal oficial para consultar o valor ao vivo." } as const;
   }
-  return consultarFaturamentoOficialMercadoLivre(ctx, filtros);
+  if (filtros.canais[0] === "mercadolivre") return consultarFaturamentoOficialMercadoLivre(ctx, filtros);
+  if (filtros.canais[0] === "shopee") return consultarFaturamentoOficialShopee(ctx, filtros);
+  return { status: "nao_aplicavel", mensagem: "Este canal ainda não possui consulta oficial ao vivo." } as const;
 }
 
 export async function actionContarPedidosPorMarca(canais?: string[]) {

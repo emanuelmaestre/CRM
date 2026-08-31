@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { selecionarModelosShopee } from "../domain/modelo-estoque-shopee";
+import { mapearStatusPedido } from "../domain/order-status";
 import { proximoCursorSeguro } from "../domain/paginacao";
 import type { ChannelProvider, EstoqueCanalRef, OpcoesBuscaPedidos, PedidoNormalizado, SaudeConector } from "../domain/ports";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
@@ -98,6 +99,15 @@ export interface ShopeeDesempenhoLoja {
   falhasAnuncio: number;
   falhasAtendimento: number;
   metricas: ShopeeMetricaDesempenho[];
+}
+
+export interface ResumoFaturamentoOficialShopee {
+  faturamento: number;
+  pedidosValidos: number;
+  canceladosValor: number;
+  canceladosQtd: number;
+  totalBruto: number;
+  totalPedidos: number;
 }
 
 /** Aplica o comparador que a própria Shopee mandou. Sem valor ou sem alvo, não
@@ -503,6 +513,84 @@ export class ShopeeProvider implements ChannelProvider {
       pedidos.push(...await this.buscarPedidosJanela(inicioMs, fimMs, opcoes));
     }
     return [...new Map(pedidos.map((p) => [p.providerOrderId, p])).values()];
+  }
+
+  /** Resume o faturamento direto nas APIs oficiais sem carregar itens,
+   *  comprador ou endereço. Mantém a mesma fonte monetária da importação:
+   *  `buyer_total_amount` do financeiro quando disponível e `total_amount`
+   *  do pedido como fallback. */
+  async resumirFaturamentoOficial(desde: Date, ate: Date): Promise<ResumoFaturamentoOficialShopee> {
+    const pedidosPorId = new Map<string, { providerOrderId: string; statusExterno: string }>();
+    const fimConsulta = new Date(Math.min(ate.getTime(), Date.now()));
+    for (const { inicioMs, fimMs } of this.janelasDePedidos(desde, fimConsulta)) {
+      const pedidos = await this.listarOrderSnsDaJanela(
+        Math.floor(inicioMs / 1000),
+        Math.floor(fimMs / 1000),
+      );
+      for (const pedido of pedidos) pedidosPorId.set(pedido.providerOrderId, pedido);
+    }
+
+    const sns = [...pedidosPorId.keys()];
+    if (sns.length === 0) {
+      return { faturamento: 0, pedidosValidos: 0, canceladosValor: 0, canceladosQtd: 0, totalBruto: 0, totalPedidos: 0 };
+    }
+
+    const totaisPedido = new Map<string, number>();
+    for (let inicio = 0; inicio < sns.length; inicio += ShopeeProvider.LOTE_DETALHE_PEDIDOS) {
+      const lote = sns.slice(inicio, inicio + ShopeeProvider.LOTE_DETALHE_PEDIDOS);
+      const detailRes = await shopeeFetch(this.urlPedidos("/order/get_order_detail", {
+        order_sn_list: lote.join(","),
+        response_optional_fields: "total_amount",
+      }), { signal: AbortSignal.timeout(15000) });
+
+      if (!detailRes.ok) {
+        const detalhe = (await detailRes.text().catch(() => "")).replace(/[\r\n]+/g, " ").slice(0, 240);
+        throw new Error(`Shopee HTTP ${detailRes.status} em get_order_detail: ${detalhe}`);
+      }
+      const detailData = await detailRes.json() as { error?: string; message?: string; response?: { order_list?: ShopeeDetail[] } };
+      if (detailData.error) throw new Error(`Shopee get_order_detail: ${detailData.message ?? detailData.error}`);
+      for (const detalhe of detailData.response?.order_list ?? []) {
+        if (!detalhe?.order_sn) continue;
+        const total = Number(detalhe.total_amount);
+        if (!Number.isFinite(total)) throw new Error(`Shopee: pedido ${detalhe.order_sn} sem total válido.`);
+        totaisPedido.set(detalhe.order_sn, total);
+      }
+    }
+
+    const detalhesAusentes = sns.filter((sn) => !totaisPedido.has(sn));
+    if (detalhesAusentes.length > 0) {
+      throw new Error(`Shopee não retornou o total de ${detalhesAusentes.length} pedido(s).`);
+    }
+
+    const financeiroMap = await this.buscarFinanceiroPedidos(sns);
+    let faturamentoCentavos = 0;
+    let canceladosCentavos = 0;
+    let pedidosValidos = 0;
+    let canceladosQtd = 0;
+
+    for (const pedido of pedidosPorId.values()) {
+      const totalFinanceiro = financeiroMap.get(pedido.providerOrderId)?.buyer_total_amount;
+      const total = totalFinanceiro == null ? totaisPedido.get(pedido.providerOrderId)! : Number(totalFinanceiro);
+      if (!Number.isFinite(total)) throw new Error(`Shopee: pedido ${pedido.providerOrderId} sem total financeiro válido.`);
+      const centavos = Math.round(total * 100);
+      const status = mapearStatusPedido(pedido.statusExterno);
+      if (status === "cancelado" || status === "devolvido") {
+        canceladosCentavos += centavos;
+        canceladosQtd += 1;
+      } else {
+        faturamentoCentavos += centavos;
+        pedidosValidos += 1;
+      }
+    }
+
+    return {
+      faturamento: faturamentoCentavos / 100,
+      pedidosValidos,
+      canceladosValor: canceladosCentavos / 100,
+      canceladosQtd,
+      totalBruto: (faturamentoCentavos + canceladosCentavos) / 100,
+      totalPedidos: pedidosPorId.size,
+    };
   }
 
   /** Tamanho de página do get_order_list. A Shopee aceita até 100; 50 é o que

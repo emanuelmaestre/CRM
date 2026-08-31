@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ConferenciaCanal } from "@/app/(dashboard)/vendas/pedidos/conferencia-canal";
+import { consolidarDesempenhoML } from "@/modules/vendas/domain/desempenho-mercadolivre";
+
+beforeEach(() => vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} }));
+afterEach(() => vi.unstubAllGlobals());
 
 const oficial = {
   status: "ok" as const,
@@ -13,6 +17,13 @@ const oficial = {
   contasConsultadas: 1,
   consultadoEm: "2026-08-30T20:15:00.000Z",
 };
+const desempenho = {
+  atual: consolidarDesempenhoML([{ vendasBrutas: 1050, quantidadeVendas: 9, unidadesVendidas: 21, vendasCanceladas: 1, visitas: 200 }]),
+  anterior: consolidarDesempenhoML([{ vendasBrutas: 1000, quantidadeVendas: 10, unidadesVendidas: 20, vendasCanceladas: 2, visitas: 200 }]),
+  periodo: { inicio: "2026-08-24T04:00:00Z", fim: "2026-08-31T03:59:59.999Z" },
+  periodoAnterior: { inicio: "2026-08-17T04:00:00Z", fim: "2026-08-24T03:59:59.999Z" },
+  avisos: [],
+};
 
 function montar(props: Partial<React.ComponentProps<typeof ConferenciaCanal>> = {}) {
   return render(<ConferenciaCanal canais={["mercadolivre"]} faturamento={1000} faturamentoOficial={oficial} canceladosValor={50} pendencias={{ quantidade: 0, valor: 0 }} periodo={{ inicio: "2026-08-24", fim: "2026-08-30" }} {...props} />);
@@ -22,7 +33,38 @@ function abrir(nome: RegExp = /mercado livre ao vivo/i) {
   fireEvent.click(screen.getByRole("button", { name: nome }));
 }
 
-describe("faturamento oficial do Mercado Livre", () => {
+describe("faturamento oficial dos canais", () => {
+  it("exibe os oito indicadores reais dentro da conferência com comparação e fórmula acessível", () => {
+    montar({ faturamentoOficial: { ...oficial, desempenho } });
+    abrir();
+    expect(screen.getAllByRole("button", { name: /Como é calculado:/ })).toHaveLength(8);
+    expect(screen.getByTestId("desempenho-ml-vendasBrutas")).toHaveTextContent(/1\.050,00/);
+    expect(screen.getByTestId("desempenho-ml-unidadesVendidas")).toHaveTextContent("21");
+    expect(screen.getByTestId("desempenho-ml-precoMedioUnidade")).toHaveTextContent(/50,00/);
+    expect(screen.getByTestId("desempenho-ml-visitas")).toHaveTextContent("200");
+    expect(screen.getByTestId("desempenho-ml-quantidadeVendas")).toHaveTextContent("9");
+    expect(screen.getByTestId("desempenho-ml-conversao")).toHaveTextContent("4,5%");
+    expect(screen.getByTestId("desempenho-ml-precoMedioVenda")).toHaveTextContent(/116,67/);
+    expect(screen.getByTestId("desempenho-ml-vendasCanceladas")).toHaveTextContent("1");
+    expect(screen.getByText("-0,5 p.p.")).toBeInTheDocument();
+    expect(screen.getByText(/Calendário da API de visitas: UTC−4/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Como é calculado: Conversão" }));
+    expect(screen.getByText(/Quantidade de vendas dividida pelas visitas/)).toBeInTheDocument();
+  });
+
+  it("mantém seis cards disponíveis quando faltam visitas, sem conversão fictícia", () => {
+    montar({ faturamentoOficial: { ...oficial, desempenho: { ...desempenho, atual: { ...desempenho.atual, visitas: null, conversao: null } } } });
+    abrir();
+    expect(screen.getByTestId("desempenho-ml-visitas")).toHaveTextContent("Indisponível");
+    expect(screen.getByTestId("desempenho-ml-conversao")).toHaveTextContent("Indisponível");
+    expect(screen.getByTestId("desempenho-ml-vendasBrutas")).toHaveTextContent(/1\.050,00/);
+  });
+
+  it("retira todos os indicadores do recorte antigo durante troca de filtro", () => {
+    montar({ dadosAtuais: false, faturamentoOficial: { ...oficial, desempenho } });
+    abrir();
+    expect(screen.queryByTestId("resumo-desempenho-ml")).not.toBeInTheDocument();
+  });
   it("mostra o valor ao vivo da API oficial no cabeçalho", () => {
     montar();
     expect(screen.getByText(/API oficial de pedidos/)).toBeInTheDocument();
@@ -80,10 +122,21 @@ describe("faturamento oficial do Mercado Livre", () => {
   });
 
   it("preserva a composição local para canais sem consulta oficial", () => {
-    montar({ canais: ["shopee"], faturamentoOficial: null });
+    montar({ canais: ["tiktokshop"], faturamentoOficial: null });
     expect(screen.getByTestId("faturamento-atual-crm")).toHaveTextContent(/R\$\s*1\.000,00/);
     abrir(/entenda os totais do CRM/i);
-    expect(screen.getByText(/O valor oficial do Shopee não é consultado/)).toBeInTheDocument();
+    expect(screen.getByText(/O valor oficial do TikTok Shop não é consultado/)).toBeInTheDocument();
+  });
+
+  it("mostra a Shopee ao vivo com a mesma comparação do Mercado Livre", () => {
+    montar({ canais: ["shopee"] });
+    expect(screen.getByRole("button", { name: /shopee ao vivo/i })).toBeInTheDocument();
+    expect(screen.getByTestId("faturamento-oficial-shopee")).toHaveTextContent(/R\$\s*1\.000,00/);
+    expect(screen.queryByText(/Faturamento atual no CRM/)).not.toBeInTheDocument();
+    abrir(/shopee ao vivo/i);
+    expect(screen.getByText("Diferença (CRM − Shopee)")).toBeInTheDocument();
+    expect(screen.getByText(/está igual à Shopee neste momento/)).toBeInTheDocument();
+    expect(screen.getByText(/APIs oficiais de pedidos e financeiro da Shopee/)).toBeInTheDocument();
   });
 
   it("não aparece quando há canais misturados ou nenhum selecionado", () => {
@@ -96,7 +149,7 @@ describe("faturamento oficial do Mercado Livre", () => {
   it("não volta a prometer o indicador separado do painel", () => {
     montar();
     abrir();
-    expect(screen.getByText(/não se apresenta como reprodução.*Vendas brutas/)).toBeInTheDocument();
+    expect(screen.getByText(/não se apresenta como reprodução de indicadores separados do painel oficial/)).toBeInTheDocument();
     expect(screen.queryByText(/Esperado no painel|Deve bater/)).not.toBeInTheDocument();
   });
 });
