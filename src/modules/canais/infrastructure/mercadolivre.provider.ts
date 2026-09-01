@@ -307,7 +307,7 @@ type MLRatings = ReadonlyMap<string, MLRating>;
 /** Resposta crua de GET /reviews/item/{id}. */
 interface MLReviewsResponse {
   rating_average?: number;
-  paging?: { total?: number };
+  paging?: { total?: number; total_pageable?: number; limit?: number; offset?: number };
   rating_levels?: Record<string, unknown>;
   reviews?: Array<{
     id?: number | string;
@@ -965,7 +965,10 @@ export class MercadoLivreProvider implements ChannelProvider {
   // Aqui pagina de verdade com `limit=100` por página até bater `paging.total`,
   // igual ao cursor do get_comment da Shopee — mesmo teto de segurança (10
   // páginas, ~1000 opiniões) pra não sair pedindo página infinita num anúncio
-  // com histórico gigante.
+  // com histórico gigante. `paging.total` conta todas as notas, inclusive as
+  // que não têm comentário; só `total_pageable` diz quantas opiniões textuais
+  // o endpoint consegue devolver. Esperar `reviews.length === total` fazia os
+  // anúncios com estrela sem texto terminarem em página vazia e alerta falso.
   private async buscarReviewsItem(id: string): Promise<MLReviewsResponse> {
     const reviews: NonNullable<MLReviewsResponse["reviews"]> = [];
     let primeira: MLReviewsResponse | null = null;
@@ -978,8 +981,10 @@ export class MercadoLivreProvider implements ChannelProvider {
       if (!Array.isArray(data.reviews) || !Number.isFinite(data.paging?.total)) throw new Error(`Avaliações ML ${id}: resposta incompleta.`);
       const lote = data.reviews ?? [];
       reviews.push(...lote);
-      const total = data.paging?.total ?? reviews.length;
-      if (reviews.length >= total) { completo = true; break; }
+      const totalPaginavel = Number.isFinite(data.paging?.total_pageable)
+        ? Math.max(0, data.paging!.total_pageable!)
+        : data.paging?.total ?? reviews.length;
+      if (reviews.length >= totalPaginavel) { completo = true; break; }
       if (lote.length === 0) throw new Error(`Avaliações ML ${id}: página vazia antes do total informado.`);
     }
     if (!completo) throw new Error(`Avaliações ML ${id}: coleta incompleta; resultado anterior preservado.`);
@@ -991,10 +996,19 @@ export class MercadoLivreProvider implements ChannelProvider {
 
   private async buscarAvaliacoes(itemIds: string[]): Promise<MLRatings> {
     const unicos = [...new Set(itemIds)];
-    const resultados = await Promise.all(unicos.map(async (id) => {
-      const data = await this.buscarReviewsItem(id);
-      return [id, normalizarAvaliacoesItem(data)] as const;
-    }));
+    const resultados: Array<readonly [string, MLRating]> = [];
+    // A Central dispara as contas em funções separadas. O semáforo global do
+    // processo não enxerga as outras instâncias, então 3 contas × 6 chamadas
+    // ainda formavam uma rajada de 18 e podiam receber 429. Avaliações não têm
+    // endpoint em lote: duas por vez mantém no máximo seis chamadas paralelas
+    // entre as três contas, sem transformar uma falha de cota em alerta.
+    for (let inicio = 0; inicio < unicos.length; inicio += 2) {
+      resultados.push(...await Promise.all(unicos.slice(inicio, inicio + 2).map(async (id) => {
+        const data = await this.buscarReviewsItem(id);
+        return [id, normalizarAvaliacoesItem(data)] as const;
+      })));
+      if (inicio + 2 < unicos.length) await espera(150);
+    }
     return new Map(resultados);
   }
 

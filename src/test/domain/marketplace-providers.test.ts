@@ -146,7 +146,7 @@ describe("contratos dos providers de marketplace", () => {
       }]), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         rating_average: 4.8,
-        paging: { total: 27 },
+        paging: { total: 27, total_pageable: 27 },
         reviews: Array.from({ length: 27 }, (_, id) => ({ id: String(id), rate: 5 })),
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -161,6 +161,61 @@ describe("contratos dos providers de marketplace", () => {
     expect(catalog.items[1]).toMatchObject({ ratingAverage: 4.8, reviewsTotal: 27 });
     // uma única chamada de avaliação para os dois itens (mesmo listingId)
     expect(String(fetchMock.mock.calls[3][0])).toContain("/reviews/item/MLB-1");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("não exige comentário textual para cada nota do anúncio", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "seller-1" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: ["MLB-SEM-TEXTO"], paging: { total: 1, offset: 0, limit: 50 },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{
+        code: 200,
+        body: { id: "MLB-SEM-TEXTO", title: "Produto avaliado", price: 10, status: "active" },
+      }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        rating_average: 5,
+        paging: { total: 2, total_pageable: 0, limit: 100, offset: 0 },
+        reviews: [],
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
+    });
+    const catalog = await provider.listarAnunciosAtivos({ comAvaliacoes: true });
+
+    expect(catalog.items[0]).toMatchObject({ ratingAverage: 5, reviewsTotal: 2 });
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("encerra nas opiniões pagináveis sem confundir com o total de estrelas", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "seller-1" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: ["MLB-PARCIAL"], paging: { total: 1, offset: 0, limit: 50 },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{
+        code: 200,
+        body: { id: "MLB-PARCIAL", title: "Produto avaliado", price: 10, status: "active" },
+      }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        rating_average: 4.7,
+        paging: { total: 3, total_pageable: 2, limit: 100, offset: 0 },
+        reviews: [
+          { id: 1, content: "Bom", rate: 5, status: "published" },
+          { id: 2, content: "Atendeu", rate: 4, status: "published" },
+        ],
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = new MercadoLivreProvider({
+      clientId: "client", clientSecret: "secret", accessToken: "token", refreshToken: "refresh",
+    });
+    const catalog = await provider.listarAnunciosAtivos({ comAvaliacoes: true });
+
+    expect(catalog.items[0]).toMatchObject({ ratingAverage: 4.7, reviewsTotal: 3 });
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
 
