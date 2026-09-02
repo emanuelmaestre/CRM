@@ -6,10 +6,10 @@
  *
  * O que ele confere, nesta ordem (cada elo da pipeline):
  *
- *  1. Registro no Inngest — todo job com `cron`/`event` declarado em
+ *  1. Registro no Inngest — todo job ativo com `cron`/`event` declarado em
  *     src/modules/jobs/A*.ts está de fato na lista `functions` de
- *     src/app/api/inngest/route.ts? (arquivo escrito, nunca servido = nunca
- *     roda — foi como A7/A12 foram achados)
+ *     src/app/api/inngest/route.ts? Jobs deliberadamente suspensos aparecem
+ *     como aviso, com o motivo, e não como falha operacional.
  *  2. job_run — para cada agente que loga aqui, bateu a cadência esperada
  *     (cron) nas últimas 48h? Alguma falha recente?
  *  3. Canais — contas conectadas, canal_verificacao (frescor por módulo:
@@ -35,6 +35,7 @@ import { channelAccount, canalVerificacao, sincronizacaoExecucao } from "../src/
 import { jobRun } from "../src/shared/lib/db/schema/auditoria";
 import { pedido, pedidoItem, conferenciaFinanceira } from "../src/shared/lib/db/schema/vendas";
 import { produto, produtoCanal, estoqueCanalSaldo } from "../src/shared/lib/db/schema/estoque";
+import { cliente } from "../src/shared/lib/db/schema/clientes";
 import { metricasSnapshotDiario } from "../src/shared/lib/db/schema/metricas";
 import { scoreCliente, scoreProduto } from "../src/shared/lib/db/schema/scoring";
 
@@ -62,20 +63,40 @@ const pastaJobs = "./src/modules/jobs";
 const arquivos = readdirSync(pastaJobs).filter((f) => /^A\d+-.*\.ts$/.test(f));
 const routeSrc = readFileSync("./src/app/api/inngest/route.ts", "utf8");
 const blocoFunctions = routeSrc.match(/functions:\s*\[([\s\S]*?)\]\s*,\s*\}\);/)?.[1] ?? "";
-const comGatilho: string[] = [];
+const jobsDesativados = new Map<string, string>([
+  [
+    "A7-encalhe",
+    "suspenso para reduzir consumo; o score de encalhe continua sendo recalculado pela A14",
+  ],
+  [
+    "A12-conversa-parada",
+    "suspenso para reduzir consumo e evitar alertas repetidos até receber processamento em lote com deduplicação",
+  ],
+]);
+const jobsAtivosComGatilho: string[] = [];
+let jobsAtivosNaoServidos = 0;
 for (const f of arquivos) {
   const conteudo = readFileSync(`${pastaJobs}/${f}`, "utf8");
   const idMatch = conteudo.match(/id:\s*"([^"]+)"/);
   const temGatilho = /triggers:\s*\[\{\s*(cron|event):/.test(conteudo);
   if (!idMatch || !temGatilho) continue;
   const id = idMatch[1];
-  comGatilho.push(id);
   const funcMatch = conteudo.match(/export const (\w+)\s*=\s*inngest\.createFunction/);
   const nomeExport = funcMatch?.[1];
   const servido = nomeExport ? new RegExp(`\\b${nomeExport}\\b`).test(blocoFunctions) : false;
-  if (!servido) falha(`${id} (${f}) tem trigger declarado mas NÃO está em functions[] de route.ts — nunca roda.`);
+  const motivoDesativacao = jobsDesativados.get(id);
+  if (motivoDesativacao) {
+    if (servido) falha(`${id} (${f}) está marcado como suspenso, mas voltou a ser servido pelo route.ts.`);
+    else aviso(`${id} (${f}) desativado intencionalmente — ${motivoDesativacao}.`);
+    continue;
+  }
+  jobsAtivosComGatilho.push(id);
+  if (!servido) {
+    jobsAtivosNaoServidos += 1;
+    falha(`${id} (${f}) tem trigger declarado mas NÃO está em functions[] de route.ts — nunca roda.`);
+  }
 }
-if (!problemas.some((p) => p.includes("route.ts"))) bom(`${comGatilho.length} jobs com trigger, todos servidos pelo route.ts.`);
+if (jobsAtivosNaoServidos === 0) bom(`${jobsAtivosComGatilho.length} jobs ativos com trigger, todos servidos pelo route.ts.`);
 
 // ── 2. job_run: cadência e falhas recentes ───────────────────────────────────
 h("2. job_run — cadência e falhas (48h)");
@@ -212,17 +233,43 @@ else bom("todo produto ativo tem ao menos um anúncio de canal.");
 
 // ── 5. Estoque por canal ─────────────────────────────────────────────────────
 h("5. Estoque por canal — frescor do saldo");
-const desde12h = new Date(AGORA.getTime() - 12 * 3_600_000);
-const [{ total, velhos }] = await db
-  .select({
-    total: sql<number>`count(*)::int`,
-    velhos: sql<number>`count(*) filter (where ${estoqueCanalSaldo.verificadoEm} < ${desde12h.toISOString()}::timestamptz)::int`,
-  })
-  .from(estoqueCanalSaldo)
-  .where(eq(estoqueCanalSaldo.orgId, orgId));
-if (total === 0) falha("nenhum saldo de estoque por canal registrado.");
-else if (velhos > 0) falha(`${velhos} de ${total} saldo(s) de estoque não são verificados há mais de 12h.`);
-else bom(`${total} saldo(s) de estoque, todos verificados nas últimas 12h.`);
+type CoberturaEstoque = { total: number; semSaldo: number; novosSemSaldo: number; velhos: number };
+const [{ total, semSaldo, novosSemSaldo, velhos }] = await db.execute<CoberturaEstoque>(sql`
+  select count(*)::int as total,
+         count(*) filter (
+           where e.id is null
+             and pc.criado_em < now() - interval '12 hours'
+         )::int as "semSaldo",
+         count(*) filter (
+           where e.id is null
+             and pc.criado_em >= now() - interval '12 hours'
+         )::int as "novosSemSaldo",
+         count(*) filter (
+           where e.verificado_em < now() - interval '12 hours'
+         )::int as velhos
+    from ${produtoCanal} pc
+    inner join ${produto} p
+      on p.id = pc.produto_id and p.org_id = pc.org_id
+    inner join ${channelAccount} ca
+      on ca.id = pc.channel_account_id and ca.org_id = pc.org_id
+    left join ${estoqueCanalSaldo} e
+      on e.produto_canal_id = pc.id and e.org_id = pc.org_id
+   where pc.org_id = ${orgId}
+     and pc.ativo = true
+     and p.ativo = true
+     and p.deleted_at is null
+     and ca.status = 'conectado'
+`);
+if (total === 0) {
+  falha("nenhum anúncio ativo em conta conectada para conferir saldo.");
+} else {
+  if (semSaldo > 0) falha(`${semSaldo} de ${total} anúncio(s) ativo(s) estão sem saldo após a janela de 12h.`);
+  if (velhos > 0) falha(`${velhos} de ${total} anúncio(s) ativo(s) têm saldo sem verificação há mais de 12h.`);
+  if (novosSemSaldo > 0) aviso(`${novosSemSaldo} anúncio(s) novo(s) ainda aguardam a primeira coleta dentro da janela de 12h.`);
+  if (semSaldo === 0 && velhos === 0 && novosSemSaldo === 0) {
+    bom(`${total} anúncio(s) ativo(s), todos com saldo verificado nas últimas 12h.`);
+  }
+}
 
 // ── 6. Financeiro ─────────────────────────────────────────────────────────────
 h("6. Conferência financeira (conferencia_financeira)");
@@ -325,27 +372,79 @@ else {
   else bom(`snapshot de métricas atual (${ultimoSnapshot.data}).`);
 }
 
-const [{ scoresVelhos: clientesVelhos, total: totalClientes }] = await db
-  .select({
-    total: sql<number>`count(*)::int`,
-    scoresVelhos: sql<number>`count(*) filter (where ${scoreCliente.calculadoEm} < now() - interval '36 hours')::int`,
-  })
-  .from(scoreCliente)
-  .where(eq(scoreCliente.orgId, orgId));
-if (totalClientes === 0) falha("nenhum score_cliente calculado.");
-else if (clientesVelhos > 0) falha(`${clientesVelhos} de ${totalClientes} score_cliente não recalculado há mais de 36h.`);
-else bom(`${totalClientes} score_cliente, todos recalculados nas últimas 36h.`);
+type CoberturaScore = { total: number; semScore: number; novosSemScore: number; scoresVelhos: number };
+const [{
+  total: totalClientes,
+  semScore: clientesSemScore,
+  novosSemScore: clientesNovosSemScore,
+  scoresVelhos: clientesVelhos,
+}] =
+  await db.execute<CoberturaScore>(sql`
+    select count(*)::int as total,
+           count(*) filter (
+             where sc.id is null
+               and c.criado_em < now() - interval '36 hours'
+           )::int as "semScore",
+           count(*) filter (
+             where sc.id is null
+               and c.criado_em >= now() - interval '36 hours'
+           )::int as "novosSemScore",
+           count(*) filter (
+             where sc.calculado_em < now() - interval '36 hours'
+           )::int as "scoresVelhos"
+      from ${cliente} c
+      left join ${scoreCliente} sc
+        on sc.cliente_id = c.id and sc.org_id = c.org_id
+     where c.org_id = ${orgId}
+       and c.deleted_at is null
+  `);
+if (totalClientes === 0) {
+  falha("nenhum cliente ativo para conferir score_cliente.");
+} else {
+  if (clientesSemScore > 0) falha(`${clientesSemScore} de ${totalClientes} cliente(s) ativo(s) estão sem score_cliente após a janela de 36h.`);
+  if (clientesVelhos > 0) falha(`${clientesVelhos} de ${totalClientes} score_cliente ativo(s) não foram recalculados há mais de 36h.`);
+  if (clientesNovosSemScore > 0) aviso(`${clientesNovosSemScore} cliente(s) novo(s) aguardam o próximo cálculo dentro da janela de 36h.`);
+  if (clientesSemScore === 0 && clientesVelhos === 0 && clientesNovosSemScore === 0) {
+    bom(`${totalClientes} cliente(s) ativo(s), todos com score recalculado nas últimas 36h.`);
+  }
+}
 
-const [{ scoresVelhos: produtosVelhos, total: totalProdutos }] = await db
-  .select({
-    total: sql<number>`count(*)::int`,
-    scoresVelhos: sql<number>`count(*) filter (where ${scoreProduto.calculadoEm} < now() - interval '36 hours')::int`,
-  })
-  .from(scoreProduto)
-  .where(eq(scoreProduto.orgId, orgId));
-if (totalProdutos === 0) falha("nenhum score_produto calculado.");
-else if (produtosVelhos > 0) falha(`${produtosVelhos} de ${totalProdutos} score_produto não recalculado há mais de 36h.`);
-else bom(`${totalProdutos} score_produto, todos recalculados nas últimas 36h.`);
+const [{
+  total: totalProdutos,
+  semScore: produtosSemScore,
+  novosSemScore: produtosNovosSemScore,
+  scoresVelhos: produtosVelhos,
+}] =
+  await db.execute<CoberturaScore>(sql`
+    select count(*)::int as total,
+           count(*) filter (
+             where sp.id is null
+               and p.criado_em < now() - interval '36 hours'
+           )::int as "semScore",
+           count(*) filter (
+             where sp.id is null
+               and p.criado_em >= now() - interval '36 hours'
+           )::int as "novosSemScore",
+           count(*) filter (
+             where sp.calculado_em < now() - interval '36 hours'
+           )::int as "scoresVelhos"
+      from ${produto} p
+      left join ${scoreProduto} sp
+        on sp.produto_id = p.id and sp.org_id = p.org_id
+     where p.org_id = ${orgId}
+       and p.ativo = true
+       and p.deleted_at is null
+  `);
+if (totalProdutos === 0) {
+  falha("nenhum produto ativo para conferir score_produto.");
+} else {
+  if (produtosSemScore > 0) falha(`${produtosSemScore} de ${totalProdutos} produto(s) ativo(s) estão sem score_produto após a janela de 36h.`);
+  if (produtosVelhos > 0) falha(`${produtosVelhos} de ${totalProdutos} score_produto ativo(s) não foram recalculados há mais de 36h.`);
+  if (produtosNovosSemScore > 0) aviso(`${produtosNovosSemScore} produto(s) novo(s) aguardam o próximo cálculo dentro da janela de 36h.`);
+  if (produtosSemScore === 0 && produtosVelhos === 0 && produtosNovosSemScore === 0) {
+    bom(`${totalProdutos} produto(s) ativo(s), todos com score recalculado nas últimas 36h.`);
+  }
+}
 
 // ── resumo ────────────────────────────────────────────────────────────────
 h("RESUMO");
