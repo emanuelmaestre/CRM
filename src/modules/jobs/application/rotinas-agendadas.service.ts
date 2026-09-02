@@ -86,6 +86,17 @@ const ROTINAS_AGENDADAS = [
     atrasoLimiteMinutos: 180,
   },
   {
+    nome: "A36-refresh-tiktok-tokens",
+    titulo: "Renovação de credenciais do TikTok Shop",
+    categoria: "Canais",
+    // Hora em hora como as outras duas, embora o access token do TikTok dure 7
+    // dias: quem decide se há o que renovar é a margem de 24h em
+    // TIKTOK_TOKEN_REFRESH_MARGIN_MS, e uma passagem vazia custa uma consulta.
+    agenda: "a cada hora",
+    cron: "27 * * * *",
+    atrasoLimiteMinutos: 180,
+  },
+  {
     nome: "A21-guarda-consumo-ia",
     titulo: "Guarda de consumo IA",
     categoria: "IA",

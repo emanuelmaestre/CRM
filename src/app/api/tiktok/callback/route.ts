@@ -3,6 +3,7 @@ import { obterAppUrl } from "@/shared/config/app-url";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { createClient } from "@supabase/supabase-js";
 import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
+import { expiracaoTikTokISO } from "@/modules/canais/application/tiktok-token.service";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -146,7 +147,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
   const brandId = marca.id;
 
-  const expiresAt = new Date(Date.now() + (dados.access_token_expire_in ?? 0) * 1000).toISOString();
+  /* `access_token_expire_in` tem nome de duração mas é o INSTANTE de expiração
+     em epoch de segundos (1.788.992.101 = 09/09/2026, e não "1,7 bilhão de
+     segundos a partir de agora"). Somá-lo a Date.now(), que era o que estava
+     aqui, gravava validade no ano 2083 nas três marcas: o token morria em sete
+     dias e nada no banco jamais dizia que tinha vencido — nem o provider, que
+     só cai no token estático quando `expires_at` já passou, nem a renovação do
+     A36, que procura token perto de vencer. Ver `expiracaoTikTokISO`. */
+  const expiresAt = expiracaoTikTokISO(dados.access_token_expire_in);
   const sellerId = dados.open_id ?? dados.seller_name ?? brand;
 
   const { error: dbError } = await supabase

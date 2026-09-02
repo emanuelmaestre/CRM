@@ -6,6 +6,11 @@ import { buscarPedidoComRegistro } from "@/modules/canais/application/recepcao-p
 import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
 import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
+import {
+  resolverContaTikTokPorLoja,
+  tratarDesautorizacaoTikTok,
+  tratarExpiracaoAutorizacaoTikTok,
+} from "@/modules/canais/application/tiktok-autorizacao.service";
 
 const MAX_WEBHOOK_BYTES = 1_048_576;
 
@@ -77,6 +82,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // do TikTok sem resolver conta nem gravar conversa/evento no banco.
   if (type === 14 || type === 33) {
     return NextResponse.json({ ok: true, ignorado: true, motivo: "mensagens_desativadas" });
+  }
+
+  /* Fim de autorização: Tipo 6 é desautorização do vendedor, Tipo 7 é aviso de
+     expiração. Os dois já vinham assinados no Partner Center, mas morriam no
+     descarte por "sem_order_id" mais abaixo — o TikTok recebia 200 e o CRM não
+     guardava nada. Ficam ANTES daquele descarte, e só deles, porque nenhum dos
+     dois carrega pedido. O Tipo 1 segue exatamente pelo caminho de antes. */
+  if (type === 6 || type === 7) {
+    const conta = await resolverContaTikTokPorLoja(shop_id);
+    if (!conta) {
+      // 200 de propósito: se a loja não é reconhecida aqui, retentativa do
+      // TikTok vai dar exatamente no mesmo lugar. O log é o que permite achar
+      // o identificador que não casou com nenhuma conta.
+      console.error(`[webhook/tiktokshop] tipo ${type} de loja não reconhecida: ${shop_id}`);
+      return NextResponse.json({ ok: true, ignorado: true, motivo: "loja_nao_reconhecida" });
+    }
+    try {
+      if (type === 6) {
+        const { tokensRemovidos } = await tratarDesautorizacaoTikTok(conta, { shopId: shop_id });
+        return NextResponse.json({ ok: true, tratado: "desautorizacao", tokensRemovidos });
+      }
+      await tratarExpiracaoAutorizacaoTikTok(conta, { shopId: shop_id });
+      return NextResponse.json({ ok: true, tratado: "expiracao_autorizacao" });
+    } catch (err) {
+      console.error(`[webhook/tiktokshop] tipo ${type}`, err);
+      return NextResponse.json({ error: "Erro interno" }, { status: 500 });
+    }
   }
 
   // Extrai campos do data com cast seguro
