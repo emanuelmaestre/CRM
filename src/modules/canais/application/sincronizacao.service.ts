@@ -10,6 +10,16 @@ import {
   type ModuloSincronizacao,
 } from "../domain/sincronizacao-progresso";
 
+/** Adiamento esperado da reconciliação: outra sincronização da mesma conta
+ * ainda está viva. Tipo próprio evita que jobs dependam do texto da mensagem
+ * para separar concorrência saudável de falha real. */
+export class ReconciliacaoAdiadaError extends Error {
+  constructor() {
+    super("Reconciliação adiada: há outra execução ativa; sua janela não foi certificada.");
+    this.name = "ReconciliacaoAdiadaError";
+  }
+}
+
 /** Central de Sincronização (Configurações): dispara a fila completa de uma
  *  conta de canal em background, em vez do usuário esperar uma chamada
  *  síncrona que pode estourar o timeout sob a fila de conexão única do
@@ -53,7 +63,7 @@ export async function dispararSincronizacaoConta(
     .limit(1)
     .then((rows) => rows[0]);
   if (ativa && Date.now() - ativa.iniciadoEm.getTime() <= LIMITE_EXECUCAO_ABANDONADA_MS) {
-    if (opcoes.reconciliacao) throw new Error("Reconciliação adiada: há outra execução ativa; sua janela não foi certificada.");
+    if (opcoes.reconciliacao) throw new ReconciliacaoAdiadaError();
     return ativa;
   }
 

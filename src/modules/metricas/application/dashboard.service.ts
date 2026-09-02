@@ -3,6 +3,7 @@ import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "dr
 import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { liquidoDoPedido } from "@/modules/vendas/domain/liquido-pedido";
+import { calcularComposicaoFaturamento } from "@/modules/metricas/domain/composicao-faturamento";
 import {
   brand,
   channelAccount,
@@ -90,6 +91,14 @@ export interface FaturamentoResumo {
   variacaoPercentualLiquido: number | null;
   ticketMedioLiquido: string;
   serieLiquido: SeriePonto[];
+  /** Decomposição aditiva e reversível. O campo legado `total` mantém
+   * exatamente a mesma semântica para todos os consumidores existentes. */
+  composicao?: {
+    pedidosBrutosNumerico: number;
+    pedidosBrutos: string;
+    canceladosDevolvidosNumerico: number;
+    canceladosDevolvidos: string;
+  };
 }
 
 interface ProdutoBase {
@@ -441,6 +450,18 @@ export async function obterDashboardData(
   if (brandFiltro.length > 0) condicoesPedido.push(inArray(pedido.brandId, brandFiltro));
   if (canalFiltro.length > 0) condicoesPedido.push(inArray(pedido.canal, canalFiltro));
 
+  // Trilha independente da consulta de faturamento. Ela não afrouxa o filtro
+  // usado pelo número legado, pelo líquido nem pelas listas de produtos; só
+  // mede a parcela excluída para explicar a diferença para o total bruto.
+  const condicoesPedidosExcluidos = [
+    eq(pedido.orgId, ctx.orgId),
+    gte(pedido.createdAt, inicioJanela),
+    inArray(pedido.status, ["cancelado", "devolvido"]),
+  ];
+  if (personalizado) condicoesPedidosExcluidos.push(lte(pedido.createdAt, fimBusca));
+  if (brandFiltro.length > 0) condicoesPedidosExcluidos.push(inArray(pedido.brandId, brandFiltro));
+  if (canalFiltro.length > 0) condicoesPedidosExcluidos.push(inArray(pedido.canal, canalFiltro));
+
   const condicoesProduto = [
     eq(produto.orgId, ctx.orgId),
     eq(produto.ativo, true),
@@ -449,7 +470,7 @@ export async function obterDashboardData(
   if (brandFiltro.length > 0) condicoesProduto.push(inArray(produto.brandId, brandFiltro));
   if (canalFiltro.length > 0) condicoesProduto.push(condicaoCanalProduto(ctx.orgId, canalFiltro));
 
-  const [pedidosJanela, taxasPorPedido, itensVendidos, produtosAtivos, ultimasSaidas] = await Promise.all([
+  const [pedidosJanela, taxasPorPedido, itensVendidos, produtosAtivos, ultimasSaidas, [pedidosExcluidos]] = await Promise.all([
     ctx.db
       .select({ id: pedido.id, total: pedido.total, frete: pedido.frete, valorLiquido: pedido.valorLiquido, createdAt: pedido.createdAt })
       .from(pedido)
@@ -498,6 +519,13 @@ export async function obterDashboardData(
       .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
       .where(and(eq(pedido.orgId, ctx.orgId), notInArray(pedido.status, ["cancelado", "devolvido"])))
       .groupBy(pedidoItem.produtoId),
+    ctx.db
+      .select({
+        cancelados: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'cancelado'), 0)`,
+        devolvidos: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'devolvido'), 0)`,
+      })
+      .from(pedido)
+      .where(and(...condicoesPedidosExcluidos)),
   ]);
 
   /* ── Faturamento ── */
@@ -558,6 +586,15 @@ export async function obterDashboardData(
     altura: maiorValorLiquido > 0 ? Math.max(2, Math.round((valor / maiorValorLiquido) * 100)) : 0,
   }));
 
+  const composicaoCalculada = calcularComposicaoFaturamento(
+    totalJanela,
+    parseMoney(pedidosExcluidos?.cancelados),
+    parseMoney(pedidosExcluidos?.devolvidos),
+  );
+  // Kill switch exclusivamente no servidor. `false` restaura o contrato
+  // visual anterior sem desfazer deploy nem tocar em dados persistidos.
+  const composicaoAtiva = process.env.METRICAS_FINANCEIRAS_V2 !== "false";
+
   const faturamento: FaturamentoResumo = {
     granularidade,
     total: formatCurrency(totalJanela),
@@ -583,6 +620,14 @@ export async function obterDashboardData(
       : null,
     ticketMedioLiquido: formatCurrency(pedidosNaJanela > 0 ? totalJanelaLiquido / pedidosNaJanela : 0),
     serieLiquido,
+    ...(composicaoAtiva ? {
+      composicao: {
+        pedidosBrutosNumerico: composicaoCalculada.pedidosBrutosNumerico,
+        pedidosBrutos: formatCurrency(composicaoCalculada.pedidosBrutosNumerico),
+        canceladosDevolvidosNumerico: composicaoCalculada.canceladosDevolvidosNumerico,
+        canceladosDevolvidos: formatCurrency(composicaoCalculada.canceladosDevolvidosNumerico),
+      },
+    } : {}),
   };
 
   /* ── Agregação de vendas por produto ── */

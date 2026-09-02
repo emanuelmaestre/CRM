@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { inicioColetaPedidos } from "@/modules/canais/domain/cobertura-pedidos";
+import { inicioColetaPedidos, podeAvancarCoberturaPedidos } from "@/modules/canais/domain/cobertura-pedidos";
+import {
+  ehErroComPedidoIgnoradoRegistrado,
+  ErroSkuSemProduto,
+  marcarErroComPedidoIgnoradoRegistrado,
+} from "@/modules/canais/domain/errors";
 import { selecionarModelosShopee } from "@/modules/canais/domain/modelo-estoque-shopee";
 import { podeAplicarVersaoPedido } from "@/modules/canais/domain/versao-pedido";
 import { MercadoLivreProvider, normalizarPedidoMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
@@ -25,6 +30,18 @@ describe("cobertura e versões", () => {
     for (const valor of [null, "inválido", "2027-01-01"]) {
       expect(inicioColetaPedidos(fim.getTime(), valor, 7 * 3600000).toISOString()).toBe("2026-08-29T17:00:00.000Z");
     }
+  });
+  it("só avança a cobertura quando toda recusa tem registro durável", () => {
+    expect(podeAvancarCoberturaPedidos(0)).toBe(true);
+    expect(podeAvancarCoberturaPedidos(1)).toBe(false);
+  });
+  it("marca o erro sem perder seu tipo e os SKUs", () => {
+    const erro = new ErroSkuSemProduto(["SKU-1"]);
+    const marcado = marcarErroComPedidoIgnoradoRegistrado(erro);
+    expect(marcado).toBe(erro);
+    expect(marcado).toBeInstanceOf(ErroSkuSemProduto);
+    expect(ehErroComPedidoIgnoradoRegistrado(marcado)).toBe(true);
+    expect(ehErroComPedidoIgnoradoRegistrado(new Error("sem fila"))).toBe(false);
   });
   it("não reverte financeiro com evento antigo ou sem versão", () => {
     expect(podeAplicarVersaoPedido(fim, inicio)).toBe(false);

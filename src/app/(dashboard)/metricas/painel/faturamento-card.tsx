@@ -137,7 +137,13 @@ function ItemRegra({ tipo, children }: { tipo: "entra" | "fora" | "atencao"; chi
 /** `compacto` é a versão de mobile: só a bolinha do ⓘ, sem texto nenhum.
  *  O botão com rótulo não cabia na largura do celular junto do toggle
  *  Bruto/Líquido — ali ele vira um ícone redondo à esquerda do toggle. */
-function EntendaFaturamentoBotao({ compacto = false }: { compacto?: boolean }) {
+function EntendaFaturamentoBotao({
+  compacto = false,
+  dados,
+}: {
+  compacto?: boolean;
+  dados?: FaturamentoResumo | null;
+}) {
   return (
     <AnimatedInfoPopover
       trigger={(
@@ -211,6 +217,25 @@ function EntendaFaturamentoBotao({ compacto = false }: { compacto?: boolean }) {
       <p className="mt-4 rounded-[0.85rem] px-3 py-2.5 text-[12px] font-medium leading-relaxed" style={{ background: tint("var(--selecionado)", 8), color: "var(--foreground)" }}>
         Cancelamento e devolução nunca entram em nenhum dos dois valores, bruto ou líquido, em nenhuma hipótese.
       </p>
+
+      {dados?.composicao && (
+        <div className="mt-3 rounded-[0.85rem] border border-border p-3">
+          <p className="text-[11px] font-bold uppercase tracking-[.06em] text-muted-foreground">
+            Composição no período selecionado
+          </p>
+          <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-[12px]">
+            <dt className="text-muted-foreground">Pedidos recebidos, inclusive cancelados</dt>
+            <dd className="font-semibold tabular-nums text-foreground">{dados.composicao.pedidosBrutos}</dd>
+            <dt className="text-muted-foreground">Cancelados e devolvidos</dt>
+            <dd className="font-semibold tabular-nums text-destructive">− {dados.composicao.canceladosDevolvidos}</dd>
+            <dt className="border-t border-border pt-1.5 font-semibold text-foreground">Faturamento exibido</dt>
+            <dd className="border-t border-border pt-1.5 font-bold tabular-nums text-foreground">{dados.total}</dd>
+          </dl>
+          <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
+            Alguns painéis de canal chamam o primeiro valor de total bruto. Compare a mesma regra e o mesmo período antes de tratar a diferença como pedido ausente.
+          </p>
+        </div>
+      )}
 
       {/* A frase que fecha o entendimento: bruto responde "quanto vendi",
           líquido responde "quanto sobrou". Sem isso, as duas listas explicam o
@@ -500,13 +525,13 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
 
   return (
     <Card>
-      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaFaturamentoBotao />} />
+      <AcaoSlotFiltro scope={scope} acaoSlot={acaoSlot} extra={<EntendaFaturamentoBotao dados={dados} />} />
       {/* Mobile: ⓘ como bolinha à esquerda do toggle Bruto/Líquido, na mesma
           linha. O botão com rótulo ("Entenda o faturamento") só existe de
           `sm` pra cima, via `extra` do AcaoSlotFiltro acima. */}
       {acaoSlot && createPortal(
         <div className="flex items-center gap-2 sm:hidden">
-          <EntendaFaturamentoBotao compacto />
+          <EntendaFaturamentoBotao compacto dados={dados} />
           <TipoToggle liquido={liquido} aoTrocarLiquido={aoTrocarLiquido} />
         </div>,
         acaoSlot,

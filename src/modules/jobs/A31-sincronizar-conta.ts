@@ -105,6 +105,7 @@ export const A31_sincronizarConta = inngest.createFunction(
     const solicitados = new Set<ModuloSincronizacao>(
       modulos?.length ? modulos.filter((item) => MODULOS_SINCRONIZACAO.includes(item)) : MODULOS_SINCRONIZACAO,
     );
+    const origemExecucao = reconciliacao ? "A34" : "manual";
 
     const conta = await step.run("buscar-conta", () =>
       db
@@ -128,8 +129,8 @@ export const A31_sincronizarConta = inngest.createFunction(
 
     function patchResultado(modulo: ModuloSincronizacao, resultado: unknown): ExecucaoPatch {
       const completo = resultado && typeof resultado === "object"
-        ? { ...resultado, progresso: 100 }
-        : { valor: resultado, progresso: 100 };
+        ? { ...resultado, progresso: 100, origem: origemExecucao }
+        : { valor: resultado, progresso: 100, origem: origemExecucao };
       return patchStatus(modulo, "concluido", { [COLUNAS[modulo].resultado]: completo } as ExecucaoPatch);
     }
 
@@ -142,6 +143,7 @@ export const A31_sincronizarConta = inngest.createFunction(
         [COLUNAS[modulo].resultado]: {
           ...detalhe,
           progresso: Math.max(1, Math.min(99, Math.round(progresso))),
+          origem: origemExecucao,
         },
       } as ExecucaoPatch);
     }
@@ -170,7 +172,7 @@ export const A31_sincronizarConta = inngest.createFunction(
       trabalho: () => Promise<unknown>,
     ): Promise<{ ok: true; resultado: unknown } | { ok: false; erro: string }> {
       await step.run(`${modulo}-em-andamento`, () => atualizarExecucao(patchStatus(modulo, "em_andamento", {
-        [COLUNAS[modulo].resultado]: { progresso: 1 },
+        [COLUNAS[modulo].resultado]: { progresso: 1, origem: origemExecucao },
       } as ExecucaoPatch)));
       try {
         const resultado = await executar(trabalho);

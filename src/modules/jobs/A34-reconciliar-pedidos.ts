@@ -2,11 +2,19 @@ import { and, eq, inArray } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
-import { dispararSincronizacaoConta } from "@/modules/canais/application/sincronizacao.service";
+import {
+  dispararSincronizacaoConta,
+  ReconciliacaoAdiadaError,
+} from "@/modules/canais/application/sincronizacao.service";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { finalizarJob, iniciarJob } from "./job-monitor";
 import { incorporarQuarentenaPedidos } from "@/modules/vendas/application/quarentena-pedidos.service";
 import { reprocessarFilaAberta } from "@/modules/vendas/application/pedidos-ignorados.service";
+import {
+  reconciliacaoFalhouPorCompleto,
+  resumirResultadosReconciliacao,
+  type ResultadoReconciliacaoConta,
+} from "@/modules/canais/domain/resultado-reconciliacao";
 
 /* ── Por que este job existe ──────────────────────────────────────
    O caminho normal de um pedido novo é o webhook do canal. A contingência é a
@@ -79,7 +87,7 @@ export const A34_reconciliarPedidos = inngest.createFunction(
 
       const desde = new Date(Date.now() - DIAS_RECONCILIACAO * 24 * 60 * 60 * 1_000);
       const ctx: CrudContext = { orgId, perfil: "admin", db };
-      const resultados: Array<{ contaId: string; tipo: string; marca: string; execucaoId?: string; pulado?: string }> = [];
+      const resultados: ResultadoReconciliacaoConta[] = [];
 
       for (const conta of contas) {
         /* Falha de uma conta não derruba a volta: a próxima conta ainda tem o
@@ -101,8 +109,12 @@ export const A34_reconciliarPedidos = inngest.createFunction(
             return { contaId: conta.id, tipo: conta.tipo, marca: conta.brandSlug, execucaoId: execucao.id };
           } catch (error) {
             const motivo = error instanceof Error ? error.message : String(error);
-            console.warn(`[A34] conta ${conta.brandSlug}/${conta.tipo} pulada: ${motivo}`);
-            return { contaId: conta.id, tipo: conta.tipo, marca: conta.brandSlug, pulado: motivo };
+            if (error instanceof ReconciliacaoAdiadaError) {
+              console.info(`[A34] conta ${conta.brandSlug}/${conta.tipo} adiada: ${motivo}`);
+              return { contaId: conta.id, tipo: conta.tipo, marca: conta.brandSlug, adiada: motivo };
+            }
+            console.warn(`[A34] conta ${conta.brandSlug}/${conta.tipo} falhou: ${motivo}`);
+            return { contaId: conta.id, tipo: conta.tipo, marca: conta.brandSlug, erro: motivo };
           }
         });
         resultados.push(resultado);
@@ -111,18 +123,17 @@ export const A34_reconciliarPedidos = inngest.createFunction(
       const resumo = {
         dias: DIAS_RECONCILIACAO,
         desde: desde.toISOString(),
-        contas: resultados.length,
-        despachadas: resultados.filter((item) => item.execucaoId).length,
-        pulados: resultados.filter((item) => item.pulado).length,
+        ...resumirResultadosReconciliacao(resultados),
         resultados,
       };
 
-      /* Nenhuma conta despachada é sinal de problema sistêmico (credencial,
-         banco, evento não publicado) — aí vale falhar e ser visto no monitor.
-         Uma ou outra pulada não é: a volta cumpriu o que dava pra cumprir. */
-      if (resumo.pulados > 0 || resumo.despachadas === 0) {
+      /* Só falha a volta quando todas as contas tiveram erro real. Adiamento
+         por concorrência é esperado, e uma falha isolada não impede que as
+         demais contas sejam reconciliadas. O resumo mantém os três desfechos
+         separados para não transformar proteção de concorrência em alarme. */
+      if (reconciliacaoFalhouPorCompleto(resultados)) {
         throw new Error(
-          `A34 incompleta: ${resumo.despachadas} conta(s) despachadas e ${resumo.pulados} não despachadas. Conferir execuções por conta.`,
+          `A34 incompleta: todas as ${resumo.falhas} conta(s) falharam. Conferir execuções por conta.`,
         );
       }
 

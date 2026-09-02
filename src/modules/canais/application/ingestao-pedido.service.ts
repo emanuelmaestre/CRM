@@ -17,7 +17,11 @@ import {
   type PersistedDomainEvent,
 } from "@/shared/events";
 import type { PedidoNormalizado } from "../domain/ports";
-import { ErroSkuSemProduto, ehErroSkuSemProduto } from "../domain/errors";
+import {
+  ErroSkuSemProduto,
+  ehErroSkuSemProduto,
+  marcarErroComPedidoIgnoradoRegistrado,
+} from "../domain/errors";
 import { podeAplicarVersaoPedido } from "../domain/versao-pedido";
 import { preservarFinanceiroConfirmado } from "../domain/financeiro-confirmado";
 import { classificarCausa, registrarPedidoIgnorado, marcarPedidoIgnoradoResolvido } from "@/modules/vendas/application/registro-pedido-ignorado";
@@ -230,7 +234,7 @@ export async function ingerirPedido(
       skus: ehErroSkuSemProduto(error) ? error.skus ?? [] : [],
       payload: p as unknown as Record<string, unknown>,
     });
-    throw error;
+    throw marcarErroComPedidoIgnoradoRegistrado(error);
   }
 }
 

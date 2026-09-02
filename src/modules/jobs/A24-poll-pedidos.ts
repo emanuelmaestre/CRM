@@ -1,9 +1,9 @@
 import { and, eq, sql } from "drizzle-orm";
-import { inicioColetaPedidos } from "@/modules/canais/domain/cobertura-pedidos";
+import { inicioColetaPedidos, podeAvancarCoberturaPedidos } from "@/modules/canais/domain/cobertura-pedidos";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
-import { ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
+import { ehErroComPedidoIgnoradoRegistrado, ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { registrarVerificacaoCanal } from "@/modules/canais/application/verificacao-canal.service";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
@@ -103,13 +103,14 @@ export const A24_pollPedidos = inngest.createFunction(
           const meta = conta.meta as Record<string, unknown> | null;
           const desde = inicioColetaPedidos(Date.parse(ateIso), meta?.pedidosUltimaColetaCompleta, JANELA_BUSCA_MS);
           // Coleta alterações desde a última janela completa, com sobreposição.
-          // Só avançamos o marcador quando nenhum pedido ficou pendente.
+          // O marcador avança quando toda pendência já tem cópia durável.
           const pedidos = await step.run(`buscar-${conta.id}`, () => provider.buscarPedidos(desde, {
             campoData: "atualizacao", ate: new Date(ateIso),
           }));
           let novos = 0;
           let ignorados = 0;
           let falhasSemCausaConhecida = 0;
+          let falhasSemRegistro = 0;
           for (const pedido of pedidos) {
             const pedidoNormalizado = {
               ...pedido,
@@ -142,15 +143,37 @@ export const A24_pollPedidos = inngest.createFunction(
 
                 // Mesma distinção do A31: causa conhecida daquele pedido
                 // (SKU sem produto na marca) não conta pro freio sistêmico.
-                return { pedidoId: "", novo: false, falhou: true, porPedido: ehErroSkuSemProduto(error) };
+                return {
+                  pedidoId: "",
+                  novo: false,
+                  falhou: true,
+                  porPedido: ehErroSkuSemProduto(error),
+                  registrado: ehErroComPedidoIgnoradoRegistrado(error),
+                };
               }
             });
             if (resultado.novo) novos++;
             if ("falhou" in resultado && resultado.falhou) {
               ignorados++;
               if (!("porPedido" in resultado) || !resultado.porPedido) falhasSemCausaConhecida++;
+              if (!("registrado" in resultado) || !resultado.registrado) falhasSemRegistro++;
             }
           }
+          if (!podeAvancarCoberturaPedidos(falhasSemRegistro)) {
+            throw new Error(
+              `${falhasSemRegistro} pedido(s) falharam sem entrar na fila durável; a cobertura não será avançada.`,
+            );
+          }
+
+          // A busca no canal terminou e toda recusa está persistida. O marcador
+          // pode avançar mesmo com pendências: reconsultá-las em uma janela
+          // cada vez maior não ajuda, pois agora A34/fila manual são seus donos.
+          await step.run(`marcar-cobertura-${conta.id}`, () =>
+            db.update(channelAccount).set({
+              meta: sql`jsonb_set(coalesce(${channelAccount.meta}, '{}'::jsonb), '{pedidosUltimaColetaCompleta}', to_jsonb(${ateIso}::text), true)`,
+            }).where(and(eq(channelAccount.id, conta.id), eq(channelAccount.orgId, conta.orgId))),
+          );
+
           // Todos os pedidos falharem PODE ser problema sistêmico da conta —
           // cai no catch abaixo, que marca a conta como degradada. Mas numa
           // janela com um pedido só, "todos" é um pedido: um SKU sem produto
@@ -164,14 +187,9 @@ export const A24_pollPedidos = inngest.createFunction(
               Sincronização e conclui que o dado está velho cinco minutos
               depois dela — mandando buscar de novo, a cada tela aberta, o que
               esta volta já trouxe. */
-          if (ignorados === 0) {
-            await step.run(`marcar-verificado-${conta.id}`, async () => {
-              await db.update(channelAccount).set({
-                meta: sql`jsonb_set(coalesce(${channelAccount.meta}, '{}'::jsonb), '{pedidosUltimaColetaCompleta}', to_jsonb(${ateIso}::text), true)`,
-              }).where(and(eq(channelAccount.id, conta.id), eq(channelAccount.orgId, conta.orgId)));
-              await registrarVerificacaoCanal(conta.orgId, conta.id, "pedidos");
-            });
-          }
+          await step.run(`marcar-verificado-${conta.id}`, () =>
+            registrarVerificacaoCanal(conta.orgId, conta.id, "pedidos"),
+          );
           resultados.push({ contaId: conta.id, encontrados: pedidos.length, novos, ignorados });
         } catch (error) {
           resultados.push({ contaId: conta.id, encontrados: 0, novos: 0, erro: String(error) });
@@ -210,7 +228,7 @@ export const A24_pollPedidos = inngest.createFunction(
       // em 6.527 execuções, com média de 359s por falha e picos de ~17 min.
       // A conta problemática já ficou registrada em `resultados` e no evento
       // canal.degradado; a ingestão é idempotente, então o que ela deixou de
-      // trazer entra na próxima volta, quatro minutos depois.
+      // trazer entra na próxima volta, três horas depois.
       if (resumo.falhas > 0 && resumo.falhas === resumo.contas) {
         throw new Error(
           `A24 falhou em todas as ${resumo.contas} conta(s) conectada(s) — verifique credenciais e disponibilidade do canal.`,

@@ -34,3 +34,23 @@ export function ehErroSkuSemProduto(error: unknown): error is ErroSkuSemProduto 
   return error instanceof ErroSkuSemProduto
     || (error instanceof Error && error.name === "ErroSkuSemProduto");
 }
+
+const PEDIDO_IGNORADO_REGISTRADO = Symbol.for("crm.pedidoIgnoradoRegistrado");
+
+/** Marca o erro original depois que seu payload foi persistido na fila de
+ * recuperação. Preservar a instância mantém classificação, mensagem e SKUs
+ * para todos os chamadores existentes. */
+export function marcarErroComPedidoIgnoradoRegistrado(error: unknown): Error {
+  const normalizado = error instanceof Error ? error : new Error(String(error));
+  Object.defineProperty(normalizado, PEDIDO_IGNORADO_REGISTRADO, {
+    value: true,
+    enumerable: false,
+    configurable: false,
+  });
+  return normalizado;
+}
+
+export function ehErroComPedidoIgnoradoRegistrado(error: unknown): boolean {
+  return error instanceof Error
+    && (error as Error & { [PEDIDO_IGNORADO_REGISTRADO]?: boolean })[PEDIDO_IGNORADO_REGISTRADO] === true;
+}
