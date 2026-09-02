@@ -277,4 +277,112 @@ describe("CalendarioPopoverRange", () => {
 
     expect(screen.getByText("31 dias")).toBeInTheDocument();
   });
+
+  /* ── Deslize lateral troca o mês (folha: celular e tablet) ──────────────
+     Arrastar pra esquerda vai pro mês da frente, pra direita pro de trás. */
+  function areaDosMeses(): HTMLElement {
+    const area = screen.getByRole("dialog").querySelector<HTMLElement>(".touch-pan-y");
+    if (!area) throw new Error("área dos meses não encontrada");
+    return area;
+  }
+
+  function deslizar(dx: number, dy = 0, alvo?: HTMLElement) {
+    const area = areaDosMeses();
+    const origem = alvo ?? area;
+    fireEvent.touchStart(area, { touches: [{ clientX: 200, clientY: 300 }] });
+    fireEvent.touchEnd(area, { changedTouches: [{ clientX: 200 + dx, clientY: 300 + dy }] });
+    // O navegador dispara o clique no elemento sob o dedo ao levantar.
+    if (alvo) fireEvent.click(origem);
+  }
+
+  it("deslizar para a esquerda avança um mês; para a direita volta", () => {
+    const restaurar = comLarguraDeCelular();
+    try {
+      render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+      expect(screen.getByText("Agosto de 2026")).toBeInTheDocument();
+
+      deslizar(-120);
+      expect(screen.getByText("Setembro de 2026")).toBeInTheDocument();
+
+      deslizar(120);
+      deslizar(120);
+      expect(screen.getByText("Julho de 2026")).toBeInTheDocument();
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("toque curto ou movimento mais vertical que horizontal não troca o mês", () => {
+    const restaurar = comLarguraDeCelular();
+    try {
+      render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+      deslizar(-20); // abaixo do mínimo: dedo tremido de quem só quis tocar
+      expect(screen.getByText("Agosto de 2026")).toBeInTheDocument();
+
+      deslizar(-80, 200); // rolagem torta da grade, não um deslize
+      expect(screen.getByText("Agosto de 2026")).toBeInTheDocument();
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("o clique que fecha o deslize não seleciona a data sob o dedo", () => {
+    const restaurar = comLarguraDeCelular();
+    const onChange = vi.fn();
+    try {
+      render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={onChange} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+      const dia = document.querySelector('[data-date="2026-08-12"]') as HTMLElement;
+      deslizar(-120, 0, dia);
+
+      expect(screen.getByText("Setembro de 2026")).toBeInTheDocument();
+      expect(screen.getByText(/escolha a data inicial/i)).toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("com um início já fixado, arrastar pinta o intervalo em vez de trocar de mês", () => {
+    const restaurar = comLarguraDeCelular();
+    try {
+      render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+      fireEvent.click(document.querySelector('[data-date="2026-08-10"]') as HTMLElement);
+
+      deslizar(-120);
+      expect(screen.getByText("Agosto de 2026")).toBeInTheDocument();
+      expect(screen.getByText(/agora escolha a data final/i)).toBeInTheDocument();
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("o deslize respeita o limite: não passa do mês do max", () => {
+    const restaurar = comLarguraDeCelular();
+    try {
+      render(
+        <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} max="2026-08-20" onChange={vi.fn()} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+      deslizar(-120);
+      expect(screen.getByText("Agosto de 2026")).toBeInTheDocument();
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("no desktop o deslize não troca o mês — lá as duas setas e os dois meses já resolvem", () => {
+    render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Período" }));
+    expect(screen.getByText("Agosto de 2026")).toBeInTheDocument();
+
+    deslizar(-120);
+    expect(screen.getByText("Agosto de 2026")).toBeInTheDocument();
+  });
 });

@@ -39,6 +39,10 @@ const ALTURA_PAINEL_ESTIMADA = 420;
  *  e os atalhos ocupam uma fileira própria. */
 const ALTURA_PAINEL_FOLHA = 470;
 const ALTURA_MINIMA_PAINEL = 260;
+/** Deslocamento horizontal, em px, a partir do qual um toque deixa de ser
+ *  toque e vira deslize de mes. Abaixo disso, o dedo tremido de quem so quis
+ *  escolher um dia trocaria o mes por acidente. */
+const DESLIZE_MINIMO = 45;
 const MARGEM_VIEWPORT = 8;
 const PULSO_MS = 320;
 
@@ -183,6 +187,9 @@ interface MesProps {
   /** Celula de 44px em vez de 36px -- so no painel de fora a fora, onde ha
    *  largura sobrando e o dedo e o ponteiro. */
   celulaAlta: boolean;
+  /** De que lado a grade do mes novo entra: -1 voltou, 1 avancou, 0 sem
+   *  animacao (primeira abertura). */
+  direcaoMes: number;
   foraDoLimite: (dia: Date) => boolean;
   papel: (dia: Date) => "inicio" | "fim" | "meio" | "unico" | null;
   onEscolher: (dia: Date) => void;
@@ -198,7 +205,7 @@ interface MesProps {
 /** Fora do componente principal — recriar isto a cada render perderia o
  *  estado interno do `useMemo` da grade e disparava o aviso do lint de
  *  "componente criado durante o render". */
-function Mes({ mes, direcaoNav, onAnterior, onProximo, podeAnterior, podeProximo, celulaAlta, foraDoLimite, papel, onEscolher, onHover, pulsando, reduzir, accent }: MesProps) {
+function Mes({ mes, direcaoNav, onAnterior, onProximo, podeAnterior, podeProximo, celulaAlta, direcaoMes, foraDoLimite, papel, onEscolher, onHover, pulsando, reduzir, accent }: MesProps) {
   const grade = useMemo(() => montarGrade(mes), [mes]);
   /* No desktop cada mes carrega uma seta (o da esquerda volta, o da direita
      avanca). Com um mes so na tela, `direcaoNav` chega `undefined` -- e a
@@ -246,7 +253,19 @@ function Mes({ mes, direcaoNav, onAnterior, onProximo, podeAnterior, podeProximo
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1 px-1 pt-1">
+      {/* So a GRADE escorrega. O cabecalho com o titulo e as setas fica
+          montado: remontar as setas junto devolveria o foco do teclado pro
+          nada a cada mes, e quem navega com Enter perderia o botao debaixo do
+          dedo. Um bloco por vez na arvore -- com `AnimatePresence` haveria
+          dois meses montados no cruzamento e uma busca por `[data-date]`
+          acharia o dia errado. */}
+      <motion.div
+        key={`${mes.getFullYear()}-${mes.getMonth()}`}
+        className="grid grid-cols-7 gap-y-1 px-1 pt-1"
+        initial={reduzir || direcaoMes === 0 ? false : { opacity: 0, x: direcaoMes * 26 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: reduzir ? 0 : 0.26, ease: [0.22, 1, 0.36, 1] }}
+      >
         {grade.map((dia) => {
           const foraDoMes = !isSameMonth(dia, mes);
           const hoje = isToday(dia);
@@ -286,7 +305,7 @@ function Mes({ mes, direcaoNav, onAnterior, onProximo, podeAnterior, podeProximo
             </div>
           );
         })}
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -332,6 +351,14 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   const [inicioRascunho, setInicioRascunho] = useState<Date | null>(null);
   const [hoverDia, setHoverDia] = useState<Date | null>(null);
   const [mesVisivel, setMesVisivel] = useState(() => inicioSelecionado ?? new Date());
+  /** De que lado o mes novo entra: -1 veio da esquerda (voltou), 1 da direita
+   *  (avancou). So alimenta a animacao. */
+  const [direcaoMes, setDirecaoMes] = useState(0);
+  /** Onde o dedo encostou, pra medir o deslize no fim do toque. */
+  const toqueInicio = useRef<{ x: number; y: number } | null>(null);
+  /** Um deslize termina com um `click` no dia onde o dedo levantou. Sem esta
+   *  trava, arrastar pra trocar de mes selecionava uma data no caminho. */
+  const deslizou = useRef(false);
 
   useLayoutEffect(() => {
     if (!aberto || !gatilhoRef.current) return;
@@ -410,6 +437,12 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   }
 
   function escolher(dia: Date) {
+    /* O `click` que o navegador dispara no fim de um deslize cai no dia sob
+       o dedo. Consome a trava e nao seleciona nada. */
+    if (deslizou.current) {
+      deslizou.current = false;
+      return;
+    }
     if (foraDoLimite(dia)) return;
     if (!inicioRascunho) {
       setInicioRascunho(dia);
@@ -445,6 +478,43 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   /** "Limpar" so aparece quando ha o que limpar — um botao que nao faz nada
    *  gasta a unica fileira de acoes que a folha tem. */
   const podeLimpar = Boolean(valor.inicio || valor.fim || inicioRascunho);
+
+  /** Uma unica porta pra trocar de mes: as setas, o deslize e qualquer coisa
+   *  futura passam por aqui, entao a direcao da animacao nunca fica
+   *  dessincronizada do movimento que a causou. */
+  function irParaMes(passo: -1 | 1) {
+    if (passo === -1 && !podeAnterior) return;
+    if (passo === 1 && !podeProximo) return;
+    setDirecaoMes(passo);
+    setMesVisivel((atual) => addMonths(atual, passo));
+  }
+
+  /* ── Deslize lateral troca o mes (so na folha: celular e tablet) ────────
+     No desktop os dois meses ja aparecem lado a lado e ha uma seta em cada
+     ponta -- deslizar ali nao resolve problema nenhum e atrapalharia quem
+     arrasta pra selecionar um intervalo. */
+  function aoEncostar(evento: EventoToque<HTMLDivElement>) {
+    const toque = evento.touches[0];
+    toqueInicio.current = toque ? { x: toque.clientX, y: toque.clientY } : null;
+    deslizou.current = false;
+  }
+
+  function aoLevantar(evento: EventoToque<HTMLDivElement>) {
+    const partida = toqueInicio.current;
+    toqueInicio.current = null;
+    /* Com um inicio ja fixado, arrastar significa "escolher o fim do
+       intervalo" -- o gesto de pintar tem precedencia sobre o de navegar. */
+    if (!partida || !posicao?.folha || inicioRascunho) return;
+    const toque = evento.changedTouches[0];
+    if (!toque) return;
+    const dx = toque.clientX - partida.x;
+    const dy = toque.clientY - partida.y;
+    /* Exige que o movimento seja mais horizontal que vertical: a grade rola
+       na vertical e uma rolagem meio torta nao pode virar troca de mes. */
+    if (Math.abs(dx) < DESLIZE_MINIMO || Math.abs(dx) <= Math.abs(dy)) return;
+    deslizou.current = true;
+    irParaMes(dx < 0 ? 1 : -1);
+  }
 
   /** Arrastar o dedo depois do primeiro toque pinta o intervalo ao vivo, como
    *  o mouse ja fazia. `onMouseEnter` nunca dispara no touch: o dedo nao tem
@@ -622,15 +692,25 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
 
       {/* `flex-1` + `overflow-y-auto`: quando o teto de altura aperta, quem rola
           e a grade -- cabecalho e rodape ficam presos e sempre alcancaveis. */}
-      <div className="flex flex-1 gap-3 overflow-y-auto overscroll-contain p-3" onMouseLeave={() => setHoverDia(null)} onTouchMove={aoArrastar}>
+      {/* `touch-pan-y`: libera a rolagem vertical da grade e reserva o eixo
+          horizontal pro deslize, senao o navegador leva o gesto pra navegacao
+          de voltar pagina antes de ele chegar aqui. */}
+      <div
+        className="flex flex-1 touch-pan-y gap-3 overflow-y-auto overscroll-contain p-3"
+        onMouseLeave={() => setHoverDia(null)}
+        onTouchStart={aoEncostar}
+        onTouchMove={aoArrastar}
+        onTouchEnd={aoLevantar}
+      >
         <Mes
           mes={mesEsquerda}
           direcaoNav={posicao.doisMeses ? "esquerda" : undefined}
-          onAnterior={() => setMesVisivel((atual) => subMonths(atual, 1))}
-          onProximo={() => setMesVisivel((atual) => addMonths(atual, 1))}
+          onAnterior={() => irParaMes(-1)}
+          onProximo={() => irParaMes(1)}
           podeAnterior={podeAnterior}
           podeProximo={podeProximo}
           celulaAlta={posicao.folha}
+          direcaoMes={direcaoMes}
           foraDoLimite={foraDoLimite}
           papel={dentroDoIntervaloPreview}
           onEscolher={escolher}
@@ -643,11 +723,12 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
           <Mes
             mes={mesDireita}
             direcaoNav="direita"
-            onAnterior={() => setMesVisivel((atual) => subMonths(atual, 1))}
-            onProximo={() => setMesVisivel((atual) => addMonths(atual, 1))}
+            onAnterior={() => irParaMes(-1)}
+            onProximo={() => irParaMes(1)}
             podeAnterior={podeAnterior}
             podeProximo={podeProximo}
             celulaAlta={posicao.folha}
+            direcaoMes={direcaoMes}
             foraDoLimite={foraDoLimite}
             papel={dentroDoIntervaloPreview}
             onEscolher={escolher}
