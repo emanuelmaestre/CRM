@@ -89,6 +89,45 @@ function useEsperaRestante(liberadoEm: number): number {
   return faltamSegundos(liberadoEm);
 }
 
+/** Âmbar do estado "o dado é de antes". Em rgb solto pra compor opacidade
+ *  nos gradientes e nas camadas sem depender de `color-mix` aninhado, que
+ *  nem todo Safari em uso por aqui digere. */
+const AMBAR = "245 158 11";
+
+/** Anel que se esvazia enquanto o intervalo mínimo corre.
+ *
+ *  Trocar o ícone de recarregar por um número ("Em 4:59") diz quanto falta,
+ *  mas não dá a sensação de que algo está andando — o botão parece só
+ *  quebrado. O arco descendo devolve o movimento: dá pra ver que a espera
+ *  tem fim sem precisar ler o relógio.
+ *
+ *  Quem mede o tempo é a própria animação, num tween linear único do arco
+ *  cheio até o vazio. Recalcular a fração a cada segundo exigiria guardar o
+ *  ponto de partida em estado, e um `setState` por batida de relógio é
+ *  exatamente a cascata de renders que não se quer numa tarja que fica na
+ *  tela. O número ao lado continua vindo do relógio de verdade — se a aba
+ *  dormir, é ele que manda, e o arco é o enfeite. */
+function AnelEspera({ restante }: { restante: number }) {
+  const raio = 6.5;
+  const volta = 2 * Math.PI * raio;
+  /* Inicialização preguiçosa: a duração é a que valia quando o anel entrou.
+     O pai remonta este componente a cada prazo novo (`key={liberadoEm}`), e
+     congelar aqui impede que a animação reinicie a cada segundo. */
+  const [duracao] = useState(() => Math.max(1, restante));
+  return (
+    <svg width={15} height={15} viewBox="0 0 16 16" aria-hidden className="shrink-0">
+      <circle cx="8" cy="8" r={raio} fill="none" stroke="currentColor" strokeWidth="2" opacity={0.2} />
+      <motion.circle
+        cx="8" cy="8" r={raio} fill="none" stroke="currentColor" strokeWidth="2"
+        strokeLinecap="round" transform="rotate(-90 8 8)" strokeDasharray={volta}
+        initial={{ strokeDashoffset: 0 }}
+        animate={{ strokeDashoffset: volta }}
+        transition={{ duration: duracao, ease: "linear" }}
+      />
+    </svg>
+  );
+}
+
 /** Tarja de dado não confirmado.
  *
  *  Substitui o apagão que existia aqui. Esconder a tela inteira porque um
@@ -141,60 +180,162 @@ function TarjaNaoConfirmado({
          cobrir os ícones para avisar de dado velho seria trocar um problema
          por outro. */
       className="material-thick fixed inset-x-3 bottom-[calc(var(--bottom-nav-h,64px)_+_env(safe-area-inset-bottom)_+_0.75rem)] z-30 mx-auto flex w-fit max-w-[min(100%,34rem)] flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-3.5 py-2.5 md:bottom-6"
-      initial={reduzir ? false : { opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={reduzir ? { opacity: 0 } : { opacity: 0, y: 14 }}
-      transition={{ duration: reduzir ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+      /* O material padrão deixa passar 15% do que está atrás. Sobre uma lista
+         densa isso vira texto da página cruzando o aviso — a tarja pedia pra
+         ser lida e era o que menos dava pra ler. Sobe pra 96% e a borda ganha
+         a cor do estado: âmbar enquanto o dado é de antes, neutra enquanto o
+         servidor está sendo consultado de novo. */
+      style={{
+        background: `color-mix(in srgb, var(--card) 96%, transparent)`,
+        borderColor: ocupado
+          ? "color-mix(in srgb, var(--foreground) 12%, transparent)"
+          : `rgb(${AMBAR} / 0.42)`,
+      }}
+      initial={reduzir ? false : { opacity: 0, y: 14, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={reduzir ? { opacity: 0 } : { opacity: 0, y: 10, scale: 0.98 }}
+      transition={{ duration: reduzir ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}
       aria-busy={ocupado || undefined}
     >
-      <span className="shrink-0" aria-hidden>
-        {ocupado
-          ? <Loader2 size={17} className="animate-spin text-muted-foreground" />
-          : <CloudOff size={17} className="text-amber-500" />}
+      {/* Lavagem âmbar por baixo do conteúdo — some quando a tarja passa a
+          "consultando", que é um estado de trabalho, não de alerta. */}
+      <AnimatePresence initial={false}>
+        {!ocupado && (
+          <motion.span
+            key="lavagem"
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-2xl"
+            style={{ background: `rgb(${AMBAR} / 0.07)` }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Respiração lenta do contorno. A tarja fica na tela até alguém agir,
+          e um retângulo parado no rodapé some da vista em trinta segundos —
+          o pulso mantém presença sem gritar nem competir com o conteúdo. */}
+      {!ocupado && !reduzir && (
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute -inset-px rounded-2xl"
+          style={{ boxShadow: `0 0 0 1px rgb(${AMBAR} / 0.5), 0 0 24px -8px rgb(${AMBAR})` }}
+          animate={{ opacity: [0.5, 0.14, 0.5] }}
+          transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
+
+      {/* Varredura na aresta de cima enquanto os canais são consultados: o
+          spinner diz "estou ocupado", a varredura diz "e isto aqui é a tarja
+          que está trabalhando". */}
+      {ocupado && (
+        <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[2px] overflow-hidden rounded-t-2xl">
+          <motion.span
+            className="absolute inset-y-0 w-1/3"
+            style={{ background: "linear-gradient(90deg, transparent, var(--foreground), transparent)", opacity: 0.45 }}
+            initial={{ x: "-120%" }}
+            animate={reduzir ? { x: "150%" } : { x: ["-120%", "320%"] }}
+            transition={reduzir ? { duration: 0 } : { duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </span>
+      )}
+
+      {/* Ícone gira ao trocar de estado em vez de piscar de um pro outro —
+          a nuvem cortada vira o carretel, e a troca fica legível. */}
+      <span className="relative z-10 flex h-[17px] w-[17px] shrink-0 items-center justify-center" aria-hidden>
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span
+            key={ocupado ? "consultando" : "parado"}
+            className="absolute inset-0 flex items-center justify-center"
+            initial={reduzir ? false : { opacity: 0, scale: 0.5, rotate: -100 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            exit={reduzir ? { opacity: 0 } : { opacity: 0, scale: 0.5, rotate: 100 }}
+            transition={{ duration: reduzir ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {ocupado
+              ? <Loader2 size={17} className="animate-spin text-muted-foreground" />
+              : <CloudOff size={17} style={{ color: `rgb(${AMBAR})` }} />}
+          </motion.span>
+        </AnimatePresence>
       </span>
 
       {/* Só o texto é região viva: com o botão dentro, o leitor de tela
           reanunciaria a tarja inteira a cada segundo do relógio regressivo. */}
-      <div role="status" aria-live="polite" className="min-w-[11rem] flex-1">
-        <p className="text-[0.8125rem] font-semibold leading-snug text-foreground">
+      <div role="status" aria-live="polite" className="relative z-10 min-w-[11rem] flex-1">
+        {/* Sem `AnimatePresence`: durante um cruzamento haveria dois nós com o
+            mesmo texto na árvore, e tanto o leitor de tela quanto uma busca
+            por texto veriam a frase em dobro. Trocar a chave remonta e o nó
+            continua sendo um só. */}
+        <motion.p
+          key={ocupado ? "titulo-ocupado" : "titulo-parado"}
+          className="text-[0.8125rem] font-semibold leading-snug text-foreground"
+          initial={reduzir ? false : { opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reduzir ? 0 : 0.26, ease: [0.22, 1, 0.36, 1] }}
+        >
           {ocupado
             ? "Confirmando com os canais…"
             : carimbo
-              ? <>Mostrando os dados de <span className="tabular-nums">{carimbo}</span></>
+              /* A hora é o dado da tarja: é ela que diz de quando é o número
+                 que está na tela. Ganha o âmbar e o peso pra ser lida antes
+                 do resto da frase. */
+              ? <>Mostrando os dados de <span className="font-bold tabular-nums" style={{ color: `rgb(${AMBAR})` }}>{carimbo}</span></>
               : "Dados sem confirmação agora"}
-        </p>
-        <p className="mt-0.5 text-xs leading-snug text-muted-foreground">
+        </motion.p>
+        <motion.p
+          key={ocupado ? "motivo-ocupado" : "motivo-parado"}
+          className="mt-0.5 text-xs leading-snug text-muted-foreground"
+          initial={reduzir ? false : { opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: reduzir ? 0 : 0.26, delay: reduzir ? 0 : 0.04, ease: [0.22, 1, 0.36, 1] }}
+        >
           {ocupado
             ? carimbo ? `Os dados de ${carimbo} seguem na tela.` : "Os dados atuais seguem na tela."
             : motivo}
-        </p>
+        </motion.p>
       </div>
 
-      <div className="ml-auto flex shrink-0 items-center gap-1">
+      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-1">
         {!ocupado && (
-          <button
+          <motion.button
             type="button"
             onClick={tentarNovamente}
             disabled={esperando}
             title={esperando
               ? `Os canais foram consultados há pouco. Nova tentativa em ${relogioRegressivo(espera)}.`
               : undefined}
-            className="press-feedback inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-55"
+            /* `min-w` fixo: "Tentar novamente" e "Em 4:59" têm larguras bem
+               diferentes, e sem isso o botão encolhia no clique e a tarja
+               inteira pulava de tamanho junto. */
+            className="press-feedback inline-flex min-w-[8.75rem] items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors disabled:pointer-events-none disabled:opacity-70"
+            style={{
+              borderColor: esperando ? "var(--border)" : `rgb(${AMBAR} / 0.45)`,
+              background: esperando ? "transparent" : `rgb(${AMBAR} / 0.1)`,
+            }}
+            whileHover={esperando || reduzir ? undefined : { scale: 1.03 }}
+            whileTap={esperando || reduzir ? undefined : { scale: 0.96 }}
           >
-            <RotateCw size={13} aria-hidden />
+            {esperando
+              ? <AnelEspera key={liberadoEm} restante={espera} />
+              : <RotateCw size={13} aria-hidden style={{ color: `rgb(${AMBAR})` }} />}
             {esperando
               ? <span className="tabular-nums">Em {relogioRegressivo(espera)}</span>
               : "Tentar novamente"}
-          </button>
+          </motion.button>
         )}
-        <button
+        <motion.button
           type="button"
           onClick={dispensar}
           aria-label="Dispensar o aviso"
           className="press-feedback rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          whileHover={reduzir ? undefined : { rotate: 90 }}
+          whileTap={reduzir ? undefined : { scale: 0.9 }}
+          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         >
           <X size={15} aria-hidden />
-        </button>
+        </motion.button>
       </div>
     </motion.div>
   );
