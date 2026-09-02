@@ -15,6 +15,7 @@ import {
   resumirResultadosReconciliacao,
   type ResultadoReconciliacaoConta,
 } from "@/modules/canais/domain/resultado-reconciliacao";
+import { EVENTO_RECONCILIAR_PEDIDOS } from "./eventos-operacionais";
 
 /* ── Por que este job existe ──────────────────────────────────────
    O caminho normal de um pedido novo é o webhook do canal. A contingência é a
@@ -52,7 +53,10 @@ export const A34_reconciliarPedidos = inngest.createFunction(
     id: "A34-reconciliar-pedidos",
     name: `A34 — Reconciliação diária de pedidos (últimos ${DIAS_RECONCILIACAO} dias)`,
     concurrency: { limit: 1 },
-    triggers: [{ cron: "0 5 * * *" }],
+    triggers: [
+      { cron: "0 5 * * *" },
+      { event: EVENTO_RECONCILIAR_PEDIDOS },
+    ],
   },
   async ({ step, attempt }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";

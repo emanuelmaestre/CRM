@@ -4,6 +4,7 @@ import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { auditarPedidosDaConta, type ResumoAuditoria } from "@/modules/vendas/application/conferencia-financeira.service";
 import { finalizarJob, iniciarJob } from "./job-monitor";
+import { EVENTO_AUDITAR_FINANCEIRO } from "./eventos-operacionais";
 
 /* ── Por que este job existe ──────────────────────────────────────
    Os valores financeiros de um pedido chegam de APIs diferentes e não fecham
@@ -31,7 +32,10 @@ export const A35_auditarFinanceiro = inngest.createFunction(
     id: "A35-auditar-financeiro",
     name: "A35 — Conferência financeira (re-busca e resolução)",
     concurrency: { limit: 1 },
-    triggers: [{ cron: "0 6 * * *" }],
+    triggers: [
+      { cron: "0 6 * * *" },
+      { event: EVENTO_AUDITAR_FINANCEIRO },
+    ],
   },
   async ({ step, attempt }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
