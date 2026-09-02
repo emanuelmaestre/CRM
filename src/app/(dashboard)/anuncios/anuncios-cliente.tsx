@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { BarChart3, BellRing, GitCompare, History, Package, PlugZap2 } from "lucide-react";
+import { BarChart3, GitCompare, History, Package, PlugZap2 } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -491,7 +491,6 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
 
   const marca = dados.marcas.find((item) => item.brandId === marcaAtiva) ?? dados.marcas[0];
   const marcaAnterior = consulta.anterior?.marcas.find((item) => item.brandId === marca.brandId) ?? null;
-  const totalDeAlertas = marca.alertasIndividuais.length + marca.alertasAgrupados.length;
   // Período/Hoje pintam com a cor da marca ativa — mesma identidade que já
   // aparece na logo dela na pílula de seleção, em vez de um teal genérico.
   const acentoMarca = isBrandSlug(marca.brandSlug) ? getBrandConfig(marca.brandSlug)?.color : undefined;
@@ -597,24 +596,6 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
           </span>
           <span className="lg:hidden">Campanhas</span><span className="hidden lg:inline">{copy.campanhas.verTodas}</span>
         </Link>
-        {/* A Central de Alertas existia, funcionava e não tinha porta: nenhum
-            link no app apontava pra ela. Entra aqui, junto das outras telas
-            irmãs, com o contador do que há pra ver — um atalho que sempre diz
-            "0" só ocupa espaço, então some quando não há alerta nenhum. */}
-        {totalDeAlertas > 0 && (
-          <Link
-            href="/publicidade/alertas"
-            className="group inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-border bg-card pl-1.5 pr-3.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-[#D97706] hover:text-foreground lg:justify-start"
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: tint("#D97706", 9), color: "#D97706" }}>
-              <BellRing size={14} />
-            </span>
-            <span className="lg:hidden">Alertas</span><span className="hidden lg:inline">{copy.atencao.verTodas}</span>
-            <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums" style={{ background: tint("#D97706", 14), color: "#D97706" }}>
-              {inteiro.format(totalDeAlertas)}
-            </span>
-          </Link>
-        )}
       </div>
 
       {/* Vem antes dos números, não depois: é o que evita ler a receita dos

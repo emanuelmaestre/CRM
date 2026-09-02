@@ -114,13 +114,29 @@ describe("CalendarioPopoverRange", () => {
     }
   });
 
-  it("o painel de um mês só abre de fora a fora, colado nas duas bordas", () => {
+  /* O painel colava nas duas bordas da tela e parecia uma tela nova em vez de
+     algo sobreposto. Agora e uma folha flutuante: recuo de 16px de cada lado,
+     centralizada, com a pagina aparecendo em volta. */
+  it("o painel de um mês só flutua, com respiro nas duas laterais", () => {
     const restaurar = comLarguraDeCelular(390);
     try {
       render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
       fireEvent.click(screen.getByRole("button", { name: "Período" }));
 
-      expect(screen.getByRole("dialog")).toHaveStyle({ width: "390px", left: "0px" });
+      // 390 - 16 de cada lado = 358, centralizada em 16.
+      expect(screen.getByRole("dialog")).toHaveStyle({ width: "358px", left: "16px" });
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("a folha nunca passa de 420px, mesmo num tablet estreito", () => {
+    const restaurar = comLarguraDeCelular(640);
+    try {
+      render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+      expect(screen.getByRole("dialog")).toHaveStyle({ width: "420px", left: "110px" });
     } finally {
       restaurar();
     }
@@ -134,36 +150,51 @@ describe("CalendarioPopoverRange", () => {
     expect(screen.getByRole("dialog")).toHaveStyle({ width: "616px" });
   });
 
-  it('"Mês passado" aplica o mês anterior inteiro, do dia 1 ao último', () => {
+  /* "Mês passado" saiu em 02/09/2026: sobraram quatro atalhos, que e quanto
+     cabe numa fileira unica de larguras iguais. */
+  it("os atalhos são exatamente quatro, todos terminando em hoje", () => {
+    render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+    for (const nome of ["Hoje", "7 dias", "30 dias", "Este mês"]) {
+      expect(screen.getByRole("button", { name: nome })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: "Mês passado" })).not.toBeInTheDocument();
+  });
+
+  it('atalho "Este mês" vai do dia 1 até hoje', () => {
     const onChange = vi.fn();
     render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={onChange} />);
     fireEvent.click(screen.getByRole("button", { name: "Período" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Mês passado" }));
-    expect(onChange).toHaveBeenCalledWith({ inicio: "2026-07-01", fim: "2026-07-31" });
+    fireEvent.click(screen.getByRole("button", { name: "Este mês" }));
+    expect(onChange).toHaveBeenCalledWith({ inicio: "2026-08-01", fim: "2026-08-15" });
   });
 
   it("o atalho é aparado quando começa antes do min da tela", () => {
     const onChange = vi.fn();
     render(
-      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} min="2026-07-15" onChange={onChange} />,
+<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} min="2026-07-20" onChange={onChange} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Período" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Mês passado" }));
-    expect(onChange).toHaveBeenCalledWith({ inicio: "2026-07-15", fim: "2026-07-31" });
+    // "30 dias" comecaria em 17/07; o min da tela empurra pra 20/07.
+    fireEvent.click(screen.getByRole("button", { name: "30 dias" }));
+    expect(onChange).toHaveBeenCalledWith({ inicio: "2026-07-20", fim: "2026-08-15" });
   });
 
   it("atalho inteiramente fora dos limites fica desabilitado em vez de aplicar data inválida", () => {
     const onChange = vi.fn();
     render(
-      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} min="2026-08-10" onChange={onChange} />,
+      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} min="2026-08-20" onChange={onChange} />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Período" }));
 
-    const mesPassado = screen.getByRole("button", { name: "Mês passado" });
-    expect(mesPassado).toBeDisabled();
-    fireEvent.click(mesPassado);
+    // Hoje e 15/08 e a tela so aceita a partir de 20/08: o atalho inteiro cai
+    // fora da faixa, entao ele desabilita em vez de aplicar data invalida.
+    const hoje = screen.getByRole("button", { name: "Hoje" });
+    expect(hoje).toBeDisabled();
+    fireEvent.click(hoje);
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -185,11 +216,11 @@ describe("CalendarioPopoverRange", () => {
 
   it("o chip do atalho aplicado fica marcado como pressionado", () => {
     render(
-      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "2026-07-01", fim: "2026-07-31" }} onChange={vi.fn()} />,
+      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "2026-08-01", fim: "2026-08-15" }} onChange={vi.fn()} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /01 de jul.*31 de jul/i }));
+    fireEvent.click(screen.getByRole("button", { name: /01 de ago.*15 de ago/i }));
 
-    expect(screen.getByRole("button", { name: "Mês passado" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Este mês" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Hoje" })).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -202,21 +233,37 @@ describe("CalendarioPopoverRange", () => {
     expect(screen.queryByText("Agosto De 2026")).not.toBeInTheDocument();
   });
 
-  it("no celular os cinco atalhos quebram linha em vez de rolar e cortar o último", () => {
+  it("no celular os quatro atalhos formam uma fileira única de larguras iguais", () => {
     const restaurar = comLarguraDeCelular();
     try {
       render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
       fireEvent.click(screen.getByRole("button", { name: "Período" }));
 
-      const ultimo = screen.getByRole("button", { name: "Mês passado" });
-      const fileira = ultimo.parentElement as HTMLElement;
-      // Rolando na horizontal, "Mês passado" — o atalho mais pedido — ficava
-      // cortado na borda da tela, sem pista de que havia mais coisa ali.
-      expect(fileira.className).toContain("flex-wrap");
+      // Antes eram cinco pilulas de tamanhos diferentes: ou rolavam na
+      // horizontal e cortavam a ultima, ou quebravam com um chip orfao embaixo.
+      const fileira = screen.getByRole("button", { name: "Hoje" }).parentElement as HTMLElement;
+      expect(fileira.className).toContain("grid-cols-4");
       expect(fileira.className).not.toContain("overflow-x-auto");
-      for (const nome of ["Hoje", "7 dias", "30 dias", "Este mês", "Mês passado"]) {
-        expect(screen.getByRole("button", { name: nome })).toBeInTheDocument();
-      }
+      expect(fileira.children).toHaveLength(4);
+    } finally {
+      restaurar();
+    }
+  });
+
+  /* Na folha o rodape inteiro deixou de existir e o "Limpar" subiu pro
+     cabecalho: uma barra so pra um link custava altura que agora mostra a
+     pagina em volta do calendario. */
+  it("no celular o Limpar vive no cabeçalho, e só aparece quando há o que limpar", () => {
+    const restaurar = comLarguraDeCelular();
+    try {
+      const onChange = vi.fn();
+      const { rerender } = render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={onChange} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+      expect(screen.queryByRole("button", { name: "Limpar" })).not.toBeInTheDocument();
+
+      rerender(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "2026-08-10", fim: "2026-08-20" }} onChange={onChange} />);
+      fireEvent.click(screen.getByRole("button", { name: "Limpar" }));
+      expect(onChange).toHaveBeenCalledWith({ inicio: "", fim: "" });
     } finally {
       restaurar();
     }
@@ -228,6 +275,6 @@ describe("CalendarioPopoverRange", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /01 de jul.*31 de jul/i }));
 
-    expect(screen.getByText(/·\s*31 dias/)).toBeInTheDocument();
+    expect(screen.getByText("31 dias")).toBeInTheDocument();
   });
 });

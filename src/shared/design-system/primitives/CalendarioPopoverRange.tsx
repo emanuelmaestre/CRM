@@ -26,10 +26,18 @@ import { springs } from "../motion-variants";
    existe pra evitar). Abaixo de `sm` cai pra um mês só — dois não cabem. */
 
 const LARGURA_DOIS_MESES = 616;
+/** Teto da folha do celular. Acima disso ela viraria uma faixa larga e
+ *  esticada num tablet estreito; 420px mantém a proporção de cartão. */
+const LARGURA_MAX_FOLHA = 420;
+/** O respiro lateral da folha. É ele que faz o calendário FLUTUAR sobre a
+ *  página em vez de grudar nas bordas: com a viewport aparecendo dos dois
+ *  lados, fica claro que é um painel sobreposto e não uma nova tela. */
+const RECUO_FOLHA = 16;
+const RECUO_FOLHA_ESTREITO = 10;
 const ALTURA_PAINEL_ESTIMADA = 420;
-/** O painel de fora a fora e mais alto: a fileira de atalhos desce pra
- *  segunda linha e as celulas dos dias crescem pra virar alvo de toque. */
-const ALTURA_PAINEL_FORA_A_FORA = 500;
+/** A folha é mais alta: as células dos dias crescem pra virar alvo de toque
+ *  e os atalhos ocupam uma fileira própria. */
+const ALTURA_PAINEL_FOLHA = 470;
 const ALTURA_MINIMA_PAINEL = 260;
 const MARGEM_VIEWPORT = 8;
 const PULSO_MS = 320;
@@ -98,9 +106,9 @@ interface Posicao {
   alinhadoDireita: boolean;
   paraCima: boolean;
   doisMeses: boolean;
-  /** Painel de fora a fora: largura cheia da viewport, encostado nas duas
-   *  bordas. Vale abaixo de 672px, onde so cabe um mes. */
-  foraAFora: boolean;
+  /** Folha do celular: um mes so, cartao flutuante centralizado com respiro
+   *  nas duas laterais. Vale abaixo de 672px, onde so cabe um mes. */
+  folha: boolean;
   /** Teto de altura pro espaco que sobrou entre o gatilho e a borda da tela.
    *  A grade rola por dentro; cabecalho e rodape ficam presos. */
   alturaMax: number;
@@ -116,28 +124,38 @@ function useEstaNoCliente(): boolean {
 
 function calcularPosicao(gatilho: HTMLElement): Posicao {
   const rect = gatilho.getBoundingClientRect();
-  const margem = window.innerWidth < 360 ? 4 : MARGEM_VIEWPORT;
   const doisMeses = window.innerWidth >= 672;
-  const alturaEstimada = doisMeses ? ALTURA_PAINEL_ESTIMADA : ALTURA_PAINEL_FORA_A_FORA;
+  /* No celular o recuo e generoso de proposito (ver RECUO_FOLHA); no desktop
+     e so a folga minima pra o popover nao encostar na borda. */
+  const margem = doisMeses
+    ? MARGEM_VIEWPORT
+    : window.innerWidth < 360 ? RECUO_FOLHA_ESTREITO : RECUO_FOLHA;
+  const alturaEstimada = doisMeses ? ALTURA_PAINEL_ESTIMADA : ALTURA_PAINEL_FOLHA;
   const espacoAbaixo = window.innerHeight - rect.bottom;
   const paraCima = espacoAbaixo < alturaEstimada + margem && rect.top > espacoAbaixo;
-  const top = paraCima ? rect.top - 8 : rect.bottom + 8;
+  /* A folha se afasta um pouco mais do gatilho: o respiro em volta so le como
+     "cartao flutuante" se existir nos quatro lados, nao so nas laterais. */
+  const afastamento = doisMeses ? 8 : 12;
+  const top = paraCima ? rect.top - afastamento : rect.bottom + afastamento;
   /* Teto real do que sobrou. Antes o painel nao tinha limite nenhum: em tela
      baixa (ou celular deitado) ele simplesmente vazava, e o primeiro pedaco a
      sumir era o rodape com o "Limpar". */
   const alturaMax = Math.max(
     ALTURA_MINIMA_PAINEL,
-    paraCima ? rect.top - 8 - margem : window.innerHeight - (rect.bottom + 8) - margem,
+    paraCima ? rect.top - afastamento - margem : window.innerHeight - (rect.bottom + afastamento) - margem,
   );
 
-  /* Um mes so (abaixo de 672px): o painel deixa de ser um popover pendurado
-     no canto do botao e vira uma faixa de fora a fora -- largura cheia da
-     viewport, left 0, centralizado por construcao. Nao e so estetica: as sete
-     colunas passam a dividir a tela inteira, entao a celula de cada dia quase
-     dobra de largura e finalmente vira um alvo de toque honesto. O eixo
-     vertical nao muda -- continua abrindo acima ou abaixo do gatilho. */
+  /* Um mes so (abaixo de 672px): o painel deixa de ser um popover pendurado no
+     canto do botao e vira uma folha centralizada, com a pagina aparecendo dos
+     dois lados. As sete colunas ainda dividem quase a tela inteira -- a celula
+     de cada dia continua sendo alvo de toque honesto --, mas o painel para de
+     encostar nas bordas, que era o que fazia ele parecer uma tela nova em vez
+     de algo sobreposto. O eixo vertical nao muda: continua abrindo acima ou
+     abaixo do gatilho. */
   if (!doisMeses) {
-    return { top, left: 0, largura: window.innerWidth, paraCima, alinhadoDireita: false, doisMeses, foraAFora: true, alturaMax };
+    const larguraFolha = Math.min(LARGURA_MAX_FOLHA, window.innerWidth - margem * 2);
+    const esquerdaFolha = Math.round((window.innerWidth - larguraFolha) / 2);
+    return { top, left: esquerdaFolha, largura: larguraFolha, paraCima, alinhadoDireita: false, doisMeses, folha: true, alturaMax };
   }
 
   const largura = Math.min(LARGURA_DOIS_MESES, window.innerWidth - margem * 2);
@@ -148,7 +166,7 @@ function calcularPosicao(gatilho: HTMLElement): Posicao {
     window.innerWidth - largura - margem,
   );
 
-  return { top, left, largura, paraCima, alinhadoDireita, doisMeses, foraAFora: false, alturaMax };
+  return { top, left, largura, paraCima, alinhadoDireita, doisMeses, folha: false, alturaMax };
 }
 
 interface MesProps {
@@ -367,7 +385,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   }
 
   /** Ordena o par e apara nas bordas de `min`/`max`. Os atalhos de periodo
-   *  ("Mes passado", "30 dias") frequentemente comecam antes do que a tela
+   *  ("30 dias", "Este mes") frequentemente comecam antes do que a tela
    *  permite; aparar e melhor que aplicar data invalida ou nao fazer nada.
    *  Devolve `null` so quando o intervalo inteiro caiu fora da faixa. */
   function aparar(inicio: Date, fim: Date): [Date, Date] | null {
@@ -401,22 +419,32 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   }
 
   /* ── Atalhos ────────────────────────────────────────────────────────
-     Faltava justamente o recorte que mais se pede num CRM: "mes passado".
-     Sem ele, fechar o mes anterior custava abrir o painel, voltar um mes,
-     tocar no dia 1, rolar e tocar no ultimo dia -- cinco interacoes pro
-     periodo mais comum do negocio. Sao dados, e nao funcoes soltas, porque
-     a mesma faixa serve pra aplicar E pra saber qual chip esta aceso. */
+     Quatro, e nao cinco, por decisao de 02/09/2026: sao QUATRO que cabem numa
+     fileira unica de larguras iguais, sem quebra de linha e sem um chip orfao
+     na segunda linha. Todos terminam em "hoje" -- o conjunto passou a ter uma
+     regra so ("os ultimos N"), em vez de misturar janelas correntes com um mes
+     fechado. Sao dados, e nao funcoes soltas, porque a mesma faixa serve pra
+     aplicar E pra saber qual chip esta aceso. */
   const atalhos = useMemo(() => {
     const hoje = new Date();
-    const anterior = subMonths(hoje, 1);
     return [
       { rotulo: "Hoje", de: hoje, ate: hoje },
       { rotulo: "7 dias", de: addDays(hoje, -6), ate: hoje },
       { rotulo: "30 dias", de: addDays(hoje, -29), ate: hoje },
       { rotulo: "Este mês", de: startOfMonth(hoje), ate: hoje },
-      { rotulo: "Mês passado", de: startOfMonth(anterior), ate: endOfMonth(anterior) },
     ];
   }, []);
+
+  function limpar() {
+    onChange({ inicio: "", fim: "" });
+    setInicioRascunho(null);
+    setHoverDia(null);
+    setAberto(false);
+  }
+
+  /** "Limpar" so aparece quando ha o que limpar — um botao que nao faz nada
+   *  gasta a unica fileira de acoes que a folha tem. */
+  const podeLimpar = Boolean(valor.inicio || valor.fim || inicioRascunho);
 
   /** Arrastar o dedo depois do primeiro toque pinta o intervalo ao vivo, como
    *  o mouse ja fazia. `onMouseEnter` nunca dispara no touch: o dedo nao tem
@@ -503,49 +531,67 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
         left: posicao.left,
         width: posicao.largura,
         transform: posicao.paraCima ? "translateY(-100%)" : undefined,
-        transformOrigin: posicao.foraAFora
+        transformOrigin: posicao.folha
           ? `${posicao.paraCima ? "bottom" : "top"} center`
           : `${posicao.paraCima ? "bottom" : "top"} ${posicao.alinhadoDireita ? "right" : "left"}`,
         maxHeight: posicao.alturaMax,
       }}
       className={cn(
-        "z-[100] flex flex-col overflow-hidden bg-card shadow-[0_16px_40px_rgba(14,15,19,.24)]",
-        /* Encostado nas duas bordas da tela, arredondar os cantos laterais so
-           abriria duas frestas do fundo. Arredonda o lado de dentro e some
-           com a borda que ficaria fora da vista. */
-        posicao.foraAFora
-          ? posicao.paraCima
-            ? "rounded-t-[1.25rem] border-t border-border"
-            : "rounded-b-[1.25rem] border-b border-border"
-          : "rounded-[1.1rem] border border-border",
+        "z-[100] flex flex-col overflow-hidden border border-border bg-card",
+        /* Solta das bordas, a folha fecha os quatro cantos e ganha uma sombra
+           mais funda: e o que a separa da pagina que continua visivel atras. */
+        posicao.folha
+          ? "rounded-[1.5rem] shadow-[0_24px_60px_rgba(14,15,19,.30)]"
+          : "rounded-[1.1rem] shadow-[0_16px_40px_rgba(14,15,19,.24)]",
       )}
     >
       <span id={tituloId} className="sr-only">{rotulo}</span>
 
-      {/* Fora a fora, os atalhos descem pra uma fileira propria e crescem pra
-          36px de alvo -- inline num painel de tela cheia eles ficariam com 22px
-          de altura e espremidos contra o texto de estado. */}
+      {/* O periodo escolhido e a resposta que o painel existe pra dar, entao
+          ele abre o cabecalho em tamanho de leitura -- nao mais um 11px cinza
+          espremido ao lado dos atalhos. Na folha, "Limpar" sobe pra ca e o
+          rodape inteiro deixa de existir: uma barra so pra um link consumia
+          altura que agora mostra pagina em volta do calendario. */}
       <div className={cn(
-        "shrink-0 border-b border-border px-3 py-2.5",
-        posicao.foraAFora ? "space-y-2" : "flex items-center justify-between gap-2",
+        "shrink-0 border-b border-border",
+        posicao.folha ? "space-y-3 px-4 py-3" : "flex items-center justify-between gap-3 px-3 py-2.5",
       )}>
-        <p className={cn("truncate text-[11px] font-semibold text-muted-foreground", !posicao.foraAFora && "min-w-0 flex-1")}>
-          {!inicioRascunho && !inicioSelecionado && "Escolha a data inicial"}
-          {inicioRascunho && "Agora escolha a data final"}
-          {!inicioRascunho && inicioSelecionado && fimSelecionado && (
-            <>
-              <span className="font-bold text-foreground">{diaMesAno.format(inicioSelecionado)}</span>
-              {" – "}
-              <span className="font-bold text-foreground">{diaMesAno.format(fimSelecionado)}</span>
-              {/* Quantos dias o intervalo cobre: conferir faturamento de 29 ou
-                  de 30 dias muda o numero, e contar no calendario e trabalho. */}
-              <span className="ml-1.5 tabular-nums text-muted-foreground/70">· {diasNoIntervalo} {diasNoIntervalo === 1 ? "dia" : "dias"}</span>
-            </>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+          <p className={cn("min-w-0 font-semibold text-muted-foreground", posicao.folha ? "text-[13px]" : "text-[12px]")}>
+            {!inicioRascunho && !inicioSelecionado && "Escolha a data inicial"}
+            {inicioRascunho && "Agora escolha a data final"}
+            {!inicioRascunho && inicioSelecionado && fimSelecionado && (
+              <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className={cn("font-extrabold tracking-[-0.01em] text-foreground", posicao.folha ? "text-[17px]" : "text-[14px]")}>
+                  {diaMesAno.format(inicioSelecionado)} – {diaMesAno.format(fimSelecionado)}
+                </span>
+                {/* Quantos dias o intervalo cobre: conferir faturamento de 29 ou
+                    de 30 dias muda o numero, e contar no calendario e trabalho.
+                    Virou pilula pra parar de se confundir com as datas. */}
+                <span className={cn(
+                  "shrink-0 rounded-full bg-muted font-bold tabular-nums text-muted-foreground",
+                  posicao.folha ? "px-2 py-0.5 text-[11px]" : "px-1.5 py-px text-[10px]",
+                )}>
+                  {diasNoIntervalo} {diasNoIntervalo === 1 ? "dia" : "dias"}
+                </span>
+              </span>
+            )}
+          </p>
+          {posicao.folha && podeLimpar && (
+            <button
+              type="button"
+              onClick={limpar}
+              className="press-feedback shrink-0 rounded-full px-2.5 py-1 text-[12px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Limpar
+            </button>
           )}
-        </p>
+        </div>
+        {/* Quatro colunas de largura igual: os atalhos param de ser pilulas de
+            tamanhos diferentes que quebram linha e viram uma fileira unica,
+            com o mesmo alvo de toque em cada uma. */}
         <div className={cn(
-          "flex",
-          posicao.foraAFora ? "flex-wrap gap-1.5" : "shrink-0 gap-1",
+          posicao.folha ? "grid grid-cols-4 gap-1.5" : "flex shrink-0 gap-1",
         )}>
           {atalhos.map((item) => {
             const faixa = aparar(item.de, item.ate);
@@ -559,9 +605,12 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
                 aria-pressed={ativo}
                 style={ativo ? { background: accent, borderColor: accent, color: "#fff" } : undefined}
                 className={cn(
-                  "press-feedback flex shrink-0 items-center whitespace-nowrap rounded-full border font-bold transition-colors disabled:pointer-events-none disabled:opacity-30",
-                  posicao.foraAFora ? "h-9 px-3 text-[12px]" : "h-7 px-2.5 text-[10px]",
+                  "press-feedback flex items-center justify-center whitespace-nowrap rounded-full border font-bold transition-colors disabled:pointer-events-none disabled:opacity-30",
+                  posicao.folha ? "h-10 w-full text-[12.5px]" : "h-7 shrink-0 px-2.5 text-[10px]",
                   !ativo && "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+                  /* Na folha o chip tem fundo proprio: sem ele, quatro rotulos
+                     soltos nao leem como uma fileira de botoes. */
+                  !ativo && posicao.folha && "bg-muted/60",
                 )}
               >
                 {item.rotulo}
@@ -581,7 +630,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
           onProximo={() => setMesVisivel((atual) => addMonths(atual, 1))}
           podeAnterior={podeAnterior}
           podeProximo={podeProximo}
-          celulaAlta={posicao.foraAFora}
+          celulaAlta={posicao.folha}
           foraDoLimite={foraDoLimite}
           papel={dentroDoIntervaloPreview}
           onEscolher={escolher}
@@ -598,7 +647,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             onProximo={() => setMesVisivel((atual) => addMonths(atual, 1))}
             podeAnterior={podeAnterior}
             podeProximo={podeProximo}
-            celulaAlta={posicao.foraAFora}
+            celulaAlta={posicao.folha}
             foraDoLimite={foraDoLimite}
             papel={dentroDoIntervaloPreview}
             onEscolher={escolher}
@@ -610,15 +659,20 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
         )}
       </div>
 
-      <div className="flex shrink-0 items-center justify-end border-t border-border px-3 py-2">
-        <button
-          type="button"
-          onClick={() => { onChange({ inicio: "", fim: "" }); setInicioRascunho(null); setAberto(false); }}
-          className="press-feedback inline-flex h-9 items-center rounded-[0.5rem] px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          Limpar
-        </button>
-      </div>
+      {/* Só no desktop: na folha o "Limpar" já vive no cabeçalho, e uma barra
+          inteira pra um link só custava altura que agora deixa a página
+          aparecer em volta do calendário. */}
+      {!posicao.folha && (
+        <div className="flex shrink-0 items-center justify-end border-t border-border px-3 py-2">
+          <button
+            type="button"
+            onClick={limpar}
+            className="press-feedback inline-flex h-9 items-center rounded-[0.5rem] px-3 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Limpar
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 
@@ -679,11 +733,13 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
 
       {montado && createPortal(
         <AnimatePresence>
-          {/* Painel de tela cheia pede um veu: da o alvo de "toque fora pra
-              fechar" sem que o dedo acerte um controle da pagina por baixo, e
-              separa o calendario do conteudo. No desktop nao entra -- ali o
-              popover e pequeno e escurecer a tela inteira seria agressivo. */}
-          {aberto && posicao?.foraAFora && (
+          {/* A folha pede um veu: da o alvo de "toque fora pra fechar" sem que
+              o dedo acerte um controle da pagina por baixo, e empurra o
+              conteudo pra tras. Leve e com um desfoque de 2px de proposito --
+              a graca do painel flutuante e continuar VENDO o redor; escurecer
+              de vez devolveria a sensacao de tela nova. No desktop nao entra:
+              ali o popover e pequeno e velar a tela inteira seria agressivo. */}
+          {aberto && posicao?.folha && (
             <motion.div
               key="veu"
               aria-hidden="true"
@@ -692,7 +748,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
               exit={{ opacity: 0 }}
               transition={{ duration: 0.16 }}
               onClick={() => setAberto(false)}
-              className="fixed inset-0 z-[99] bg-foreground/25"
+              className="fixed inset-0 z-[99] bg-foreground/20 backdrop-blur-[2px]"
             />
           )}
           {painel}
