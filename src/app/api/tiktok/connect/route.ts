@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import { obterUrlCallbackTikTok } from "@/shared/config/app-url";
 import { authorizeRoute } from "@/shared/lib/auth/session";
 import { isBrandSlug } from "@/shared/config/brands";
 
-/* ── Autorização TikTok Shop (Partner Center, app self-built) ──────
-   O App Key/Secret e a URL de redirecionamento (/api/tiktok/callback) já
-   estão cadastrados no app "Elisa Lima - CRM" no Partner Center. Para um app
-   self-built (não um "service" público do marketplace, que usaria
-   service_id), o link de autorização é montado com o próprio app_key; o
-   redirect_uri é enviado mesmo assim (precisa bater exatamente com o
-   cadastrado no app). Padrão confirmado em múltiplas integrações públicas
-   (echotik, keyapi, pacotes tiktokshop-php), mas ainda não exercitado ao vivo
-   contra a conta da Elisa Lima — mesma ressalva que o fluxo da Shopee tinha
-   antes da primeira autorização real. */
+/* ── Autorização TikTok Shop (Partner Center, serviço personalizado) ──
+   O app "Elisa Lima - CRM" foi criado como serviço personalizado, então o
+   link de autorização é montado com o service_id — não com o app_key, como
+   seria num app self-built. Link confirmado em 02/09/2026 no botão "Copiar
+   link de autorização" do próprio Partner Center:
+   https://services.tiktokshop.com/open/authorize?service_id=...
+
+   O redirect_uri NÃO vai na URL: o TikTok usa a "URL de redirecionamento"
+   cadastrada no app (https://elisa-lima.vercel.app/api/tiktok/callback).
+   Mandar o parâmetro aqui só arrisca ser recusado. O state vai junto e volta
+   igual no callback, que é como a marca sobrevive à ida e volta.
+
+   O App Key/Secret continuam necessários — mas só na troca do auth_code por
+   token, dentro de /api/tiktok/callback. */
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const auth = await authorizeRoute(["admin"]);
@@ -24,18 +27,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Marca não suportada." }, { status: 400 });
   }
 
-  const appKey = process.env.TIKTOK_APP_KEY;
-  if (!appKey) {
-    return NextResponse.json({ error: "TIKTOK_APP_KEY não configurada." }, { status: 500 });
+  const serviceId = process.env.TIKTOK_SERVICE_ID;
+  if (!serviceId) {
+    return NextResponse.json({ error: "TIKTOK_SERVICE_ID não configurado." }, { status: 500 });
   }
 
   const state = `${brand}:${randomBytes(16).toString("hex")}`;
-  const redirectUri = obterUrlCallbackTikTok();
 
   const params = new URLSearchParams({
-    app_key: appKey,
+    service_id: serviceId,
     state,
-    redirect_uri: redirectUri,
   });
 
   const authUrl = `https://services.tiktokshop.com/open/authorize?${params}`;

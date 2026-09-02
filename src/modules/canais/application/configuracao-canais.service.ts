@@ -43,7 +43,7 @@ function envPorCanal(canal: string): string[] {
 
 const ENV_POR_CANAL: Record<string, string[]> = {
   mercadolivre: ["ML_CLIENT_ID", "ML_CLIENT_SECRET", "ML_SELLER_ID_{BRAND}"],
-  tiktokshop: ["TIKTOK_APP_KEY", "TIKTOK_APP_SECRET", "TIKTOK_SHOP_ID_{BRAND}", "TIKTOK_SHOP_CIPHER_{BRAND}", "TIKTOK_ACCESS_TOKEN_{BRAND}"],
+  tiktokshop: ["TIKTOK_SERVICE_ID", "TIKTOK_APP_KEY", "TIKTOK_APP_SECRET", "TIKTOK_SHOP_ID_{BRAND}", "TIKTOK_SHOP_CIPHER_{BRAND}", "TIKTOK_ACCESS_TOKEN_{BRAND}"],
 };
 
 const EXTERNAL_ID_ENV: Record<string, string | null> = {
