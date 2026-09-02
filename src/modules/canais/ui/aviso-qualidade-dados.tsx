@@ -42,7 +42,6 @@ export async function AvisoQualidadeDados({ orgId }: { orgId: string }) {
       <p className="mt-2 text-xs">Pedidos que falharam antes de serem identificados não têm contagem conhecida. A recuperação da fila incorpora a quarentena histórica e reconsulta o estado atual no canal, em lotes de até 20. As datas acima indicam cobertura da coleta, não igualdade com o painel oficial.</p>
     </details>
     <div className="mt-2 flex flex-wrap gap-4 underline">
-      <Link href="/vendas/pedidos-ignorados">Ver pedidos não importados</Link>
       <Link href="/configuracoes">Ver conexões e sincronização</Link>
     </div>
   </aside>;

@@ -17,7 +17,6 @@ import {
   FileJson2,
   Loader2,
   PackageCheck,
-  PackageX,
   RefreshCw,
   ShieldCheck,
   Sparkles,
@@ -468,18 +467,6 @@ export function MLHistoricalImportSection() {
                           </div>
                         )}
 
-                        {/* Contraparte do botão verde: ele traz pedido pra
-                            dentro, este mostra o que NÃO entrou. Fica sempre
-                            visível — o verde só existe enquanto o lote está
-                            "pronto", e a fila de recusados precisa de porta
-                            de entrada independente do fluxo de importação. */}
-                        <a
-                          href="/vendas/pedidos-ignorados"
-                          className="press-feedback mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 text-sm font-black text-amber-700 transition-transform hover:-translate-y-0.5"
-                        >
-                          <PackageX size={16} />
-                          Ver pedidos ignorados
-                        </a>
                       </motion.div>
                     )}
                   </AnimatePresence>

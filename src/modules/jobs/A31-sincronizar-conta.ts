@@ -394,7 +394,7 @@ export const A31_sincronizarConta = inngest.createFunction(
       // falha SEM causa conhecida: quando toda a leva parou em erro de
       // pedido (ErroSkuSemProduto), isso é `ignorados`, não falha da conta.
       if (reconciliacao && ignorados > 0) {
-        throw new Error(`Reconciliação incompleta: ${ignorados} de ${encontrados} pedidos pendentes. Ver Pedidos não importados.`);
+        throw new Error(`Reconciliação incompleta: ${ignorados} de ${encontrados} pedidos pendentes. A reconciliação automática tentará de novo.`);
       }
       if (encontrados > 0 && ignorados === encontrados && falhasSemCausaConhecida > 0) {
         throw new Error(

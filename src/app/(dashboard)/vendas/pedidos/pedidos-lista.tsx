@@ -5,7 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, PlugZap2 } from "lucide-react";
-import { actionConsultarFaturamentoOficial, actionListarPedidosDetalhados } from "../actions";
+import { actionListarPedidosDetalhados } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
@@ -27,9 +27,7 @@ import {
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
 import { CardLimiteDoDia, JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
-import { ConferenciaCanal, type Pendencias } from "./conferencia-canal";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
-import { NaoImportadosVendas } from "@/modules/canais/ui/qualidade-dados-contexto";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
@@ -37,7 +35,6 @@ type ConsultaPedidos = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>
 type Marca = ConsultaPedidos["marcas"][number];
 type Canal = ConsultaPedidos["canais"][number];
 type Resumo = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["resumo"];
-type FaturamentoOficial = Awaited<ReturnType<typeof actionConsultarFaturamentoOficial>>;
 
 const copy = pagesConfig.pedidos;
 const PAGINA = 50;
@@ -59,10 +56,6 @@ const resumoInicial: Resumo = {
 };
 
 const limiteDoDiaInicial: LimiteDoDia = { soNoMercadoLivre: [], soAqui: [] };
-
-function chaveConsulta(marcas: string[] = [], canais: string[] = [], statuses: readonly string[] = [], busca = "", inicio = "", fim = "") {
-  return JSON.stringify({ marcas, canais, statuses, busca, inicio, fim });
-}
 
 function inicioDoDia(data: string): string | undefined {
   return data ? `${data}T00:00:00-03:00` : undefined;
@@ -356,23 +349,18 @@ function LinhaPedido({ item, aberta, onAlternar }: { item: Pedido; aberta: boole
   );
 }
 
-export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorados = 0 }: {
+export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   /** Contagens já resolvidas no servidor (ver page.tsx) — chegam junto com o
    *  HTML, então as pílulas de filtro aparecem no primeiro quadro em vez de
    *  esperarem duas idas ao servidor depois que o JavaScript liga. */
   marcasIniciais?: Marca[];
   canaisIniciais?: Canal[];
-  /** Pendências em aberto na fila de recusados. Zero esconde o aviso. */
-  ignorados?: number;
 }) {
   const reduzir = useReducedMotion();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
-  const [pendencias, setPendencias] = useState<Pendencias>({ quantidade: 0, valor: 0 });
-  const [faturamentoOficial, setFaturamentoOficial] = useState<FaturamentoOficial | null>(null);
-  const [consultaDoResumo, setConsultaDoResumo] = useState<string | null>(null);
   /* Uma janela só, para a única porta que hoje leva até ela: o card de fuso
      na grade de indicadores. Guarda PARA QUAL conjunto de pedidos foi aberta,
      e não um booleano: trocar o filtro troca os pedidos da fronteira, e um
@@ -411,8 +399,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
     const currentRequest = ++requestId.current;
     startTransition(async () => {
       setLoading(true);
-      setConsultaDoResumo(null);
-      setFaturamentoOficial(null);
       try {
         const filtrosBase = {
           brandIds: marcas?.length ? marcas : undefined,
@@ -420,22 +406,16 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
           inicio: inicioDoDia(inicio ?? ""),
           fim: fimDoDia(fim ?? ""),
         };
-        const [res, oficial] = await Promise.all([
-          actionListarPedidosDetalhados({
-            ...filtrosBase,
-            statuses: statusesAtual?.length ? statusesAtual : undefined,
-            busca: buscaAtual || undefined,
-          }),
-          actionConsultarFaturamentoOficial(filtrosBase),
-        ]);
+        const res = await actionListarPedidosDetalhados({
+          ...filtrosBase,
+          statuses: statusesAtual?.length ? statusesAtual : undefined,
+          busca: buscaAtual || undefined,
+        });
         if (currentRequest !== requestId.current) return;
         setPedidos(res.data);
         setTotal(res.total);
         setResumo(res.resumo);
         setLimiteDoDia(res.limiteDoDia);
-        setPendencias(res.pendencias);
-        setFaturamentoOficial(oficial);
-        setConsultaDoResumo(chaveConsulta(marcas, canaisAtual, statusesAtual, buscaAtual, inicio, fim));
         setMarcas(res.marcas);
         /* As contagens de marca voltam já cruzadas com o canal escolhido (ver
            contarPedidosPorMarca): total 0 aqui quer dizer "esta marca não tem
@@ -480,41 +460,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
     carregar(brandIds, canaisSel, statusesAtivos.length ? [...statusesAtivos] : undefined, buscaAplicada, dataInicial, dataFinal);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandIds.join(","), canaisSel.join(","), statusGrupo, buscaAplicada, dataInicial, dataFinal, carregar, escopoDefinido]);
-
-  /* O valor oficial não pode depender de o webhook ter criado uma nova versão
-     local: foi justamente uma entrega perdida que a conferência ao vivo
-     revelou. Enquanto o recorte do Mercado Livre estiver aberto, consulta a
-     origem novamente a cada minuto; o carregamento completo continua reagindo
-     às versões locais pelo useAtualizacaoLocal acima. */
-  useEffect(() => {
-    const canal = canaisSel.length === 1 ? canaisSel[0] : null;
-    if (!escopoDefinido || (canal !== "mercadolivre" && canal !== "shopee" && canal !== "tiktokshop") || !dataInicial || !dataFinal) return;
-    let ativo = true;
-    let consultando = false;
-    const intervalo = window.setInterval(async () => {
-      if (consultando || document.visibilityState === "hidden") return;
-      const consultaAtual = requestId.current;
-      consultando = true;
-      try {
-        const oficial = await actionConsultarFaturamentoOficial({
-          brandIds: brandIds.length ? brandIds : undefined,
-          canais: canaisSel,
-          inicio: inicioDoDia(dataInicial),
-          fim: fimDoDia(dataFinal),
-        });
-        if (ativo && consultaAtual === requestId.current) setFaturamentoOficial(oficial);
-      } catch {
-        const nomeCanal = canal === "shopee" ? "Shopee" : canal === "tiktokshop" ? "TikTok Shop" : "Mercado Livre";
-        if (ativo && consultaAtual === requestId.current) setFaturamentoOficial({ status: "indisponivel", mensagem: `Não foi possível atualizar o canal ${nomeCanal} agora.` });
-      } finally {
-        consultando = false;
-      }
-    }, canal === "mercadolivre" ? 60_000 : 5 * 60_000);
-    return () => {
-      ativo = false;
-      window.clearInterval(intervalo);
-    };
-  }, [escopoDefinido, brandIds, canaisSel, dataInicial, dataFinal]);
 
   async function carregarMais() {
     setCarregandoMais(true);
@@ -673,7 +618,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
           transition={springs.settleFast}
           className="rounded-[1.25rem] bg-card shadow-[0_2px_16px_rgba(14,15,19,.07)]"
         >
-          <div className="flex justify-end px-5 pt-4"><NaoImportadosVendas quantidade={ignorados} /></div>
           <EmptyState
             illustration="revenue"
             title={convite.titulo}
@@ -748,18 +692,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
         )}
       </motion.section>
 
-      {/* Explica a composição local sem prometer equivalência com o painel oficial. */}
-      <ConferenciaCanal
-        canais={canaisSel}
-        faturamento={resumo.faturamento}
-        faturamentoOficial={faturamentoOficial}
-        canceladosValor={resumo.canceladosValor + resumo.devolvidosValor}
-        pendencias={pendencias}
-        periodo={{ inicio: dataInicial, fim: dataFinal }}
-        temFiltrosAdicionais={Boolean(buscaAplicada || statusesAtivos.length)}
-        dadosAtuais={!loading && consultaDoResumo === chaveConsulta(brandIds, canaisSel, statusesAtivos, buscaAplicada, dataInicial, dataFinal)}
-      />
-
       <motion.section
         initial={reduzir ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
@@ -773,9 +705,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [], ignorad
             <span className="shrink-0 whitespace-nowrap rounded-full bg-selecionado/10 px-2.5 py-1 text-xs font-bold text-selecionado tabular-nums">
               <NumeroAnimado valor={total} apenasPrimeiraVez={false} duracao={0.5} /> {total === 1 ? "pedido" : "pedidos"}
             </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <NaoImportadosVendas quantidade={ignorados} />
           </div>
         </div>
 
