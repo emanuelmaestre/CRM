@@ -82,4 +82,123 @@ describe("CalendarioPopoverRange", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hoje" }));
     expect(onChange).toHaveBeenCalledWith({ inicio: "2026-08-15", fim: "2026-08-15" });
   });
+
+  /* ── Painel de um mês só (celular) ────────────────────────────────────
+     O jsdom nasce com 1024px de largura, então todo teste acima exercita o
+     caminho de DOIS meses — e foi exatamente por isso que passou despercebido
+     por tanto tempo que, com um mês só, o painel não tinha a seta de voltar:
+     no desktop cada mês carrega uma seta, e as duas aparecem. */
+  function comLarguraDeCelular(largura = 390) {
+    const original = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { value: largura, configurable: true, writable: true });
+    return () => Object.defineProperty(window, "innerWidth", { value: original, configurable: true, writable: true });
+  }
+
+  it("com um mês só na tela, o painel tem as DUAS setas e dá pra voltar de mês", () => {
+    const restaurar = comLarguraDeCelular();
+    try {
+      render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+      expect(screen.getByText(/agosto de 2026/i)).toBeInTheDocument();
+      // A de avançar sempre existiu; a de voltar é a que não era renderizada.
+      expect(screen.getByRole("button", { name: "Próximo mês" })).toBeInTheDocument();
+      const anterior = screen.getByRole("button", { name: "Mês anterior" });
+
+      fireEvent.click(anterior);
+      expect(screen.getByText(/julho de 2026/i)).toBeInTheDocument();
+      fireEvent.click(anterior);
+      expect(screen.getByText(/junho de 2026/i)).toBeInTheDocument();
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("o painel de um mês só abre de fora a fora, colado nas duas bordas", () => {
+    const restaurar = comLarguraDeCelular(390);
+    try {
+      render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+      expect(screen.getByRole("dialog")).toHaveStyle({ width: "390px", left: "0px" });
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("acima de 672px o painel continua ancorado no gatilho, não de fora a fora", () => {
+    render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+    // 616px é a largura dos dois meses lado a lado — nunca os 1024 da viewport.
+    expect(screen.getByRole("dialog")).toHaveStyle({ width: "616px" });
+  });
+
+  it('"Mês passado" aplica o mês anterior inteiro, do dia 1 ao último', () => {
+    const onChange = vi.fn();
+    render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={onChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Mês passado" }));
+    expect(onChange).toHaveBeenCalledWith({ inicio: "2026-07-01", fim: "2026-07-31" });
+  });
+
+  it("o atalho é aparado quando começa antes do min da tela", () => {
+    const onChange = vi.fn();
+    render(
+      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} min="2026-07-15" onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Mês passado" }));
+    expect(onChange).toHaveBeenCalledWith({ inicio: "2026-07-15", fim: "2026-07-31" });
+  });
+
+  it("atalho inteiramente fora dos limites fica desabilitado em vez de aplicar data inválida", () => {
+    const onChange = vi.fn();
+    render(
+      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} min="2026-08-10" onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+    const mesPassado = screen.getByRole("button", { name: "Mês passado" });
+    expect(mesPassado).toBeDisabled();
+    fireEvent.click(mesPassado);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("a seta de avançar trava quando o mês seguinte já passou do max", () => {
+    const restaurar = comLarguraDeCelular();
+    try {
+      render(
+        <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} max="2026-08-20" onChange={vi.fn()} />,
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+      // Sem isto dava pra navegar até 2030 e encontrar 42 dias apagados.
+      expect(screen.getByRole("button", { name: "Próximo mês" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Mês anterior" })).toBeEnabled();
+    } finally {
+      restaurar();
+    }
+  });
+
+  it("o chip do atalho aplicado fica marcado como pressionado", () => {
+    render(
+      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "2026-07-01", fim: "2026-07-31" }} onChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /01 de jul.*31 de jul/i }));
+
+    expect(screen.getByRole("button", { name: "Mês passado" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Hoje" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("mostra quantos dias o intervalo cobre", () => {
+    render(
+      <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "2026-07-01", fim: "2026-07-31" }} onChange={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /01 de jul.*31 de jul/i }));
+
+    expect(screen.getByText(/·\s*31 dias/)).toBeInTheDocument();
+  });
 });

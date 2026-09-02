@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type TouchEvent as EventoToque } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CalendarRange, ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  addDays, addMonths, endOfMonth, format, getDay, isAfter, isBefore, isSameDay,
+  addDays, addMonths, differenceInCalendarDays, endOfMonth, format, getDay, isAfter, isBefore, isSameDay,
   isSameMonth, isToday, parseISO, startOfMonth, subMonths,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -25,9 +25,12 @@ import { springs } from "../motion-variants";
    um mês, e navegar de um em um pra comparar é o que esse padrão de UI
    existe pra evitar). Abaixo de `sm` cai pra um mês só — dois não cabem. */
 
-const LARGURA_UM_MES = 336;
 const LARGURA_DOIS_MESES = 616;
 const ALTURA_PAINEL_ESTIMADA = 420;
+/** O painel de fora a fora e mais alto: a fileira de atalhos desce pra
+ *  segunda linha e as celulas dos dias crescem pra virar alvo de toque. */
+const ALTURA_PAINEL_FORA_A_FORA = 500;
+const ALTURA_MINIMA_PAINEL = 260;
 const MARGEM_VIEWPORT = 8;
 const PULSO_MS = 320;
 
@@ -89,6 +92,12 @@ interface Posicao {
   alinhadoDireita: boolean;
   paraCima: boolean;
   doisMeses: boolean;
+  /** Painel de fora a fora: largura cheia da viewport, encostado nas duas
+   *  bordas. Vale abaixo de 672px, onde so cabe um mes. */
+  foraAFora: boolean;
+  /** Teto de altura pro espaco que sobrou entre o gatilho e a borda da tela.
+   *  A grade rola por dentro; cabecalho e rodape ficam presos. */
+  alturaMax: number;
 }
 
 function useEstaNoCliente(): boolean {
@@ -103,27 +112,53 @@ function calcularPosicao(gatilho: HTMLElement): Posicao {
   const rect = gatilho.getBoundingClientRect();
   const margem = window.innerWidth < 360 ? 4 : MARGEM_VIEWPORT;
   const doisMeses = window.innerWidth >= 672;
-  const larguraMax = doisMeses ? LARGURA_DOIS_MESES : LARGURA_UM_MES;
-  const largura = Math.min(larguraMax, window.innerWidth - margem * 2);
+  const alturaEstimada = doisMeses ? ALTURA_PAINEL_ESTIMADA : ALTURA_PAINEL_FORA_A_FORA;
   const espacoAbaixo = window.innerHeight - rect.bottom;
-  const paraCima = espacoAbaixo < ALTURA_PAINEL_ESTIMADA + margem && rect.top > espacoAbaixo;
+  const paraCima = espacoAbaixo < alturaEstimada + margem && rect.top > espacoAbaixo;
+  const top = paraCima ? rect.top - 8 : rect.bottom + 8;
+  /* Teto real do que sobrou. Antes o painel nao tinha limite nenhum: em tela
+     baixa (ou celular deitado) ele simplesmente vazava, e o primeiro pedaco a
+     sumir era o rodape com o "Limpar". */
+  const alturaMax = Math.max(
+    ALTURA_MINIMA_PAINEL,
+    paraCima ? rect.top - 8 - margem : window.innerHeight - (rect.bottom + 8) - margem,
+  );
+
+  /* Um mes so (abaixo de 672px): o painel deixa de ser um popover pendurado
+     no canto do botao e vira uma faixa de fora a fora -- largura cheia da
+     viewport, left 0, centralizado por construcao. Nao e so estetica: as sete
+     colunas passam a dividir a tela inteira, entao a celula de cada dia quase
+     dobra de largura e finalmente vira um alvo de toque honesto. O eixo
+     vertical nao muda -- continua abrindo acima ou abaixo do gatilho. */
+  if (!doisMeses) {
+    return { top, left: 0, largura: window.innerWidth, paraCima, alinhadoDireita: false, doisMeses, foraAFora: true, alturaMax };
+  }
+
+  const largura = Math.min(LARGURA_DOIS_MESES, window.innerWidth - margem * 2);
   const alinhadoDireita = rect.left + largura > window.innerWidth - margem;
   const esquerdaDesejada = alinhadoDireita ? rect.right - largura : rect.left;
-
   const left = Math.min(
     Math.max(esquerdaDesejada, margem),
     window.innerWidth - largura - margem,
   );
-  const top = paraCima ? rect.top - 8 : rect.bottom + 8;
 
-  return { top, left, largura, paraCima, alinhadoDireita, doisMeses };
+  return { top, left, largura, paraCima, alinhadoDireita, doisMeses, foraAFora: false, alturaMax };
 }
 
 interface MesProps {
   mes: Date;
+  /** Qual seta este mes carrega. No modo de um mes so (`undefined`) ele
+   *  carrega AS DUAS -- nao ha um mes vizinho pra segurar a outra ponta. */
   direcaoNav?: "esquerda" | "direita";
   onAnterior: () => void;
   onProximo: () => void;
+  /** Falso quando o mes de destino inteiro esta fora de `min`/`max`. Antes
+   *  dava pra navegar ate 2030 e achar 42 dias apagados. */
+  podeAnterior: boolean;
+  podeProximo: boolean;
+  /** Celula de 44px em vez de 36px -- so no painel de fora a fora, onde ha
+   *  largura sobrando e o dedo e o ponteiro. */
+  celulaAlta: boolean;
   foraDoLimite: (dia: Date) => boolean;
   papel: (dia: Date) => "inicio" | "fim" | "meio" | "unico" | null;
   onEscolher: (dia: Date) => void;
@@ -139,39 +174,49 @@ interface MesProps {
 /** Fora do componente principal — recriar isto a cada render perderia o
  *  estado interno do `useMemo` da grade e disparava o aviso do lint de
  *  "componente criado durante o render". */
-function Mes({ mes, direcaoNav, onAnterior, onProximo, foraDoLimite, papel, onEscolher, onHover, pulsando, reduzir, accent }: MesProps) {
+function Mes({ mes, direcaoNav, onAnterior, onProximo, podeAnterior, podeProximo, celulaAlta, foraDoLimite, papel, onEscolher, onHover, pulsando, reduzir, accent }: MesProps) {
   const grade = useMemo(() => montarGrade(mes), [mes]);
+  /* No desktop cada mes carrega uma seta (o da esquerda volta, o da direita
+     avanca). Com um mes so na tela, `direcaoNav` chega `undefined` -- e a
+     regra antiga so olhava por "direita", entao o painel do celular nascia
+     com a seta de avancar e SEM a de voltar: era literalmente impossivel
+     chegar no mes passado. Aqui as duas aparecem nesse caso. */
+  const temEsquerda = direcaoNav === "esquerda" || direcaoNav === undefined;
+  const temDireita = direcaoNav === "direita" || direcaoNav === undefined;
+  const seta = "press-feedback flex items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30";
   return (
     <div className="flex-1">
       <div className="flex items-center justify-between px-1">
-        {direcaoNav === "esquerda" ? (
+        {temEsquerda ? (
           <button
             type="button"
             aria-label="Mês anterior"
             onClick={onAnterior}
-            className="press-feedback flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            disabled={!podeAnterior}
+            className={cn(seta, celulaAlta ? "h-11 w-11" : "h-9 w-9")}
           >
-            <ChevronLeft size={15} />
+            <ChevronLeft size={celulaAlta ? 18 : 15} />
           </button>
-        ) : <span className="w-9" />}
-        <span className="text-[13px] font-bold capitalize tracking-[-0.01em] text-foreground">
+        ) : <span className={celulaAlta ? "w-11" : "w-9"} />}
+        <span className={cn("font-bold capitalize tracking-[-0.01em] text-foreground", celulaAlta ? "text-[15px]" : "text-[13px]")}>
           {format(mes, "MMMM 'de' yyyy", { locale: ptBR })}
         </span>
-        {direcaoNav === "direita" || direcaoNav === undefined ? (
+        {temDireita ? (
           <button
             type="button"
             aria-label="Próximo mês"
             onClick={onProximo}
-            className="press-feedback flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            disabled={!podeProximo}
+            className={cn(seta, celulaAlta ? "h-11 w-11" : "h-9 w-9")}
           >
-            <ChevronRight size={15} />
+            <ChevronRight size={celulaAlta ? 18 : 15} />
           </button>
-        ) : <span className="w-9" />}
+        ) : <span className={celulaAlta ? "w-11" : "w-9"} />}
       </div>
 
       <div className="grid grid-cols-7 gap-y-1 px-1 pt-2">
         {DIAS_SEMANA.map((dia, indice) => (
-          <span key={`${dia}-${indice}`} className="flex h-6 items-center justify-center text-[10px] font-bold uppercase text-muted-foreground/70">
+          <span key={`${dia}-${indice}`} className={cn("flex items-center justify-center font-bold uppercase text-muted-foreground/70", celulaAlta ? "h-7 text-[11px]" : "h-6 text-[10px]")}>
             {dia}
           </span>
         ))}
@@ -201,7 +246,8 @@ function Mes({ mes, direcaoNav, onAnterior, onProximo, foraDoLimite, papel, onEs
                 aria-current={hoje ? "date" : undefined}
                 aria-pressed={extremo}
                 className={cn(
-                  "press-feedback relative z-10 flex h-9 w-full min-w-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums transition-colors",
+                  "press-feedback relative z-10 flex w-full min-w-0 items-center justify-center rounded-full font-semibold tabular-nums transition-colors",
+                  celulaAlta ? "h-11 text-[14px]" : "h-9 text-[12px]",
                   bloqueado && "cursor-not-allowed text-muted-foreground/25",
                   !bloqueado && foraDoMes && "text-muted-foreground/35 hover:bg-muted",
                   !bloqueado && !foraDoMes && !extremo && "text-foreground hover:bg-muted",
@@ -291,7 +337,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
 
   useEffect(() => {
     if (!aberto) return;
-    function aoClicarFora(evento: MouseEvent) {
+    function aoClicarFora(evento: PointerEvent) {
       const alvo = evento.target as Node;
       if (gatilhoRef.current?.contains(alvo)) return;
       if (painelRef.current?.contains(alvo)) return;
@@ -300,10 +346,10 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
     function aoTeclarEsc(evento: KeyboardEvent) {
       if (evento.key === "Escape") setAberto(false);
     }
-    document.addEventListener("mousedown", aoClicarFora);
+    document.addEventListener("pointerdown", aoClicarFora);
     document.addEventListener("keydown", aoTeclarEsc);
     return () => {
-      document.removeEventListener("mousedown", aoClicarFora);
+      document.removeEventListener("pointerdown", aoClicarFora);
       document.removeEventListener("keydown", aoTeclarEsc);
     };
   }, [aberto]);
@@ -314,8 +360,21 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
     return false;
   }
 
+  /** Ordena o par e apara nas bordas de `min`/`max`. Os atalhos de periodo
+   *  ("Mes passado", "30 dias") frequentemente comecam antes do que a tela
+   *  permite; aparar e melhor que aplicar data invalida ou nao fazer nada.
+   *  Devolve `null` so quando o intervalo inteiro caiu fora da faixa. */
+  function aparar(inicio: Date, fim: Date): [Date, Date] | null {
+    let [de, ate] = isAfter(inicio, fim) ? [fim, inicio] : [inicio, fim];
+    if (limiteMin && isBefore(de, limiteMin)) de = limiteMin;
+    if (limiteMax && isAfter(ate, limiteMax)) ate = limiteMax;
+    return isAfter(de, ate) ? null : [de, ate];
+  }
+
   function aplicar(inicio: Date, fim: Date) {
-    const [de, ate] = isAfter(inicio, fim) ? [fim, inicio] : [inicio, fim];
+    const faixa = aparar(inicio, fim);
+    if (!faixa) return;
+    const [de, ate] = faixa;
     onChange({ inicio: paraISO(de), fim: paraISO(ate) });
     setInicioRascunho(null);
     setHoverDia(null);
@@ -335,16 +394,37 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
     aplicar(inicioRascunho, dia);
   }
 
-  function atalho(dias: number) {
+  /* ── Atalhos ────────────────────────────────────────────────────────
+     Faltava justamente o recorte que mais se pede num CRM: "mes passado".
+     Sem ele, fechar o mes anterior custava abrir o painel, voltar um mes,
+     tocar no dia 1, rolar e tocar no ultimo dia -- cinco interacoes pro
+     periodo mais comum do negocio. Sao dados, e nao funcoes soltas, porque
+     a mesma faixa serve pra aplicar E pra saber qual chip esta aceso. */
+  const atalhos = useMemo(() => {
     const hoje = new Date();
-    const inicio = dias === 0 ? hoje : addDays(hoje, -(dias - 1));
-    if (foraDoLimite(hoje)) return;
-    aplicar(inicio, hoje);
-  }
+    const anterior = subMonths(hoje, 1);
+    return [
+      { rotulo: "Hoje", de: hoje, ate: hoje },
+      { rotulo: "7 dias", de: addDays(hoje, -6), ate: hoje },
+      { rotulo: "30 dias", de: addDays(hoje, -29), ate: hoje },
+      { rotulo: "Este mês", de: startOfMonth(hoje), ate: hoje },
+      { rotulo: "Mês passado", de: startOfMonth(anterior), ate: endOfMonth(anterior) },
+    ];
+  }, []);
 
-  function esteMes() {
-    const hoje = new Date();
-    aplicar(startOfMonth(hoje), hoje);
+  /** Arrastar o dedo depois do primeiro toque pinta o intervalo ao vivo, como
+   *  o mouse ja fazia. `onMouseEnter` nunca dispara no touch: o dedo nao tem
+   *  hover, e o alvo do toque fica preso no elemento do `touchstart`. Por
+   *  isso a posicao e resolvida na mao, pelo `data-date` de cada celula. */
+  function aoArrastar(evento: EventoToque<HTMLDivElement>) {
+    if (!inicioRascunho) return;
+    const toque = evento.touches[0];
+    if (!toque) return;
+    const alvo = document.elementFromPoint(toque.clientX, toque.clientY) as HTMLElement | null;
+    const iso = alvo?.closest<HTMLElement>("[data-date]")?.dataset.date;
+    const dia = iso ? deISO(iso) : null;
+    if (!dia || foraDoLimite(dia)) return;
+    if (!hoverDia || !isSameDay(dia, hoverDia)) setHoverDia(dia);
   }
 
   const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" });
@@ -391,9 +471,19 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
     return null;
   }
 
+  /* O ultimo mes visivel e o da direita quando ha dois na tela. Sem isto, a
+     seta de avancar travaria um mes antes do que deveria. */
+  const ultimoMesVisivel = posicao?.doisMeses ? addMonths(mesVisivel, 1) : mesVisivel;
+  const podeAnterior = !limiteMin || !isBefore(endOfMonth(subMonths(mesVisivel, 1)), limiteMin);
+  const podeProximo = !limiteMax || !isAfter(startOfMonth(addMonths(ultimoMesVisivel, 1)), limiteMax);
+  const diasNoIntervalo = inicioSelecionado && fimSelecionado
+    ? differenceInCalendarDays(fimSelecionado, inicioSelecionado) + 1
+    : 0;
+
   const painel = aberto && posicao && (
     <motion.div
       ref={painelRef}
+      key="painel"
       role="dialog"
       aria-modal="true"
       aria-labelledby={tituloId}
@@ -407,14 +497,33 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
         left: posicao.left,
         width: posicao.largura,
         transform: posicao.paraCima ? "translateY(-100%)" : undefined,
-        transformOrigin: `${posicao.paraCima ? "bottom" : "top"} ${posicao.alinhadoDireita ? "right" : "left"}`,
+        transformOrigin: posicao.foraAFora
+          ? `${posicao.paraCima ? "bottom" : "top"} center`
+          : `${posicao.paraCima ? "bottom" : "top"} ${posicao.alinhadoDireita ? "right" : "left"}`,
+        maxHeight: posicao.alturaMax,
       }}
-      className="z-[100] overflow-hidden rounded-[1.1rem] border border-border bg-card shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+      className={cn(
+        "z-[100] flex flex-col overflow-hidden bg-card shadow-[0_16px_40px_rgba(14,15,19,.24)]",
+        /* Encostado nas duas bordas da tela, arredondar os cantos laterais so
+           abriria duas frestas do fundo. Arredonda o lado de dentro e some
+           com a borda que ficaria fora da vista. */
+        posicao.foraAFora
+          ? posicao.paraCima
+            ? "rounded-t-[1.25rem] border-t border-border"
+            : "rounded-b-[1.25rem] border-b border-border"
+          : "rounded-[1.1rem] border border-border",
+      )}
     >
       <span id={tituloId} className="sr-only">{rotulo}</span>
 
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5">
-        <p className="min-w-0 flex-1 truncate text-[11px] font-semibold text-muted-foreground">
+      {/* Fora a fora, os atalhos descem pra uma fileira propria e crescem pra
+          36px de alvo -- inline num painel de tela cheia eles ficariam com 22px
+          de altura e espremidos contra o texto de estado. */}
+      <div className={cn(
+        "shrink-0 border-b border-border px-3 py-2.5",
+        posicao.foraAFora ? "space-y-2" : "flex items-center justify-between gap-2",
+      )}>
+        <p className={cn("truncate text-[11px] font-semibold text-muted-foreground", !posicao.foraAFora && "min-w-0 flex-1")}>
           {!inicioRascunho && !inicioSelecionado && "Escolha a data inicial"}
           {inicioRascunho && "Agora escolha a data final"}
           {!inicioRascunho && inicioSelecionado && fimSelecionado && (
@@ -422,22 +531,51 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
               <span className="font-bold text-foreground">{diaMesAno.format(inicioSelecionado)}</span>
               {" – "}
               <span className="font-bold text-foreground">{diaMesAno.format(fimSelecionado)}</span>
+              {/* Quantos dias o intervalo cobre: conferir faturamento de 29 ou
+                  de 30 dias muda o numero, e contar no calendario e trabalho. */}
+              <span className="ml-1.5 tabular-nums text-muted-foreground/70">· {diasNoIntervalo} {diasNoIntervalo === 1 ? "dia" : "dias"}</span>
             </>
           )}
         </p>
-        <div className="flex shrink-0 gap-1">
-          <button type="button" onClick={() => atalho(1)} className="press-feedback whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Hoje</button>
-          <button type="button" onClick={() => atalho(7)} className="press-feedback whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">7 dias</button>
-          <button type="button" onClick={esteMes} className="press-feedback whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">Este mês</button>
+        <div className={cn(
+          "flex gap-1",
+          posicao.foraAFora ? "-mx-3 overflow-x-auto px-3 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "shrink-0",
+        )}>
+          {atalhos.map((item) => {
+            const faixa = aparar(item.de, item.ate);
+            const ativo = !!faixa && valor.inicio === paraISO(faixa[0]) && valor.fim === paraISO(faixa[1]);
+            return (
+              <button
+                key={item.rotulo}
+                type="button"
+                onClick={() => aplicar(item.de, item.ate)}
+                disabled={!faixa}
+                aria-pressed={ativo}
+                style={ativo ? { borderColor: accent, color: accent, background: `color-mix(in srgb, ${accent} 12%, transparent)` } : undefined}
+                className={cn(
+                  "press-feedback flex shrink-0 items-center whitespace-nowrap rounded-full border font-bold transition-colors disabled:pointer-events-none disabled:opacity-30",
+                  posicao.foraAFora ? "h-9 px-3 text-[12px]" : "h-7 px-2.5 text-[10px]",
+                  !ativo && "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {item.rotulo}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="flex gap-3 p-3" onMouseLeave={() => setHoverDia(null)}>
+      {/* `flex-1` + `overflow-y-auto`: quando o teto de altura aperta, quem rola
+          e a grade -- cabecalho e rodape ficam presos e sempre alcancaveis. */}
+      <div className="flex flex-1 gap-3 overflow-y-auto overscroll-contain p-3" onMouseLeave={() => setHoverDia(null)} onTouchMove={aoArrastar}>
         <Mes
           mes={mesEsquerda}
           direcaoNav={posicao.doisMeses ? "esquerda" : undefined}
           onAnterior={() => setMesVisivel((atual) => subMonths(atual, 1))}
           onProximo={() => setMesVisivel((atual) => addMonths(atual, 1))}
+          podeAnterior={podeAnterior}
+          podeProximo={podeProximo}
+          celulaAlta={posicao.foraAFora}
           foraDoLimite={foraDoLimite}
           papel={dentroDoIntervaloPreview}
           onEscolher={escolher}
@@ -452,6 +590,9 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             direcaoNav="direita"
             onAnterior={() => setMesVisivel((atual) => subMonths(atual, 1))}
             onProximo={() => setMesVisivel((atual) => addMonths(atual, 1))}
+            podeAnterior={podeAnterior}
+            podeProximo={podeProximo}
+            celulaAlta={posicao.foraAFora}
             foraDoLimite={foraDoLimite}
             papel={dentroDoIntervaloPreview}
             onEscolher={escolher}
@@ -463,7 +604,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
         )}
       </div>
 
-      <div className="flex items-center justify-end border-t border-border px-3 py-2">
+      <div className="flex shrink-0 items-center justify-end border-t border-border px-3 py-2">
         <button
           type="button"
           onClick={() => { onChange({ inicio: "", fim: "" }); setInicioRascunho(null); setAberto(false); }}
@@ -530,7 +671,28 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
         <span className="whitespace-nowrap tabular-nums">{rotulo}</span>
       </motion.button>
 
-      {montado && createPortal(<AnimatePresence>{painel}</AnimatePresence>, document.body)}
+      {montado && createPortal(
+        <AnimatePresence>
+          {/* Painel de tela cheia pede um veu: da o alvo de "toque fora pra
+              fechar" sem que o dedo acerte um controle da pagina por baixo, e
+              separa o calendario do conteudo. No desktop nao entra -- ali o
+              popover e pequeno e escurecer a tela inteira seria agressivo. */}
+          {aberto && posicao?.foraAFora && (
+            <motion.div
+              key="veu"
+              aria-hidden="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+              onClick={() => setAberto(false)}
+              className="fixed inset-0 z-[99] bg-foreground/25"
+            />
+          )}
+          {painel}
+        </AnimatePresence>,
+        document.body,
+      )}
     </>
   );
 }
