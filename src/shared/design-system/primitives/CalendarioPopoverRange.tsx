@@ -46,6 +46,12 @@ function deISO(iso: string): Date | null {
 
 const DIAS_SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"];
 
+/** Sobe so a primeira letra. O `capitalize` do CSS subia cada palavra e o
+ *  cabecalho saia "Setembro De 2026" -- a preposicao do formato pt-BR junto. */
+function maiusculaInicial(texto: string): string {
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
 function montarGrade(mesReferencia: Date): Date[] {
   const inicio = startOfMonth(mesReferencia);
   const fim = endOfMonth(mesReferencia);
@@ -198,8 +204,8 @@ function Mes({ mes, direcaoNav, onAnterior, onProximo, podeAnterior, podeProximo
             <ChevronLeft size={celulaAlta ? 18 : 15} />
           </button>
         ) : <span className={celulaAlta ? "w-11" : "w-9"} />}
-        <span className={cn("font-bold capitalize tracking-[-0.01em] text-foreground", celulaAlta ? "text-[15px]" : "text-[13px]")}>
-          {format(mes, "MMMM 'de' yyyy", { locale: ptBR })}
+        <span className={cn("font-bold tracking-[-0.01em] text-foreground", celulaAlta ? "text-[15px]" : "text-[13px]")}>
+          {maiusculaInicial(format(mes, "MMMM 'de' yyyy", { locale: ptBR }))}
         </span>
         {temDireita ? (
           <button
@@ -538,8 +544,8 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
           )}
         </p>
         <div className={cn(
-          "flex gap-1",
-          posicao.foraAFora ? "-mx-3 overflow-x-auto px-3 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" : "shrink-0",
+          "flex",
+          posicao.foraAFora ? "flex-wrap gap-1.5" : "shrink-0 gap-1",
         )}>
           {atalhos.map((item) => {
             const faixa = aparar(item.de, item.ate);
@@ -551,7 +557,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
                 onClick={() => aplicar(item.de, item.ate)}
                 disabled={!faixa}
                 aria-pressed={ativo}
-                style={ativo ? { borderColor: accent, color: accent, background: `color-mix(in srgb, ${accent} 12%, transparent)` } : undefined}
+                style={ativo ? { background: accent, borderColor: accent, color: "#fff" } : undefined}
                 className={cn(
                   "press-feedback flex shrink-0 items-center whitespace-nowrap rounded-full border font-bold transition-colors disabled:pointer-events-none disabled:opacity-30",
                   posicao.foraAFora ? "h-9 px-3 text-[12px]" : "h-7 px-2.5 text-[10px]",

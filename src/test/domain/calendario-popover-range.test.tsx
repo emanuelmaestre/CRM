@@ -193,6 +193,35 @@ describe("CalendarioPopoverRange", () => {
     expect(screen.getByRole("button", { name: "Hoje" })).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("o título do mês sobe só a primeira letra, não a preposição", () => {
+    render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+    // O `capitalize` do CSS subia cada palavra e saía "Agosto De 2026".
+    expect(screen.getByText("Agosto de 2026")).toBeInTheDocument();
+    expect(screen.queryByText("Agosto De 2026")).not.toBeInTheDocument();
+  });
+
+  it("no celular os cinco atalhos quebram linha em vez de rolar e cortar o último", () => {
+    const restaurar = comLarguraDeCelular();
+    try {
+      render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Período" }));
+
+      const ultimo = screen.getByRole("button", { name: "Mês passado" });
+      const fileira = ultimo.parentElement as HTMLElement;
+      // Rolando na horizontal, "Mês passado" — o atalho mais pedido — ficava
+      // cortado na borda da tela, sem pista de que havia mais coisa ali.
+      expect(fileira.className).toContain("flex-wrap");
+      expect(fileira.className).not.toContain("overflow-x-auto");
+      for (const nome of ["Hoje", "7 dias", "30 dias", "Este mês", "Mês passado"]) {
+        expect(screen.getByRole("button", { name: nome })).toBeInTheDocument();
+      }
+    } finally {
+      restaurar();
+    }
+  });
+
   it("mostra quantos dias o intervalo cobre", () => {
     render(
       <CalendarioPopoverRange rotulo="Período" valor={{ inicio: "2026-07-01", fim: "2026-07-31" }} onChange={vi.fn()} />,
