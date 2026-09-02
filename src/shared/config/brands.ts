@@ -13,6 +13,20 @@ export function brandEnvSuffix(slug: string): string {
   return slug.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 }
 
+/** Ordem canônica das marcas — a que `brands.json` declara.
+ *
+ *  Telas que montam a fileira a partir de `BRAND_SLUGS` já saem certas; as
+ *  que recebem a lista pronta do servidor saíam na ordem que a consulta
+ *  produziu, e a mesma barra de escopo aparecia numa ordem em Métricas e em
+ *  outra em Publicidade. Marca desconhecida vai pro fim em vez de sumir. */
+export function compararMarcas(slugA: string, slugB: string): number {
+  const posicao = (slug: string) => {
+    const indice = (BRAND_SLUGS as readonly string[]).indexOf(slug);
+    return indice === -1 ? Number.MAX_SAFE_INTEGER : indice;
+  };
+  return posicao(slugA) - posicao(slugB);
+}
+
 /** Canais de venda que a marca realmente opera. Nem toda marca vende em todo
  *  canal — a KARZI não tem Shopee, por exemplo — e antes disso as telas
  *  montavam marcas × todos os canais, criando linha para loja que não existe

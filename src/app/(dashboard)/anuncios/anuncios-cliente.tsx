@@ -10,7 +10,7 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
-import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
+import { compararMarcas, getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { stagger } from "@/shared/design-system/motion-variants";
 import { tint } from "@/shared/design-system/color";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
@@ -266,9 +266,13 @@ export function SeletorMarca({ marcas, ativa, onChange, indisponiveis = [] }: {
   indisponiveis?: MarcaIndisponivel[];
 }) {
   const reduzir = useReducedMotion();
+  /* O servidor devolve as marcas na ordem da consulta; a fileira precisa da
+     ordem canonica de brands.json, senao a mesma barra sai numa ordem aqui e
+     noutra em Metricas. */
+  const emOrdem = [...marcas].sort((a, b) => compararMarcas(a.brandSlug, b.brandSlug));
   return (
     <div className="flex flex-wrap gap-1.5" role="tablist">
-      {marcas.map((marca) => {
+      {emOrdem.map((marca) => {
         const selecionada = marca.brandId === ativa;
         return (
           <motion.button
@@ -509,9 +513,13 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
           Campanhas e Histórico já usavam — a página principal ficou de fora
           quando as sub-páginas foram corrigidas. */}
       <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
-        <div className="order-1 flex w-full justify-center gap-1.5 md:order-none md:contents">
-          <SeletorCanalAnuncios />
-        </div>
+        {/* Empresas ANTES dos canais na fileira única do desktop, e a ordem
+            de sempre preservada no celular (canal em cima, empresa embaixo)
+            — pedido de 02/09/2026, o mesmo aplicado ao `ScopeRow` de
+            Métricas. `md:contents` dissolve os wrappers a partir do md e aí
+            quem manda é a ordem do DOM, por isso as MARCAS vêm escritas
+            primeiro; abaixo do md os wrappers voltam a ser itens de flex e o
+            `order-*` devolve a leitura do estreito. */}
         <div className="order-2 flex w-full justify-center gap-1.5 md:order-none md:contents">
           <SeletorMarca
             marcas={dados.marcas}
@@ -519,6 +527,9 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
             onChange={setMarcaAtiva}
             indisponiveis={dados.marcasIndisponiveis}
           />
+        </div>
+        <div className="order-1 flex w-full justify-center gap-1.5 md:order-none md:contents">
+          <SeletorCanalAnuncios />
         </div>
         <span className="hidden h-px flex-1 bg-border md:block" />
         <div className="order-3 flex w-full justify-center md:order-none md:contents">

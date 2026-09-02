@@ -716,8 +716,14 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
       </section>
 
       <section className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.06)]">
-        <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center">
-          <label className="relative min-w-[210px] flex-1">
+        {/* Busca e "Notas" dividem a mesma linha desde o celular. Empilhados,
+            o seletor caía sozinho e centralizado numa faixa inteira só pra
+            ele, empurrando a primeira avaliação pra fora da tela — dois
+            controles do mesmo filtro pareciam dois blocos sem relação.
+            No estreito quem cede é a busca (`min-w-0 flex-1`): o seletor tem
+            9rem de mínimo no primitivo e encolhê-lo cortaria o rótulo. */}
+        <div className="flex items-center gap-2 border-b border-border p-4 sm:gap-3">
+          <label className="relative min-w-0 flex-1 lg:min-w-[210px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               value={busca}
@@ -726,7 +732,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
               className="h-11 w-full rounded-xl border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-[rgba(155,48,217,.5)]"
             />
           </label>
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+          <div className="flex shrink-0 items-center gap-2">
             <SelectPopover
               valor={nota}
               onChange={setNota}

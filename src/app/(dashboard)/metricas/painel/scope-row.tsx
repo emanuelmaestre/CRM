@@ -121,33 +121,24 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
   // ordem visual só ali (canal em cima, empresa embaixo) com `order`, sem
   // mudar nada no desktop: `sm:contents` desfaz o agrupamento a partir do
   // sm, voltando pra sequência única de sempre dentro do AcaoSlotFiltro. */
-  // Ordem fixa em todo o sistema, em todos os dispositivos: canal primeiro
-  // (Mercado Livre · Shopee · TikTok), marca depois (Armarinhos Lima · Karzi
-  // · Wuwu — vem pronta assim de `marcas`, que já chega ordenada por
-  // `compararPorOrdemDeMarca`). Antes, os dois grupos tinham `order-1`/
-  // `order-2` só pra inverter a leitura no mobile — mas isso, combinado com
-  // `sm:contents` (que devolve os filhos à ordem natural do DOM a partir do
-  // sm), fazia desktop e mobile mostrarem ordens OPOSTAS entre si. Sem
-  // classe de `order` nenhuma, a ordem visual é sempre a mesma ordem em que
-  // os grupos aparecem aqui embaixo — canal, depois marca — em qualquer tamanho de tela.
+  // Ordem DIFERENTE por tamanho de tela, e isto é de propósito — pedido de
+  // 02/09/2026. Na fileira única do desktop as empresas vêm primeiro
+  // (Armarinhos Lima · Karzi · Wuwu, já ordenadas assim em `marcas` por
+  // `compararPorOrdemDeMarca`) e os canais depois; no celular, onde cada
+  // grupo ocupa a própria linha, a leitura de sempre é mantida — canal em
+  // cima, empresa embaixo.
+  //
+  // Como isso funciona: `sm:contents` dissolve os wrappers a partir do sm, e
+  // aí quem manda é a ordem do DOM — por isso o grupo de MARCAS vem escrito
+  // primeiro aqui embaixo. Abaixo do sm os wrappers voltam a ser itens de
+  // flex e o `order-1`/`order-2` devolve a ordem do celular.
+  //
+  // Um comentário anterior tratava exatamente esta divergência entre desktop
+  // e mobile como defeito e a eliminou. Ela voltou por pedido explícito: se
+  // for pra unificar de novo, é decisão de produto, não faxina de código.
   return (
     <>
-      <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
-        {canais.map((canal) => (
-          <Pilula
-            key={canal.tipo}
-            ativo={filtro.canal.includes(canal.tipo)}
-            desabilitado={!canal.conectado}
-            onClick={() => alternarCanal(canal.tipo)}
-            rotulo={canalLabel(canal.tipo)}
-            accent={channelAccent(canal.tipo)}
-          >
-            <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
-          </Pilula>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center justify-center gap-2 sm:contents">
+      <div className="order-2 flex flex-wrap items-center justify-center gap-2 sm:order-none sm:contents">
         {marcas.map((marca) => {
           const disponivel = marcaDisponivelNosCanais(marca.slug, filtro.canal);
           return (
@@ -164,6 +155,21 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
             </Pilula>
           );
         })}
+      </div>
+
+      <div className="order-1 flex flex-wrap items-center justify-center gap-2 sm:order-none sm:contents">
+        {canais.map((canal) => (
+          <Pilula
+            key={canal.tipo}
+            ativo={filtro.canal.includes(canal.tipo)}
+            desabilitado={!canal.conectado}
+            onClick={() => alternarCanal(canal.tipo)}
+            rotulo={canalLabel(canal.tipo)}
+            accent={channelAccent(canal.tipo)}
+          >
+            <ChannelLogo canal={canal.tipo} size="sm" variant="logo" />
+          </Pilula>
+        ))}
       </div>
     </>
   );
