@@ -4,8 +4,10 @@ import { db } from "@/shared/lib/db";
 import { brand, channelAccount, sincronizacaoExecucao } from "@/shared/lib/db/schema";
 import {
   importarFatiaCatalogoShopee,
+  importarFatiaCatalogoTikTok,
   importarPaginaCatalogoMercadoLivre,
   listarCatalogoShopeeParaImportar,
+  listarCatalogoTikTokParaImportar,
   resolverContaParaImportar,
   resumirDiagnosticoShopee,
   TAMANHO_FATIA_CATALOGO,
@@ -188,14 +190,34 @@ export const A31_sincronizarConta = inngest.createFunction(
     // pelo tempo limite, reexecutando do zero pra sempre — ver o comentário em
     // importar-catalogo.service.ts (KARZI concluía, WUWU e ARMARINHOS não).
     if (solicitados.has("catalogo")) await executarModuloEmSteps("catalogo", async () => {
-      if (conta.tipo !== "mercadolivre" && conta.tipo !== "shopee") {
+      if (conta.tipo !== "mercadolivre" && conta.tipo !== "shopee" && conta.tipo !== "tiktokshop") {
         return { produtosCriados: 0, ignorados: 0, ...semSuporte("Catálogo", conta.tipo) };
       }
       const contaImport = await step.run("catalogo-conta", () =>
-        resolverContaParaImportar(ctx, channelAccountId, conta.tipo as "mercadolivre" | "shopee"),
+        resolverContaParaImportar(ctx, channelAccountId, conta.tipo as "mercadolivre" | "shopee" | "tiktokshop"),
       );
       let produtosCriados = 0;
       let ignorados = 0;
+
+      if (conta.tipo === "tiktokshop") {
+        const itens = await step.run("catalogo-tiktok-listar", () =>
+          listarCatalogoTikTokParaImportar(contaImport),
+        );
+        for (let i = 0; i < itens.length; i += TAMANHO_FATIA_CATALOGO) {
+          const fatia = itens.slice(i, i + TAMANHO_FATIA_CATALOGO);
+          const parcial = await step.run(`catalogo-tiktok-${i}`, () =>
+            importarFatiaCatalogoTikTok(ctx, contaImport, fatia),
+          );
+          produtosCriados += parcial.produtosCriados;
+          ignorados += parcial.ignorados;
+          await step.run(`catalogo-tiktok-progresso-${i}`, () => atualizarProgresso(
+            "catalogo",
+            itens.length > 0 ? 10 + (Math.min(itens.length, i + fatia.length) / itens.length) * 85 : 95,
+            { processados: Math.min(itens.length, i + fatia.length), total: itens.length, produtosCriados, ignorados },
+          ));
+        }
+        return { produtosCriados, ignorados };
+      }
 
       if (conta.tipo === "mercadolivre") {
         let offset = 0;

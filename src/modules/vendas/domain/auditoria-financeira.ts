@@ -140,12 +140,22 @@ export const ESPEC_CANAL: Record<CanalConferencia, EspecCanal> = {
     confereLiquido: true,
     toleranciaLiquidoCentavos: (bruto) => Math.max(2000, Math.round(Math.abs(bruto) * 0.15)),
   },
-  // O provider ainda entrega só total + frete — sem os descontos de plataforma
-  // e de vendedor que o `total` já embute. Sem eles, a soma nunca fecha; a
-  // conferência fica indisponível até o provider decompor o financeiro.
+  // `pedido.total` = `order.payment.total_amount`. `itens[].precoUnitario`
+  // vem de `original_price` (preço cheio, não o já descontado `sale_price`),
+  // então o desconto de plataforma/vendedor precisa ser subtraído aqui — sem
+  // isso a soma bateria só em pedido sem promoção. Fórmula validada contra
+  // pedido real das três marcas (03/09/2026), inclusive multi-item e
+  // cancelado: 39,9 + 0 (frete) + 6,72 (acréscimo) − 1,36 (desconto) = 45,26.
+  //
+  // `confereLiquido` continua falso: o repasse líquido do TikTok não vem no
+  // pedido, só num endpoint de settlement por pedido — sem versão em lote — e
+  // só existe depois que o pedido liquida (dias após a venda). Buscá-lo pra
+  // TODO pedido no volume da WUWU (centenas por mês) dobraria as chamadas de
+  // detalhe da sincronização. Ligar isto é decisão de custo, não só de
+  // código — ver conversa de 03/09/2026.
   tiktokshop: {
-    somaComponentes: (p) => somaItens(p) + emCentavos(p.frete),
-    toleranciaBrutoCentavos: null,
+    somaComponentes: (p) => somaItens(p) + emCentavos(p.frete) + emCentavos(p.acrescimo) - emCentavos(p.desconto),
+    toleranciaBrutoCentavos: 2,
     exigeRepasse: false,
     diasGraciaRepasse: 0,
     confereLiquido: false,

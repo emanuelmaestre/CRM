@@ -55,6 +55,11 @@ export function mapearStatusPedido(statusExterno: string): PedidoStatus {
     pending: "criado",
     awaiting_shipment: "pago",
     awaiting_collection: "separado",
+    // TikTok: coletado pela transportadora e a caminho. Sem isto caía no
+    // fallback "criado" — 115 dos 1457 pedidos das três marcas numa
+    // importação real de 90 dias em 03/09/2026 apareceriam como recém-criados
+    // estando a caminho do comprador.
+    in_transit: "enviado",
   };
   const chave = statusExterno.toLowerCase();
   const conhecido = mapa[chave];

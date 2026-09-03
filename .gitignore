@@ -37,6 +37,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# scratch — pastas de trabalho fora do controle do projeto (harness/agente),
+# nunca destinadas a commit. tsconfig.json também as exclui do typecheck.
+/out/
+/outputs/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

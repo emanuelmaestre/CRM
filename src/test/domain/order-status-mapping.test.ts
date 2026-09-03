@@ -16,6 +16,13 @@ describe("normalização de status de pedido por canal", () => {
     ["partially_returned", "devolvido"],
     ["delivered", "entregue"],
     ["cancelled", "cancelado"],
+    // TikTok: os sete status que as três lojas realmente usam, conferidos
+    // contra 1457 pedidos reais de 90 dias em 03/09/2026. IN_TRANSIT era o
+    // único fora do mapa — 115 pedidos a caminho apareciam como "criado".
+    ["IN_TRANSIT", "enviado"],
+    ["AWAITING_COLLECTION", "separado"],
+    ["COMPLETED", "concluido"],
+    ["UNPAID", "criado"],
   ])("mapeia %s para %s", (external, expected) => {
     expect(mapearStatusPedido(external)).toBe(expected);
   });

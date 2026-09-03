@@ -4,6 +4,7 @@ import { auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSal
 import { persistirEvento, despacharEvento } from "@/shared/events";
 import { criarMLProvider } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { criarShopeeProvider, type DiagnosticoCatalogoShopee } from "@/modules/canais/infrastructure/shopee.provider";
+import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
 import { isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 
 /** Cadastro manual de produto, um a um, não dá conta de um catálogo com
@@ -44,7 +45,7 @@ export const TAMANHO_FATIA_CATALOGO = 50;
 export async function resolverContaParaImportar(
   ctx: CrudContext,
   channelAccountId: string,
-  tipo: "mercadolivre" | "shopee",
+  tipo: "mercadolivre" | "shopee" | "tiktokshop",
 ): Promise<ContaParaImportar> {
   assertPerfil(ctx, ["admin", "gestor"]);
   const conta = await ctx.db
@@ -145,6 +146,34 @@ export async function importarFatiaCatalogoShopee(
   return { produtosCriados, ignorados };
 }
 
+/** O TikTok também entrega tudo de uma vez (a paginação acontece dentro do
+ *  próprio `listarCatalogoAtivo`, sobre a busca de produtos, não sobre um
+ *  detalhe por item) — mesma divisão da Shopee: listar num step, gravar em
+ *  fatias nos seguintes. */
+export async function listarCatalogoTikTokParaImportar(conta: ContaParaImportar) {
+  const provider = await criarTikTokShopProvider(conta.brandSlug);
+  return provider.listarCatalogoAtivo();
+}
+
+export async function importarFatiaCatalogoTikTok(
+  ctx: CrudContext,
+  conta: ContaParaImportar,
+  itens: Awaited<ReturnType<typeof listarCatalogoTikTokParaImportar>>,
+): Promise<{ produtosCriados: number; ignorados: number }> {
+  assertPerfil(ctx, ["admin", "gestor"]);
+  const vinculos = await carregarVinculosDaConta(ctx, conta.channelAccountId);
+  let produtosCriados = 0;
+  let ignorados = 0;
+  const saldosPendentes: Array<typeof estoqueCanalSaldo.$inferInsert> = [];
+  for (const item of itens) {
+    const resultado = await mapearItemCatalogo(ctx, conta, item, "importacao-tiktokshop", "tiktok", vinculos, saldosPendentes);
+    if (resultado === "criado") produtosCriados += 1;
+    else ignorados += 1;
+  }
+  await gravarSaldosPendentes(ctx, saldosPendentes);
+  return { produtosCriados, ignorados };
+}
+
 /** Formato mínimo que o gravador precisa, comum aos dois canais — ML e
  *  Shopee normalizam pra isto antes de chegar aqui (ver `MLAnuncioCatalogo`
  *  e `ShopeeAnuncioCatalogo`), cada um com sua própria lógica de busca. */
@@ -202,7 +231,7 @@ async function mapearItemCatalogo(
   ctx: CrudContext,
   conta: ContaParaImportar,
   item: ItemCatalogoGenerico,
-  origem: "importacao-mercadolivre" | "importacao-shopee",
+  origem: "importacao-mercadolivre" | "importacao-shopee" | "importacao-tiktokshop",
   prefixoSkuGerado: string,
   /** Índice pré-carregado (ver carregarVinculosDaConta). Sem ele, cai na
    *  consulta por item — comportamento antigo, para quem chama fora de um job. */

@@ -164,18 +164,55 @@ describe("decomporPedido — Shopee", () => {
   });
 });
 
-describe("decomporPedido — canais sem regra completa", () => {
-  it("TikTok Shop fica não_aplicável enquanto o provider não decompõe descontos", () => {
+describe("decomporPedido — TikTok Shop", () => {
+  // Fórmula validada contra pedido real das três marcas em 03/09/2026 (ver
+  // comentário em ESPEC_CANAL.tiktokshop): itens usam original_price (preço
+  // cheio), então o desconto de plataforma/vendedor entra à parte — pedido
+  // 585790140635317828 da ARMARINHOS LIMA, exatamente com estes valores.
+  it("fecha quando itens (preço cheio) + frete + acréscimo − desconto reconstrói o total", () => {
     const d = decomporPedido(pedido({
       canal: "tiktokshop",
-      total: "100.00",
-      frete: "10.00",
-      itens: [{ precoUnitario: "100.00", quantidade: 1 }],
+      total: "45.26",
+      frete: "0",
+      acrescimo: "6.72",
+      desconto: "1.36",
+      itens: [{ precoUnitario: "39.90", quantidade: 1 }],
     }));
-    expect(d.classificacao).toBe("nao_aplicavel");
-    expect(precisaResolver(d.classificacao)).toBe(false);
+    expect(d.classificacao).toBe("ok");
+    expect(d.residuoBrutoCentavos).toBe(0);
   });
 
+  it("acusa divergência quando o desconto não é informado", () => {
+    const d = decomporPedido(pedido({
+      canal: "tiktokshop",
+      total: "45.26",
+      frete: "0",
+      acrescimo: "6.72",
+      itens: [{ precoUnitario: "39.90", quantidade: 1 }],
+    }));
+    expect(d.classificacao).toBe("divergente_bruto");
+  });
+
+  // Repasse líquido não vem no pedido — só num endpoint de settlement por
+  // pedido, sem versão em lote, e só depois que o pedido liquida. Ausência de
+  // valorLiquido não é tratada como pendência (exigeRepasse: false), ao
+  // contrário da Shopee.
+  it("não exige nem confere repasse líquido", () => {
+    const d = decomporPedido(pedido({
+      canal: "tiktokshop",
+      total: "45.26",
+      frete: "0",
+      acrescimo: "6.72",
+      desconto: "1.36",
+      itens: [{ precoUnitario: "39.90", quantidade: 1 }],
+    }));
+    expect(d.classificacao).toBe("ok");
+    expect(d.liquidoInformadoCentavos).toBeNull();
+    expect(d.liquidoReconstruidoCentavos).toBeNull();
+  });
+});
+
+describe("decomporPedido — canais sem regra completa", () => {
   it("canal desconhecido não quebra — devolve não_aplicável", () => {
     const d = decomporPedido(pedido({ canal: "canal_manual", total: "10.00" }));
     expect(d.classificacao).toBe("nao_aplicavel");
