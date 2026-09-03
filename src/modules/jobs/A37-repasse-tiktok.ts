@@ -100,6 +100,7 @@ export const A37_repasseTikTok = inngest.createFunction(
         pulados: porConta.filter((item) => item.erro).length,
         repasses: porConta.reduce((total, item) => total + (item.resumo?.repasses ?? 0), 0),
         atualizados: porConta.reduce((total, item) => total + (item.resumo?.atualizados ?? 0), 0),
+        itensComTaxa: porConta.reduce((total, item) => total + (item.resumo?.itensComTaxa ?? 0), 0),
         semPedido: porConta.reduce((total, item) => total + (item.resumo?.semPedido ?? 0), 0),
         porConta,
       };

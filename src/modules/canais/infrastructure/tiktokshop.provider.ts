@@ -78,6 +78,18 @@ export interface TikTokTransacaoExtrato {
   revenue_amount?: string;
   fee_amount?: string;
   shipping_cost_amount?: string;
+  /* As retenções que são COMISSÃO, separadas do frete. `fee_amount` mistura
+     as duas: no agregado de 40 dias da WUWU (03/09/2026) ele soma −1.180,64,
+     dos quais −326,96 são comissão de plataforma e o resto é frete real menos
+     o subsídio que a plataforma devolve. Escrever `fee_amount` na linha
+     "Taxa do canal de venda" diria que o canal cobrou o frete. */
+  platform_commission_amount?: string;
+  referral_fee_amount?: string;
+  transaction_fee_amount?: string;
+  /* Declarados para deixar explícito que ficam FORA da comissão: é frete que a
+     loja paga à transportadora, não retenção do canal. */
+  actual_shipping_fee_amount?: string;
+  fbm_shipping_cost_amount?: string;
   currency?: string;
   type?: string;
 }
@@ -90,6 +102,10 @@ export interface RepasseTikTok {
   receita: number;
   /** Negativo: é retenção. */
   taxas: number;
+  /** Só a parte de comissão das retenções, POSITIVA — é o que a tela do
+   *  pedido chama de "Taxa do canal de venda", no mesmo sinal que o
+   *  `sale_fee` do Mercado Livre e o rateio do escrow da Shopee já gravam. */
+  comissao: number;
   frete: number;
   moeda: string;
   transacoes: number;
@@ -137,16 +153,22 @@ function telefoneUtilizavel(valor: string | undefined): string | undefined {
  *  extrato, devolução em outro) e descarta o pedido que ainda não tem extrato,
  *  que o TikTok devolve zerado em vez de omitir. */
 export function agruparRepasses(transacoes: TikTokTransacaoExtrato[]): RepasseTikTok[] {
-  const acumulado = new Map<string, { liquido: number; receita: number; taxas: number; frete: number; moeda: string; transacoes: number }>();
+  const acumulado = new Map<string, { liquido: number; receita: number; taxas: number; frete: number; comissao: number; moeda: string; transacoes: number }>();
   for (const transacao of transacoes) {
     const orderId = transacao.order_id;
     if (!orderId) continue;
     const atual = acumulado.get(orderId)
-      ?? { liquido: 0, receita: 0, taxas: 0, frete: 0, moeda: transacao.currency ?? "BRL", transacoes: 0 };
+      ?? { liquido: 0, receita: 0, taxas: 0, frete: 0, comissao: 0, moeda: transacao.currency ?? "BRL", transacoes: 0 };
     atual.liquido += centavos(transacao.settlement_amount);
     atual.receita += centavos(transacao.revenue_amount);
     atual.taxas += centavos(transacao.fee_amount);
     atual.frete += centavos(transacao.shipping_cost_amount);
+    // Invertido: a comissão chega negativa ("-2.69") e a coluna do CRM é
+    // positiva. Devolução gera transação de sinal contrário e a soma cai
+    // sozinha — por isso somar antes de inverter, e não o contrário.
+    atual.comissao -= centavos(transacao.platform_commission_amount)
+      + centavos(transacao.referral_fee_amount)
+      + centavos(transacao.transaction_fee_amount);
     atual.transacoes += 1;
     acumulado.set(orderId, atual);
   }
@@ -158,6 +180,9 @@ export function agruparRepasses(transacoes: TikTokTransacaoExtrato[]): RepasseTi
       receita: valores.receita / 100,
       taxas: valores.taxas / 100,
       frete: valores.frete / 100,
+      // Comissão negativa não existe: seria estorno maior que a cobrança, e
+      // gravar isso viraria "o canal te pagou taxa". Piso em zero.
+      comissao: Math.max(valores.comissao, 0) / 100,
       moeda: valores.moeda,
       transacoes: valores.transacoes,
     }));
