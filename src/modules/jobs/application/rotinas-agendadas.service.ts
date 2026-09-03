@@ -97,6 +97,17 @@ const ROTINAS_AGENDADAS = [
     atrasoLimiteMinutos: 180,
   },
   {
+    nome: "A37-repasse-tiktok",
+    titulo: "Repasse financeiro do TikTok Shop",
+    categoria: "Pedidos",
+    // Diária e depois da A35: o extrato do TikTok sai quando a plataforma
+    // paga, não quando a venda acontece, então adiantar a volta não traz
+    // número novo — ver DIAS_REPASSE_TIKTOK para a janela varrida.
+    agenda: "uma vez por dia",
+    cron: "0 7 * * *",
+    atrasoLimiteMinutos: 48 * 60,
+  },
+  {
     nome: "A21-guarda-consumo-ia",
     titulo: "Guarda de consumo IA",
     categoria: "IA",

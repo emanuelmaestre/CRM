@@ -67,6 +67,44 @@ export interface TikTokAnuncioCatalogo {
   price: string;
 }
 
+/** Uma linha do extrato financeiro. São mais de cinquenta campos no payload
+ *  real (comissão de afiliado, imposto retido, frete reembolsado, cada um com
+ *  sua variante de estorno); aqui ficam só os quatro que o CRM usa mais o
+ *  `order_id` que amarra a linha ao pedido. Os valores chegam como string e
+ *  as retenções vêm negativas ("-8.18"). */
+export interface TikTokTransacaoExtrato {
+  order_id?: string;
+  settlement_amount?: string;
+  revenue_amount?: string;
+  fee_amount?: string;
+  shipping_cost_amount?: string;
+  currency?: string;
+  type?: string;
+}
+
+/** O repasse de um pedido, já somado entre as transações do período. */
+export interface RepasseTikTok {
+  orderId: string;
+  /** O que a loja recebe de fato — é este que vira `pedido.valor_liquido`. */
+  liquido: number;
+  receita: number;
+  /** Negativo: é retenção. */
+  taxas: number;
+  frete: number;
+  moeda: string;
+  transacoes: number;
+}
+
+/** String de dinheiro do TikTok para centavos inteiros. Campo ausente é zero
+ *  — o payload omite o que não se aplica ao pedido —, mas texto que não vira
+ *  número não pode virar zero calado: seria uma retenção sumindo da conta. */
+function centavos(valor: string | undefined): number {
+  if (valor === undefined || valor === "") return 0;
+  const numero = Number(valor);
+  if (!Number.isFinite(numero)) throw new Error(`TikTok: valor financeiro inválido no extrato: ${valor}`);
+  return Math.round(numero * 100);
+}
+
 /* ── Vazio do TikTok é string vazia, não campo ausente ───────────────────
  *
  *  O canal preenche `""` em vez de omitir o campo — em pedido cancelado antes
@@ -89,6 +127,40 @@ function textoOuIndefinido(valor: string | undefined): string | undefined {
 function telefoneUtilizavel(valor: string | undefined): string | undefined {
   const limpo = textoOuIndefinido(valor);
   return limpo?.includes("*") ? undefined : limpo;
+}
+
+/** Soma as transações de extrato por pedido.
+ *
+ *  Separada do provider porque é a regra que define o dinheiro gravado — soma
+ *  em centavos (somar "-8.18" com "26.72" em ponto flutuante erra por
+ *  arredondamento), soma TODAS as transações do mesmo pedido (venda num
+ *  extrato, devolução em outro) e descarta o pedido que ainda não tem extrato,
+ *  que o TikTok devolve zerado em vez de omitir. */
+export function agruparRepasses(transacoes: TikTokTransacaoExtrato[]): RepasseTikTok[] {
+  const acumulado = new Map<string, { liquido: number; receita: number; taxas: number; frete: number; moeda: string; transacoes: number }>();
+  for (const transacao of transacoes) {
+    const orderId = transacao.order_id;
+    if (!orderId) continue;
+    const atual = acumulado.get(orderId)
+      ?? { liquido: 0, receita: 0, taxas: 0, frete: 0, moeda: transacao.currency ?? "BRL", transacoes: 0 };
+    atual.liquido += centavos(transacao.settlement_amount);
+    atual.receita += centavos(transacao.revenue_amount);
+    atual.taxas += centavos(transacao.fee_amount);
+    atual.frete += centavos(transacao.shipping_cost_amount);
+    atual.transacoes += 1;
+    acumulado.set(orderId, atual);
+  }
+  return [...acumulado.entries()]
+    .filter(([, valores]) => valores.liquido !== 0 || valores.receita !== 0)
+    .map(([orderId, valores]) => ({
+      orderId,
+      liquido: valores.liquido / 100,
+      receita: valores.receita / 100,
+      taxas: valores.taxas / 100,
+      frete: valores.frete / 100,
+      moeda: valores.moeda,
+      transacoes: valores.transacoes,
+    }));
 }
 
 export class TikTokShopProvider implements ChannelProvider {
@@ -376,6 +448,93 @@ export class TikTokShopProvider implements ChannelProvider {
         dadosOrigem: { status: order.status, financeiroInformado: !!(order.payment ?? order.payment_info) },
       };
     });
+  }
+
+  /* ── O repasse do TikTok vem do extrato, não do pedido ──────────────────
+   *
+   *  `/order/202309/orders` entrega o bruto — o que o comprador pagou — e
+   *  nada do que a plataforma retém: comissão, taxa de transação, frete real.
+   *  Sem isso, Métricas conta como lucro dinheiro que nunca chegou na conta,
+   *  a mesma distorção que a Shopee tinha antes do escrow. Medida aqui em
+   *  03/09/2026 contra extratos reais da WUWU: as retenções são de 24% a 29%
+   *  do bruto.
+   *
+   *  O caminho barato é o extrato, não o pedido. Existe
+   *  `/finance/202501/orders/{id}/statement_transactions`, que responde por
+   *  pedido — mas custa uma chamada por pedido (1.418 só na WUWU em 90 dias)
+   *  e o TikTok já devolve 429 bem antes disso. O extrato traz os mesmos
+   *  números em lote: algumas dezenas de chamadas cobrem o trimestre.
+   *
+   *  Pedido sem extrato ainda existe e responde 200 com tudo zerado (testado
+   *  em pedido pago de hoje) — por isso `listarRepasses` descarta o que soma
+   *  zero, em vez de gravar "o vendedor recebeu R$ 0,00".
+   *
+   *  Um pedido pode aparecer em mais de uma transação: a venda entra num
+   *  extrato, a devolução em outro. Daí a SOMA por `order_id`, não o último
+   *  valor visto — e daí também a janela larga de quem chama (ver
+   *  DIAS_REPASSE_TIKTOK): uma devolução fora da janela deixaria o líquido
+   *  alto demais até a varredura seguinte alcançá-la. */
+  private static readonly EXTRATO_PAGINA = 50;
+
+  private async listarExtratos(desdeMs: number, ateMs: number): Promise<string[]> {
+    const ids: string[] = [];
+    const vistos = new Set<string>();
+    let cursor = "";
+    for (let pagina = 0; pagina < 200; pagina++) {
+      const data = await this.request<{ statements?: Array<{ id?: string }>; next_page_token?: string }>(
+        "/finance/202309/statements",
+        {
+          query: {
+            page_size: String(TikTokShopProvider.EXTRATO_PAGINA),
+            /* `sort_field` é obrigatório: sem ele o TikTok recusa com
+               "SortField is a required field" — 400, não 404. */
+            sort_field: "statement_time",
+            statement_time_ge: String(Math.floor(desdeMs / 1000)),
+            statement_time_lt: String(Math.ceil(ateMs / 1000)),
+            ...(cursor ? { page_token: cursor } : {}),
+          },
+          timeoutMs: 15_000,
+        },
+      );
+      for (const extrato of data.statements ?? []) if (extrato.id) ids.push(extrato.id);
+      const proximo = proximoCursorSeguro(cursor, data.next_page_token, Boolean(data.next_page_token), vistos, "TikTok extratos");
+      if (proximo === null) return ids;
+      cursor = proximo;
+    }
+    throw new Error("TikTok: extratos incompletos após 200 páginas.");
+  }
+
+  private async listarTransacoesDoExtrato(extratoId: string): Promise<TikTokTransacaoExtrato[]> {
+    const transacoes: TikTokTransacaoExtrato[] = [];
+    const vistos = new Set<string>();
+    let cursor = "";
+    for (let pagina = 0; pagina < 200; pagina++) {
+      const data = await this.request<{ statement_transactions?: TikTokTransacaoExtrato[]; next_page_token?: string }>(
+        `/finance/202309/statements/${extratoId}/statement_transactions`,
+        {
+          query: {
+            page_size: String(TikTokShopProvider.EXTRATO_PAGINA),
+            sort_field: "order_create_time",
+            ...(cursor ? { page_token: cursor } : {}),
+          },
+          timeoutMs: 15_000,
+        },
+      );
+      transacoes.push(...(data.statement_transactions ?? []));
+      const proximo = proximoCursorSeguro(cursor, data.next_page_token, Boolean(data.next_page_token), vistos, "TikTok transações do extrato");
+      if (proximo === null) return transacoes;
+      cursor = proximo;
+    }
+    throw new Error("TikTok: transações do extrato incompletas após 200 páginas.");
+  }
+
+  /** Repasse por pedido, somado, dentro da janela de extratos varrida. */
+  async listarRepasses(desde: Date, ate: Date = new Date(Date.now())): Promise<RepasseTikTok[]> {
+    const transacoes: TikTokTransacaoExtrato[] = [];
+    for (const extratoId of await this.listarExtratos(desde.getTime(), ate.getTime())) {
+      transacoes.push(...await this.listarTransacoesDoExtrato(extratoId));
+    }
+    return agruparRepasses(transacoes);
   }
 
   /* ── Armazém único por loja ────────────────────────────────────────────

@@ -112,7 +112,7 @@ const ROTULOS_CANAL: Record<string, string> = {
 };
 
 /** Canais que saem pelo proxy de IP fixo — a UI avisa antes de gastar cota. */
-const CANAIS_COM_PROXY = new Set(["shopee"]);
+const CANAIS_COM_PROXY = new Set(["shopee", "tiktokshop"]);
 
 /** O driver devolve ora um array, ora `{ rows }`, conforme a versão. Mesmo
  *  destrinchamento já usado nos serviços de Métricas. */

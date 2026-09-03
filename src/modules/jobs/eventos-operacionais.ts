@@ -2,3 +2,4 @@
  * centralizados impede que o script de operação e os jobs divirjam. */
 export const EVENTO_RECONCILIAR_PEDIDOS = "operacao/reconciliacao-pedidos.solicitada";
 export const EVENTO_AUDITAR_FINANCEIRO = "operacao/auditoria-financeira.solicitada";
+export const EVENTO_REPASSE_TIKTOK = "operacao/repasse-tiktok.solicitada";
