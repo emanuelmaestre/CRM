@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  depoisDaResposta: vi.fn(),
+  inngestSend: vi.fn(),
   resolverContaWebhookMarketplace: vi.fn(),
   obterTokenMercadoLivre: vi.fn(),
   criarMLProvider: vi.fn(),
@@ -9,6 +11,13 @@ const mocks = vi.hoisted(() => ({
   ingerirPedido: vi.fn(),
   receberMensagem: vi.fn(),
   resolverClientePorIdentidade: vi.fn(),
+}));
+
+vi.mock("@/shared/lib/depois-da-resposta", () => ({
+  depoisDaResposta: mocks.depoisDaResposta,
+}));
+vi.mock("@/shared/lib/inngest/client", () => ({
+  inngest: { send: mocks.inngestSend },
 }));
 
 vi.mock("@/modules/canais/application/webhook-account.service", () => ({
@@ -30,7 +39,7 @@ const { POST } = await import("@/app/api/webhooks/mercadolivre/route");
 
 const CLIENT_ID = "1234567890";
 const APPLICATION_ID = Number(CLIENT_ID);
-
+const tarefasDepoisDaResposta: Array<() => void | Promise<void>> = [];
 const CONTA = {
   orgId: "22222222-2222-4222-8222-222222222222",
   brandId: "33333333-3333-4333-8333-333333333333",
@@ -56,6 +65,11 @@ describe("webhook Mercado Livre", () => {
     process.env.ML_CLIENT_ID = CLIENT_ID;
     originalFetch = global.fetch;
     vi.clearAllMocks();
+    tarefasDepoisDaResposta.length = 0;
+    mocks.depoisDaResposta.mockImplementation((tarefa: () => void | Promise<void>) => {
+      tarefasDepoisDaResposta.push(tarefa);
+    });
+    mocks.inngestSend.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -128,49 +142,24 @@ describe("webhook Mercado Livre", () => {
     expect(mocks.resolverContaWebhookMarketplace).not.toHaveBeenCalled();
   });
 
-  it("processa notificação de pedido (orders_v2) e chama ingerirPedido", async () => {
-    mocks.resolverContaWebhookMarketplace.mockResolvedValue(CONTA);
-    mocks.obterTokenMercadoLivre.mockResolvedValue({ accessToken: "token-abc" });
-    mocks.criarMLProvider.mockReturnValue({ buscarPedidoPorId: mocks.buscarPedidoPorId });
-    mocks.buscarPedidoPorId.mockResolvedValue({
-      providerOrderId: "999",
-      canal: "mercadolivre",
-      clienteExternalId: "42",
-      total: "150.5",
-    });
-    mocks.ingerirPedido.mockResolvedValue({ pedidoId: "pedido-1", criado: true });
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        id: 999,
-        status: "paid",
-        total_amount: 150.5,
-        shipping: { cost: 10 },
-        buyer: { id: 42, nickname: "comprador", email: "comprador@example.com" },
-        order_items: [{ item: { seller_sku: "SKU-1" }, quantity: 2, unit_price: 70.25 }],
-        date_created: "2026-01-01T10:00:00Z",
-      }),
-    }) as unknown as typeof fetch;
-
-    const body = { topic: "orders_v2", resource: "/orders/999", user_id: "555", application_id: APPLICATION_ID };
+  it("confirma imediatamente e agenda o pedido no Inngest sem consultar banco ou canal", async () => {
+    const body = { id: "notificacao-1", topic: "orders_v2", resource: "/orders/999", user_id: "555", application_id: APPLICATION_ID };
     const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
 
     expect(res.status).toBe(200);
-    expect(json).toMatchObject({ ok: true, pedidoId: "pedido-1" });
-    expect(mocks.resolverContaWebhookMarketplace).toHaveBeenCalledWith("mercadolivre", "555");
-    expect(mocks.ingerirPedido).toHaveBeenCalledWith(
-      CONTA.orgId,
-      CONTA.brandId,
-      CONTA.channelAccountId,
-      expect.objectContaining({
-        providerOrderId: "999",
-        canal: "mercadolivre",
-        clienteExternalId: "42",
-        total: "150.5",
-      }),
-    );
+    expect(json).toMatchObject({ ok: true, aceito: true, orderId: "999", notificationId: "ml:notificacao-1" });
+    expect(mocks.depoisDaResposta).toHaveBeenCalledOnce();
+    expect(mocks.inngestSend).not.toHaveBeenCalled();
+    await tarefasDepoisDaResposta[0]();
+    expect(mocks.inngestSend).toHaveBeenCalledWith(expect.objectContaining({
+      id: "ml:notificacao-1",
+      name: "canal/mercadolivre.pedido-notificado",
+      data: expect.objectContaining({ orderId: "999", sellerId: "555" }),
+    }));
+    expect(mocks.resolverContaWebhookMarketplace).not.toHaveBeenCalled();
+    expect(mocks.ingerirPedido).not.toHaveBeenCalled();
   });
 
   it("ignora pedido sem order-id no resource", async () => {
@@ -252,14 +241,14 @@ describe("webhook Mercado Livre", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  it("retorna 500 e não vaza detalhes quando a conta do webhook não é resolvida", async () => {
-    mocks.resolverContaWebhookMarketplace.mockRejectedValue(new Error("conta não encontrada"));
-
-    const body = { topic: "orders_v2", resource: "/orders/1", user_id: "999", application_id: APPLICATION_ID };
+  it("mantém a confirmação 200 se a publicação assíncrona falhar", async () => {
+    mocks.inngestSend.mockRejectedValue(new Error("fila indisponível"));
+    const body = { id: "notificacao-falha", topic: "orders_v2", resource: "/orders/1", user_id: "999", application_id: APPLICATION_ID };
     const req = montarRequest(body);
     const res = await POST(req);
     const json = await res.json();
-    expect(res.status).toBe(500);
-    expect(json).toEqual({ error: "Erro interno" });
+    expect(res.status).toBe(200);
+    expect(json).toMatchObject({ ok: true, aceito: true, orderId: "1" });
+    await expect(tarefasDepoisDaResposta[0]()).resolves.toBeUndefined();
   });
 });

@@ -1,4 +1,4 @@
-import { and, count, eq, gt, gte, inArray, isNull, lte, ne, sql, sum } from "drizzle-orm";
+import { and, count, eq, gt, gte, inArray, isNull, lte, sql, sum } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
@@ -21,6 +21,8 @@ import {
   type ReputacaoResultado,
 } from "./reputacao.service";
 import { obterCrescimentoPorMarca } from "./crescimento.service";
+import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
+import { valorFaturavelPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
 import type { ReclamacoesResultado } from "./reclamacoes.service";
 
 /* ── Score de Saúde da Loja ──────────────────────────────────────
@@ -353,7 +355,7 @@ export async function obterSaudeLoja(
     ctx.db
       .select({
         brandId: pedido.brandId,
-        receita: sum(pedido.total),
+        receita: sql<string>`sum(${valorFaturavelPedidoSql()})`,
         pedidos: count(),
       })
       .from(pedido)
@@ -362,8 +364,7 @@ export async function obterSaudeLoja(
         inArray(pedido.brandId, idsVisiveis),
         gte(pedido.createdAt, inicio),
         lte(pedido.createdAt, fim),
-        ne(pedido.status, "cancelado"),
-        ne(pedido.status, "devolvido"),
+        inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]),
         ...recorteCanal,
       ))
       .groupBy(pedido.brandId),

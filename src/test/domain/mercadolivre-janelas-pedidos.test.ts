@@ -4,10 +4,12 @@ import { MercadoLivreProvider } from "@/modules/canais/infrastructure/mercadoliv
 const CREDS = { clientId: "c", clientSecret: "s", accessToken: "t", refreshToken: "r" };
 const DIA = 24 * 60 * 60 * 1000;
 
-const pedidoFalso = (id: number, status = "paid", total = 24.9) => ({
+const pedidoFalso = (id: number, status = "paid", total = 24.9, pago = status === "paid") => ({
   id,
   status,
   total_amount: total,
+  paid_amount: pago ? total : 0,
+  payments: pago ? [{ status: "approved", total_paid_amount: total }] : [],
   buyer: { id: 9, nickname: "comprador" },
   order_items: [{ item: { seller_sku: `SKU-${id}` }, quantity: 1, unit_price: 24.9 }],
   date_created: "2026-08-26T23:10:15.000-04:00",
@@ -141,8 +143,13 @@ describe("busca de pedidos do Mercado Livre", () => {
         return new Response(JSON.stringify({ id: "seller-1" }), { status: 200 });
       }
       return new Response(JSON.stringify({
-        results: [pedidoFalso(1, "paid", 100.1), pedidoFalso(2, "cancelled", 20.2), pedidoFalso(3, "returned", 30.3)],
-        paging: { total: 3 },
+        results: [
+          pedidoFalso(1, "paid", 100.1),
+          pedidoFalso(2, "cancelled", 20.2, true),
+          pedidoFalso(3, "returned", 30.3, true),
+          pedidoFalso(4, "cancelled", 40.4, false),
+        ],
+        paging: { total: 4 },
       }), { status: 200 });
     }));
     const provider = new MercadoLivreProvider(CREDS);
@@ -158,7 +165,7 @@ describe("busca de pedidos do Mercado Livre", () => {
       canceladosValor: 50.5,
       canceladosQtd: 2,
       totalBruto: 150.6,
-      totalPedidos: 3,
+      totalPedidos: 4,
     });
     expect(chamadas.filter((url) => url.pathname.startsWith("/shipments/"))).toHaveLength(0);
     expect(chamadas.filter((url) => url.pathname === "/orders/search")).toHaveLength(1);

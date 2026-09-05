@@ -197,6 +197,13 @@ function chaveVinculo(listingId: string, variationId: string | null): string {
   return `${listingId}|${variationId ?? ""}`;
 }
 
+type VinculoCatalogoExistente = {
+  id: string;
+  produtoId: string;
+  externalSkuId: string | null;
+  externalWarehouseId: string | null;
+};
+
 /** Todos os vínculos que a conta já tem, numa consulta só.
  *
  *  `mapearItemCatalogo` perguntava ao banco item a item se aquele anúncio já
@@ -208,12 +215,13 @@ function chaveVinculo(listingId: string, variationId: string | null): string {
 export async function carregarVinculosDaConta(
   ctx: CrudContext,
   channelAccountId: string,
-): Promise<Map<string, { id: string; produtoId: string }>> {
+): Promise<Map<string, VinculoCatalogoExistente>> {
   const linhas = await ctx.db
     .select({
       id: produtoCanal.id,
       produtoId: produtoCanal.produtoId,
       externalListingId: produtoCanal.externalListingId,
+      externalSkuId: produtoCanal.externalSkuId,
       externalWarehouseId: produtoCanal.externalWarehouseId,
     })
     .from(produtoCanal)
@@ -223,7 +231,12 @@ export async function carregarVinculosDaConta(
     ));
   return new Map(linhas.map((l) => [
     chaveVinculo(l.externalListingId, l.externalWarehouseId),
-    { id: l.id, produtoId: l.produtoId },
+    {
+      id: l.id,
+      produtoId: l.produtoId,
+      externalSkuId: l.externalSkuId,
+      externalWarehouseId: l.externalWarehouseId,
+    },
   ]));
 }
 
@@ -235,14 +248,19 @@ async function mapearItemCatalogo(
   prefixoSkuGerado: string,
   /** Índice pré-carregado (ver carregarVinculosDaConta). Sem ele, cai na
    *  consulta por item — comportamento antigo, para quem chama fora de um job. */
-  vinculosExistentes?: Map<string, { id: string; produtoId: string }>,
+  vinculosExistentes?: Map<string, VinculoCatalogoExistente>,
   saldosPendentes?: Array<typeof estoqueCanalSaldo.$inferInsert>,
 ): Promise<"criado" | "vinculado" | "ignorado"> {
   const chave = chaveVinculo(item.listingId, item.variationId);
   const jaMapeado = vinculosExistentes
     ? vinculosExistentes.get(chave)
     : await ctx.db
-      .select({ id: produtoCanal.id, produtoId: produtoCanal.produtoId })
+      .select({
+        id: produtoCanal.id,
+        produtoId: produtoCanal.produtoId,
+        externalSkuId: produtoCanal.externalSkuId,
+        externalWarehouseId: produtoCanal.externalWarehouseId,
+      })
       .from(produtoCanal)
       .where(and(
         eq(produtoCanal.orgId, ctx.orgId),
@@ -254,6 +272,24 @@ async function mapearItemCatalogo(
       ))
       .then((rows) => rows[0]);
   if (jaMapeado) {
+    // O ID estável encontrou o mesmo vínculo; aproveita para atualizar o SKU
+    // textual, que o vendedor pode renomear no painel sem trocar a variação.
+    // O produto.sku interno continua intocado: só o espelho do canal se cura.
+    if (
+      jaMapeado.externalSkuId !== item.externalSku
+      || jaMapeado.externalWarehouseId !== item.variationId
+    ) {
+      await ctx.db.update(produtoCanal).set({
+        externalSkuId: item.externalSku,
+        externalWarehouseId: item.variationId,
+        updatedAt: new Date(),
+      }).where(and(
+        eq(produtoCanal.id, jaMapeado.id),
+        eq(produtoCanal.orgId, ctx.orgId),
+      ));
+      jaMapeado.externalSkuId = item.externalSku;
+      jaMapeado.externalWarehouseId = item.variationId;
+    }
     // Uma sincronização de catálogo também traz o saldo atual. Antes um
     // anúncio já vinculado era descartado antes desta escrita, então o botão
     // contextual de Estoque não tinha como atualizar o dado que a pessoa
@@ -322,7 +358,12 @@ async function mapearItemCatalogo(
         externalWarehouseId: item.variationId,
         ativo: true,
       }).returning();
-      vinculosExistentes?.set(chave, { id: vinculo.id, produtoId });
+      vinculosExistentes?.set(chave, {
+        id: vinculo.id,
+        produtoId,
+        externalSkuId: vinculo.externalSkuId,
+        externalWarehouseId: vinculo.externalWarehouseId,
+      });
 
       // O anúncio já traz o saldo do canal — semeia aqui para o produto
       // não nascer zerado esperando a coleta noturna (A5).

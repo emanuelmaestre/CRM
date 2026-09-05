@@ -1,9 +1,11 @@
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { produto, estoqueCanalSaldo, pedido, pedidoItem } from "@/shared/lib/db/schema";
-import { and, eq, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { calcularScoreProduto } from "@/modules/scoring/domain/encalhe";
 import { emitirEvento } from "@/shared/events";
+import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
+import { SALDO_FRESCOR_MS } from "@/modules/estoque/infrastructure/saldo-canais";
 
 const DIAS_SEM_VENDA = 30;
 
@@ -17,6 +19,7 @@ export const A7_encalhe = inngest.createFunction(
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
     const limiteData = new Date(Date.now() - DIAS_SEM_VENDA * 24 * 60 * 60 * 1000);
+    const confirmadoDesde = new Date(Date.now() - SALDO_FRESCOR_MS);
 
     // Saldo do produto = maior saldo entre os canais (mesmo lote anunciado em
     // todos eles). Uma agregação só, em vez de uma consulta por produto.
@@ -35,6 +38,7 @@ export const A7_encalhe = inngest.createFunction(
         .where(and(
           eq(produto.orgId, orgId),
           eq(produto.ativo, true),
+          sql`${estoqueCanalSaldo.verificadoEm} >= ${confirmadoDesde}`,
         ))
         .groupBy(produto.id, produto.sku, produto.preco, produto.brandId, produto.createdAt)
         .having(sql`max(${estoqueCanalSaldo.saldo}) > 0`)
@@ -53,7 +57,7 @@ export const A7_encalhe = inngest.createFunction(
           .where(and(
             eq(pedido.orgId, orgId),
             eq(pedidoItem.produtoId, prod.id),
-            notInArray(pedido.status, ["cancelado", "devolvido"]),
+            inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]),
           ))
           .orderBy(sql`${pedido.createdAt} desc`)
           .limit(1)

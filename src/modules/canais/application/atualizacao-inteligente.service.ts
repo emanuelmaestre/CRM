@@ -38,6 +38,8 @@ export interface EstadoAtualizacaoTela {
   versao: string | null;
   versoes: PainelAtualizacao["versoes"];
   fontes: Array<keyof PainelAtualizacao["versoes"]>;
+  /** Define se a pessoa pode pedir nova consulta aos marketplaces. */
+  podeSincronizar?: boolean;
   mensagem?: string;
   /** Idade do dado que ficou na tela quando a confirmação falhou. É o que a
    *  tarja mostra — "dados de 10h32" — em vez de esconder tudo. */
@@ -106,6 +108,7 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
       versao: painel.versao,
       versoes: painel.versoes,
       fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
+      podeSincronizar: painel.podeSincronizar,
     };
   }
 
@@ -125,6 +128,7 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
       versao: painel.versao,
       versoes: painel.versoes,
       fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
+      podeSincronizar: painel.podeSincronizar,
     };
   }
 
@@ -133,18 +137,22 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
     vencidos.some(({ conta }) => conta.id === falha.contaId),
   );
 
-  /* Quem não pode disparar sincronização não pode destravar a própria tela.
-     Prendê-lo atrás da porcentagem seria um bloqueio sem saída — o vendedor
-     ficaria olhando 0% para sempre. Ele vê o dado que existe; quem confirma
-     é o gestor, pela mesma rotina. */
+  /* Quem não pode disparar sincronização não fica preso atrás da porcentagem,
+     mas também não recebe um "pronto" falso. `erro` abre a tela com a tarja
+     de dado não confirmado; a ausência de permissão apenas remove a ação de
+     tentar novamente. */
   if (!painel.podeSincronizar) {
     return {
       tela: painel.tela,
-      situacao: "pronto",
+      situacao: "erro",
       progresso: 100,
       versao: painel.versao,
       versoes: painel.versoes,
       fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
+      podeSincronizar: false,
+      mensagem: "Dados aguardando confirmação por um gestor.",
+      confirmadoAte: confirmacaoMaisAntiga(vencidos),
+      canais: canaisVencidos(vencidos),
     };
   }
 
@@ -157,6 +165,7 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
     versao: painel.versao,
     versoes: painel.versoes,
     fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
+    podeSincronizar: painel.podeSincronizar,
     ...(esperar > 0 ? { esperarSegundos: esperar } : {}),
     ...(temFalha && !algumaExecucaoViva
       ? {
@@ -169,6 +178,12 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
       }
       : {}),
   };
+}
+
+function canaisVencidos(
+  vencidos: Array<{ conta: PainelAtualizacao["contas"][number]; modulo: ModuloSincronizacao }>,
+): string[] {
+  return [...new Set(vencidos.map(({ conta }) => conta.canalLabel))];
 }
 
 /** Quanto falta para o intervalo mínimo de verificação liberar uma nova

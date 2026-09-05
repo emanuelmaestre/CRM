@@ -4,7 +4,9 @@ import Link from "next/link";
 import { Clock } from "lucide-react";
 import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
 import { Dialog } from "@/shared/design-system/primitives/Dialog";
+import { AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import pagesConfig from "@/config/pages.json";
+import { statusPedidoFaturavel } from "@/modules/vendas/domain/status-faturamento";
 
 /** Um pedido que caiu na hora de virada entre o calendário do Mercado Livre
   *  e o daqui. Estrutura espelha o que o repositório de Vendas devolve. */
@@ -14,6 +16,7 @@ export interface PedidoNoLimite {
   clienteNome: string;
   status: string;
   total: number;
+  pagamentoAprovado: boolean;
   createdAt: Date;
 }
 
@@ -29,13 +32,17 @@ const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 export const copyLimite = copy.limiteDoDia;
 export const AZUL_LIMITE = "var(--info)";
 
-/** Cancelado e devolvido aparecem na lista (o pedido existe e está mesmo na
- *  hora de virada), mas ficam fora da soma: o Faturamento também os exclui, e
- *  é com ele que a pessoa está comparando. Uma função só, usada pelas duas
- *  pontas e pelo card — três contas separadas ficariam livres pra discordar. */
+export function pedidoEntraNoBruto(item: PedidoNoLimite): boolean {
+  return statusPedidoFaturavel(item.status)
+    || ((item.status === "cancelado" || item.status === "devolvido") && item.pagamentoAprovado);
+}
+
+/** Soma o mesmo bruto explicado pelos cards de Vendas. Pedidos faturáveis e
+ * ajustes posteriores a um pagamento entram pelo valor original. Cancelado
+ * sem pagamento fica fora. Uma função única atende as duas pontas e o card. */
 export function somarLimite(linhas: PedidoNoLimite[]) {
   return linhas
-    .filter((item) => item.status !== "cancelado" && item.status !== "devolvido")
+    .filter(pedidoEntraNoBruto)
     .reduce((total, item) => total + item.total, 0);
 }
 
@@ -57,28 +64,40 @@ export function somarLimite(linhas: PedidoNoLimite[]) {
    essa conta é o que muda de lado. A contagem desce para a legenda, onde
    qualifica sem competir.
 
-   Some inteiro quando não há pedido na virada — e aí a grade volta a ter os
-   quatro de sempre. */
+   Permanece na grade mesmo sem pedidos na virada. O zero evita mudanças de
+   posição e deixa claro que a conferência não encontrou diferença. */
 export function CardLimiteDoDia({ dados, onClick }: { dados: LimiteDoDia; onClick: () => void }) {
-  const quantidade = dados.soNoMercadoLivre.length + dados.soAqui.length;
-  if (quantidade === 0) return null;
+  const quantidade = [...dados.soNoMercadoLivre, ...dados.soAqui].filter(pedidoEntraNoBruto).length;
   const diferenca = Math.abs(somarLimite(dados.soNoMercadoLivre) - somarLimite(dados.soAqui));
 
   return (
-    <TintedStatCard
-      // Duas versões do rótulo: em cinco colunas cada card fica com pouco mais
-      // de um terço da largura que tinha em quatro, e o nome inteiro quebraria
-      // em três linhas. A palavra que não pode faltar em nenhuma é "fuso".
-      label={<><span className="xl:hidden">{copyLimite.badgeCurto}</span><span className="hidden xl:inline">{copyLimite.badge}</span></>}
-      valor={dinheiro.format(diferenca)}
-      sub={(quantidade === 1 ? copyLimite.cardSubUm : copyLimite.cardSubMuitos).replace("{n}", String(quantidade))}
-      icon={Clock}
-      cor={AZUL_LIMITE}
-      onClick={onClick}
-      dica={copyLimite.badgeDica}
-      pulsar
-      compactoNoMobile
-    />
+    <div className="relative h-full">
+      <TintedStatCard
+        // O rótulo curto protege a grade de três colunas no celular. A partir
+        // do tablet há espaço para a descrição completa.
+        label={<><span className="sm:hidden">{copyLimite.badgeCurto}</span><span className="hidden sm:inline">{copyLimite.badge}</span></>}
+        valor={dinheiro.format(diferenca)}
+        sub={<>
+          <span className="sm:hidden">{quantidade} ped.</span>
+          <span className="hidden sm:inline">{(quantidade === 1 ? copyLimite.cardSubUm : copyLimite.cardSubMuitos).replace("{n}", String(quantidade))}</span>
+        </>}
+        icon={Clock}
+        cor={AZUL_LIMITE}
+        onClick={onClick}
+        dica={copyLimite.badgeDica}
+        labelClassName="min-h-7 pr-7 sm:min-h-8 sm:pr-9"
+        pulsar
+        compactoNoMobile
+        denso
+      />
+      <AnimatedInfoTrigger
+        aria-label="Entenda a diferença de fuso do Mercado Livre"
+        title="Entenda a diferença de fuso do Mercado Livre"
+        iconSize={13}
+        onClick={onClick}
+        className="press-feedback absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
+      />
+    </div>
   );
 }
 
@@ -86,7 +105,7 @@ export function CardLimiteDoDia({ dados, onClick }: { dados: LimiteDoDia; onClic
  *  por ele que se confere pedido a pedido do outro lado — sem isso, a lista
  *  prova que a diferença existe, mas não deixa auditar. */
 function LinhaPedidoNoLimite({ item, ancorado }: { item: PedidoNoLimite; ancorado?: boolean }) {
-  const foraDaSoma = item.status === "cancelado" || item.status === "devolvido";
+  const foraDaSoma = !pedidoEntraNoBruto(item);
   return (
     <li>
       <Link

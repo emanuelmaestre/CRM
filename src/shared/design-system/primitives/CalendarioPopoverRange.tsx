@@ -316,6 +316,8 @@ export interface RangeDatas {
 }
 
 interface CalendarioPopoverRangeProps {
+  /** Atalhos do ML incluem os N dias anteriores e o dia atual. */
+  incluirHojeAlemDoPeriodo?: boolean;
   rotulo: string;
   valor: RangeDatas;
   min?: string;
@@ -331,7 +333,7 @@ interface CalendarioPopoverRangeProps {
   accent?: string;
 }
 
-export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disabled, atraso = 0, accent = "var(--foreground)" }: CalendarioPopoverRangeProps) {
+export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disabled, atraso = 0, accent = "var(--foreground)", incluirHojeAlemDoPeriodo = false }: CalendarioPopoverRangeProps) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<Posicao | null>(null);
   const [pulsando, setPulsando] = useState(false);
@@ -462,11 +464,11 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
     const hoje = new Date();
     return [
       { rotulo: "Hoje", de: hoje, ate: hoje },
-      { rotulo: "7 dias", de: addDays(hoje, -6), ate: hoje },
-      { rotulo: "30 dias", de: addDays(hoje, -29), ate: hoje },
+      { rotulo: "7 dias", de: addDays(hoje, incluirHojeAlemDoPeriodo ? -7 : -6), ate: hoje },
+      { rotulo: "30 dias", de: addDays(hoje, incluirHojeAlemDoPeriodo ? -30 : -29), ate: hoje },
       { rotulo: "Este mês", de: startOfMonth(hoje), ate: hoje },
     ];
-  }, []);
+  }, [incluirHojeAlemDoPeriodo]);
 
   function limpar() {
     onChange({ inicio: "", fim: "" });

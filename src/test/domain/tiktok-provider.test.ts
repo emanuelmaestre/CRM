@@ -47,6 +47,7 @@ describe("TikTok Shop provider v202309", () => {
     const orders = [
       { id: "pago", status: "DELIVERED", payment: { total_amount: "20.00" }, buyer_uid: "1", create_time: 1_719_999_000, line_items: [] },
       { id: "cancelado", status: "CANCELLED", payment: { total_amount: "5.00" }, buyer_uid: "2", create_time: 1_719_999_100, line_items: [] },
+      { id: "nao-pago", status: "UNPAID", payment: { total_amount: "99.00" }, buyer_uid: "3", create_time: 1_719_999_200, line_items: [] },
     ];
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ code: 0, data: { orders } }), { status: 200 }))
@@ -66,8 +67,47 @@ describe("TikTok Shop provider v202309", () => {
       canceladosValor: 5,
       canceladosQtd: 1,
       totalBruto: 25,
-      totalPedidos: 2,
+      totalPedidos: 3,
     });
+  });
+
+  it("consulta estoque pelo ID interno mesmo depois de renomear o seller_sku", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      code: 0,
+      data: {
+        skus: [
+          { id: "sku-interno-1", seller_sku: "NOVO-1", inventory: [{ quantity: 3 }] },
+          { id: "sku-interno-2", seller_sku: "NOVO-2", inventory: [{ quantity: 7 }] },
+        ],
+      },
+    })));
+    const provider = new TikTokShopProvider({
+      appKey: "app-key", appSecret: "secret", accessToken: "access-token", shopCipher: "shop-cipher",
+    });
+
+    await expect(provider.consultarEstoque({
+      listingId: "listing-1",
+      skuId: "SKU-ANTIGO",
+      warehouseId: "sku-interno-2",
+    })).resolves.toBe(7);
+  });
+
+  it("não soma variações quando o vínculo não identifica um SKU", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      code: 0,
+      data: {
+        skus: [
+          { id: "sku-interno-1", inventory: [{ quantity: 3 }] },
+          { id: "sku-interno-2", inventory: [{ quantity: 7 }] },
+        ],
+      },
+    })));
+    const provider = new TikTokShopProvider({
+      appKey: "app-key", appSecret: "secret", accessToken: "access-token", shopCipher: "shop-cipher",
+    });
+
+    await expect(provider.consultarEstoque({ listingId: "listing-1" }))
+      .rejects.toThrow(/varia[cç][aã]o inequ[ií]voca/i);
   });
 
   it("agrupa linhas repetidas por unidade em quantidade, usando o preço cheio", async () => {

@@ -5,6 +5,8 @@ import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { createClient } from "@supabase/supabase-js";
 import { mapearStatusPedido } from "../domain/order-status";
+import { selecionarSkuTikTok } from "../domain/modelo-estoque-tiktok";
+import { statusPedidoFaturavel } from "@/modules/vendas/domain/status-faturamento";
 
 interface TikTokCredentials {
   appKey: string;
@@ -39,6 +41,8 @@ type TikTokOrder = {
   user_id?: string;
   buyer_email?: string;
   create_time: number;
+  paid_time?: number;
+  cancel_reason?: string;
   update_time?: number;
   /* Não existe `quantity`: o TikTok repete a linha inteira uma vez por
      unidade, com o mesmo sku_id e o mesmo preço unitário — confirmado com
@@ -366,7 +370,7 @@ export class TikTokShopProvider implements ChannelProvider {
       if (status === "cancelado" || status === "devolvido") {
         canceladosCentavos += centavos;
         canceladosQtd += 1;
-      } else {
+      } else if (statusPedidoFaturavel(status)) {
         faturamentoCentavos += centavos;
         pedidosValidos += 1;
       }
@@ -470,7 +474,14 @@ export class TikTokShopProvider implements ChannelProvider {
         itens: this.agruparItens(order),
         criadoEm: new Date(order.create_time * 1000),
         atualizadoOrigemEm: order.update_time ? new Date(order.update_time * 1000) : undefined,
-        dadosOrigem: { status: order.status, financeiroInformado: !!(order.payment ?? order.payment_info) },
+        dadosOrigem: {
+          status: order.status,
+          financeiroInformado: !!(order.payment ?? order.payment_info),
+          ...(typeof order.paid_time === "number" && Number.isFinite(order.paid_time)
+            && order.paid_time > 0 && order.paid_time * 1000 <= Date.now()
+            ? { pagamentoAprovado: true, pagoEmMs: order.paid_time * 1000 } : {}),
+          ...(order.cancel_reason ? { motivoCancelamento: order.cancel_reason } : {}),
+        },
       };
     });
   }
@@ -589,23 +600,18 @@ export class TikTokShopProvider implements ChannelProvider {
     return this.warehouseIdPadrao;
   }
 
-  /** `EstoqueCanalRef.skuId` aqui é o `seller_sku` (o mesmo texto humano que
-   *  vira `produto.sku` na importação de catálogo — ver `mapearParaCatalogo`),
-   *  não o `id` interno do TikTok: a API de update exige o `id`, mas quem
-   *  chama este método só tem o SKU do vendedor gravado. Por isso a escrita
-   *  primeiro busca o produto para achar o `id` do SKU certo — mesmo padrão
-   *  de "resolver antes de escrever" que a Shopee usa para variação. */
+  /** Resolve o SKU pelo `warehouseId`, que no contrato genérico carrega o
+   *  `sku.id` estável do TikTok. `skuId`/seller_sku fica apenas como fallback
+   *  para vínculos legados; renomear o texto no Seller Center não rompe mais
+   *  a leitura nem a escrita de estoque. */
   async sincronizarEstoque(referencia: EstoqueCanalRef, saldo: number): Promise<void> {
-    if (!referencia.skuId) {
-      throw new Error("TikTok Shop exige o SKU do vendedor no mapeamento do produto.");
-    }
     const [produto, warehouseId] = await Promise.all([
       this.request<{ skus?: Array<{ id?: string; seller_sku?: string }> }>(
         `/product/202309/products/${referencia.listingId}`, { timeoutMs: 8_000 },
       ),
       this.obterWarehouseIdPadrao(),
     ]);
-    const sku = produto.skus?.find((s) => s.seller_sku === referencia.skuId);
+    const sku = selecionarSkuTikTok(produto.skus ?? [], referencia);
     if (!sku?.id) throw new Error(`TikTok Shop: SKU "${referencia.skuId}" não encontrado no anúncio ${referencia.listingId}.`);
 
     await this.request(`/product/202309/products/${referencia.listingId}/inventory/update`, {
@@ -623,19 +629,16 @@ export class TikTokShopProvider implements ChannelProvider {
   async consultarEstoque(referencia: EstoqueCanalRef): Promise<number> {
     const product = await this.request<{
       skus?: Array<{
+        id?: string;
         seller_sku?: string;
         inventory?: Array<{ quantity?: number }>;
       }>;
     }>(`/product/202309/products/${referencia.listingId}`, { timeoutMs: 8_000 });
 
-    const skus = (product.skus ?? []).filter((sku) => !referencia.skuId || sku.seller_sku === referencia.skuId);
-    if (referencia.skuId && skus.length === 0) {
-      throw new Error(`TikTok Shop não retornou o SKU ${referencia.skuId}.`);
-    }
+    const sku = selecionarSkuTikTok(product.skus ?? [], referencia);
     // Um armazém só por loja (ver obterWarehouseIdPadrao): soma o inventário
     // inteiro do SKU, sem filtrar por warehouse_id.
-    const saldo = skus.reduce((total, sku) =>
-      total + (sku.inventory ?? []).reduce((sum, item) => sum + Number(item.quantity ?? 0), 0), 0);
+    const saldo = (sku.inventory ?? []).reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
     if (!Number.isInteger(saldo) || saldo < 0) {
       throw new Error(`TikTok Shop retornou saldo inválido para anúncio ${referencia.listingId}.`);
     }
@@ -653,8 +656,8 @@ export class TikTokShopProvider implements ChannelProvider {
    *  para distinguir SKUs do mesmo produto — sem isso, os 4 SKUs de cor do
    *  mesmo anúncio colidiriam na mesma chave e só o primeiro seria salvo.
    *  `externalSku` carrega o `seller_sku` (texto do vendedor), que vira
-   *  `produto.sku` — visível na tela de Estoque e usado por
-   *  `sincronizarEstoque`/`consultarEstoque` acima para achar o SKU certo. */
+   *  `produto.sku` e permanece visível na tela de Estoque. A identidade usada
+   *  pela coleta, porém, é o `variationId`/`sku.id` estável. */
   async listarCatalogoAtivo(): Promise<TikTokAnuncioCatalogo[]> {
     const itens: TikTokAnuncioCatalogo[] = [];
     const cursores = new Set<string>();

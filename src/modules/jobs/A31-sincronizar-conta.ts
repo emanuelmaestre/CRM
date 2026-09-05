@@ -33,6 +33,7 @@ import {
   type ModuloSincronizacao,
 } from "@/modules/canais/domain/sincronizacao-progresso";
 import { fatiarJanelasPedidos } from "@/modules/canais/domain/fatiar-janelas-pedidos";
+import { politicaColetaPedidos } from "@/modules/canais/domain/cobertura-pedidos";
 
 type ExecucaoPatch = Partial<typeof sincronizacaoExecucao.$inferInsert>;
 
@@ -290,6 +291,12 @@ export const A31_sincronizarConta = inngest.createFunction(
       const fimColetaIso = await step.run(`pedidos-fixar-corte-${channelAccountId}`, () => new Date().toISOString());
       const dataFim = new Date(fimColetaIso);
       const dataDesde = desde ? new Date(desde) : new Date(dataFim.getTime() - 90 * 24 * 60 * 60 * 1_000);
+      const politica = politicaColetaPedidos(conta.tipo, desde, reconciliacao === true);
+      const campoData = politica.campoData;
+      if (politica.exigirSemPendencias && !reconciliacao) {
+        // A API filtra em segundos; revisita a borda e notificações atrasadas.
+        dataDesde.setTime(dataDesde.getTime() - 60 * 60_000);
+      }
       // A busca fica memoizada por step: concluído um, uma reexecução não
       // repete aquelas chamadas ao canal — era o que queimava a cota do proxy
       // em laço.
@@ -344,9 +351,13 @@ export const A31_sincronizarConta = inngest.createFunction(
                e liquidados. */
             const filtrarPendentes = (candidatos: ReadonlyArray<{ providerOrderId: string; statusExterno: string }>) =>
               filtrarPedidosPendentes(orgId, channelAccountId, candidatos);
+            const opcoesBusca = {
+              campoData,
+              ...(politica.relerTodos ? {} : { filtrarPendentes }),
+            } as const;
             const pedidos = porJanela
-              ? await porJanela.buscar(janela.inicioMs, janela.fimMs, reconciliacao ? {} : { filtrarPendentes })
-              : await provider.buscarPedidos(new Date(janela.inicioMs), { ate: new Date(janela.fimMs), ...(reconciliacao ? {} : { filtrarPendentes }) });
+              ? await porJanela.buscar(janela.inicioMs, janela.fimMs, opcoesBusca)
+              : await provider.buscarPedidos(new Date(janela.inicioMs), { ate: new Date(janela.fimMs), ...opcoesBusca });
             const saida = {
               encontrados: pedidos.length,
               novos: 0,
@@ -415,7 +426,7 @@ export const A31_sincronizarConta = inngest.createFunction(
       // 26/08/2026 na ARMARINHOS LIMA. Por isso o freio exige ao menos uma
       // falha SEM causa conhecida: quando toda a leva parou em erro de
       // pedido (ErroSkuSemProduto), isso é `ignorados`, não falha da conta.
-      if (reconciliacao && ignorados > 0) {
+      if ((reconciliacao || politica.exigirSemPendencias) && ignorados > 0) {
         throw new Error(`Reconciliação incompleta: ${ignorados} de ${encontrados} pedidos pendentes. A reconciliação automática tentará de novo.`);
       }
       if (encontrados > 0 && ignorados === encontrados && falhasSemCausaConhecida > 0) {

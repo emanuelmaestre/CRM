@@ -234,7 +234,8 @@
     "saldoCell": {
       "minPrefix": "mín",
       "outOfStock": "sem estoque",
-      "noRule": "sem régua"
+      "noRule": "sem régua",
+      "notConfirmed": "não confirmado"
     },
     "coach": {
       "storageKey": "crm-leo:coachmarks:estoque:v1",
@@ -388,8 +389,8 @@
       "listingPlaceholder": "ID do anúncio no canal",
       "skuFieldLabel": "SKU / modelo externo",
       "skuPlaceholder": "ID externo do SKU / modelo",
-      "warehouseFieldLabel": "Depósito (TikTok Shop)",
-      "warehousePlaceholder": "ID do depósito no TikTok Shop",
+      "warehouseFieldLabel": "ID interno do SKU (TikTok Shop)",
+      "warehousePlaceholder": "Ex.: 1729384756 (sku_id)",
       "save": "Salvar mapeamento",
       "saving": "Salvando…",
       "allMapped": "Todos os canais disponíveis já estão mapeados para este produto.",
@@ -442,7 +443,7 @@
         "faixa": "1 hora",
         "vereditoAqui": "Aqui entra em",
         "vereditoMl": "No ML entra em",
-        "legenda": "Repare: a hora é a mesma nos dois trilhos. O que muda é onde cada calendário corta o dia — e este pedido caiu entre os dois cortes."
+        "legenda": "Repare: a hora é a mesma nos dois trilhos. O que muda é onde cada calendário corta o dia. Este pedido caiu entre os dois cortes."
       },
       "title": "Por que o total não bate com o Mercado Livre",
       "subtitleUm": "1 pedido caiu na hora em que o dia vira para o Mercado Livre",
@@ -471,9 +472,9 @@
       "grupoResumoMuitos": "{n} pedidos · {valor} na soma",
       "pedidoSem": "sem número no ML",
       "reconcile": "Diferença que isto explica: {valor}",
-      "reconcileDica": "Some este valor ao total desta tela e você chega ao número que o Mercado Livre mostra para o mesmo período.",
+      "reconcileDica": "Aplique esta diferença ao total bruto comparável desta tela para conferir o número que o Mercado Livre mostra no mesmo período.",
       "reconcileZero": "As duas pontas se anulam: os totais fecham iguais mesmo com pedidos na virada do dia.",
-      "rodape": "Cancelados e devolvidos aparecem na lista, mas ficam fora da soma. O Faturamento desta tela também os exclui."
+      "rodape": "Pedidos cancelados e devolvidos entram porque a comparação usa o total bruto do canal. Pedidos sem pagamento confirmado ficam fora."
     },
     "brandSelector": {
       "label": "Marca",

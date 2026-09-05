@@ -1,6 +1,15 @@
 import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { pedido } from "@/shared/lib/db/schema";
+import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
+import { valorFaturavelPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+
+const STATUS_FATURAVEL_SQL = sql.join(STATUS_PEDIDO_FATURAVEL.map((status) => sql`${status}`), sql`, `);
+const STATUS_PEDIDO_COM_DESFECHO_SQL = sql.join(
+  [...STATUS_PEDIDO_FATURAVEL, "cancelado", "devolvido"].map((status) => sql`${status}`),
+  sql`, `,
+);
+const VALOR_FATURAVEL_P = valorFaturavelPedidoSql(sql.raw("p.total"), sql.raw("p.dados_origem"));
 
 /* ── Três indicadores que já moravam no banco ─────────────────────
    Nenhum dos três pede chamada nova a canal nenhum. Toda métrica de
@@ -18,17 +27,17 @@ export interface CrescimentoMarca {
   /** Quantos desses pedidos brutos estavam cancelados ou devolvidos — o
    *  numerador exato por trás de `taxaCancelamento`. */
   pedidosCanceladosOuDevolvidos: number;
-  /** 0–100: quanto da receita (não cancelada) veio dos 5 produtos mais
+  /** 0–100: quanto da receita paga veio dos 5 produtos mais
    *  vendidos da marca no período. Alto = a marca depende de poucos itens. */
   concentracaoTop5: number | null;
-  /** Receita total (não cancelada) e a fatia dela que veio dos 5 produtos
+  /** Receita total paga e a fatia dela que veio dos 5 produtos
    *  mais vendidos — o numerador e o denominador de `concentracaoTop5`. */
   receitaTotalConcentracao: number;
   receitaTop5: number;
-  /** 0–100: quanto da receita (não cancelada) veio de cliente que já tinha
+  /** 0–100: quanto da receita paga veio de cliente que já tinha
    *  comprado dessa marca antes do período. Null sem receita no período. */
   taxaRecorrencia: number | null;
-  /** Receita total (não cancelada) e a fatia dela vinda de clientes
+  /** Receita total paga e a fatia dela vinda de clientes
    *  recorrentes — o numerador e o denominador de `taxaRecorrencia`. */
   receitaTotalRecorrencia: number;
   receitaRecorrente: number;
@@ -66,7 +75,7 @@ async function taxasCancelamento(
   const linhas = await ctx.db
     .select({
       brandId: pedido.brandId,
-      total: sql<number>`count(*)`,
+      total: sql<number>`count(*) filter (where ${pedido.status} in (${STATUS_PEDIDO_COM_DESFECHO_SQL}))`,
       cancelados: sql<number>`count(*) filter (where ${pedido.status} in ('cancelado', 'devolvido'))`,
     })
     .from(pedido)
@@ -97,14 +106,18 @@ async function concentracaoTop5PorMarca(
 ): Promise<Map<string, { taxa: number | null; total: number; top5: number }>> {
   const resultado = await ctx.db.execute(sql`
     with vendas_produto as (
-      select p.brand_id, pi.produto_id, sum(pi.quantidade * pi.preco_unitario) as receita
+      select p.brand_id, pi.produto_id,
+        sum(
+          pi.quantidade * pi.preco_unitario
+          * case when p.total > 0 then ${VALOR_FATURAVEL_P} / p.total else 0 end
+        ) as receita
       from pedido_item pi
       inner join pedido p on p.id = pi.pedido_id
       where p.org_id = ${ctx.orgId}
         and p.brand_id in (${sql.join(brandIds.map((id) => sql`${id}::uuid`), sql`, `)})
         and p.criado_em >= ${inicio.toISOString()}::timestamptz
         and p.criado_em <= ${fim.toISOString()}::timestamptz
-        and p.status not in ('cancelado', 'devolvido')${filtroCanal(canais)}
+        and p.status in (${STATUS_FATURAVEL_SQL})${filtroCanal(canais)}
       group by p.brand_id, pi.produto_id
     ),
     ranqueado as (
@@ -149,21 +162,21 @@ async function taxaRecorrenciaPorMarca(
     with pedidos_do_periodo as (
       select
         p.brand_id,
-        p.total,
+        ${VALOR_FATURAVEL_P} as total,
         exists (
           select 1 from pedido anterior
           where anterior.cliente_id = p.cliente_id
             and anterior.brand_id = p.brand_id
             and anterior.org_id = p.org_id
             and anterior.criado_em < p.criado_em
-            and anterior.status not in ('cancelado', 'devolvido')${filtroCanal(canais, "anterior")}
+            and anterior.status in (${STATUS_FATURAVEL_SQL})${filtroCanal(canais, "anterior")}
         ) as recorrente
       from pedido p
       where p.org_id = ${ctx.orgId}
         and p.brand_id in (${sql.join(brandIds.map((id) => sql`${id}::uuid`), sql`, `)})
         and p.criado_em >= ${inicio.toISOString()}::timestamptz
         and p.criado_em <= ${fim.toISOString()}::timestamptz
-        and p.status not in ('cancelado', 'devolvido')${filtroCanal(canais)}
+        and p.status in (${STATUS_FATURAVEL_SQL})${filtroCanal(canais)}
     )
     select
       brand_id,

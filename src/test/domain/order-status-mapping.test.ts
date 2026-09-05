@@ -10,6 +10,7 @@ describe("normalização de status de pedido por canal", () => {
     ["TO_CONFIRM_RECEIVE", "entregue"],
     ["TO_RETURN", "devolvido"],
     ["AWAITING_SHIPMENT", "pago"],
+    ["ON_HOLD", "pago"],
     ["approved", "pago"],
     ["invoiced", "separado"],
     ["collected", "enviado"],
@@ -37,6 +38,11 @@ describe("normalização de status de pedido por canal", () => {
     expect(mapearStatusPedido("status_que_nao_existe")).toBe("criado");
     expect(avisos).toHaveBeenCalledTimes(1);
     avisos.mockRestore();
+  });
+
+  it("mantém status ausente fora do faturamento sem derrubar a coleta", () => {
+    expect(mapearStatusPedido(null)).toBe("criado");
+    expect(mapearStatusPedido(undefined)).toBe("criado");
   });
 
   it("aceita saltos progressivos do canal sem regredir por webhook fora de ordem", () => {

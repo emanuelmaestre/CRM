@@ -1,9 +1,15 @@
-import { saldoPublicado } from "@/modules/estoque/infrastructure/saldo-canais";
-import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "drizzle-orm";
+import { saldoPublicadoAtual } from "@/modules/estoque/infrastructure/saldo-canais";
+import { and, eq, gte, inArray, isNull, lte, max, sql } from "drizzle-orm";
 import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { liquidoDoPedido } from "@/modules/vendas/domain/liquido-pedido";
 import { calcularComposicaoFaturamento } from "@/modules/metricas/domain/composicao-faturamento";
+import {
+  reembolsoParcialInformado,
+  STATUS_PEDIDO_FATURAVEL,
+  valorFaturavelPedido,
+} from "@/modules/vendas/domain/status-faturamento";
+import { pagamentoAprovadoPedidoSql, dataVendaPedidoSql, pedidoComercialSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
 import {
   brand,
   channelAccount,
@@ -91,13 +97,18 @@ export interface FaturamentoResumo {
   variacaoPercentualLiquido: number | null;
   ticketMedioLiquido: string;
   serieLiquido: SeriePonto[];
-  /** Decomposição aditiva e reversível. O campo legado `total` mantém
-   * exatamente a mesma semântica para todos os consumidores existentes. */
+  /** Decomposição aditiva e reversível entre receita confirmada e o bruto
+   * comparável ao canal. `pedido.total` permanece intacto no banco. */
   composicao?: {
     pedidosBrutosNumerico: number;
     pedidosBrutos: string;
+    pedidosBrutosQtd: number;
     canceladosDevolvidosNumerico: number;
     canceladosDevolvidos: string;
+    canceladosDevolvidosQtd: number;
+    reembolsosParciaisNumerico: number;
+    reembolsosParciais: string;
+    pedidosComReembolsoParcialQtd: number;
   };
 }
 
@@ -441,12 +452,12 @@ export async function obterDashboardData(
 
   const condicoesPedido = [
     eq(pedido.orgId, ctx.orgId),
-    gte(pedido.createdAt, inicioBusca),
+    gte(dataVendaPedidoSql(), inicioBusca.toISOString()),
+    pedidoComercialSql(),
     // Cancelado e devolvido não são faturamento nem venda de produto.
-    ne(pedido.status, "cancelado"),
-    ne(pedido.status, "devolvido"),
+    inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]),
   ];
-  if (personalizado) condicoesPedido.push(lte(pedido.createdAt, fimBusca));
+  if (personalizado) condicoesPedido.push(lte(dataVendaPedidoSql(), fimBusca.toISOString()));
   if (brandFiltro.length > 0) condicoesPedido.push(inArray(pedido.brandId, brandFiltro));
   if (canalFiltro.length > 0) condicoesPedido.push(inArray(pedido.canal, canalFiltro));
 
@@ -455,10 +466,12 @@ export async function obterDashboardData(
   // mede a parcela excluída para explicar a diferença para o total bruto.
   const condicoesPedidosExcluidos = [
     eq(pedido.orgId, ctx.orgId),
-    gte(pedido.createdAt, inicioJanela),
+    gte(dataVendaPedidoSql(), inicioJanela.toISOString()),
+    pedidoComercialSql(),
     inArray(pedido.status, ["cancelado", "devolvido"]),
+    pagamentoAprovadoPedidoSql(),
   ];
-  if (personalizado) condicoesPedidosExcluidos.push(lte(pedido.createdAt, fimBusca));
+  if (personalizado) condicoesPedidosExcluidos.push(lte(dataVendaPedidoSql(), fimBusca.toISOString()));
   if (brandFiltro.length > 0) condicoesPedidosExcluidos.push(inArray(pedido.brandId, brandFiltro));
   if (canalFiltro.length > 0) condicoesPedidosExcluidos.push(inArray(pedido.canal, canalFiltro));
 
@@ -472,7 +485,14 @@ export async function obterDashboardData(
 
   const [pedidosJanela, taxasPorPedido, itensVendidos, produtosAtivos, ultimasSaidas, [pedidosExcluidos]] = await Promise.all([
     ctx.db
-      .select({ id: pedido.id, total: pedido.total, frete: pedido.frete, valorLiquido: pedido.valorLiquido, createdAt: pedido.createdAt })
+      .select({
+        id: pedido.id,
+        total: pedido.total,
+        frete: pedido.frete,
+        valorLiquido: pedido.valorLiquido,
+        dadosOrigem: pedido.dadosOrigem,
+        createdAt: dataVendaPedidoSql(),
+      })
       .from(pedido)
       .where(and(...condicoesPedido)),
     // Soma da taxa de marketplace por pedido, na mesma janela de busca dos
@@ -492,14 +512,14 @@ export async function obterDashboardData(
         produtoId: pedidoItem.produtoId,
         quantidade: pedidoItem.quantidade,
         precoUnitario: pedidoItem.precoUnitario,
-        pedidoEm: pedido.createdAt,
+        pedidoEm: dataVendaPedidoSql(),
       })
       .from(pedidoItem)
       .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
       // Traz também a janela anterior: o ranking continua sendo montado com
       // a janela atual, mas a quantidade anterior permite que o card mostre
       // uma variação real do mesmo produto em vez do antigo +11% fictício.
-      .where(and(...condicoesPedido, gte(pedido.createdAt, inicioJanelaAnterior))),
+      .where(and(...condicoesPedido, gte(dataVendaPedidoSql(), inicioJanelaAnterior.toISOString()))),
     ctx.db
       .select({
         id: produto.id,
@@ -507,7 +527,9 @@ export async function obterDashboardData(
         nome: produto.nome,
         preco: produto.preco,
         estoqueMinimo: produto.estoqueMinimo,
-        saldo: saldoPublicado(ctx.orgId, canalFiltro),
+        // Null é deliberado: sem leitura recente, o produto não pode virar
+        // reposição/encalhe como se o último saldo conhecido ainda fosse atual.
+        saldo: saldoPublicadoAtual(ctx.orgId, canalFiltro),
         marca: brand.slug,
       })
       .from(produto)
@@ -517,12 +539,14 @@ export async function obterDashboardData(
       .select({ produtoId: pedidoItem.produtoId, ultima: max(pedido.createdAt) })
       .from(pedidoItem)
       .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
-      .where(and(eq(pedido.orgId, ctx.orgId), notInArray(pedido.status, ["cancelado", "devolvido"])))
+      .where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL])))
       .groupBy(pedidoItem.produtoId),
     ctx.db
       .select({
         cancelados: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'cancelado'), 0)`,
         devolvidos: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'devolvido'), 0)`,
+        canceladosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'cancelado')`,
+        devolvidosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'devolvido')`,
       })
       .from(pedido)
       .where(and(...condicoesPedidosExcluidos)),
@@ -544,9 +568,12 @@ export async function obterDashboardData(
   let totalJanelaAnterior = 0;
   let totalJanelaLiquido = 0;
   let totalJanelaAnteriorLiquido = 0;
+  let reembolsosParciaisJanela = 0;
+  let pedidosComReembolsoParcialQtd = 0;
 
   for (const item of pedidosJanela) {
-    const valor = parseMoney(item.total);
+    const reembolsoParcial = reembolsoParcialInformado(item.dadosOrigem);
+    const valor = valorFaturavelPedido(item.total, item.dadosOrigem);
     const liquido = liquidoDoPedido({
       total: valor,
       frete: parseMoney(item.frete),
@@ -561,6 +588,8 @@ export async function obterDashboardData(
       totalJanela += valor;
       totalJanelaLiquido += liquido;
       pedidosNaJanela += 1;
+      reembolsosParciaisJanela += reembolsoParcial;
+      if (reembolsoParcial > 0) pedidosComReembolsoParcialQtd += 1;
     }
     // A fronteira é exclusiva: um pedido exatamente à meia-noite do início
     // atual pertence ao período atual, nunca aos dois períodos.
@@ -590,6 +619,7 @@ export async function obterDashboardData(
     totalJanela,
     parseMoney(pedidosExcluidos?.cancelados),
     parseMoney(pedidosExcluidos?.devolvidos),
+    reembolsosParciaisJanela,
   );
   // Kill switch exclusivamente no servidor. `false` restaura o contrato
   // visual anterior sem desfazer deploy nem tocar em dados persistidos.
@@ -624,8 +654,16 @@ export async function obterDashboardData(
       composicao: {
         pedidosBrutosNumerico: composicaoCalculada.pedidosBrutosNumerico,
         pedidosBrutos: formatCurrency(composicaoCalculada.pedidosBrutosNumerico),
+        pedidosBrutosQtd: pedidosNaJanela
+          + Number(pedidosExcluidos?.canceladosQtd ?? 0)
+          + Number(pedidosExcluidos?.devolvidosQtd ?? 0),
         canceladosDevolvidosNumerico: composicaoCalculada.canceladosDevolvidosNumerico,
         canceladosDevolvidos: formatCurrency(composicaoCalculada.canceladosDevolvidosNumerico),
+        canceladosDevolvidosQtd: Number(pedidosExcluidos?.canceladosQtd ?? 0)
+          + Number(pedidosExcluidos?.devolvidosQtd ?? 0),
+        reembolsosParciaisNumerico: composicaoCalculada.reembolsosParciaisNumerico,
+        reembolsosParciais: formatCurrency(composicaoCalculada.reembolsosParciaisNumerico),
+        pedidosComReembolsoParcialQtd,
       },
     } : {}),
   };

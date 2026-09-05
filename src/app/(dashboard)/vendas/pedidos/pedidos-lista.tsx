@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { Loader2, ChevronDown, Search, ShoppingBag, CircleDollarSign, Ban, PlugZap2 } from "lucide-react";
+import { BadgeDollarSign, Ban, ChevronDown, CircleDollarSign, Loader2, PlugZap2, RotateCcw, Search, ShoppingBag } from "lucide-react";
 import { actionListarPedidosDetalhados } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -12,7 +12,6 @@ import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/Ch
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
 import { SelectPopover } from "@/shared/design-system/primitives/SelectPopover";
-import { TintedStatCard } from "@/shared/design-system/primitives/TintedStatCard";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { springs, variantes, staggerExagerado, entradaExagerada } from "@/shared/design-system/motion-variants";
 import { NumeroAnimado } from "@/shared/design-system/primitives/NumeroAnimado";
@@ -26,8 +25,9 @@ import {
   isBrandSlug,
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
-import { CardLimiteDoDia, JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
+import { JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
+import { CardResumoVendas, type ExplicacaoCardVendas } from "./card-resumo-vendas";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
@@ -52,6 +52,10 @@ const resumoInicial: Resumo = {
   canceladosValor: 0,
   devolvidosQtd: 0,
   devolvidosValor: 0,
+  reembolsosParciaisQtd: 0,
+  reembolsosParciaisValor: 0,
+  totalBrutoPedidos: 0,
+  totalBrutoComparavel: 0,
   liquidoTotal: 0,
 };
 
@@ -113,6 +117,96 @@ const LEGENDA_STATUS_PEDIDOS: Array<{ titulo: string; cor: string; texto: string
   { titulo: "Em aberto", cor: "var(--info)", texto: "Criado, Pago, Separado e Enviado. O Mercado Livre não informa esses quatro estágios separadamente pelo pedido, então praticamente todo pedido ativo fica agrupado aqui até ser cancelado." },
   { titulo: "Cancelado", cor: "var(--destructive)", texto: "O pedido foi cancelado pelo comprador, pelo vendedor ou automaticamente por falta de pagamento." },
 ];
+
+const EXPLICACOES_CARDS: Record<string, ExplicacaoCardVendas> = {
+  totalBruto: {
+    titulo: "o total bruto comparável",
+    descricao: "Valor original das vendas. No Mercado Livre, o período considera a aprovação do pagamento, em Brasília, e exclui cancelamentos técnicos por divisão de pacote. Mantemos os centavos; o relatório do canal pode arredondar por dia.",
+    calculo: "Faturamento confirmado mais valor cancelado ou devolvido mais valor dos reembolsos parciais.",
+    inclui: [
+      "O valor original dos pedidos com pagamento confirmado.",
+      "O valor completo dos pedidos cancelados ou devolvidos depois da confirmação do pagamento.",
+      "A parcela reembolsada que precisa ser somada de volta para reconstruir o valor original.",
+    ],
+    naoInclui: [
+      "Pedidos criados que ainda não tiveram pagamento confirmado.",
+      "Pedidos cancelados antes da confirmação do pagamento.",
+      "Pedidos que o canal ainda não entregou ou que ainda não foram importados.",
+      "Registros cancelados por divisão interna de pacote no Mercado Livre.",
+    ],
+  },
+  faturamento: {
+    titulo: "o faturamento confirmado",
+    descricao: "Mostra a receita dos pedidos cujo pagamento foi confirmado pelo canal, descontando somente reembolsos parciais que a plataforma informou explicitamente.",
+    calculo: "Soma do valor faturável de cada pedido. Em um reembolso parcial, valor faturável é o total do pedido menos a parcela reembolsada.",
+    inclui: [
+      "Pedidos pagos.",
+      "Pedidos separados.",
+      "Pedidos enviados.",
+      "Pedidos entregues, concluídos ou com avaliação solicitada.",
+    ],
+    naoInclui: [
+      "Pedidos criados ou aguardando pagamento.",
+      "Pedidos cancelados.",
+      "Pedidos devolvidos integralmente.",
+      "A parcela de um pedido que já foi reembolsada.",
+    ],
+  },
+  pedidos: {
+    titulo: "a quantidade de pedidos faturados",
+    descricao: "Conta quantos pedidos possuem pagamento confirmado. A quantidade representa pedidos, não produtos e não unidades vendidas.",
+    calculo: "Cada pedido com status faturável conta uma vez, mesmo que possua vários itens ou um reembolso parcial.",
+    inclui: [
+      "Pedidos pagos, separados, enviados, entregues e concluídos.",
+      "Pedidos com avaliação solicitada.",
+      "Pedidos parcialmente reembolsados que continuam com valor faturável.",
+    ],
+    naoInclui: [
+      "Quantidade de itens dentro do pedido.",
+      "Pedidos criados sem pagamento confirmado.",
+      "Pedidos cancelados ou devolvidos integralmente.",
+    ],
+  },
+  cancelados: {
+    titulo: "os cancelamentos e devoluções",
+    descricao: "Mostra somente cancelamentos e devoluções que aconteceram depois de um pagamento aprovado.",
+    calculo: "Soma do valor completo dos pedidos cancelados ou devolvidos que possuem evidência de pagamento anterior. A quantidade conta cada pedido uma vez.",
+    inclui: [
+      "Cancelamento solicitado pelo comprador depois do pagamento.",
+      "Cancelamento realizado pelo vendedor depois do pagamento.",
+      "Cancelamento automático depois do pagamento aprovado.",
+      "Devolução integral de um pedido que havia sido pago.",
+    ],
+    naoInclui: [
+      "Pedido cancelado ou expirado porque o cliente não pagou.",
+      "Reembolso parcial de um pedido que continua faturável.",
+      "Pedido apenas criado e ainda aguardando pagamento.",
+      "Pedido ausente da sincronização.",
+    ],
+  },
+  reembolsos: {
+    titulo: "os reembolsos parciais",
+    descricao: "Mostra somente a parte do dinheiro devolvida ao comprador quando o restante do pedido continua sendo receita.",
+    calculo: "Soma dos valores positivos de reembolso informados nos pagamentos do pedido. Cada pedido afetado conta uma vez, mesmo que existam vários pagamentos.",
+    inclui: [
+      "Valor de reembolso informado explicitamente pela API do canal.",
+      "Mais de um pagamento reembolsado dentro do mesmo pedido.",
+      "Pedido ainda faturável depois do abatimento da parcela devolvida.",
+    ],
+    naoInclui: [
+      "Campo ausente, nulo, textual ou inválido.",
+      "Cancelamento ou devolução integral já contabilizada no card correspondente.",
+      "Estimativa criada pelo CRM quando o canal não informou reembolso.",
+    ],
+  },
+  quantidadeCancelados: {
+    titulo: "a quantidade de cancelados e devolvidos",
+    descricao: "Conta os pedidos cancelados ou devolvidos considerados no card de valor, usando os mesmos filtros e critérios financeiros.",
+    calculo: "Quantidade de pedidos cancelados mais quantidade de pedidos devolvidos. Cada pedido conta uma vez, independentemente do número de itens.",
+    inclui: ["Os cancelamentos e devoluções considerados no resumo financeiro do período."],
+    naoInclui: ["Unidades e produtos dentro do pedido.", "Reembolsos parciais.", "Cancelamentos sem pagamento excluídos do resumo financeiro."],
+  },
+};
 
 
 /** `compacto`: no mobile este botão mudou de lugar (ver comentário na barra
@@ -368,7 +462,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [limiteAbertoPara, setLimiteAbertoPara] = useState<LimiteDoDia | null>(null);
   const limiteAberto = limiteAbertoPara === limiteDoDia;
   const setLimiteAberto = (abrir: boolean) => setLimiteAbertoPara(abrir ? limiteDoDia : null);
-  const temLimiteDoDia = limiteDoDia.soNoMercadoLivre.length + limiteDoDia.soAqui.length > 0;
   const [loading, setLoading] = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [brandIds, setBrandIds] = useState<string[]>([]);
@@ -596,6 +689,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               mesmo atalho lá dentro (ver CalendarioPopoverRange), o botão
               daqui fora só duplicava a ação e tomava espaço na linha. */}
           <CalendarioPopoverRange
+            incluirHojeAlemDoPeriodo={canaisSel.length === 1 && canaisSel[0] === "mercadolivre"}
             rotulo="Período"
             valor={{ inicio: dataInicial, fim: dataFinal }}
             onChange={({ inicio, fim }) => { setDataInicial(inicio); setDataFinal(fim); }}
@@ -630,19 +724,30 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         variants={staggerExagerado}
         initial="hidden"
         animate="show"
-        // Quatro colunas viram cinco quando há pedido na virada do dia. O
-        // indicador de fuso não é um aviso pendurado na grade: é a resposta
-        // para "por que o Faturamento aqui não bate com o do ML", e mora
-        // junto do número que ele explica. Sem pedido na virada ele não
-        // existe, e a grade volta a ser a de sempre — por isso a contagem de
-        // colunas é condicional, e não uma quinta coluna vazia esperando.
-        className={`grid grid-cols-2 gap-2.5 ${temLimiteDoDia ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}
+        // A ordem fecha a conta visualmente. A primeira linha mostra o total
+        // comparável, o faturamento preservado e sua quantidade. A segunda
+        // mostra as parcelas que explicam a diferença e a quantidade de
+        // cancelados/devolvidos. Em telas largas, os seis cards ficam na mesma linha.
+        className="grid grid-cols-3 gap-1.5 sm:gap-2.5 xl:grid-cols-6"
         aria-label="Resumo das vendas filtradas"
       >
         {[
           {
+            chave: "total-bruto",
+            label: <><span className="sm:hidden">Total bruto</span><span className="hidden sm:inline">Total bruto comparável</span></>,
+            numero: resumo.totalBrutoComparavel,
+            formatar: (v: number) => dinheiro.format(v),
+            icon: BadgeDollarSign,
+            cor: "var(--selecionado)",
+            sub: <>
+              <span className="sm:hidden">{Math.round(resumo.totalBrutoPedidos).toLocaleString("pt-BR")} ped.</span>
+              <span className="hidden sm:inline">{Math.round(resumo.totalBrutoPedidos).toLocaleString("pt-BR")} {resumo.totalBrutoPedidos === 1 ? "pedido no total bruto" : "pedidos no total bruto"}</span>
+            </>,
+            explicacao: EXPLICACOES_CARDS.totalBruto,
+          },
+          {
             chave: "faturamento",
-            label: "Faturamento",
+            label: <><span className="sm:hidden">Confirmado</span><span className="hidden sm:inline">Faturamento confirmado</span></>,
             numero: resumo.faturamento,
             formatar: (v: number) => dinheiro.format(v),
             icon: CircleDollarSign,
@@ -654,42 +759,72 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                repasse conhecido, os dois números seriam idênticos e a linha
                viraria ruído. */
             sub: resumo.liquidoTotal > 0 && resumo.liquidoTotal < resumo.faturamento
-              ? `${dinheiro.format(resumo.liquidoTotal)} líquido`
+              ? <><span className="sm:hidden">Líq. {dinheiro.format(resumo.liquidoTotal)}</span><span className="hidden sm:inline">{dinheiro.format(resumo.liquidoTotal)} líquido</span></>
               : undefined,
+            explicacao: EXPLICACOES_CARDS.faturamento,
           },
-          { chave: "pedidos", label: "Pedidos", numero: resumo.totalPedidos, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: ShoppingBag, cor: "var(--info)", sub: undefined },
+          {
+            chave: "pedidos",
+            label: <><span className="sm:hidden">Pedidos</span><span className="hidden sm:inline">Pedidos faturados</span></>,
+            numero: resumo.totalPedidos,
+            formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
+            icon: ShoppingBag,
+            cor: "var(--info)",
+            sub: <><span className="sm:hidden">confirmados</span><span className="hidden sm:inline">com pagamento confirmado</span></>,
+            explicacao: EXPLICACOES_CARDS.pedidos,
+          },
           {
             chave: "cancelados",
-            label: <><span className="lg:hidden">Cancel./Devol.</span><span className="hidden lg:inline">Cancelados/Devolvidos</span></>,
-            numero: resumo.cancelados, formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"), icon: Ban, cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)", sub: undefined,
+            label: <><span className="sm:hidden">Cancel. e devol.</span><span className="hidden sm:inline">Cancelados e devolvidos</span></>,
+            numero: resumo.canceladosValor + resumo.devolvidosValor,
+            formatar: (v: number) => dinheiro.format(v),
+            icon: Ban,
+            cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)",
+            sub: <>
+              <span className="sm:hidden">{resumo.cancelados.toLocaleString("pt-BR")} ped.</span>
+              <span className="hidden sm:inline">{resumo.cancelados.toLocaleString("pt-BR")} {resumo.cancelados === 1 ? "pedido" : "pedidos"}. {resumo.canceladosQtd.toLocaleString("pt-BR")} cancelados e {resumo.devolvidosQtd.toLocaleString("pt-BR")} devolvidos</span>
+            </>,
+            explicacao: EXPLICACOES_CARDS.cancelados,
           },
           {
-            chave: "valor-cancelado",
-            label: <><span className="lg:hidden">Valor cancel./devol.</span><span className="hidden lg:inline">Valor cancelado/devolvido</span></>,
-            numero: resumo.canceladosValor + resumo.devolvidosValor, formatar: (v: number) => dinheiro.format(v), icon: Ban, cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)", sub: undefined,
+            chave: "reembolsos-parciais",
+            label: <><span className="sm:hidden">Reembolsos</span><span className="hidden sm:inline">Reembolsos parciais</span></>,
+            numero: resumo.reembolsosParciaisValor,
+            formatar: (v: number) => dinheiro.format(v),
+            icon: RotateCcw,
+            cor: resumo.reembolsosParciaisValor > 0 ? "var(--warning)" : "var(--muted-foreground)",
+            sub: <>
+              <span className="sm:hidden">{resumo.reembolsosParciaisQtd.toLocaleString("pt-BR")} ped.</span>
+              <span className="hidden sm:inline">{resumo.reembolsosParciaisQtd.toLocaleString("pt-BR")} {resumo.reembolsosParciaisQtd === 1 ? "pedido afetado" : "pedidos afetados"}</span>
+            </>,
+            explicacao: EXPLICACOES_CARDS.reembolsos,
+          },
+          {
+            chave: "quantidade-cancelados-devolvidos",
+            label: <><span className="sm:hidden">Qtd. cancel./devol.</span><span className="hidden sm:inline">Pedidos cancelados/devolvidos</span></>,
+            numero: resumo.canceladosQtd + resumo.devolvidosQtd,
+            formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
+            icon: Ban,
+            cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)",
+            sub: <>{resumo.canceladosQtd.toLocaleString("pt-BR")} cancelados e {resumo.devolvidosQtd.toLocaleString("pt-BR")} devolvidos</>,
+            explicacao: EXPLICACOES_CARDS.quantidadeCancelados,
           },
         ].map((card) => (
           <motion.div key={card.chave} variants={variantes(reduzir, entradaExagerada)}>
-            <TintedStatCard
+            <CardResumoVendas
               label={card.label}
               valor={<NumeroAnimado valor={card.numero} formatar={card.formatar} apenasPrimeiraVez={false} duracao={0.5} />}
               icon={card.icon}
               cor={card.cor}
               sub={card.sub}
-              compactoNoMobile
+              explicacao={card.explicacao}
             />
           </motion.div>
         ))}
 
-        {/* Em duas colunas (celular e tablet em retrato) o quinto card cairia
-            sozinho numa linha, ao lado de um buraco. Ocupando as duas, ele
-            fecha a grade e ainda ganha largura para o rótulo inteiro — que é
-            o mais longo dos cinco. */}
-        {temLimiteDoDia && (
-          <motion.div variants={variantes(reduzir, entradaExagerada)} className="col-span-2 lg:col-span-1">
-            <CardLimiteDoDia dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
-          </motion.div>
-        )}
+        <p className="col-span-full text-xs text-muted-foreground">
+          Mercado Livre: vendas pela aprovação do pagamento, em Brasília. Valores com centavos.
+        </p>
       </motion.section>
 
       <motion.section

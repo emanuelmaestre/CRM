@@ -36,11 +36,12 @@ import {
 } from "@/shared/config/brands";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 
-type SaldoCanal = { canal: string; saldo: number; verificadoEm: string };
+type SaldoCanal = { canal: string; saldo: number; verificadoEm: string; atual: boolean };
 
 type Produto = {
   id: string; sku: string; nome: string; preco: string;
   estoqueMinimo: number; brandId: string; brandName: string; brandSlug: string; saldo?: number;
+  saldoConfirmado?: boolean;
   saldosCanais?: SaldoCanal[];
   canais?: string[];
 };
@@ -60,6 +61,16 @@ const PAGINA = 50;
 const COR = { critico: "var(--destructive)", atencao: "var(--warning)", ok: "var(--success)", info: "var(--info)", neutro: "var(--info)" };
 
 const dinheiro = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const dataHoraSaldo = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+});
+
+function formatarVerificacaoSaldo(valor: string): string {
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? "horário desconhecido" : dataHoraSaldo.format(data);
+}
 
 function brandColor(slug: string) {
   return getBrandConfig(slug)?.color ?? "var(--muted-foreground)";
@@ -75,9 +86,10 @@ const TOUR: CoachMarkStep[] = [
    ausente, e régua ausente importa mais que "está acima do mínimo". É a mesma
    precedência que a faixa de saúde usa no topo, para a tela não contar duas
    histórias sobre o mesmo produto. */
-type EstadoLinha = "sem_estoque" | "sem_regua" | "abaixo" | "ok";
+type EstadoLinha = "nao_confirmado" | "sem_estoque" | "sem_regua" | "abaixo" | "ok";
 
-function estadoLinha(saldo: number, minimo: number): EstadoLinha {
+function estadoLinha(saldo: number, minimo: number, confirmado = true): EstadoLinha {
+  if (!confirmado) return "nao_confirmado";
   if (saldo <= 0) return "sem_estoque";
   if (minimo <= 0) return "sem_regua";
   if (saldo <= minimo) return "abaixo";
@@ -85,6 +97,7 @@ function estadoLinha(saldo: number, minimo: number): EstadoLinha {
 }
 
 const CORES_ESTADO: Record<EstadoLinha, string | null> = {
+  nao_confirmado: COR.atencao,
   sem_estoque: COR.atencao,
   abaixo: COR.critico,
   ok: COR.ok,
@@ -434,11 +447,12 @@ function MinimoInput({ produto, onSalvo, tamanho = "h-9 w-[68px]" }: { produto: 
    entre duas colunas distantes ficava por conta de quem lê. Quem não tem régua
    ganha trilho tracejado: é visivelmente configurável, não visivelmente
    quebrado. */
-function SaldoCelula({ saldo, minimo, testId, saldosCanais, alinhamento = "direita" }: {
+function SaldoCelula({ saldo, minimo, testId, saldosCanais, saldoConfirmado = true, alinhamento = "direita" }: {
   saldo: number;
   minimo: number;
   testId: string;
   saldosCanais?: SaldoCanal[];
+  saldoConfirmado?: boolean;
   /** "direita" faz sentido na tabela desktop (encosta nas colunas numéricas
    *  vizinhas). No card mobile, onde o rótulo "Estoque nos canais" acima é
    *  alinhado à esquerda, "direita" brigava com o próprio rótulo — por isso
@@ -446,7 +460,7 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais, alinhamento = "direi
   alinhamento?: "esquerda" | "direita";
 }) {
   const reduzir = useReducedMotion();
-  const estado = estadoLinha(saldo, minimo);
+  const estado = estadoLinha(saldo, minimo, saldoConfirmado);
   const cor = CORES_ESTADO[estado];
   const proporcao = minimo > 0 ? Math.min(saldo / (minimo * 2), 1) : 0;
 
@@ -466,7 +480,9 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais, alinhamento = "direi
     return () => clearTimeout(timer);
   }, [estado, reduzir]);
 
-  const rotulo = estado === "sem_estoque"
+  const rotulo = estado === "nao_confirmado"
+    ? copy.saldoCell.notConfirmed
+    : estado === "sem_estoque"
     ? copy.saldoCell.outOfStock
     : estado === "sem_regua"
       ? copy.saldoCell.noRule
@@ -490,7 +506,7 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais, alinhamento = "direi
       >
         {rotulo}
       </p>
-      {minimo > 0 ? (
+      {saldoConfirmado && minimo > 0 ? (
         <div className="mt-1.5 h-[3px] rounded-full bg-muted overflow-hidden">
           <motion.div
             initial={reduzir ? false : { scaleX: 0 }}
@@ -514,10 +530,17 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais, alinhamento = "direi
       {saldosCanais && saldosCanais.length > 0 && (
         <div className="mt-1.5 flex flex-col gap-0.5">
           {saldosCanais.map((item) => (
-            <div key={item.canal} className={`flex items-center gap-1 ${direita ? "justify-end" : "justify-start"}`}>
+            <div
+              key={`${item.canal}-${item.verificadoEm}`}
+              className={`flex items-center gap-1 ${direita ? "justify-end" : "justify-start"}`}
+              title={`${item.atual ? "Verificado" : "Última leitura"} em ${formatarVerificacaoSaldo(item.verificadoEm)}`}
+            >
               <ChannelLogo canal={item.canal} size="xs" variant="logo" />
-              <span className="text-[10px] leading-none tabular-nums text-muted-foreground">
-                {item.saldo}
+              <span
+                className="text-[10px] leading-none tabular-nums"
+                style={{ color: item.atual ? "var(--muted-foreground)" : COR.atencao }}
+              >
+                {item.saldo}{item.atual ? "" : " · antigo"}
               </span>
             </div>
           ))}
@@ -1131,8 +1154,9 @@ export function EstoqueLista({
               <motion.div variants={staggerExagerado} initial="hidden" animate="show" className="md:hidden divide-y divide-border" data-testid="estoque-cards">
                 {produtos.map((p) => {
                   const saldo = p.saldo ?? 0;
+                  const saldoConfirmado = p.saldoConfirmado !== false;
                   const parado = filtro === "parados" ? parados.get(p.id) : undefined;
-                  const estado = estadoLinha(saldo, p.estoqueMinimo);
+                  const estado = estadoLinha(saldo, p.estoqueMinimo, saldoConfirmado);
                   const corEstado = CORES_ESTADO[estado];
                   return (
                     <motion.article key={p.id} variants={variantes(reduzir, entradaExagerada)} className="relative p-4 pl-5 space-y-3">
@@ -1187,7 +1211,7 @@ export function EstoqueLista({
                       <div className="grid grid-cols-3 gap-3 text-sm items-end">
                         <div>
                           <p className="text-xs text-muted-foreground mb-1">{copy.mobile.balance}</p>
-                          <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} saldosCanais={p.saldosCanais} alinhamento="esquerda" />
+                          <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} saldosCanais={p.saldosCanais} saldoConfirmado={saldoConfirmado} alinhamento="esquerda" />
                         </div>
                         <div data-tour={p === produtos[0] ? "estoque-minimo" : undefined}>
                           <p className="text-xs text-muted-foreground mb-1">{copy.minimum.columnLabel}</p>
@@ -1251,9 +1275,10 @@ export function EstoqueLista({
                   <tbody>
                     {produtos.map((p, i) => {
                       const saldo = p.saldo ?? 0;
+                      const saldoConfirmado = p.saldoConfirmado !== false;
                       const parado = filtro === "parados" ? parados.get(p.id) : undefined;
                       const selecionado = selecionados.has(p.id);
-                      const estado = estadoLinha(saldo, p.estoqueMinimo);
+                      const estado = estadoLinha(saldo, p.estoqueMinimo, saldoConfirmado);
                       const corEstado = CORES_ESTADO[estado];
                       return (
                         // Linha sem animação de entrada própria: a cascata por
@@ -1316,7 +1341,7 @@ export function EstoqueLista({
                             )}
                           </td>
                           <td className="px-5 py-3.5">
-                            <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} saldosCanais={p.saldosCanais} />
+                            <SaldoCelula saldo={saldo} minimo={p.estoqueMinimo} testId={`saldo-${p.sku}`} saldosCanais={p.saldosCanais} saldoConfirmado={saldoConfirmado} />
                           </td>
                           <td className="px-5 py-3.5" data-tour={i === 0 ? "estoque-minimo" : undefined}>
                             <div className="flex justify-end">

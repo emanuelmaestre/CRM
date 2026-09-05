@@ -442,7 +442,7 @@ export async function salvarMapeamentoCanalConfiguracao(ctx: CrudContext, input:
     throw new Error("Produto e canal devem pertencer a mesma marca.");
   }
   if (contaRow.tipo === "tiktokshop" && (!data.externalSkuId || !data.externalWarehouseId)) {
-    throw new Error("TikTok Shop exige SKU externo e warehouse externo.");
+    throw new Error("TikTok Shop exige o SKU do vendedor e o ID interno do SKU (sku_id).");
   }
 
   await ctx.db.insert(produtoCanal).values({

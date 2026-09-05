@@ -10,6 +10,10 @@ import { podeAplicarVersaoPedido } from "@/modules/canais/domain/versao-pedido";
 import { MercadoLivreProvider, normalizarPedidoMercadoLivre } from "@/modules/canais/infrastructure/mercadolivre.provider";
 import { ShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 import { TikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
+import {
+  reembolsoParcialInformado,
+  valorFaturavelPedido,
+} from "@/modules/vendas/domain/status-faturamento";
 
 const proxy = vi.hoisted(() => vi.fn());
 vi.mock("@/shared/lib/shopee-proxy", () => ({ shopeeFetch: proxy }));
@@ -123,4 +127,13 @@ it("preserva reembolso parcial, cria referência sem SKU e multiplica tarifa por
   expect(pedido.itens[0].skuExterno).toBe("MLB1-20");
   expect(pedido.atualizadoOrigemEm).toEqual(fim);
   expect(pedido.dadosOrigem?.pagamentos).toEqual([expect.objectContaining({ reembolsado: 10 })]);
+  expect(reembolsoParcialInformado(pedido.dadosOrigem)).toBe(10);
+  expect(valorFaturavelPedido(pedido.total, pedido.dadosOrigem)).toBe(20);
+});
+
+it("não transforma dado ausente, nulo ou malformado em pedido zerado", () => {
+  expect(valorFaturavelPedido("30", undefined)).toBe(30);
+  expect(valorFaturavelPedido("30", { pagamentos: null })).toBe(30);
+  expect(valorFaturavelPedido("30", { pagamentos: [{ reembolsado: null }, { reembolsado: "10" }] })).toBe(30);
+  expect(valorFaturavelPedido("30", { pagamentos: [{ reembolsado: 50 }] })).toBe(0);
 });

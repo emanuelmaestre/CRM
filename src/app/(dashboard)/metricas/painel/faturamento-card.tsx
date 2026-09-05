@@ -12,10 +12,10 @@ import { springs, fadeUp } from "@/shared/design-system/motion-variants";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { AcaoSlotFiltro } from "./listas-cards";
-import { moeda } from "@/shared/design-system/format";
+import { inteiro, moeda } from "@/shared/design-system/format";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
 import { tint } from "@/shared/design-system/color";
-import { copyLimite, JanelaLimiteDoDia, somarLimite, type LimiteDoDia } from "@/shared/components/limite-do-dia";
+import { copyLimite, JanelaLimiteDoDia, pedidoEntraNoBruto, somarLimite, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 
 const copy = dashboardConfig.cards.faturamento;
 
@@ -176,10 +176,11 @@ function EntendaFaturamentoBotao({
             <p className="text-sm font-bold text-foreground">Bruto</p>
           </div>
           <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
-            É a soma do valor total de cada pedido concluído dentro do período escolhido, sem nenhum desconto aplicado.
+            É a soma do valor bruto informado pelo canal para cada pedido com pagamento confirmado, menos reembolsos parciais já informados.
           </p>
           <ul className="mt-3 flex flex-col gap-2">
-            <ItemRegra tipo="entra">Valor completo do pedido: produto e frete cobrado do cliente</ItemRegra>
+            <ItemRegra tipo="entra">Valor bruto do pedido informado pelo canal</ItemRegra>
+            <ItemRegra tipo="fora">Parcela que já foi reembolsada ao comprador</ItemRegra>
             <ItemRegra tipo="fora">Pedidos cancelados</ItemRegra>
             <ItemRegra tipo="fora">Pedidos devolvidos</ItemRegra>
           </ul>
@@ -215,7 +216,7 @@ function EntendaFaturamentoBotao({
       </div>
 
       <p className="mt-4 rounded-[0.85rem] px-3 py-2.5 text-[12px] font-medium leading-relaxed" style={{ background: tint("var(--selecionado)", 8), color: "var(--foreground)" }}>
-        Cancelamento e devolução nunca entram em nenhum dos dois valores, bruto ou líquido, em nenhuma hipótese.
+        Cancelamentos e devoluções integrais ficam fora; em reembolso parcial, somente a parcela devolvida é abatida.
       </p>
 
       {dados?.composicao && (
@@ -224,15 +225,27 @@ function EntendaFaturamentoBotao({
             Composição no período selecionado
           </p>
           <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-[12px]">
-            <dt className="text-muted-foreground">Pedidos recebidos, inclusive cancelados</dt>
+            <dt className="text-muted-foreground">Total comparável ao painel do canal ({inteiro.format(dados.composicao.pedidosBrutosQtd)} pedidos)</dt>
             <dd className="font-semibold tabular-nums text-foreground">{dados.composicao.pedidosBrutos}</dd>
             <dt className="text-muted-foreground">Cancelados e devolvidos</dt>
             <dd className="font-semibold tabular-nums text-destructive">− {dados.composicao.canceladosDevolvidos}</dd>
+            {dados.composicao.pedidosComReembolsoParcialQtd > 0 && (
+              <>
+                <dt className="text-muted-foreground">
+                  Reembolsos parciais ({inteiro.format(dados.composicao.pedidosComReembolsoParcialQtd)} pedidos)
+                </dt>
+                <dd className="font-semibold tabular-nums text-destructive">
+− {dados.composicao.reembolsosParciais}</dd>
+              </>
+            )}
             <dt className="border-t border-border pt-1.5 font-semibold text-foreground">Faturamento exibido</dt>
             <dd className="border-t border-border pt-1.5 font-bold tabular-nums text-foreground">{dados.total}</dd>
           </dl>
           <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
             Alguns painéis de canal chamam o primeiro valor de total bruto. Compare a mesma regra e o mesmo período antes de tratar a diferença como pedido ausente.
+          </p>
+          <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
+            No Mercado Livre, vendas são consideradas pela aprovação do pagamento em Brasília. Os atalhos incluem os dias anteriores e hoje. Registros técnicos de divisão de pacote são excluídos; os valores preservam centavos.
           </p>
         </div>
       )}
@@ -378,11 +391,11 @@ function ChipFusoFaturamento({ dados, onClick }: { dados?: LimiteDoDia | null; o
   const reduzir = useReducedMotion();
   if (!dados) return null;
   const { soNoMercadoLivre, soAqui } = dados;
-  const quantidade = soNoMercadoLivre.length + soAqui.length;
+  const quantidade = [...soNoMercadoLivre, ...soAqui].filter(pedidoEntraNoBruto).length;
   if (quantidade === 0) return null;
 
-  // Mesma soma da janela e do card de Vendas — cancelado e devolvido fora,
-  // porque o faturamento acima também os exclui e é com ele que se compara.
+  // Mesma soma da janela e do card de Vendas. Cancelamento posterior ao
+  // pagamento recompõe o bruto; cancelamento sem pagamento fica fora.
   const diferenca = Math.abs(somarLimite(soNoMercadoLivre) - somarLimite(soAqui));
 
   return (
@@ -510,7 +523,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
         { text: "OBS: ", bold: true },
         { text: "faturamento " },
         { text: "bruto", bold: true },
-        { text: " é a soma do valor total de cada pedido concluído no período, incluindo produto e frete cobrado do cliente, sem nenhum desconto aplicado. Pedidos cancelados e devolvidos nunca entram em nenhum dos dois valores." },
+        { text: " é a soma do valor bruto informado pelo canal para pedidos com pagamento confirmado. Cancelamentos e devoluções integrais ficam fora; reembolsos parciais são abatidos apenas na parcela devolvida." },
       ]
     : [];
 
@@ -618,6 +631,26 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                     itens; a moldura e a cor é que dizem que só este é clicável. */}
                 <ChipFusoFaturamento dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
               </div>
+
+              {!liquido && dados?.composicao && (
+                dados.composicao.canceladosDevolvidosQtd > 0
+                || dados.composicao.pedidosComReembolsoParcialQtd > 0
+              ) && (
+                <div
+                  className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[0.8rem] border px-3 py-2 text-xs"
+                  style={{
+                    borderColor: "color-mix(in srgb, var(--selecionado) 22%, transparent)",
+                    background: "color-mix(in srgb, var(--selecionado) 5%, transparent)",
+                  }}
+                >
+                  <span className="text-muted-foreground">
+                    Para comparar com o painel do canal, antes de cancelamentos e reembolsos
+                  </span>
+                  <span className="font-bold tabular-nums text-foreground">
+                    {dados.composicao.pedidosBrutos} · {inteiro.format(dados.composicao.pedidosBrutosQtd)} pedidos
+                  </span>
+                </div>
+              )}
 
               <div className="mt-2.5 sm:mt-3">
                 {/* Leitura do ponto sob o cursor. Fica em posição fixa em vez de

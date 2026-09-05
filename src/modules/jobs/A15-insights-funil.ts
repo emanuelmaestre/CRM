@@ -1,9 +1,11 @@
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { pedido } from "@/shared/lib/db/schema";
-import { and, eq, gte, count, sum } from "drizzle-orm";
+import { and, eq, gte, count, sql } from "drizzle-orm";
 import { gerarInsightFunil } from "@/modules/ai/application/ai.service";
 import { subDays } from "date-fns";
+import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
+import { valorFaturavelPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
 
 export const A15_insightsFunil = inngest.createFunction(
   { id: "A15-insights-funil", name: "A15 — Insights executivos semanais (IA)", concurrency: { limit: 1 }, triggers: [{ cron: "0 7 * * 1" }] },
@@ -13,7 +15,13 @@ export const A15_insightsFunil = inngest.createFunction(
 
     const dadosAgregados = await step.run("agregar-dados-funil", async () => {
       const [totalPedidos] = await db
-        .select({ total: count(), receita: sum(pedido.total) })
+        .select({
+          total: count(),
+          receita: sql<string>`coalesce(sum(${valorFaturavelPedidoSql()}) filter (where ${pedido.status} in (${sql.join(
+            STATUS_PEDIDO_FATURAVEL.map((status) => sql`${status}`),
+            sql`, `,
+          )})), 0)`,
+        })
         .from(pedido)
         .where(and(eq(pedido.orgId, orgId), gte(pedido.createdAt, desde)));
 

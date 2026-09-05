@@ -15,6 +15,15 @@ describe("CalendarioPopoverRange", () => {
   beforeEach(() => vi.useFakeTimers({ now: new Date(2026, 7, 15) }));
   afterEach(() => vi.useRealTimers());
 
+  it.each([['7 dias', '2026-08-28'], ['30 dias', '2026-08-05']])('atalho ML %s inclui hoje e os dias anteriores', (rotulo, inicio) => {
+    vi.setSystemTime(new Date(2026, 8, 4));
+    const onChange = vi.fn();
+    render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: '', fim: '' }} onChange={onChange} incluirHojeAlemDoPeriodo />);
+    fireEvent.click(screen.getByRole('button', { name: 'Período' }));
+    fireEvent.click(screen.getByRole('button', { name: rotulo }));
+    expect(onChange).toHaveBeenCalledWith({ inicio, fim: '2026-09-04' });
+  });
+
   it("primeiro clique fixa o início, segundo clique fecha o fim e aplica o filtro", () => {
     const onChange = vi.fn();
     render(<CalendarioPopoverRange rotulo="Período" valor={{ inicio: "", fim: "" }} onChange={onChange} />);

@@ -1,5 +1,5 @@
-import { and, eq, sql } from "drizzle-orm";
-import { inicioColetaPedidos, podeAvancarCoberturaPedidos } from "@/modules/canais/domain/cobertura-pedidos";
+import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { inicioColetaPedidos, podeAvancarCoberturaPedidos, politicaColetaPedidos } from "@/modules/canais/domain/cobertura-pedidos";
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount } from "@/shared/lib/db/schema";
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
@@ -79,7 +79,12 @@ export const A24_pollPedidos = inngest.createFunction(
           ))
           .where(and(
             eq(channelAccount.orgId, orgId),
-            eq(channelAccount.status, "conectado"),
+            or(
+              eq(channelAccount.status, "conectado"),
+              and(eq(channelAccount.status, "degradado"),
+                inArray(channelAccount.tipo, ["shopee", "tiktokshop"]),
+                isNull(channelAccount.encerradoEm)),
+            ),
           )),
       );
 
@@ -163,6 +168,12 @@ export const A24_pollPedidos = inngest.createFunction(
             throw new Error(
               `${falhasSemRegistro} pedido(s) falharam sem entrar na fila durável; a cobertura não será avançada.`,
             );
+          }
+          // Não anuncia verificação completa nem avança o cursor com pedidos
+          // recusados nestes canais. A fila durável e a próxima coleta podem
+          // repetir com segurança graças à idempotência da ingestão.
+          if (politicaColetaPedidos(conta.tipo, undefined, false).exigirSemPendencias && ignorados > 0) {
+            throw new Error(`Atualização parcial: ${ignorados} pedido(s) pendentes de recuperação. Cobertura preservada para nova tentativa.`);
           }
 
           // A busca no canal terminou e toda recusa está persistida. O marcador

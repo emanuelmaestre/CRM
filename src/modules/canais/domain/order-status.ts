@@ -15,7 +15,7 @@ export function deveExecutarEfeitosOperacionais(origem: OrigemIngestaoPedido): b
   return origem === "tempo_real";
 }
 
-export function mapearStatusPedido(statusExterno: string): PedidoStatus {
+export function mapearStatusPedido(statusExterno: string | null | undefined): PedidoStatus {
   const mapa: Record<string, PedidoStatus> = {
     unpaid: "criado",
     to_pay: "criado",
@@ -54,6 +54,9 @@ export function mapearStatusPedido(statusExterno: string): PedidoStatus {
     invalid: "cancelado",
     pending: "criado",
     awaiting_shipment: "pago",
+    // TikTok: pagamento concluído, mas ainda dentro da janela de desistência
+    // em que o pedido não pode ser expedido. Financeiramente já não é UNPAID.
+    on_hold: "pago",
     awaiting_collection: "separado",
     // TikTok: coletado pela transportadora e a caminho. Sem isto caía no
     // fallback "criado" — 115 dos 1457 pedidos das três marcas numa
@@ -61,7 +64,10 @@ export function mapearStatusPedido(statusExterno: string): PedidoStatus {
     // estando a caminho do comprador.
     in_transit: "enviado",
   };
-  const chave = statusExterno.toLowerCase();
+  // Status ausente não pode derrubar o lote inteiro nem, principalmente,
+  // virar venda. O estágio conservador "criado" o mantém fora do faturamento
+  // até o canal mandar um estado reconhecido numa próxima reconciliação.
+  const chave = statusExterno?.trim().toLowerCase() ?? "";
   const conhecido = mapa[chave];
   if (conhecido) return conhecido;
 
@@ -89,6 +95,24 @@ const progressao: Record<Exclude<PedidoStatus, "cancelado" | "devolvido">, numbe
   avaliacao_solicitada: 5,
   concluido: 6,
 };
+
+/** TO_RETURN pode terminar em COMPLETED na Shopee. Exceção restrita a uma
+ * fotografia versionada e paga; nunca reabre cancelados nem outros canais. */
+export function ehConclusaoAposDevolucaoShopee(entrada: {
+  canal: string;
+  atual: PedidoStatus;
+  statusExterno: string;
+  pagamentoAprovado: boolean;
+  versaoAtual: Date | null;
+  versaoRecebida?: Date;
+}): boolean {
+  const recebida = entrada.versaoRecebida?.getTime();
+  return entrada.canal === "shopee" && entrada.atual === "devolvido"
+    && entrada.statusExterno.trim().toLowerCase() === "completed"
+    && entrada.pagamentoAprovado
+    && recebida !== undefined && Number.isFinite(recebida)
+    && (entrada.versaoAtual === null || recebida >= entrada.versaoAtual.getTime());
+}
 
 export function deveAplicarStatusMarketplace(atual: PedidoStatus, proximo: PedidoStatus): boolean {
   if (atual === proximo || ["cancelado", "devolvido"].includes(atual)) return false;

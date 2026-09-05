@@ -18,6 +18,10 @@ import {
   normalizarTelefone, normalizarEmail, normalizarCpfCnpj,
   calcularScoreDeduplicacao, classificarDeduplicacao,
 } from "../domain/identity";
+import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
+import { valorFaturavelPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+
+const PEDIDO_FATURAVEL = inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]);
 
 const crudCliente = createCrudFactory({
   table: cliente,
@@ -112,7 +116,7 @@ export async function buscarCliente360(ctx: CrudContext, id: string) {
     ctx.db
       .select({
         totalPedidos: sql<number>`count(*)`,
-        totalGasto: sql<string>`coalesce(sum(${pedido.total}), 0)`,
+        totalGasto: sql<string>`coalesce(sum(${valorFaturavelPedidoSql()}) filter (where ${PEDIDO_FATURAVEL}), 0)`,
         primeiroPedidoEm: sql<Date | null>`min(${pedido.createdAt})`,
         ultimoPedidoEm: sql<Date | null>`max(${pedido.createdAt})`,
         cancelados: sql<number>`count(*) filter (where ${pedido.status} = 'cancelado')`,
@@ -392,7 +396,7 @@ export async function listarClientes(
       .select({
         clienteId: pedido.clienteId,
         totalPedidos: sql<number>`count(*)`,
-        totalGasto: sql<string>`coalesce(sum(${pedido.total}), 0)`,
+        totalGasto: sql<string>`coalesce(sum(${valorFaturavelPedidoSql()}) filter (where ${PEDIDO_FATURAVEL}), 0)`,
         ultimoPedidoEm: sql<Date | null>`max(${pedido.createdAt})`,
       })
       .from(pedido)

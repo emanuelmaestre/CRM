@@ -3,6 +3,8 @@ import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import { auditLog, brand, cliente, clienteTag, pedido, segmento, tag } from "@/shared/lib/db/schema";
 import { emitirEvento } from "@/shared/events";
 import { CriarSegmentoSchema, FiltrosSegmentoSchema, type CriarSegmentoDTO, type FiltrosSegmento } from "../domain/segmentos";
+import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
+import { valorFaturavelPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
 
 const PERFIS_GERENCIAM_SEGMENTO = ["admin", "gestor"] as const;
 
@@ -76,8 +78,10 @@ async function consultarMembrosSegmento(ctx: CrudContext, filtros: FiltrosSegmen
   if (filtros.tagIds.length) where.push(sql`exists (select 1 from ${clienteTag} ct where ct.cliente_id = ${cliente.id} and ${inArray(sql`ct.tag_id`, filtros.tagIds)})`);
   if (filtros.brandIds.length) where.push(sql`exists (select 1 from ${pedido} p where p.cliente_id = ${cliente.id} and p.org_id = ${ctx.orgId} and ${inArray(sql`p.brand_id`, filtros.brandIds)})`);
   if (filtros.canalTipos.length) where.push(sql`exists (select 1 from ${pedido} p where p.cliente_id = ${cliente.id} and p.org_id = ${ctx.orgId} and ${inArray(sql`p.canal`, filtros.canalTipos)})`);
-  if (filtros.totalGastoMin !== undefined) having.push(sql`coalesce(sum(${pedido.total}), 0) >= ${filtros.totalGastoMin}`);
-  if (filtros.totalGastoMax !== undefined) having.push(sql`coalesce(sum(${pedido.total}), 0) <= ${filtros.totalGastoMax}`);
+  const faturavel = inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]);
+  const totalGasto = sql`coalesce(sum(${valorFaturavelPedidoSql()}) filter (where ${faturavel}), 0)`;
+  if (filtros.totalGastoMin !== undefined) having.push(sql`${totalGasto} >= ${filtros.totalGastoMin}`);
+  if (filtros.totalGastoMax !== undefined) having.push(sql`${totalGasto} <= ${filtros.totalGastoMax}`);
   if (filtros.pedidosMin !== undefined) having.push(sql`count(${pedido.id}) >= ${filtros.pedidosMin}`);
   if (filtros.diasSemComprarMin !== undefined) {
     const limite = new Date(Date.now() - filtros.diasSemComprarMin * 86_400_000);

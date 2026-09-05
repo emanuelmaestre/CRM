@@ -14,6 +14,7 @@ const detalhes = [
   { order_sn: "B", total_amount: 20.2, order_status: "CANCELLED", item_list: itens([1]) },
   { order_sn: "C", total_amount: 30.3, order_status: "TO_RETURN", item_list: itens([2]) },
   { order_sn: "D", total_amount: 40.4, order_status: "IN_CANCEL", item_list: itens([1]) },
+  { order_sn: "E", total_amount: 999, order_status: "TO_PAY", item_list: itens([100]) },
 ];
 
 function preparar(respostas: unknown[] = detalhes, pedidos = detalhes.map((d) => ({ order_sn: d.order_sn, order_status: "READY_TO_SHIP" }))) {
@@ -34,7 +35,7 @@ describe("indicadores reais da Shopee", () => {
   it("soma variações, usa o financeiro e distingue cancelamento confirmado de devolução/solicitação", async () => {
     const { provider, chamadas } = preparar();
     const resumo = await provider.resumirFaturamentoOficial(inicio, fim, true, agora);
-    expect(resumo).toMatchObject({ faturamento: 100.1, canceladosQtd: 3, totalBruto: 191,
+    expect(resumo).toMatchObject({ faturamento: 100.1, totalPedidos: 5, canceladosQtd: 3, totalBruto: 191,
       desempenho: { vendasBrutas: 191, unidadesVendidas: 9, quantidadeVendas: 4, vendasCanceladas: 1, visitas: null } });
     expect(consolidarDesempenho([resumo.desempenho!])).toMatchObject({ precoMedioVenda: 47.75, conversao: null });
     const detalhe = chamadas.find((u) => u.pathname.endsWith("get_order_detail"))!;

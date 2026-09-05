@@ -183,7 +183,8 @@ function useDadosDoCard(
    resumo Score+Atendimento+Pós-venda, sem relação com o card em foco —
    decisão tomada com o usuário). Em 28/08/2026 o PDF saiu do produto
    inteiro, não só daqui. */
-function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent, semHoje }: {
+function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent, semHoje, apenasMercadoLivre }: {
+  apenasMercadoLivre?: boolean;
   periodo: Periodo;
   trocarDatas: (inicio: string, fim: string) => void;
   periodoLabel?: string;
@@ -199,6 +200,7 @@ function BarraPeriodo({ periodo, trocarDatas, periodoLabel, accent, semHoje }: {
   return (
     <>
       <CalendarioPopoverRange
+        incluirHojeAlemDoPeriodo={apenasMercadoLivre}
         rotulo="Período"
         valor={{ inicio: periodo.inicio, fim: periodo.fim }}
         max={hoje}
@@ -1260,7 +1262,7 @@ export function Mosaico({
                 que já existe dentro do próprio popover de Período (ver
                 CalendarioPopoverRange) — pedido explícito pra tirar da
                 barra de escopo global. */}
-            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={dadosSaude?.periodoLabel} semHoje />
+            <BarraPeriodo periodo={periodo} trocarDatas={trocarDatas} periodoLabel={dadosSaude?.periodoLabel} apenasMercadoLivre={apenasMercadoLivre} semHoje />
           </div>
         </div>
 
@@ -1362,6 +1364,7 @@ export function Mosaico({
           // vez de repetida em cada canto da tela.
           blocoAberto?.id === "reposicao" ? null : (
             <BarraPeriodo
+              apenasMercadoLivre={apenasMercadoLivre}
               periodo={periodo}
               trocarDatas={trocarDatas}
               periodoLabel={dadosSaude?.periodoLabel}

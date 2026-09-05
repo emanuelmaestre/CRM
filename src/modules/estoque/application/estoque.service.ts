@@ -1,5 +1,5 @@
-import { saldoPublicado } from "../infrastructure/saldo-canais";
-import { and, count, eq, getTableColumns, gte, ilike, inArray, isNull, notInArray, SQL, sql } from "drizzle-orm";
+import { SALDO_FRESCOR_HORAS, saldoPublicado, saldoPublicadoAtual } from "../infrastructure/saldo-canais";
+import { and, count, eq, getTableColumns, gte, ilike, inArray, isNull, SQL, sql } from "drizzle-orm";
 import { assertPerfil, type CrudContext } from "@/shared/lib/crud-factory";
 import {
   auditLog, brand, channelAccount, produto, produtoCanal, estoqueCanalSaldo, pedido, pedidoItem,
@@ -14,6 +14,7 @@ import {
   minimoPelaRegua,
   type ReguaEstoque,
 } from "../domain/regua-estoque";
+import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
 
 export {
   FAIXAS_GIRO_PADRAO,
@@ -114,21 +115,24 @@ export type EstadoEstoque = "abaixo_minimo" | "sem_estoque" | "sem_minimo";
  *
  *  Subquery correlacionada em vez de JOIN porque o saldo é 1:N por produto —
  *  um JOIN duplicaria a linha do produto por canal mapeado. Produto sem
- *  nenhum canal coletado cai em 0, que é o mesmo que a UI já tratava como
- *  "sem estoque".
+ *  A leitura atual pode ser null. Isso significa que nenhum canal foi
+ *  confirmado dentro da janela de frescor — nunca deve ser confundido com
+ *  estoque zero. O último valor conhecido continua disponível para exibição.
  *
  *  Com filtro de canal ativo, o saldo passa a ser o daqueles canais apenas —
  *  a pergunta na tela deixa de ser "quanto tenho" e vira "quanto tenho ali". */
 const saldoExpr = saldoPublicado;
+const saldoAtualExpr = saldoPublicadoAtual;
 
 /** Saldo de cada canal separadamente, para a tela mostrar lado a lado em vez
  *  de um número só. Vem como json para não multiplicar a linha do produto. */
-function saldosPorCanalExpr(orgId: string): SQL<Array<{ canal: string; saldo: number; verificadoEm: string }>> {
+function saldosPorCanalExpr(orgId: string): SQL<Array<{ canal: string; saldo: number; verificadoEm: string; atual: boolean }>> {
   return sql`coalesce((
     select json_agg(json_build_object(
       'canal', conta_saldo."tipo",
       'saldo', saldo_canal."saldo",
-      'verificadoEm', saldo_canal."verificado_em"
+      'verificadoEm', saldo_canal."verificado_em",
+      'atual', saldo_canal."verificado_em" >= now() - (${SALDO_FRESCOR_HORAS} * interval '1 hour')
     ) order by conta_saldo."tipo")
     from "estoque_canal_saldo" saldo_canal
     inner join "channel_account" conta_saldo
@@ -161,7 +165,7 @@ async function vendasPorProduto(
     .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
     .where(and(
       eq(pedido.orgId, ctx.orgId),
-      notInArray(pedido.status, ["cancelado", "devolvido"]),
+      inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]),
       gte(pedido.createdAt, desde),
       inArray(pedidoItem.produtoId, produtoIds),
     ))
@@ -169,10 +173,10 @@ async function vendasPorProduto(
   return new Map(linhas.map((linha) => [linha.produtoId, Number(linha.quantidade)]));
 }
 
-function condicaoEstado(estado: EstadoEstoque, saldo: SQL<number>): SQL {
-  if (estado === "sem_estoque") return sql`${saldo} <= 0`;
+function condicaoEstado(estado: EstadoEstoque, saldo: SQL<number | null>): SQL {
+  if (estado === "sem_estoque") return sql`${saldo} is not null and ${saldo} <= 0`;
   if (estado === "sem_minimo") return sql`${produto.estoqueMinimo} <= 0`;
-  return sql`${saldo} > 0 and ${produto.estoqueMinimo} > 0 and ${saldo} <= ${produto.estoqueMinimo}`;
+  return sql`${saldo} is not null and ${saldo} > 0 and ${produto.estoqueMinimo} > 0 and ${saldo} <= ${produto.estoqueMinimo}`;
 }
 
 /** SKU tem no máximo um mapeamento ativo por tipo de canal (um produto pode
@@ -268,13 +272,15 @@ export async function listarProdutos(
       filters.push(ilike(sql`${produto.sku} || ' ' || ${produto.nome}`, `%${termo}%`));
     }
   }
-  const SALDO = saldoExpr(ctx.orgId, opts.canalTipos);
-  if (opts.estado) filters.push(condicaoEstado(opts.estado, SALDO));
+  const SALDO_CONHECIDO = saldoExpr(ctx.orgId, opts.canalTipos);
+  const SALDO_ATUAL = saldoAtualExpr(ctx.orgId, opts.canalTipos);
+  const SALDO_EXIBIDO = sql<number>`coalesce(${SALDO_ATUAL}, ${SALDO_CONHECIDO})`;
+  if (opts.estado) filters.push(condicaoEstado(opts.estado, SALDO_ATUAL));
   if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanal(ctx.orgId, opts.canalTipos));
   // O `saldo > 0` acompanha a condição de pausado onde quer que ela apareça:
   // é a mesma pergunta do card ("tem o que vender e não está à venda"), e uma
   // lista com regra mais larga que o número que a abriu seria outra coisa.
-  if (opts.apenasPausados) filters.push(sql`${SALDO} > 0`, condicaoPausado(ctx.orgId, opts.canalTipos));
+  if (opts.apenasPausados) filters.push(sql`${SALDO_ATUAL} > 0`, condicaoPausado(ctx.orgId, opts.canalTipos));
   // Lista vazia significa "nenhum produto casa" (ex.: filtro de parados sem
   // resultado) — sem o guarda, inArray com [] geraria SQL inválido.
   if (opts.ids) filters.push(opts.ids.length > 0 ? inArray(produto.id, opts.ids) : sql`false`);
@@ -294,7 +300,8 @@ export async function listarProdutos(
         ativo: produto.ativo,
         createdAt: produto.createdAt,
         updatedAt: produto.updatedAt,
-        saldo: SALDO,
+        saldo: SALDO_EXIBIDO,
+        saldoConfirmado: sql<boolean>`${SALDO_ATUAL} is not null`,
         saldosCanais: saldosPorCanalExpr(ctx.orgId),
         // Canais em que o produto está anunciado agora — subquery correlacionada
         // em vez de JOIN porque um produto pode ter vários mapeamentos ativos
@@ -336,7 +343,7 @@ export async function contarIndicadoresEstoque(
   if (opts.brandIds && opts.brandIds.length > 0) filters.push(inArray(produto.brandId, opts.brandIds));
   if (opts.canalTipos && opts.canalTipos.length > 0) filters.push(condicaoCanal(ctx.orgId, opts.canalTipos));
 
-  const SALDO = saldoExpr(ctx.orgId, opts.canalTipos);
+  const SALDO = saldoAtualExpr(ctx.orgId, opts.canalTipos);
   const [linha] = await ctx.db
     .select({
       total: count(),
@@ -691,7 +698,7 @@ export async function listarProdutosParados(ctx: CrudContext) {
     .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
     .where(and(
       eq(pedido.orgId, ctx.orgId),
-      notInArray(pedido.status, ["cancelado", "devolvido"]),
+      inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]),
       inArray(pedidoItem.produtoId, candidatos.map((item) => item.id)),
     ))
     .groupBy(pedidoItem.produtoId);

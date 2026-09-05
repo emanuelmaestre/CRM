@@ -153,6 +153,7 @@ function AnelEspera({ restante }: { restante: number }) {
 function TarjaNaoConfirmado({
   carimbo,
   canais,
+  podeTentar,
   liberadoEm,
   ocupado,
   tentarNovamente,
@@ -160,6 +161,7 @@ function TarjaNaoConfirmado({
 }: {
   carimbo: string | null;
   canais: string[];
+  podeTentar: boolean;
   liberadoEm: number;
   ocupado: boolean;
   tentarNovamente: () => void;
@@ -200,7 +202,7 @@ function TarjaNaoConfirmado({
       {/* Lavagem âmbar por baixo do conteúdo — some quando a tarja passa a
           "consultando", que é um estado de trabalho, não de alerta. */}
       <AnimatePresence initial={false}>
-        {!ocupado && (
+        {!ocupado && podeTentar && (
           <motion.span
             key="lavagem"
             aria-hidden
@@ -574,6 +576,7 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
             key="tarja"
             carimbo={rotularCarimbo(estado?.confirmadoAte ?? estado?.versao)}
             canais={estado?.canais ?? []}
+            podeTentar={estado?.podeSincronizar !== false}
             liberadoEm={liberadoEm}
             ocupado={ocupado}
             tentarNovamente={tentarNovamente}

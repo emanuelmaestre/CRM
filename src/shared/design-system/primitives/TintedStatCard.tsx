@@ -44,9 +44,12 @@ export interface TintedStatCardProps {
    *  sem empurrar o conteúdo principal para baixo da dobra; no desktop, onde
    *  sobra espaço, apertar não traz benefício nenhum. */
   compactoNoMobile?: boolean;
+  /** Variante mais compacta para grades financeiras de três colunas no
+   * celular e seis colunas em monitores largos. Mantém o valor exato. */
+  denso?: boolean;
 }
 
-export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, ativo, labelClassName, compactoNoMobile, dica, pulsar }: TintedStatCardProps) {
+export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, ativo, labelClassName, compactoNoMobile, denso, dica, pulsar }: TintedStatCardProps) {
   const reduzir = useReducedMotion();
   const Tag = onClick ? motion.button : motion.div;
 
@@ -74,7 +77,7 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
       // todos esticam pra mesma altura, o bloco fica centralizado em vez de
       // colado no topo com um vão vazio embaixo — informação mais clara em
       // vez de "perdida" numa caixa maior do que ela mesma.
-      className={`relative flex h-full w-full flex-col justify-center overflow-hidden rounded-[1.15rem] border-2 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_10px_28px_rgba(14,15,19,.12)] ${compactoNoMobile ? "p-3 sm:p-4" : "p-4"}`}
+      className={`relative flex h-full w-full flex-col justify-center overflow-hidden rounded-[1.15rem] border-2 text-left shadow-[0_2px_14px_rgba(14,15,19,.06)] transition-[box-shadow,border-color] hover:shadow-[0_10px_28px_rgba(14,15,19,.12)] ${denso ? "p-2.5 sm:p-3 xl:p-3.5" : compactoNoMobile ? "p-3 sm:p-4" : "p-4"}`}
       style={{
         borderColor: ativo ? cor : "transparent",
         background: "var(--card)",
@@ -109,12 +112,12 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
           )}
         </AnimatePresence>
       )}
-      <div className={`relative flex items-center gap-2 text-xs font-semibold ${labelClassName ?? ""}`} style={{ color: cor }}>
-        <Icon size={15} strokeWidth={1.75} />
+      <div className={`relative flex items-center gap-1.5 font-semibold ${denso ? "text-[10px] leading-tight sm:text-[11px] xl:text-xs" : "text-xs"} ${labelClassName ?? ""}`} style={{ color: cor }}>
+        <Icon size={15} strokeWidth={1.75} className={denso ? "hidden shrink-0 sm:block" : "shrink-0"} />
         {label}
       </div>
-      <p className={`relative font-black tabular-nums ${compactoNoMobile ? "mt-1.5 text-lg sm:mt-2 sm:text-xl" : "mt-2 text-xl"}`} style={{ color: cor }}>{valor}</p>
-      {sub && <p className="relative mt-1.5 text-[11px] text-muted-foreground">{sub}</p>}
+      <p className={`relative whitespace-nowrap font-black tabular-nums tracking-tight ${denso ? "mt-1 text-[13px] sm:text-base xl:text-[17px] 2xl:text-xl" : compactoNoMobile ? "mt-1.5 text-lg sm:mt-2 sm:text-xl" : "mt-2 text-xl"}`} style={{ color: cor }}>{valor}</p>
+      {sub && <p className={`relative text-muted-foreground ${denso ? "mt-1 text-[9px] leading-tight sm:text-[10px] xl:text-[11px]" : "mt-1.5 text-[11px]"}`}>{sub}</p>}
     </Tag>
   );
 }

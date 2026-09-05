@@ -1,14 +1,15 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { inngest } from "@/shared/lib/inngest/client";
 import { db } from "@/shared/lib/db";
 import { estoqueCanalSaldo, produto } from "@/shared/lib/db/schema";
 import { emitirEventoUnico } from "@/shared/events";
+import { SALDO_FRESCOR_MS } from "@/modules/estoque/infrastructure/saldo-canais";
 
 /** Alerta de estoque mínimo.
  *
  *  Antes reagia à baixa automática do saldo local, evento que deixou de existir
  *  junto com o livro-razão. Agora varre o estoque logo depois da coleta dos
- *  canais (A5, 3h): o saldo do produto é o maior entre os canais, porque o mesmo
+ *  canais (A5, 6h): o saldo do produto é o maior entre os canais, porque o mesmo
  *  lote físico é anunciado em todos eles. */
 export const A6_alertaMinimo = inngest.createFunction(
   {
@@ -19,6 +20,7 @@ export const A6_alertaMinimo = inngest.createFunction(
   },
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
+    const confirmadoDesde = new Date(Date.now() - SALDO_FRESCOR_MS);
 
     const abaixoDoMinimo = await step.run("buscar-abaixo-do-minimo", () =>
       db
@@ -38,6 +40,7 @@ export const A6_alertaMinimo = inngest.createFunction(
           eq(produto.orgId, orgId),
           eq(produto.ativo, true),
           isNull(produto.deletedAt),
+          gte(estoqueCanalSaldo.verificadoEm, confirmadoDesde),
         ))
         .groupBy(produto.id, produto.sku, produto.brandId, produto.estoqueMinimo)
         .having(sql`max(${estoqueCanalSaldo.saldo}) <= ${produto.estoqueMinimo}`),

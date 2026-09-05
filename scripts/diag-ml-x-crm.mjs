@@ -82,6 +82,7 @@ console.log("");
 const porId = new Map();
 for (const p of ml) porId.set(String(p.id), p);
 const pedidosML = [...porId.values()];
+const duplicadosNasFatias = ml.length - pedidosML.length;
 
 // Dump opcional dos pedidos crus, para conferência offline: DUMP=caminho.json
 import { writeFileSync } from "node:fs";
@@ -109,22 +110,46 @@ const crmPorId = new Map(crm.map((p) => [String(p.provider_order_id), p]));
 const CANCELADOS = new Set(["cancelado", "devolvido"]);
 
 const soma = (arr, f) => arr.reduce((s, x) => s + Number(f(x) ?? 0), 0);
+const agruparStatus = (arr, status, valor) => Object.fromEntries(
+  [...arr.reduce((mapa, item) => {
+    const chave = status(item);
+    const atual = mapa.get(chave) ?? { pedidos: 0, valor: 0 };
+    atual.pedidos += 1;
+    atual.valor += Number(valor(item) ?? 0);
+    mapa.set(chave, atual);
+    return mapa;
+  }, new Map())]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([chave, resumo]) => [chave, { ...resumo, valor: resumo.valor.toFixed(2) }]),
+);
 
 console.log("\n=== MERCADO LIVRE (API, data_created em -03:00) ===");
 console.log("pedidos           :", pedidosML.length);
+console.log("duplicados removidos entre fatias:", duplicadosNasFatias);
 const porStatus = {};
 for (const p of pedidosML) porStatus[p.status] = (porStatus[p.status] ?? 0) + 1;
 console.log("por status        :", porStatus);
+console.log("valor por status  :", agruparStatus(pedidosML, (p) => p.status, (p) => p.total_amount));
 console.log("soma total_amount :", soma(pedidosML, (p) => p.total_amount).toFixed(2));
 const naoCancelados = pedidosML.filter((p) => p.status !== "cancelled");
 console.log("sem cancelados    :", naoCancelados.length, soma(naoCancelados, (p) => p.total_amount).toFixed(2));
 console.log("unidades          :", soma(pedidosML, (p) => (p.order_items ?? []).reduce((s, i) => s + i.quantity, 0)));
+const reembolsosParciais = pedidosML
+  .filter((p) => p.status === "partially_refunded")
+  .map((p) => ({
+    id: String(p.id),
+    total: Number(p.total_amount).toFixed(2),
+    reembolsado: soma(p.payments ?? [], (pagamento) => pagamento.transaction_amount_refunded).toFixed(2),
+    atualizadoEm: p.date_last_updated ?? p.last_updated ?? null,
+  }));
+if (reembolsosParciais.length > 0) console.log("reembolsos parciais:", reembolsosParciais);
 
 console.log("\n=== CRM (criado_em em -03:00) ===");
 console.log("pedidos           :", crm.length);
 const porStatusCrm = {};
 for (const p of crm) porStatusCrm[p.status] = (porStatusCrm[p.status] ?? 0) + 1;
 console.log("por status        :", porStatusCrm);
+console.log("valor por status  :", agruparStatus(crm, (p) => p.status, (p) => p.total));
 console.log("soma total        :", soma(crm, (p) => p.total).toFixed(2));
 const vivos = crm.filter((p) => !CANCELADOS.has(p.status));
 console.log("sem cancel/devol  :", vivos.length, soma(vivos, (p) => p.total).toFixed(2));

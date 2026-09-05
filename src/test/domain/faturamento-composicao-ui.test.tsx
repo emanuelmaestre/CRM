@@ -37,15 +37,20 @@ const dados: FaturamentoResumo = {
     { label: "02/08", valor: 40_000, altura: 100 },
   ],
   composicao: {
-    pedidosBrutosNumerico: 78_681.59,
-    pedidosBrutos: "R$ 78.681,59",
+    pedidosBrutosNumerico: 78_802.98,
+    pedidosBrutos: "R$ 78.802,98",
+    pedidosBrutosQtd: 1_750,
     canceladosDevolvidosNumerico: 3_561.15,
     canceladosDevolvidos: "R$ 3.561,15",
+    canceladosDevolvidosQtd: 76,
+    reembolsosParciaisNumerico: 121.39,
+    reembolsosParciais: "R$ 121,39",
+    pedidosComReembolsoParcialQtd: 2,
   },
 };
 
 describe("detalhamento aditivo do faturamento", () => {
-  it("mantém o card principal e mostra a composição somente dentro do Entenda", async () => {
+  it("mantém o faturamento confirmado e deixa visível o total comparável ao painel", async () => {
     const acaoSlot = document.createElement("div");
     document.body.appendChild(acaoSlot);
     const aoTrocarLiquido = vi.fn();
@@ -62,12 +67,16 @@ describe("detalhamento aditivo do faturamento", () => {
     );
 
     expect(screen.getAllByText("R$ 75.120,44").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Para comparar com o painel do canal/)).toBeInTheDocument();
+    expect(screen.getByText("R$ 78.802,98 · 1.750 pedidos")).toBeInTheDocument();
     expect(screen.queryByText("Composição no período selecionado")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Entenda como o faturamento é calculado" })[0]);
     expect(await screen.findByText("Composição no período selecionado")).toBeInTheDocument();
-    expect(screen.getByText("R$ 78.681,59")).toBeInTheDocument();
+    expect(screen.getAllByText("R$ 78.802,98").length).toBeGreaterThan(0);
     expect(screen.getByText(/R\$ 3\.561,15/)).toBeInTheDocument();
+    expect(screen.getByText(/Reembolsos parciais \(2 pedidos\)/)).toBeInTheDocument();
+    expect(screen.getByText(/− R\$ 121,39/)).toBeInTheDocument();
     acaoSlot.remove();
   });
 });

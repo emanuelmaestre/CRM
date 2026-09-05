@@ -3,6 +3,11 @@ import type {
   ChannelProvider, EnderecoEntregaNormalizado, EstoqueCanalRef, PedidoNormalizado, SaudeConector,
 } from "../domain/ports";
 import { mapearStatusPedido } from "../domain/order-status";
+import { aprovacaoMercadoLivre } from "@/modules/vendas/domain/reconhecimento-mercadolivre";
+import {
+  possuiEvidenciaPagamentoAprovado,
+  statusPedidoFaturavel,
+} from "@/modules/vendas/domain/status-faturamento";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { periodoDesempenhoML, type BaseDesempenhoML } from "@/modules/vendas/domain/desempenho-mercadolivre";
 
@@ -72,7 +77,7 @@ interface MLOrderDetail {
   // Também embutido na mesma resposta. `total_paid_amount - transaction_amount`
   // é o que o comprador pagou a mais que o nominal do pedido (ex.: juro de
   // parcelamento) — usado para compor `acrescimo`.
-  payments?: Array<{ id?: number | string; status?: string; total_paid_amount?: number; transaction_amount?: number; transaction_amount_refunded?: number }>;
+  payments?: Array<{ id?: number | string; status?: string; date_approved?: string | null; total_paid_amount?: number; transaction_amount?: number; transaction_amount_refunded?: number }>;
   date_created: string;
   last_updated?: string;
   date_last_updated?: string;
@@ -455,9 +460,10 @@ export function normalizarPedidoMercadoLivre(
     status: order.status,
     atualizadoOrigemEm: order.date_last_updated || order.last_updated ? new Date(order.date_last_updated ?? order.last_updated!) : undefined,
     dadosOrigem: {
+      aprovadoEmMs: aprovacaoMercadoLivre(order),
       status: order.status, tags: order.tags ?? [], packId: order.pack_id ?? null,
       valorPago: order.paid_amount ?? null, cancelamento: order.cancel_detail ?? null,
-      pagamentos: order.payments?.map((p) => ({ id: p.id, status: p.status, total: p.total_paid_amount, transacao: p.transaction_amount, reembolsado: p.transaction_amount_refunded })) ?? [],
+      pagamentos: order.payments?.map((p) => ({ id: p.id, status: p.status, aprovadoEm: p.date_approved ?? null, total: p.total_paid_amount, transacao: p.transaction_amount, reembolsado: p.transaction_amount_refunded })) ?? [],
       totalProdutos: order.order_items.reduce((n, i) => n + Math.round(i.unit_price * i.quantity * 100), 0) / 100,
     },
     total: String(order.total_amount),
@@ -793,9 +799,19 @@ export class MercadoLivreProvider implements ChannelProvider {
       }
       const centavos = Math.round(total * 100);
       const status = mapearStatusPedido(order.status);
+      const pagamentoAprovado = statusPedidoFaturavel(status) || possuiEvidenciaPagamentoAprovado({
+        valorPago: order.paid_amount,
+        pagamentos: order.payments?.map((pagamento) => ({
+          status: pagamento.status,
+          total: pagamento.total_paid_amount,
+          reembolsado: pagamento.transaction_amount_refunded,
+        })),
+      });
+      const ajusteIntegralFinanceiro = (status === "cancelado" || status === "devolvido") && pagamentoAprovado;
+      const temDesfecho = statusPedidoFaturavel(status) || ajusteIntegralFinanceiro;
       const criadoEm = new Date(order.date_created).getTime();
       if (periodo && !Number.isFinite(criadoEm)) throw new Error("Mercado Livre: pedido sem data válida para o desempenho.");
-      if (periodo && criadoEm >= periodo.inicio.getTime() && criadoEm <= Math.min(periodo.fim.getTime(), agora.getTime())) {
+      if (temDesfecho && periodo && criadoEm >= periodo.inicio.getTime() && criadoEm <= Math.min(periodo.fim.getTime(), agora.getTime())) {
         vendasBrutasCentavos += centavos;
         quantidadeVendas += 1;
         // O card de cancelamentos não mistura devoluções nem pedidos inválidos.
@@ -809,10 +825,10 @@ export class MercadoLivreProvider implements ChannelProvider {
       }
       if (periodo && (criadoEm < desde.getTime() || criadoEm > Math.min(ate.getTime(), agora.getTime()))) continue;
       totalPedidos += 1;
-      if (status === "cancelado" || status === "devolvido") {
+      if (ajusteIntegralFinanceiro) {
         canceladosCentavos += centavos;
         canceladosQtd += 1;
-      } else {
+      } else if (statusPedidoFaturavel(status)) {
         faturamentoCentavos += centavos;
         pedidosValidos += 1;
       }
