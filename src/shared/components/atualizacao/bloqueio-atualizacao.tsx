@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useIsPresent, useReducedMotion } from "framer-motion";
 import { casasDe, deslocamentoDaRoda, proximoValor } from "./contagem";
+import { AMBAR } from "@/shared/components/carregando";
 import type { TelaAtualizavel } from "@/modules/canais/application/painel-atualizacao.service";
 
 /* ── A contagem ──────────────────────────────────────────────────────────
@@ -125,7 +126,7 @@ function Anel({ valor, esperando, reduzir }: {
         cy="60"
         r={RAIO}
         fill="none"
-        stroke="var(--foreground)"
+        stroke={`rgb(${AMBAR})`}
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeDasharray={CIRCUNFERENCIA}
@@ -137,12 +138,12 @@ function Anel({ valor, esperando, reduzir }: {
           cx={px}
           cy={py}
           r="7"
-          fill="var(--foreground)"
-          animate={{ opacity: [0.16, 0, 0.16], r: [6, 12, 6] }}
+          fill={`rgb(${AMBAR})`}
+          animate={{ opacity: [0.3, 0, 0.3], r: [6, 12, 6] }}
           transition={{ duration: 1.9, repeat: Infinity, ease: "easeInOut" }}
         />
       )}
-      <circle cx={px} cy={py} r="3.5" fill="var(--foreground)" />
+      <circle cx={px} cy={py} r="3.5" fill={`rgb(${AMBAR})`} />
     </svg>
   );
 }

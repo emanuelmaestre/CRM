@@ -5,11 +5,19 @@ import { revalidatePath } from "next/cache";
 import { getCrudContext } from "@/shared/lib/get-crud-context";
 import {
   cancelarPedido, contarPedidosPorCanal, contarPedidosPorMarca, listarPedidosDetalhados,
-  listarPedidosNoLimiteDoDia, resumirPedidos,
+  listarPedidosNoLimiteDoDia, resumirPedidos, listarPedidosDoIndicador,
 } from "@/modules/vendas/application/pedidos.service";
-import { normalizarConsultaPedidos } from "@/modules/vendas/domain/consulta-pedidos";
+import { IndicadorPedidosSchema, normalizarConsultaPedidos, type IndicadorPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 
 /* ── Pedidos ──────────────────────────────────────────────────────────── */
+
+export async function actionListarPedidosDoIndicador(
+  indicador: IndicadorPedidos,
+  opts: Parameters<typeof actionListarPedidosDetalhados>[0] = {},
+) {
+  const ctx = await getCrudContext();
+  return listarPedidosDoIndicador(ctx, IndicadorPedidosSchema.parse(indicador), normalizarConsultaPedidos(opts));
+}
 
 export async function actionListarPedidosDetalhados(opts: {
   brandIds?: string[];

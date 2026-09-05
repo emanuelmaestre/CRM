@@ -89,13 +89,13 @@ function LinhaProduto({ nome, sku, marca, marcaSlug, destaque, destaqueNumerico,
         </div>
         <div className="shrink-0 text-right">
           <p
-            className="text-sm font-bold tabular-nums"
+            className="text-base font-bold tabular-nums"
             style={{ color: destaqueCor ?? "var(--foreground)" }}
           >
-            {destaqueLabel && <span className="text-[11px] font-semibold text-muted-foreground">{destaqueLabel}: </span>}
+            {destaqueLabel && <span className="text-xs font-semibold text-muted-foreground">{destaqueLabel}: </span>}
             {destaqueNumerico !== undefined && formatarDestaque ? formatarDestaque(destaqueAnimado) : destaque}
           </p>
-          <p className="mt-0.5 text-xs font-semibold tabular-nums text-foreground/80">{contexto}</p>
+          <p className="mt-0.5 text-[13px] font-semibold tabular-nums text-foreground/80">{contexto}</p>
         </div>
       </div>
       {medidor !== undefined && (

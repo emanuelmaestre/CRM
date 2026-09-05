@@ -28,6 +28,8 @@ import {
 import { JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import { CardResumoVendas, type ExplicacaoCardVendas } from "./card-resumo-vendas";
+import { PedidosIndicadorDialog, type FiltrosIndicador } from "./pedidos-indicador-dialog";
+import type { IndicadorPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
 type Pedido = Awaited<ReturnType<typeof actionListarPedidosDetalhados>>["data"][number];
@@ -92,30 +94,24 @@ function statusLabel(status: string) {
   return (pagesConfig.pedidos.statusLabels as Record<string, string>)[status] ?? status;
 }
 
-/* ── Grupos de status ──────────────────────────────────────────
-   O Mercado Livre só devolve o status do pedido em si (pago/cancelado) —
-   Entregue, Avaliação solicitada, Concluído e Devolvido nunca vêm desse
-   campo: os dois primeiros exigiriam ler a API de Shipments (que esta
-   integração não consulta), e os outros dois nem existem como valor real
-   do Mercado Livre. Sem dado de verdade por trás, esses grupos ficavam
-   sempre vazios — removidos até essa leitura existir. */
+/* Grupos disponíveis no seletor. Outros estados reconhecidos pela
+   sincronização e pelo fluxo interno continuam acessíveis em Todos. */
 const GRUPOS_STATUS = [
   { chave: "", label: "Todos", statuses: [] as string[], dica: undefined as string | undefined },
   {
     chave: "aberto", label: "Em aberto", statuses: ["criado", "pago", "separado", "enviado"],
-    dica: "O Mercado Livre não informa separadamente os estágios Criado, Pago, Separado e Enviado. Por isso, a maior parte dos pedidos permanece aqui até ser cancelada.",
+    dica: "Agrupa Criado, Pago, Separado e Enviado. Não significa pagamento pendente. No Mercado Livre, o status de pagamento do pedido não confirma a etapa da entrega.",
   },
   { chave: "cancelado", label: "Cancelado", statuses: ["cancelado"], dica: undefined as string | undefined },
 ] as const;
 type ChaveGrupoStatus = (typeof GRUPOS_STATUS)[number]["chave"];
 
-/** Catálogo dos status reais do pedido — só o que o Mercado Livre de fato
- *  devolve (ver comentário de GRUPOS_STATUS acima); nada de Entregue,
- *  Concluído ou Devolvido, que não existem como dado real da API. */
+/** Explica os filtros atuais e distingue o status operacional do recorte financeiro. */
 const LEGENDA_STATUS_PEDIDOS: Array<{ titulo: string; cor: string; texto: string }> = [
-  { titulo: "Todos", cor: "var(--muted-foreground)", texto: "Mostra os pedidos de qualquer status, sem recorte. É o ponto de partida antes de aplicar um filtro." },
-  { titulo: "Em aberto", cor: "var(--info)", texto: "Criado, Pago, Separado e Enviado. O Mercado Livre não informa esses quatro estágios separadamente pelo pedido, então praticamente todo pedido ativo fica agrupado aqui até ser cancelado." },
-  { titulo: "Cancelado", cor: "var(--destructive)", texto: "O pedido foi cancelado pelo comprador, pelo vendedor ou automaticamente por falta de pagamento." },
+  { titulo: "Todos", cor: "var(--muted-foreground)", texto: "Mostra todos os status, mantendo os filtros de empresa, canal, período e busca. Inclui também Entregue, Avaliação solicitada, Concluído e Devolvido quando registrados no sistema." },
+  { titulo: "Em aberto", cor: "var(--info)", texto: "Agrupa Criado, Pago, Separado e Enviado. Não significa pagamento pendente: pedidos pagos também aparecem aqui. No Mercado Livre, um pedido pode permanecer como Pago sem que esse status informe se a entrega já aconteceu." },
+  { titulo: "Cancelado", cor: "var(--destructive)", texto: "Mostra os pedidos registrados como Cancelado, com ou sem pagamento anterior. Nos cartões financeiros, só entram os cancelamentos com evidência de pagamento. Pedidos com status Devolvido ficam em Todos, fora deste filtro." },
+  { titulo: "Reembolso parcial", cor: "var(--warning)", texto: "É um ajuste de valor, não uma opção do filtro de status. O pedido pode continuar como Pago ou em outra etapa faturável. O cartão Reembolsos parciais mostra a parcela devolvida e abre a lista dos pedidos afetados." },
 ];
 
 const EXPLICACOES_CARDS: Record<string, ExplicacaoCardVendas> = {
@@ -228,10 +224,10 @@ function EntendaStatusPedidoBotao({ compacto }: { compacto?: boolean }) {
       align="end"
       sideOffset={8}
       collisionPadding={12}
-      className="z-[100] w-[min(22rem,calc(100vw-1.5rem))] rounded-[1.1rem] border border-border bg-card p-5 shadow-[0_16px_40px_rgba(14,15,19,.24)]"
+      className="z-[100] max-h-none w-[min(44rem,calc(100vw-1.5rem))] overflow-visible rounded-[1.1rem] border border-border bg-card p-4 shadow-[0_16px_40px_rgba(14,15,19,.24)] sm:p-5"
     >
       <p className="text-[11px] font-bold uppercase tracking-[.08em] text-muted-foreground">Status do pedido</p>
-      <dl className="mt-3 flex flex-col gap-3">
+      <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-4">
         {LEGENDA_STATUS_PEDIDOS.map((item) => (
           <div key={item.titulo}>
             <dt className="text-[12.5px] font-bold" style={{ color: item.cor }}>{item.titulo}</dt>
@@ -454,6 +450,10 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
+  const [filtrosDoResumo, setFiltrosDoResumo] = useState<FiltrosIndicador>({});
+  const [indicadorAberto, setIndicadorAberto] = useState<{
+    indicador: IndicadorPedidos; titulo: string; resumo: Resumo; filtros: FiltrosIndicador;
+  } | null>(null);
   const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
   /* Uma janela só, para a única porta que hoje leva até ela: o card de fuso
      na grade de indicadores. Guarda PARA QUAL conjunto de pedidos foi aberta,
@@ -491,6 +491,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const carregar = useCallback((marcas?: string[], canaisAtual?: string[], statusesAtual?: string[], buscaAtual?: string, inicio?: string, fim?: string) => {
     const currentRequest = ++requestId.current;
     startTransition(async () => {
+      setIndicadorAberto(null);
       setLoading(true);
       try {
         const filtrosBase = {
@@ -508,6 +509,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         setPedidos(res.data);
         setTotal(res.total);
         setResumo(res.resumo);
+        setFiltrosDoResumo({ ...filtrosBase, statuses: statusesAtual?.length ? statusesAtual : undefined, busca: buscaAtual || undefined });
         setLimiteDoDia(res.limiteDoDia);
         setMarcas(res.marcas);
         /* As contagens de marca voltam já cruzadas com o canal escolhido (ver
@@ -775,6 +777,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "cancelados",
+            indicador: "cancelados-devolvidos" as const,
+            tituloJanela: "Cancelados e devolvidos",
             label: <><span className="sm:hidden">Cancel. e devol.</span><span className="hidden sm:inline">Cancelados e devolvidos</span></>,
             numero: resumo.canceladosValor + resumo.devolvidosValor,
             formatar: (v: number) => dinheiro.format(v),
@@ -788,6 +792,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "reembolsos-parciais",
+            indicador: "reembolsos-parciais" as const,
+            tituloJanela: "Reembolsos parciais",
             label: <><span className="sm:hidden">Reembolsos</span><span className="hidden sm:inline">Reembolsos parciais</span></>,
             numero: resumo.reembolsosParciaisValor,
             formatar: (v: number) => dinheiro.format(v),
@@ -801,7 +807,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "quantidade-cancelados-devolvidos",
-            label: <><span className="sm:hidden">Qtd. cancel./devol.</span><span className="hidden sm:inline">Pedidos cancelados/devolvidos</span></>,
+            indicador: "cancelados-devolvidos" as const,
+            tituloJanela: "Pedidos cancelados/devolvidos",
+            label: <><span className="sm:hidden">Qtd. cancel./devol.</span><span className="hidden sm:inline">Pedidos cancelados e devolvidos</span></>,
             numero: resumo.canceladosQtd + resumo.devolvidosQtd,
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
             icon: Ban,
@@ -818,6 +826,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               cor={card.cor}
               sub={card.sub}
               explicacao={card.explicacao}
+              onClick={card.indicador ? () => setIndicadorAberto({ indicador: card.indicador!, titulo: card.tituloJanela!, resumo, filtros: filtrosDoResumo }) : undefined}
             />
           </motion.div>
         ))}
@@ -954,6 +963,16 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           indicadores porque é um Dialog em portal — o lugar dela na árvore
           não é o lugar dela na tela. */}
       <JanelaLimiteDoDia dados={limiteDoDia} aberto={limiteAberto} setAberto={setLimiteAberto} />
+      {indicadorAberto && indicadorAberto.resumo === resumo && !loading && (
+        <PedidosIndicadorDialog
+          indicador={indicadorAberto.indicador}
+          titulo={indicadorAberto.titulo}
+          filtros={indicadorAberto.filtros}
+          quantidade={indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
+          valor={indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
+          onClose={() => setIndicadorAberto(null)}
+        />
+      )}
     </div>
   );
 }

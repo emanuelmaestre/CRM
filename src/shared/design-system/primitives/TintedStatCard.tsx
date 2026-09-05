@@ -112,7 +112,11 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
           )}
         </AnimatePresence>
       )}
-      <div className={`relative flex items-center gap-1.5 font-semibold ${denso ? "text-[10px] leading-tight sm:text-[11px] xl:text-xs" : "text-xs"} ${labelClassName ?? ""}`} style={{ color: cor }}>
+      {/* `[overflow-wrap:normal]` contra a regra global que autoriza quebra em
+          qualquer letra (globals.css). Ela existe para número de pedido e SKU
+          longos, mas num rótulo de card produzia "cancelados/devolvid" numa
+          linha e "os" na outra. Aqui o rótulo quebra só onde há espaço. */}
+      <div className={`relative flex items-center gap-1.5 font-semibold [overflow-wrap:normal]${denso ? "text-[10px] leading-tight sm:text-[11px] xl:text-xs" : "text-xs"} ${labelClassName ?? ""}`} style={{ color: cor }}>
         <Icon size={15} strokeWidth={1.75} className={denso ? "hidden shrink-0 sm:block" : "shrink-0"} />
         {label}
       </div>

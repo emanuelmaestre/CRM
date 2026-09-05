@@ -1,4 +1,11 @@
+"use client";
+
+import { useId, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
+import { springs, transicao } from "@/shared/design-system/motion-variants";
+import { cn } from "@/shared/design-system/cn";
 import {
+  ChevronDown,
   Clock3,
   MousePointerClick,
   RefreshCw,
@@ -227,73 +234,115 @@ function Endpoints({ valores }: { valores: string[] }) {
   );
 }
 
+/** Um canal do inventário, recolhível.
+ *
+ *  São três tabelas de dezenas de linhas cada, empilhadas. Abertas de uma vez
+ *  a seção passa de quatro telas de rolagem, e quem veio conferir um endereço
+ *  da Shopee atravessa o Mercado Livre inteiro para chegar lá. Fechadas, os
+ *  três cabeçalhos cabem numa tela e a escolha é de quem lê — o selo de
+ *  "N fluxos ativos" continua visível fechado, então nada que faria alguém
+ *  abrir o bloco fica escondido dentro dele. */
 function TabelaCanal({ canal }: { canal: Canal }) {
+  const reduzir = useReducedMotion();
+  const [aberto, setAberto] = useState(false);
+  const conteudoId = useId();
+
   return (
     <section aria-labelledby={`endpoints-${canal.id}`} className="overflow-hidden rounded-[1rem] border border-border bg-background/45">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-5">
+        <button
+          type="button"
+          onClick={() => setAberto((atual) => !atual)}
+          aria-expanded={aberto}
+          aria-controls={conteudoId}
+          className="press-feedback flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
           <ChannelLogo canal={canal.id} size="md" variant="badge" className="h-10 w-10 shrink-0 rounded-xl" />
           <div className="min-w-0">
             <h3 id={`endpoints-${canal.id}`} className="text-sm font-bold text-foreground">{canal.nome}</h3>
             <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{canal.descricao}</p>
           </div>
-        </div>
+        </button>
         <span className="rounded-full bg-muted px-2.5 py-1 text-[10.5px] font-bold tabular-nums text-muted-foreground">
           {canal.linhas.length} fluxos ativos
         </span>
+        {/* Decorativo: quem anuncia o estado é o botão do cabeçalho. */}
+        <motion.span
+          aria-hidden="true"
+          animate={{ rotate: aberto ? 180 : 0 }}
+          transition={transicao(reduzir, springs.settleFast)}
+          className="shrink-0 text-muted-foreground"
+        >
+          <ChevronDown size={16} strokeWidth={2} />
+        </motion.span>
       </header>
 
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[780px] table-fixed border-collapse text-left">
-          <caption className="sr-only">Endereços e frequência de chamadas do canal {canal.nome}</caption>
-          <colgroup>
-            <col className="w-[22%]" />
-            <col className="w-[43%]" />
-            <col className="w-[35%]" />
-          </colgroup>
-          <thead>
-            <tr className="border-b border-border bg-muted/35 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-              <th scope="col" className="px-4 py-2.5 sm:px-5">Módulo</th>
-              <th scope="col" className="px-4 py-2.5">Endereço chamado</th>
-              <th scope="col" className="px-4 py-2.5 sm:px-5">Quando/frequência</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/75">
-            {canal.linhas.map((linha) => (
-              <tr key={linha.modulo} className="align-top transition-colors hover:bg-muted/20">
-                <th scope="row" className="px-4 py-3.5 text-xs font-semibold leading-relaxed text-foreground sm:px-5">
-                  {linha.modulo}
-                </th>
-                <td className="px-4 py-3.5"><Endpoints valores={linha.endpoints} /></td>
-                <td className="px-4 py-3.5 sm:px-5">
-                  <div className="flex items-start gap-2.5">
-                    <EtiquetaFrequencia tipo={linha.tipo} />
-                    <p className="text-[11.5px] leading-relaxed text-muted-foreground">{linha.frequencia}</p>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Mesma grade 0fr/1fr do SectionCard: anima sem medir o conteúdo e sem
+          desmontar a tabela, que é grande e cara de remontar a cada clique. */}
+      <div
+        id={conteudoId}
+        className={cn(
+          "grid",
+          aberto ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+          !reduzir && "transition-[grid-template-rows] duration-300 ease-out",
+        )}
+      >
+        <div className="overflow-hidden">
+          <div className="border-t border-border">
+            <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[780px] table-fixed border-collapse text-left">
+              <caption className="sr-only">Endereços e frequência de chamadas do canal {canal.nome}</caption>
+              <colgroup>
+                <col className="w-[22%]" />
+                <col className="w-[43%]" />
+                <col className="w-[35%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border bg-muted/35 text-[10px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+                  <th scope="col" className="px-4 py-2.5 sm:px-5">Módulo</th>
+                  <th scope="col" className="px-4 py-2.5">Endereço chamado</th>
+                  <th scope="col" className="px-4 py-2.5 sm:px-5">Quando/frequência</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/75">
+                {canal.linhas.map((linha) => (
+                  <tr key={linha.modulo} className="align-top transition-colors hover:bg-muted/20">
+                    <th scope="row" className="px-4 py-3.5 text-xs font-semibold leading-relaxed text-foreground sm:px-5">
+                      {linha.modulo}
+                    </th>
+                    <td className="px-4 py-3.5"><Endpoints valores={linha.endpoints} /></td>
+                    <td className="px-4 py-3.5 sm:px-5">
+                      <div className="flex items-start gap-2.5">
+                        <EtiquetaFrequencia tipo={linha.tipo} />
+                        <p className="text-[11.5px] leading-relaxed text-muted-foreground">{linha.frequencia}</p>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      <div className="divide-y divide-border/75 md:hidden">
-        {canal.linhas.map((linha) => (
-          <article key={linha.modulo} className="space-y-3 px-4 py-4">
-            <div className="flex items-start justify-between gap-3">
-              <h4 className="text-xs font-bold leading-relaxed text-foreground">{linha.modulo}</h4>
-              <EtiquetaFrequencia tipo={linha.tipo} />
+          <div className="divide-y divide-border/75 md:hidden">
+            {canal.linhas.map((linha) => (
+              <article key={linha.modulo} className="space-y-3 px-4 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h4 className="text-xs font-bold leading-relaxed text-foreground">{linha.modulo}</h4>
+                  <EtiquetaFrequencia tipo={linha.tipo} />
+                </div>
+                <div>
+                  <p className="mb-1.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Endereço chamado</p>
+                  <Endpoints valores={linha.endpoints} />
+                </div>
+                <div>
+                  <p className="mb-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Quando/frequência</p>
+                  <p className="text-[11.5px] leading-relaxed text-muted-foreground">{linha.frequencia}</p>
+                </div>
+              </article>
+            ))}
             </div>
-            <div>
-              <p className="mb-1.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Endereço chamado</p>
-              <Endpoints valores={linha.endpoints} />
-            </div>
-            <div>
-              <p className="mb-1 text-[9.5px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Quando/frequência</p>
-              <p className="text-[11.5px] leading-relaxed text-muted-foreground">{linha.frequencia}</p>
-            </div>
-          </article>
-        ))}
+          </div>
+        </div>
       </div>
     </section>
   );

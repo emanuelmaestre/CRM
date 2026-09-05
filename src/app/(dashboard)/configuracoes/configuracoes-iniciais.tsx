@@ -6,7 +6,6 @@ import type {
   actionListarRotinasAgendadas,
   actionListarUsuarios,
   actionObterResumoConfiguracoes,
-  actionObterUsoApiShopee,
 } from "./actions";
 
 export type ConfiguracoesIniciais = {
@@ -14,7 +13,6 @@ export type ConfiguracoesIniciais = {
   canais: Awaited<ReturnType<typeof actionListarConfiguracaoCanais>> | null;
   resumo: Awaited<ReturnType<typeof actionObterResumoConfiguracoes>> | null;
   rotinas: Awaited<ReturnType<typeof actionListarRotinasAgendadas>> | null;
-  usoShopee: Awaited<ReturnType<typeof actionObterUsoApiShopee>> | null;
 };
 
 const Contexto = createContext<ConfiguracoesIniciais | null>(null);
@@ -35,6 +33,5 @@ export function useConfiguracoesIniciais(): ConfiguracoesIniciais {
     canais: null,
     resumo: null,
     rotinas: null,
-    usoShopee: null,
   };
 }

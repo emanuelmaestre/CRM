@@ -95,7 +95,7 @@ export function CardLimiteDoDia({ dados, onClick }: { dados: LimiteDoDia; onClic
         title="Entenda a diferença de fuso do Mercado Livre"
         iconSize={13}
         onClick={onClick}
-        className="press-feedback absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
+        className="press-feedback absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
       />
     </div>
   );

@@ -18,7 +18,6 @@ import { EncerramentoCanalSection } from "./EncerramentoCanalSection";
 import { SincronizacaoSection } from "./SincronizacaoSection";
 import { UsuariosSection } from "./UsuariosSection";
 import { RotinasAgendadasSection } from "./RotinasAgendadasSection";
-import { ShopeeUsoSection } from "./ShopeeUsoSection";
 import { EndpointsFrequenciasSection } from "./EndpointsFrequenciasSection";
 import settingsConfig from "@/config/settings.json";
 import {
@@ -26,7 +25,6 @@ import {
   actionListarRotinasAgendadas,
   actionListarUsuarios,
   actionObterResumoConfiguracoes,
-  actionObterUsoApiShopee,
 } from "./actions";
 import { toast } from "sonner";
 import { useConfiguracoesIniciais } from "./configuracoes-iniciais";
@@ -39,7 +37,6 @@ type UsuarioResumo = Awaited<ReturnType<typeof actionListarUsuarios>>[number];
 type CanalConfiguracao = Awaited<ReturnType<typeof actionListarConfiguracaoCanais>>[number];
 type ResumoConfiguracoes = Awaited<ReturnType<typeof actionObterResumoConfiguracoes>>;
 type RotinasAgendadas = Awaited<ReturnType<typeof actionListarRotinasAgendadas>>;
-type UsoApiShopee = Awaited<ReturnType<typeof actionObterUsoApiShopee>>;
 
 /** Título que separa os blocos temáticos da página, no lugar da pilha de cards. */
 function SectionHeading({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
@@ -136,11 +133,9 @@ export default function ConfiguracoesPage() {
   const [canais, setCanais] = useState<CanalConfiguracao[]>(iniciais.canais ?? []);
   const [resumo, setResumo] = useState<ResumoConfiguracoes | null>(iniciais.resumo);
   const [rotinasAgendadas, setRotinasAgendadas] = useState<RotinasAgendadas | null>(iniciais.rotinas);
-  const [usoShopee, setUsoShopee] = useState<UsoApiShopee | null>(iniciais.usoShopee);
   const [carregandoUsuarios, setCarregandoUsuarios] = useState(iniciais.usuarios === null);
   const [carregandoCanais, setCarregandoCanais] = useState(iniciais.canais === null);
   const [carregandoRotinas, setCarregandoRotinas] = useState(iniciais.rotinas === null);
-  const [carregandoUsoShopee, setCarregandoUsoShopee] = useState(iniciais.usoShopee === null);
 
   const recarregarCanais = useCallback(async () => {
     setCarregandoCanais(true);
@@ -185,12 +180,6 @@ export default function ConfiguracoesPage() {
         setCarregandoCanais(false);
         setCarregandoRotinas(false);
       });
-
-    // Card separado (não bloqueia o restante da página se falhar ou demorar).
-    if (iniciais.usoShopee === null) actionObterUsoApiShopee()
-      .then(setUsoShopee)
-      .catch(() => toast.error("Não foi possível carregar o uso da API Shopee."))
-      .finally(() => setCarregandoUsoShopee(false));
   }, [iniciais]);
 
   const ordenarUsuarios = useCallback((items: UsuarioResumo[]) =>
@@ -243,6 +232,8 @@ export default function ConfiguracoesPage() {
             title="Usuários"
             icon={getIcon("UsersRound")}
             actions={<InfoBotao rotulo="Sobre os usuários">Acessos, perfis e senhas temporárias da organização.</InfoBotao>}
+            colapsavel
+            abertoInicial
           >
             <UsuariosSection
               usuarios={usuarios}
@@ -265,7 +256,13 @@ export default function ConfiguracoesPage() {
         <div id="secao-canais" className="scroll-mt-28 space-y-5">
           <SectionHeading title={settingsConfig.sections.canais.title} icon={getIcon(settingsConfig.sections.canais.icon)} />
 
-          <Card title="Canais por marca" icon={getIcon("Wifi")} resumo={`${canaisConectados} de ${canais.length} conectados`}>
+          <Card
+            title="Canais por marca"
+            icon={getIcon("Wifi")}
+            resumo={`${canaisConectados} de ${canais.length} conectados`}
+            colapsavel
+            abertoInicial
+          >
             {/* Faixas-resumo por marketplace acima do grid: status num relance, ação no card. */}
             <div className="mb-4 divide-y divide-border rounded-xl border border-border bg-background/60 [&>*]:px-4 [&>*]:py-3">
               <div>
@@ -292,8 +289,7 @@ export default function ConfiguracoesPage() {
           <Card
             title="Central de sincronização"
             icon={getIcon("Repeat")}
-            colapsavelMobile
-            abertoInicialMobile={false}
+            colapsavel
           >
             {carregandoCanais ? (
               <p className="text-sm text-muted-foreground">{settingsConfig.loading}</p>
@@ -303,21 +299,10 @@ export default function ConfiguracoesPage() {
           </Card>
 
           <Card
-            title="Uso da API Shopee"
-            icon={getIcon("Gauge")}
-            actions={<InfoBotao rotulo="Sobre o uso da API">Quantidade de chamadas feitas à Shopee por meio da conexão de IP fixo. Essa conexão possui uma cota mensal; ao atingir o limite, a integração fica indisponível até o início do próximo mês ou a ampliação do plano.</InfoBotao>}
-            colapsavelMobile
-            abertoInicialMobile={false}
-          >
-            <ShopeeUsoSection data={usoShopee} loading={carregandoUsoShopee} />
-          </Card>
-
-          <Card
             title="Endereços e frequências"
             icon={getIcon("Network")}
             actions={<InfoBotao rotulo="Sobre os endereços">Referência operacional do que o sistema chama, quando chama e quais ações podem consumir as integrações dos canais de venda.</InfoBotao>}
-            colapsavelMobile
-            abertoInicialMobile={false}
+            colapsavel
           >
             <EndpointsFrequenciasSection />
           </Card>
@@ -326,8 +311,7 @@ export default function ConfiguracoesPage() {
             title={settingsConfig.integrations.title}
             icon={getIcon(settingsConfig.integrations.icon)}
             resumo={`${integracoesConectadas} de ${integracoesRelevantes.length} conectadas`}
-            colapsavelMobile
-            abertoInicialMobile={false}
+            colapsavel
           >
             {integracoesRelevantes.map((integration) => {
               const [source, value] = integration.statusSource.split(":");
@@ -345,8 +329,7 @@ export default function ConfiguracoesPage() {
           <Card
             title={settingsConfig.automacoes.title}
             icon={getIcon(settingsConfig.automacoes.icon)}
-            colapsavelMobile
-            abertoInicialMobile={false}
+            colapsavel
           >
             <AutomacoesSection />
           </Card>
@@ -355,8 +338,7 @@ export default function ConfiguracoesPage() {
             title="Rotinas agendadas"
             icon={getIcon("Clock")}
             resumo={rotinasAgendadas ? `${rotinasAgendadas.itens.length} rotinas` : undefined}
-            colapsavelMobile
-            abertoInicialMobile={false}
+            colapsavel
           >
             <RotinasAgendadasSection data={rotinasAgendadas} loading={carregandoRotinas} />
           </Card>
@@ -365,8 +347,7 @@ export default function ConfiguracoesPage() {
             title="Cópia de segurança"
             description="Exportação sob demanda dos dados da organização, em JSON e CSV"
             icon={getIcon("DatabaseBackup")}
-            colapsavelMobile
-            abertoInicialMobile={false}
+            colapsavel
           >
             <BackupSection />
           </Card>
@@ -375,8 +356,7 @@ export default function ConfiguracoesPage() {
             title="Encerramento de canal e exclusão de dados"
             description="Exclusão manual dos dados de um canal cuja relação acabou, mediante autorização de três administradores"
             icon={getIcon("Shield")}
-            colapsavelMobile
-            abertoInicialMobile={false}
+            colapsavel
           >
             <EncerramentoCanalSection />
           </Card>

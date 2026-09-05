@@ -12,6 +12,7 @@ import appConfig from "@/config/app.json";
 import { nomePerfil, type Perfil } from "@/shared/lib/auth/authorization";
 import { isModuloId, type ModuloId } from "@/config/modulos";
 import { ElisaLimaLogo } from "@/shared/design-system/primitives/ElisaLimaLogo";
+import { PerfilAvatar } from "@/shared/design-system/perfil-visual";
 
 const SettingsIcon = getIcon(navigationConfig.utilities.settings.icon);
 const LogoutIcon = getIcon(navigationConfig.utilities.logout.icon);
@@ -131,15 +132,11 @@ export function TopNav({ perfil, cargo, nome, email, modulosVisiveis }: { perfil
               aria-label={`Abrir menu de ${nome}`}
               className="flex h-11 min-w-11 items-center gap-2 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              <div className="relative">
-                <div
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                  style={{ background: "var(--gradient-signature)" }}
-                >
-                  {initials}
-                </div>
-                <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-2 border-card bg-success" />
-              </div>
+              {/* O ponto verde que ficava aqui era decorativo: nascia aceso e
+                  nunca mudava, então dizia "online" sem nunca poder dizer
+                  outra coisa. No lugar dele, o selo do perfil — mesmo canto,
+                  mesmo tamanho, mas carregando informação de verdade. */}
+              <PerfilAvatar perfil={perfil} iniciais={initials} tamanho={26} />
             </motion.button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>

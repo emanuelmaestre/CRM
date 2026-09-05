@@ -20,6 +20,7 @@ export function CardResumoVendas({
   cor,
   sub,
   explicacao,
+  onClick,
 }: {
   label: ReactNode;
   valor: ReactNode;
@@ -27,6 +28,7 @@ export function CardResumoVendas({
   cor: string;
   sub?: ReactNode;
   explicacao: ExplicacaoCardVendas;
+  onClick?: () => void;
 }) {
   return (
     <div className="relative h-full">
@@ -36,6 +38,8 @@ export function CardResumoVendas({
         icon={icon}
         cor={cor}
         sub={sub}
+        onClick={onClick}
+        dica={onClick ? "Ver pedidos deste indicador" : undefined}
         labelClassName="min-h-7 pr-7 sm:min-h-8 sm:pr-9"
         compactoNoMobile
         denso
@@ -47,7 +51,12 @@ export function CardResumoVendas({
               aria-label={`Entenda ${explicacao.titulo}`}
               title={`Entenda ${explicacao.titulo}`}
               iconSize={13}
-              className="press-feedback inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
+              /* Sem a bolha em volta: o ⓘ já é um círculo desenhado, e o
+                 botão redondo com borda, fundo e sombra em cima dele criava
+                 dois círculos concêntricos que pesavam mais que o número do
+                 card. A área de toque continua a mesma — só o desenho sumiu;
+                 o fundo volta no hover, para o alvo não ficar invisível. */
+              className="press-feedback inline-flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground sm:h-8 sm:w-8"
             />
           )}
           align="end"

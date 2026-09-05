@@ -35,6 +35,7 @@ import {
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
+import { Carregando } from "@/shared/components/carregando";
 
 type SaldoCanal = { canal: string; saldo: number; verificadoEm: string; atual: boolean };
 
@@ -161,12 +162,8 @@ function FaixaSaude({ indicadores, erro, filtro, onFiltro }: {
 
   if (!indicadores) {
     return (
-      <div
-        data-tour="estoque-saude"
-        className="mb-4 flex items-center gap-3 rounded-[1.25rem] bg-card px-5 py-4 shadow-[0_2px_16px_rgba(14,15,19,.07)]"
-      >
-        <Loader2 size={16} className="animate-spin text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">{hc.loading}</span>
+      <div data-tour="estoque-saude">
+        <Carregando cartao texto={hc.loading} className="mb-4" />
       </div>
     );
   }
@@ -528,16 +525,21 @@ function SaldoCelula({ saldo, minimo, testId, saldosCanais, saldoConfirmado = tr
           anunciado em todos. Aqui embaixo fica de onde ele veio, para a
           diferença entre canais ficar visível em vez de escondida no máximo. */}
       {saldosCanais && saldosCanais.length > 0 && (
-        <div className="mt-1.5 flex flex-col gap-0.5">
+        /* Em linha, não empilhado: são dois ou três canais com um número de
+           uma casa cada: empilhado, cada um ocupava uma linha inteira da
+           altura da célula para dizer "9". Lado a lado ocupa uma linha só e
+           ainda deixa a comparação entre canais numa varredura horizontal,
+           que é como se lê o resto da tabela. */
+        <div className={`mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 ${direita ? "justify-end" : "justify-start"}`}>
           {saldosCanais.map((item) => (
             <div
               key={`${item.canal}-${item.verificadoEm}`}
-              className={`flex items-center gap-1 ${direita ? "justify-end" : "justify-start"}`}
+              className="flex items-center gap-1"
               title={`${item.atual ? "Verificado" : "Última leitura"} em ${formatarVerificacaoSaldo(item.verificadoEm)}`}
             >
               <ChannelLogo canal={item.canal} size="xs" variant="logo" />
               <span
-                className="text-[10px] leading-none tabular-nums"
+                className="text-[11px] font-semibold leading-none tabular-nums"
                 style={{ color: item.atual ? "var(--muted-foreground)" : COR.atencao }}
               >
                 {item.saldo}{item.atual ? "" : " · antigo"}

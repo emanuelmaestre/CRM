@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, EyeOff, Loader2, Search, Star, UserCheck, Video } from "lucide-react";
+import { ChevronDown, ExternalLink, EyeOff, Search, Star, UserCheck, Video } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -13,6 +13,7 @@ import { springs } from "@/shared/design-system/motion-variants";
 import { escopoIncompleto, oQueFaltaNoEscopo, conviteDeEscopo, getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
+import { Carregando } from "@/shared/components/carregando";
 import { moeda } from "@/shared/design-system/format";
 import type { MLDistribuicaoNotas, MLOpiniao } from "@/modules/canais/infrastructure/mercadolivre.provider";
 
@@ -746,9 +747,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
         </div>
 
         {carregandoInicial ? (
-          <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={17} className="animate-spin" /> Carregando avaliações…
-          </div>
+          <Carregando texto="Carregando avaliações…" className="min-h-72" />
         ) : filtrados.length === 0 ? (
           <EmptyState
             illustration="reviews"

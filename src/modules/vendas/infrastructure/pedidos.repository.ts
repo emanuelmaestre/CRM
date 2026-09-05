@@ -2,7 +2,7 @@ import { and, count, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } fro
 import { db } from "@/shared/lib/db";
 import { brand, channelAccount, cliente, pedido, pedidoItem } from "@/shared/lib/db/schema";
 import { compararPorOrdemDeMarca } from "@/shared/config/brands";
-import { CANAIS_VENDA, type ConsultaPedidos } from "../domain/consulta-pedidos";
+import { CANAIS_VENDA, type ConsultaPedidos, type IndicadorPedidos } from "../domain/consulta-pedidos";
 import { STATUS_PEDIDO_FATURAVEL } from "../domain/status-faturamento";
 import {
   pagamentoAprovadoPedidoSql,
@@ -81,6 +81,41 @@ const TAXA_DO_PEDIDO = sql`coalesce((
 const VALOR_FATURAVEL_DO_PEDIDO = valorFaturavelPedidoSql();
 const REEMBOLSO_PARCIAL_DO_PEDIDO = reembolsoParcialPedidoSql();
 const PAGAMENTO_APROVADO_DO_PEDIDO = pagamentoAprovadoPedidoSql();
+const CANCELADO_FINANCEIRO = sql`${pedido.status} = 'cancelado' and ${PAGAMENTO_APROVADO_DO_PEDIDO}`;
+const DEVOLVIDO_FINANCEIRO = sql`${pedido.status} = 'devolvido' and ${PAGAMENTO_APROVADO_DO_PEDIDO}`;
+
+/** Consulta independente da página principal, com o mesmo recorte financeiro dos cards. */
+export async function consultarPedidosDoIndicador(
+  orgId: string,
+  indicador: IndicadorPedidos,
+  opts: ConsultaPedidos & { offset: number },
+) {
+  const parcial = indicador === "reembolsos-parciais";
+  const condicao = parcial
+    ? sql`${inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL])} and ${REEMBOLSO_PARCIAL_DO_PEDIDO} > 0`
+    : sql`(${CANCELADO_FINANCEIRO} or ${DEVOLVIDO_FINANCEIRO})`;
+  const linhas = await db.select({
+    id: pedido.id,
+    providerOrderId: pedido.providerOrderId,
+    clienteNome: cliente.nome,
+    canal: pedido.canal,
+    status: pedido.status,
+    total: pedido.total,
+    valorReembolsado: REEMBOLSO_PARCIAL_DO_PEDIDO,
+    createdAt: dataVendaPedidoSql(),
+  }).from(pedido)
+    .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
+    .where(and(...filtrosConsulta(orgId, opts), condicao))
+    .orderBy(desc(dataVendaPedidoSql()), desc(pedido.id))
+    .limit(51)
+    .offset(opts.offset);
+  return {
+    data: linhas.slice(0, 50).map((item) => ({
+      ...item, total: Number(item.total), valorReembolsado: Number(item.valorReembolsado),
+    })),
+    hasMore: linhas.length > 50,
+  };
+}
 
 /** Repasse do pedido. `valor_liquido` é o número que o canal informou (escrow
  *  da Shopee) e vale mais que qualquer reconstrução nossa: já traz subsídio de
@@ -93,8 +128,8 @@ const LIQUIDO_DO_PEDIDO = sql`coalesce(
 
 export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedidos) {
   const faturavel = inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]);
-  const canceladoFinanceiro = sql`${pedido.status} = 'cancelado' and ${PAGAMENTO_APROVADO_DO_PEDIDO}`;
-  const devolvidoFinanceiro = sql`${pedido.status} = 'devolvido' and ${PAGAMENTO_APROVADO_DO_PEDIDO}`;
+  const canceladoFinanceiro = CANCELADO_FINANCEIRO;
+  const devolvidoFinanceiro = DEVOLVIDO_FINANCEIRO;
   const ajusteIntegralFinanceiro = sql`(${canceladoFinanceiro} or ${devolvidoFinanceiro})`;
   const [resumo] = await db
     .select({

@@ -26,14 +26,24 @@ interface SectionCardProps {
    *  seções (Usuários, Canais) merecem ficar abertas de cara; outras
    *  (Endpoints, Rotinas) são consulta ocasional e começam fechadas. */
   abertoInicialMobile?: boolean;
+  /** Recolher/expandir em QUALQUER largura, não só no celular. Para páginas
+   *  em que o desktop tem o mesmo problema do celular: Configurações é uma
+   *  pilha de doze seções longas, e rolar até a última passando por todas as
+   *  outras abertas é o mesmo cansaço em qualquer tela. Implica o
+   *  comportamento de `colapsavelMobile`. */
+  colapsavel?: boolean;
+  /** Estado inicial quando `colapsavel` está ativo. */
+  abertoInicial?: boolean;
 }
 
 export function SectionCard({
   title, description, icon: Icon, actions, children, className,
   resumo, colapsavelMobile = false, abertoInicialMobile = true,
+  colapsavel = false, abertoInicial = false,
 }: SectionCardProps) {
   const reduzir = useReducedMotion();
-  const [abertoMobile, setAbertoMobile] = useState(abertoInicialMobile);
+  const recolhivel = colapsavel || colapsavelMobile;
+  const [aberto, setAberto] = useState(colapsavel ? abertoInicial : abertoInicialMobile);
   const conteudoId = useId();
   const cabecalho = (
     <div className="flex min-w-0 items-center gap-2.5">
@@ -69,14 +79,17 @@ export function SectionCard({
           linha só dele embaixo do título — um ícone solto no vazio, ocupando
           altura à toa em toda seção da página. */}
       {(title || actions) && (
-        colapsavelMobile ? (
+        recolhivel ? (
           <div className="flex items-center gap-2 border-b border-border px-4 py-4 sm:gap-3 sm:px-6">
             <button
               type="button"
-              onClick={() => setAbertoMobile((atual) => !atual)}
-              aria-expanded={abertoMobile}
+              onClick={() => setAberto((atual) => !atual)}
+              aria-expanded={aberto}
               aria-controls={conteudoId}
-              className="press-feedback flex min-h-11 min-w-0 flex-1 items-center text-left sm:pointer-events-none sm:min-h-0"
+              className={cn(
+                "press-feedback flex min-h-11 min-w-0 flex-1 items-center text-left",
+                !colapsavel && "sm:pointer-events-none sm:min-h-0",
+              )}
             >
               {cabecalho}
             </button>
@@ -85,9 +98,9 @@ export function SectionCard({
                 que já carrega aria-expanded/aria-controls. */}
             <motion.span
               aria-hidden="true"
-              animate={{ rotate: abertoMobile ? 180 : 0 }}
+              animate={{ rotate: aberto ? 180 : 0 }}
               transition={transicao(reduzir, springs.settleFast)}
-              className="shrink-0 text-muted-foreground sm:hidden"
+              className={cn("shrink-0 text-muted-foreground", !colapsavel && "sm:hidden")}
             >
               <ChevronDown size={16} strokeWidth={2} />
             </motion.span>
@@ -99,7 +112,7 @@ export function SectionCard({
           </div>
         )
       )}
-      {colapsavelMobile ? (
+      {recolhivel ? (
         // Grade com linha 0fr/1fr em vez de framer-motion `height: auto`: anima
         // sem medir o conteúdo e, principalmente, sem desmontar/remontar os
         // filhos — CanaisPorMarca, UsuariosSection etc. têm o próprio fetch e
@@ -108,8 +121,9 @@ export function SectionCard({
         <div
           id={conteudoId}
           className={cn(
-            "grid sm:grid-rows-[1fr]",
-            abertoMobile ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+            "grid",
+            !colapsavel && "sm:grid-rows-[1fr]",
+            aberto ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
             !reduzir && "transition-[grid-template-rows] duration-300 ease-out",
           )}
         >

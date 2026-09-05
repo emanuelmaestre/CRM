@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { CloudOff, Loader2, RotateCw, X } from "lucide-react";
 import { BloqueioAtualizacao } from "./bloqueio-atualizacao";
+import { AMBAR } from "@/shared/components/carregando";
 import { entradaVeioDoLogin, limparEntradaPosLogin } from "@/shared/lib/auth/entrada-pos-login";
 import { emitirAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import { fontesAlteradas, type VersoesPorFonte } from "@/modules/canais/domain/versao-fontes";
@@ -88,11 +89,6 @@ function useEsperaRestante(liberadoEm: number): number {
 
   return faltamSegundos(liberadoEm);
 }
-
-/** Âmbar do estado "o dado é de antes". Em rgb solto pra compor opacidade
- *  nos gradientes e nas camadas sem depender de `color-mix` aninhado, que
- *  nem todo Safari em uso por aqui digere. */
-const AMBAR = "245 158 11";
 
 /** Anel que se esvazia enquanto o intervalo mínimo corre.
  *
@@ -185,13 +181,12 @@ function TarjaNaoConfirmado({
       /* O material padrão deixa passar 15% do que está atrás. Sobre uma lista
          densa isso vira texto da página cruzando o aviso — a tarja pedia pra
          ser lida e era o que menos dava pra ler. Sobe pra 96% e a borda ganha
-         a cor do estado: âmbar enquanto o dado é de antes, neutra enquanto o
-         servidor está sendo consultado de novo. */
+         a cor do estado. O âmbar vale nos dois: consultar os canais e mostrar
+         dado de antes são o mesmo assunto, e trocar de neutra pra colorida no
+         meio do caminho fazia parecer que era outro aviso. */
       style={{
         background: `color-mix(in srgb, var(--card) 96%, transparent)`,
-        borderColor: ocupado
-          ? "color-mix(in srgb, var(--foreground) 12%, transparent)"
-          : `rgb(${AMBAR} / 0.42)`,
+        borderColor: `rgb(${AMBAR} / 0.42)`,
       }}
       initial={reduzir ? false : { opacity: 0, y: 14, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -199,15 +194,15 @@ function TarjaNaoConfirmado({
       transition={{ duration: reduzir ? 0 : 0.34, ease: [0.22, 1, 0.36, 1] }}
       aria-busy={ocupado || undefined}
     >
-      {/* Lavagem âmbar por baixo do conteúdo — some quando a tarja passa a
-          "consultando", que é um estado de trabalho, não de alerta. */}
+      {/* Lavagem âmbar por baixo do conteúdo — vale nos dois estados, só mais
+          discreta enquanto os canais estão sendo consultados. */}
       <AnimatePresence initial={false}>
-        {!ocupado && podeTentar && (
+        {(ocupado || podeTentar) && (
           <motion.span
             key="lavagem"
             aria-hidden
             className="pointer-events-none absolute inset-0 rounded-2xl"
-            style={{ background: `rgb(${AMBAR} / 0.07)` }}
+            style={{ background: `rgb(${AMBAR} / ${ocupado ? 0.05 : 0.07})` }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -219,13 +214,16 @@ function TarjaNaoConfirmado({
       {/* Respiração lenta do contorno. A tarja fica na tela até alguém agir,
           e um retângulo parado no rodapé some da vista em trinta segundos —
           o pulso mantém presença sem gritar nem competir com o conteúdo. */}
-      {!ocupado && !reduzir && (
+      {!reduzir && (
         <motion.span
           aria-hidden
           className="pointer-events-none absolute -inset-px rounded-2xl"
           style={{ boxShadow: `0 0 0 1px rgb(${AMBAR} / 0.5), 0 0 24px -8px rgb(${AMBAR})` }}
-          animate={{ opacity: [0.5, 0.14, 0.5] }}
-          transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
+          animate={{ opacity: ocupado ? [0.34, 0.1, 0.34] : [0.5, 0.14, 0.5] }}
+          /* Enquanto consulta, o mesmo pulso corre mais rápido e mais fraco:
+             é a diferença entre "trabalhando" e "esperando você", sem trocar
+             de cor no meio do caminho. */
+          transition={{ duration: ocupado ? 1.6 : 2.8, repeat: Infinity, ease: "easeInOut" }}
         />
       )}
 
@@ -236,7 +234,7 @@ function TarjaNaoConfirmado({
         <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[2px] overflow-hidden rounded-t-2xl">
           <motion.span
             className="absolute inset-y-0 w-1/3"
-            style={{ background: "linear-gradient(90deg, transparent, var(--foreground), transparent)", opacity: 0.45 }}
+            style={{ background: `linear-gradient(90deg, transparent, rgb(${AMBAR}), transparent)`, opacity: 0.8 }}
             initial={{ x: "-120%" }}
             animate={reduzir ? { x: "150%" } : { x: ["-120%", "320%"] }}
             transition={reduzir ? { duration: 0 } : { duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
@@ -257,7 +255,7 @@ function TarjaNaoConfirmado({
             transition={{ duration: reduzir ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
             {ocupado
-              ? <Loader2 size={17} className="animate-spin text-muted-foreground" />
+              ? <Loader2 size={17} className="animate-spin" style={{ color: `rgb(${AMBAR})` }} />
               : <CloudOff size={17} style={{ color: `rgb(${AMBAR})` }} />}
           </motion.span>
         </AnimatePresence>
@@ -294,7 +292,11 @@ function TarjaNaoConfirmado({
           transition={{ duration: reduzir ? 0 : 0.26, delay: reduzir ? 0 : 0.04, ease: [0.22, 1, 0.36, 1] }}
         >
           {ocupado
-            ? carimbo ? `Os dados de ${carimbo} seguem na tela.` : "Os dados atuais seguem na tela."
+            /* A hora ganha o mesmo destaque do outro estado: é o dado da
+               tarja nos dois casos. */
+            ? carimbo
+              ? <>Os dados de <span className="font-semibold tabular-nums" style={{ color: `rgb(${AMBAR})` }}>{carimbo}</span> seguem na tela.</>
+              : "Os dados atuais seguem na tela."
             : motivo}
         </motion.p>
       </div>

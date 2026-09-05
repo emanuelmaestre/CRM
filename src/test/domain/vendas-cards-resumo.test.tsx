@@ -13,6 +13,16 @@ class ResizeObserverMock implements ResizeObserver {
 globalThis.ResizeObserver ??= ResizeObserverMock;
 
 describe("cards de conferência de Vendas", () => {
+  it("abre os pedidos pelo card e mantém a explicação independente", async () => {
+    const abrir = vi.fn();
+    render(<CardResumoVendas label="Reembolsos parciais" valor="R$ 121,39" icon={CircleDollarSign} cor="orange" onClick={abrir}
+      explicacao={{ titulo: "os reembolsos", descricao: "Parcela devolvida.", calculo: "Soma das parcelas.", inclui: [], naoInclui: [] }} />);
+    fireEvent.click(screen.getByRole("button", { name: /Reembolsos parciais/ }));
+    expect(abrir).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Entenda os reembolsos" }));
+    expect(await screen.findByText("Parcela devolvida.")).toBeInTheDocument();
+    expect(abrir).toHaveBeenCalledOnce();
+  });
   it("abre no toque uma explicação com cálculo, entradas e exclusões", async () => {
     render(
       <CardResumoVendas

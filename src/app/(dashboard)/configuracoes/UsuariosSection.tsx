@@ -37,6 +37,7 @@ import { MODULOS_CATALOGO, MODULOS_TODOS, normalizarModulos, type ModuloId } fro
 import { getIcon } from "@/shared/config/icon-registry";
 import { cn } from "@/shared/design-system/cn";
 import { tint } from "@/shared/design-system/color";
+import { PerfilAvatar, visualDoPerfil } from "@/shared/design-system/perfil-visual";
 import {
   actionAtualizarModulosUsuario,
   actionAtualizarUsuario,
@@ -484,6 +485,7 @@ export function UsuariosSection({
                 const alterando = usuarioEmAlteracao === usuario.id;
                 const modulosDoUsuario = normalizarModulos(usuario.modulosVisiveis);
                 const rotuloCargo = usuario.cargo || perfilMap[usuario.perfil].label;
+                const { Icone: IconePerfil, cor: corDoPerfil } = visualDoPerfil(usuario.perfil);
 
                 return (
                   <motion.div
@@ -496,19 +498,17 @@ export function UsuariosSection({
                     )}
                   >
                     <div className="flex min-w-0 items-center gap-3">
-                      <span className="relative inline-flex h-9 w-9 shrink-0">
-                        <span
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold"
-                          style={{ background: tint(CARGO_COR, usuario.ativo ? 14 : 8), color: usuario.ativo ? CARGO_COR : "var(--muted-foreground)" }}
-                        >
-                          {initials(usuario.nome, usuario.email)}
-                        </span>
-                        <span
-                          title={statusLabel(usuario.ativo)}
-                          className={cn(
-                            "absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-card",
-                            usuario.ativo ? "bg-success" : "bg-muted-foreground",
-                          )}
+                      {/* O selo do canto passou a ser o do perfil. O estado
+                          ativo/pausado não some: continua no botão de pausar
+                          ao lado e no esmaecimento da linha inteira — e não
+                          cabem dois selos num círculo de 36px sem que um
+                          esconda o outro. */}
+                      <span title={`${perfilMap[usuario.perfil].label} · ${statusLabel(usuario.ativo)}`}>
+                        <PerfilAvatar
+                          perfil={usuario.perfil}
+                          iniciais={initials(usuario.nome, usuario.email)}
+                          tamanho={36}
+                          apagado={!usuario.ativo}
                         />
                       </span>
                       <div className="min-w-0">
@@ -530,8 +530,9 @@ export function UsuariosSection({
                         disabled={alterando}
                         title="Editar cargo e módulos visíveis"
                         className="press-feedback inline-flex min-h-9 w-fit min-w-0 items-center gap-1.5 rounded-full border border-transparent py-1 pl-2.5 pr-1.5 text-xs font-bold outline-none transition-[filter] hover:brightness-95 focus-visible:ring-2 focus-visible:ring-offset-1 disabled:opacity-60"
-                        style={{ color: CARGO_COR, background: tint(CARGO_COR, 9) }}
+                        style={{ color: corDoPerfil, background: tint(corDoPerfil, 9) }}
                       >
+                        <IconePerfil size={12} strokeWidth={2.4} className="shrink-0" aria-hidden />
                         <span className="truncate">{rotuloCargo}</span>
                         <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card/70 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground">
                           {modulosDoUsuario.length}/{MODULOS_CATALOGO.length}

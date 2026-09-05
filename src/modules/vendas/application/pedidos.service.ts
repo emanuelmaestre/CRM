@@ -4,9 +4,10 @@ import { db } from "@/shared/lib/db";
 import { pedido, pedidoItem } from "@/shared/lib/db/schema";
 import { despacharEvento, emitirEvento, persistirEvento } from "@/shared/events";
 import { validarTransicaoPedido, type PedidoStatus } from "../domain/state-machine";
-import type { ConsultaPedidos } from "../domain/consulta-pedidos";
+import type { ConsultaPedidos, IndicadorPedidos } from "../domain/consulta-pedidos";
 import {
   consultarPedidosDetalhados,
+  consultarPedidosDoIndicador,
   consultarPedidosNoLimiteDoDia,
   consultarPedidosPorCanal,
   consultarPedidosPorMarca,
@@ -145,6 +146,13 @@ export async function resumirPedidos(
 ) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
   return consultarResumoPedidos(ctx.orgId, opts);
+}
+
+export async function listarPedidosDoIndicador(
+  ctx: CrudContext, indicador: IndicadorPedidos, opts: ConsultaPedidos & { offset: number },
+) {
+  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
+  return consultarPedidosDoIndicador(ctx.orgId, indicador, opts);
 }
 
 /** Os pedidos que o calendário do Mercado Livre e o daqui colocam em dias
