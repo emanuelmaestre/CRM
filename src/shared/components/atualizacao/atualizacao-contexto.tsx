@@ -177,7 +177,7 @@ function TarjaNaoConfirmado({
          cima delas: no celular a tarja fica logo em cima da barra inferior, e
          cobrir os ícones para avisar de dado velho seria trocar um problema
          por outro. */
-      className="material-thick fixed inset-x-3 bottom-[calc(var(--bottom-nav-h,64px)_+_env(safe-area-inset-bottom)_+_0.75rem)] z-30 mx-auto flex w-fit max-w-[min(100%,34rem)] flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-3.5 py-2.5 md:bottom-6"
+      className="material-thick fixed inset-x-3 bottom-[calc(var(--bottom-nav-h,64px)_+_env(safe-area-inset-bottom)_+_0.75rem)] z-30 mx-auto flex w-full max-w-[min(100%,34rem)] flex-nowrap items-center gap-x-2.5 rounded-2xl px-3 py-2 sm:w-fit sm:gap-x-3 sm:px-3.5 sm:py-2.5 md:bottom-6"
       /* O material padrão deixa passar 15% do que está atrás. Sobre uma lista
          densa isso vira texto da página cruzando o aviso — a tarja pedia pra
          ser lida e era o que menos dava pra ler. Sobe pra 96% e a borda ganha
@@ -263,7 +263,7 @@ function TarjaNaoConfirmado({
 
       {/* Só o texto é região viva: com o botão dentro, o leitor de tela
           reanunciaria a tarja inteira a cada segundo do relógio regressivo. */}
-      <div role="status" aria-live="polite" className="relative z-10 min-w-[11rem] flex-1">
+      <div role="status" aria-live="polite" className="relative z-10 min-w-0 flex-1 sm:min-w-[11rem]">
         {/* Sem `AnimatePresence`: durante um cruzamento haveria dois nós com o
             mesmo texto na árvore, e tanto o leitor de tela quanto uma busca
             por texto veriam a frase em dobro. Trocar a chave remonta e o nó
@@ -301,7 +301,7 @@ function TarjaNaoConfirmado({
         </motion.p>
       </div>
 
-      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-1">
+      <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
         {!ocupado && (
           <motion.button
             type="button"
@@ -313,7 +313,7 @@ function TarjaNaoConfirmado({
             /* `min-w` fixo: "Tentar novamente" e "Em 4:59" têm larguras bem
                diferentes, e sem isso o botão encolhia no clique e a tarja
                inteira pulava de tamanho junto. */
-            className="press-feedback inline-flex min-w-[8.75rem] items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold text-foreground transition-colors disabled:pointer-events-none disabled:opacity-70"
+            className="press-feedback inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold text-foreground transition-colors disabled:pointer-events-none disabled:opacity-70 sm:min-w-[8.75rem] sm:px-3 sm:text-xs"
             style={{
               borderColor: esperando ? "var(--border)" : `rgb(${AMBAR} / 0.45)`,
               background: esperando ? "transparent" : `rgb(${AMBAR} / 0.1)`,
@@ -326,14 +326,18 @@ function TarjaNaoConfirmado({
               : <RotateCw size={13} aria-hidden style={{ color: `rgb(${AMBAR})` }} />}
             {esperando
               ? <span className="tabular-nums">Em {relogioRegressivo(espera)}</span>
-              : "Tentar novamente"}
+              /* No celular só "Tentar" aparece: o rótulo inteiro empurrava o
+                 texto do aviso para três linhas. O resto continua no nome
+                 acessível — "Tentar" sozinho não diz o quê —, e sem
+                 aria-label, que apagaria o "Em 4:59" da contagem. */
+              : <><span className="sm:hidden">Tentar<span className="sr-only"> novamente</span></span><span className="hidden sm:inline">Tentar novamente</span></>}
           </motion.button>
         )}
         <motion.button
           type="button"
           onClick={dispensar}
           aria-label="Dispensar o aviso"
-          className="press-feedback rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="press-feedback rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:p-1.5"
           whileHover={reduzir ? undefined : { rotate: 90 }}
           whileTap={reduzir ? undefined : { scale: 0.9 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}

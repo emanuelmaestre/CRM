@@ -32,7 +32,7 @@ export function MLConnectionStrip({ status }: Props) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
       <ChannelLogo canal="mercadolivre" variant="pill" size="sm" />
 
-      <div className="flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:basis-auto">
+      <div className="order-2 flex min-w-0 flex-1 basis-full flex-wrap items-center gap-2 sm:order-none sm:basis-auto">
         {marcas.map(({ slug: rawSlug, label }, index) => {
           const slug = rawSlug as BrandSlug;
           const detalhe = detalhes[slug];
@@ -59,7 +59,12 @@ export function MLConnectionStrip({ status }: Props) {
         })}
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* Mesma regra do ChannelConnectionStrip: no celular o contador (e o
+          botao de atualizar) sobe para a linha do canal em vez de ocupar uma
+          terceira faixa sozinho embaixo das marcas. Sem isso o Mercado Livre
+          era o unico bloco com tres linhas, e a lista de canais ficava com um
+          degrau no meio. */}
+      <div className="order-1 flex items-center gap-2 sm:order-last">
         <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">
           {carregando ? labels.loading : `${conectadas}/${marcas.length} conectadas`}
         </span>

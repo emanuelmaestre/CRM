@@ -379,9 +379,9 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
     // não como o resumo de UMA conta. `xl:` desliga o cartão e volta pro
     // layout em colunas de sempre, onde a tabela inteira já dá o
     // agrupamento visual.
-    <div className="flex flex-wrap items-center gap-3 rounded-[0.9rem] border border-border bg-muted/20 p-3 xl:flex-nowrap xl:justify-between xl:rounded-none xl:border-x-0 xl:border-t-0 xl:border-b xl:border-border xl:bg-transparent xl:p-0 xl:py-3 xl:last:border-b-0">
+    <div className="flex flex-col items-stretch gap-2.5 rounded-[0.9rem] border border-border bg-muted/20 p-3 xl:flex-row xl:flex-wrap xl:items-center xl:gap-3 xl:justify-between xl:rounded-none xl:border-x-0 xl:border-t-0 xl:border-b xl:border-border xl:bg-transparent xl:p-0 xl:py-3 xl:last:border-b-0">
       <div className="flex min-w-0 flex-1 items-center gap-2.5 xl:flex-none">
-        <ChannelLogo canal={conta.canal} size="md" variant="badge" />
+        <ChannelLogo canal={conta.canal} size="md" variant="logo" className="shrink-0" />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-foreground">{conta.canalLabel}</p>
           <p className="truncate text-xs" style={{ color: corMarca }}>{conta.brandLabel}</p>
@@ -421,7 +421,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
           diferença empurrava status e relógio das contas Shopee para a
           esquerda das do Mercado Livre. Largura travada = todas as linhas
           começam no mesmo x, que era a intenção original. */}
-      <div className="contents xl:grid xl:grid-cols-[13rem_minmax(0,15rem)_11rem] xl:items-center xl:gap-x-8">
+      <div className="flex flex-col gap-2.5 xl:grid xl:grid-cols-[13rem_minmax(0,15rem)_11rem] xl:items-center xl:gap-x-8">
         <div className="flex min-h-9 shrink-0 items-center justify-start xl:justify-center">
           <AnimatePresence mode="popLayout">
             {execucao && (
@@ -478,7 +478,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
             <span className="truncate">{rotuloUltima(execucao)}</span>
           </span>
 
-          <div className="flex shrink-0 items-center gap-2 xl:justify-end">
+          <div className="flex min-w-0 flex-1 items-center gap-2 xl:flex-none xl:shrink-0 xl:justify-end">
             <SincronizacaoInfo conta={conta} execucao={execucao} />
 
             <motion.button
@@ -486,7 +486,7 @@ function LinhaConta({ conta }: { conta: CanalConfiguracao }) {
               whileTap={{ scale: 0.97 }}
               onClick={sincronizar}
               disabled={disparando || emAndamento}
-              className="press-feedback inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground xl:whitespace-nowrap transition-colors hover:bg-muted disabled:opacity-60"
+              className="press-feedback inline-flex h-9 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-border bg-card px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60 xl:flex-none"
             >
               <RefreshCw size={13} className={disparando || emAndamento ? "animate-spin" : ""} />
               {emAndamento ? "Sincronizando…" : "Sincronizar"}

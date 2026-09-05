@@ -257,7 +257,7 @@ function TabelaCanal({ canal }: { canal: Canal }) {
           aria-controls={conteudoId}
           className="press-feedback flex min-w-0 flex-1 items-center gap-3 text-left"
         >
-          <ChannelLogo canal={canal.id} size="md" variant="badge" className="h-10 w-10 shrink-0 rounded-xl" />
+          <ChannelLogo canal={canal.id} size="md" variant="logo" className="h-10 w-10 shrink-0" />
           <div className="min-w-0">
             <h3 id={`endpoints-${canal.id}`} className="text-sm font-bold text-foreground">{canal.nome}</h3>
             <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{canal.descricao}</p>

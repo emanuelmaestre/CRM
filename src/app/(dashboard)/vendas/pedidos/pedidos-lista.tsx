@@ -809,12 +809,25 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             chave: "quantidade-cancelados-devolvidos",
             indicador: "cancelados-devolvidos" as const,
             tituloJanela: "Pedidos cancelados/devolvidos",
-            label: <><span className="sm:hidden">Qtd. cancel./devol.</span><span className="hidden sm:inline">Pedidos cancelados e devolvidos</span></>,
+            label: <><span className="sm:hidden">Qtd. cancel. e devol.</span><span className="hidden sm:inline">Pedidos cancelados e devolvidos</span></>,
             numero: resumo.canceladosQtd + resumo.devolvidosQtd,
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
             icon: Ban,
             cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)",
-            sub: <>{resumo.canceladosQtd.toLocaleString("pt-BR")} cancelados e {resumo.devolvidosQtd.toLocaleString("pt-BR")} devolvidos</>,
+            /* No celular a legenda vira sigla: "1 cancelados e 0 devolvidos"
+               ocupava duas linhas num card de 110px e desalinhava este card
+               dos cinco vizinhos. E o singular deixou de sair errado. */
+            sub: (
+              <>
+                <span className="sm:hidden">
+                  {resumo.canceladosQtd.toLocaleString("pt-BR")} cancel. · {resumo.devolvidosQtd.toLocaleString("pt-BR")} devol.
+                </span>
+                <span className="hidden sm:inline">
+                  {resumo.canceladosQtd.toLocaleString("pt-BR")} {resumo.canceladosQtd === 1 ? "cancelado" : "cancelados"} e{" "}
+                  {resumo.devolvidosQtd.toLocaleString("pt-BR")} {resumo.devolvidosQtd === 1 ? "devolvido" : "devolvidos"}
+                </span>
+              </>
+            ),
             explicacao: EXPLICACOES_CARDS.quantidadeCancelados,
           },
         ].map((card) => (
