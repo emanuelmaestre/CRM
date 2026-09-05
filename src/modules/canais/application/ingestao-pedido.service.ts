@@ -26,7 +26,12 @@ import { podeAplicarVersaoPedido } from "../domain/versao-pedido";
 import { preservarFinanceiroConfirmado } from "../domain/financeiro-confirmado";
 import { classificarCausa, registrarPedidoIgnorado, marcarPedidoIgnoradoResolvido } from "@/modules/vendas/application/registro-pedido-ignorado";
 import { conferirPedidoAposIngestao } from "@/modules/vendas/application/deteccao-conferencia";
-import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, mapearStatusPedido } from "../domain/order-status";
+import { deveAplicarStatusMarketplace, deveExecutarEfeitosOperacionais, ehConclusaoAposDevolucaoShopee, mapearStatusPedido } from "../domain/order-status";
+import {
+  marcarEvidenciaPagamento,
+  possuiEvidenciaPagamentoAprovado,
+  statusPedidoFaturavel,
+} from "@/modules/vendas/domain/status-faturamento";
 
 type CanalSuportado = "shopee" | "mercadolivre" | "tiktokshop";
 
@@ -529,7 +534,7 @@ async function persistirPedido(
         desconto: p.desconto ?? "0",
         acrescimo: p.acrescimo ?? "0",
         valorLiquido: p.valorLiquido,
-        dadosOrigem: p.dadosOrigem,
+        dadosOrigem: canal === "mercadolivre" ? p.dadosOrigem : marcarEvidenciaPagamento(p.dadosOrigem, status),
         atualizadoOrigemEm: p.atualizadoOrigemEm,
         createdAt: p.criadoEm,
       })
@@ -635,7 +640,7 @@ async function reconciliarFinanceiroPedido(
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const atual = await tx.select({ atualizadoOrigemEm: pedido.atualizadoOrigemEm, canal: pedido.canal,
-      valorLiquido: pedido.valorLiquido, dadosOrigem: pedido.dadosOrigem }).from(pedido)
+      status: pedido.status, valorLiquido: pedido.valorLiquido, dadosOrigem: pedido.dadosOrigem }).from(pedido)
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId))).for("update").then((rows) => rows[0]);
     if (!atual) return false;
     if (!podeAplicarVersaoPedido(atual.atualizadoOrigemEm, p.atualizadoOrigemEm)) return false;
@@ -644,10 +649,20 @@ async function reconciliarFinanceiroPedido(
       createdAt: p.criadoEm,
       updatedAt: new Date(),
     };
-    if (p.dadosOrigem !== undefined) valores.dadosOrigem = {
-      ...(atual.dadosOrigem as Record<string, unknown> | null), ...p.dadosOrigem,
+    const dadosMesclados = {
+      ...(atual.dadosOrigem as Record<string, unknown> | null),
+      ...p.dadosOrigem,
       ...(preservarFinanceiro ? { financeiroInformado: true } : {}),
     };
+    if (atual.canal === "shopee" || atual.canal === "tiktokshop") {
+      valores.dadosOrigem = marcarEvidenciaPagamento(
+        dadosMesclados,
+        mapearStatusPedido(p.status),
+        statusPedidoFaturavel(atual.status) || possuiEvidenciaPagamentoAprovado(atual.dadosOrigem),
+      );
+    } else if (p.dadosOrigem !== undefined) {
+      valores.dadosOrigem = dadosMesclados;
+    }
     if (p.atualizadoOrigemEm !== undefined) valores.atualizadoOrigemEm = p.atualizadoOrigemEm;
     if (!preservarFinanceiro) {
       valores.total = p.total;
@@ -708,6 +723,7 @@ async function reconciliarStatusPedido(
   versaoOrigem?: Date,
 ): Promise<void> {
   const novoStatus = mapearStatusPedido(statusExterno);
+  let correcaoSemEventos = false;
   const resultado = await db.transaction(async (tx) => {
     const atual = await tx
       .select({
@@ -718,6 +734,8 @@ async function reconciliarStatusPedido(
         total: pedido.total,
         canceladoMotivo: pedido.canceladoMotivo,
         atualizadoOrigemEm: pedido.atualizadoOrigemEm,
+        canal: pedido.canal,
+        dadosOrigem: pedido.dadosOrigem,
       })
       .from(pedido)
       .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)))
@@ -727,10 +745,27 @@ async function reconciliarStatusPedido(
       !atual
       || atual.brandId !== brandId
       || !podeAplicarVersaoPedido(atual.atualizadoOrigemEm, versaoOrigem)
-      || !deveAplicarStatusMarketplace(atual.status, novoStatus)
     ) {
       return [] as PersistedDomainEvent[];
     }
+
+    if (ehConclusaoAposDevolucaoShopee({
+      canal: atual.canal, atual: atual.status, statusExterno,
+      pagamentoAprovado: possuiEvidenciaPagamentoAprovado(atual.dadosOrigem),
+      versaoAtual: atual.atualizadoOrigemEm, versaoRecebida: versaoOrigem,
+    })) {
+      await tx.update(pedido).set({ status: novoStatus, updatedAt: new Date() })
+        .where(and(eq(pedido.id, pedidoId), eq(pedido.orgId, orgId)));
+      await tx.insert(auditLog).values({
+        orgId, brandId, autorTipo: "sistema", entidade: "pedido", entidadeId: pedidoId,
+        acao: "reconciliacao_shopee_status",
+        antes: { status: atual.status },
+        depois: { status: novoStatus, statusExterno, versaoOrigem, efeitosOperacionais: false },
+      });
+      correcaoSemEventos = true;
+      return [] as PersistedDomainEvent[];
+    }
+    if (!deveAplicarStatusMarketplace(atual.status, novoStatus)) return [] as PersistedDomainEvent[];
 
     if (historico || !deveExecutarEfeitosOperacionais(atual.origemIngestao as "tempo_real" | "historico")) {
       await tx
@@ -787,7 +822,7 @@ async function reconciliarStatusPedido(
   });
 
   for (const evento of resultado) await despacharEvento(evento);
-  if (resultado.length === 0 && !historico) {
+  if (resultado.length === 0 && !historico && !correcaoSemEventos) {
     // Uma repetição também atua como recuperação do outbox caso a primeira
     // publicação tenha falhado depois do commit do pedido.
     const recuperacao = await despacharEventosPendentes(orgId, 100);

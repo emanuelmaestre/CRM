@@ -5,6 +5,7 @@ import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { createClient } from "@supabase/supabase-js";
 import { mapearStatusPedido } from "../domain/order-status";
+import { statusPedidoFaturavel } from "@/modules/vendas/domain/status-faturamento";
 
 interface TikTokCredentials {
   appKey: string;
@@ -39,6 +40,8 @@ type TikTokOrder = {
   user_id?: string;
   buyer_email?: string;
   create_time: number;
+  paid_time?: number;
+  cancel_reason?: string;
   update_time?: number;
   /* Não existe `quantity`: o TikTok repete a linha inteira uma vez por
      unidade, com o mesmo sku_id e o mesmo preço unitário — confirmado com
@@ -366,7 +369,7 @@ export class TikTokShopProvider implements ChannelProvider {
       if (status === "cancelado" || status === "devolvido") {
         canceladosCentavos += centavos;
         canceladosQtd += 1;
-      } else {
+      } else if (statusPedidoFaturavel(status)) {
         faturamentoCentavos += centavos;
         pedidosValidos += 1;
       }
@@ -462,7 +465,7 @@ export class TikTokShopProvider implements ChannelProvider {
 
            Telefone sem máscara, se um dia vier, passa normalmente. */
         clienteTelefone: telefoneUtilizavel(order.recipient_address?.phone_number),
-        status: order.status.toLowerCase(),
+        status: order.status.toUpperCase() === "ON_HOLD" ? "paid" : order.status.toLowerCase(),
         total: pg?.total_amount ?? order.payment_info?.total_amount ?? "",
         frete: pg?.shipping_fee,
         desconto: desconto > 0 ? desconto.toFixed(2) : undefined,
@@ -470,7 +473,18 @@ export class TikTokShopProvider implements ChannelProvider {
         itens: this.agruparItens(order),
         criadoEm: new Date(order.create_time * 1000),
         atualizadoOrigemEm: order.update_time ? new Date(order.update_time * 1000) : undefined,
-        dadosOrigem: { status: order.status, financeiroInformado: !!(order.payment ?? order.payment_info) },
+        dadosOrigem: {
+          status: order.status,
+          financeiroInformado: !!(order.payment ?? order.payment_info),
+          ...(order.status.toUpperCase() === "CANCELLED" && [
+            "Pagamento atrasado por parte do cliente",
+            "Cliente atrasado con el pago",
+          ].includes(order.cancel_reason ?? "") ? { pagamentoAprovado: false } : {}),
+          ...(typeof order.paid_time === "number" && Number.isFinite(order.paid_time)
+            && order.paid_time > 0 && order.paid_time * 1000 <= Date.now()
+            ? { pagamentoAprovado: true, pagoEmMs: order.paid_time * 1000 } : {}),
+          ...(order.cancel_reason ? { motivoCancelamento: order.cancel_reason } : {}),
+        },
       };
     });
   }

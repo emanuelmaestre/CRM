@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { selecionarModelosShopee } from "../domain/modelo-estoque-shopee";
 import { mapearStatusPedido } from "../domain/order-status";
+import { statusPedidoFaturavel } from "@/modules/vendas/domain/status-faturamento";
 import type { BaseDesempenhoCanal } from "@/modules/vendas/domain/desempenho-canal";
 import { proximoCursorSeguro } from "../domain/paginacao";
 import type { ChannelProvider, EstoqueCanalRef, OpcoesBuscaPedidos, PedidoNormalizado, SaudeConector } from "../domain/ports";
@@ -198,6 +199,8 @@ type ShopeeDetail = {
   total_amount?: number;
   create_time?: number;
   update_time?: number;
+  pay_time?: number | null;
+  cancel_reason?: string;
   recipient_address?: { name: string; phone?: string };
   item_list?: ShopeeItem[];
 };
@@ -449,6 +452,10 @@ export class ShopeeProvider implements ChannelProvider {
    *  access_token) não é intercambiável entre eles. */
   private urlPedidos(path: string, params: Record<string, string | number> = {}): string {
     if (!this.credsPedidos) {
+      const app = obterShopeeAppCredenciais("pedidos");
+      if (!app.partnerId || !app.partnerKey) {
+        throw new Error("App Shopee Pedidos: faltam partner_id/partner_key no ambiente ativo. Configure as credenciais PEDIDOS de produção para LIVE; reconectar OAuth sozinho não resolve a ausência do par do app.");
+      }
       throw new Error("App Shopee Pedidos não conectado para esta marca (ver SHOPEE_PARTNER_ID_PEDIDOS_* e OAuth em /configuracoes).");
     }
     return this.url(path, params, this.credsPedidos);
@@ -586,6 +593,8 @@ export class ShopeeProvider implements ChannelProvider {
     let pedidosValidos = 0;
     let canceladosQtd = 0;
     let vendasCanceladas = 0;
+    let quantidadeVendas = 0;
+    let unidadesVendidas: number | null = 0;
 
     for (const pedido of pedidosPorId.values()) {
       const totalFinanceiro = financeiroMap.get(pedido.providerOrderId)?.buyer_total_amount;
@@ -593,12 +602,19 @@ export class ShopeeProvider implements ChannelProvider {
       if (!Number.isFinite(total)) throw new Error(`Shopee: pedido ${pedido.providerOrderId} sem total financeiro válido.`);
       const centavos = Math.round(total * 100);
       const status = mapearStatusPedido(pedido.statusExterno);
+      const temDesfecho = statusPedidoFaturavel(status) || status === "cancelado" || status === "devolvido";
       // IN_CANCEL é uma solicitação ainda em curso; só conta cancelamento confirmado.
       if (pedido.statusExterno.toUpperCase() === "CANCELLED") vendasCanceladas += 1;
+      if (temDesfecho) {
+        quantidadeVendas += 1;
+        const unidades = unidadesPedido.get(pedido.providerOrderId);
+        if (unidades == null) unidadesVendidas = null;
+        else if (unidadesVendidas !== null) unidadesVendidas += unidades;
+      }
       if (status === "cancelado" || status === "devolvido") {
         canceladosCentavos += centavos;
         canceladosQtd += 1;
-      } else {
+      } else if (statusPedidoFaturavel(status)) {
         faturamentoCentavos += centavos;
         pedidosValidos += 1;
       }
@@ -613,8 +629,8 @@ export class ShopeeProvider implements ChannelProvider {
       totalPedidos: pedidosPorId.size,
       ...(incluirDesempenho ? { desempenho: {
         vendasBrutas: (faturamentoCentavos + canceladosCentavos) / 100,
-        quantidadeVendas: pedidosPorId.size,
-        unidadesVendidas: sns.some((sn) => unidadesPedido.get(sn) == null) ? null : sns.reduce((soma, sn) => soma + unidadesPedido.get(sn)!, 0),
+        quantidadeVendas,
+        unidadesVendidas,
         vendasCanceladas,
         // Não há fonte de visitas por período na integração atual. Cliques de
         // Ads e visualizações acumuladas de produtos não são substitutos.
@@ -677,6 +693,9 @@ export class ShopeeProvider implements ChannelProvider {
         };
       };
       if (listData.error) throw new Error(`Shopee get_order_list: ${listData.message ?? listData.error}`);
+      if (!Array.isArray(listData.response?.order_list) || typeof listData.response?.more !== "boolean") {
+        throw new Error("Shopee get_order_list: paginação incompleta ou resposta inválida.");
+      }
 
       /* O status vem de graça nesta listagem e é o que permite decidir, sem
          gastar mais nenhuma chamada, se o pedido mudou de estágio desde a
@@ -733,7 +752,7 @@ export class ShopeeProvider implements ChannelProvider {
       const lote = sns.slice(inicio, inicio + ShopeeProvider.LOTE_DETALHE_PEDIDOS);
       const detailRes = await shopeeFetch(this.urlPedidos("/order/get_order_detail", {
         order_sn_list: lote.join(","),
-        response_optional_fields: "item_list,recipient_address,buyer_user_id,buyer_username,total_amount",
+        response_optional_fields: "item_list,recipient_address,buyer_user_id,buyer_username,total_amount,pay_time,cancel_reason",
       }), { signal: AbortSignal.timeout(15000) });
 
       if (!detailRes.ok) {
@@ -773,6 +792,10 @@ export class ShopeeProvider implements ChannelProvider {
           status: detail?.order_status ?? null,
           totalProdutos: (detail?.item_list ?? []).reduce((n, i) => n + Math.round(i.model_discounted_price * i.model_quantity_purchased * 100), 0) / 100,
           financeiroInformado: financeiro !== undefined,
+          ...(typeof detail?.pay_time === "number" && Number.isFinite(detail.pay_time)
+            && detail.pay_time > 0 && detail.pay_time * 1000 <= Date.now()
+            ? { pagamentoAprovado: true, pagoEmMs: detail.pay_time * 1000 } : {}),
+          ...(detail?.cancel_reason ? { motivoCancelamento: detail.cancel_reason } : {}),
         },
         total: financeiro?.total ?? String(detail?.total_amount ?? 0),
         frete: financeiro?.frete,

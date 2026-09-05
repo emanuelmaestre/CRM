@@ -11,3 +11,32 @@ export function inicioColetaPedidos(agoraMs: number, ultimoSucesso: unknown, jan
 export function podeAvancarCoberturaPedidos(falhasSemRegistro: number): boolean {
   return Number.isInteger(falhasSemRegistro) && falhasSemRegistro === 0;
 }
+
+/** Define qual relógio do marketplace cobre a intenção da sincronização.
+ *
+ * - atualização incremental: procura o que MUDOU na janela (pedido antigo cujo
+ *   pagamento foi aprovado agora, cancelamento tardio, reembolso etc.);
+ * - reconciliação/backfill: procura o que foi CRIADO no período histórico.
+ *
+ * Usar criação na atualização de 24h abre um buraco especialmente traiçoeiro:
+ * um pedido criado há três dias e pago hoje não aparece nem como novo nem como
+ * pendência, embora o botão informe que acabou de atualizar os pedidos. */
+export function campoDataDaSincronizacaoPedidos(
+  desdeExplicito: unknown,
+  reconciliacao: boolean,
+): "criacao" | "atualizacao" {
+  return typeof desdeExplicito === "string" && !reconciliacao
+    ? "atualizacao"
+    : "criacao";
+}
+
+/** Política isolada: ML mantém a escolha e otimização anteriores. */
+export function politicaColetaPedidos(canal: string, desde: unknown, reconciliacao: boolean) {
+  const coletaIntegral = canal === "shopee" || canal === "tiktokshop";
+  return {
+    campoData: coletaIntegral && !reconciliacao ? "atualizacao" as const
+      : campoDataDaSincronizacaoPedidos(desde, reconciliacao),
+    relerTodos: reconciliacao || coletaIntegral,
+    exigirSemPendencias: coletaIntegral,
+  };
+}

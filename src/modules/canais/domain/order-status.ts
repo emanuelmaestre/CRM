@@ -90,6 +90,24 @@ const progressao: Record<Exclude<PedidoStatus, "cancelado" | "devolvido">, numbe
   concluido: 6,
 };
 
+/** TO_RETURN pode terminar em COMPLETED na Shopee. Exceção restrita a uma
+ * fotografia versionada e paga; nunca reabre cancelados nem outros canais. */
+export function ehConclusaoAposDevolucaoShopee(entrada: {
+  canal: string;
+  atual: PedidoStatus;
+  statusExterno: string;
+  pagamentoAprovado: boolean;
+  versaoAtual: Date | null;
+  versaoRecebida?: Date;
+}): boolean {
+  const recebida = entrada.versaoRecebida?.getTime();
+  return entrada.canal === "shopee" && entrada.atual === "devolvido"
+    && entrada.statusExterno.trim().toLowerCase() === "completed"
+    && entrada.pagamentoAprovado
+    && recebida !== undefined && Number.isFinite(recebida)
+    && (entrada.versaoAtual === null || recebida >= entrada.versaoAtual.getTime());
+}
+
 export function deveAplicarStatusMarketplace(atual: PedidoStatus, proximo: PedidoStatus): boolean {
   if (atual === proximo || ["cancelado", "devolvido"].includes(atual)) return false;
   if (proximo === "cancelado") return true;

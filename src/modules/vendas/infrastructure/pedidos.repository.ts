@@ -88,20 +88,20 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       // faturamento não conta fazia os números não fecharem entre si — quem
       // dividisse um pelo outro pra achar o ticket médio erraria. Cancelado e
       // devolvido já têm cards próprios ao lado, com quantidade e valor.
-      totalPedidos: sql<number>`count(*) filter (where ${pedido.status} not in ('cancelado', 'devolvido'))`,
-      faturamento: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
-      ticketMedio: sql<string>`coalesce(avg(${pedido.total}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
-      cancelados: sql<number>`count(*) filter (where ${pedido.status} in ('cancelado', 'devolvido'))`,
-      canceladosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'cancelado')`,
-      canceladosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'cancelado'), 0)`,
-      devolvidosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'devolvido')`,
-      devolvidosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'devolvido'), 0)`,
+      totalPedidos: sql<number>`count(*) filter (where ${pedidoFaturavelNestaEntrega()})`,
+      faturamento: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedidoFaturavelNestaEntrega()}), 0)`,
+      ticketMedio: sql<string>`coalesce(avg(${pedido.total}) filter (where ${pedidoFaturavelNestaEntrega()}), 0)`,
+      cancelados: sql<number>`count(*) filter (where ${pedido.status} in ('cancelado', 'devolvido') and ${cancelamentoFinanceiroNestaEntrega()})`,
+      canceladosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'cancelado' and ${cancelamentoFinanceiroNestaEntrega()})`,
+      canceladosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'cancelado' and ${cancelamentoFinanceiroNestaEntrega()}), 0)`,
+      devolvidosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'devolvido' and ${cancelamentoFinanceiroNestaEntrega()})`,
+      devolvidosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'devolvido' and ${cancelamentoFinanceiroNestaEntrega()}), 0)`,
       // Mesma regra do detalhe do pedido e de Métricas: o repasse informado
       // pelo canal manda; sem ele, a estimativa total - taxas - frete. Somado
       // por subconsulta e não por join: `pedido_item` é 1:N e juntá-lo aqui
       // multiplicaria o cabeçalho do pedido pelo número de itens, inflando
       // faturamento e ticket médio.
-      liquidoTotal: sql<string>`coalesce(sum(${LIQUIDO_DO_PEDIDO}) filter (where ${pedido.status} not in ('cancelado', 'devolvido')), 0)`,
+      liquidoTotal: sql<string>`coalesce(sum(${LIQUIDO_DO_PEDIDO}) filter (where ${pedidoFaturavelNestaEntrega()}), 0)`,
     })
     .from(pedido)
     .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
@@ -239,3 +239,4 @@ export async function consultarPedidosPorCanal(orgId: string, brandIds?: string[
     total: totalPorCanal.get(tipo) ?? 0,
   }));
 }
+import { pedidoFaturavelNestaEntrega, cancelamentoFinanceiroNestaEntrega } from "./financeiro-shopee-tiktok.sql";

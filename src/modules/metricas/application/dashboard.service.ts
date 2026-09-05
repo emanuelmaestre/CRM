@@ -1,5 +1,5 @@
 import { saldoPublicado } from "@/modules/estoque/infrastructure/saldo-canais";
-import { and, eq, gte, inArray, isNull, lte, max, ne, notInArray, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, max, notInArray, sql } from "drizzle-orm";
 import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { liquidoDoPedido } from "@/modules/vendas/domain/liquido-pedido";
@@ -443,8 +443,7 @@ export async function obterDashboardData(
     eq(pedido.orgId, ctx.orgId),
     gte(pedido.createdAt, inicioBusca),
     // Cancelado e devolvido não são faturamento nem venda de produto.
-    ne(pedido.status, "cancelado"),
-    ne(pedido.status, "devolvido"),
+    pedidoFaturavelNestaEntrega(),
   ];
   if (personalizado) condicoesPedido.push(lte(pedido.createdAt, fimBusca));
   if (brandFiltro.length > 0) condicoesPedido.push(inArray(pedido.brandId, brandFiltro));
@@ -457,6 +456,7 @@ export async function obterDashboardData(
     eq(pedido.orgId, ctx.orgId),
     gte(pedido.createdAt, inicioJanela),
     inArray(pedido.status, ["cancelado", "devolvido"]),
+    cancelamentoFinanceiroNestaEntrega(),
   ];
   if (personalizado) condicoesPedidosExcluidos.push(lte(pedido.createdAt, fimBusca));
   if (brandFiltro.length > 0) condicoesPedidosExcluidos.push(inArray(pedido.brandId, brandFiltro));
@@ -800,3 +800,4 @@ export async function obterDashboardData(
     reposicaoTotal: reposicaoCompleta.length,
   };
 }
+import { pedidoFaturavelNestaEntrega, cancelamentoFinanceiroNestaEntrega } from "@/modules/vendas/infrastructure/financeiro-shopee-tiktok.sql";

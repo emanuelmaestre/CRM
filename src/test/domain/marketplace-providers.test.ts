@@ -251,6 +251,7 @@ describe("contratos dos providers de marketplace", () => {
             buyer_username: "buyer",
             create_time: 1_784_779_900,
           }],
+          more: false,
         },
       }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ response: { order_list: [] } }), { status: 200 }));
@@ -325,7 +326,7 @@ describe("contratos dos providers de marketplace", () => {
     vi.spyOn(Date, "now").mockReturnValue(1_784_780_000_000);
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({
-        response: { order_list: [{ order_sn: "SHP-1" }, { order_sn: "SHP-2" }] },
+        response: { order_list: [{ order_sn: "SHP-1" }, { order_sn: "SHP-2" }], more: false },
       }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         response: {
@@ -448,7 +449,7 @@ describe("contratos dos providers de marketplace", () => {
   function respostasDePedidoShopee() {
     return [
       new Response(JSON.stringify({
-        response: { order_list: [{ order_sn: "SHP-FALLBACK" }] },
+        response: { order_list: [{ order_sn: "SHP-FALLBACK" }], more: false },
       }), { status: 200 }),
       new Response(JSON.stringify({
         response: { order_list: [{
