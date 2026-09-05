@@ -64,12 +64,13 @@ export function marcarEvidenciaPagamento(
   pagamentoAprovadoAnteriormente = false,
 ): Record<string, unknown> {
   const dados = objeto(dadosOrigem) ? dadosOrigem : {};
-  return {
-    ...dados,
-    pagamentoAprovado: pagamentoAprovadoAnteriormente
-      || statusPedidoFaturavel(status)
-      || possuiEvidenciaPagamentoAprovado(dados),
-  };
+  const aprovado = pagamentoAprovadoAnteriormente
+    || statusPedidoFaturavel(status)
+    || possuiEvidenciaPagamentoAprovado(dados);
+  // Ausência de pay_time não comprova ausência de pagamento. Cancelamentos
+  // sem evidência mantêm o estado desconhecido para reconciliação posterior.
+  if (aprovado) return { ...dados, pagamentoAprovado: true };
+  return { ...dados };
 }
 
 /**

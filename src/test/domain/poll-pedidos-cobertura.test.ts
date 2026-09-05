@@ -1,6 +1,6 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({handler:null as unknown as (v:any)=>Promise<any>,db:{} as Record<string,unknown>,buscar:vi.fn(),ingerir:vi.fn(),verificar:vi.fn(),degradar:vi.fn(),finalizar:vi.fn(),updates:vi.fn(),registrado:false,tipo:'shopee'}));
-vi.mock('@/shared/lib/inngest/client',()=>({inngest:{createFunction:(_c:unknown,h:any)=>{m.handler=h;return h;}}}));
+const m=vi.hoisted(()=>({handler:null as unknown as (v:unknown)=>Promise<unknown>,db:{} as Record<string,unknown>,buscar:vi.fn(),ingerir:vi.fn(),verificar:vi.fn(),degradar:vi.fn(),finalizar:vi.fn(),updates:vi.fn(),registrado:false,tipo:'shopee'}));
+vi.mock('@/shared/lib/inngest/client',()=>({inngest:{createFunction:(_c:unknown,h:(v:unknown)=>Promise<unknown>)=>{m.handler=h;return h;}}}));
 vi.mock('@/shared/lib/db',()=>({db:m.db}));
 vi.mock('@/modules/canais/infrastructure/provider-resolver',()=>({resolverChannelProvider:async()=>({buscarPedidos:m.buscar})}));
 vi.mock('@/modules/canais/infrastructure/shopee.provider',()=>({SHOPEE_PEDIDOS_LIBERADO:true}));

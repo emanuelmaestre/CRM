@@ -3,6 +3,14 @@ import {TikTokShopProvider} from '@/modules/canais/infrastructure/tiktokshop.pro
 
 describe('evidência financeira TikTok',()=>{
   afterEach(()=>{vi.restoreAllMocks();vi.unstubAllGlobals();});
+  it.each(['Pagamento atrasado por parte do cliente','Cliente atrasado con el pago'])('identifica timeout explícito: %s',async(cancel_reason)=>{
+    vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(JSON.stringify({code:0,data:{orders:[{
+      id:'1',status:'CANCELLED',create_time:1699990000,payment:{total_amount:'29.51'},cancel_reason,line_items:[],
+    }]}}),{status:200})));
+    const provider=new TikTokShopProvider({appKey:'key',appSecret:'secret',accessToken:'token',shopCipher:'shop'});
+    const [pedido]=await provider.buscarPedidosPorIds(['1']);
+    expect(pedido.dadosOrigem?.pagamentoAprovado).toBe(false);
+  });
   it.each([1700000000,undefined,0,-1,NaN,Infinity,99999999999])('preserva apenas paid_time válido: %s',async(paid_time)=>{
     vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response(JSON.stringify({code:0,data:{orders:[{
       id:'1',status:'CANCELLED',create_time:1699990000,paid_time,

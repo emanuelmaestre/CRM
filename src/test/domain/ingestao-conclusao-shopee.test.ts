@@ -20,6 +20,15 @@ beforeEach(()=>{
  });
 });
 describe('ingestão da conclusão Shopee',()=>{
+ it('preserva o payload e a política de status do Mercado Livre',async()=>{
+  row.canal='mercadolivre';row.dadosOrigem={origem:'legada'};
+  const p={providerOrderId:'A',canal:'mercadolivre',clienteExternalId:'C',clienteNome:'Cliente',status:'completed',total:'31.90',criadoEm:new Date('2026-08-12'),atualizadoOrigemEm:new Date('2026-09-02'),dadosOrigem:{campo:'novo'},itens:[{skuExterno:'SKU',quantidade:1,precoUnitario:'31.90'}]};
+  await ingerirPedido(org,brand,account,p,{historico:true});
+  expect(row.status).toBe('devolvido');
+  expect(row.dadosOrigem).toEqual({origem:'legada',campo:'novo',pagamentoAprovado:true});
+  expect(audits).toHaveLength(0);
+  expect(m.evento).not.toHaveBeenCalled();
+ });
  it('corrige, audita e não publica eventos; repetição histórica é idempotente',async()=>{
   const p={providerOrderId:'A',canal:'shopee',clienteExternalId:'C',clienteNome:'Cliente',status:'completed',total:'31.90',criadoEm:new Date('2026-08-12'),atualizadoOrigemEm:new Date('2026-09-02'),dadosOrigem:{pagamentoAprovado:true},itens:[{skuExterno:'SKU',quantidade:1,precoUnitario:'31.90'}]};
   await ingerirPedido(org,brand,account,p);

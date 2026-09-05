@@ -466,7 +466,7 @@ export class TikTokShopProvider implements ChannelProvider {
 
            Telefone sem máscara, se um dia vier, passa normalmente. */
         clienteTelefone: telefoneUtilizavel(order.recipient_address?.phone_number),
-        status: order.status.toLowerCase(),
+        status: order.status.toUpperCase() === "ON_HOLD" ? "paid" : order.status.toLowerCase(),
         total: pg?.total_amount ?? order.payment_info?.total_amount ?? "",
         frete: pg?.shipping_fee,
         desconto: desconto > 0 ? desconto.toFixed(2) : undefined,
@@ -477,6 +477,10 @@ export class TikTokShopProvider implements ChannelProvider {
         dadosOrigem: {
           status: order.status,
           financeiroInformado: !!(order.payment ?? order.payment_info),
+          ...(order.status.toUpperCase() === "CANCELLED" && [
+            "Pagamento atrasado por parte do cliente",
+            "Cliente atrasado con el pago",
+          ].includes(order.cancel_reason ?? "") ? { pagamentoAprovado: false } : {}),
           ...(typeof order.paid_time === "number" && Number.isFinite(order.paid_time)
             && order.paid_time > 0 && order.paid_time * 1000 <= Date.now()
             ? { pagamentoAprovado: true, pagoEmMs: order.paid_time * 1000 } : {}),

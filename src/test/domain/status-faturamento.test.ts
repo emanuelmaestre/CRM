@@ -36,6 +36,9 @@ describe("status que compõe faturamento", () => {
     const pago = marcarEvidenciaPagamento({}, "pago");
     expect(pago.pagamentoAprovado).toBe(true);
     expect(marcarEvidenciaPagamento(pago, "cancelado").pagamentoAprovado).toBe(true);
-    expect(marcarEvidenciaPagamento({}, "cancelado").pagamentoAprovado).toBe(false);
+    // Cancelado sem nenhuma evidência fica desconhecido, não "não pago": a
+    // ausência de dado não pode virar prova contra o pedido antes de uma
+    // reconciliação trazer o financeiro do canal.
+    expect(marcarEvidenciaPagamento({}, "cancelado")).not.toHaveProperty("pagamentoAprovado");
   });
 });
