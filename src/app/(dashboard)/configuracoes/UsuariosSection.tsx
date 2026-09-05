@@ -485,7 +485,7 @@ export function UsuariosSection({
                 const alterando = usuarioEmAlteracao === usuario.id;
                 const modulosDoUsuario = normalizarModulos(usuario.modulosVisiveis);
                 const rotuloCargo = usuario.cargo || perfilMap[usuario.perfil].label;
-                const { Icone: IconePerfil, cor: corDoPerfil } = visualDoPerfil(usuario.perfil);
+                const { Icone: IconePerfil, cor: corDoPerfil } = visualDoPerfil(usuario.perfil, usuario.cargo);
 
                 return (
                   <motion.div
@@ -503,9 +503,10 @@ export function UsuariosSection({
                           ao lado e no esmaecimento da linha inteira — e não
                           cabem dois selos num círculo de 36px sem que um
                           esconda o outro. */}
-                      <span title={`${perfilMap[usuario.perfil].label} · ${statusLabel(usuario.ativo)}`}>
+                      <span title={`${rotuloCargo} · ${statusLabel(usuario.ativo)}`}>
                         <PerfilAvatar
                           perfil={usuario.perfil}
+                          cargo={usuario.cargo}
                           iniciais={initials(usuario.nome, usuario.email)}
                           tamanho={36}
                           apagado={!usuario.ativo}

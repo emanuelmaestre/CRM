@@ -136,7 +136,7 @@ export function TopNav({ perfil, cargo, nome, email, modulosVisiveis }: { perfil
                   nunca mudava, então dizia "online" sem nunca poder dizer
                   outra coisa. No lugar dele, o selo do perfil — mesmo canto,
                   mesmo tamanho, mas carregando informação de verdade. */}
-              <PerfilAvatar perfil={perfil} iniciais={initials} tamanho={26} />
+              <PerfilAvatar perfil={perfil} cargo={cargo} iniciais={initials} tamanho={26} />
             </motion.button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
