@@ -70,7 +70,7 @@ export function ShopeeChannelActions({
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold shadow-sm"
             title={
               linha.conectado
-                ? `Reconectar só o app de ${linha.rotulo.toLowerCase()} — os outros apps da Shopee continuam conectados`
+                ? `Reconectar só o app de ${linha.rotulo.toLowerCase()}; os outros apps da Shopee continuam conectados`
                 : `Conectar o app de ${linha.rotulo.toLowerCase()} da Shopee`
             }
             // #EE4D2D: laranja de marca da própria Shopee no botão "Conectar".

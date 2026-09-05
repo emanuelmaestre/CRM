@@ -8,7 +8,7 @@ import {
 export const A26_importarHistorico = inngest.createFunction(
   {
     id: "A26-importar-historico",
-    name: "A26 — Promover pedidos históricos validados",
+    name: "A26: Promover pedidos históricos validados",
     concurrency: { limit: 1 },
     retries: 3,
     triggers: [{ event: "importacao/historica.confirmar" }],

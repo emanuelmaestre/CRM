@@ -32,7 +32,7 @@ import { EVENTO_REPASSE_TIKTOK } from "./eventos-operacionais";
 export const A37_repasseTikTok = inngest.createFunction(
   {
     id: "A37-repasse-tiktok",
-    name: `A37 — Repasse do TikTok Shop (últimos ${DIAS_REPASSE_TIKTOK} dias)`,
+    name: `A37: Repasse do TikTok Shop (últimos ${DIAS_REPASSE_TIKTOK} dias)`,
     concurrency: { limit: 1 },
     triggers: [
       { cron: "0 7 * * *" },

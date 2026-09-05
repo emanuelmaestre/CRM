@@ -32,7 +32,7 @@ const JANELA_BUSCA_MS = (INTERVALO_POLL_HORAS * 2 + 1) * 60 * 60 * 1_000;
 export const A24_pollPedidos = inngest.createFunction(
   {
     id: "A24-poll-pedidos",
-    name: `A24 — Contingência de ingestão de pedidos (a cada ${INTERVALO_POLL_HORAS}h)`,
+    name: `A24: Contingência de ingestão de pedidos (a cada ${INTERVALO_POLL_HORAS}h)`,
     concurrency: { limit: 1 },
     /* Sem repetição automática. O `throw` abaixo só acontece quando NENHUMA
        conta respondeu, e isso é causa sistêmica por definição — credencial
@@ -191,7 +191,7 @@ export const A24_pollPedidos = inngest.createFunction(
           // na marca degradava a conta a cada quatro minutos. O freio só vale
           // quando ao menos uma falha não tem causa conhecida de pedido.
           if (pedidos.length > 0 && ignorados === pedidos.length && falhasSemCausaConhecida > 0) {
-            throw new Error(`Nenhum dos ${pedidos.length} pedido(s) pôde ser importado — ver logs [A24].`);
+            throw new Error(`Nenhum dos ${pedidos.length} pedido(s) pôde ser importado. Consulte os logs [A24].`);
           }
           /* A conta acabou de ser conferida contra o canal. Sem este
               carimbo, o portão de entrada das telas só enxerga a Central de
@@ -242,7 +242,7 @@ export const A24_pollPedidos = inngest.createFunction(
       // trazer entra na próxima volta, três horas depois.
       if (resumo.falhas > 0 && resumo.falhas === resumo.contas) {
         throw new Error(
-          `A24 falhou em todas as ${resumo.contas} conta(s) conectada(s) — verifique credenciais e disponibilidade do canal.`,
+          `A24 falhou em todas as ${resumo.contas} conta(s) conectada(s). Verifique as credenciais e a disponibilidade do canal.`,
         );
       }
       if (resumo.falhas > 0) {

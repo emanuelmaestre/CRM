@@ -168,7 +168,7 @@ export function MLCatalogMappingSection({
           externalListingId: item.listingId,
           externalSkuId: item.externalSku,
           variationId: item.variationId ?? undefined,
-          nome: item.variationLabel ? `${item.title} — ${item.variationLabel}` : item.title,
+          nome: item.variationLabel ? `${item.title}, ${item.variationLabel}` : item.title,
           preco: Number(item.price).toFixed(2),
         });
         setSelections((current) => ({ ...current, [key]: result.produtoId }));
@@ -361,7 +361,7 @@ export function MLCatalogMappingSection({
                       >
                         <option value="">{config.selectProduct}</option>
                         {produtosDaMarca.map((produto) => (
-                          <option key={produto.id} value={produto.id}>{produto.sku} — {produto.nome}</option>
+                          <option key={produto.id} value={produto.id}>{produto.sku}, {produto.nome}</option>
                         ))}
                       </select>
                     </label>

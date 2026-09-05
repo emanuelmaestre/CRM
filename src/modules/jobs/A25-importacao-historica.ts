@@ -8,7 +8,7 @@ import {
 export const A25_prepararImportacaoHistorica = inngest.createFunction(
   {
     id: "A25-preparar-importacao-historica",
-    name: "A25 — Preparar pedidos históricos do Mercado Livre",
+    name: "A25: Preparar pedidos históricos do Mercado Livre",
     concurrency: { limit: 1 },
     retries: 3,
     triggers: [{ event: "importacao/historica.preparar" }],

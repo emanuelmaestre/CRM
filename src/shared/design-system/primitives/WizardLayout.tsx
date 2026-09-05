@@ -50,7 +50,7 @@ export function WizardLayout({
         <div className="min-w-0 text-center">
           <p className="truncate text-sm font-semibold text-foreground">{title}</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {appConfig.wizard.step} {currentStep + 1} {appConfig.wizard.of} {steps.length} — {steps[currentStep]}
+            {appConfig.wizard.step} {currentStep + 1} {appConfig.wizard.of} {steps.length}: {steps[currentStep]}
           </p>
         </div>
 

@@ -114,7 +114,7 @@ export async function listarCatalogoShopeeParaImportar(conta: ContaParaImportar)
 export function resumirDiagnosticoShopee(d: DiagnosticoCatalogoShopee): string | null {
   const partes: string[] = [];
   if (d.foraDoStatusNormal > 0) {
-    partes.push(`${d.foraDoStatusNormal} anúncio(s) fora do status "à venda" na Shopee — não viram produto`);
+    partes.push(`${d.foraDoStatusNormal} anúncio(s) fora do status "à venda" na Shopee; não viram produto`);
   }
   if (d.variacoesIndisponiveis > 0) {
     partes.push(

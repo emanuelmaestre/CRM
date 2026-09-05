@@ -142,7 +142,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const sellerEsperado = process.env[`ML_SELLER_ID_${brandEnv}`];
   if (!sellerEsperado) {
     console.warn(
-      `[ml/callback] ML_SELLER_ID_${brandEnv} não configurado — ` +
+      `[ml/callback] ML_SELLER_ID_${brandEnv} não configurado, ` +
       `token aceito sem validar a marca (seller ${tokens.user_id}).`
     );
   } else if (String(tokens.user_id) !== sellerEsperado) {

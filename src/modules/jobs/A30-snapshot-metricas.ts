@@ -28,7 +28,7 @@ function hojeEmSaoPaulo(): string {
 export const A30_snapshotMetricas = inngest.createFunction(
   {
     id: "A30-snapshot-metricas",
-    name: "A30 — Foto diária de estoque e score para comparação histórica",
+    name: "A30: Foto diária de estoque e score para comparação histórica",
     concurrency: { limit: 1 },
     triggers: [{ cron: "30 2 * * *" }],
   },

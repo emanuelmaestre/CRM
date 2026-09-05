@@ -16,7 +16,7 @@ import { finalizarJob, iniciarJob } from "./job-monitor";
 export const A32_syncAnunciosAds = inngest.createFunction(
   {
     id: "A32-sync-anuncios-ads",
-    name: "A32 — Sincronização diária de Product Ads (Anúncios)",
+    name: "A32: Sincronização diária de Product Ads (Anúncios)",
     concurrency: { limit: 1 },
     triggers: [{ cron: "0 6 * * *" }],
   },
@@ -51,7 +51,7 @@ export const A32_syncAnunciosAds = inngest.createFunction(
       const semErroSistemico = resultado.some((marca) => marca.status === "ok");
       if (!semErroSistemico && resultado.length > 0) {
         throw new Error(
-          `A32 não sincronizou nenhuma das ${resultado.length} conta(s) — ${resultado.map((m) => `${m.brandSlug}: ${m.status}`).join(", ")}`,
+          `A32 não sincronizou nenhuma das ${resultado.length} conta(s): ${resultado.map((m) => `${m.brandSlug}: ${m.status}`).join(", ")}`,
         );
       }
 

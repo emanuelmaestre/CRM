@@ -12,7 +12,7 @@ const DIAS_SEM_VENDA = 30;
 export const A7_encalhe = inngest.createFunction(
   {
     id: "A7-encalhe",
-    name: "A7 — Detecção noturna de encalhe de produto",
+    name: "A7: Detecção noturna de encalhe de produto",
     concurrency: { limit: 1 },
     triggers: [{ cron: "0 2 * * *" }],
   },

@@ -207,7 +207,7 @@ function AutomacoesWhatsApp() {
         {ativo === null
           ? "Carregando status da integração…"
           : ativo
-            ? `${CATALOGO_AUTOMACOES_WHATSAPP.length} avisos automáticos ligados no WhatsApp — cobrindo estoque, atendimento, vendas e operação.`
+            ? `${CATALOGO_AUTOMACOES_WHATSAPP.length} avisos automáticos ligados no WhatsApp, cobrindo estoque, atendimento, vendas e operação.`
             : `Configure a Z-API para começar a receber os ${CATALOGO_AUTOMACOES_WHATSAPP.length} avisos abaixo no WhatsApp.`}
       </p>
 

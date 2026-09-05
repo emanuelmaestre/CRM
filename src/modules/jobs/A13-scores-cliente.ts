@@ -5,7 +5,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { recalcularScoreCliente } from "@/modules/scoring/application/scoring.service";
 
 export const A13_scoresCliente = inngest.createFunction(
-  { id: "A13-scores-cliente", name: "A13 — Recálculo noturno de scores de cliente", concurrency: { limit: 1 }, triggers: [{ cron: "0 2 * * *" }] },
+  { id: "A13-scores-cliente", name: "A13: Recálculo noturno de scores de cliente", concurrency: { limit: 1 }, triggers: [{ cron: "0 2 * * *" }] },
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
 

@@ -127,7 +127,7 @@ const FORMATADORES: Partial<Record<DomainEventType, (
       "🛑 *Régua travou de vez*",
       empresa ? `Empresa: ${empresa}` : null,
       `Motivo: ${motivo ?? "não informado"}`,
-      "Essa régua não vai tentar de novo sozinha — vale olhar o cliente manualmente.",
+      "Essa régua não vai tentar de novo sozinha. Vale olhar o cliente manualmente.",
     ].filter(Boolean).join("\n");
   },
   "importacao.com_erros": (e) => {
@@ -178,7 +178,7 @@ const FORMATADORES: Partial<Record<DomainEventType, (
       "🧮 *Conferência financeira travou*",
       empresa ? `Empresa: ${empresa}` : null,
       canal ? `Canal: ${canal}` : null,
-      `${novas ?? "?"} pedido(s) novo(s) sem fechar a soma dos elementos com o bruto — ${totalPersistente ?? "?"} no total.`,
+      `${novas ?? "?"} pedido(s) novo(s) sem fechar a soma dos elementos com o bruto; ${totalPersistente ?? "?"} no total.`,
       exemplos?.length ? `Ex.: ${exemplos.slice(0, 5).join(", ")}` : null,
       "A API já foi re-consultada e o resíduo continua. Abra Admin → Conferência financeira.",
     ].filter(Boolean).join("\n");

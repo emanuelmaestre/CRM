@@ -108,7 +108,7 @@ function CanalFiltroPill({ tipo, ativo, onClick }: {
       onClick={disponivel ? onClick : () => toast.info(`Avaliações de ${label} ainda não estão disponíveis.`)}
       aria-disabled={!disponivel}
       aria-pressed={ativo}
-      aria-label={disponivel ? label : `${label} — ainda não disponível`}
+      aria-label={disponivel ? label : `${label}, ainda não disponível`}
       title={disponivel ? label : `Avaliações de ${label} ainda não estão disponíveis`}
       whileHover={!reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!reduzir ? { scale: disponivel ? 0.92 : 0.97 } : undefined}

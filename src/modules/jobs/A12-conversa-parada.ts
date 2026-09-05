@@ -9,7 +9,7 @@ const HORAS_SEM_RESPOSTA = 24;
 export const A12_conversaParada = inngest.createFunction(
   {
     id: "A12-conversa-parada",
-    name: "A12 — Aviso interno de conversa sem resposta da equipe",
+    name: "A12: Aviso interno de conversa sem resposta da equipe",
     concurrency: { limit: 1 },
     triggers: [{ cron: "0 * * * *" }],
   },

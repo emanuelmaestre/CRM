@@ -7,7 +7,7 @@ import { emitirEvento } from "@/shared/events";
 export const A20_backupVerificacao = inngest.createFunction(
   {
     id: "A20-backup-verificacao",
-    name: "A20 — Verificação diária de integridade do banco",
+    name: "A20: Verificação diária de integridade do banco",
     concurrency: { limit: 1 },
     triggers: [{ cron: "0 4 * * *" }],
   },

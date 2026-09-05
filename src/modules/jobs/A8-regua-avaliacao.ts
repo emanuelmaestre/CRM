@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { dispararRegua } from "@/modules/reguas/application/reguas.service";
 
 export const A8_reguaAvaliacao = inngest.createFunction(
-  { id: "A8-regua-avaliacao", name: "A8 — Régua de avaliação pós-entrega", triggers: [{ event: "pedido/entregue" }] },
+  { id: "A8-regua-avaliacao", name: "A8: Régua de avaliação pós-entrega", triggers: [{ event: "pedido/entregue" }] },
   async ({ event, step }) => {
     const { entityId: pedidoId, orgId, brandId } = event.data as { entityId: string; orgId: string; brandId: string };
 

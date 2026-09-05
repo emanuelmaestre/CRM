@@ -1405,7 +1405,7 @@ export async function obterTokenMercadoLivre(brandSlug: BrandSlug): Promise<{
     const motivo = tokenRow ? "token OAuth em canal_tokens expirado" : "nenhum token persistido em canal_tokens";
     console.warn(
       `[mercadolivre] usando ML_ACCESS_TOKEN_${upper} do ambiente (${motivo}). ` +
-      "Esse fallback não é renovado pelo job de refresh automático (A23) — reconecte via OAuth em /configuracoes assim que possível.",
+      "Esse fallback não é renovado pelo job de refresh automático (A23). Reconecte via OAuth em /configuracoes assim que possível.",
     );
   }
 

@@ -21,7 +21,7 @@ import type { CrudContext } from "@/shared/lib/crud-factory";
 export const A28_syncAvaliacoesML = inngest.createFunction(
   {
     id: "A28-sync-avaliacoes-ml",
-    name: "A28 — Sincronização de avaliações dos marketplaces",
+    name: "A28: Sincronização de avaliações dos marketplaces",
     concurrency: { limit: 1 },
     // Avaliação não precisa reler centenas de anúncios a cada hora. Quatro
     // rodadas diárias mantêm o dado recente e reduzem 75% da carga anterior.

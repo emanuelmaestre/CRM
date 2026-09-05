@@ -85,7 +85,7 @@ function motivoQualidadeIndisponivel(
   canal: PlataformaAnuncios = "mercadolivre",
 ): string {
   if (canal === "shopee") {
-    return "A Shopee não publica nota de qualidade do anúncio na API de publicidade — é um conceito do Mercado Livre. Aqui \"não aplicável\" significa que o dado não existe neste canal, não que a publicação foi mal avaliada.";
+    return "A Shopee não publica nota de qualidade do anúncio na API de publicidade. Esse conceito pertence ao Mercado Livre. Aqui \"não aplicável\" significa que o dado não existe neste canal, não que a publicação foi mal avaliada.";
   }
   if (qualidadeStatus === "nao_aplicavel") {
     return status !== "active"
@@ -292,7 +292,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
         const cor = COR_CANAL[canal];
         return (
           <motion.button key={canal} type="button" role="switch" aria-checked={ativo} aria-label={rotulo}
-            title={`Anúncios patrocinados — ${rotulo}. Clique para ${ativo ? "ocultar" : "mostrar"}.`}
+            title={`Anúncios patrocinados, ${rotulo}. Clique para ${ativo ? "ocultar" : "mostrar"}.`}
             onClick={() => alternarCanal(canal)}
             whileHover={{ y: -2 }}
             whileTap={{ scale: 0.88, rotate: -4 }}
@@ -308,14 +308,14 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                 falha continua: ele não é a contagem, é "esta consulta não
                 voltou", que muda a leitura de tudo que o card mostra abaixo. */}
             {falhouParaCanal(canal) && (
-              <TriangleAlert size={12} className="text-muted-foreground" aria-label={`Não foi possível consultar as publicações — ${rotulo}`} />
+              <TriangleAlert size={12} className="text-muted-foreground" aria-label={`Não foi possível consultar as publicações, ${rotulo}`} />
             )}
           </motion.button>
         );
       })}
       {CANAIS_SEM_PUBLICIDADE.map(({ canal, label }) => (
         <span key={canal} role="switch" aria-checked="false" aria-disabled="true"
-          title={`${label} — sem publicidade integrada`}
+          title={`${label}, sem publicidade integrada`}
           className="inline-flex h-11 shrink-0 cursor-not-allowed items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card/40 px-3.5 text-muted-foreground opacity-40">
           <ChannelLogo canal={canal} size="sm" variant="logo" />
         </span>
@@ -459,7 +459,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                   </span>
                 </div>
                 <div className="flex h-full flex-col items-center">
-                  <p className="text-lg font-bold tabular-nums">{retornoMedio === null ? "—" : `${retornoMedio.toFixed(1)}x`}</p>
+                  <p className="text-lg font-bold tabular-nums">{retornoMedio === null ? "Não informado" : `${retornoMedio.toFixed(1)}x`}</p>
                   <p className="text-center text-[11px] text-muted-foreground">retorno do período</p>
                   <span className="mt-auto pt-1.5">
                     <CalculoPopover

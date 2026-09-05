@@ -341,7 +341,7 @@ export const SHOPEE_REQUISICOES_PAUSADAS = false;
 
 class ErroShopeePausado extends Error {
   constructor() {
-    super("Requisições à Shopee pausadas manualmente — ver SHOPEE_REQUISICOES_PAUSADAS.");
+    super("Requisições à Shopee pausadas manualmente. Consulte SHOPEE_REQUISICOES_PAUSADAS.");
     this.name = "ErroShopeePausado";
   }
 }
@@ -866,7 +866,7 @@ export class ShopeeProvider implements ChannelProvider {
        queimando a cota do proxy de IP fixo, que é o gargalo real. */
     if (!this.credsFinanceiro) {
       console.warn(
-        `[Shopee] app Financeiro não conectado para esta marca — ${orderSns.length} pedido(s) entram sem `
+        `[Shopee] app Financeiro não conectado para esta marca. ${orderSns.length} pedido(s) entram sem `
         + "repasse, frete e taxa. Autorizar em /configuracoes; a A34 preenche depois, sem reimportação.",
       );
       return resultado;
@@ -933,7 +933,7 @@ export class ShopeeProvider implements ChannelProvider {
          consumindo a cota do proxy de IP fixo, que é o gargalo real aqui. */
       if (semPermissaoFinanceira) {
         console.warn(
-          "[Shopee] app sem permissão para a API de Payment — financeiro dos pedidos "
+          "[Shopee] app sem permissão para a API de Payment. O financeiro dos pedidos "
           + `não será preenchido nesta volta (${orderSns.length - inicio - lote.length} pedido(s) restantes pulados). `
           + "Liberar a categoria Payment/Finance para o app de Pedidos no console da Shopee.",
         );

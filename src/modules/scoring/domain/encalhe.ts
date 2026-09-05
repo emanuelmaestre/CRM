@@ -34,7 +34,7 @@ export function calcularScoreProduto(dados: DadosEncalhe): ResultadoScoreProduto
   const riscoEncalhe = Math.max(0, Math.min(100, riscoBase + fatorGiro + fatorTendencia));
 
   let acaoSugerida = "Monitorar";
-  if (riscoEncalhe >= 80) acaoSugerida = `Promoção urgente — R$ ${capitalParado.toFixed(2)} parado`;
+  if (riscoEncalhe >= 80) acaoSugerida = `Promoção urgente: R$ ${capitalParado.toFixed(2)} parado`;
   else if (riscoEncalhe >= 50) acaoSugerida = "Considerar kit ou bundle com produto de alto giro";
   else if (riscoEncalhe >= 30) acaoSugerida = "Revisar preço ou investir em divulgação";
 

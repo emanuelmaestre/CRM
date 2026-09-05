@@ -13,7 +13,7 @@ const ANOS_RETENCAO = 5;
 export const A22_lgpdRetencao = inngest.createFunction(
   {
     id: "A22-lgpd-retencao",
-    name: "A22 — Limpeza e retenção LGPD (anonimização de inativos)",
+    name: "A22: Limpeza e retenção LGPD (anonimização de inativos)",
     concurrency: { limit: 1 },
     triggers: [{ cron: "0 3 1 * *" }],
   },

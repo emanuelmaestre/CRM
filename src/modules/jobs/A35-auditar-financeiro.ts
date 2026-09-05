@@ -30,7 +30,7 @@ const MAX_REBUSCAS_POR_CONTA = 50;
 export const A35_auditarFinanceiro = inngest.createFunction(
   {
     id: "A35-auditar-financeiro",
-    name: "A35 — Conferência financeira (re-busca e resolução)",
+    name: "A35: Conferência financeira (re-busca e resolução)",
     concurrency: { limit: 1 },
     triggers: [
       { cron: "0 6 * * *" },

@@ -308,7 +308,7 @@ export function SeletorMarca({ marcas, ativa, onChange, indisponiveis = [] }: {
           disabled
           aria-disabled="true"
           title={`${marca.brandLabel} não tem anúncios neste canal`}
-          aria-label={`${marca.brandLabel} — sem anúncios neste canal`}
+          aria-label={`${marca.brandLabel}, sem anúncios neste canal`}
           onClick={() => toast.info(`${marca.brandLabel} não tem anúncios neste canal.`)}
           className="relative inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card/40 px-4 opacity-50"
         >
@@ -350,7 +350,7 @@ export function SeletorCanalAnuncios() {
             aria-selected={ativo}
             disabled={!disponivel}
             title={disponivel ? label : `Publicidade de ${label} ainda não está disponível`}
-            aria-label={disponivel ? label : `${label} — ainda não disponível`}
+            aria-label={disponivel ? label : `${label}, ainda não disponível`}
             onClick={disponivel
               ? () => definirCanal(canal)
               : () => toast.info(`Publicidade de ${label} ainda não está disponível.`)}

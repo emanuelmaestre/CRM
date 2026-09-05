@@ -26,7 +26,7 @@ export function ConsumoIaPainel({ data }: { data: ConsumoData }) {
     <motion.div variants={stagger} initial="hidden" animate="show">
       <PageHeader
         title="Consumo de IA"
-        description="Custo, runs e corte suave de orçamento mensal — nenhuma geração roda além do limite configurado."
+        description="Custo, runs e corte suave do orçamento mensal. Nenhuma geração roda além do limite configurado."
       />
 
       {cortado && (
@@ -35,7 +35,7 @@ export function ConsumoIaPainel({ data }: { data: ConsumoData }) {
           className="mb-5 flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
         >
           <AlertTriangle size={16} strokeWidth={1.75} className="shrink-0" />
-          Orçamento mensal atingido — novas gerações de IA estão bloqueadas até o próximo ciclo (corte suave).
+          Orçamento mensal atingido. Novas gerações de IA estão bloqueadas até o próximo ciclo (corte suave).
         </motion.div>
       )}
 

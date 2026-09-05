@@ -51,14 +51,14 @@ const TOKENS = `
   --sd-hero-sub: #9AA0AC;
   --sd-trilho: #EDEEF0;
 
-  /* marca — só como sinal de "de quem é o dado" */
+  /* marca, só como sinal de "de quem é o dado" */
   --sd-karzi: #E3131B;
   --sd-karzi-acc: #FFC400;
   --sd-wuwu: #9B30D9;
   --sd-lima: #6F6F6E;
   --sd-assinatura: linear-gradient(135deg, #E3131B, #9B30D9);
 
-  /* semântica — só como estado do dado */
+  /* semântica, só como estado do dado */
   --sd-ok: #1F8A4C;
   --sd-warn: #B57A00;
   --sd-err: #C21820;

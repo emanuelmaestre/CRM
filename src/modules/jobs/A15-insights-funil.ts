@@ -8,7 +8,7 @@ import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturame
 import { valorFaturavelPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
 
 export const A15_insightsFunil = inngest.createFunction(
-  { id: "A15-insights-funil", name: "A15 — Insights executivos semanais (IA)", concurrency: { limit: 1 }, triggers: [{ cron: "0 7 * * 1" }] },
+  { id: "A15-insights-funil", name: "A15: Insights executivos semanais (IA)", concurrency: { limit: 1 }, triggers: [{ cron: "0 7 * * 1" }] },
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
     const desde = subDays(new Date(), 30);

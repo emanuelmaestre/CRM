@@ -75,7 +75,7 @@ function enderecoResumo(c: Cliente) {
   const linha1 = [c.enderecoRua, c.enderecoNumero].filter(Boolean).join(", ");
   const linha2 = [c.enderecoBairro, c.enderecoCidade && c.enderecoEstado ? `${c.enderecoCidade}/${c.enderecoEstado}` : c.enderecoCidade]
     .filter(Boolean)
-    .join(" — ");
+    .join(", ");
   return [linha1, linha2].filter(Boolean).join(" · ") || null;
 }
 

@@ -85,7 +85,7 @@ function semSuporte(modulo: string, tipo: string) {
 export const A31_sincronizarConta = inngest.createFunction(
   {
     id: "A31-sincronizar-conta",
-    name: "A31 — Sincronização manual de conta (fila completa)",
+    name: "A31: Sincronização manual de conta (fila completa)",
     /* `idempotency` impede a MESMA execução de rodar duas vezes, não impede
        contas diferentes de sincronizarem ao mesmo tempo — e era o único job
        do projeto sem teto de concorrência. Duas marcas com backfill de 90

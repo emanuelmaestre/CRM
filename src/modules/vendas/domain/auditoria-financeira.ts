@@ -213,7 +213,7 @@ export function decomporPedido(p: PedidoConferencia): DecomposicaoPedido {
       classificacao: aguardando ? "aguardando_repasse" : "sem_repasse",
       detalhe: aguardando
         ? `Repasse ainda não liberado (pedido com ${Math.floor(p.idadeDias)} dia(s), carência de ${espec.diasGraciaRepasse}).`
-        : `Repasse ausente ${Math.floor(p.idadeDias)} dias após a compra — deveria ter sido liberado.`,
+        : `Repasse ausente ${Math.floor(p.idadeDias)} dias após a compra; deveria ter sido liberado.`,
     };
   }
 

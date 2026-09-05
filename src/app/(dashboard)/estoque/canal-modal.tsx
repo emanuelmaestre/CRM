@@ -247,7 +247,7 @@ export function CanalModal({ produtoId, produtoNome, onClose }: Props) {
                         disabled={pending}
                         className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-destructive/8 hover:text-destructive disabled:opacity-50"
                         title={copy.removeTitle}
-                        aria-label={`${copy.removeTitle} — ${m.contaNome}`}
+                        aria-label={`${copy.removeTitle}, ${m.contaNome}`}
                       >
                         <Trash2 size={14} />
                       </button>

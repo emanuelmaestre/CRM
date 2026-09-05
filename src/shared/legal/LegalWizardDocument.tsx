@@ -22,7 +22,7 @@ const labels = {
     sources: "Fontes consultadas",
     contact: "Fale com a operadora",
     legalNote:
-      "Base operacional e de transparência para revisão de APIs — não substitui revisão jurídica formal quando exigida.",
+      "Base operacional e de transparência para revisão de APIs. Não substitui revisão jurídica formal quando exigida.",
     scope: "Cobre integrações com",
     operatedBy: "Operado por",
     skip: "Ir para o conteúdo",
@@ -35,7 +35,7 @@ const labels = {
     sources: "Sources consulted",
     contact: "Talk to the operator",
     legalNote:
-      "Operational transparency baseline for API review — does not replace formal legal review where required.",
+      "Operational transparency baseline for API review. It does not replace formal legal review where required.",
     scope: "Covers integrations with",
     operatedBy: "Operated by",
     skip: "Skip to content",

@@ -243,7 +243,7 @@ export function EncerramentoCanalSection() {
                           {excluido ? (
                             <span className="text-[11px] text-muted-foreground">excluído</span>
                           ) : vazio ? (
-                            <span className="text-[15px] text-muted-foreground/50">—</span>
+                            <span className="text-[11px] text-muted-foreground/50" aria-label="Sem dados" title="Sem dados">N/D</span>
                           ) : (
                             <span className="text-[15px] font-bold tabular-nums text-foreground">
                               {numero.format(canal.clientesAfetados)}

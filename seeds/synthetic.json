@@ -58,7 +58,7 @@
       "id": "30000000-0000-4000-8000-000000000001",
       "brand": "karzi",
       "type": "whatsapp",
-      "name": "WhatsApp KARZI — sintético",
+      "name": "WhatsApp KARZI (sintético)",
       "status": "desconectado",
       "vaultKey": "synthetic/disabled/karzi/whatsapp"
     },
@@ -67,7 +67,7 @@
       "id": "30000000-0000-4000-8000-000000000002",
       "brand": "karzi",
       "type": "mercadolivre",
-      "name": "Mercado Livre KARZI — sintético",
+      "name": "Mercado Livre KARZI (sintético)",
       "status": "desconectado",
       "vaultKey": "synthetic/disabled/karzi/mercadolivre"
     },
@@ -76,7 +76,7 @@
       "id": "30000000-0000-4000-8000-000000000003",
       "brand": "wuwu",
       "type": "instagram",
-      "name": "Instagram WUWU — sintético",
+      "name": "Instagram WUWU (sintético)",
       "status": "desconectado",
       "vaultKey": "synthetic/disabled/wuwu/instagram"
     },
@@ -85,7 +85,7 @@
       "id": "30000000-0000-4000-8000-000000000004",
       "brand": "wuwu",
       "type": "shopee",
-      "name": "Shopee WUWU — sintético",
+      "name": "Shopee WUWU (sintético)",
       "status": "desconectado",
       "vaultKey": "synthetic/disabled/wuwu/shopee"
     },
@@ -94,7 +94,7 @@
       "id": "30000000-0000-4000-8000-000000000005",
       "brand": "armarinhos_lima",
       "type": "mercadolivre",
-      "name": "Mercado Livre Armarinhos Lima — sintético",
+      "name": "Mercado Livre Armarinhos Lima (sintético)",
       "status": "desconectado",
       "vaultKey": "synthetic/disabled/armarinhos_lima/mercadolivre"
     },
@@ -103,7 +103,7 @@
       "id": "30000000-0000-4000-8000-000000000006",
       "brand": "armarinhos_lima",
       "type": "shopee",
-      "name": "Shopee Armarinhos Lima — sintético",
+      "name": "Shopee Armarinhos Lima (sintético)",
       "status": "desconectado",
       "vaultKey": "synthetic/disabled/armarinhos_lima/shopee"
     },
@@ -112,7 +112,7 @@
       "id": "30000000-0000-4000-8000-000000000007",
       "brand": "armarinhos_lima",
       "type": "tiktokshop",
-      "name": "TikTok Shop Armarinhos Lima — sintético",
+      "name": "TikTok Shop Armarinhos Lima (sintético)",
       "status": "desconectado",
       "vaultKey": "synthetic/disabled/armarinhos_lima/tiktokshop"
     }

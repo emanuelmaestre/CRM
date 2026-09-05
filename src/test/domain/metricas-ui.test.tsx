@@ -72,7 +72,7 @@ function resultado(parcial: Partial<SaudeLojaResultado> = {}): SaudeLojaResultad
     scoreGeral: 78,
     faixaGeralLabel: "Saudável",
     faixaGeralCor: "var(--escala-4)",
-    periodoLabel: "16/07 – 14/08",
+    periodoLabel: "16/07 a 14/08",
     reputacaoIndisponivel: false,
     marcasComFalha: [],
     contasDesconectadas: [],

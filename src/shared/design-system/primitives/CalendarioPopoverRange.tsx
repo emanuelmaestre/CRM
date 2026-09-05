@@ -539,7 +539,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
   // cabeçalho do painel); title/aria-label continuam com a data por
   // extenso pra quem usa leitor de tela saber o valor atual sem abrir.
   const rotuloAcessivel = inicioSelecionado && fimSelecionado
-    ? `${rotulo}: ${diaMesAno.format(inicioSelecionado)} – ${diaMesAno.format(fimSelecionado)}`
+    ? `${rotulo}: ${diaMesAno.format(inicioSelecionado)} a ${diaMesAno.format(fimSelecionado)}`
     : rotulo;
 
   const mesEsquerda = mesVisivel;
@@ -635,7 +635,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             {!inicioRascunho && inicioSelecionado && fimSelecionado && (
               <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className={cn("font-extrabold tracking-[-0.01em] text-foreground", posicao.folha ? "text-[17px]" : "text-[14px]")}>
-                  {diaMesAno.format(inicioSelecionado)} – {diaMesAno.format(fimSelecionado)}
+                  {diaMesAno.format(inicioSelecionado)} a {diaMesAno.format(fimSelecionado)}
                 </span>
                 {/* Quantos dias o intervalo cobre: conferir faturamento de 29 ou
                     de 30 dias muda o numero, e contar no calendario e trabalho.

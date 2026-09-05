@@ -176,7 +176,7 @@ export async function dispararRegua(input: {
 export async function cancelarExecucoesCliente(orgId: string, clienteId: string): Promise<void> {
   await db
     .update(reguaExecucao)
-    .set({ status: "bloqueada", motivoBloqueio: "Opt-out registrado — execuções canceladas", updatedAt: new Date() })
+    .set({ status: "bloqueada", motivoBloqueio: "Opt-out registrado: execuções canceladas", updatedAt: new Date() })
     .where(
       and(
         eq(reguaExecucao.orgId, orgId),

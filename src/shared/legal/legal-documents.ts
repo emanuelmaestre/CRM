@@ -436,7 +436,7 @@ export const legalDocuments = {
           summary: "Perfil, rota e módulo são concedidos individualmente, e o isolamento entre organizações é validado por teste automatizado.",
           body: [
             "A autenticação usa provedor gerenciado com sessão assinada. A autorização acontece em três camadas somadas: perfil do usuário (administrador, gestor ou vendedor), restrição por rota declarada em configuração versionada, e visibilidade de módulo definida individualmente pelo administrador para cada pessoa.",
-            "Toda operação de escrita revalida o perfil de quem chamou no lado do servidor. A verificação nunca depende do que o navegador informa, de modo que ocultar um módulo na interface não é o que protege o dado — a checagem no servidor é.",
+            "Toda operação de escrita revalida o perfil de quem chamou no lado do servidor. A verificação nunca depende do que o navegador informa. Ocultar um módulo na interface não é o que protege o dado; a checagem no servidor é.",
             "Os dados são isolados por organização no próprio banco: todas as tabelas têm Row Level Security ativa com política por identificador de organização, e o código filtra explicitamente por esse identificador em cada consulta. Uma suíte de testes dedicada roda na integração contínua a cada alteração e valida negação por padrão, isolamento de leitura e escrita, e bloqueio de troca de organização.",
           ],
           bullets: [
@@ -499,7 +499,7 @@ export const legalDocuments = {
           ],
           bullets: [
             "Correção de vulnerabilidade crítica ou alta: tratada com prioridade sobre demanda de funcionalidade.",
-            "A verificação automatizada — tipos, análise estática, testes unitários, testes de isolamento de dados e build — roda a cada envio de código, e o resultado é revisado antes de a alteração ser considerada concluída.",
+            "A verificação automatizada (tipos, análise estática, testes unitários, testes de isolamento de dados e build) roda a cada envio de código, e o resultado é revisado antes de a alteração ser considerada concluída.",
             "As dependências publicadas em produção são mantidas sem vulnerabilidade conhecida em aberto.",
             "Achados de segurança relatados por terceiros podem ser enviados para producao@elisalima.com.br.",
           ],
@@ -821,7 +821,7 @@ export const legalDocuments = {
           summary: "Support for user requests, deletion at the end of the relationship and security incident notification.",
           body: [
             "Support for user requests: when a data subject exercises a right directly with the platform (TikTok Shop, Shopee, Mercado Livre) or with the authorized seller, and the request is forwarded to Elisa Lima CRM, the operator fulfils the request to access, correct, update, port, anonymize or delete that data subject's data within 15 calendar days of receipt, and confirms completion in writing to whoever forwarded it. The same channel applies to requests raised by the platform itself.",
-            "End of the relationship: upon contract termination, revocation of authorization or disconnection of a channel account, tokens are invalidated immediately and collection stops at once. Deletion of the data already collected from that channel is carried out upon request from the platform or the authorized seller, without undue delay. Execution is always manual and never automated: it requires authorization from three distinct administrators, each confirming with their own credential — a deliberate control so that a compromised credential or a mistaken command cannot irreversibly destroy history. Every execution is recorded in an audit log with the date, the responsible administrators and the volume affected, and that record is provided in writing on request. Only the minimum that law requires is kept (for example, tax records of orders), with no operational use.",
+            "End of the relationship: upon contract termination, revocation of authorization or disconnection of a channel account, tokens are invalidated immediately and collection stops at once. Deletion of the data already collected from that channel is carried out upon request from the platform or the authorized seller, without undue delay. Execution is always manual and never automated: it requires authorization from three distinct administrators, each confirming with their own credential. This deliberate control prevents a compromised credential or a mistaken command from irreversibly destroying history. Every execution is recorded in an audit log with the date, the responsible administrators and the volume affected, and that record is provided in writing on request. Only the minimum that law requires is kept (for example, tax records of orders), with no operational use.",
             "Security incident: once unauthorized access, loss, improper alteration or leakage involving personal data or platform account data is confirmed, the operator notifies the affected platform and the affected sellers within 72 hours of confirmation, through the official developer support channel and producao@elisalima.com.br, describing the nature of the incident, the data and data subjects involved, technical measures already taken and the remediation plan, with updates until closure. Notification to the Brazilian ANPD and to data subjects follows the LGPD.",
           ],
           // See the note on the Portuguese section: this document renders
@@ -893,7 +893,7 @@ export const legalDocuments = {
           summary: "Profile, route and module are granted individually, and tenant isolation is verified by an automated test suite.",
           body: [
             "Authentication uses a managed provider with a signed session. Authorization is enforced in three cumulative layers: user profile (admin, manager or seller), per-route restriction declared in versioned configuration, and module visibility set individually by the administrator for each person.",
-            "Every write operation re-validates the caller's profile server-side. The check never relies on what the browser reports, so hiding a module in the interface is not what protects the data — the server-side check is.",
+            "Every write operation re-validates the caller's profile server-side. The check never relies on what the browser reports. Hiding a module in the interface is not what protects the data; the server-side check is.",
             "Data is tenant-isolated in the database itself: every table has Row Level Security enabled with an organization identifier policy, and application code filters explicitly by that identifier on every query. A dedicated test suite runs in continuous integration on every change and verifies default deny, read and write isolation, and blocking of tenant switching.",
           ],
           bullets: [
@@ -956,7 +956,7 @@ export const legalDocuments = {
           ],
           bullets: [
             "Critical or high severity fixes take priority over feature demand.",
-            "Automated verification — type checking, static analysis, unit tests, data isolation tests and build — runs on every code push, and its result is reviewed before a change is considered complete.",
+            "Automated verification (type checking, static analysis, unit tests, data isolation tests and build) runs on every code push, and its result is reviewed before a change is considered complete.",
             "Dependencies deployed to production are kept free of known open vulnerabilities.",
             "Third-party security findings can be sent to producao@elisalima.com.br.",
           ],

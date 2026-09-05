@@ -217,7 +217,7 @@ function Opiniao({ opiniao, comprador, pedido }: { opiniao: OpiniaoRica; comprad
         <span className="text-[11px] tabular-nums text-muted-foreground">{formatarData(opiniao.criadaEm)}</span>
         {opiniao.autor && (
           <span
-            title="Nome de usuário informado pela Shopee — o canal identifica quem avaliou, diferente do Mercado Livre."
+            title="Nome de usuário informado pela Shopee. O canal identifica quem avaliou, diferente do Mercado Livre."
             className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-foreground"
           >
             <UserCheck size={10} strokeWidth={2.5} /> {opiniao.autor}
@@ -249,7 +249,7 @@ function Opiniao({ opiniao, comprador, pedido }: { opiniao: OpiniaoRica; comprad
              descartada no provider e o anúncio parecia não ter comentário
              nenhum. Dizer que não há texto evita a leitura de que o CRM
              perdeu o conteúdo. */
-          <p className="mt-1 text-sm italic leading-relaxed text-muted-foreground">Sem texto — o cliente avaliou com {fotos.length > 0 && videos.length > 0 ? "foto e vídeo" : fotos.length > 0 ? (fotos.length === 1 ? "uma foto" : "fotos") : (videos.length === 1 ? "um vídeo" : "vídeos")}.</p>
+          <p className="mt-1 text-sm italic leading-relaxed text-muted-foreground">Sem texto, o cliente avaliou com {fotos.length > 0 && videos.length > 0 ? "foto e vídeo" : fotos.length > 0 ? (fotos.length === 1 ? "uma foto" : "fotos") : (videos.length === 1 ? "um vídeo" : "vídeos")}.</p>
         )}
 
       {temMidia && (
@@ -378,7 +378,7 @@ function LinhaAnuncio({ item, aberta, onAlternar, identificacoes, pedidosDaAvali
             </p>
           </div>
           <span className={`shrink-0 whitespace-nowrap text-right text-xl font-black tabular-nums sm:w-10 ${baixa ? "text-destructive" : "text-foreground"}`}>
-            {item.ratingAverage?.toFixed(1) ?? "—"}
+            {item.ratingAverage?.toFixed(1) ?? "Não informado"}
           </span>
           {temDetalhe ? (
             <motion.span
@@ -674,7 +674,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
           <div className="flex flex-col items-center justify-center gap-1 md:items-start">
             <span className="flex items-center gap-1.5">
               <p className="whitespace-nowrap text-[3.25rem] font-black leading-none tracking-[-0.03em] tabular-nums text-foreground">
-                {carregandoInicial ? "…" : media === null ? "—" : media.toFixed(1).replace(".", ",")}
+                {carregandoInicial ? "…" : media === null ? "Não informado" : media.toFixed(1).replace(".", ",")}
               </p>
               {!carregandoInicial && (
                 <CalculoPopover
@@ -687,7 +687,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
                     valor: String(distribuicao?.[chave] ?? 0),
                     fracao: totalOpinioes > 0 ? (distribuicao?.[chave] ?? 0) / totalOpinioes : undefined,
                   }))}
-                  nota="A nota média e a distribuição por estrela representam todo o histórico do canal, sem recorte por data — o canal não permite esse filtro."
+                  nota="A nota média e a distribuição por estrela representam todo o histórico do canal, sem recorte por data, pois o canal não permite esse filtro."
                 />
               )}
             </span>

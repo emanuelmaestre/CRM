@@ -375,7 +375,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                   {!carregando && !semFiltro && (
                     <>
                       <span className={`whitespace-nowrap font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
-                        {resumo.valor ?? "—"}
+                        {resumo.valor ?? "Não informado"}
                       </span>
                       <Sinal resumo={resumo} />
                     </>
@@ -487,7 +487,7 @@ export function Bloco({ def, focado, onAbrir, secaoLabel, variante = "compacto",
                 <span className={`min-w-0 flex-1 ${def.previewAlinhamento === "sobrepor" ? "pr-11 lg:pr-16" : ""}`}>
                   <span className="flex items-baseline gap-1">
                     <span className={`whitespace-nowrap font-bold leading-none tabular-nums ${tam.numero}`} style={{ color: corTexto, fontFamily: "var(--font-sora), system-ui, sans-serif" }}>
-                      {resumo.valor ?? "—"}
+                      {resumo.valor ?? "Não informado"}
                     </span>
                   </span>
                   <span className="mt-1.5 block"><Sinal resumo={resumo} /></span>

@@ -144,6 +144,6 @@ export function conviteDeEscopo(falta: "empresa" | "canal" | "ambos"): {
   }
   return {
     titulo: "Escolha uma empresa e um canal",
-    descricao: "Os números só aparecem com os dois lados definidos — uma empresa, um canal e o período.",
+    descricao: "Os números só aparecem com os dois lados definidos: uma empresa, um canal e o período.",
   };
 }

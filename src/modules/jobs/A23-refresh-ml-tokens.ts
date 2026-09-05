@@ -9,7 +9,7 @@ import { finalizarJob, iniciarJob } from "./job-monitor";
 export const A23_refreshMLTokens = inngest.createFunction(
   {
     id: "A23-refresh-ml-tokens",
-    name: "A23 — Renovar tokens OAuth do Mercado Livre",
+    name: "A23: Renovar tokens OAuth do Mercado Livre",
     concurrency: { limit: 1 },
     triggers: [{ cron: ML_TOKEN_REFRESH_CRON }],
   },

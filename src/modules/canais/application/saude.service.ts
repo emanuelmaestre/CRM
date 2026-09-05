@@ -303,11 +303,11 @@ export async function obterPainelSaude(orgId: string): Promise<PainelSaudeData> 
     backup: [
       {
         label: "Última cópia de segurança automática",
-        value: ultimoBackup?.finalizadoEm?.toISOString() ?? ultimoBackup?.iniciadoEm.toISOString() ?? "—",
+        value: ultimoBackup?.finalizadoEm?.toISOString() ?? ultimoBackup?.iniciadoEm.toISOString() ?? "Não informado",
       },
       {
         label: "Último teste de restauração",
-        value: ultimoBackup?.status === "concluido" ? "Verificar evidência no manual operacional" : "—",
+        value: ultimoBackup?.status === "concluido" ? "Verificar evidência no manual operacional" : "Não informado",
       },
       { label: "Ponto de recuperação desejado (RPO)", value: "24 horas" },
       { label: "Tempo de recuperação desejado (RTO)", value: "4 horas" },

@@ -5,7 +5,7 @@ import type { PedidoNormalizado } from "@/modules/canais/domain/ports";
 export const A1_ingestaoPedidos = inngest.createFunction(
   {
     id: "A1-ingestao-pedidos",
-    name: "A1 — Ingestão e normalização de pedido por canal",
+    name: "A1: Ingestão e normalização de pedido por canal",
     idempotency: "event.data.orgId + '-' + event.data.channelAccountId + '-' + event.data.pedido.providerOrderId",
     triggers: [{ event: "canal/pedido.recebido" }],
   },

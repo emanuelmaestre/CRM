@@ -57,10 +57,10 @@ export function SetaRoas({ situacao, size = 18 }: { situacao: SituacaoRoas; size
 }
 
 const DESCRICAO: Record<SituacaoRoas, string> = {
-  acima: "a mídia se pagou — trouxe mais receita do que custou",
-  abaixo: "a mídia não se pagou — custou mais do que trouxe",
-  no_limite: "a mídia empatou — receita perto do que foi investido",
-  sem_dado: "sem investimento no período — ROAS não existe sem gasto",
+  acima: "a mídia se pagou: trouxe mais receita do que custou",
+  abaixo: "a mídia não se pagou: custou mais do que trouxe",
+  no_limite: "a mídia empatou: receita perto do que foi investido",
+  sem_dado: "sem investimento no período; ROAS não existe sem gasto",
 };
 
 export function Roas({ valor, className }: {
@@ -73,7 +73,7 @@ export function Roas({ valor, className }: {
     <span
       className={`inline-flex items-center justify-end gap-1 tabular-nums ${className ?? ""}`}
       style={{ color: COR_ROAS[situacao] }}
-      title={valor === null ? DESCRICAO.sem_dado : `${valor.toFixed(2)}x — ${DESCRICAO[situacao]}`}
+      title={valor === null ? DESCRICAO.sem_dado : `${valor.toFixed(2)}x, ${DESCRICAO[situacao]}`}
     >
       <SetaRoas situacao={situacao} size={12} />
       {valor === null ? "Sem dado" : `${valor.toFixed(2)}x`}

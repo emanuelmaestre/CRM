@@ -347,7 +347,7 @@ export default function ConfigurarAlertasEstoque() {
                       step="1"
                       inputMode="numeric"
                       value={faixa.minimo}
-                      aria-label={`${copy.regua.tierMinimum} — ${
+                      aria-label={`${copy.regua.tierMinimum}, ${
                         faixa.vendaMensalMinima === 0
                           ? copy.regua.tierZero
                           : `${faixa.vendaMensalMinima}+/mês`

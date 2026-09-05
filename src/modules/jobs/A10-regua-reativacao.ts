@@ -5,7 +5,7 @@ import { and, eq, gte, inArray } from "drizzle-orm";
 import { dispararRegua } from "@/modules/reguas/application/reguas.service";
 
 export const A10_reguaReativacao = inngest.createFunction(
-  { id: "A10-regua-reativacao", name: "A10 — Régua de reativação (cron diário)", concurrency: { limit: 1 }, triggers: [{ cron: "0 10 * * 1-5" }] },
+  { id: "A10-regua-reativacao", name: "A10: Régua de reativação (cron diário)", concurrency: { limit: 1 }, triggers: [{ cron: "0 10 * * 1-5" }] },
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
 

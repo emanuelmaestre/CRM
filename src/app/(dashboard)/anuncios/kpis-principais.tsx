@@ -98,7 +98,7 @@ function descricaoTacos(resumo: VisaoGeralResumo, plataforma: PlataformaAnuncios
   // pessoa procurar um problema que não existe.
   if (!EXPOE_VENDA_ORGANICA[plataforma]) {
     return {
-      descricao: "A Shopee não informa venda orgânica no relatório de Publicidade — ela devolve apenas o que veio de anúncio. Sem a receita orgânica falta metade da conta do TACOS, que compara o investimento com a receita TOTAL do canal. Por isso ele fica sem dado aqui, e não por falta de vendas. No Mercado Livre o número aparece normalmente.",
+      descricao: "A Shopee não informa venda orgânica no relatório de Publicidade. Ela devolve apenas o que veio de anúncio. Sem a receita orgânica falta metade da conta do TACOS, que compara o investimento com a receita TOTAL do canal. Por isso ele fica sem dado aqui, e não por falta de vendas. No Mercado Livre o número aparece normalmente.",
       observacao,
     };
   }

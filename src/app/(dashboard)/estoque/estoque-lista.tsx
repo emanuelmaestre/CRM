@@ -407,7 +407,7 @@ function MinimoInput({ produto, onSalvo, tamanho = "h-9 w-[68px]" }: { produto: 
         inputMode="numeric"
         value={valor}
         disabled={salvando}
-        aria-label={`${copy.minimum.columnLabel} — ${produto.nome}`}
+        aria-label={`${copy.minimum.columnLabel}, ${produto.nome}`}
         onChange={(event) => setValor(event.target.value)}
         onBlur={salvar}
         onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }}
@@ -599,7 +599,7 @@ function CanalPill({ tipo, conectado, ativo, onClick }: {
       whileHover={conectado && !reduzir ? { y: -2, scale: 1.04 } : undefined}
       whileTap={!reduzir ? { scale: conectado ? 0.92 : 0.97 } : undefined}
       aria-pressed={ativo}
-      aria-label={conectado ? label : `${label} — ${copy.channelSelector.disconnectedHint.replace("{canal}", label)}`}
+      aria-label={conectado ? label : `${label}, ${copy.channelSelector.disconnectedHint.replace("{canal}", label)}`}
       title={conectado ? label : copy.channelSelector.disconnectedHint.replace("{canal}", label)}
       className={`relative inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 transition-colors ${
         !conectado

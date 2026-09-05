@@ -66,7 +66,7 @@ describe("filtros de Avaliações", () => {
 
   it("mantém TikTok tocável para explicar que avaliações ainda não estão disponíveis", () => {
     render(<AvaliacoesCliente itensIniciais={itens(1, "armarinhos_lima", "mercadolivre", 0)} />);
-    const tiktok = screen.getByRole("button", { name: /TikTok Shop — ainda não disponível/i });
+    const tiktok = screen.getByRole("button", { name: /TikTok Shop, ainda não disponível/i });
     expect(tiktok).toBeEnabled();
     expect(tiktok).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(tiktok);

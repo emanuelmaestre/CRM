@@ -54,7 +54,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
     icone: MessageSquare,
     emoji: "💬",
     titulo: "Cliente esperando",
-    tom: "Ninguém fica 24h sem resposta sem você saber — a gente cutuca no WhatsApp.",
+    tom: "Ninguém fica 24h sem resposta sem você saber. A gente cutuca no WhatsApp.",
     modelo: "💬 *Cliente esperando resposta*\nEmpresa: {empresa}\nCanal: {canal}\nConversa aberta há mais de 24h sem retorno da equipe.",
   },
   {
@@ -63,7 +63,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
     icone: Ban,
     emoji: "❌",
     titulo: "Pedido cancelado",
-    tom: "Cancelamento a gente avisa na hora, já com valor e motivo — pra você saber o tamanho do estrago sem abrir o sistema.",
+    tom: "Cancelamento a gente avisa na hora, já com valor e motivo, pra você saber o tamanho do estrago sem abrir o sistema.",
     modelo: "❌ *Pedido cancelado*\nEmpresa: {empresa}\nCanal: {canal}\nPedido: {providerOrderId} · valor: R$ {total}\nMotivo: {canceladoMotivo}",
   },
   {
@@ -82,7 +82,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
     emoji: "🛑",
     titulo: "Régua travou de vez",
     tom: "Quando uma régua desiste de tentar de novo (não é falha passageira), a gente conta pra você decidir o próximo passo com o cliente.",
-    modelo: "🛑 *Régua travou de vez*\nEmpresa: {empresa}\nMotivo: {motivo}\nEssa régua não vai tentar de novo sozinha — vale olhar o cliente manualmente.",
+    modelo: "🛑 *Régua travou de vez*\nEmpresa: {empresa}\nMotivo: {motivo}\nEssa régua não vai tentar de novo sozinha. Vale olhar o cliente manualmente.",
   },
   {
     chave: "importacao.com_erros",
@@ -90,7 +90,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
     icone: AlertCircle,
     emoji: "📥",
     titulo: "Importação com erros",
-    tom: "Terminou de importar, mas nem tudo entrou limpo — te mandamos o placar pra você conferir o que ficou de fora.",
+    tom: "Terminou de importar, mas nem tudo entrou limpo. Mandamos o placar para você conferir o que ficou de fora.",
     modelo: "📥 *Importação concluída com erros*\nAceitos: {aceitos} de {total}\nRejeitados: {rejeitados}\nVale abrir o lote e ver o que não entrou.",
   },
   {
@@ -99,7 +99,7 @@ export const CATALOGO_AUTOMACOES_WHATSAPP: AutomacaoWhatsApp[] = [
     icone: AlertTriangle,
     emoji: "⚠️",
     titulo: "Canal com problema",
-    tom: "Se uma conta começar a engasgar, você é o primeiro a saber — não o cliente.",
+    tom: "Se uma conta começar a engasgar, você é o primeiro a saber; não o cliente.",
     modelo: "⚠️ *Canal degradado*\nEmpresa: {empresa}\nCanal: {canal}\nErro reportado: {ultimoErro}",
   },
   {

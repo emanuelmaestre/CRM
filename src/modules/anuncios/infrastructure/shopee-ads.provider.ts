@@ -218,7 +218,7 @@ export class ShopeeAdsProvider {
 
     const corpo: RespostaShopee<T> = await resposta.json();
     if (corpo.error) {
-      const mensagem = `Shopee Ads ${path}: ${corpo.error}${corpo.message ? ` — ${corpo.message}` : ""}`;
+      const mensagem = `Shopee Ads ${path}: ${corpo.error}${corpo.message ? `, ${corpo.message}` : ""}`;
       if (ERROS_SEM_PUBLICIDADE.has(corpo.error)) {
         throw new PublicidadeShopeeNaoHabilitadaError(mensagem);
       }

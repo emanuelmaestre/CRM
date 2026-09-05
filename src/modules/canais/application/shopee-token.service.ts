@@ -160,7 +160,7 @@ export async function renovarTokenShopee(row: ShopeeTokenRow): Promise<{ expires
   // errado só devolveria "Wrong sign", um erro que não aponta pra causa.
   if (!partnerId || !partnerKey) {
     throw new Error(
-      `Credenciais do app Shopee "${app}" não configuradas — renovação do canal "${row.canal ?? "shopee"}" não pode ser assinada.`,
+      `Credenciais do app Shopee "${app}" não configuradas. A renovação do canal "${row.canal ?? "shopee"}" não pode ser assinada.`,
     );
   }
   const tokens = await solicitarRenovacaoTokenShopee(row.refresh_token, row.seller_id, { partnerId, partnerKey });

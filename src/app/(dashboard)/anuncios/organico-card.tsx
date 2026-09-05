@@ -29,10 +29,10 @@ const LABEL_CLASSIFICACAO: Record<string, string> = {
  *  sem isso, "dependência crítica" soa como alarme mesmo quando é esperado
  *  (marca nova sem histórico orgânico ainda). */
 const VEREDITO_CLASSIFICACAO: Record<string, string> = {
-  baixa: "O orgânico já sustenta a maior parte das vendas — a mídia paga está sendo um complemento, não uma muleta.",
+  baixa: "O orgânico já sustenta a maior parte das vendas. A mídia paga está sendo um complemento, não uma muleta.",
   moderada: "Um equilíbrio saudável entre mídia paga e orgânico. Nenhuma das duas carrega a operação sozinha.",
-  alta: "A maior parte das vendas depende de mídia paga. Não é automaticamente ruim: uma marca nova sem histórico orgânico pode estar saudável assim mesmo — mas vale acompanhar se essa dependência está caindo com o tempo.",
-  critica: "Quase todas as vendas vêm de mídia paga — hoje, sem investimento em anúncio, as vendas cairiam quase a zero. Vale entender se é uma fase (lançamento) ou um padrão que precisa de atenção.",
+  alta: "A maior parte das vendas depende de mídia paga. Não é automaticamente ruim: uma marca nova sem histórico orgânico pode estar saudável assim mesmo, mas vale acompanhar se essa dependência está caindo com o tempo.",
+  critica: "Quase todas as vendas vêm de mídia paga. Hoje, sem investimento em anúncio, as vendas cairiam quase a zero. Vale entender se é uma fase (lançamento) ou um padrão que precisa de atenção.",
 };
 
 export function OrganicoCard({ resumo, resumoAnterior, marca, plataforma }: {
@@ -121,7 +121,7 @@ export function OrganicoCard({ resumo, resumoAnterior, marca, plataforma }: {
             <p className="text-[11px] font-semibold uppercase tracking-[.04em] text-muted-foreground">Se a mídia paga parasse hoje</p>
             <p className="mt-1 text-[13px] leading-relaxed text-foreground">
               A receita cairia de <span className="font-bold tabular-nums">{moeda.format(resumo.receitaTotal + resumo.receitaOrganica)}</span> para
-              {" "}<span className="font-bold tabular-nums">{moeda.format(resumo.receitaOrganica)}</span> — uma perda de{" "}
+              {" "}<span className="font-bold tabular-nums">{moeda.format(resumo.receitaOrganica)}</span>, uma perda de{" "}
               <span className="font-bold tabular-nums" style={{ color: "var(--destructive)" }}>{moeda.format(resumo.receitaTotal)}</span> só neste período.
             </p>
           </div>
@@ -130,7 +130,7 @@ export function OrganicoCard({ resumo, resumoAnterior, marca, plataforma }: {
             <div className="mt-4 rounded-[0.9rem] bg-muted/50 px-3.5 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[12px] font-semibold text-foreground">
-                  {LABEL_CLASSIFICACAO[resumo.dependenciaMidia.classificacao]} — {resumo.dependenciaMidia.percentual}%
+                  {LABEL_CLASSIFICACAO[resumo.dependenciaMidia.classificacao]}, {resumo.dependenciaMidia.percentual}%
                 </p>
                 {variacaoPontos !== null && variacaoPontos !== 0 && (
                   <span

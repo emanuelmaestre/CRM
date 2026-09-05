@@ -5,7 +5,7 @@ import { emitirEvento } from "@/shared/events";
 export const A21_guardaConsumoIA = inngest.createFunction(
   {
     id: "A21-guarda-consumo-ia",
-    name: "A21 — Monitoramento de consumo de IA (alerta 70%/90% e corte suave)",
+    name: "A21: Monitoramento de consumo de IA (alerta 70%/90% e corte suave)",
     concurrency: { limit: 1 },
     triggers: [{ cron: "0 */6 * * *" }],
   },

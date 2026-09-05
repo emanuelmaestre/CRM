@@ -51,7 +51,7 @@ const DIAS_RECONCILIACAO = 7;
 export const A34_reconciliarPedidos = inngest.createFunction(
   {
     id: "A34-reconciliar-pedidos",
-    name: `A34 — Reconciliação diária de pedidos (últimos ${DIAS_RECONCILIACAO} dias)`,
+    name: `A34: Reconciliação diária de pedidos (últimos ${DIAS_RECONCILIACAO} dias)`,
     concurrency: { limit: 1 },
     triggers: [
       { cron: "0 5 * * *" },

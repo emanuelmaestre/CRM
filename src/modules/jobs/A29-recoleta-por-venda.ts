@@ -21,7 +21,7 @@ import { resolverChannelProvider } from "@/modules/canais/infrastructure/provide
 export const A29_recoletaPorVenda = inngest.createFunction(
   {
     id: "A29-recoleta-por-venda",
-    name: "A29 — Recoleta de estoque dos produtos vendidos",
+    name: "A29: Recoleta de estoque dos produtos vendidos",
     // Um pedido pago só precisa de uma recoleta, mesmo que o evento chegue
     // repetido pelo webhook e pelo poll de contingência.
     idempotency: "event.data.orgId + '-' + event.data.entityId",

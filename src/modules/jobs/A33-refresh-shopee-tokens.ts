@@ -9,7 +9,7 @@ import { finalizarJob, iniciarJob } from "./job-monitor";
 export const A33_refreshShopeeTokens = inngest.createFunction(
   {
     id: "A33-refresh-shopee-tokens",
-    name: "A33 — Renovar tokens OAuth da Shopee",
+    name: "A33: Renovar tokens OAuth da Shopee",
     concurrency: { limit: 1 },
     triggers: [{ cron: SHOPEE_TOKEN_REFRESH_CRON }],
   },

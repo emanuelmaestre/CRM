@@ -77,7 +77,7 @@ export function mapearStatusPedido(statusExterno: string | null | undefined): Pe
   // mas agora deixa rastro no log da sincronização.
   if (chave && !statusDesconhecidoJaAvisado.has(chave)) {
     statusDesconhecidoJaAvisado.add(chave);
-    console.warn(`[pedidos] status externo desconhecido "${statusExterno}" — tratado como "criado". Ver mapearStatusPedido.`);
+    console.warn(`[pedidos] status externo desconhecido "${statusExterno}", tratado como "criado". Ver mapearStatusPedido.`);
   }
   return "criado";
 }

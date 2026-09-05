@@ -18,7 +18,7 @@ export async function recalcularScoreCliente(orgId: string, clienteId: string): 
 
   if (pedidos.length === 0) {
     const semCompraSegmento = "Em risco";
-    const semCompraAcao = "Sem histórico de compras — priorizar primeiro contato comercial";
+    const semCompraAcao = "Sem histórico de compras: priorizar primeiro contato comercial";
     await db
       .insert(scoreCliente)
       .values({

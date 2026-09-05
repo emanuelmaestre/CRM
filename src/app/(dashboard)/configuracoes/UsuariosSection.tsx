@@ -347,7 +347,7 @@ export function UsuariosSection({
       toast.success(
         resultado.excluidoDeVerdade
           ? "Usuário excluído."
-          : "O login foi removido. Como este usuário tem histórico vinculado (anotações, pedidos ou mensagens), o registro ficou anonimizado em vez de apagado — é o que preserva esse histórico.",
+          : "O login foi removido. Como este usuário tem histórico vinculado (anotações, pedidos ou mensagens), o registro ficou anonimizado em vez de apagado. Isso preserva o histórico.",
       );
       setUsuarioParaExcluir(null);
     } catch (error) {
@@ -689,7 +689,7 @@ export function UsuariosSection({
 
                 {(modoCriacao || modoModulos) && (
                   <>
-                    <Field label="Cargo" icon={ShieldCheck} hint="Rótulo livre — aparece no menu da pessoa e na lista de usuários.">
+                    <Field label="Cargo" icon={ShieldCheck} hint="Rótulo livre. Aparece no menu da pessoa e na lista de usuários.">
                       <input
                         value={form.cargo}
                         onChange={(event) => setForm((atual) => ({ ...atual, cargo: event.target.value }))}
@@ -724,7 +724,7 @@ export function UsuariosSection({
                     <Field
                       label="Módulos visíveis"
                       icon={LayoutGrid}
-                      hint="O que fica marcado aparece no menu dessa pessoa — o resto some, sem afetar o que ela pode fazer nos módulos que enxerga."
+                      hint="O que fica marcado aparece no menu dessa pessoa. O restante fica oculto, sem afetar o que ela pode fazer nos módulos visíveis."
                     >
                       <div className="grid grid-cols-2 gap-2">
                         {MODULOS_CATALOGO.map((modulo) => {
@@ -910,7 +910,7 @@ export function UsuariosSection({
                 <DialogPrimitive.Description className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                   O login é removido do Supabase Auth imediatamente. Se este usuário nunca autorizou nada, comentou ou
                   ficou responsável por um cliente/pedido/conversa, o registro some por completo. Se tiver histórico
-                  vinculado, o CRM anonimiza em vez de apagar — para não perder quem resolveu o quê.
+                  vinculado, o CRM anonimiza em vez de apagar, para não perder quem resolveu o quê.
                 </DialogPrimitive.Description>
               </div>
             </div>

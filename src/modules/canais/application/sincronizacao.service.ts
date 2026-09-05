@@ -119,7 +119,7 @@ export async function dispararSincronizacaoConta(
         const faltam = Math.ceil((INTERVALO_MINIMO_VERIFICACAO_MS - desde) / 60_000);
         throw new Error(
           `Este módulo foi verificado há pouco. Tente de novo em ${faltam} min`
-          + " — os dados atuais continuam na tela.",
+          + ". Os dados atuais continuam na tela.",
         );
       }
     }

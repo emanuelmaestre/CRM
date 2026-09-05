@@ -5,7 +5,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { dispararRegua } from "@/modules/reguas/application/reguas.service";
 
 export const A9_reguaAniversario = inngest.createFunction(
-  { id: "A9-regua-aniversario", name: "A9 — Régua de aniversário (cron diário 9h)", concurrency: { limit: 1 }, triggers: [{ cron: "0 9 * * *" }] },
+  { id: "A9-regua-aniversario", name: "A9: Régua de aniversário (cron diário 9h)", concurrency: { limit: 1 }, triggers: [{ cron: "0 9 * * *" }] },
   async ({ step }) => {
     const orgId = process.env.DEFAULT_ORG_ID ?? "";
 

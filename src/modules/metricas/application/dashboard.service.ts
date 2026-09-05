@@ -634,12 +634,12 @@ export async function obterDashboardData(
       : null,
     totalAnteriorNumerico: totalJanelaAnterior,
     totalAnterior: formatCurrency(totalJanelaAnterior),
-    janelaAnteriorLabel: `${diaMesAno.format(inicioJanelaAnterior)} – ${diaMesAno.format(subDays(fimJanelaAnterior, 1))}`,
+    janelaAnteriorLabel: `${diaMesAno.format(inicioJanelaAnterior)} a ${diaMesAno.format(subDays(fimJanelaAnterior, 1))}`,
     pedidos: pedidosNaJanela,
     ticketMedio: formatCurrency(pedidosNaJanela > 0 ? totalJanela / pedidosNaJanela : 0),
     serie,
     janelaLabel: personalizado
-      ? `${diaMesAno.format(inicioJanela)} – ${diaMesAno.format(fimJanela)}`
+      ? `${diaMesAno.format(inicioJanela)} a ${diaMesAno.format(fimJanela)}`
       : GRANULARIDADE_LABEL[granularidade],
     totalLiquidoNumerico: totalJanelaLiquido,
     totalLiquido: formatCurrency(totalJanelaLiquido),

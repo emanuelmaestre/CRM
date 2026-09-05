@@ -210,7 +210,7 @@ function EntendaFaturamentoBotao({
               que cai de fato na conta.
             </ItemRegra>
             <ItemRegra tipo="fora">Não desconta desconto ou acréscimo aplicado ao pedido</ItemRegra>
-            <ItemRegra tipo="fora">Não desconta o custo do produto — por isso líquido não é lucro</ItemRegra>
+            <ItemRegra tipo="fora">Não desconta o custo do produto, por isso líquido não é lucro</ItemRegra>
           </ul>
         </div>
       </div>
@@ -256,7 +256,7 @@ function EntendaFaturamentoBotao({
       <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
         Em resumo: o <strong className="font-semibold text-foreground">bruto</strong> responde quanto você vendeu; o{" "}
         <strong className="font-semibold text-foreground">líquido</strong>, quanto sobrou depois do canal. O que sobra
-        do seu bolso — custo do produto, embalagem, imposto — não entra em nenhum dos dois.
+        do seu bolso (custo do produto, embalagem e imposto) não entra em nenhum dos dois.
       </p>
     </AnimatedInfoPopover>
   );

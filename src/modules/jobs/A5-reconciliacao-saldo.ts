@@ -60,7 +60,7 @@ type FalhaColeta = {
 export const A5_coletaSaldoCanais = inngest.createFunction(
   {
     id: "A5-reconciliacao-saldo",
-    name: `A5 — Coleta de saldo de estoque por canal (a cada ${INTERVALO_COLETA_HORAS}h)`,
+    name: `A5: Coleta de saldo de estoque por canal (a cada ${INTERVALO_COLETA_HORAS}h)`,
     concurrency: { limit: 1 },
     // Uma varredura completa custa ~20s e ~550 chamadas somando os canais.
     // Pelo lado do Mercado Livre isso nunca foi o problema (perto de 3% do teto
@@ -426,7 +426,7 @@ export const A5_coletaSaldoCanais = inngest.createFunction(
     }
 
     if (coletados === 0 && conectados.length > 0) {
-      throw new Error(`A5 não coletou nenhum dos ${conectados.length} mapeamento(s) — verifique credenciais e disponibilidade do canal.`);
+      throw new Error(`A5 não coletou nenhum dos ${conectados.length} mapeamento(s). Verifique as credenciais e a disponibilidade do canal.`);
     }
 
     return {

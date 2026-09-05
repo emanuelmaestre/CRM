@@ -9,7 +9,7 @@ import { finalizarJob, iniciarJob } from "./job-monitor";
 export const A36_refreshTikTokTokens = inngest.createFunction(
   {
     id: "A36-refresh-tiktok-tokens",
-    name: "A36 — Renovar tokens OAuth do TikTok Shop",
+    name: "A36: Renovar tokens OAuth do TikTok Shop",
     concurrency: { limit: 1 },
     triggers: [{ cron: TIKTOK_TOKEN_REFRESH_CRON }],
   },

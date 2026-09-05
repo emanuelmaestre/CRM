@@ -14,7 +14,7 @@ import { SALDO_FRESCOR_MS } from "@/modules/estoque/infrastructure/saldo-canais"
 export const A6_alertaMinimo = inngest.createFunction(
   {
     id: "A6-alerta-minimo",
-    name: "A6 — Alerta de estoque mínimo",
+    name: "A6: Alerta de estoque mínimo",
     concurrency: { limit: 1 },
     triggers: [{ cron: "30 3 * * *" }],
   },

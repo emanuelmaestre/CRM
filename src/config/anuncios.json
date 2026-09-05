@@ -172,7 +172,7 @@
     "descricao": "Quanto das vendas depende de mídia paga, nesta janela de dados.",
     "semVenda": "Nenhuma venda paga ou orgânica encontrada no período.",
     "semOrganico": "A Shopee não informa venda orgânica",
-    "semOrganicoDescricao": "O relatório de Publicidade da Shopee só devolve o que veio de anúncio — ela não separa a venda que teria acontecido sem mídia paga. Sem esse número não dá para dizer quanto do resultado depende de publicidade, e por isso TACOS e dependência de mídia ficam sem dado neste canal. No Mercado Livre o card continua completo."
+    "semOrganicoDescricao": "O relatório de Publicidade da Shopee só devolve o que veio de anúncio. Ela não separa a venda que teria acontecido sem mídia paga. Sem esse número não dá para dizer quanto do resultado depende de publicidade, e por isso TACOS e dependência de mídia ficam sem dado neste canal. No Mercado Livre o card continua completo."
   },
   "vazio": {
     "titulo": "Nenhum dado de publicidade ainda",
@@ -182,11 +182,11 @@
     "carregar": "Não foi possível carregar os dados de Anúncios."
   },
   "janela": {
-    "_doc": "Aviso da janela de leitura. Aparece só quando o canal ainda pode creditar vendas aos dias mostrados — hoje, só a Shopee (7 dias depois do clique).",
+    "_doc": "Aviso da janela de leitura. Aparece só quando o canal ainda pode creditar vendas aos dias mostrados (hoje, apenas a Shopee, até 7 dias depois do clique).",
     "rotuloDia": "Dia mais recente sincronizado",
     "rotuloDias": "Últimos {dias} dias",
     "titulo": "Os dias mais recentes ainda vão subir",
-    "descricao": "A Shopee credita a venda até {dias} dias depois do clique. Nos dias mais recentes desta janela o gasto já aparece inteiro, mas parte da receita ainda não entrou — por isso a janela padrão aqui é de {dias} dias, e não o dia de hoje."
+    "descricao": "A Shopee credita a venda até {dias} dias depois do clique. Nos dias mais recentes desta janela o gasto já aparece inteiro, mas parte da receita ainda não entrou. Por isso, a janela padrão aqui é de {dias} dias, e não o dia de hoje."
   },
   "receitaPorCanal": {
     "_doc": "Receita não significa a mesma coisa nos dois canais. Usado na Visão Geral e na Comparação, para o número não ser lido como se fosse o mesmo conceito.",

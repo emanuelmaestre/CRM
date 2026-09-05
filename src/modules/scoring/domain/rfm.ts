@@ -49,17 +49,17 @@ function sugerirAcaoComercial(
   proximaCompraEstimadaDias: number | null,
 ): string {
   if (proximaCompraEstimadaDias != null && proximaCompraEstimadaDias <= 7 && proximaCompraEstimadaDias >= 0) {
-    return `Previsão de recompra em ${proximaCompraEstimadaDias} dia(s) — bom momento para oferta de continuidade`;
+    return `Previsão de recompra em ${proximaCompraEstimadaDias} dia(s): bom momento para oferta de continuidade`;
   }
   switch (segmento) {
     case "Campeão":
-      return "Manter relacionamento — considerar upsell ou cross-sell";
+      return "Manter relacionamento: considerar upsell ou cross-sell";
     case "Leal":
-      return "Cliente estável — reforçar com programa de fidelidade ou indicação";
+      return "Cliente estável: reforçar com programa de fidelidade ou indicação";
     case "Em risco":
-      return "Cliente esfriando — enviar lembrete ou oferta antes que o intervalo aumente mais";
+      return "Cliente esfriando: enviar lembrete ou oferta antes que o intervalo aumente mais";
     case "Adormecido":
-      return "Sem compra recente — contato personalizado com oferta de reativação";
+      return "Sem compra recente: contato personalizado com oferta de reativação";
     case "Perdido":
       return "Considerar campanha de win-back agressiva ou encerrar investimento neste cliente";
   }

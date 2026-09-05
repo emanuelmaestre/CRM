@@ -1093,7 +1093,7 @@ export function Mosaico({
         pontos: [
           { titulo: "Impressões, cliques e vendas atribuídas", texto: "Cada número vem da medição de publicidade do próprio canal do anúncio. As vendas orgânicas ficam fora para não distorcer a conversão." },
           { titulo: "Investimento, receita e retorno", texto: "O retorno compara a receita que o canal atribuiu ao anúncio com o valor investido exatamente no período selecionado." },
-          { titulo: "Pontuação de qualidade", texto: "É a nota que o Mercado Livre atribui ao anúncio, considerando ficha técnica, fotos e atributos preenchidos. A Shopee não publica nota equivalente, e por isso os anúncios dela aparecem como \"não aplicável\" — não é nota zero." },
+          { titulo: "Pontuação de qualidade", texto: "É a nota que o Mercado Livre atribui ao anúncio, considerando ficha técnica, fotos e atributos preenchidos. A Shopee não publica nota equivalente, e por isso os anúncios dela aparecem como \"não aplicável\". Isso não significa nota zero." },
           { titulo: "De quando é cada número", texto: "O Mercado Livre é consultado na hora. Os da Shopee vêm da sincronização diária de publicidade, e o card mostra a data e a hora dela." },
         ],
         dica: "Publicações sem qualquer veiculação ficam separadas para não esconder os anúncios que realmente consumiram verba ou geraram resultado.",
