@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, afterEach } from "vitest";
+import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { ShopeeProvider } from "@/modules/canais/infrastructure/shopee.provider";
 
 /* Termômetro da Shopee (account_health/get_shop_performance).
@@ -14,7 +14,9 @@ function respostaCom(body: unknown) {
   return vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
 }
 
-afterEach(() => vi.unstubAllGlobals());
+// Respostas simuladas não devem gravar telemetria no banco configurado pelo CI.
+beforeEach(() => vi.stubEnv("DEFAULT_ORG_ID", ""));
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("desempenho da loja Shopee", () => {
   it("marca fora da meta quem fura o próprio alvo, respeitando o comparador", async () => {

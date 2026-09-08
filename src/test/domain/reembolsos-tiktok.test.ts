@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mesclarReembolsosTikTok, normalizarReembolsoTikTok, REEMBOLSO_TIKTOK_CONCLUIDO, type RetornoTikTokApi } from "@/modules/canais/domain/reembolsos-tiktok";
 import { TikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
 import { reembolsoParcialInformado } from "@/modules/vendas/domain/status-faturamento";
@@ -9,7 +9,9 @@ const caso = (changes: Partial<RetornoTikTokApi> = {}): RetornoTikTokApi => ({
 });
 const provider = () => new TikTokShopProvider({ appKey: "app", appSecret: "secret", accessToken: "token", shopCipher: "shop" });
 const desde = new Date("2026-08-01T03:00:00Z"), ate = new Date("2026-09-08T12:00:00Z");
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+// Respostas simuladas não devem gravar telemetria no banco configurado pelo CI.
+beforeEach(() => vi.stubEnv("DEFAULT_ORG_ID", ""));
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("pós-venda TikTok", () => {
   it("usa o total devolvido com frete, sem somar casos cancelados nem a linha de SKU de novo", () => {
