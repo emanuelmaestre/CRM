@@ -88,13 +88,17 @@ export async function conciliarRepassesTikTok(opcoes: {
   desde?: Date;
   ate?: Date;
   banco?: typeof db;
+  /** Reconciliação dirigida: limita a gravação aos pedidos já auditados. */
+  orderIds?: readonly string[];
 }): Promise<ResumoRepasseTikTok> {
   const banco = opcoes.banco ?? db;
   const ate = opcoes.ate ?? new Date();
   const desde = opcoes.desde ?? new Date(ate.getTime() - DIAS_REPASSE_TIKTOK * 24 * 60 * 60 * 1000);
 
   const provider = await criarTikTokShopProvider(opcoes.brandSlug);
-  const repasses = await provider.listarRepasses(desde, ate);
+  const permitidos = opcoes.orderIds ? new Set(opcoes.orderIds) : null;
+  const repasses = (await provider.listarRepasses(desde, ate))
+    .filter((repasse) => !permitidos || permitidos.has(repasse.orderId));
 
   let atualizados = 0;
   let encontrados = 0;

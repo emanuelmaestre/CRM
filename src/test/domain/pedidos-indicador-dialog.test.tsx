@@ -11,6 +11,15 @@ const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: 
 beforeEach(() => consultar.mockReset());
 
 describe("pedidos dos indicadores", () => {
+  it("abre pendentes sem rotulá-los como devoluções nem como receita", async () => {
+    consultar.mockResolvedValue({ data: [{ ...pedido("pendente"), canal: "shopee", status: "criado", valorReembolsado: 0 }], hasMore: false });
+    render(<PedidosIndicadorDialog indicador="pendentes-confirmacao" titulo="Pedidos ainda sem confirmação" filtros={{ canais: ["shopee"] }} quantidade={1} valor={100} onClose={vi.fn()} />);
+    expect(await screen.findByRole("link", { name: /Ainda sem confirmação/ })).toHaveAttribute("href", "/vendas/pedidos/pendente");
+    expect(screen.getByText("Total ainda sem confirmação")).toBeInTheDocument();
+    expect(screen.queryByText("Devolvido")).not.toBeInTheDocument();
+    expect(screen.queryByText("Total cancelado/devolvido")).not.toBeInTheDocument();
+    expect(consultar).toHaveBeenCalledWith("pendentes-confirmacao", { canais: ["shopee"], offset: 0 });
+  });
   it("busca o recorte completo e carrega a próxima página sem perder os links anteriores", async () => {
     consultar.mockResolvedValueOnce({ data: Array.from({ length: 50 }, (_, i) => pedido(String(i))), hasMore: true })
       .mockResolvedValueOnce({ data: [pedido("50")], hasMore: false });

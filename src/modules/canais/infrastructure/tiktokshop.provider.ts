@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { proximoCursorSeguro } from "../domain/paginacao";
+import { normalizarReembolsoTikTok, type ReembolsoTikTok, type RetornoTikTokApi } from "../domain/reembolsos-tiktok";
 import type { ChannelProvider, EstoqueCanalRef, PedidoNormalizado, SaudeConector, OpcoesBuscaPedidos } from "../domain/ports";
 import { brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
@@ -400,6 +401,37 @@ export class TikTokShopProvider implements ChannelProvider {
       resultados.push(...this.normalizarPedidos(data.orders.filter((o) => lote.includes(o.id))));
     }
     return resultados;
+  }
+
+  /** Pós-venda tem versão e paginação próprias; COMPLETE no pedido não prova
+   * que o comprador conservou os produtos ou que não recebeu um reembolso. */
+  async listarReembolsos(desde: Date, ate: Date): Promise<ReembolsoTikTok[]> {
+    if (!Number.isFinite(desde.getTime()) || !Number.isFinite(ate.getTime()) || desde >= ate) throw new Error("TikTok: período de devoluções inválido.");
+    const casos = new Map<string, ReembolsoTikTok>();
+    const vistos = new Set<string>();
+    let cursor = "";
+    for (;;) {
+      const data = await this.request<{ return_orders?: RetornoTikTokApi[]; next_page_token?: string; total_count?: number }>(
+        "/return_refund/202309/returns/search", {
+          method: "POST",
+          query: { page_size: "50", sort_field: "update_time", sort_order: "ASC", ...(cursor ? { page_token: cursor } : {}) },
+          body: { update_time_ge: Math.floor(desde.getTime() / 1000), update_time_lt: Math.floor(ate.getTime() / 1000) },
+        },
+      );
+      // A resposta vazia real omite return_orders e informa total_count: 0.
+      const linhas = data.return_orders ?? (data.total_count === 0 ? [] : undefined);
+      if (!Array.isArray(linhas)) throw new Error("TikTok: resposta de devoluções incompleta.");
+      for (const raw of linhas) {
+        const caso = normalizarReembolsoTikTok(raw);
+        const anterior = casos.get(caso.id);
+        if (!anterior || caso.atualizadoEmMs >= anterior.atualizadoEmMs) casos.set(caso.id, caso);
+      }
+      const mais = data.total_count === undefined ? !!data.next_page_token : casos.size < data.total_count;
+      if (mais && !linhas.length) throw new Error("TikTok: página vazia antes do fim das devoluções.");
+      const proximo = proximoCursorSeguro(cursor, data.next_page_token, mais, vistos, "TikTok devoluções");
+      if (proximo === null) return [...casos.values()];
+      cursor = proximo;
+    }
   }
 
   /** Agrupa as linhas repetidas por unidade em um item com `quantidade`. Ver

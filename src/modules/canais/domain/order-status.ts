@@ -15,8 +15,7 @@ export function deveExecutarEfeitosOperacionais(origem: OrigemIngestaoPedido): b
   return origem === "tempo_real";
 }
 
-export function mapearStatusPedido(statusExterno: string | null | undefined): PedidoStatus {
-  const mapa: Record<string, PedidoStatus> = {
+export const MAPA_STATUS_PEDIDO: Readonly<Record<string, PedidoStatus>> = {
     unpaid: "criado",
     to_pay: "criado",
     paid: "pago",
@@ -64,11 +63,12 @@ export function mapearStatusPedido(statusExterno: string | null | undefined): Pe
     // estando a caminho do comprador.
     in_transit: "enviado",
   };
+export function mapearStatusPedido(statusExterno: string | null | undefined): PedidoStatus {
   // Status ausente não pode derrubar o lote inteiro nem, principalmente,
   // virar venda. O estágio conservador "criado" o mantém fora do faturamento
   // até o canal mandar um estado reconhecido numa próxima reconciliação.
   const chave = statusExterno?.trim().toLowerCase() ?? "";
-  const conhecido = mapa[chave];
+  const conhecido = MAPA_STATUS_PEDIDO[chave];
   if (conhecido) return conhecido;
 
   // O fallback silencioso é o que escondeu `processed` por semanas: pedido

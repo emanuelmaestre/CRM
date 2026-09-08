@@ -1,5 +1,6 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-const m=vi.hoisted(()=>({handler:null as unknown as (v:unknown)=>Promise<unknown>,db:{} as Record<string,unknown>,buscar:vi.fn(),ingerir:vi.fn(),verificar:vi.fn(),degradar:vi.fn(),finalizar:vi.fn(),updates:vi.fn(),registrado:false,tipo:'shopee'}));
+const m=vi.hoisted(()=>({handler:null as unknown as (v:unknown)=>Promise<unknown>,db:{} as Record<string,unknown>,buscar:vi.fn(),ingerir:vi.fn(),verificar:vi.fn(),degradar:vi.fn(),finalizar:vi.fn(),updates:vi.fn(),reembolsos:vi.fn(),registrado:false,tipo:'shopee'}));
+vi.mock('@/modules/canais/application/reembolsos-tiktok.service',()=>({conciliarReembolsosTikTok:m.reembolsos}));
 vi.mock('@/shared/lib/inngest/client',()=>({inngest:{createFunction:(_c:unknown,h:(v:unknown)=>Promise<unknown>)=>{m.handler=h;return h;}}}));
 vi.mock('@/shared/lib/db',()=>({db:m.db}));
 vi.mock('@/modules/canais/infrastructure/provider-resolver',()=>({resolverChannelProvider:async()=>({buscarPedidos:m.buscar})}));
@@ -16,12 +17,23 @@ beforeEach(()=>{
  vi.clearAllMocks();steps.length=0;m.tipo='shopee';m.registrado=true;
  m.buscar.mockResolvedValue([{providerOrderId:'old',criadoEm:new Date('2026-01-01')}]);
  m.ingerir.mockResolvedValue({pedidoId:'p',novo:false});
+ m.reembolsos.mockResolvedValue({casos:0,pedidos:0,atualizados:0,semPedido:[]});
  Object.assign(m.db,{
   select:()=>({from:()=>({innerJoin:()=>({where:async()=>[{id:'c',orgId:'org',brandId:'b',brandSlug:'wuwu',tipo:m.tipo,meta:{pedidosUltimaColetaCompleta:'2026-01-01T00:00:00Z'}}]})})}),
   update:()=>({set:(v:unknown)=>{m.updates(v);return {where:async()=>[]};}}),
  });
 });
 describe('coleta não mascara pendências',()=>{
+ it('TikTok concilia pós-venda antes de avançar sua cobertura independente',async()=>{
+  m.tipo='tiktokshop';await run();
+  expect(m.reembolsos).toHaveBeenCalledWith(expect.objectContaining({channelAccountId:'c',brandSlug:'wuwu'}));
+  expect(steps.indexOf('reembolsos-c')).toBeLessThan(steps.indexOf('marcar-cobertura-c'));
+  expect(m.updates).toHaveBeenCalledTimes(2);
+ });
+ it('TikTok preserva cobertura quando a consulta de pós-venda falha',async()=>{
+  m.tipo='tiktokshop';m.reembolsos.mockRejectedValue(new Error('segunda página de reembolsos falhou'));
+  await expect(run()).rejects.toThrow();expect(m.updates).not.toHaveBeenCalled();expect(m.verificar).not.toHaveBeenCalled();
+ });
  it.each(['shopee','tiktokshop'])('%s preserva cursor com falha mesmo registrada',async tipo=>{
   m.tipo=tipo;m.ingerir.mockRejectedValue(new Error('pedido recusado'));
   await expect(run()).rejects.toThrow();

@@ -29,6 +29,7 @@ import { JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import { CardResumoVendas, type ExplicacaoCardVendas } from "./card-resumo-vendas";
 import { PedidosIndicadorDialog, type FiltrosIndicador } from "./pedidos-indicador-dialog";
+import { explicacoesResumoVendas, legendaResumoVendas } from "./regras-resumo-vendas";
 import type { IndicadorPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 
 type CanalVenda = "mercadolivre" | "shopee" | "tiktokshop";
@@ -58,7 +59,10 @@ const resumoInicial: Resumo = {
   reembolsosParciaisValor: 0,
   totalBrutoPedidos: 0,
   totalBrutoComparavel: 0,
+  pendentesQtd: 0,
+  pendentesValor: 0,
   liquidoTotal: 0,
+  liquidoEstimadosQtd: 0,
 };
 
 const limiteDoDiaInicial: LimiteDoDia = { soNoMercadoLivre: [], soAqui: [] };
@@ -110,7 +114,7 @@ type ChaveGrupoStatus = (typeof GRUPOS_STATUS)[number]["chave"];
 const LEGENDA_STATUS_PEDIDOS: Array<{ titulo: string; cor: string; texto: string }> = [
   { titulo: "Todos", cor: "var(--muted-foreground)", texto: "Mostra todos os status, mantendo os filtros de empresa, canal, período e busca. Inclui também Entregue, Avaliação solicitada, Concluído e Devolvido quando registrados no sistema." },
   { titulo: "Em aberto", cor: "var(--info)", texto: "Agrupa Criado, Pago, Separado e Enviado. Não significa pagamento pendente: pedidos pagos também aparecem aqui. No Mercado Livre, um pedido pode permanecer como Pago sem que esse status informe se a entrega já aconteceu." },
-  { titulo: "Cancelado", cor: "var(--destructive)", texto: "Mostra os pedidos registrados como Cancelado, com ou sem pagamento anterior. Nos cartões financeiros, só entram os cancelamentos com evidência de pagamento. Pedidos com status Devolvido ficam em Todos, fora deste filtro." },
+  { titulo: "Cancelado", cor: "var(--destructive)", texto: "Mostra os pedidos registrados como Cancelado, com ou sem pagamento anterior. Shopee e TikTok incluem ambos no card de cancelamentos. No Mercado Livre, o card exige evidência de pagamento. Pedidos com status Devolvido ficam em Todos, fora deste filtro." },
   { titulo: "Reembolso parcial", cor: "var(--warning)", texto: "É um ajuste de valor, não uma opção do filtro de status. O pedido pode continuar como Pago ou em outra etapa faturável. O cartão Reembolsos parciais mostra a parcela devolvida e abre a lista dos pedidos afetados." },
 ];
 
@@ -451,6 +455,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [total, setTotal] = useState(0);
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [filtrosDoResumo, setFiltrosDoResumo] = useState<FiltrosIndicador>({});
+  const explicacoes = explicacoesResumoVendas(filtrosDoResumo.canais, EXPLICACOES_CARDS);
   const [indicadorAberto, setIndicadorAberto] = useState<{
     indicador: IndicadorPedidos; titulo: string; resumo: Resumo; filtros: FiltrosIndicador;
   } | null>(null);
@@ -745,7 +750,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               <span className="sm:hidden">{Math.round(resumo.totalBrutoPedidos).toLocaleString("pt-BR")} ped.</span>
               <span className="hidden sm:inline">{Math.round(resumo.totalBrutoPedidos).toLocaleString("pt-BR")} {resumo.totalBrutoPedidos === 1 ? "pedido no total bruto" : "pedidos no total bruto"}</span>
             </>,
-            explicacao: EXPLICACOES_CARDS.totalBruto,
+            explicacao: explicacoes.totalBruto,
           },
           {
             chave: "faturamento",
@@ -761,9 +766,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                repasse conhecido, os dois números seriam idênticos e a linha
                viraria ruído. */
             sub: resumo.liquidoTotal > 0 && resumo.liquidoTotal < resumo.faturamento
-              ? <><span className="sm:hidden">Líq. {dinheiro.format(resumo.liquidoTotal)}</span><span className="hidden sm:inline">{dinheiro.format(resumo.liquidoTotal)} líquido</span></>
+              ? <span title={resumo.liquidoEstimadosQtd > 0 ? `Inclui estimativas para ${resumo.liquidoEstimadosQtd} pedidos sem repasse informado pelo canal.` : undefined}><span className="sm:hidden">{resumo.liquidoEstimadosQtd > 0 ? "Líq. est." : "Líq."} {dinheiro.format(resumo.liquidoTotal)}</span><span className="hidden sm:inline">{dinheiro.format(resumo.liquidoTotal)} líquido{resumo.liquidoEstimadosQtd > 0 ? " (inclui estimativas)" : ""}</span></span>
               : undefined,
-            explicacao: EXPLICACOES_CARDS.faturamento,
+            explicacao: explicacoes.faturamento,
           },
           {
             chave: "pedidos",
@@ -773,7 +778,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             icon: ShoppingBag,
             cor: "var(--info)",
             sub: <><span className="sm:hidden">confirmados</span><span className="hidden sm:inline">com pagamento confirmado</span></>,
-            explicacao: EXPLICACOES_CARDS.pedidos,
+            explicacao: explicacoes.pedidos,
           },
           {
             chave: "cancelados",
@@ -788,7 +793,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               <span className="sm:hidden">{resumo.cancelados.toLocaleString("pt-BR")} ped.</span>
               <span className="hidden sm:inline">{resumo.cancelados.toLocaleString("pt-BR")} {resumo.cancelados === 1 ? "pedido" : "pedidos"}. {resumo.canceladosQtd.toLocaleString("pt-BR")} cancelados e {resumo.devolvidosQtd.toLocaleString("pt-BR")} devolvidos</span>
             </>,
-            explicacao: EXPLICACOES_CARDS.cancelados,
+            explicacao: explicacoes.cancelados,
           },
           {
             chave: "reembolsos-parciais",
@@ -803,7 +808,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               <span className="sm:hidden">{resumo.reembolsosParciaisQtd.toLocaleString("pt-BR")} ped.</span>
               <span className="hidden sm:inline">{resumo.reembolsosParciaisQtd.toLocaleString("pt-BR")} {resumo.reembolsosParciaisQtd === 1 ? "pedido afetado" : "pedidos afetados"}</span>
             </>,
-            explicacao: EXPLICACOES_CARDS.reembolsos,
+            explicacao: explicacoes.reembolsos,
           },
           {
             chave: "quantidade-cancelados-devolvidos",
@@ -828,7 +833,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                 </span>
               </>
             ),
-            explicacao: EXPLICACOES_CARDS.quantidadeCancelados,
+            explicacao: explicacoes.quantidadeCancelados,
           },
         ].map((card) => (
           <motion.div key={card.chave} variants={variantes(reduzir, entradaExagerada)}>
@@ -845,8 +850,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         ))}
 
         <p className="col-span-full text-xs text-muted-foreground">
-          Mercado Livre: vendas pela aprovação do pagamento, em Brasília. Valores com centavos.
+          {legendaResumoVendas(filtrosDoResumo.canais)}
         </p>
+        {resumo.pendentesQtd > 0 && (
+          <button type="button" className="col-span-full rounded-xl border border-border p-3 text-left text-xs text-muted-foreground hover:bg-muted"
+            onClick={() => setIndicadorAberto({ indicador: "pendentes-confirmacao", titulo: "Pedidos ainda sem confirmação", resumo, filtros: filtrosDoResumo })}>
+            No total bruto: {resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido ainda sem confirmação" : "pedidos ainda sem confirmação"} ({dinheiro.format(resumo.pendentesValor)}). Não entram em Confirmado. Ver pedidos.
+          </button>
+        )}
       </motion.section>
 
       <motion.section
@@ -981,8 +992,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           indicador={indicadorAberto.indicador}
           titulo={indicadorAberto.titulo}
           filtros={indicadorAberto.filtros}
-          quantidade={indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
-          valor={indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
+          quantidade={indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesQtd : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
+          valor={indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesValor : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
           onClose={() => setIndicadorAberto(null)}
         />
       )}

@@ -6,6 +6,8 @@ import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.serv
 import { ehErroComPedidoIgnoradoRegistrado, ehErroSkuSemProduto } from "@/modules/canais/domain/errors";
 import { resolverChannelProvider } from "@/modules/canais/infrastructure/provider-resolver";
 import { registrarVerificacaoCanal } from "@/modules/canais/application/verificacao-canal.service";
+import { conciliarReembolsosTikTok } from "@/modules/canais/application/reembolsos-tiktok.service";
+import { isBrandSlug } from "@/shared/config/brands";
 import { SHOPEE_PEDIDOS_LIBERADO } from "@/modules/canais/infrastructure/shopee.provider";
 import { despacharEventosPendentes, emitirEventoUnico } from "@/shared/events";
 import { inngest } from "@/shared/lib/inngest/client";
@@ -174,6 +176,22 @@ export const A24_pollPedidos = inngest.createFunction(
           // repetir com segurança graças à idempotência da ingestão.
           if (politicaColetaPedidos(conta.tipo, undefined, false).exigirSemPendencias && ignorados > 0) {
             throw new Error(`Atualização parcial: ${ignorados} pedido(s) pendentes de recuperação. Cobertura preservada para nova tentativa.`);
+          }
+
+          if (conta.tipo === "tiktokshop") {
+            await step.run(`reembolsos-${conta.id}`, async () => {
+              if (!isBrandSlug(conta.brandSlug)) throw new Error("Marca TikTok desconhecida.");
+              const resumo = await conciliarReembolsosTikTok({
+                orgId: conta.orgId, channelAccountId: conta.id, brandSlug: conta.brandSlug,
+                desde: inicioColetaPedidos(Date.parse(ateIso), meta?.reembolsosUltimaColetaCompleta, JANELA_BUSCA_MS),
+                ate: new Date(ateIso),
+              });
+              if (resumo.semPedido.length) throw new Error(`TikTok: ${resumo.semPedido.length} pedido(s) de pós-venda ainda ausentes; cobertura preservada.`);
+              await db.update(channelAccount).set({
+                meta: sql`jsonb_set(coalesce(${channelAccount.meta}, '{}'::jsonb), '{reembolsosUltimaColetaCompleta}', to_jsonb(${ateIso}::text), true)`,
+              }).where(and(eq(channelAccount.id, conta.id), eq(channelAccount.orgId, conta.orgId)));
+              return resumo;
+            });
           }
 
           // A busca no canal terminou e toda recusa está persistida. O marcador

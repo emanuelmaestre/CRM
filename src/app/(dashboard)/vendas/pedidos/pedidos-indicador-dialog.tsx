@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowUpRight, Ban, RotateCcw, Undo2, WifiOff } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Ban, Clock, RotateCcw, Undo2, WifiOff } from "lucide-react";
 import { Dialog } from "@/shared/design-system/primitives/Dialog";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -60,6 +60,7 @@ function agruparPorDia(pedidos: Pedido[]) {
  *  vermelho quando o pedido inteiro se perdeu, âmbar quando voltou parte do
  *  dinheiro. A cor faz o trabalho que a palavra sozinha faria mais devagar. */
 function estadoDoPedido(pedido: Pedido, parcial: boolean) {
+  if (pedido.status === "criado") return { Icone: Clock, texto: "Ainda sem confirmação", tom: "warning" as const };
   if (parcial) return { Icone: Undo2, texto: "Reembolso parcial", tom: "warning" as const };
   return pedido.status === "cancelado"
     ? { Icone: Ban, texto: "Cancelado", tom: "destructive" as const }
@@ -100,7 +101,8 @@ function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
   reduzir: boolean;
 }) {
   const impacto = parcial ? pedido.valorReembolsado : pedido.total;
-  const tom = parcial ? "warning" : "destructive";
+  const pendente = pedido.status === "criado";
+  const tom = parcial || pendente ? "warning" : "destructive";
 
   return (
     <motion.li
@@ -159,7 +161,7 @@ function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
           </div>
           <div className="min-w-[9.5rem] sm:text-right">
             <p className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">
-              {parcial ? "Reembolsado" : "Cancelado/devolvido"}
+              {pendente ? "Sem confirmação" : parcial ? "Reembolsado" : "Cancelado/devolvido"}
             </p>
             <p className="mt-0.5 font-bold tabular-nums" style={{ color: `var(--${tom})` }}>
               {dinheiro.format(impacto)}
@@ -222,7 +224,8 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
   const emCurso = useRef(true);
   const reduzir = useReducedMotion() ?? false;
   const parcial = indicador === "reembolsos-parciais";
-  const tom = parcial ? "warning" : "destructive";
+  const pendente = indicador === "pendentes-confirmacao";
+  const tom = parcial || pendente ? "warning" : "destructive";
 
   useEffect(() => {
     let ativo = true;
@@ -313,7 +316,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
               transition={transicao(reduzir, { ...springs.momentum, delay: 0.05 })}
               aria-hidden
             >
-              {parcial ? <Undo2 size={20} /> : <Ban size={20} />}
+              {pendente ? <Clock size={20} /> : parcial ? <Undo2 size={20} /> : <Ban size={20} />}
             </motion.span>
             <div>
               <p className="text-2xl font-black leading-none tabular-nums">{quantidade.toLocaleString("pt-BR")}</p>
@@ -324,7 +327,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
           <span aria-hidden className="hidden h-10 w-px bg-border sm:block" />
 
           <div>
-            <p className="text-xs text-muted-foreground">{parcial ? "Total reembolsado" : "Total cancelado/devolvido"}</p>
+            <p className="text-xs text-muted-foreground">{pendente ? "Total ainda sem confirmação" : parcial ? "Total reembolsado" : "Total cancelado/devolvido"}</p>
             <strong className="mt-0.5 block text-2xl font-black leading-none tabular-nums" style={{ color: `var(--${tom})` }}>
               {dinheiro.format(valor)}
             </strong>
@@ -338,6 +341,8 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
           </div>
         </div>
       </motion.section>
+
+      {pendente && <p className="mb-5 text-sm text-muted-foreground">Estes pedidos da Shopee ou TikTok Shop já estão no Total bruto, mas ainda não possuem um status de pagamento confirmado. Podem estar aguardando pagamento ou confirmação do canal.</p>}
 
       {primeiraCarga ? <Fantasma /> : (
         <div className="space-y-5">

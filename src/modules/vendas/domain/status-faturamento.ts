@@ -80,7 +80,15 @@ export function marcarEvidenciaPagamento(
  * deliberadamente conservador: falta de dado nunca apaga faturamento válido.
  */
 export function reembolsoParcialInformado(dadosOrigem: unknown): number {
-  if (!objeto(dadosOrigem) || !Array.isArray(dadosOrigem.pagamentos)) return 0;
+  if (!objeto(dadosOrigem)) return 0;
+  if (Array.isArray(dadosOrigem.reembolsosTikTok)) {
+    return dadosOrigem.reembolsosTikTok.reduce((total, caso: unknown) => {
+      if (!objeto(caso) || caso.status !== "RETURN_OR_REFUND_REQUEST_COMPLETE"
+        || typeof caso.valor !== "number" || !Number.isFinite(caso.valor) || caso.valor <= 0) return total;
+      return total + Math.round(caso.valor * 100);
+    }, 0) / 100;
+  }
+  if (!Array.isArray(dadosOrigem.pagamentos)) return 0;
 
   const centavos = dadosOrigem.pagamentos.reduce((total, pagamento) => {
     if (!objeto(pagamento)) return total;

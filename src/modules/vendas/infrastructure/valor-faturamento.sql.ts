@@ -25,7 +25,11 @@ export function pedidoComercialSql(): SQL<boolean> {
 export function reembolsoParcialPedidoSql(
   dadosOrigem: SQLWrapper = pedido.dadosOrigem,
 ): SQL<number> {
-  return sql<number>`coalesce((
+  return sql<number>`case when jsonb_typeof(${dadosOrigem}->'reembolsosTikTok') = 'array'
+    then coalesce((select sum(case when caso->>'status' = 'RETURN_OR_REFUND_REQUEST_COMPLETE'
+      and jsonb_typeof(caso->'valor') = 'number' then greatest((caso->>'valor')::numeric, 0) else 0 end)
+      from jsonb_array_elements(${dadosOrigem}->'reembolsosTikTok') as caso), 0)
+    else coalesce((
     select sum(
       case
         when jsonb_typeof(pagamento->'reembolsado') = 'number'
@@ -40,7 +44,7 @@ export function reembolsoParcialPedidoSql(
         else '[]'::jsonb
       end
     ) as pagamento
-  ), 0)`;
+  ), 0) end`;
 }
 
 /**

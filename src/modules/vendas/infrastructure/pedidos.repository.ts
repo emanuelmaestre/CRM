@@ -3,14 +3,12 @@ import { db } from "@/shared/lib/db";
 import { brand, channelAccount, cliente, pedido, pedidoItem } from "@/shared/lib/db/schema";
 import { compararPorOrdemDeMarca } from "@/shared/config/brands";
 import { CANAIS_VENDA, type ConsultaPedidos, type IndicadorPedidos } from "../domain/consulta-pedidos";
-import { STATUS_PEDIDO_FATURAVEL } from "../domain/status-faturamento";
 import {
-  pagamentoAprovadoPedidoSql,
   dataVendaPedidoSql,
   pedidoComercialSql,
   reembolsoParcialPedidoSql,
-  valorFaturavelPedidoSql,
 } from "./valor-faturamento.sql";
+import { composicaoResumoPedidosSql } from "./composicao-resumo.sql";
 
 function filtrosConsulta(orgId: string, opts: ConsultaPedidos): SQL[] {
   const filtros: SQL[] = [eq(pedido.orgId, orgId), pedidoComercialSql()];
@@ -78,11 +76,10 @@ const TAXA_DO_PEDIDO = sql`coalesce((
   select sum(${pedidoItem.taxaMarketplace}) from ${pedidoItem}
   where ${pedidoItem.pedidoId} = ${pedido.id}
 ), 0)`;
-const VALOR_FATURAVEL_DO_PEDIDO = valorFaturavelPedidoSql();
 const REEMBOLSO_PARCIAL_DO_PEDIDO = reembolsoParcialPedidoSql();
-const PAGAMENTO_APROVADO_DO_PEDIDO = pagamentoAprovadoPedidoSql();
-const CANCELADO_FINANCEIRO = sql`${pedido.status} = 'cancelado' and ${PAGAMENTO_APROVADO_DO_PEDIDO}`;
-const DEVOLVIDO_FINANCEIRO = sql`${pedido.status} = 'devolvido' and ${PAGAMENTO_APROVADO_DO_PEDIDO}`;
+const COMPOSICAO = composicaoResumoPedidosSql();
+const CANCELADO_FINANCEIRO = COMPOSICAO.cancelado;
+const DEVOLVIDO_FINANCEIRO = COMPOSICAO.devolvido;
 
 /** Consulta independente da página principal, com o mesmo recorte financeiro dos cards. */
 export async function consultarPedidosDoIndicador(
@@ -91,16 +88,16 @@ export async function consultarPedidosDoIndicador(
   opts: ConsultaPedidos & { offset: number },
 ) {
   const parcial = indicador === "reembolsos-parciais";
-  const condicao = parcial
-    ? sql`${inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL])} and ${REEMBOLSO_PARCIAL_DO_PEDIDO} > 0`
+  const condicao = indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : parcial
+    ? sql`${COMPOSICAO.faturavel} and ${REEMBOLSO_PARCIAL_DO_PEDIDO} > 0`
     : sql`(${CANCELADO_FINANCEIRO} or ${DEVOLVIDO_FINANCEIRO})`;
   const linhas = await db.select({
     id: pedido.id,
     providerOrderId: pedido.providerOrderId,
     clienteNome: cliente.nome,
     canal: pedido.canal,
-    status: pedido.status,
-    total: pedido.total,
+    status: COMPOSICAO.status,
+    total: COMPOSICAO.valorOriginal,
     valorReembolsado: REEMBOLSO_PARCIAL_DO_PEDIDO,
     createdAt: dataVendaPedidoSql(),
   }).from(pedido)
@@ -123,11 +120,11 @@ export async function consultarPedidosDoIndicador(
  *  não informa (Mercado Livre, canais manuais), sobra a estimativa. */
 const LIQUIDO_DO_PEDIDO = sql`coalesce(
   ${pedido.valorLiquido},
-  ${VALOR_FATURAVEL_DO_PEDIDO} - ${TAXA_DO_PEDIDO} - coalesce(${pedido.frete}, 0)
+  ${COMPOSICAO.valorConfirmado} - ${TAXA_DO_PEDIDO} - coalesce(${pedido.frete}, 0)
 )`;
 
 export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedidos) {
-  const faturavel = inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]);
+  const faturavel = COMPOSICAO.faturavel;
   const canceladoFinanceiro = CANCELADO_FINANCEIRO;
   const devolvidoFinanceiro = DEVOLVIDO_FINANCEIRO;
   const ajusteIntegralFinanceiro = sql`(${canceladoFinanceiro} or ${devolvidoFinanceiro})`;
@@ -139,13 +136,17 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       // dividisse um pelo outro pra achar o ticket médio erraria. Cancelado e
       // devolvido já têm cards próprios ao lado, com quantidade e valor.
       totalPedidos: sql<number>`count(*) filter (where ${faturavel})`,
-      faturamento: sql<string>`coalesce(sum(${VALOR_FATURAVEL_DO_PEDIDO}) filter (where ${faturavel}), 0)`,
-      ticketMedio: sql<string>`coalesce(avg(${VALOR_FATURAVEL_DO_PEDIDO}) filter (where ${faturavel}), 0)`,
+      totalBrutoPedidos: sql<number>`count(*) filter (where ${COMPOSICAO.bruto})`,
+      totalBrutoComparavel: sql<string>`coalesce(sum(${COMPOSICAO.valorBruto}) filter (where ${COMPOSICAO.bruto}), 0)`,
+      pendentesQtd: sql<number>`count(*) filter (where ${COMPOSICAO.pendente})`,
+      pendentesValor: sql<string>`coalesce(sum(${COMPOSICAO.valorOriginal}) filter (where ${COMPOSICAO.pendente}), 0)`,
+      faturamento: sql<string>`coalesce(sum(${COMPOSICAO.valorConfirmado}) filter (where ${faturavel}), 0)`,
+      ticketMedio: sql<string>`coalesce(avg(${COMPOSICAO.valorConfirmado}) filter (where ${faturavel}), 0)`,
       cancelados: sql<number>`count(*) filter (where ${ajusteIntegralFinanceiro})`,
       canceladosQtd: sql<number>`count(*) filter (where ${canceladoFinanceiro})`,
-      canceladosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${canceladoFinanceiro}), 0)`,
+      canceladosValor: sql<string>`coalesce(sum(${COMPOSICAO.valorOriginal}) filter (where ${canceladoFinanceiro}), 0)`,
       devolvidosQtd: sql<number>`count(*) filter (where ${devolvidoFinanceiro})`,
-      devolvidosValor: sql<string>`coalesce(sum(${pedido.total}) filter (where ${devolvidoFinanceiro}), 0)`,
+      devolvidosValor: sql<string>`coalesce(sum(${COMPOSICAO.valorOriginal}) filter (where ${devolvidoFinanceiro}), 0)`,
       reembolsosParciaisQtd: sql<number>`count(*) filter (where ${faturavel} and ${REEMBOLSO_PARCIAL_DO_PEDIDO} > 0)`,
       reembolsosParciaisValor: sql<string>`coalesce(sum(${REEMBOLSO_PARCIAL_DO_PEDIDO}) filter (where ${faturavel}), 0)`,
       // Mesma regra do detalhe do pedido e de Métricas: o repasse informado
@@ -154,6 +155,7 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       // multiplicaria o cabeçalho do pedido pelo número de itens, inflando
       // faturamento e ticket médio.
       liquidoTotal: sql<string>`coalesce(sum(${LIQUIDO_DO_PEDIDO}) filter (where ${faturavel}), 0)`,
+      liquidoEstimadosQtd: sql<number>`count(*) filter (where ${faturavel} and ${pedido.canal} in ('shopee', 'tiktokshop') and ${pedido.valorLiquido} is null)`,
     })
     .from(pedido)
     .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
@@ -177,9 +179,12 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
     devolvidosValor,
     reembolsosParciaisQtd: Number(resumo?.reembolsosParciaisQtd ?? 0),
     reembolsosParciaisValor,
-    totalBrutoPedidos: totalPedidos + cancelados,
-    totalBrutoComparavel: faturamento + canceladosValor + devolvidosValor + reembolsosParciaisValor,
+    totalBrutoPedidos: Number(resumo?.totalBrutoPedidos ?? 0),
+    totalBrutoComparavel: Number(resumo?.totalBrutoComparavel ?? 0),
+    pendentesQtd: Number(resumo?.pendentesQtd ?? 0),
+    pendentesValor: Number(resumo?.pendentesValor ?? 0),
     liquidoTotal: Number(resumo?.liquidoTotal ?? 0),
+    liquidoEstimadosQtd: Number(resumo?.liquidoEstimadosQtd ?? 0),
   };
 }
 
