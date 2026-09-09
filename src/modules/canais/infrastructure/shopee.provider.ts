@@ -792,6 +792,7 @@ export class ShopeeProvider implements ChannelProvider {
           status: detail?.order_status ?? null,
           totalProdutos: (detail?.item_list ?? []).reduce((n, i) => n + Math.round(i.model_discounted_price * i.model_quantity_purchased * 100), 0) / 100,
           financeiroInformado: financeiro !== undefined,
+          pagamentoConsultado: true,
           ...(typeof detail?.pay_time === "number" && Number.isFinite(detail.pay_time)
             && detail.pay_time > 0 && detail.pay_time * 1000 <= Date.now()
             ? { pagamentoAprovado: true, pagoEmMs: detail.pay_time * 1000 } : {}),

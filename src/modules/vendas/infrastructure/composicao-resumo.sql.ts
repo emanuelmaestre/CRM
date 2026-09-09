@@ -3,6 +3,7 @@ import { pedido } from "@/shared/lib/db/schema";
 import { MAPA_STATUS_PEDIDO, type PedidoStatus } from "@/modules/canais/domain/order-status";
 import { STATUS_PEDIDO_FATURAVEL } from "../domain/status-faturamento";
 import { pagamentoAprovadoPedidoSql, reembolsoParcialPedidoSql, valorFaturavelPedidoSql } from "./valor-faturamento.sql";
+import { valorProdutosShopeeSql } from "./valor-shopee.sql";
 
 /** A listagem de pedidos Shopee/TikTok inclui checkouts não pagos. Isso não
  * transforma o valor desses pedidos em receita confirmada. O recorte de
@@ -34,7 +35,7 @@ export function composicaoResumoPedidosSql() {
   const pendente = sql`${todosOsPedidos} and not (${faturavel} or ${status} in ('cancelado', 'devolvido'))`;
   // Os relatórios oficiais TikTok incluem handling_fee em Order Amount.
   // A Olist pode usar outra base; não retirar acréscimos para igualá-la.
-  const valorOriginal = sql`${pedido.total}`;
+  const valorOriginal = valorProdutosShopeeSql();
   const valorConfirmado = valorFaturavelPedidoSql(valorOriginal);
   const valorBruto = sql`case when ${todosOsPedidos} then ${valorOriginal}
     when ${faturavel} then ${valorFaturavelPedidoSql()} + ${reembolsoParcialPedidoSql()}

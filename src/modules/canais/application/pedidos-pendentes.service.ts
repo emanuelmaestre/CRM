@@ -42,6 +42,8 @@ export async function filtrarPedidosPendentes(
         providerOrderId: pedido.providerOrderId,
         status: pedido.status,
         valorLiquido: pedido.valorLiquido,
+        canal: pedido.canal,
+        dadosOrigem: pedido.dadosOrigem,
       })
       .from(pedido)
       .where(and(
@@ -55,6 +57,8 @@ export async function filtrarPedidosPendentes(
     return candidatos.flatMap((candidato) => {
       const atual = porId.get(candidato.providerOrderId);
       if (!atual) return [candidato.providerOrderId];
+      if (atual.canal === "shopee"
+        && (atual.dadosOrigem as Record<string, unknown> | null)?.pagamentoConsultado !== true) return [candidato.providerOrderId];
       if (atual.valorLiquido === null) return [candidato.providerOrderId];
       if (!candidato.statusExterno) return [candidato.providerOrderId];
       const proximo = mapearStatusPedido(candidato.statusExterno);

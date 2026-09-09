@@ -4,6 +4,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { sql } from "drizzle-orm";
 import { composicaoResumoPedidosSql } from "@/modules/vendas/infrastructure/composicao-resumo.sql";
 import { dataVendaPedidoSql, pedidoComercialSql, reembolsoParcialPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+import { dataPagamentoShopeeSql, valorProdutosShopeeSql } from "@/modules/vendas/infrastructure/valor-shopee.sql";
 
 // CTEs de valores sintéticos: executa o SQL real sem inserir/alterar tabelas.
 const client = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false });
@@ -31,6 +32,26 @@ async function resumir(linhas: Linha[], inicio = "2026-09-05T00:00:00-03:00", fi
 }
 
 describe("composição dos cards por marketplace", () => {
+  it("Shopee usa produtos sem frete e não altera o valor dos outros canais", async () => {
+    expect(await resumir([
+      { canal: "shopee", status: "pago", total: 48.29, dados_origem: { totalProdutos: 39.9 } },
+      { canal: "tiktokshop", status: "pago", total: 48.29, dados_origem: { totalProdutos: 39.9 } },
+      { canal: "mercadolivre", status: "pago", total: 48.29, dados_origem: { totalProdutos: 39.9 } },
+    ])).toMatchObject({ bruto: 136.48, confirmado: 136.48 });
+  });
+  it("Produto Pago inclui cancelado pago no mês seguinte e exclui data ausente ou inválida", async () => {
+    const dados = [
+      { canal: "shopee", status: "cancelado", total: 34.52, criado_em: "2026-08-31T23:58:00-03:00", dados_origem: { totalProdutos: 24.9, pagoEmMs: Date.parse("2026-09-01T00:02:00-03:00") } },
+      { canal: "shopee", status: "criado", total: 100, dados_origem: {} },
+      { canal: "shopee", status: "criado", total: 100, dados_origem: { pagoEmMs: "inválido" } },
+    ];
+    const [r] = await db.execute(sql`with pedido as (select * from jsonb_to_recordset(${JSON.stringify(dados)}::jsonb)
+      as x(canal text,status text,total numeric,criado_em timestamptz,dados_origem jsonb))
+      select count(*)::int quantidade,sum(${valorProdutosShopeeSql()})::float8 valor from pedido
+      where ${dataPagamentoShopeeSql()} >= '2026-09-01T00:00:00-03:00'::timestamptz
+      and ${dataPagamentoShopeeSql()} < '2026-10-01T00:00:00-03:00'::timestamptz`);
+    expect(r).toEqual({ quantidade: 1, valor: 24.9 });
+  });
   it("TikTok reconhece reembolso rápido completo e parcial sem antecipar devolução pendente", async () => {
     const caso = { status: "BUYER_SHIPPED_ITEM", reembolsadoEmMs: 1788200842000 };
     const r = await resumir([

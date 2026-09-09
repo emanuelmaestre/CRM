@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { filtrarPedidosPendentes } from "@/modules/canais/application/pedidos-pendentes.service";
 
-type Linha = { providerOrderId: string; status: string; valorLiquido: string | null };
+type Linha = { providerOrderId: string; status: string; valorLiquido: string | null; canal?: string; dadosOrigem?: object };
 
 /** Banco de mentira com a mesma cadeia que o serviço usa. Um `then` no fim
  *  faz a cadeia se comportar como a promessa que o Drizzle devolve. */
@@ -28,6 +28,14 @@ const ORG = "org-1";
 const CONTA = "conta-1";
 
 describe("filtrar pedidos que ainda precisam de leitura", () => {
+  it("enriquece pagamento de Shopee legada uma vez, sem reler outros canais", async () => {
+    const linhas = [
+      { providerOrderId: "S1", status: "concluido", valorLiquido: "10", canal: "shopee" },
+      { providerOrderId: "S2", status: "concluido", valorLiquido: "10", canal: "shopee", dadosOrigem: { pagamentoConsultado: true } },
+      { providerOrderId: "T1", status: "concluido", valorLiquido: "10", canal: "tiktokshop" },
+    ];
+    expect(await filtrarPedidosPendentes(ORG, CONTA, linhas.map(p => ({ providerOrderId: p.providerOrderId, statusExterno: "COMPLETED" })), bancoCom(linhas))).toEqual(["S1"]);
+  });
   it("pede detalhe do pedido que ainda não existe no banco", async () => {
     const pendentes = await filtrarPedidosPendentes(
       ORG, CONTA,

@@ -9,6 +9,7 @@ import {
   reembolsoParcialPedidoSql,
 } from "./valor-faturamento.sql";
 import { composicaoResumoPedidosSql } from "./composicao-resumo.sql";
+import { dataPagamentoShopeeSql, valorProdutosShopeeSql } from "./valor-shopee.sql";
 
 function filtrosConsulta(orgId: string, opts: ConsultaPedidos): SQL[] {
   const filtros: SQL[] = [eq(pedido.orgId, orgId), pedidoComercialSql()];
@@ -88,7 +89,7 @@ export async function consultarPedidosDoIndicador(
   opts: ConsultaPedidos & { offset: number },
 ) {
   const parcial = indicador === "reembolsos-parciais";
-  const condicao = indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : parcial
+  const condicao = indicador === "cancelados" ? CANCELADO_FINANCEIRO : indicador === "devolvidos" ? DEVOLVIDO_FINANCEIRO : indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : parcial
     ? sql`${COMPOSICAO.faturavel} and ${REEMBOLSO_PARCIAL_DO_PEDIDO} > 0`
     : sql`(${CANCELADO_FINANCEIRO} or ${DEVOLVIDO_FINANCEIRO})`;
   const linhas = await db.select({
@@ -170,7 +171,23 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
   const devolvidosValor = Number(resumo?.devolvidosValor ?? 0);
   const reembolsosParciaisValor = Number(resumo?.reembolsosParciaisValor ?? 0);
 
+  let shopeePagos: { valor: number; quantidade: number } | undefined;
+  if (opts.canais?.length === 1 && opts.canais[0] === "shopee") {
+    // Não reutilizar o recorte de criação: um pedido pode ser pago no mês seguinte.
+    const filtrosPagos = filtrosConsulta(orgId, { ...opts, inicio: undefined, fim: undefined });
+    const dataPagamento = dataPagamentoShopeeSql();
+    filtrosPagos.push(sql`${dataPagamento} is not null`);
+    if (opts.inicio) filtrosPagos.push(gte(dataPagamento, opts.inicio.toISOString()));
+    if (opts.fim) filtrosPagos.push(lte(dataPagamento, opts.fim.toISOString()));
+    const [pagos] = await db.select({
+      quantidade: count(),
+      valor: sql<string>`coalesce(sum(${valorProdutosShopeeSql()}), 0)`,
+    }).from(pedido).innerJoin(cliente, eq(cliente.id, pedido.clienteId)).where(and(...filtrosPagos));
+    shopeePagos = { valor: Number(pagos?.valor ?? 0), quantidade: Number(pagos?.quantidade ?? 0) };
+  }
+
   return {
+    shopeePagos,
     totalPedidos,
     faturamento,
     ticketMedio: Number(resumo?.ticketMedio ?? 0),

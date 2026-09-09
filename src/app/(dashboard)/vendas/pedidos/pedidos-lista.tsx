@@ -64,6 +64,7 @@ const resumoInicial: Resumo = {
   liquidoTotal: 0,
   liquidoEstimadosQtd: 0,
   repasseApuradoTikTok: 0,
+  shopeePagos: undefined,
   repassePendenteTikTokQtd: 0,
 };
 
@@ -458,6 +459,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [resumo, setResumo] = useState<Resumo>(resumoInicial);
   const [filtrosDoResumo, setFiltrosDoResumo] = useState<FiltrosIndicador>({});
   const explicacoes = explicacoesResumoVendas(filtrosDoResumo.canais, EXPLICACOES_CARDS);
+  const somenteShopee = filtrosDoResumo.canais?.length === 1 && filtrosDoResumo.canais[0] === "shopee";
   const [indicadorAberto, setIndicadorAberto] = useState<{
     indicador: IndicadorPedidos; titulo: string; resumo: Resumo; filtros: FiltrosIndicador;
   } | null>(null);
@@ -743,7 +745,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         {[
           {
             chave: "total-bruto",
-            label: <><span className="sm:hidden">Total bruto</span><span className="hidden sm:inline">Total bruto comparável</span></>,
+            label: somenteShopee ? <>Vendas — pedidos feitos</> : <><span className="sm:hidden">Total bruto</span><span className="hidden sm:inline">Total bruto comparável</span></>,
             numero: resumo.totalBrutoComparavel,
             formatar: (v: number) => dinheiro.format(v),
             icon: BadgeDollarSign,
@@ -756,8 +758,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "faturamento",
-            label: <><span className="sm:hidden">Confirmado</span><span className="hidden sm:inline">Faturamento confirmado</span></>,
-            numero: resumo.faturamento,
+            label: somenteShopee ? <>Vendas — produto pago</> : <><span className="sm:hidden">Confirmado</span><span className="hidden sm:inline">Faturamento confirmado</span></>,
+            numero: somenteShopee ? (resumo.shopeePagos?.valor ?? 0) : resumo.faturamento,
             formatar: (v: number) => dinheiro.format(v),
             icon: CircleDollarSign,
             cor: "var(--success)",
@@ -767,7 +769,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                menor que o bruto — se nenhum pedido do filtro tem taxa nem
                repasse conhecido, os dois números seriam idênticos e a linha
                viraria ruído. */
-            sub: canaisSel.length === 1 && canaisSel[0] === "tiktokshop"
+            sub: somenteShopee ? <span>Pela data do pagamento, antes de cancelamentos e devoluções</span> : canaisSel.length === 1 && canaisSel[0] === "tiktokshop"
               ? <span title="Soma dos demonstrativos oficiais vinculados aos pedidos deste período, incluindo estornos e compensações. O período é o da criação dos pedidos, não o do pagamento bancário.">
                 Repasse apurado: {dinheiro.format(resumo.repasseApuradoTikTok)}
                 {resumo.repassePendenteTikTokQtd > 0 && <span className="block">{resumo.repassePendenteTikTokQtd} sem liquidação</span>}
@@ -779,8 +781,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "pedidos",
-            label: <><span className="sm:hidden">Pedidos</span><span className="hidden sm:inline">Pedidos faturados</span></>,
-            numero: resumo.totalPedidos,
+            label: somenteShopee ? <>Pedidos pagos</> : <><span className="sm:hidden">Pedidos</span><span className="hidden sm:inline">Pedidos faturados</span></>,
+            numero: somenteShopee ? (resumo.shopeePagos?.quantidade ?? 0) : resumo.totalPedidos,
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
             icon: ShoppingBag,
             cor: "var(--info)",
@@ -789,14 +791,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "cancelados",
-            indicador: "cancelados-devolvidos" as const,
-            tituloJanela: "Cancelados e devolvidos",
-            label: <><span className="sm:hidden">Cancel. e devol.</span><span className="hidden sm:inline">Cancelados e devolvidos</span></>,
-            numero: resumo.canceladosValor + resumo.devolvidosValor,
+            indicador: somenteShopee ? "cancelados" as const : "cancelados-devolvidos" as const,
+            tituloJanela: somenteShopee ? "Cancelamentos" : "Cancelados e devolvidos",
+            label: somenteShopee ? <>Vendas canceladas</> : <><span className="sm:hidden">Cancel. e devol.</span><span className="hidden sm:inline">Cancelados e devolvidos</span></>,
+            numero: resumo.canceladosValor + (somenteShopee ? 0 : resumo.devolvidosValor),
             formatar: (v: number) => dinheiro.format(v),
             icon: Ban,
             cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)",
-            sub: <>
+            sub: somenteShopee ? <>{resumo.canceladosQtd} pedidos cancelados, pagos ou não</> : <>
               <span className="sm:hidden">{resumo.cancelados.toLocaleString("pt-BR")} ped.</span>
               <span className="hidden sm:inline">{resumo.cancelados.toLocaleString("pt-BR")} {resumo.cancelados === 1 ? "pedido" : "pedidos"}. {resumo.canceladosQtd.toLocaleString("pt-BR")} cancelados e {resumo.devolvidosQtd.toLocaleString("pt-BR")} devolvidos</span>
             </>,
@@ -804,14 +806,14 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "reembolsos-parciais",
-            indicador: "reembolsos-parciais" as const,
-            tituloJanela: "Reembolsos parciais",
-            label: <><span className="sm:hidden">Reembolsos</span><span className="hidden sm:inline">Reembolsos parciais</span></>,
-            numero: resumo.reembolsosParciaisValor,
+            indicador: somenteShopee ? "devolvidos" as const : "reembolsos-parciais" as const,
+            tituloJanela: somenteShopee ? "Devoluções conhecidas" : "Reembolsos parciais",
+            label: somenteShopee ? <>Devoluções conhecidas</> : <><span className="sm:hidden">Reembolsos</span><span className="hidden sm:inline">Reembolsos parciais</span></>,
+            numero: somenteShopee ? resumo.devolvidosValor : resumo.reembolsosParciaisValor,
             formatar: (v: number) => dinheiro.format(v),
             icon: RotateCcw,
             cor: resumo.reembolsosParciaisValor > 0 ? "var(--warning)" : "var(--muted-foreground)",
-            sub: <>
+            sub: somenteShopee ? <>{resumo.devolvidosQtd} pedidos. Cobertura parcial</> : <>
               <span className="sm:hidden">{resumo.reembolsosParciaisQtd.toLocaleString("pt-BR")} ped.</span>
               <span className="hidden sm:inline">{resumo.reembolsosParciaisQtd.toLocaleString("pt-BR")} {resumo.reembolsosParciaisQtd === 1 ? "pedido afetado" : "pedidos afetados"}</span>
             </>,
@@ -819,17 +821,17 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "quantidade-cancelados-devolvidos",
-            indicador: "cancelados-devolvidos" as const,
-            tituloJanela: "Pedidos cancelados/devolvidos",
-            label: <><span className="sm:hidden">Qtd. cancel. e devol.</span><span className="hidden sm:inline">Pedidos cancelados e devolvidos</span></>,
-            numero: resumo.canceladosQtd + resumo.devolvidosQtd,
+            indicador: somenteShopee ? "cancelados" as const : "cancelados-devolvidos" as const,
+            tituloJanela: somenteShopee ? "Pedidos cancelados" : "Pedidos cancelados/devolvidos",
+            label: somenteShopee ? <>Pedidos cancelados</> : <><span className="sm:hidden">Qtd. cancel. e devol.</span><span className="hidden sm:inline">Pedidos cancelados e devolvidos</span></>,
+            numero: resumo.canceladosQtd + (somenteShopee ? 0 : resumo.devolvidosQtd),
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
             icon: Ban,
             cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)",
             /* No celular a legenda vira sigla: "1 cancelados e 0 devolvidos"
                ocupava duas linhas num card de 110px e desalinhava este card
                dos cinco vizinhos. E o singular deixou de sair errado. */
-            sub: (
+            sub: somenteShopee ? <>Dos pedidos criados no período</> : (
               <>
                 <span className="sm:hidden">
                   {resumo.canceladosQtd.toLocaleString("pt-BR")} cancel. · {resumo.devolvidosQtd.toLocaleString("pt-BR")} devol.
@@ -859,10 +861,13 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         <p className="col-span-full text-xs text-muted-foreground">
           {legendaResumoVendas(filtrosDoResumo.canais)}
         </p>
+        {somenteShopee && <p className="col-span-full rounded-xl border border-border p-3 text-xs text-muted-foreground">
+          Devoluções e reembolsos: cobertura parcial. Os cards mostram os casos conhecidos pelo CRM; não representam uma conferência completa do relatório da Shopee.
+        </p>}
         {resumo.pendentesQtd > 0 && (
           <button type="button" className="col-span-full rounded-xl border border-border p-3 text-left text-xs text-muted-foreground hover:bg-muted"
             onClick={() => setIndicadorAberto({ indicador: "pendentes-confirmacao", titulo: "Pedidos ainda sem confirmação", resumo, filtros: filtrosDoResumo })}>
-            No total bruto: {resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido ainda sem confirmação" : "pedidos ainda sem confirmação"} ({dinheiro.format(resumo.pendentesValor)}). Não entram em Confirmado. Ver pedidos.
+            No total bruto: {resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido ainda sem confirmação" : "pedidos ainda sem confirmação"} ({dinheiro.format(resumo.pendentesValor)}). {somenteShopee ? "Não entram em Produto Pago sem confirmação de pagamento." : "Não entram em Confirmado."} Ver pedidos.
           </button>
         )}
       </motion.section>
@@ -999,8 +1004,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           indicador={indicadorAberto.indicador}
           titulo={indicadorAberto.titulo}
           filtros={indicadorAberto.filtros}
-          quantidade={indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesQtd : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
-          valor={indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesValor : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
+          quantidade={indicadorAberto.indicador === "cancelados" ? resumo.canceladosQtd : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosQtd : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesQtd : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
+          valor={indicadorAberto.indicador === "cancelados" ? resumo.canceladosValor : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosValor : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesValor : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
           onClose={() => setIndicadorAberto(null)}
         />
       )}
