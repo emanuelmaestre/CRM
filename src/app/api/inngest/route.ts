@@ -30,6 +30,7 @@ import { A35_auditarFinanceiro } from "@/modules/jobs/A35-auditar-financeiro";
 import { A36_refreshTikTokTokens } from "@/modules/jobs/A36-refresh-tiktok-tokens";
 import { A37_repasseTikTok } from "@/modules/jobs/A37-repasse-tiktok";
 import { A38_processarWebhookML } from "@/modules/jobs/A38-processar-webhook-ml";
+import { A39_processarWebhookTikTok } from "@/modules/jobs/A39-processar-webhook-tiktok";
 
 /* Cada `step.run` é uma invocação HTTP própria desta rota, então o limite vale
    por step, não pelo job inteiro. Sem declarar nada, a Vercel aplica o padrão
@@ -74,5 +75,6 @@ export const { GET, POST, PUT } = serve({
     A36_refreshTikTokTokens,
     A37_repasseTikTok,
     A38_processarWebhookML,
+    A39_processarWebhookTikTok,
   ],
 });

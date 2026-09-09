@@ -63,6 +63,8 @@ const resumoInicial: Resumo = {
   pendentesValor: 0,
   liquidoTotal: 0,
   liquidoEstimadosQtd: 0,
+  repasseApuradoTikTok: 0,
+  repassePendenteTikTokQtd: 0,
 };
 
 const limiteDoDiaInicial: LimiteDoDia = { soNoMercadoLivre: [], soAqui: [] };
@@ -765,7 +767,12 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                menor que o bruto — se nenhum pedido do filtro tem taxa nem
                repasse conhecido, os dois números seriam idênticos e a linha
                viraria ruído. */
-            sub: resumo.liquidoTotal > 0 && resumo.liquidoTotal < resumo.faturamento
+            sub: canaisSel.length === 1 && canaisSel[0] === "tiktokshop"
+              ? <span title="Soma dos demonstrativos oficiais vinculados aos pedidos deste período, incluindo estornos e compensações. O período é o da criação dos pedidos, não o do pagamento bancário.">
+                Repasse apurado: {dinheiro.format(resumo.repasseApuradoTikTok)}
+                {resumo.repassePendenteTikTokQtd > 0 && <span className="block">{resumo.repassePendenteTikTokQtd} sem liquidação</span>}
+              </span>
+              : resumo.liquidoTotal > 0 && resumo.liquidoTotal < resumo.faturamento
               ? <span title={resumo.liquidoEstimadosQtd > 0 ? `Inclui estimativas para ${resumo.liquidoEstimadosQtd} pedidos sem repasse informado pelo canal.` : undefined}><span className="sm:hidden">{resumo.liquidoEstimadosQtd > 0 ? "Líq. est." : "Líq."} {dinheiro.format(resumo.liquidoTotal)}</span><span className="hidden sm:inline">{dinheiro.format(resumo.liquidoTotal)} líquido{resumo.liquidoEstimadosQtd > 0 ? " (inclui estimativas)" : ""}</span></span>
               : undefined,
             explicacao: explicacoes.faturamento,

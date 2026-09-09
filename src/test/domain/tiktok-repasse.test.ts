@@ -11,6 +11,13 @@ const transacao = (parcial: Partial<TikTokTransacaoExtrato>): TikTokTransacaoExt
 /* Os números vêm de extratos reais da WUWU lidos em 03/09/2026: o pedido
    584708858748240935 fechou com receita 34,90, taxa −8,18 e repasse 26,72. */
 describe("repasse do TikTok Shop", () => {
+  it("inclui compensação relacionada e mantém estorno integral que zera o repasse", () => {
+    expect(agruparRepasses([
+      transacao({ order_id: "venda", settlement_amount: "80", revenue_amount: "100" }),
+      transacao({ order_id: "venda", settlement_amount: "-80", revenue_amount: "-100" }),
+      transacao({ adjustment_order_id: "compensado", type: "PLATFORM_REIMBURSEMENT", settlement_amount: "11.46" }),
+    ])).toMatchObject([{ orderId: "venda", liquido: 0 }, { orderId: "compensado", liquido: 11.46 }]);
+  });
   it("converte a linha do extrato em repasse do pedido", () => {
     const [repasse] = agruparRepasses([transacao({
       order_id: "584708858748240935",
@@ -40,15 +47,14 @@ describe("repasse do TikTok Shop", () => {
     expect(repasse.transacoes).toBe(2);
   });
 
-  it("descarta pedido ainda sem extrato em vez de gravar zero", () => {
-    // Pedido pago hoje responde 200 com tudo zerado. Gravar isso diria que o
-    // vendedor não recebeu nada — pior que não ter o dado.
+  it("preserva zero informado em uma linha de extrato", () => {
+    // A origem é uma transação efetiva; ausência de extrato é uma lista vazia.
     expect(agruparRepasses([transacao({
       order_id: "2",
       revenue_amount: "0",
       fee_amount: "0",
       settlement_amount: "0",
-    })])).toEqual([]);
+    })])).toMatchObject([{ orderId: "2", liquido: 0 }]);
   });
 
   it("soma em centavos para não arrastar erro de ponto flutuante", () => {

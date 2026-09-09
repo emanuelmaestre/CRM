@@ -78,7 +78,9 @@ export interface TikTokAnuncioCatalogo {
  *  `order_id` que amarra a linha ao pedido. Os valores chegam como string e
  *  as retenções vêm negativas ("-8.18"). */
 export interface TikTokTransacaoExtrato {
+  id?: string;
   order_id?: string;
+  adjustment_order_id?: string;
   settlement_amount?: string;
   revenue_amount?: string;
   fee_amount?: string;
@@ -155,13 +157,14 @@ function telefoneUtilizavel(valor: string | undefined): string | undefined {
  *  Separada do provider porque é a regra que define o dinheiro gravado — soma
  *  em centavos (somar "-8.18" com "26.72" em ponto flutuante erra por
  *  arredondamento), soma TODAS as transações do mesmo pedido (venda num
- *  extrato, devolução em outro) e descarta o pedido que ainda não tem extrato,
- *  que o TikTok devolve zerado em vez de omitir. */
+   *  extrato, devolução em outro). Linhas de extrato com zero são valores
+   *  efetivos; ausência de extrato é que representa repasse desconhecido. */
 export function agruparRepasses(transacoes: TikTokTransacaoExtrato[]): RepasseTikTok[] {
   const acumulado = new Map<string, { liquido: number; receita: number; taxas: number; frete: number; comissao: number; moeda: string; transacoes: number }>();
   for (const transacao of transacoes) {
-    const orderId = transacao.order_id;
+    const orderId = transacao.order_id || transacao.adjustment_order_id;
     if (!orderId) continue;
+    if (transacao.currency && transacao.currency !== "BRL") throw new Error("TikTok: moeda do extrato diferente de BRL.");
     const atual = acumulado.get(orderId)
       ?? { liquido: 0, receita: 0, taxas: 0, frete: 0, comissao: 0, moeda: transacao.currency ?? "BRL", transacoes: 0 };
     atual.liquido += centavos(transacao.settlement_amount);
@@ -178,7 +181,6 @@ export function agruparRepasses(transacoes: TikTokTransacaoExtrato[]): RepasseTi
     acumulado.set(orderId, atual);
   }
   return [...acumulado.entries()]
-    .filter(([, valores]) => valores.liquido !== 0 || valores.receita !== 0)
     .map(([orderId, valores]) => ({
       orderId,
       liquido: valores.liquido / 100,
@@ -211,7 +213,7 @@ export class TikTokShopProvider implements ChannelProvider {
 
   private async request<T>(
     path: string,
-    options: { method?: "GET" | "POST"; query?: Record<string, string>; body?: unknown; timeoutMs?: number; semShopCipher?: boolean } = {},
+    options: { method?: "GET" | "POST" | "PUT"; query?: Record<string, string>; body?: unknown; timeoutMs?: number; semShopCipher?: boolean } = {},
   ): Promise<T> {
     /* `shop_cipher` identifica a loja e vai em quase tudo — mas há endpoints
        que operam sobre a AUTORIZAÇÃO, não sobre uma loja, e o TikTok recusa a
@@ -403,9 +405,20 @@ export class TikTokShopProvider implements ChannelProvider {
     return resultados;
   }
 
-  /** Pós-venda tem versão e paginação próprias; COMPLETE no pedido não prova
-   * que o comprador conservou os produtos ou que não recebeu um reembolso. */
-  async listarReembolsos(desde: Date, ate: Date): Promise<ReembolsoTikTok[]> {
+  async listarWebhooks(): Promise<Array<{ event_type: string; address: string }>> {
+    const data = await this.request<{ webhooks?: Array<{ event_type: string; address: string }>; total_count?: number }>("/event/202309/webhooks");
+    if (!Array.isArray(data.webhooks)) throw new Error("TikTok: configuração de webhooks incompleta.");
+    return data.webhooks;
+  }
+
+  async configurarWebhook(evento: "ORDER_STATUS_CHANGE" | "CANCELLATION_STATUS_CHANGE" | "RETURN_STATUS_CHANGE", endereco: string): Promise<void> {
+    const url = new URL(endereco);
+    if (url.protocol !== "https:" || url.username || url.password || url.port) throw new Error("TikTok: endereço de webhook inválido.");
+    await this.request("/event/202309/webhooks", { method: "PUT", body: { event_type: evento, address: url.toString() } });
+  }
+
+  /** Pós-venda tem versão própria, independente do status do pedido. */
+  async listarReembolsos(desde: Date, ate: Date, orderIds?: readonly string[]): Promise<ReembolsoTikTok[]> {
     if (!Number.isFinite(desde.getTime()) || !Number.isFinite(ate.getTime()) || desde >= ate) throw new Error("TikTok: período de devoluções inválido.");
     const casos = new Map<string, ReembolsoTikTok>();
     const vistos = new Set<string>();
@@ -415,14 +428,26 @@ export class TikTokShopProvider implements ChannelProvider {
         "/return_refund/202309/returns/search", {
           method: "POST",
           query: { page_size: "50", sort_field: "update_time", sort_order: "ASC", ...(cursor ? { page_token: cursor } : {}) },
-          body: { update_time_ge: Math.floor(desde.getTime() / 1000), update_time_lt: Math.floor(ate.getTime() / 1000) },
+          body: orderIds ? { order_ids: orderIds } : { update_time_ge: Math.floor(desde.getTime() / 1000), update_time_lt: Math.floor(ate.getTime() / 1000) },
         },
       );
       // A resposta vazia real omite return_orders e informa total_count: 0.
       const linhas = data.return_orders ?? (data.total_count === 0 ? [] : undefined);
       if (!Array.isArray(linhas)) throw new Error("TikTok: resposta de devoluções incompleta.");
       for (const raw of linhas) {
-        const caso = normalizarReembolsoTikTok(raw);
+        if (orderIds && !orderIds.includes(raw.order_id)) throw new Error("TikTok: devolução fora dos pedidos solicitados.");
+        // Reembolso rápido pode terminar antes da devolução logística.
+        // O sinalizador sozinho não comprova pagamento: exige REFUND_SUCCESS.
+        let reembolsadoEmMs: number | undefined;
+        if (raw.is_quick_refund && raw.return_status !== "RETURN_OR_REFUND_REQUEST_COMPLETE") {
+          const historico = await this.request<{ records?: Array<{ event: string; create_time: number }> }>(
+            `/return_refund/202309/returns/${encodeURIComponent(raw.return_id)}/records`,
+          );
+          if (!Array.isArray(historico.records)) throw new Error("TikTok: histórico de reembolso incompleto.");
+          const sucesso = historico.records.find((r) => r.event === "REFUND_SUCCESS");
+          if (sucesso) reembolsadoEmMs = sucesso.create_time * 1000;
+        }
+        const caso = normalizarReembolsoTikTok(raw, reembolsadoEmMs);
         const anterior = casos.get(caso.id);
         if (!anterior || caso.atualizadoEmMs >= anterior.atualizadoEmMs) casos.set(caso.id, caso);
       }
@@ -537,23 +562,17 @@ export class TikTokShopProvider implements ChannelProvider {
    *  e o TikTok já devolve 429 bem antes disso. O extrato traz os mesmos
    *  números em lote: algumas dezenas de chamadas cobrem o trimestre.
    *
-   *  Pedido sem extrato ainda existe e responde 200 com tudo zerado (testado
-   *  em pedido pago de hoje) — por isso `listarRepasses` descarta o que soma
-   *  zero, em vez de gravar "o vendedor recebeu R$ 0,00".
-   *
-   *  Um pedido pode aparecer em mais de uma transação: a venda entra num
-   *  extrato, a devolução em outro. Daí a SOMA por `order_id`, não o último
-   *  valor visto — e daí também a janela larga de quem chama (ver
-   *  DIAS_REPASSE_TIKTOK): uma devolução fora da janela deixaria o líquido
-   *  alto demais até a varredura seguinte alcançá-la. */
+   *  Linhas dos demonstrativos são lançamentos efetivos, inclusive zero.
+   *  A consulta por pedido pode devolver um objeto zerado sem liquidação;
+   *  esse endpoint não é usado aqui. O serviço soma o histórico completo. */
   private static readonly EXTRATO_PAGINA = 50;
 
-  private async listarExtratos(desdeMs: number, ateMs: number): Promise<string[]> {
+  async listarExtratos(desdeMs: number, ateMs: number): Promise<string[]> {
     const ids: string[] = [];
     const vistos = new Set<string>();
     let cursor = "";
     for (let pagina = 0; pagina < 200; pagina++) {
-      const data = await this.request<{ statements?: Array<{ id?: string }>; next_page_token?: string }>(
+      const data = await this.request<{ statements?: Array<{ id?: string; statement_time?: number }>; next_page_token?: string }>(
         "/finance/202309/statements",
         {
           query: {
@@ -561,14 +580,20 @@ export class TikTokShopProvider implements ChannelProvider {
             /* `sort_field` é obrigatório: sem ele o TikTok recusa com
                "SortField is a required field" — 400, não 404. */
             sort_field: "statement_time",
-            statement_time_ge: String(Math.floor(desdeMs / 1000)),
-            statement_time_lt: String(Math.ceil(ateMs / 1000)),
+            // O endpoint arredonda o filtro por dia. Sobrepor um dia e
+            // conferir o timestamp evita perder o demonstrativo de hoje.
+            statement_time_ge: String(Math.max(0, Math.floor(desdeMs / 1000) - 86400)),
+            statement_time_lt: String(Math.ceil(ateMs / 1000) + 86400),
             ...(cursor ? { page_token: cursor } : {}),
           },
           timeoutMs: 15_000,
         },
       );
-      for (const extrato of data.statements ?? []) if (extrato.id) ids.push(extrato.id);
+      for (const extrato of data.statements ?? []) {
+        if (!extrato.id || !Number.isFinite(extrato.statement_time)) throw new Error("TikTok: extrato sem identificação ou data.");
+        const dataMs = extrato.statement_time! * 1000;
+        if (dataMs >= desdeMs && dataMs < ateMs && !ids.includes(extrato.id)) ids.push(extrato.id);
+      }
       const proximo = proximoCursorSeguro(cursor, data.next_page_token, Boolean(data.next_page_token), vistos, "TikTok extratos");
       if (proximo === null) return ids;
       cursor = proximo;
@@ -576,7 +601,7 @@ export class TikTokShopProvider implements ChannelProvider {
     throw new Error("TikTok: extratos incompletos após 200 páginas.");
   }
 
-  private async listarTransacoesDoExtrato(extratoId: string): Promise<TikTokTransacaoExtrato[]> {
+  async listarTransacoesDoExtrato(extratoId: string): Promise<TikTokTransacaoExtrato[]> {
     const transacoes: TikTokTransacaoExtrato[] = [];
     const vistos = new Set<string>();
     let cursor = "";

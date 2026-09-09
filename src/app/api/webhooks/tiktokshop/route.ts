@@ -1,11 +1,8 @@
+import { inngest } from "@/shared/lib/inngest/client";
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
-import { buscarPedidoComRegistro } from "@/modules/canais/application/recepcao-pedido.service";
-import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
 import { verificarRateLimit } from "@/shared/lib/rate-limit";
-import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
 import {
   resolverContaTikTokPorLoja,
   tratarDesautorizacaoTikTok,
@@ -124,24 +121,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const conta = await resolverContaWebhookMarketplace("tiktokshop", shop_id);
-
-    const provider = await criarTikTokShopProvider(conta.brandSlug);
-    const orderId = d.order_id;
-    const pedido = await buscarPedidoComRegistro(conta, orderId, async () => {
-      const encontrado = (await provider.buscarPedidosPorIds([orderId]))[0];
-      if (!encontrado) throw new Error(`TikTok Shop não retornou o pedido ${orderId}.`);
-      return encontrado;
+    const notificationId = `tiktok-${shop_id}-${resultado.data.tts_notification_id ?? crypto.createHash("sha256").update(rawBody).digest("hex")}`;
+    // Confirma somente depois de o evento estar na fila durável. Falha no
+    // envio retorna 500 para que o TikTok tente novamente.
+    await inngest.send({
+      id: notificationId, name: "canal/tiktok.pedido-notificado",
+      data: { notificationId, shopId: shop_id, orderId: d.order_id, type },
     });
-
-    const { pedidoId, novo } = await ingerirPedido(
-      conta.orgId,
-      conta.brandId,
-      conta.channelAccountId,
-      pedido,
-    );
-
-    return NextResponse.json({ ok: true, pedidoId, novo });
+    return NextResponse.json({ ok: true, aceito: true, notificationId });
   } catch (err) {
     console.error("[webhook/tiktokshop]", err);
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });

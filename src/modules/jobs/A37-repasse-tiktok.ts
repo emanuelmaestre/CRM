@@ -24,15 +24,13 @@ import { EVENTO_REPASSE_TIKTOK } from "./eventos-operacionais";
    (06:00): a A34 pode ter trazido pedido novo, e a A35 confere o bruto — este
    completa o líquido de quem já está gravado.
 
-   Uma conta por `step.run`: cada loja é uma varredura de extratos inteira, e
-   step grande demais estoura o tempo e faz o Inngest reexecutar o job do zero,
-   refazendo as chamadas e queimando a cota do proxy. Falha de uma loja não
-   derruba as outras — o líquido é complemento, não a entrada do pedido. */
+   Cada extrato e lote de gravação tem uma etapa retomável independente,
+   evitando que a coleta histórica exceda o tempo de uma requisição. */
 
 export const A37_repasseTikTok = inngest.createFunction(
   {
     id: "A37-repasse-tiktok",
-    name: `A37: Repasse do TikTok Shop (últimos ${DIAS_REPASSE_TIKTOK} dias)`,
+    name: "A37: Conciliação histórica de repasses TikTok",
     concurrency: { limit: 1 },
     triggers: [
       { cron: "0 7 * * *" },
@@ -73,7 +71,7 @@ export const A37_repasseTikTok = inngest.createFunction(
 
       const porConta: Array<{ contaId: string; marca: string; resumo?: ResumoRepasseTikTok; erro?: string }> = [];
       for (const conta of contas) {
-        const resultado = await step.run(`repasse-${conta.id}`, async () => {
+        const resultado = await (async () => {
           try {
             if (!isBrandSlug(conta.brandSlug)) {
               throw new Error(`Marca desconhecida para a conta ${conta.id}: ${conta.brandSlug}`);
@@ -83,6 +81,8 @@ export const A37_repasseTikTok = inngest.createFunction(
               channelAccountId: conta.id,
               brandSlug: conta.brandSlug,
               desde: new Date(Date.now() - dias * 24 * 60 * 60 * 1000),
+              executarEtapa: async <T>(nome: string, executar: () => Promise<T>) =>
+                await step.run(`repasse-${conta.id}-${nome}`, executar) as T,
             });
             return { contaId: conta.id, marca: conta.brandSlug, resumo };
           } catch (error) {
@@ -90,7 +90,7 @@ export const A37_repasseTikTok = inngest.createFunction(
             console.warn(`[A37] conta ${conta.brandSlug} pulada: ${erro}`);
             return { contaId: conta.id, marca: conta.brandSlug, erro };
           }
-        });
+        })();
         porConta.push(resultado);
       }
 

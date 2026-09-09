@@ -156,6 +156,8 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       // faturamento e ticket médio.
       liquidoTotal: sql<string>`coalesce(sum(${LIQUIDO_DO_PEDIDO}) filter (where ${faturavel}), 0)`,
       liquidoEstimadosQtd: sql<number>`count(*) filter (where ${faturavel} and ${pedido.canal} in ('shopee', 'tiktokshop') and ${pedido.valorLiquido} is null)`,
+      repasseApuradoTikTok: sql<string>`coalesce(sum(${pedido.valorLiquido}) filter (where ${pedido.canal} = 'tiktokshop'), 0)`,
+      repassePendenteTikTokQtd: sql<number>`count(*) filter (where ${faturavel} and ${pedido.canal} = 'tiktokshop' and ${pedido.valorLiquido} is null)`,
     })
     .from(pedido)
     .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
@@ -185,6 +187,8 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
     pendentesValor: Number(resumo?.pendentesValor ?? 0),
     liquidoTotal: Number(resumo?.liquidoTotal ?? 0),
     liquidoEstimadosQtd: Number(resumo?.liquidoEstimadosQtd ?? 0),
+    repasseApuradoTikTok: Number(resumo?.repasseApuradoTikTok ?? 0),
+    repassePendenteTikTokQtd: Number(resumo?.repassePendenteTikTokQtd ?? 0),
   };
 }
 

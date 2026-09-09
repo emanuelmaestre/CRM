@@ -31,6 +31,15 @@ async function resumir(linhas: Linha[], inicio = "2026-09-05T00:00:00-03:00", fi
 }
 
 describe("composição dos cards por marketplace", () => {
+  it("TikTok reconhece reembolso rápido completo e parcial sem antecipar devolução pendente", async () => {
+    const caso = { status: "BUYER_SHIPPED_ITEM", reembolsadoEmMs: 1788200842000 };
+    const r = await resumir([
+      { canal: "tiktokshop", status: "entregue", total: 126.25, dados_origem: { status: "COMPLETED", reembolsosTikTok: [{ ...caso, valor: 126.25 }] } },
+      { canal: "tiktokshop", status: "entregue", total: 30, dados_origem: { status: "COMPLETED", reembolsosTikTok: [{ ...caso, valor: 10 }] } },
+      { canal: "tiktokshop", status: "entregue", total: 50, dados_origem: { status: "COMPLETED", reembolsosTikTok: [{ status: "BUYER_SHIPPED_ITEM", valor: 50, reembolsadoEmMs: "inválido" }] } },
+    ]);
+    expect(r).toMatchObject({ bruto: 206.25, confirmado: 70, confirmado_qtd: 2, cancelado: 126.25, cancelado_qtd: 1, reembolso: 10 });
+  });
   it("TikTok: distingue reembolso integral do parcial, ignora solicitação cancelada e mantém o bruto", async () => {
     const refund = (valor: number, status = "RETURN_OR_REFUND_REQUEST_COMPLETE") => ({ valor, status });
     const r = await resumir([

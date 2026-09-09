@@ -8,10 +8,11 @@ import type { BrandSlug } from "@/shared/config/brands";
 
 export async function conciliarReembolsosTikTok(opcoes: {
   orgId: string; channelAccountId: string; brandSlug: BrandSlug; desde: Date; ate: Date;
+  orderIds?: readonly string[];
 }) {
   const provider = await criarTikTokShopProvider(opcoes.brandSlug);
   // A leitura precisa terminar inteira antes da primeira gravação.
-  const casos = await provider.listarReembolsos(opcoes.desde, opcoes.ate);
+  const casos = await provider.listarReembolsos(opcoes.desde, opcoes.ate, opcoes.orderIds);
   const porPedido = new Map<string, ReembolsoTikTok[]>();
   for (const caso of casos) porPedido.set(caso.orderId, [...(porPedido.get(caso.orderId) ?? []), caso]);
   let atualizados = 0;

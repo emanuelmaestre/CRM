@@ -7,6 +7,8 @@ export interface ReembolsoTikTok {
   subtotal: number;
   frete: number;
   atualizadoEmMs: number;
+  /** Evidência financeira independente da entrega do pacote devolvido. */
+  reembolsadoEmMs?: number;
 }
 
 export interface RetornoTikTokApi {
@@ -15,19 +17,21 @@ export interface RetornoTikTokApi {
   return_status: string;
   return_type: string;
   update_time: number;
+  is_quick_refund?: boolean;
   refund_amount?: { currency?: string; refund_total?: string; refund_subtotal?: string; refund_shipping_fee?: string };
 }
 
 export const REEMBOLSO_TIKTOK_CONCLUIDO = "RETURN_OR_REFUND_REQUEST_COMPLETE";
 
-export function normalizarReembolsoTikTok(retorno: RetornoTikTokApi): ReembolsoTikTok {
+export function normalizarReembolsoTikTok(retorno: RetornoTikTokApi, reembolsadoEmMs?: number): ReembolsoTikTok {
   const dinheiro = (valor: string | undefined, obrigatorio = false) => {
     if (obrigatorio && (valor === undefined || valor.trim() === "")) throw new Error("TikTok: reembolso concluído sem valor.");
     const n = Number(valor ?? 0);
     if (!Number.isFinite(n) || n < 0) throw new Error("TikTok: valor de reembolso inválido.");
     return Math.round(n * 100) / 100;
   };
-  const concluido = retorno.return_status === REEMBOLSO_TIKTOK_CONCLUIDO;
+  if (reembolsadoEmMs !== undefined && (!Number.isFinite(reembolsadoEmMs) || reembolsadoEmMs <= 0)) throw new Error("TikTok: data de reembolso inválida.");
+  const concluido = retorno.return_status === REEMBOLSO_TIKTOK_CONCLUIDO || reembolsadoEmMs !== undefined;
   if (!retorno.return_id || !retorno.order_id || !retorno.return_status || !Number.isFinite(retorno.update_time)
     || (concluido && retorno.refund_amount?.currency !== "BRL")) {
     throw new Error("TikTok: devolução sem identificação, versão ou moeda BRL.");
@@ -35,6 +39,7 @@ export function normalizarReembolsoTikTok(retorno: RetornoTikTokApi): ReembolsoT
   return {
     id: retorno.return_id, orderId: retorno.order_id, status: retorno.return_status,
     tipo: retorno.return_type, atualizadoEmMs: retorno.update_time * 1000,
+    ...(reembolsadoEmMs !== undefined ? { reembolsadoEmMs } : {}),
     valor: dinheiro(retorno.refund_amount?.refund_total, concluido),
     subtotal: dinheiro(retorno.refund_amount?.refund_subtotal),
     frete: dinheiro(retorno.refund_amount?.refund_shipping_fee),
@@ -46,7 +51,10 @@ export function mesclarReembolsosTikTok(anteriores: ReembolsoTikTok[], recebidos
   const casos = new Map(anteriores.map((r) => [r.id, r]));
   for (const r of recebidos) {
     const anterior = casos.get(r.id);
-    if (!anterior || r.atualizadoEmMs >= anterior.atualizadoEmMs) casos.set(r.id, r);
+    if (!anterior || r.atualizadoEmMs >= anterior.atualizadoEmMs) {
+      casos.set(r.id, anterior?.reembolsadoEmMs && !r.reembolsadoEmMs
+        ? { ...r, reembolsadoEmMs: anterior.reembolsadoEmMs } : r);
+    }
   }
   return [...casos.values()].sort((a, b) => a.id.localeCompare(b.id));
 }

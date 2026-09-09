@@ -83,7 +83,7 @@ export function reembolsoParcialInformado(dadosOrigem: unknown): number {
   if (!objeto(dadosOrigem)) return 0;
   if (Array.isArray(dadosOrigem.reembolsosTikTok)) {
     return dadosOrigem.reembolsosTikTok.reduce((total, caso: unknown) => {
-      if (!objeto(caso) || caso.status !== "RETURN_OR_REFUND_REQUEST_COMPLETE"
+      if (!objeto(caso) || (caso.status !== "RETURN_OR_REFUND_REQUEST_COMPLETE" && !numeroPositivo(caso.reembolsadoEmMs))
         || typeof caso.valor !== "number" || !Number.isFinite(caso.valor) || caso.valor <= 0) return total;
       return total + Math.round(caso.valor * 100);
     }, 0) / 100;

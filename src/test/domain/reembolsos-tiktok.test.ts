@@ -14,6 +14,33 @@ beforeEach(() => vi.stubEnv("DEFAULT_ORG_ID", ""));
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("pós-venda TikTok", () => {
+  it("conserva o demonstrativo de hoje e filtra a sobreposição devolvida pela API", async () => {
+    const inicio = new Date("2026-09-08T00:00:00Z"), fim = new Date("2026-09-09T13:00:00Z");
+    const fetch = vi.fn().mockResolvedValue(Response.json({ code: 0, data: { statements: [
+      { id: "antes", statement_time: Date.parse("2026-09-07T00:00:00Z") / 1000 },
+      { id: "hoje", statement_time: Date.parse("2026-09-09T00:00:00Z") / 1000 },
+      { id: "futuro", statement_time: Date.parse("2026-09-10T00:00:00Z") / 1000 },
+    ] } }));
+    vi.stubGlobal("fetch", fetch);
+    expect(await provider().listarExtratos(inicio.getTime(), fim.getTime())).toEqual(["hoje"]);
+    expect(Number(new URL(fetch.mock.calls[0][0]).searchParams.get("statement_time_lt"))).toBe(fim.getTime() / 1000 + 86400);
+  });
+  it.each([true, false])("reembolso rápido exige o evento financeiro; sucesso=%s", async (sucesso) => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ code: 0, data: { total_count: 1, return_orders: [caso({ is_quick_refund: true, return_status: "BUYER_SHIPPED_ITEM" })] } }))
+      .mockResolvedValueOnce(Response.json({ code: 0, data: { records: [{ event: sucesso ? "REFUND_SUCCESS" : "BUYER_SHIPPED", create_time: 1788200842 }] } }));
+    vi.stubGlobal("fetch", fetch);
+    const casos = await provider().listarReembolsos(desde, ate, ["pedido"]);
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ order_ids: ["pedido"] });
+    expect(casos[0].status).toBe("BUYER_SHIPPED_ITEM");
+    expect(reembolsoParcialInformado({ reembolsosTikTok: casos })).toBe(sucesso ? 111.1 : 0);
+  });
+  it("falha se a consulta do histórico rápido estiver incompleta", async () => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(Response.json({ code: 0, data: { total_count: 1, return_orders: [caso({ is_quick_refund: true, return_status: "BUYER_SHIPPED_ITEM" })] } }))
+      .mockResolvedValueOnce(Response.json({ code: 0, data: {} })));
+    await expect(provider().listarReembolsos(desde, ate)).rejects.toThrow(/histórico/);
+  });
   it("usa o total devolvido com frete, sem somar casos cancelados nem a linha de SKU de novo", () => {
     const cases = [normalizarReembolsoTikTok(caso()), normalizarReembolsoTikTok(caso({ return_id: "cancelado", return_status: "RETURN_OR_REFUND_REQUEST_CANCEL" }))];
     expect(reembolsoParcialInformado({ reembolsosTikTok: cases })).toBe(111.1);
@@ -25,6 +52,11 @@ describe("pós-venda TikTok", () => {
     const b = { ...a, id: "outro", valor: 11.46 };
     expect(mesclarReembolsosTikTok([a], [b])).toHaveLength(2);
     expect(mesclarReembolsosTikTok([a], [{ ...antigo, atualizadoEmMs: a.atualizadoEmMs + 1000 }])[0].status).toBe(antigo.status);
+  });
+  it("preserva prova de reembolso quando a próxima atualização só informa logística", () => {
+    const pago = normalizarReembolsoTikTok(caso({ return_status: "BUYER_SHIPPED_ITEM" }), 1788200842000);
+    const logistico = normalizarReembolsoTikTok(caso({ return_status: "BUYER_SHIPPED_ITEM", update_time: 1788899258 }));
+    expect(reembolsoParcialInformado({ reembolsosTikTok: mesclarReembolsosTikTok([pago], [logistico]) })).toBe(111.1);
   });
   it.each([
     { refund_amount: { currency: "BRL" } },

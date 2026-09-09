@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/shared/lib/db";
-import { criarTikTokShopProvider, type RepasseTikTok } from "../infrastructure/tiktokshop.provider";
+import { agruparRepasses, criarTikTokShopProvider, type RepasseTikTok } from "../infrastructure/tiktokshop.provider";
 import type { BrandSlug } from "@/shared/config/brands";
 
 /* ── Por que existe uma varredura de repasse ────────────────────────────
@@ -20,14 +20,8 @@ import type { BrandSlug } from "@/shared/config/brands";
    número de lucro — `liquidoDoPedido` prefere o repasse informado e ignora a
    soma de taxas quando ele existe. */
 
-/** Quantos dias de extrato cada volta varre.
- *
- *  Quarenta e cinco, não sete: o repasse do TikTok sai dias depois da venda, e
- *  a devolução — que entra como transação NEGATIVA num extrato posterior —
- *  pode sair semanas depois. Como o líquido gravado é a soma do que estiver
- *  DENTRO da janela, janela curta devolveria um líquido alto demais para
- *  pedido devolvido. Reprocessar extrato já lido não custa registro: a
- *  gravação é idempotente e só escreve quando o valor muda. */
+/** Janela mínima de busca. A conciliação amplia até o primeiro pedido
+ * para nunca substituir o líquido acumulado por um estorno isolado. */
 export const DIAS_REPASSE_TIKTOK = 45;
 
 export interface ResumoRepasseTikTok {
@@ -90,21 +84,38 @@ export async function conciliarRepassesTikTok(opcoes: {
   banco?: typeof db;
   /** Reconciliação dirigida: limita a gravação aos pedidos já auditados. */
   orderIds?: readonly string[];
+  /** Divide a coleta histórica em etapas retomáveis no job. */
+  executarEtapa?: <T>(nome: string, executar: () => Promise<T>) => Promise<T>;
 }): Promise<ResumoRepasseTikTok> {
   const banco = opcoes.banco ?? db;
-  const ate = opcoes.ate ?? new Date();
-  const desde = opcoes.desde ?? new Date(ate.getTime() - DIAS_REPASSE_TIKTOK * 24 * 60 * 60 * 1000);
+  const etapa = opcoes.executarEtapa ?? (async <T>(_nome: string, executar: () => Promise<T>) => executar());
+  const janela = await etapa("periodo", async () => {
+    const resultado = await banco.execute(sql`select min(criado_em)::text as inicio from pedido
+      where org_id = ${opcoes.orgId} and channel_account_id = ${opcoes.channelAccountId} and canal = 'tiktokshop'`);
+    const inicio = linhasDe<{ inicio: string | null }>(resultado)[0]?.inicio;
+    const ate = opcoes.ate ?? new Date();
+    // O valor do pedido exige todo o histórico. Uma janela de 45 dias
+    // poderia guardar só o estorno, perdendo o recebimento anterior.
+    const desde = inicio ? new Date(inicio) : (opcoes.desde ?? new Date(ate.getTime() - DIAS_REPASSE_TIKTOK * 86400000));
+    if (opcoes.desde && opcoes.desde < desde) desde.setTime(opcoes.desde.getTime());
+    desde.setUTCHours(0, 0, 0, 0);
+    return { desde: desde.toISOString(), ate: ate.toISOString() };
+  });
+  const desde = new Date(janela.desde), ate = new Date(janela.ate);
 
   const provider = await criarTikTokShopProvider(opcoes.brandSlug);
   const permitidos = opcoes.orderIds ? new Set(opcoes.orderIds) : null;
-  const repasses = (await provider.listarRepasses(desde, ate))
+  const ids = await etapa("extratos", () => provider.listarExtratos(desde.getTime(), ate.getTime()));
+  const transacoes = [];
+  for (const id of ids) transacoes.push(...await etapa(`extrato-${id}`, () => provider.listarTransacoesDoExtrato(id)));
+  const repasses = agruparRepasses(transacoes)
     .filter((repasse) => !permitidos || permitidos.has(repasse.orderId));
 
   let atualizados = 0;
   let encontrados = 0;
   let itensComTaxa = 0;
   for (let i = 0; i < repasses.length; i += 200) {
-    const resultado = await gravarLote(banco, opcoes.orgId, opcoes.channelAccountId, repasses.slice(i, i + 200));
+    const resultado = await etapa(`gravar-${i}`, () => gravarLote(banco, opcoes.orgId, opcoes.channelAccountId, repasses.slice(i, i + 200)));
     atualizados += resultado.atualizados;
     encontrados += resultado.encontrados;
     itensComTaxa += resultado.itensComTaxa;
@@ -178,7 +189,7 @@ async function gravarComissao(
   const porOrderId = new Map(lote.map((repasse) => [repasse.orderId, repasse]));
   for (const linha of casados) {
     const repasse = porOrderId.get(linha.providerOrderId);
-    if (!repasse || repasse.comissao <= 0) continue;
+    if (!repasse) continue;
     comissaoPorPedido.set(linha.id, Math.round(repasse.comissao * 100));
   }
   if (comissaoPorPedido.size === 0) return 0;
