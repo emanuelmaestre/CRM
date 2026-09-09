@@ -3,7 +3,7 @@ const m = vi.hoisted(() => ({ ingerir: vi.fn(), reembolsos: vi.fn(), buscar: vi.
 vi.mock("@/modules/canais/application/ingestao-pedido.service", () => ({ ingerirPedido: m.ingerir }));
 vi.mock("@/modules/canais/application/reembolsos-tiktok.service", () => ({ conciliarReembolsosTikTok: m.reembolsos }));
 vi.mock("@/modules/canais/application/recepcao-pedido.service", () => ({ buscarPedidoComRegistro: (_conta: unknown, _id: string, buscar: () => Promise<unknown>) => buscar() }));
-vi.mock("@/modules/canais/application/webhook-account.service", () => ({ resolverContaWebhookMarketplace: async () => ({ orgId: "org", channelAccountId: "conta", brandId: "marca", brandSlug: "wuwu" }) }));
+vi.mock("@/modules/canais/application/tiktok-autorizacao.service", () => ({ resolverContaTikTokPorLoja: async () => ({ orgId: "org", channelAccountId: "conta", brandId: "marca", brandSlug: "wuwu" }) }));
 vi.mock("@/modules/canais/infrastructure/tiktokshop.provider", () => ({ criarTikTokShopProvider: async () => ({ buscarPedidosPorIds: m.buscar }) }));
 import { processarNotificacaoPedidoTikTok } from "@/modules/canais/application/processar-notificacao-tiktok.service";
 

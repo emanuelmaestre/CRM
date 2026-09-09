@@ -1,11 +1,16 @@
 import { ingerirPedido } from "@/modules/canais/application/ingestao-pedido.service";
 import { buscarPedidoComRegistro } from "@/modules/canais/application/recepcao-pedido.service";
-import { resolverContaWebhookMarketplace } from "@/modules/canais/application/webhook-account.service";
+import { resolverContaTikTokPorLoja } from "@/modules/canais/application/tiktok-autorizacao.service";
+import { isBrandSlug } from "@/shared/config/brands";
 import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
 import { conciliarReembolsosTikTok } from "@/modules/canais/application/reembolsos-tiktok.service";
 
 export async function processarNotificacaoPedidoTikTok(shopId: string, orderId: string, type: number) {
-  const conta = await resolverContaWebhookMarketplace("tiktokshop", shopId);
+  // O webhook identifica a loja, enquanto externalAccountId pode guardar
+  // o open_id do vendedor. O resolvedor TikTok aceita os IDs da loja.
+  const encontrada = await resolverContaTikTokPorLoja(shopId);
+  if (!encontrada || !isBrandSlug(encontrada.brandSlug)) throw new Error("Conta TikTok não reconhecida.");
+  const conta = { ...encontrada, brandSlug: encontrada.brandSlug };
 
   const provider = await criarTikTokShopProvider(conta.brandSlug);
 

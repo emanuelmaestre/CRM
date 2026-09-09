@@ -4,6 +4,7 @@ import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { createClient } from "@supabase/supabase-js";
 import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 import { expiracaoTikTokISO } from "@/modules/canais/application/tiktok-token.service";
+import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,6 +29,7 @@ async function sincronizarContaCanal(input: {
   brandId: string;
   brand: BrandSlug;
   sellerId: string;
+  shopId: string;
 }) {
   const { data: existente, error: selectError } = await supabase
     .from("channel_account")
@@ -46,7 +48,7 @@ async function sincronizarContaCanal(input: {
   const payload = {
     nome: `TikTok Shop ${getBrandConfig(input.brand)?.label ?? input.brand}`,
     status: "conectado",
-    meta: { ...metaAtual, externalAccountId: input.sellerId, synthetic: false },
+    meta: { ...metaAtual, externalAccountId: input.sellerId, shopId: input.shopId, synthetic: false },
     ultima_verificacao: now,
     ultimo_erro: null,
     atualizado_em: now,
@@ -179,7 +181,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.redirect(`${appUrl}/configuracoes?tiktok_error=db_failed`);
   }
 
-  const contaResult = await sincronizarContaCanal({ orgId, brandId, brand, sellerId });
+  let shopId: string;
+  try {
+    shopId = await (await criarTikTokShopProvider(brand)).obterIdLoja();
+  } catch (error) {
+    console.error("[tiktok/callback] identificação da loja falhou", error);
+    return NextResponse.redirect(`${appUrl}/configuracoes?tiktok_error=shop_identity_failed`);
+  }
+  const contaResult = await sincronizarContaCanal({ orgId, brandId, brand, sellerId, shopId });
   if (contaResult.error) {
     console.error("[tiktok/callback] channel_account sync failed", contaResult.error);
     await supabase

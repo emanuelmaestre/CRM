@@ -411,6 +411,15 @@ export class TikTokShopProvider implements ChannelProvider {
     return data.webhooks;
   }
 
+  async obterIdLoja(): Promise<string> {
+    const data = await this.request<{ shops?: Array<{ id: string; cipher: string }> }>(
+      "/authorization/202309/shops", { semShopCipher: true },
+    );
+    const loja = data.shops?.find((s) => s.cipher === this.creds.shopCipher);
+    if (!loja || typeof loja.id !== "string" || !loja.id) throw new Error("TikTok: loja autorizada não corresponde ao canal configurado.");
+    return loja.id;
+  }
+
   async configurarWebhook(evento: "ORDER_STATUS_CHANGE" | "CANCELLATION_STATUS_CHANGE" | "RETURN_STATUS_CHANGE", endereco: string): Promise<void> {
     const url = new URL(endereco);
     if (url.protocol !== "https:" || url.username || url.password || url.port) throw new Error("TikTok: endereço de webhook inválido.");

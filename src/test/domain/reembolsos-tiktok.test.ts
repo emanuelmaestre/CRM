@@ -14,6 +14,12 @@ beforeEach(() => vi.stubEnv("DEFAULT_ORG_ID", ""));
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe("pós-venda TikTok", () => {
+  it("identifica a loja pelo cipher da conta, sem confundir open_id com shop_id", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ code: 0, data: { shops: [
+      { id: "outra", cipher: "outro-cipher" }, { id: "7494497511142753468", cipher: "shop" },
+    ] } })));
+    expect(await provider().obterIdLoja()).toBe("7494497511142753468");
+  });
   it("conserva o demonstrativo de hoje e filtra a sobreposição devolvida pela API", async () => {
     const inicio = new Date("2026-09-08T00:00:00Z"), fim = new Date("2026-09-09T13:00:00Z");
     const fetch = vi.fn().mockResolvedValue(Response.json({ code: 0, data: { statements: [
