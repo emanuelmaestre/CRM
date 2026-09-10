@@ -830,7 +830,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             numero: somenteShopee ? resumo.canceladosSemPagamentoShopee : resumo.canceladosQtd + resumo.devolvidosQtd,
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
             icon: Ban,
-            cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)",
+            cor: somenteShopee ? "var(--warning)" : resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)",
             /* No celular a legenda vira sigla: "1 cancelados e 0 devolvidos"
                ocupava duas linhas num card de 110px e desalinhava este card
                dos cinco vizinhos. E o singular deixou de sair errado. */
