@@ -98,6 +98,7 @@ export async function consultarPedidosDoIndicador(
     clienteNome: cliente.nome,
     canal: pedido.canal,
     status: COMPOSICAO.status,
+    pagamentoShopee: sql<string | null>`case when ${pedido.canal} = 'shopee' then case when ${dataPagamentoShopeeSql()} is not null then 'pago' when ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true' then 'sem-pagamento' else 'a-verificar' end else null end`,
     total: COMPOSICAO.valorOriginal,
     valorReembolsado: REEMBOLSO_PARCIAL_DO_PEDIDO,
     createdAt: dataVendaPedidoSql(),

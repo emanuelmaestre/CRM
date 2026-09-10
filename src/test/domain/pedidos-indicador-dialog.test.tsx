@@ -6,11 +6,20 @@ import { actionListarPedidosDoIndicador } from "@/app/(dashboard)/vendas/actions
 vi.mock("@/app/(dashboard)/vendas/actions", () => ({ actionListarPedidosDoIndicador: vi.fn() }));
 const consultar = vi.mocked(actionListarPedidosDoIndicador);
 const filtros = { canais: ["mercadolivre"], busca: "Ana", inicio: "2026-09-05T00:00:00-03:00" };
-const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: "Ana", canal: "mercadolivre", status: "pago" as const, total: 100, valorReembolsado: 12.5, createdAt: new Date("2026-09-05T13:00:00Z") });
+const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: "Ana", canal: "mercadolivre", status: "pago" as const, pagamentoShopee: null, total: 100, valorReembolsado: 12.5, createdAt: new Date("2026-09-05T13:00:00Z") });
 
 beforeEach(() => consultar.mockReset());
 
 describe("pedidos dos indicadores", () => {
+  it("identifica pagamento de cada cancelamento Shopee e mantém desconhecidos separados", async () => {
+    consultar.mockResolvedValue({ data: ["pago", "sem-pagamento", "a-verificar"].map((pagamentoShopee) => ({ ...pedido(pagamentoShopee), canal: "shopee", status: "cancelado" as const, pagamentoShopee })), hasMore: false });
+    render(<PedidosIndicadorDialog indicador="cancelados" titulo="Cancelamentos" filtros={{ canais: ["shopee"] }} quantidade={3} valor={300} canceladosShopee={{ total: 3, pagos: 1, semPagamento: 1 }} onClose={vi.fn()} />);
+    expect(await screen.findByText("Cancelado após pagamento")).toBeInTheDocument();
+    expect(screen.getByText("Cancelado sem pagamento")).toBeInTheDocument();
+    expect(screen.getByText("Cancelado · pagamento a verificar")).toBeInTheDocument();
+    expect(screen.getByText("1 após pagamento")).toBeInTheDocument();
+    expect(screen.getByText("1 sem pagamento")).toBeInTheDocument();
+  });
   it("abre pendentes sem rotulá-los como devoluções nem como receita", async () => {
     consultar.mockResolvedValue({ data: [{ ...pedido("pendente"), canal: "shopee", status: "criado", valorReembolsado: 0 }], hasMore: false });
     render(<PedidosIndicadorDialog indicador="pendentes-confirmacao" titulo="Pedidos ainda sem confirmação" filtros={{ canais: ["shopee"] }} quantidade={1} valor={100} onClose={vi.fn()} />);

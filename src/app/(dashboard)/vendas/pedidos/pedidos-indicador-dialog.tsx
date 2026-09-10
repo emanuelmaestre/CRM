@@ -60,6 +60,11 @@ function agruparPorDia(pedidos: Pedido[]) {
  *  vermelho quando o pedido inteiro se perdeu, âmbar quando voltou parte do
  *  dinheiro. A cor faz o trabalho que a palavra sozinha faria mais devagar. */
 function estadoDoPedido(pedido: Pedido, parcial: boolean) {
+  if (pedido.canal === "shopee" && pedido.status === "cancelado") {
+    if (pedido.pagamentoShopee === "pago") return { Icone: Ban, texto: "Cancelado após pagamento", tom: "destructive" as const };
+    if (pedido.pagamentoShopee === "sem-pagamento") return { Icone: Ban, texto: "Cancelado sem pagamento", tom: "warning" as const };
+    return { Icone: Ban, texto: "Cancelado · pagamento a verificar", tom: "warning" as const };
+  }
   if (pedido.status === "criado") return { Icone: Clock, texto: "Ainda sem confirmação", tom: "warning" as const };
   if (parcial) return { Icone: Undo2, texto: "Reembolso parcial", tom: "warning" as const };
   return pedido.status === "cancelado"
@@ -209,12 +214,13 @@ function Fantasma() {
   );
 }
 
-export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade, valor, onClose }: {
+export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade, valor, canceladosShopee, onClose }: {
   indicador: IndicadorPedidos;
   titulo: string;
   filtros: FiltrosIndicador;
   quantidade: number;
   valor: number;
+  canceladosShopee?: { pagos: number; semPagamento: number; total: number };
   onClose: () => void;
 }) {
   const [dados, setDados] = useState<Resultado>({ data: [], hasMore: false });
@@ -225,7 +231,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
   const reduzir = useReducedMotion() ?? false;
   const parcial = indicador === "reembolsos-parciais";
   const pendente = indicador === "pendentes-confirmacao";
-  const tom = parcial || pendente ? "warning" : "destructive";
+  const tom = parcial || pendente || indicador === "cancelados-sem-pagamento" ? "warning" : "destructive";
 
   useEffect(() => {
     let ativo = true;
@@ -341,6 +347,12 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
           </div>
         </div>
       </motion.section>
+
+      {canceladosShopee && <p className="mb-5 text-sm text-muted-foreground">
+        Dos {canceladosShopee.total} cancelados: <span className="font-semibold text-destructive">{canceladosShopee.pagos} após pagamento</span> · <span className="font-semibold text-warning">{canceladosShopee.semPagamento} sem pagamento</span>.
+        {canceladosShopee.total > canceladosShopee.pagos + canceladosShopee.semPagamento && <> {canceladosShopee.total - canceladosShopee.pagos - canceladosShopee.semPagamento} com pagamento a verificar.</>}
+        {" "}Os cancelados após pagamento também fazem parte dos pedidos pagos, conforme a data do pagamento. O valor cancelado não significa necessariamente dinheiro reembolsado.
+      </p>}
 
       {pendente && <p className="mb-5 text-sm text-muted-foreground">Estes pedidos da Shopee ou TikTok Shop já estão no Total bruto, mas ainda não possuem um status de pagamento confirmado. Podem estar aguardando pagamento ou confirmação do canal.</p>}
 
