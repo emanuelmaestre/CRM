@@ -65,6 +65,9 @@ const resumoInicial: Resumo = {
   liquidoEstimadosQtd: 0,
   repasseApuradoTikTok: 0,
   shopeePagos: undefined,
+  canceladosPagosShopee: 0,
+  canceladosSemPagamentoShopee: 0,
+  canceladosSemPagamentoValorShopee: 0,
   repassePendenteTikTokQtd: 0,
 };
 
@@ -798,7 +801,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             formatar: (v: number) => dinheiro.format(v),
             icon: Ban,
             cor: (resumo.canceladosValor + resumo.devolvidosValor) > 0 ? "var(--destructive)" : "var(--muted-foreground)",
-            sub: somenteShopee ? <>{resumo.canceladosQtd} pedidos cancelados, pagos ou não</> : <>
+            sub: somenteShopee ? <><span className="block">{resumo.canceladosQtd} pedidos cancelados</span><span>{resumo.canceladosPagosShopee} após pagamento · {resumo.canceladosSemPagamentoShopee} sem pagamento</span>{resumo.canceladosQtd > resumo.canceladosPagosShopee + resumo.canceladosSemPagamentoShopee && <span className="block">{resumo.canceladosQtd - resumo.canceladosPagosShopee - resumo.canceladosSemPagamentoShopee} a verificar</span>}</> : <>
               <span className="sm:hidden">{resumo.cancelados.toLocaleString("pt-BR")} ped.</span>
               <span className="hidden sm:inline">{resumo.cancelados.toLocaleString("pt-BR")} {resumo.cancelados === 1 ? "pedido" : "pedidos"}. {resumo.canceladosQtd.toLocaleString("pt-BR")} cancelados e {resumo.devolvidosQtd.toLocaleString("pt-BR")} devolvidos</span>
             </>,
@@ -821,17 +824,17 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "quantidade-cancelados-devolvidos",
-            indicador: somenteShopee ? "cancelados" as const : "cancelados-devolvidos" as const,
-            tituloJanela: somenteShopee ? "Pedidos cancelados" : "Pedidos cancelados/devolvidos",
-            label: somenteShopee ? <>Pedidos cancelados</> : <><span className="sm:hidden">Qtd. cancel. e devol.</span><span className="hidden sm:inline">Pedidos cancelados e devolvidos</span></>,
-            numero: resumo.canceladosQtd + (somenteShopee ? 0 : resumo.devolvidosQtd),
+            indicador: somenteShopee ? "cancelados-sem-pagamento" as const : "cancelados-devolvidos" as const,
+            tituloJanela: somenteShopee ? "Cancelados sem pagamento" : "Pedidos cancelados/devolvidos",
+            label: somenteShopee ? <>Cancelados sem pagamento</> : <><span className="sm:hidden">Qtd. cancel. e devol.</span><span className="hidden sm:inline">Pedidos cancelados e devolvidos</span></>,
+            numero: somenteShopee ? resumo.canceladosSemPagamentoShopee : resumo.canceladosQtd + resumo.devolvidosQtd,
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
             icon: Ban,
             cor: resumo.cancelados > 0 ? "var(--destructive)" : "var(--muted-foreground)",
             /* No celular a legenda vira sigla: "1 cancelados e 0 devolvidos"
                ocupava duas linhas num card de 110px e desalinhava este card
                dos cinco vizinhos. E o singular deixou de sair errado. */
-            sub: somenteShopee ? <>Dos pedidos criados no período</> : (
+            sub: somenteShopee ? <>Parte dos {resumo.canceladosQtd} cancelados. Não somar ao total.</> : (
               <>
                 <span className="sm:hidden">
                   {resumo.canceladosQtd.toLocaleString("pt-BR")} cancel. · {resumo.devolvidosQtd.toLocaleString("pt-BR")} devol.
@@ -1004,8 +1007,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           indicador={indicadorAberto.indicador}
           titulo={indicadorAberto.titulo}
           filtros={indicadorAberto.filtros}
-          quantidade={indicadorAberto.indicador === "cancelados" ? resumo.canceladosQtd : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosQtd : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesQtd : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
-          valor={indicadorAberto.indicador === "cancelados" ? resumo.canceladosValor : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosValor : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesValor : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
+          quantidade={indicadorAberto.indicador === "cancelados-sem-pagamento" ? resumo.canceladosSemPagamentoShopee : indicadorAberto.indicador === "cancelados" ? resumo.canceladosQtd : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosQtd : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesQtd : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
+          valor={indicadorAberto.indicador === "cancelados-sem-pagamento" ? resumo.canceladosSemPagamentoValorShopee : indicadorAberto.indicador === "cancelados" ? resumo.canceladosValor : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosValor : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesValor : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
           onClose={() => setIndicadorAberto(null)}
         />
       )}

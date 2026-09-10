@@ -53,10 +53,11 @@ export function explicacoesResumoVendas(
     },
     quantidadeCancelados: {
       ...explicacoes.quantidadeCancelados,
-      descricao: "Quantidade de pedidos criados no período e cancelados, com ou sem pagamento.",
-      calculo: "Um registro por pedido cancelado.",
-      inclui: ["Cancelamentos de pedidos pagos e não pagos."],
-      naoInclui: ["Devoluções e quantidade de itens."],
+      titulo: "os cancelados sem pagamento",
+      descricao: "Parte dos pedidos cancelados que não teve pagamento registrado pela Shopee. Já está incluída no total de cancelamentos; não deve ser somada novamente. Registros ainda não consultados ficam a verificar.",
+      calculo: "Um registro por pedido cancelado, criado no período, com consulta de pagamento realizada e sem data de pagamento.",
+      inclui: ["Cancelamentos sem pagamento confirmado pela consulta à Shopee."],
+      naoInclui: ["Cancelados após pagamento, devoluções e pedidos ainda aguardando pagamento."],
     },
   };
   if (canais?.length && !canais.some((canal) => canal === "shopee" || canal === "tiktokshop")) return explicacoes;

@@ -89,7 +89,7 @@ export async function consultarPedidosDoIndicador(
   opts: ConsultaPedidos & { offset: number },
 ) {
   const parcial = indicador === "reembolsos-parciais";
-  const condicao = indicador === "cancelados" ? CANCELADO_FINANCEIRO : indicador === "devolvidos" ? DEVOLVIDO_FINANCEIRO : indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : parcial
+  const condicao = indicador === "cancelados-sem-pagamento" ? sql`${CANCELADO_FINANCEIRO} and ${pedido.canal} = 'shopee' and ${dataPagamentoShopeeSql()} is null and ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true'` : indicador === "cancelados" ? CANCELADO_FINANCEIRO : indicador === "devolvidos" ? DEVOLVIDO_FINANCEIRO : indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : parcial
     ? sql`${COMPOSICAO.faturavel} and ${REEMBOLSO_PARCIAL_DO_PEDIDO} > 0`
     : sql`(${CANCELADO_FINANCEIRO} or ${DEVOLVIDO_FINANCEIRO})`;
   const linhas = await db.select({
@@ -145,6 +145,9 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       ticketMedio: sql<string>`coalesce(avg(${COMPOSICAO.valorConfirmado}) filter (where ${faturavel}), 0)`,
       cancelados: sql<number>`count(*) filter (where ${ajusteIntegralFinanceiro})`,
       canceladosQtd: sql<number>`count(*) filter (where ${canceladoFinanceiro})`,
+      canceladosPagosShopee: sql<number>`count(*) filter (where ${canceladoFinanceiro} and ${pedido.canal} = 'shopee' and ${dataPagamentoShopeeSql()} is not null)`,
+      canceladosSemPagamentoShopee: sql<number>`count(*) filter (where ${canceladoFinanceiro} and ${pedido.canal} = 'shopee' and ${dataPagamentoShopeeSql()} is null and ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true')`,
+      canceladosSemPagamentoValorShopee: sql<string>`coalesce(sum(${COMPOSICAO.valorOriginal}) filter (where ${canceladoFinanceiro} and ${pedido.canal} = 'shopee' and ${dataPagamentoShopeeSql()} is null and ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true'), 0)`,
       canceladosValor: sql<string>`coalesce(sum(${COMPOSICAO.valorOriginal}) filter (where ${canceladoFinanceiro}), 0)`,
       devolvidosQtd: sql<number>`count(*) filter (where ${devolvidoFinanceiro})`,
       devolvidosValor: sql<string>`coalesce(sum(${COMPOSICAO.valorOriginal}) filter (where ${devolvidoFinanceiro}), 0)`,
@@ -188,6 +191,9 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
 
   return {
     shopeePagos,
+    canceladosPagosShopee: Number(resumo?.canceladosPagosShopee ?? 0),
+    canceladosSemPagamentoShopee: Number(resumo?.canceladosSemPagamentoShopee ?? 0),
+    canceladosSemPagamentoValorShopee: Number(resumo?.canceladosSemPagamentoValorShopee ?? 0),
     totalPedidos,
     faturamento,
     ticketMedio: Number(resumo?.ticketMedio ?? 0),
