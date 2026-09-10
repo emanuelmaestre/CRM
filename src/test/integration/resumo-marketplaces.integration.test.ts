@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { composicaoResumoPedidosSql } from "@/modules/vendas/infrastructure/composicao-resumo.sql";
 import { dataVendaPedidoSql, pedidoComercialSql, reembolsoParcialPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
 import { dataPagamentoShopeeSql, valorProdutosShopeeSql } from "@/modules/vendas/infrastructure/valor-shopee.sql";
+import { pagamentoCancelamentoSql } from "@/modules/vendas/infrastructure/pagamento-cancelamento.sql";
 
 // CTEs de valores sintéticos: executa o SQL real sem inserir/alterar tabelas.
 const client = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false });
@@ -32,6 +33,22 @@ async function resumir(linhas: Linha[], inicio = "2026-09-05T00:00:00-03:00", fi
 }
 
 describe("composição dos cards por marketplace", () => {
+  it("classifica cancelamentos sem pagamento por evidência e exclui divisão técnica do ML", async () => {
+    const dados = [
+      { id: 1, canal: "shopee", dados_origem: { pagamentoConsultado: true } },
+      { id: 2, canal: "tiktokshop", dados_origem: { pagamentoAprovado: false } },
+      { id: 3, canal: "tiktokshop", dados_origem: {} },
+      { id: 4, canal: "mercadolivre", dados_origem: { valorPago: 0, pagamentos: [] } },
+      { id: 5, canal: "mercadolivre", dados_origem: { pagamentoAprovado: false, pagamentos: [{ status: "refunded", total: 10 }] } },
+      { id: 6, canal: "mercadolivre", dados_origem: {} },
+      { id: 7, canal: "tiktokshop", dados_origem: { pagamentoAprovado: false, pagoEmMs: 1788000000000 } },
+      { id: 8, canal: "mercadolivre", dados_origem: { valorPago: 0, pagamentos: [], cancelamento: { code: "pack_splitted" } } },
+    ];
+    const rows = await db.execute(sql`with pedido as (select * from jsonb_to_recordset(${JSON.stringify(dados)}::jsonb)
+      as x(id int, canal text, dados_origem jsonb)) select id, ${pagamentoCancelamentoSql()} pagamento
+      from pedido where ${pedidoComercialSql()} order by id`);
+    expect(rows.map(r => r.pagamento)).toEqual(["sem-pagamento", "sem-pagamento", "a-verificar", "sem-pagamento", "pago", "a-verificar", "pago"]);
+  });
   it("Shopee usa produtos sem frete e não altera o valor dos outros canais", async () => {
     expect(await resumir([
       { canal: "shopee", status: "pago", total: 48.29, dados_origem: { totalProdutos: 39.9 } },

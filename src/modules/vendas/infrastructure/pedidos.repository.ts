@@ -10,6 +10,7 @@ import {
 } from "./valor-faturamento.sql";
 import { composicaoResumoPedidosSql } from "./composicao-resumo.sql";
 import { dataPagamentoShopeeSql, valorProdutosShopeeSql } from "./valor-shopee.sql";
+import { pagamentoCancelamentoSql } from "./pagamento-cancelamento.sql";
 
 function filtrosConsulta(orgId: string, opts: ConsultaPedidos): SQL[] {
   const filtros: SQL[] = [eq(pedido.orgId, orgId), pedidoComercialSql()];
@@ -81,6 +82,9 @@ const REEMBOLSO_PARCIAL_DO_PEDIDO = reembolsoParcialPedidoSql();
 const COMPOSICAO = composicaoResumoPedidosSql();
 const CANCELADO_FINANCEIRO = COMPOSICAO.cancelado;
 const DEVOLVIDO_FINANCEIRO = COMPOSICAO.devolvido;
+const PAGAMENTO_CANCELAMENTO = pagamentoCancelamentoSql();
+const CANCELADO_OPERACIONAL = sql`${COMPOSICAO.status} = 'cancelado'`;
+const CANCELADO_SEM_PAGAMENTO = sql`${CANCELADO_OPERACIONAL} and ${PAGAMENTO_CANCELAMENTO} = 'sem-pagamento'`;
 
 /** Consulta independente da página principal, com o mesmo recorte financeiro dos cards. */
 export async function consultarPedidosDoIndicador(
@@ -89,7 +93,7 @@ export async function consultarPedidosDoIndicador(
   opts: ConsultaPedidos & { offset: number },
 ) {
   const parcial = indicador === "reembolsos-parciais";
-  const condicao = indicador === "cancelados-sem-pagamento" ? sql`${CANCELADO_FINANCEIRO} and ${pedido.canal} = 'shopee' and ${dataPagamentoShopeeSql()} is null and ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true'` : indicador === "cancelados" ? CANCELADO_FINANCEIRO : indicador === "devolvidos" ? DEVOLVIDO_FINANCEIRO : indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : parcial
+  const condicao = indicador === "cancelados-sem-pagamento" ? CANCELADO_SEM_PAGAMENTO : indicador === "cancelados" ? CANCELADO_FINANCEIRO : indicador === "devolvidos" ? DEVOLVIDO_FINANCEIRO : indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : parcial
     ? sql`${COMPOSICAO.faturavel} and ${REEMBOLSO_PARCIAL_DO_PEDIDO} > 0`
     : sql`(${CANCELADO_FINANCEIRO} or ${DEVOLVIDO_FINANCEIRO})`;
   const linhas = await db.select({
@@ -99,6 +103,7 @@ export async function consultarPedidosDoIndicador(
     canal: pedido.canal,
     status: COMPOSICAO.status,
     pagamentoShopee: sql<string | null>`case when ${pedido.canal} = 'shopee' then case when ${dataPagamentoShopeeSql()} is not null then 'pago' when ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true' then 'sem-pagamento' else 'a-verificar' end else null end`,
+    pagamentoCancelamento: PAGAMENTO_CANCELAMENTO,
     total: COMPOSICAO.valorOriginal,
     valorReembolsado: REEMBOLSO_PARCIAL_DO_PEDIDO,
     createdAt: dataVendaPedidoSql(),
@@ -146,6 +151,10 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
       ticketMedio: sql<string>`coalesce(avg(${COMPOSICAO.valorConfirmado}) filter (where ${faturavel}), 0)`,
       cancelados: sql<number>`count(*) filter (where ${ajusteIntegralFinanceiro})`,
       canceladosQtd: sql<number>`count(*) filter (where ${canceladoFinanceiro})`,
+      canceladosOperacionais: sql<number>`count(*) filter (where ${CANCELADO_OPERACIONAL})`,
+      canceladosSemPagamento: sql<number>`count(*) filter (where ${CANCELADO_SEM_PAGAMENTO})`,
+      canceladosPagamentoDesconhecido: sql<number>`count(*) filter (where ${CANCELADO_OPERACIONAL} and ${PAGAMENTO_CANCELAMENTO} = 'a-verificar')`,
+      canceladosSemPagamentoValor: sql<string>`coalesce(sum(${COMPOSICAO.valorOriginal}) filter (where ${CANCELADO_SEM_PAGAMENTO}), 0)`,
       canceladosPagosShopee: sql<number>`count(*) filter (where ${canceladoFinanceiro} and ${pedido.canal} = 'shopee' and ${dataPagamentoShopeeSql()} is not null)`,
       canceladosSemPagamentoShopee: sql<number>`count(*) filter (where ${canceladoFinanceiro} and ${pedido.canal} = 'shopee' and ${dataPagamentoShopeeSql()} is null and ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true')`,
       canceladosSemPagamentoValorShopee: sql<string>`coalesce(sum(${COMPOSICAO.valorOriginal}) filter (where ${canceladoFinanceiro} and ${pedido.canal} = 'shopee' and ${dataPagamentoShopeeSql()} is null and ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true'), 0)`,
@@ -192,6 +201,10 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
 
   return {
     shopeePagos,
+    canceladosOperacionais: Number(resumo?.canceladosOperacionais ?? 0),
+    canceladosSemPagamento: Number(resumo?.canceladosSemPagamento ?? 0),
+    canceladosPagamentoDesconhecido: Number(resumo?.canceladosPagamentoDesconhecido ?? 0),
+    canceladosSemPagamentoValor: Number(resumo?.canceladosSemPagamentoValor ?? 0),
     canceladosPagosShopee: Number(resumo?.canceladosPagosShopee ?? 0),
     canceladosSemPagamentoShopee: Number(resumo?.canceladosSemPagamentoShopee ?? 0),
     canceladosSemPagamentoValorShopee: Number(resumo?.canceladosSemPagamentoValorShopee ?? 0),

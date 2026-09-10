@@ -60,9 +60,10 @@ function agruparPorDia(pedidos: Pedido[]) {
  *  vermelho quando o pedido inteiro se perdeu, âmbar quando voltou parte do
  *  dinheiro. A cor faz o trabalho que a palavra sozinha faria mais devagar. */
 function estadoDoPedido(pedido: Pedido, parcial: boolean) {
-  if (pedido.canal === "shopee" && pedido.status === "cancelado") {
-    if (pedido.pagamentoShopee === "pago") return { Icone: Ban, texto: "Cancelado após pagamento", tom: "destructive" as const };
-    if (pedido.pagamentoShopee === "sem-pagamento") return { Icone: Ban, texto: "Cancelado sem pagamento", tom: "warning" as const };
+  if (["shopee", "tiktokshop", "mercadolivre"].includes(pedido.canal) && pedido.status === "cancelado") {
+    const pagamento = pedido.pagamentoCancelamento ?? pedido.pagamentoShopee;
+    if (pagamento === "pago") return { Icone: Ban, texto: "Cancelado após pagamento", tom: "destructive" as const };
+    if (pagamento === "sem-pagamento") return { Icone: Ban, texto: "Cancelado sem pagamento", tom: "warning" as const };
     return { Icone: Ban, texto: "Cancelado · pagamento a verificar", tom: "warning" as const };
   }
   if (pedido.status === "criado") return { Icone: Clock, texto: "Ainda sem confirmação", tom: "warning" as const };
@@ -107,7 +108,7 @@ function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
 }) {
   const impacto = parcial ? pedido.valorReembolsado : pedido.total;
   const pendente = pedido.status === "criado";
-  const tom = parcial || pendente ? "warning" : "destructive";
+  const tom = estadoDoPedido(pedido, parcial).tom;
 
   return (
     <motion.li
@@ -333,7 +334,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
           <span aria-hidden className="hidden h-10 w-px bg-border sm:block" />
 
           <div>
-            <p className="text-xs text-muted-foreground">{pendente ? "Total ainda sem confirmação" : parcial ? "Total reembolsado" : "Total cancelado/devolvido"}</p>
+            <p className="text-xs text-muted-foreground">{indicador === "cancelados-sem-pagamento" ? "Valor dos pedidos sem pagamento" : pendente ? "Total ainda sem confirmação" : parcial ? "Total reembolsado" : "Total cancelado/devolvido"}</p>
             <strong className="mt-0.5 block text-2xl font-black leading-none tabular-nums" style={{ color: `var(--${tom})` }}>
               {dinheiro.format(valor)}
             </strong>
@@ -355,6 +356,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
       </p>}
 
       {pendente && <p className="mb-5 text-sm text-muted-foreground">Estes pedidos da Shopee ou TikTok Shop já estão no Total bruto, mas ainda não possuem um status de pagamento confirmado. Podem estar aguardando pagamento ou confirmação do canal.</p>}
+      {indicador === "cancelados-sem-pagamento" && <p className="mb-5 text-sm text-muted-foreground">Estes pedidos foram cancelados sem pagamento identificado pelo canal. O valor exibido é o dos pedidos, não dinheiro recebido ou reembolsado. No Mercado Livre, não compõem os totais financeiros de vendas e cancelamentos pagos.</p>}
 
       {primeiraCarga ? <Fantasma /> : (
         <div className="space-y-5">
