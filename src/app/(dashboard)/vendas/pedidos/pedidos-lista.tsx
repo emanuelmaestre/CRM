@@ -866,8 +866,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         </p>}
         {resumo.pendentesQtd > 0 && (
           <button type="button" className="col-span-full rounded-xl border border-border p-3 text-left text-xs text-muted-foreground hover:bg-muted"
-            onClick={() => setIndicadorAberto({ indicador: "pendentes-confirmacao", titulo: "Pedidos ainda sem confirmação", resumo, filtros: filtrosDoResumo })}>
-            No total bruto: {resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido ainda sem confirmação" : "pedidos ainda sem confirmação"} ({dinheiro.format(resumo.pendentesValor)}). {somenteShopee ? "Não entram em Produto Pago sem confirmação de pagamento." : "Não entram em Confirmado."} Ver pedidos.
+            onClick={() => setIndicadorAberto({ indicador: "pendentes-confirmacao", titulo: somenteShopee ? "Shopee · pagamentos pendentes" : "Pedidos ainda sem confirmação", resumo, filtros: filtrosDoResumo })}>
+            No total bruto: {resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido ainda sem confirmação" : "pedidos ainda sem confirmação"} ({dinheiro.format(resumo.pendentesValor)}). {somenteShopee ? "Aguardando pagamento ou verificação da Shopee. Veja a situação de cada pedido. Não entram em Produto Pago." : "Não entram em Confirmado."} Ver pedidos.
           </button>
         )}
       </motion.section>

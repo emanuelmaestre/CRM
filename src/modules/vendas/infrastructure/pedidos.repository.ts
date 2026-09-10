@@ -102,6 +102,7 @@ export async function consultarPedidosDoIndicador(
     clienteNome: cliente.nome,
     canal: pedido.canal,
     status: COMPOSICAO.status,
+    aguardandoPagamentoShopee: sql<boolean>`coalesce(${pedido.canal} = 'shopee' and ${pedido.dadosOrigem}->>'status' = 'UNPAID', false)`,
     pagamentoShopee: sql<string | null>`case when ${pedido.canal} = 'shopee' then case when ${dataPagamentoShopeeSql()} is not null then 'pago' when ${pedido.dadosOrigem}->>'pagamentoConsultado' = 'true' then 'sem-pagamento' else 'a-verificar' end else null end`,
     pagamentoCancelamento: PAGAMENTO_CANCELAMENTO,
     total: COMPOSICAO.valorOriginal,

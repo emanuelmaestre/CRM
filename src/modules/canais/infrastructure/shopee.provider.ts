@@ -190,6 +190,7 @@ type ShopeeItem = {
   item_name?: string;
   model_quantity_purchased: number;
   model_discounted_price: number;
+  promotion_type?: string;
 };
 
 type ShopeeDetail = {
@@ -206,6 +207,7 @@ type ShopeeDetail = {
 };
 
 export type ShopeeOrderIncome = {
+  order_discounted_price?: number;
   escrow_amount?: number;
   buyer_total_amount?: number;
   voucher_from_seller?: number;
@@ -247,6 +249,16 @@ function valorFinanceiro(valor: unknown): number {
 
 function dinheiroApi(valor: number): string {
   return (Math.round((valor + Number.EPSILON) * 100) / 100).toFixed(2);
+}
+
+/** Combos podem trazer preço zero em get_order_detail, embora tenham sido
+ * cobrados. O subtotal oficial do financeiro já considera o desconto do combo. */
+export function totalProdutosShopee(itens: ShopeeItem[], income?: ShopeeOrderIncome): number {
+  const comboSemPreco = itens.some((i) => i.promotion_type === "bundle_deal" && i.model_discounted_price === 0);
+  if (comboSemPreco && typeof income?.order_discounted_price === "number" && Number.isFinite(income.order_discounted_price) && income.order_discounted_price >= 0) {
+    return Math.round(income.order_discounted_price * 100) / 100;
+  }
+  return itens.reduce((n, i) => n + Math.round(i.model_discounted_price * i.model_quantity_purchased * 100), 0) / 100;
 }
 
 /** Converte o demonstrativo financeiro da Shopee para o contrato interno.
@@ -790,7 +802,7 @@ export class ShopeeProvider implements ChannelProvider {
         atualizadoOrigemEm: detail?.update_time ? new Date(detail.update_time * 1000) : undefined,
         dadosOrigem: {
           status: detail?.order_status ?? null,
-          totalProdutos: (detail?.item_list ?? []).reduce((n, i) => n + Math.round(i.model_discounted_price * i.model_quantity_purchased * 100), 0) / 100,
+          totalProdutos: totalProdutosShopee(detail?.item_list ?? [], financeiroMap.get(sn)),
           financeiroInformado: financeiro !== undefined,
           pagamentoConsultado: true,
           ...(typeof detail?.pay_time === "number" && Number.isFinite(detail.pay_time)

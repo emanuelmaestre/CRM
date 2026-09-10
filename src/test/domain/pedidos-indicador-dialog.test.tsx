@@ -6,11 +6,18 @@ import { actionListarPedidosDoIndicador } from "@/app/(dashboard)/vendas/actions
 vi.mock("@/app/(dashboard)/vendas/actions", () => ({ actionListarPedidosDoIndicador: vi.fn() }));
 const consultar = vi.mocked(actionListarPedidosDoIndicador);
 const filtros = { canais: ["mercadolivre"], busca: "Ana", inicio: "2026-09-05T00:00:00-03:00" };
-const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: "Ana", canal: "mercadolivre", status: "pago" as const, pagamentoShopee: null, pagamentoCancelamento: "pago", total: 100, valorReembolsado: 12.5, createdAt: new Date("2026-09-05T13:00:00Z") });
+const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: "Ana", canal: "mercadolivre", status: "pago" as const, aguardandoPagamentoShopee: false, pagamentoShopee: null, pagamentoCancelamento: "pago", total: 100, valorReembolsado: 12.5, createdAt: new Date("2026-09-05T13:00:00Z") });
 
 beforeEach(() => consultar.mockReset());
 
 describe("pedidos dos indicadores", () => {
+  it("distingue UNPAID informado pela Shopee de pagamento ainda desconhecido", async () => {
+    consultar.mockResolvedValue({data: [true, false].map((aguardandoPagamentoShopee) => ({...pedido(String(aguardandoPagamentoShopee)), canal: "shopee", status: "criado" as const, aguardandoPagamentoShopee})), hasMore: false});
+    render(<PedidosIndicadorDialog indicador="pendentes-confirmacao" titulo="Pagamentos pendentes" filtros={{canais: ["shopee"]}} quantidade={2} valor={200} onClose={vi.fn()} />);
+    expect(await screen.findByText("Shopee · aguardando pagamento")).toBeInTheDocument();
+    expect(screen.getByText("Ainda sem confirmação")).toBeInTheDocument();
+    expect(screen.queryByText(/Shopee ou TikTok/)).not.toBeInTheDocument();
+  });
   it.each(["shopee", "tiktokshop", "mercadolivre"])("identifica pagamento de cada cancelamento %s e mantém desconhecidos separados", async (canal) => {
     consultar.mockResolvedValue({ data: ["pago", "sem-pagamento", "a-verificar"].map((pagamentoCancelamento) => ({ ...pedido(pagamentoCancelamento), canal, status: "cancelado" as const, pagamentoCancelamento })), hasMore: false });
     render(<PedidosIndicadorDialog indicador="cancelados" titulo="Cancelamentos" filtros={{ canais: [canal] }} quantidade={3} valor={300} canceladosShopee={{ total: 3, pagos: 1, semPagamento: 1 }} onClose={vi.fn()} />);

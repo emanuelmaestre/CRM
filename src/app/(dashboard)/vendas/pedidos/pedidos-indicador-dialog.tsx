@@ -66,7 +66,7 @@ function estadoDoPedido(pedido: Pedido, parcial: boolean) {
     if (pagamento === "sem-pagamento") return { Icone: Ban, texto: "Cancelado sem pagamento", tom: "warning" as const };
     return { Icone: Ban, texto: "Cancelado · pagamento a verificar", tom: "warning" as const };
   }
-  if (pedido.status === "criado") return { Icone: Clock, texto: "Ainda sem confirmação", tom: "warning" as const };
+  if (pedido.status === "criado") return { Icone: Clock, texto: pedido.aguardandoPagamentoShopee ? "Shopee · aguardando pagamento" : "Ainda sem confirmação", tom: "warning" as const };
   if (parcial) return { Icone: Undo2, texto: "Reembolso parcial", tom: "warning" as const };
   return pedido.status === "cancelado"
     ? { Icone: Ban, texto: "Cancelado", tom: "destructive" as const }
@@ -167,7 +167,7 @@ function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
           </div>
           <div className="min-w-[9.5rem] sm:text-right">
             <p className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">
-              {pendente ? "Sem confirmação" : parcial ? "Reembolsado" : "Cancelado/devolvido"}
+              {pendente ? pedido.aguardandoPagamentoShopee ? "Aguardando pagamento" : "Sem confirmação" : parcial ? "Reembolsado" : "Cancelado/devolvido"}
             </p>
             <p className="mt-0.5 font-bold tabular-nums" style={{ color: `var(--${tom})` }}>
               {dinheiro.format(impacto)}
@@ -355,7 +355,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
         {" "}Os cancelados após pagamento também fazem parte dos pedidos pagos, conforme a data do pagamento. O valor cancelado não significa necessariamente dinheiro reembolsado.
       </p>}
 
-      {pendente && <p className="mb-5 text-sm text-muted-foreground">Estes pedidos da Shopee ou TikTok Shop já estão no Total bruto, mas ainda não possuem um status de pagamento confirmado. Podem estar aguardando pagamento ou confirmação do canal.</p>}
+      {pendente && <p className="mb-5 text-sm text-muted-foreground">{filtros.canais?.length === 1 && filtros.canais[0] === "shopee" ? "Estes pedidos já estão em Pedidos Feitos, mas não em Produto Pago. Quando a Shopee informa UNPAID, a linha mostra aguardando pagamento. Sem esse status, o pagamento permanece a verificar. A situação acompanha as atualizações da Shopee." : "Estes pedidos da Shopee ou TikTok Shop já estão no Total bruto, mas ainda não possuem um status de pagamento confirmado. Podem estar aguardando pagamento ou confirmação do canal."}</p>}
       {indicador === "cancelados-sem-pagamento" && <p className="mb-5 text-sm text-muted-foreground">Estes pedidos foram cancelados sem pagamento identificado pelo canal. O valor exibido é o dos pedidos, não dinheiro recebido ou reembolsado. No Mercado Livre, não compõem os totais financeiros de vendas e cancelamentos pagos.</p>}
 
       {primeiraCarga ? <Fantasma /> : (
