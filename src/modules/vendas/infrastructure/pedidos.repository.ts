@@ -11,6 +11,7 @@ import {
 import { composicaoResumoPedidosSql } from "./composicao-resumo.sql";
 import { dataPagamentoShopeeSql, valorProdutosShopeeSql } from "./valor-shopee.sql";
 import { pagamentoCancelamentoSql } from "./pagamento-cancelamento.sql";
+import { dataPagamentoTikTokSql, pedidoGmvTikTokSql, valorGmvTikTokSql } from "./gmv-tiktok.sql";
 
 function filtrosConsulta(orgId: string, opts: ConsultaPedidos): SQL[] {
   const filtros: SQL[] = [eq(pedido.orgId, orgId), pedidoComercialSql()];
@@ -200,7 +201,19 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
     shopeePagos = { valor: Number(pagos?.valor ?? 0), quantidade: Number(pagos?.quantidade ?? 0) };
   }
 
+  let tiktokGmv: { valor: number; quantidade: number } | undefined;
+  if (opts.canais?.length === 1 && opts.canais[0] === "tiktokshop") {
+    const filtrosGmv = filtrosConsulta(orgId, { ...opts, inicio: undefined, fim: undefined });
+    filtrosGmv.push(pedidoGmvTikTokSql());
+    const dataPagamento = dataPagamentoTikTokSql();
+    if (opts.inicio) filtrosGmv.push(gte(dataPagamento, opts.inicio.toISOString()));
+    if (opts.fim) filtrosGmv.push(lte(dataPagamento, opts.fim.toISOString()));
+    const [gmv] = await db.select({ quantidade: count(), valor: sql<string>`coalesce(sum(${valorGmvTikTokSql()}), 0)` })
+      .from(pedido).innerJoin(cliente, eq(cliente.id, pedido.clienteId)).where(and(...filtrosGmv));
+    tiktokGmv = { valor: Number(gmv?.valor ?? 0), quantidade: Number(gmv?.quantidade ?? 0) };
+  }
   return {
+    tiktokGmv,
     shopeePagos,
     canceladosOperacionais: Number(resumo?.canceladosOperacionais ?? 0),
     canceladosSemPagamento: Number(resumo?.canceladosSemPagamento ?? 0),

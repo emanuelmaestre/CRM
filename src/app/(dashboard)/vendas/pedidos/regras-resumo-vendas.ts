@@ -7,7 +7,7 @@ export function legendaResumoVendas(canais: readonly string[] = []): string {
   if (todos || canais.includes("shopee")) partes.push(canais.length === 1
     ? "Shopee: Pedido Feito pela criação; Produto Pago pela data do pagamento. Valores dos produtos, sem frete. A lista e os cancelamentos/devoluções usam a criação"
     : "Shopee: valores dos produtos pela data de criação");
-  if (todos || canais.includes("tiktokshop")) partes.push("TikTok Shop: pedidos pela data de criação");
+  if (todos || canais.includes("tiktokshop")) partes.push(canais.length === 1 ? "TikTok Shop: GMV e pedidos pagos pela data do pagamento, incluindo cancelados e devolvidos após pagamento. Total bruto, lista e cancelamentos pela criação" : "TikTok Shop: pedidos pela data de criação");
   return `${partes.join(". ")}. Horários de Brasília. Valores com centavos.`;
 }
 
@@ -63,6 +63,7 @@ export function explicacoesResumoVendas(
   if (canais?.length && !canais.some((canal) => canal === "shopee" || canal === "tiktokshop")) return explicacoes;
   const misto = !canais?.length || canais.includes("mercadolivre");
   const regraML = misto ? " No Mercado Livre, somente vendas com pagamento aprovado e seus ajustes entram no bruto." : "";
+  const somenteTikTok = canais?.length === 1 && canais[0] === "tiktokshop";
   return {
     ...explicacoes,
     totalBruto: {
@@ -74,8 +75,15 @@ export function explicacoesResumoVendas(
     },
     faturamento: {
       ...explicacoes.faturamento,
-      descricao: "Valor dos pedidos com pagamento confirmado, descontando reembolsos parciais informados pelo canal. Na Shopee, usa o valor dos produtos sem frete. Nos demais canais, o valor pago informado pela API pode incluir frete e acréscimos do comprador; o repasse líquido aparece separadamente.",
+      descricao: somenteTikTok ? "GMV: valor pago no período do pagamento, incluindo pedidos posteriormente cancelados ou reembolsados. Não é repasse líquido nem receita após devoluções." : "Valor dos pedidos com pagamento confirmado, descontando reembolsos parciais informados pelo canal. Na Shopee, usa o valor dos produtos sem frete. Nos demais canais, o valor pago informado pela API pode incluir frete e acréscimos do comprador; o repasse líquido aparece separadamente.",
+      ...(somenteTikTok ? {
+        titulo: "a receita GMV do TikTok",
+        calculo: "Total pago, com frete pago pelo comprador e descontos já aplicados, menos impostos. Não desconta reembolsos nem taxas do vendedor.",
+        inclui: ["Pagamentos no período, mesmo de pedidos criados antes dele.", "Cancelados e devolvidos após pagamento."],
+        naoInclui: ["Amostras gratuitas, pedidos não pagos e pagamentos fora do período.", "Subsídios somados novamente e repasses ao vendedor."],
+      } : {}),
     },
+    ...(somenteTikTok ? {pedidos: {...explicacoes.pedidos, descricao: "Pedidos do mesmo recorte de pagamento do GMV, excluindo amostras gratuitas. Inclui cancelados e devolvidos após pagamento.", calculo: "Um registro por número de pedido pago no período."}} : {}),
     cancelados: {
       titulo: "os cancelamentos e devoluções",
       descricao: "Shopee e TikTok Shop: pedidos cancelados ou devolvidos, inclusive cancelados sem pagamento. Reembolso integral concluído também sai da receita confirmada e entra como devolvido, mesmo que a entrega permaneça concluída. Na Shopee, usa o valor dos produtos; no TikTok, o total original informado pela API. Não equivale necessariamente ao dinheiro reembolsado." + regraML,

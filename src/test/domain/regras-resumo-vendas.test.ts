@@ -4,7 +4,7 @@ import { IndicadorPedidosSchema } from "@/modules/vendas/domain/consulta-pedidos
 
 describe("explicações de vendas por canal", () => {
   it.each([["tiktokshop", "TikTok Shop"]])("explica a criação para %s sem atribuir a regra ao Mercado Livre", (canal, nome) => {
-    expect(legendaResumoVendas([canal])).toBe(`${nome}: pedidos pela data de criação. Horários de Brasília. Valores com centavos.`);
+    expect(legendaResumoVendas([canal])).toContain(`${nome}: GMV e pedidos pagos pela data do pagamento`);
     const explicacoes = explicacoesResumoVendas([canal], {});
     expect(explicacoes.totalBruto.descricao).not.toContain("Mercado Livre");
     expect(explicacoes.totalBruto.inclui.join(" ")).toContain("pendentes");

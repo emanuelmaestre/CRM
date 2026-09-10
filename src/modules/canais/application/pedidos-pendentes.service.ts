@@ -59,6 +59,8 @@ export async function filtrarPedidosPendentes(
       if (!atual) return [candidato.providerOrderId];
       if (atual.canal === "shopee"
         && (atual.dadosOrigem as Record<string, unknown> | null)?.pagamentoConsultado !== true) return [candidato.providerOrderId];
+      if (atual.canal === "tiktokshop"
+        && (atual.dadosOrigem as Record<string, unknown> | null)?.pagamentoConsultado !== true) return [candidato.providerOrderId];
       if (atual.valorLiquido === null) return [candidato.providerOrderId];
       if (!candidato.statusExterno) return [candidato.providerOrderId];
       const proximo = mapearStatusPedido(candidato.statusExterno);

@@ -47,6 +47,7 @@ const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyl
 // Dia/mês sem ano, mais hora — no mobile a hora sozinha parecia "hoje"
 // mesmo quando não era; precisa da data, só não cabe com o ano junto.
 const resumoInicial: Resumo = {
+  tiktokGmv: undefined,
   totalPedidos: 0,
   faturamento: 0,
   ticketMedio: 0,
@@ -467,6 +468,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const [filtrosDoResumo, setFiltrosDoResumo] = useState<FiltrosIndicador>({});
   const explicacoes = explicacoesResumoVendas(filtrosDoResumo.canais, EXPLICACOES_CARDS);
   const somenteShopee = filtrosDoResumo.canais?.length === 1 && filtrosDoResumo.canais[0] === "shopee";
+  const somenteTikTok = filtrosDoResumo.canais?.length === 1 && filtrosDoResumo.canais[0] === "tiktokshop";
   const [indicadorAberto, setIndicadorAberto] = useState<{
     indicador: IndicadorPedidos; titulo: string; resumo: Resumo; filtros: FiltrosIndicador;
   } | null>(null);
@@ -752,7 +754,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         {[
           {
             chave: "total-bruto",
-            label: somenteShopee ? <>Vendas — pedidos feitos</> : <><span className="sm:hidden">Total bruto</span><span className="hidden sm:inline">Total bruto comparável</span></>,
+            label: somenteShopee ? <>Vendas — pedidos feitos</> : somenteTikTok ? <>Valor dos pedidos criados</> : <><span className="sm:hidden">Total bruto</span><span className="hidden sm:inline">Total bruto comparável</span></>,
             numero: resumo.totalBrutoComparavel,
             formatar: (v: number) => dinheiro.format(v),
             icon: BadgeDollarSign,
@@ -765,8 +767,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "faturamento",
-            label: somenteShopee ? <>Vendas — produto pago</> : <><span className="sm:hidden">Confirmado</span><span className="hidden sm:inline">Faturamento confirmado</span></>,
-            numero: somenteShopee ? (resumo.shopeePagos?.valor ?? 0) : resumo.faturamento,
+            label: somenteShopee ? <>Vendas — produto pago</> : somenteTikTok ? <>Receita — GMV TikTok</> : <><span className="sm:hidden">Confirmado</span><span className="hidden sm:inline">Faturamento confirmado</span></>,
+            numero: somenteShopee ? (resumo.shopeePagos?.valor ?? 0) : somenteTikTok ? (resumo.tiktokGmv?.valor ?? 0) : resumo.faturamento,
             formatar: (v: number) => dinheiro.format(v),
             icon: CircleDollarSign,
             cor: "var(--success)",
@@ -777,9 +779,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
                repasse conhecido, os dois números seriam idênticos e a linha
                viraria ruído. */
             sub: somenteShopee ? <span>Pela data do pagamento, antes de cancelamentos e devoluções</span> : canaisSel.length === 1 && canaisSel[0] === "tiktokshop"
-              ? <span title="Soma dos demonstrativos oficiais vinculados aos pedidos deste período, incluindo estornos e compensações. O período é o da criação dos pedidos, não o do pagamento bancário.">
-                Repasse apurado: {dinheiro.format(resumo.repasseApuradoTikTok)}
-                {resumo.repassePendenteTikTokQtd > 0 && <span className="block">{resumo.repassePendenteTikTokQtd} sem liquidação</span>}
+              ? <span title="Mesma data de pagamento usada em Análises do TikTok Shop. Não representa repasse líquido.">
+                Pela data do pagamento, incluindo cancelamentos e devoluções posteriores
               </span>
               : resumo.liquidoTotal > 0 && resumo.liquidoTotal < resumo.faturamento
               ? <span title={resumo.liquidoEstimadosQtd > 0 ? `Inclui estimativas para ${resumo.liquidoEstimadosQtd} pedidos sem repasse informado pelo canal.` : undefined}><span className="sm:hidden">{resumo.liquidoEstimadosQtd > 0 ? "Líq. est." : "Líq."} {dinheiro.format(resumo.liquidoTotal)}</span><span className="hidden sm:inline">{dinheiro.format(resumo.liquidoTotal)} líquido{resumo.liquidoEstimadosQtd > 0 ? " (inclui estimativas)" : ""}</span></span>
@@ -788,8 +789,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "pedidos",
-            label: somenteShopee ? <>Pedidos pagos</> : <><span className="sm:hidden">Pedidos</span><span className="hidden sm:inline">Pedidos faturados</span></>,
-            numero: somenteShopee ? (resumo.shopeePagos?.quantidade ?? 0) : resumo.totalPedidos,
+            label: somenteShopee || somenteTikTok ? <>Pedidos pagos</> : <><span className="sm:hidden">Pedidos</span><span className="hidden sm:inline">Pedidos faturados</span></>,
+            numero: somenteShopee ? (resumo.shopeePagos?.quantidade ?? 0) : somenteTikTok ? (resumo.tiktokGmv?.quantidade ?? 0) : resumo.totalPedidos,
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
             icon: ShoppingBag,
             cor: "var(--info)",
@@ -864,10 +865,13 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         {somenteShopee && <p className="col-span-full rounded-xl border border-border p-3 text-xs text-muted-foreground">
           Devoluções e reembolsos: cobertura parcial. Os cards mostram os casos conhecidos pelo CRM; não representam uma conferência completa do relatório da Shopee.
         </p>}
+        {somenteTikTok && <p className="col-span-full rounded-xl border border-border p-3 text-xs text-muted-foreground">
+          Dos pedidos criados no período: confirmado após cancelamentos e reembolsos {dinheiro.format(resumo.faturamento)}. Repasse apurado {dinheiro.format(resumo.repasseApuradoTikTok)}; {resumo.repassePendenteTikTokQtd} sem liquidação. Esses valores usam a criação e não devem ser somados ao GMV.
+        </p>}
         {resumo.pendentesQtd > 0 && (
           <button type="button" className="col-span-full rounded-xl border border-border p-3 text-left text-xs text-muted-foreground hover:bg-muted"
             onClick={() => setIndicadorAberto({ indicador: "pendentes-confirmacao", titulo: somenteShopee ? "Shopee · pagamentos pendentes" : "Pedidos ainda sem confirmação", resumo, filtros: filtrosDoResumo })}>
-            No total bruto: {resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido ainda sem confirmação" : "pedidos ainda sem confirmação"} ({dinheiro.format(resumo.pendentesValor)}). {somenteShopee ? "Aguardando pagamento ou verificação da Shopee. Veja a situação de cada pedido. Não entram em Produto Pago." : "Não entram em Confirmado."} Ver pedidos.
+            No total bruto: {resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido ainda sem confirmação" : "pedidos ainda sem confirmação"} ({dinheiro.format(resumo.pendentesValor)}). {somenteShopee ? "Aguardando pagamento ou verificação da Shopee. Veja a situação de cada pedido. Não entram em Produto Pago." : somenteTikTok ? "O GMV considera apenas pedidos com data de pagamento registrada." : "Não entram em Confirmado."} Ver pedidos.
           </button>
         )}
       </motion.section>

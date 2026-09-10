@@ -20,6 +20,8 @@ type TikTokResponse<T> = { code?: number; message?: string; data?: T };
 type TikTokOrder = {
   id: string;
   status: string;
+  is_sample_order?: boolean;
+  order_type?: string;
   /* `payment` do detalhe (/order/202309/orders) tem os campos que reconstroem
      o bruto — ver ESPEC_CANAL.tiktokshop em auditoria-financeira.ts, onde a
      fórmula foi validada contra pedido real: total_amount = soma dos
@@ -32,6 +34,7 @@ type TikTokOrder = {
     handling_fee?: string;
     platform_discount?: string;
     seller_discount?: string;
+    tax?: string;
   };
   payment_info?: { total_amount?: string };
   recipient_address?: { name?: string; phone_number?: string };
@@ -496,6 +499,8 @@ export class TikTokShopProvider implements ChannelProvider {
   private normalizarPedidos(orders: TikTokOrder[]): PedidoNormalizado[] {
     return orders.map((order) => {
       const pg = order.payment;
+      const valorGmv = pg?.total_amount != null && pg.total_amount !== ""
+        ? Number(pg.total_amount) - Number(pg.tax ?? 0) : NaN;
       // Soma em vez de campo único: platform_discount e seller_discount são
       // reduções distintas do mesmo total, e o contrato só tem uma coluna de
       // desconto. shipping_fee_platform_discount NÃO entra aqui — já está
@@ -542,6 +547,9 @@ export class TikTokShopProvider implements ChannelProvider {
         atualizadoOrigemEm: order.update_time ? new Date(order.update_time * 1000) : undefined,
         dadosOrigem: {
           status: order.status,
+          pagamentoConsultado: true,
+          amostraGratis: order.is_sample_order === true || order.order_type === "SELLER_FUND_FREE_SAMPLE",
+          ...(Number.isFinite(valorGmv) && valorGmv >= 0 ? { gmvTikTok: Math.round(valorGmv * 100) / 100 } : {}),
           financeiroInformado: !!(order.payment ?? order.payment_info),
           ...(order.status.toUpperCase() === "CANCELLED" && [
             "Pagamento atrasado por parte do cliente",

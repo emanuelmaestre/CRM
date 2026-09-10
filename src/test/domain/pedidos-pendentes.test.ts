@@ -32,9 +32,16 @@ describe("filtrar pedidos que ainda precisam de leitura", () => {
     const linhas = [
       { providerOrderId: "S1", status: "concluido", valorLiquido: "10", canal: "shopee" },
       { providerOrderId: "S2", status: "concluido", valorLiquido: "10", canal: "shopee", dadosOrigem: { pagamentoConsultado: true } },
-      { providerOrderId: "T1", status: "concluido", valorLiquido: "10", canal: "tiktokshop" },
+      { providerOrderId: "T1", status: "concluido", valorLiquido: "10", canal: "tiktokshop", dadosOrigem: { pagamentoConsultado: true } },
     ];
     expect(await filtrarPedidosPendentes(ORG, CONTA, linhas.map(p => ({ providerOrderId: p.providerOrderId, statusExterno: "COMPLETED" })), bancoCom(linhas))).toEqual(["S1"]);
+  });
+  it("enriquece pagamento TikTok legado mesmo com repasse já liquidado", async () => {
+    const linhas = [
+      { providerOrderId: "T1", status: "concluido", valorLiquido: "10", canal: "tiktokshop" },
+      { providerOrderId: "T2", status: "concluido", valorLiquido: "10", canal: "tiktokshop", dadosOrigem: { pagamentoConsultado: true } },
+    ];
+    expect(await filtrarPedidosPendentes(ORG, CONTA, linhas.map(p => ({providerOrderId: p.providerOrderId, statusExterno: "COMPLETED"})), bancoCom(linhas))).toEqual(["T1"]);
   });
   it("pede detalhe do pedido que ainda não existe no banco", async () => {
     const pendentes = await filtrarPedidosPendentes(
