@@ -573,7 +573,12 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
           em vez de sumir no número em que estava. */}
       <AnimatePresence>
         {bloqueado && (
-          <BloqueioAtualizacao key="bloqueio" progresso={estado?.progresso ?? 0} tela={tela} />
+          <BloqueioAtualizacao
+            key="bloqueio"
+            progresso={estado?.progresso ?? 0}
+            canais={estado?.progressoPorCanal ?? []}
+            tela={tela}
+          />
         )}
       </AnimatePresence>
       <AnimatePresence>

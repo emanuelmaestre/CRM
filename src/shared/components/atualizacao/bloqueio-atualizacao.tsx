@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useIsPresent, useReducedMotion } from "framer-motion";
+import { Check } from "lucide-react";
 import { casasDe, deslocamentoDaRoda, proximoValor } from "./contagem";
-import { AMBAR } from "@/shared/components/carregando";
+import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import type { TelaAtualizavel } from "@/modules/canais/application/painel-atualizacao.service";
+import type { ProgressoCanal } from "@/modules/canais/application/atualizacao-inteligente.service";
 
 /* ── A contagem ──────────────────────────────────────────────────────────
  *
@@ -99,52 +101,56 @@ function Odometro({ valor }: { valor: number }) {
   );
 }
 
-/* ── O anel ──────────────────────────────────────────────────────────────
+/* ── As fichas dos canais ────────────────────────────────────────────────
  *
- *  O número diz quanto falta; o anel diz a mesma coisa sem exigir leitura. O
- *  ponto na ponta marca a cabeça do progresso — e quando a contagem alcança o
- *  alvo mas o canal ainda não respondeu, é ele que respira, para separar
- *  "parado porque acabou" de "parado esperando". */
-const RAIO = 54;
-const CIRCUNFERENCIA = 2 * Math.PI * RAIO;
-
-function Anel({ valor, esperando, reduzir }: {
-  valor: number;
-  esperando: boolean;
+ *  O número diz quanto falta; as fichas dizem QUEM falta. Um canal que já
+ *  respondeu acende com a borda verde e um salto curto; o que ainda está
+ *  sendo aguardado fica apagado e respira — é o que separa "parado porque
+ *  acabou" de "parado esperando o TikTok". */
+function FichasCanais({ canais, concluindo, reduzir }: {
+  canais: ProgressoCanal[];
+  concluindo: boolean;
   reduzir: boolean;
 }) {
-  const fracao = Math.min(valor, 100) / 100;
-  const angulo = fracao * 2 * Math.PI - Math.PI / 2;
-  const px = 60 + RAIO * Math.cos(angulo);
-  const py = 60 + RAIO * Math.sin(angulo);
+  if (canais.length === 0) return null;
 
   return (
-    <svg viewBox="0 0 120 120" className="absolute inset-0 size-full" aria-hidden>
-      <circle cx="60" cy="60" r={RAIO} fill="none" stroke="var(--border)" strokeWidth="2" />
-      <circle
-        cx="60"
-        cy="60"
-        r={RAIO}
-        fill="none"
-        stroke={`rgb(${AMBAR})`}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeDasharray={CIRCUNFERENCIA}
-        strokeDashoffset={CIRCUNFERENCIA * (1 - fracao)}
-        transform="rotate(-90 60 60)"
-      />
-      {esperando && !reduzir && (
-        <motion.circle
-          cx={px}
-          cy={py}
-          r="7"
-          fill={`rgb(${AMBAR})`}
-          animate={{ opacity: [0.3, 0, 0.3], r: [6, 12, 6] }}
-          transition={{ duration: 1.9, repeat: Infinity, ease: "easeInOut" }}
-        />
-      )}
-      <circle cx={px} cy={py} r="3.5" fill={`rgb(${AMBAR})`} />
-    </svg>
+    <ul className="mt-6 flex items-center gap-3" aria-label="Canais">
+      {canais.map((item) => {
+        const pronto = concluindo || item.progresso >= 100;
+        return (
+          <motion.li
+            key={item.canal}
+            title={`${item.label}: ${pronto ? "confirmado" : "aguardando"}`}
+            className={`relative grid size-11 place-items-center rounded-full border bg-white transition-colors duration-300 ${
+              pronto ? "border-emerald-500" : "border-border"
+            }`}
+            initial={false}
+            animate={reduzir
+              ? { opacity: pronto ? 1 : 0.4 }
+              : pronto
+                ? { opacity: 1, scale: [0.9, 1.14, 1] }
+                : { opacity: [0.35, 0.6, 0.35], scale: 0.9 }}
+            transition={pronto || reduzir
+              ? { duration: 0.45, ease: [0.3, 1.6, 0.5, 1] }
+              : { duration: 1.9, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <ChannelLogo canal={item.canal} size="sm" variant="logo" />
+            {pronto && (
+              <motion.span
+                className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-emerald-500 text-white"
+                initial={reduzir ? false : { scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.3, ease: [0.3, 1.8, 0.5, 1] }}
+                aria-hidden
+              >
+                <Check className="size-2.5" strokeWidth={3.5} />
+              </motion.span>
+            )}
+          </motion.li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -166,8 +172,17 @@ const ALVO_DA_TELA: Partial<Record<TelaAtualizavel, string>> = {
 
 const MS_PARA_TRANQUILIZAR = 7_000;
 
-export function BloqueioAtualizacao({ progresso, tela }: {
+/** Quem ainda não respondeu, pelo nome, para a frase de espera longa. */
+function quemDemora(canais: ProgressoCanal[]): string | null {
+  const faltando = canais.filter((item) => item.progresso < 100).map((item) => item.label);
+  if (faltando.length === 0) return null;
+  if (faltando.length === 1) return `${faltando[0]} está demorando`;
+  return `${faltando.slice(0, -1).join(", ")} e ${faltando.at(-1)} estão demorando`;
+}
+
+export function BloqueioAtualizacao({ progresso, canais = [], tela }: {
   progresso: number;
+  canais?: ProgressoCanal[];
   tela: TelaAtualizavel | null;
 }) {
   /* Enquanto o AnimatePresence toca a saída, o componente ainda está montado
@@ -185,7 +200,7 @@ export function BloqueioAtualizacao({ progresso, tela }: {
     return () => window.clearTimeout(relogio);
   }, []);
 
-  const esperando = !concluindo && suave >= Math.min(progresso, 100) - 0.5 && progresso < 100;
+  const demora = quemDemora(canais);
 
   return (
     <motion.div
@@ -211,17 +226,17 @@ export function BloqueioAtualizacao({ progresso, tela }: {
     >
       <div className="flex flex-col items-center">
         <motion.div
-          className="relative grid size-[clamp(11rem,44vw,14.5rem)] place-items-center"
+          className="flex flex-col items-center"
           initial={reduzir ? false : { scale: 0.94, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: reduzir ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}
         >
-          <Anel valor={valor} esperando={esperando} reduzir={reduzir} />
-          <span className="text-[clamp(2.5rem,9vw,3.75rem)] font-black leading-none tracking-[-0.055em] tabular-nums text-foreground">
+          <span className="text-[clamp(4rem,16vw,6rem)] font-black leading-none tracking-[-0.055em] tabular-nums text-foreground">
             {reduzir
               ? <>{valor}<span className="ml-[0.06em] text-[0.34em] font-bold text-muted-foreground">%</span></>
               : <Odometro valor={valor} />}
           </span>
+          <FichasCanais canais={canais} concluindo={concluindo} reduzir={reduzir} />
         </motion.div>
 
         <p className="mt-7 text-center text-sm font-semibold text-foreground">
@@ -236,8 +251,8 @@ export function BloqueioAtualizacao({ progresso, tela }: {
               transition={{ duration: reduzir ? 0 : 0.35 }}
               className="text-xs leading-relaxed text-muted-foreground"
             >
-              Um canal está demorando mais que o normal. A tela abre em
-              instantes com o último dado confirmado.
+              {demora ?? "Um canal está demorando"} mais que o normal. A tela
+              abre em instantes com o último dado confirmado.
             </motion.p>
           )}
         </div>

@@ -53,6 +53,17 @@ export interface EstadoAtualizacaoTela {
    *  erro — e é isso que desliga o botão da tarja em vez de deixá-lo
    *  prometendo o que não entrega. */
   esperarSegundos?: number;
+  /** Andamento de cada canal que a tela exige, na ordem em que as contas
+   *  chegam. É o que deixa a espera mostrar QUEM já respondeu e quem ainda
+   *  está sendo aguardado, em vez de uma porcentagem só. */
+  progressoPorCanal?: ProgressoCanal[];
+}
+
+export interface ProgressoCanal {
+  /** Tipo da conta ("mercadolivre", "shopee", "tiktok") — a chave do logo. */
+  canal: string;
+  label: string;
+  progresso: number;
 }
 function dataValida(valor: string | null | undefined): number | null {
   if (!valor) return null;
@@ -166,6 +177,7 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
     versoes: painel.versoes,
     fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
     podeSincronizar: painel.podeSincronizar,
+    progressoPorCanal: progressoPorCanal(exigencias, vencidosPorConta),
     ...(esperar > 0 ? { esperarSegundos: esperar } : {}),
     ...(temFalha && !algumaExecucaoViva
       ? {
@@ -178,6 +190,26 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
       }
       : {}),
   };
+}
+
+/** Média por canal, somando as contas de todas as marcas: para quem espera,
+ *  "Shopee" é um canal só, mesmo quando são duas lojas por trás dele. */
+function progressoPorCanal(
+  exigencias: Array<{ conta: PainelAtualizacao["contas"][number]; modulo: ModuloSincronizacao }>,
+  vencidosPorConta: Map<string, Set<ModuloSincronizacao>>,
+): ProgressoCanal[] {
+  const porCanal = new Map<string, { label: string; soma: number; total: number }>();
+  for (const { conta, modulo } of exigencias) {
+    const item = porCanal.get(conta.canal) ?? { label: conta.canalLabel, soma: 0, total: 0 };
+    item.soma += progressoDaConta(conta, modulo, vencidosPorConta.get(conta.id)?.has(modulo) ?? false);
+    item.total += 1;
+    porCanal.set(conta.canal, item);
+  }
+  return [...porCanal].map(([canal, { label, soma, total }]) => ({
+    canal,
+    label,
+    progresso: Math.round(soma / total),
+  }));
 }
 
 function canaisVencidos(
