@@ -470,8 +470,10 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   const somenteShopee = filtrosDoResumo.canais?.length === 1 && filtrosDoResumo.canais[0] === "shopee";
   const somenteTikTok = filtrosDoResumo.canais?.length === 1 && filtrosDoResumo.canais[0] === "tiktokshop";
   const [indicadorAberto, setIndicadorAberto] = useState<{
-    indicador: IndicadorPedidos; titulo: string; resumo: Resumo; filtros: FiltrosIndicador;
+    indicador: IndicadorPedidos; titulo: string; resumo: Resumo; filtros: FiltrosIndicador; tom?: string;
   } | null>(null);
+  // Receita e Pedidos pagos contam o mesmo conjunto; a janela usa os números deles.
+  const pagosDoResumo = (r: Resumo) => somenteShopee ? (r.shopeePagos ?? { valor: 0, quantidade: 0 }) : somenteTikTok ? (r.tiktokGmv ?? { valor: 0, quantidade: 0 }) : { valor: r.faturamento, quantidade: r.totalPedidos };
   const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
   /* Uma janela só, para a única porta que hoje leva até ela: o card de fuso
      na grade de indicadores. Guarda PARA QUAL conjunto de pedidos foi aberta,
@@ -755,6 +757,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         {[
           {
             chave: "total-bruto",
+            indicador: resumo.totalBrutoPedidos > 0 ? "total-bruto" as const : undefined,
+            tituloJanela: somenteShopee ? "Vendas · pedidos feitos" : somenteTikTok ? "Valor dos pedidos criados" : "Total bruto comparável",
+            tomJanela: "selecionado",
             label: somenteShopee ? <>Vendas — pedidos feitos</> : somenteTikTok ? <>Valor dos pedidos criados</> : <><span className="sm:hidden">Total bruto</span><span className="hidden sm:inline">Total bruto comparável</span></>,
             numero: resumo.totalBrutoComparavel,
             formatar: (v: number) => dinheiro.format(v),
@@ -768,6 +773,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "faturamento",
+            indicador: pagosDoResumo(resumo).quantidade > 0 ? "pagos" as const : undefined,
+            tituloJanela: somenteShopee ? "Vendas · produto pago" : somenteTikTok ? "Receita · GMV TikTok" : "Faturamento confirmado",
+            tomJanela: "success",
             label: somenteShopee ? <>Vendas — produto pago</> : somenteTikTok ? <>Receita — GMV TikTok</> : <><span className="sm:hidden">Confirmado</span><span className="hidden sm:inline">Faturamento confirmado</span></>,
             numero: somenteShopee ? (resumo.shopeePagos?.valor ?? 0) : somenteTikTok ? (resumo.tiktokGmv?.valor ?? 0) : resumo.faturamento,
             formatar: (v: number) => dinheiro.format(v),
@@ -790,6 +798,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           },
           {
             chave: "pedidos",
+            indicador: pagosDoResumo(resumo).quantidade > 0 ? "pagos" as const : undefined,
+            tituloJanela: somenteShopee || somenteTikTok ? "Pedidos pagos" : "Pedidos faturados",
+            tomJanela: "info",
             label: somenteShopee || somenteTikTok ? <>Pedidos pagos</> : <><span className="sm:hidden">Pedidos</span><span className="hidden sm:inline">Pedidos faturados</span></>,
             numero: somenteShopee ? (resumo.shopeePagos?.quantidade ?? 0) : somenteTikTok ? (resumo.tiktokGmv?.quantidade ?? 0) : resumo.totalPedidos,
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
@@ -867,7 +878,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
               cor={card.cor}
               sub={card.sub}
               explicacao={card.explicacao}
-              onClick={card.indicador ? () => setIndicadorAberto({ indicador: card.indicador!, titulo: card.tituloJanela!, resumo, filtros: filtrosDoResumo }) : undefined}
+              onClick={card.indicador ? () => setIndicadorAberto({ indicador: card.indicador!, titulo: card.tituloJanela!, resumo, filtros: filtrosDoResumo, tom: card.tomJanela }) : undefined}
             />
           </motion.div>
         ))}
@@ -1016,8 +1027,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           titulo={indicadorAberto.titulo}
           filtros={indicadorAberto.filtros}
           canceladosShopee={indicadorAberto.filtros.canais?.length === 1 && indicadorAberto.filtros.canais[0] === "shopee" && (indicadorAberto.indicador === "cancelados" || indicadorAberto.indicador === "cancelados-sem-pagamento") ? { pagos: indicadorAberto.resumo.canceladosPagosShopee, semPagamento: indicadorAberto.resumo.canceladosSemPagamentoShopee, total: indicadorAberto.resumo.canceladosQtd } : undefined}
-          quantidade={indicadorAberto.indicador === "cancelados-sem-pagamento" ? indicadorAberto.resumo.canceladosSemPagamento : indicadorAberto.indicador === "cancelados" ? resumo.canceladosQtd : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosQtd : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesQtd : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
-          valor={indicadorAberto.indicador === "cancelados-sem-pagamento" ? indicadorAberto.resumo.canceladosSemPagamentoValor : indicadorAberto.indicador === "cancelados" ? resumo.canceladosValor : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosValor : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesValor : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
+          tom={indicadorAberto.tom}
+          quantidade={indicadorAberto.indicador === "total-bruto" ? indicadorAberto.resumo.totalBrutoPedidos : indicadorAberto.indicador === "pagos" ? pagosDoResumo(indicadorAberto.resumo).quantidade : indicadorAberto.indicador === "cancelados-sem-pagamento" ? indicadorAberto.resumo.canceladosSemPagamento : indicadorAberto.indicador === "cancelados" ? resumo.canceladosQtd : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosQtd : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesQtd : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisQtd : resumo.canceladosQtd + resumo.devolvidosQtd}
+          valor={indicadorAberto.indicador === "total-bruto" ? indicadorAberto.resumo.totalBrutoComparavel : indicadorAberto.indicador === "pagos" ? pagosDoResumo(indicadorAberto.resumo).valor : indicadorAberto.indicador === "cancelados-sem-pagamento" ? indicadorAberto.resumo.canceladosSemPagamentoValor : indicadorAberto.indicador === "cancelados" ? resumo.canceladosValor : indicadorAberto.indicador === "devolvidos" ? resumo.devolvidosValor : indicadorAberto.indicador === "pendentes-confirmacao" ? resumo.pendentesValor : indicadorAberto.indicador === "reembolsos-parciais" ? resumo.reembolsosParciaisValor : resumo.canceladosValor + resumo.devolvidosValor}
           onClose={() => setIndicadorAberto(null)}
         />
       )}

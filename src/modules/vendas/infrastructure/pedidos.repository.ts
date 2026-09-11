@@ -94,9 +94,27 @@ export async function consultarPedidosDoIndicador(
   opts: ConsultaPedidos & { offset: number },
 ) {
   const parcial = indicador === "reembolsos-parciais";
-  const condicao = indicador === "cancelados-sem-pagamento" ? CANCELADO_SEM_PAGAMENTO : indicador === "cancelados" ? CANCELADO_FINANCEIRO : indicador === "devolvidos" ? DEVOLVIDO_FINANCEIRO : indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : parcial
+  let filtros = filtrosConsulta(orgId, opts);
+  let condicao: SQL = indicador === "cancelados-sem-pagamento" ? CANCELADO_SEM_PAGAMENTO : indicador === "cancelados" ? CANCELADO_FINANCEIRO : indicador === "devolvidos" ? DEVOLVIDO_FINANCEIRO : indicador === "pendentes-confirmacao" ? COMPOSICAO.pendente : indicador === "total-bruto" ? COMPOSICAO.bruto : indicador === "pagos" ? COMPOSICAO.faturavel : parcial
     ? sql`${COMPOSICAO.faturavel} and ${REEMBOLSO_PARCIAL_DO_PEDIDO} > 0`
     : sql`(${CANCELADO_FINANCEIRO} or ${DEVOLVIDO_FINANCEIRO})`;
+  // Valor de cada linha: o mesmo que o card soma, para a lista fechar com ele.
+  let valor: SQL = indicador === "total-bruto" ? COMPOSICAO.valorBruto : indicador === "pagos" ? COMPOSICAO.valorConfirmado : COMPOSICAO.valorOriginal;
+  let data: SQL<Date> = dataVendaPedidoSql();
+
+  // Shopee e TikTok sozinhos: os cards de pagos seguem a data do pagamento
+  // (Produto Pago / GMV), não a criação — mesma regra de `consultarResumoPedidos`.
+  const canalUnico = opts.canais?.length === 1 ? opts.canais[0] : undefined;
+  if (indicador === "pagos" && (canalUnico === "shopee" || canalUnico === "tiktokshop")) {
+    const dataPagamento = canalUnico === "shopee" ? dataPagamentoShopeeSql() : dataPagamentoTikTokSql();
+    filtros = filtrosConsulta(orgId, { ...opts, inicio: undefined, fim: undefined });
+    if (opts.inicio) filtros.push(gte(dataPagamento, opts.inicio.toISOString()));
+    if (opts.fim) filtros.push(lte(dataPagamento, opts.fim.toISOString()));
+    condicao = canalUnico === "shopee" ? sql`${dataPagamento} is not null` : pedidoGmvTikTokSql();
+    valor = canalUnico === "shopee" ? valorProdutosShopeeSql() : valorGmvTikTokSql();
+    data = sql<Date>`${dataPagamento}`.mapWith((v: string | Date) => new Date(v));
+  }
+
   const linhas = await db.select({
     id: pedido.id,
     providerOrderId: pedido.providerOrderId,
@@ -108,16 +126,17 @@ export async function consultarPedidosDoIndicador(
     pagamentoCancelamento: PAGAMENTO_CANCELAMENTO,
     total: COMPOSICAO.valorOriginal,
     valorReembolsado: REEMBOLSO_PARCIAL_DO_PEDIDO,
-    createdAt: dataVendaPedidoSql(),
+    valor,
+    createdAt: data,
   }).from(pedido)
     .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
-    .where(and(...filtrosConsulta(orgId, opts), condicao))
-    .orderBy(desc(dataVendaPedidoSql()), desc(pedido.id))
+    .where(and(...filtros, condicao))
+    .orderBy(desc(data), desc(pedido.id))
     .limit(51)
     .offset(opts.offset);
   return {
     data: linhas.slice(0, 50).map((item) => ({
-      ...item, total: Number(item.total), valorReembolsado: Number(item.valorReembolsado),
+      ...item, total: Number(item.total), valorReembolsado: Number(item.valorReembolsado), valor: Number(item.valor),
     })),
     hasMore: linhas.length > 50,
   };

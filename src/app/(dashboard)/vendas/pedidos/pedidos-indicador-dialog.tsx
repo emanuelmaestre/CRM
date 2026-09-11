@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, ArrowUpRight, Ban, Clock, RotateCcw, Undo2, WifiOff } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Ban, CircleCheck, CircleDollarSign, Clock, RotateCcw, Undo2, WifiOff } from "lucide-react";
 import { Dialog } from "@/shared/design-system/primitives/Dialog";
 import { ChannelLogo } from "@/shared/design-system/primitives/ChannelLogo";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -56,6 +56,13 @@ function agruparPorDia(pedidos: Pedido[]) {
   return grupos;
 }
 
+/** Quanto a linha pesa nesta janela — o mesmo valor que o card somou. */
+function impactoDe(pedido: Pedido, indicador: IndicadorPedidos): number {
+  if (indicador === "reembolsos-parciais") return pedido.valorReembolsado;
+  if (indicador === "total-bruto" || indicador === "pagos") return pedido.valor;
+  return pedido.total;
+}
+
 /** O selo do estado do pedido. Três estados, três cores, sempre a mesma:
  *  vermelho quando o pedido inteiro se perdeu, âmbar quando voltou parte do
  *  dinheiro. A cor faz o trabalho que a palavra sozinha faria mais devagar. */
@@ -68,9 +75,10 @@ function estadoDoPedido(pedido: Pedido, parcial: boolean) {
   }
   if (pedido.status === "criado") return { Icone: Clock, texto: pedido.aguardandoPagamentoShopee ? "Shopee · aguardando pagamento" : "Ainda sem confirmação", tom: "acento-1" as const };
   if (parcial) return { Icone: Undo2, texto: "Reembolso parcial", tom: "warning" as const };
-  return pedido.status === "cancelado"
-    ? { Icone: Ban, texto: "Cancelado", tom: "destructive" as const }
-    : { Icone: RotateCcw, texto: "Devolvido", tom: "destructive" as const };
+  if (pedido.status === "cancelado") return { Icone: Ban, texto: "Cancelado", tom: "destructive" as const };
+  if (pedido.status === "devolvido") return { Icone: RotateCcw, texto: "Devolvido", tom: "destructive" as const };
+  // Listas de total bruto e pagos: o restante é venda confirmada.
+  return { Icone: CircleCheck, texto: "Pago", tom: "success" as const };
 }
 
 const rotuloDoEstado = (pedido: Pedido, parcial: boolean) => estadoDoPedido(pedido, parcial).texto;
@@ -99,14 +107,15 @@ function Selo({ pedido, parcial }: { pedido: Pedido; parcial: boolean }) {
  *  do prejuízo é a única leitura que muda decisão — e ela não existia: todas
  *  as linhas tinham o mesmo peso visual, R$ 24,90 e R$ 590,00 lado a lado com
  *  a mesma tipografia. */
-function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
+function Linha({ pedido, indicador, parcial, fatia, atraso, reduzir }: {
+  indicador: IndicadorPedidos;
   pedido: Pedido;
   parcial: boolean;
   fatia: number;
   atraso: number;
   reduzir: boolean;
 }) {
-  const impacto = parcial ? pedido.valorReembolsado : pedido.total;
+  const impacto = impactoDe(pedido, indicador);
   const pendente = pedido.status === "criado";
   const tom = estadoDoPedido(pedido, parcial).tom;
 
@@ -171,14 +180,14 @@ function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
           </div>
           <div className="sm:min-w-[9.5rem]">
             <p className="hidden whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground sm:block">
-              {pendente ? pedido.aguardandoPagamentoShopee ? "Aguardando pagamento" : "Sem confirmação" : parcial ? "Reembolsado" : "Cancelado/devolvido"}
+              {indicador === "total-bruto" ? "No total bruto" : indicador === "pagos" ? "Confirmado" : pendente ? pedido.aguardandoPagamentoShopee ? "Aguardando pagamento" : "Sem confirmação" : parcial ? "Reembolsado" : "Cancelado/devolvido"}
             </p>
             <p className="text-sm font-bold tabular-nums sm:mt-0.5 sm:text-base" style={{ color: `var(--${tom})` }}>
               {dinheiro.format(impacto)}
             </p>
             {/* No celular o original só aparece quando difere do valor em
                 destaque — no reembolso parcial. */}
-            {impacto !== pedido.total && (
+            {parcial && impacto !== pedido.total && (
               <span className="mt-0.5 block whitespace-nowrap text-[11px] tabular-nums text-muted-foreground sm:hidden">
                 de {dinheiro.format(pedido.total)}
               </span>
@@ -226,9 +235,11 @@ function Fantasma() {
   );
 }
 
-export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade, valor, canceladosShopee, onClose }: {
+export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade, valor, canceladosShopee, tom: tomDoCard, onClose }: {
   indicador: IndicadorPedidos;
   titulo: string;
+  /** Token de cor do card que abriu a janela, quando ele não segue a regra padrão. */
+  tom?: string;
   filtros: FiltrosIndicador;
   quantidade: number;
   valor: number;
@@ -245,7 +256,14 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
   const pendente = indicador === "pendentes-confirmacao";
   // Mesma cor do card que abriu a janela: rosa para sem pagamento, teal para
   // pendentes, âmbar para reembolso e vermelho para cancelados/devolvidos.
-  const tom = pendente ? "acento-1" : indicador === "cancelados-sem-pagamento" ? "acento-3" : parcial ? "warning" : "destructive";
+  const lista = indicador === "total-bruto" || indicador === "pagos";
+  const canalUnico = filtros.canais?.length === 1 ? filtros.canais[0] : undefined;
+  const rotuloTotal = indicador === "total-bruto"
+    ? canalUnico === "shopee" ? "Valor dos pedidos feitos" : canalUnico === "tiktokshop" ? "Valor dos pedidos criados" : "Total bruto comparável"
+    : indicador === "pagos"
+    ? canalUnico === "shopee" ? "Total em produto pago" : canalUnico === "tiktokshop" ? "GMV pela data do pagamento" : "Faturamento confirmado"
+    : indicador === "cancelados-sem-pagamento" ? "Valor dos pedidos sem pagamento" : pendente ? "Total ainda sem confirmação" : parcial ? "Total reembolsado" : "Total cancelado/devolvido";
+  const tom = tomDoCard ?? (indicador === "total-bruto" ? "selecionado" : indicador === "pagos" ? "success" : pendente ? "acento-1" : indicador === "cancelados-sem-pagamento" ? "acento-3" : parcial ? "warning" : "destructive");
 
   useEffect(() => {
     let ativo = true;
@@ -277,8 +295,8 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
      total da janela como régua deixaria TODAS as barras invisíveis — um
      pedido de R$ 24,90 em R$ 2.418,86 é 1% de largura. */
   const maiorImpacto = useMemo(
-    () => dados.data.reduce((maior, item) => Math.max(maior, parcial ? item.valorReembolsado : item.total), 0),
-    [dados.data, parcial],
+    () => dados.data.reduce((maior, item) => Math.max(maior, impactoDe(item, indicador)), 0),
+    [dados.data, indicador],
   );
   const media = quantidade > 0 ? valor / quantidade : 0;
   const primeiraCarga = carregando && dados.data.length === 0;
@@ -339,7 +357,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
               transition={transicao(reduzir, { ...springs.momentum, delay: 0.05 })}
               aria-hidden
             >
-              {pendente ? <Clock size={20} /> : parcial ? <Undo2 size={20} /> : <Ban size={20} />}
+              {lista ? <CircleDollarSign size={20} /> : pendente ? <Clock size={20} /> : parcial ? <Undo2 size={20} /> : <Ban size={20} />}
             </motion.span>
             <div>
               <p className="text-lg font-black leading-none tabular-nums sm:text-2xl">{quantidade.toLocaleString("pt-BR")}</p>
@@ -350,7 +368,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
           <span aria-hidden className="hidden h-10 w-px bg-border sm:block" />
 
           <div className="order-1 col-span-2 border-b pb-3 sm:order-none sm:border-0 sm:pb-0" style={{ borderColor: `color-mix(in srgb, var(--${tom}) 22%, transparent)` }}>
-            <p className="text-xs text-muted-foreground">{indicador === "cancelados-sem-pagamento" ? "Valor dos pedidos sem pagamento" : pendente ? "Total ainda sem confirmação" : parcial ? "Total reembolsado" : "Total cancelado/devolvido"}</p>
+            <p className="text-xs text-muted-foreground">{rotuloTotal}</p>
             <strong className="mt-1 block text-3xl font-black leading-none tabular-nums sm:mt-0.5 sm:text-2xl" style={{ color: `var(--${tom})` }}>
               {dinheiro.format(valor)}
             </strong>
@@ -374,11 +392,13 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
 
       {pendente && <p className="mb-5 text-xs text-muted-foreground sm:text-sm">{filtros.canais?.length === 1 && filtros.canais[0] === "shopee" ? "Estes pedidos já estão em Pedidos Feitos, mas não em Produto Pago. Quando a Shopee informa UNPAID, a linha mostra aguardando pagamento. Sem esse status, o pagamento permanece a verificar. A situação acompanha as atualizações da Shopee." : "Estes pedidos da Shopee ou TikTok Shop já estão no Total bruto, mas ainda não possuem um status de pagamento confirmado. Podem estar aguardando pagamento ou confirmação do canal."}</p>}
       {indicador === "cancelados-sem-pagamento" && <p className="mb-5 text-xs text-muted-foreground sm:text-sm">Estes pedidos foram cancelados sem pagamento identificado pelo canal. O valor exibido é o dos pedidos, não dinheiro recebido ou reembolsado. No Mercado Livre, não compõem os totais financeiros de vendas e cancelamentos pagos.</p>}
+      {indicador === "total-bruto" && <p className="mb-5 text-xs text-muted-foreground sm:text-sm">{canalUnico === "shopee" || canalUnico === "tiktokshop" ? "Todos os pedidos criados no período, pagos ou não, incluindo cancelados, devolvidos e os que ainda aguardam confirmação. O selo de cada linha mostra a situação atual." : "Pedidos com pagamento confirmado mais os cancelados e devolvidos depois do pagamento, pelo valor original. O selo de cada linha mostra a situação atual."}</p>}
+      {indicador === "pagos" && <p className="mb-5 text-xs text-muted-foreground sm:text-sm">{canalUnico === "shopee" ? "Pedidos pagos no período, pela data do pagamento. Cancelamentos posteriores continuam aqui, como no Produto Pago da Shopee." : canalUnico === "tiktokshop" ? "Pedidos pagos no período, pela data do pagamento. Cancelamentos e devoluções posteriores continuam no GMV do TikTok." : "Pedidos com pagamento confirmado no período. O valor já desconta reembolsos parciais."}</p>}
 
       {primeiraCarga ? <Fantasma /> : (
         <div className="space-y-5">
           {grupos.map((grupo) => {
-            const somaDoDia = grupo.itens.reduce((soma, item) => soma + (parcial ? item.valorReembolsado : item.total), 0);
+            const somaDoDia = grupo.itens.reduce((soma, item) => soma + impactoDe(item, indicador), 0);
             return (
               <section key={grupo.chave}>
                 {/* Cabeçalho grudento: numa lista longa, rolar até o meio e
@@ -405,8 +425,9 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
                     <Linha
                       key={item.id}
                       pedido={item}
+                      indicador={indicador}
                       parcial={parcial}
-                      fatia={maiorImpacto > 0 ? (parcial ? item.valorReembolsado : item.total) / maiorImpacto : 0}
+                      fatia={maiorImpacto > 0 ? impactoDe(item, indicador) / maiorImpacto : 0}
                       /* Teto no atraso: com 50 linhas, um stagger sem limite
                          faria a última entrar quase dois segundos depois da
                          primeira — a lista pareceria travada. */

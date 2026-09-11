@@ -3,7 +3,7 @@ import type { PedidoStatus } from "./state-machine";
 
 export const CANAIS_VENDA = ["mercadolivre", "shopee", "tiktokshop"] as const;
 export type CanalVenda = (typeof CANAIS_VENDA)[number];
-export const IndicadorPedidosSchema = z.enum(["reembolsos-parciais", "cancelados-devolvidos", "pendentes-confirmacao", "cancelados", "devolvidos", "cancelados-sem-pagamento"]);
+export const IndicadorPedidosSchema = z.enum(["reembolsos-parciais", "cancelados-devolvidos", "pendentes-confirmacao", "cancelados", "devolvidos", "cancelados-sem-pagamento", "total-bruto", "pagos"]);
 export type IndicadorPedidos = z.infer<typeof IndicadorPedidosSchema>;
 
 const PedidoStatusSchema = z.enum([

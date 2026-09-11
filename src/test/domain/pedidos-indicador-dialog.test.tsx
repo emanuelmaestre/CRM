@@ -6,7 +6,7 @@ import { actionListarPedidosDoIndicador } from "@/app/(dashboard)/vendas/actions
 vi.mock("@/app/(dashboard)/vendas/actions", () => ({ actionListarPedidosDoIndicador: vi.fn() }));
 const consultar = vi.mocked(actionListarPedidosDoIndicador);
 const filtros = { canais: ["mercadolivre"], busca: "Ana", inicio: "2026-09-05T00:00:00-03:00" };
-const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: "Ana", canal: "mercadolivre", status: "pago" as const, aguardandoPagamentoShopee: false, pagamentoShopee: null, pagamentoCancelamento: "pago", total: 100, valorReembolsado: 12.5, createdAt: new Date("2026-09-05T13:00:00Z") });
+const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: "Ana", canal: "mercadolivre", status: "pago" as const, aguardandoPagamentoShopee: false, pagamentoShopee: null, pagamentoCancelamento: "pago", total: 100, valorReembolsado: 12.5, valor: 87.5, createdAt: new Date("2026-09-05T13:00:00Z") });
 
 beforeEach(() => consultar.mockReset());
 
@@ -50,7 +50,9 @@ describe("pedidos dos indicadores", () => {
     expect(consultar).toHaveBeenLastCalledWith("reembolsos-parciais", { ...filtros, offset: 50 });
     expect(screen.getAllByRole("link")).toHaveLength(51);
     expect(screen.queryByRole("button", { name: "Carregar mais pedidos" })).not.toBeInTheDocument();
-  });
+    // Desenha 51 linhas animadas: sozinho leva ~1s, mas com a suíte inteira
+    // disputando a CPU passava dos 5s padrão e falhava de forma intermitente.
+  }, 15_000);
 
   it("permite tentar novamente e mostra cancelamento com valor integral", async () => {
     consultar.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({ data: [{ ...pedido("1"), status: "cancelado" }], hasMore: false });
@@ -62,6 +64,23 @@ describe("pedidos dos indicadores", () => {
        valor cancelado da linha. */
     expect(screen.getAllByText("R$ 100,00")).toHaveLength(5);
     expect(consultar).toHaveBeenLastCalledWith("cancelados-devolvidos", { ...filtros, offset: 0 });
+  });
+
+  it("abre pagos com o valor que o card soma e o selo de pago", async () => {
+    consultar.mockResolvedValue({ data: [pedido("1")], hasMore: false });
+    render(<PedidosIndicadorDialog indicador="pagos" titulo="Pedidos faturados" filtros={filtros} quantidade={1} valor={87.5} onClose={vi.fn()} />);
+    expect(await screen.findByRole("link", { name: /Pago · R\$\s87,50/ })).toHaveAttribute("href", "/vendas/pedidos/1");
+    expect(screen.getByText("Faturamento confirmado")).toBeInTheDocument();
+    expect(screen.queryByText("Devolvido")).not.toBeInTheDocument();
+    expect(consultar).toHaveBeenCalledWith("pagos", { ...filtros, offset: 0 });
+  });
+
+  it("abre o total bruto com a regra do canal", async () => {
+    consultar.mockResolvedValue({ data: [{ ...pedido("1"), canal: "tiktokshop", status: "criado" as const }], hasMore: false });
+    render(<PedidosIndicadorDialog indicador="total-bruto" titulo="TikTok · pedidos criados" filtros={{ canais: ["tiktokshop"] }} quantidade={1} valor={87.5} onClose={vi.fn()} />);
+    expect(await screen.findByText("Ainda sem confirmação")).toBeInTheDocument();
+    expect(screen.getByText("Valor dos pedidos criados")).toBeInTheDocument();
+    expect(screen.getByText(/pagos ou não/)).toBeInTheDocument();
   });
 
   it("exibe o estado vazio e fecha pelo botão da janela", async () => {

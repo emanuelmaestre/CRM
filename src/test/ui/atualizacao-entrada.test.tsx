@@ -105,6 +105,10 @@ describe("confirmação inteligente na entrada dos módulos", () => {
     render(<AtualizacaoProvider><p>Faturamento</p></AtualizacaoProvider>);
 
     await screen.findByRole("button", { name: /Tentar novamente/ });
+    // A cobertura da primeira tentativa ainda pode estar terminando de sumir;
+    // sem esperar, uma máquina lenta confundia esse resto de animação com a
+    // tela voltando a ser coberta.
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /Tentar novamente/ }));
 
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
