@@ -119,6 +119,8 @@ export async function consultarPedidosDoIndicador(
     id: pedido.id,
     providerOrderId: pedido.providerOrderId,
     clienteNome: cliente.nome,
+    brandNome: brand.name,
+    brandSlug: brand.slug,
     canal: pedido.canal,
     status: COMPOSICAO.status,
     aguardandoPagamentoShopee: sql<boolean>`coalesce(${pedido.canal} = 'shopee' and ${pedido.dadosOrigem}->>'status' = 'UNPAID', false)`,
@@ -130,6 +132,7 @@ export async function consultarPedidosDoIndicador(
     createdAt: data,
   }).from(pedido)
     .innerJoin(cliente, eq(cliente.id, pedido.clienteId))
+    .innerJoin(brand, eq(brand.id, pedido.brandId))
     .where(and(...filtros, condicao))
     .orderBy(desc(data), desc(pedido.id))
     .limit(51)

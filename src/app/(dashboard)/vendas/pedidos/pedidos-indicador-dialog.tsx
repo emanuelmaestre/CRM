@@ -10,6 +10,7 @@ import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { springs, transicao } from "@/shared/design-system/motion-variants";
 import { Carregando } from "@/shared/components/carregando";
+import { getBrandConfig } from "@/shared/config/brands";
 import type { IndicadorPedidos } from "@/modules/vendas/domain/consulta-pedidos";
 import { actionListarPedidosDoIndicador } from "../actions";
 
@@ -107,8 +108,9 @@ function Selo({ pedido, parcial }: { pedido: Pedido; parcial: boolean }) {
  *  do prejuízo é a única leitura que muda decisão — e ela não existia: todas
  *  as linhas tinham o mesmo peso visual, R$ 24,90 e R$ 590,00 lado a lado com
  *  a mesma tipografia. */
-function Linha({ pedido, indicador, parcial, fatia, atraso, reduzir }: {
+function Linha({ pedido, indicador, mostrarEmpresa, parcial, fatia, atraso, reduzir }: {
   indicador: IndicadorPedidos;
+  mostrarEmpresa: boolean;
   pedido: Pedido;
   parcial: boolean;
   fatia: number;
@@ -131,7 +133,7 @@ function Linha({ pedido, indicador, parcial, fatia, atraso, reduzir }: {
            lido em voz alta, o padrão anterior virava "#ML-0Reembolso parcial
            Ana · 10:00 Valor original R$ 100,00 Cancelado/devolvido R$ 100,00".
            Aqui o leitor de tela ouve a frase que a linha significa. */
-        aria-label={`Pedido ${pedido.providerOrderId ? `#${pedido.providerOrderId}` : "sem número no canal"} de ${pedido.clienteNome} · ${rotuloDoEstado(pedido, parcial)} · ${dinheiro.format(impacto)}`}
+        aria-label={`Pedido ${pedido.providerOrderId ? `#${pedido.providerOrderId}` : "sem número no canal"}${mostrarEmpresa ? ` da ${pedido.brandNome}` : ""} de ${pedido.clienteNome} · ${rotuloDoEstado(pedido, parcial)} · ${dinheiro.format(impacto)}`}
         className="group relative flex items-start gap-3 px-3.5 py-3 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-selecionado sm:items-center sm:gap-5 sm:px-4 sm:py-3.5"
       >
         {/* Marca de cor na borda esquerda: a lista inteira fala de dinheiro
@@ -164,8 +166,16 @@ function Linha({ pedido, indicador, parcial, fatia, atraso, reduzir }: {
               className="hidden shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground sm:block"
             />
           </p>
-          <p className="mt-1 truncate text-xs text-muted-foreground sm:mt-0.5 sm:whitespace-normal sm:break-words sm:text-sm">
-            {pedido.clienteNome} · {soHora.format(new Date(pedido.createdAt))}
+          {/* Empresa e hora nunca somem; se faltar espaço no celular, só o
+              nome do cliente encolhe com reticências. */}
+          <p className="mt-1 flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground sm:mt-0.5 sm:text-sm">
+            {mostrarEmpresa && <>
+              <span className="shrink-0 font-semibold" style={{ color: getBrandConfig(pedido.brandSlug)?.color ?? "var(--muted-foreground)" }}>{pedido.brandNome}</span>
+              <span aria-hidden>·</span>
+            </>}
+            <span className="min-w-0 truncate">{pedido.clienteNome}</span>
+            <span aria-hidden>·</span>
+            <span className="shrink-0 tabular-nums">{soHora.format(new Date(pedido.createdAt))}</span>
           </p>
         </div>
 
@@ -258,6 +268,8 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
   // pendentes, âmbar para reembolso e vermelho para cancelados/devolvidos.
   const lista = indicador === "total-bruto" || indicador === "pagos";
   const canalUnico = filtros.canais?.length === 1 ? filtros.canais[0] : undefined;
+  // Com mais de uma empresa no filtro, o canal sozinho não diz de quem é o pedido.
+  const mostrarEmpresa = filtros.brandIds?.length !== 1;
   const rotuloTotal = indicador === "total-bruto"
     ? canalUnico === "shopee" ? "Valor dos pedidos feitos" : canalUnico === "tiktokshop" ? "Valor dos pedidos criados" : "Total bruto comparável"
     : indicador === "pagos"
@@ -426,6 +438,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
                       key={item.id}
                       pedido={item}
                       indicador={indicador}
+                      mostrarEmpresa={mostrarEmpresa}
                       parcial={parcial}
                       fatia={maiorImpacto > 0 ? impactoDe(item, indicador) / maiorImpacto : 0}
                       /* Teto no atraso: com 50 linhas, um stagger sem limite

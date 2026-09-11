@@ -6,7 +6,7 @@ import { actionListarPedidosDoIndicador } from "@/app/(dashboard)/vendas/actions
 vi.mock("@/app/(dashboard)/vendas/actions", () => ({ actionListarPedidosDoIndicador: vi.fn() }));
 const consultar = vi.mocked(actionListarPedidosDoIndicador);
 const filtros = { canais: ["mercadolivre"], busca: "Ana", inicio: "2026-09-05T00:00:00-03:00" };
-const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: "Ana", canal: "mercadolivre", status: "pago" as const, aguardandoPagamentoShopee: false, pagamentoShopee: null, pagamentoCancelamento: "pago", total: 100, valorReembolsado: 12.5, valor: 87.5, createdAt: new Date("2026-09-05T13:00:00Z") });
+const pedido = (id: string) => ({ id, providerOrderId: `ML-${id}`, clienteNome: "Ana", brandNome: "Karzi", brandSlug: "karzi", canal: "mercadolivre", status: "pago" as const, aguardandoPagamentoShopee: false, pagamentoShopee: null, pagamentoCancelamento: "pago", total: 100, valorReembolsado: 12.5, valor: 87.5, createdAt: new Date("2026-09-05T13:00:00Z") });
 
 beforeEach(() => consultar.mockReset());
 
@@ -81,6 +81,16 @@ describe("pedidos dos indicadores", () => {
     expect(await screen.findByText("Ainda sem confirmação")).toBeInTheDocument();
     expect(screen.getByText("Valor dos pedidos criados")).toBeInTheDocument();
     expect(screen.getByText(/pagos ou não/)).toBeInTheDocument();
+  });
+
+  it("mostra a empresa de cada pedido só quando há mais de uma no filtro", async () => {
+    consultar.mockResolvedValue({ data: [pedido("1")], hasMore: false });
+    const { unmount } = render(<PedidosIndicadorDialog indicador="pagos" titulo="Pagos" filtros={{ brandIds: ["a", "b"] }} quantidade={1} valor={87.5} onClose={vi.fn()} />);
+    expect(await screen.findByText("Karzi")).toBeInTheDocument();
+    unmount();
+    render(<PedidosIndicadorDialog indicador="pagos" titulo="Pagos" filtros={{ brandIds: ["a"] }} quantidade={1} valor={87.5} onClose={vi.fn()} />);
+    await screen.findByRole("link");
+    expect(screen.queryByText("Karzi")).not.toBeInTheDocument();
   });
 
   it("exibe o estado vazio e fecha pelo botão da janela", async () => {
