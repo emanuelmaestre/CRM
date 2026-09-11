@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import Link from "next/link";
 import { toast } from "sonner";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { BadgeDollarSign, Ban, ChevronDown, CircleDollarSign, Loader2, PlugZap2, RotateCcw, Search, ShoppingBag } from "lucide-react";
+import { BadgeDollarSign, Ban, ChevronDown, CircleDollarSign, Clock, Loader2, PlugZap2, RotateCcw, Search, ShoppingBag } from "lucide-react";
 import { actionListarPedidosDetalhados } from "../actions";
 import { SkeletonRow } from "@/shared/design-system/primitives/Skeleton";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
@@ -211,11 +211,11 @@ const EXPLICACOES_CARDS: Record<string, ExplicacaoCardVendas> = {
     ],
   },
   quantidadeCancelados: {
-    titulo: "a quantidade de cancelados e devolvidos",
-    descricao: "Conta os pedidos cancelados ou devolvidos considerados no card de valor, usando os mesmos filtros e critérios financeiros.",
-    calculo: "Quantidade de pedidos cancelados mais quantidade de pedidos devolvidos. Cada pedido conta uma vez, independentemente do número de itens.",
-    inclui: ["Os cancelamentos e devoluções considerados no resumo financeiro do período."],
-    naoInclui: ["Unidades e produtos dentro do pedido.", "Reembolsos parciais.", "Cancelamentos sem pagamento excluídos do resumo financeiro."],
+    titulo: "os cancelados sem pagamento",
+    descricao: "Pedidos cancelados em que o canal indica que o pagamento nunca foi aprovado (checkout abandonado ou expirado). São parte dos cancelamentos identificados, não uma quantidade adicional.",
+    calculo: "Um registro por pedido cancelado sem pagamento, nos filtros selecionados. Casos sem informação suficiente ficam a verificar.",
+    inclui: ["Cancelamentos sem pagamento identificados na Shopee, TikTok Shop e Mercado Livre."],
+    naoInclui: ["Pedidos aguardando pagamento, devoluções e cancelados após pagamento.", "No Mercado Livre, esses casos não compõem os cards financeiros de vendas e cancelamentos pagos. Cancelamentos técnicos de divisão de pacote também ficam fora."],
   },
 };
 
@@ -747,8 +747,9 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         // A ordem fecha a conta visualmente. A primeira linha mostra o total
         // comparável, o faturamento preservado e sua quantidade. A segunda
         // mostra as parcelas que explicam a diferença e a quantidade de
-        // cancelados/devolvidos. Em telas largas, os seis cards ficam na mesma linha.
-        className="grid grid-cols-3 gap-1.5 sm:gap-2.5 xl:grid-cols-6"
+        // cancelados/devolvidos. No desktop a grade é 4 + 3; no celular é
+        // 2 + 2 + 2 e o sétimo (aguardando confirmação) vira faixa larga no fim.
+        className="grid grid-cols-2 gap-1.5 sm:gap-2.5 md:grid-cols-3 xl:grid-cols-4"
         aria-label="Resumo das vendas filtradas"
       >
         {[
@@ -837,16 +838,28 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             icon: Ban,
             cor: "var(--warning)",
             sub: <>Parte dos {resumo.canceladosOperacionais} cancelados identificados. Não somar ao total.{resumo.canceladosPagamentoDesconhecido > 0 && <span className="block">{resumo.canceladosPagamentoDesconhecido} cancelados com pagamento a verificar.</span>}</>,
+            explicacao: explicacoes.quantidadeCancelados,
+          },
+          {
+            chave: "pendentes-confirmacao",
+            indicador: resumo.pendentesQtd > 0 ? "pendentes-confirmacao" as const : undefined,
+            tituloJanela: somenteShopee ? "Shopee · pagamentos pendentes" : "Pedidos ainda sem confirmação",
+            label: <>Aguardando confirmação</>,
+            numero: resumo.pendentesValor,
+            formatar: (v: number) => dinheiro.format(v),
+            icon: Clock,
+            cor: resumo.pendentesQtd > 0 ? "var(--warning)" : "var(--muted-foreground)",
+            sub: <>{resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido" : "pedidos"} · {somenteShopee ? "não entram em Produto Pago" : somenteTikTok ? "não entram no GMV" : "não entram em Confirmado"}</>,
             explicacao: {
-              titulo: "os cancelados sem pagamento",
-              descricao: "Pedidos cancelados com informação do canal indicando ausência de pagamento aprovado. São parte dos cancelamentos identificados, não uma quantidade adicional.",
-              calculo: "Um registro por pedido cancelado sem pagamento, nos filtros selecionados. Casos sem informação suficiente ficam a verificar.",
-              inclui: ["Cancelamentos sem pagamento identificados na Shopee, TikTok Shop e Mercado Livre."],
-              naoInclui: ["Pedidos aguardando pagamento, devoluções e cancelados após pagamento.", "No Mercado Livre, esses casos não compõem os cards financeiros de vendas e cancelamentos pagos. Cancelamentos técnicos de divisão de pacote também ficam fora."],
+              titulo: "os pedidos aguardando confirmação",
+              descricao: "Pedidos da Shopee ou do TikTok Shop que já estão no Total bruto, mas ainda não têm pagamento confirmado pelo canal. Podem virar pagos ou ser cancelados.",
+              calculo: "Soma do valor dos pedidos sem status de pagamento confirmado, nos filtros selecionados.",
+              inclui: ["Pedidos aguardando pagamento ou verificação do canal."],
+              naoInclui: ["Pedidos pagos, cancelados e devolvidos.", "Mercado Livre: o pedido só chega ao CRM depois do pagamento."],
             },
           },
         ].map((card) => (
-          <motion.div key={card.chave} variants={variantes(reduzir, entradaExagerada)}>
+          <motion.div key={card.chave} variants={variantes(reduzir, entradaExagerada)} className={card.chave === "pendentes-confirmacao" ? "col-span-full xl:col-span-1" : undefined}>
             <CardResumoVendas
               label={card.label}
               valor={<NumeroAnimado valor={card.numero} formatar={card.formatar} apenasPrimeiraVez={false} duracao={0.5} />}
@@ -859,21 +872,15 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           </motion.div>
         ))}
 
-        <p className="col-span-full text-xs text-muted-foreground">
+        <p className="col-span-full hidden md:block text-xs text-muted-foreground">
           {legendaResumoVendas(filtrosDoResumo.canais)}
         </p>
-        {somenteShopee && <p className="col-span-full rounded-xl border border-border p-3 text-xs text-muted-foreground">
+        {somenteShopee && <p className="col-span-full hidden md:block rounded-xl border border-border p-3 text-xs text-muted-foreground">
           Devoluções e reembolsos: cobertura parcial. Os cards mostram os casos conhecidos pelo CRM; não representam uma conferência completa do relatório da Shopee.
         </p>}
-        {somenteTikTok && <p className="col-span-full rounded-xl border border-border p-3 text-xs text-muted-foreground">
+        {somenteTikTok && <p className="col-span-full hidden md:block rounded-xl border border-border p-3 text-xs text-muted-foreground">
           Dos pedidos criados no período: confirmado após cancelamentos e reembolsos {dinheiro.format(resumo.faturamento)}. Repasse apurado {dinheiro.format(resumo.repasseApuradoTikTok)}; {resumo.repassePendenteTikTokQtd} sem liquidação. Esses valores usam a criação e não devem ser somados ao GMV.
         </p>}
-        {resumo.pendentesQtd > 0 && (
-          <button type="button" className="col-span-full rounded-xl border border-border p-3 text-left text-xs text-muted-foreground hover:bg-muted"
-            onClick={() => setIndicadorAberto({ indicador: "pendentes-confirmacao", titulo: somenteShopee ? "Shopee · pagamentos pendentes" : "Pedidos ainda sem confirmação", resumo, filtros: filtrosDoResumo })}>
-            No total bruto: {resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido ainda sem confirmação" : "pedidos ainda sem confirmação"} ({dinheiro.format(resumo.pendentesValor)}). {somenteShopee ? "Aguardando pagamento ou verificação da Shopee. Veja a situação de cada pedido. Não entram em Produto Pago." : somenteTikTok ? "O GMV considera apenas pedidos com data de pagamento registrada." : "Não entram em Confirmado."} Ver pedidos.
-          </button>
-        )}
       </motion.section>
 
       <motion.section
