@@ -8,7 +8,6 @@ import type { ConsultaPedidos, IndicadorPedidos } from "../domain/consulta-pedid
 import {
   consultarPedidosDetalhados,
   consultarPedidosDoIndicador,
-  consultarPedidosNoLimiteDoDia,
   consultarPedidosPorCanal,
   consultarPedidosPorMarca,
   consultarResumoPedidos,
@@ -153,14 +152,6 @@ export async function listarPedidosDoIndicador(
 ) {
   assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
   return consultarPedidosDoIndicador(ctx.orgId, indicador, opts);
-}
-
-/** Os pedidos que o calendário do Mercado Livre e o daqui colocam em dias
- *  diferentes — o que explica a diferença entre o Faturamento desta tela e o
- *  painel do canal sem que nenhum pedido esteja faltando. */
-export async function listarPedidosNoLimiteDoDia(ctx: CrudContext, opts: ConsultaPedidos = {}) {
-  assertPerfil(ctx, ["admin", "gestor", "vendedor"]);
-  return consultarPedidosNoLimiteDoDia(ctx.orgId, opts);
 }
 
 /** Alimenta as pílulas de marca/canal no topo da tela de Pedidos — mesmo

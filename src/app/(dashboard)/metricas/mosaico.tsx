@@ -24,11 +24,10 @@ import { BarrasTendencia, BarrasMarca, MiniRanking } from "./mini-visuais";
 import { actionObterDashboardData } from "./painel/actions";
 import { actionObterFiltrosPedidos } from "../vendas/actions";
 import {
-  actionObterLimiteDoDia, actionObterPosVenda, actionObterResumoPublicacoes, actionObterSaudeLoja,
+  actionObterPosVenda, actionObterResumoPublicacoes, actionObterSaudeLoja,
   actionObterSnapshotAnterior, type ResumoPublicacoesMosaico,
 } from "./actions";
 import { PLATAFORMAS_ANUNCIOS, type PlataformaAnuncios } from "@/modules/anuncios/domain/plataformas";
-import type { LimiteDoDia } from "@/shared/components/limite-do-dia";
 import type { SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import type { DashboardData } from "@/modules/metricas/application/dashboard.service";
 import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
@@ -439,29 +438,6 @@ export function Mosaico({
   // mostra o vazio dele, em vez de exibir a janela anterior como se fosse esta.
   const posVendaAtual = posVenda.chave === chave ? posVenda.dados : null;
 
-  /* ── Pedidos na virada do dia do Mercado Livre ────────────────────────
-     A ressalva de fuso que a faixa do card de Faturamento mostra. Segue a
-     MESMA chave dos outros cards (período + marcas + canais), porque a
-     pergunta é sobre o número que está na tela — mudou o recorte, muda o
-     que fica na fronteira.
-
-     Falha em silêncio: é um complemento do número, não o número. Um toast
-     aqui acusaria erro de carregamento de uma tela que carregou. */
-  const [limite, setLimite] = useState<{ chave: string; dados: LimiteDoDia | null }>({ chave: "", dados: null });
-  const chaveLimitePedida = useRef<string | null>(null);
-  useEffect(() => {
-    const alvo = `${chave}|v${versaoDashboard}`;
-    if (chaveLimitePedida.current === alvo) return;
-    chaveLimitePedida.current = alvo;
-    let ativo = true;
-    actionObterLimiteDoDia({ inicio, fim, brandIds: brandIdsEscolhidos, canais: canaisEscolhidos })
-      .then((dados) => { if (ativo) setLimite({ chave, dados }); })
-      .catch(() => { if (ativo) setLimite({ chave, dados: null }); });
-    return () => { ativo = false; };
-  }, [chave, inicio, fim, brandIdsEscolhidos, canaisEscolhidos, versaoDashboard]);
-
-  const limiteAtual = limite.chave === chave ? limite.dados : null;
-
   /* ── Snapshot de ontem, pra comparação real ──────────────────────────
      Giro baixo, Parados, Repor em breve e Pontuação da loja não tinham
      como calcular variação: saldo de estoque é sobrescrito a cada
@@ -687,10 +663,9 @@ export function Mosaico({
         acaoSlot={acaoSlot}
         liquido={visaoLiquida}
         aoTrocarLiquido={setVisaoLiquida}
-        limiteDoDia={limiteAtual}
       />
     ),
-  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, coresFaturamento, escopo, chipsDoFiltro, visaoLiquida, limiteAtual]);
+  }), [dadosFaturamento, faturamento.carregando, faturamento.semFiltro, coresFaturamento, escopo, chipsDoFiltro, visaoLiquida]);
 
   const blocoScore = useMemo<BlocoDef>(() => ({
     id: "score",

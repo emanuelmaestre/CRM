@@ -25,7 +25,6 @@ import {
   isBrandSlug,
   marcaDisponivelNosCanais,
 } from "@/shared/config/brands";
-import { JanelaLimiteDoDia, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import { CardResumoVendas, type ExplicacaoCardVendas } from "./card-resumo-vendas";
 import { PedidosIndicadorDialog, type FiltrosIndicador } from "./pedidos-indicador-dialog";
@@ -75,8 +74,6 @@ const resumoInicial: Resumo = {
   canceladosSemPagamentoValorShopee: 0,
   repassePendenteTikTokQtd: 0,
 };
-
-const limiteDoDiaInicial: LimiteDoDia = { soNoMercadoLivre: [], soAqui: [] };
 
 function inicioDoDia(data: string): string | undefined {
   return data ? `${data}T00:00:00-03:00` : undefined;
@@ -474,14 +471,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   } | null>(null);
   // Receita e Pedidos pagos contam o mesmo conjunto; a janela usa os números deles.
   const pagosDoResumo = (r: Resumo) => somenteShopee ? (r.shopeePagos ?? { valor: 0, quantidade: 0 }) : somenteTikTok ? (r.tiktokGmv ?? { valor: 0, quantidade: 0 }) : { valor: r.faturamento, quantidade: r.totalPedidos };
-  const [limiteDoDia, setLimiteDoDia] = useState<LimiteDoDia>(limiteDoDiaInicial);
-  /* Uma janela só, para a única porta que hoje leva até ela: o card de fuso
-     na grade de indicadores. Guarda PARA QUAL conjunto de pedidos foi aberta,
-     e não um booleano: trocar o filtro troca os pedidos da fronteira, e um
-     booleano deixaria a janela aberta sobre uma lista que ninguém pediu. */
-  const [limiteAbertoPara, setLimiteAbertoPara] = useState<LimiteDoDia | null>(null);
-  const limiteAberto = limiteAbertoPara === limiteDoDia;
-  const setLimiteAberto = (abrir: boolean) => setLimiteAbertoPara(abrir ? limiteDoDia : null);
   const [loading, setLoading] = useState(false);
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [brandIds, setBrandIds] = useState<string[]>([]);
@@ -530,7 +519,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
         setTotal(res.total);
         setResumo(res.resumo);
         setFiltrosDoResumo({ ...filtrosBase, statuses: statusesAtual?.length ? statusesAtual : undefined, busca: buscaAtual || undefined });
-        setLimiteDoDia(res.limiteDoDia);
         setMarcas(res.marcas);
         /* As contagens de marca voltam já cruzadas com o canal escolhido (ver
            contarPedidosPorMarca): total 0 aqui quer dizer "esta marca não tem
@@ -1017,10 +1005,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
       </div>
       )}
 
-      {/* A explicação em tela cheia. Fica fora do bloco condicional dos
-          indicadores porque é um Dialog em portal — o lugar dela na árvore
-          não é o lugar dela na tela. */}
-      <JanelaLimiteDoDia dados={limiteDoDia} aberto={limiteAberto} setAberto={setLimiteAberto} />
       {indicadorAberto && indicadorAberto.resumo === resumo && !loading && (
         <PedidosIndicadorDialog
           indicador={indicadorAberto.indicador}

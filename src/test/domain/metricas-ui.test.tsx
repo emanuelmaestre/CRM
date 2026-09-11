@@ -3,7 +3,6 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ScoreCard } from "@/app/(dashboard)/metricas/score-card";
 import { ComparacaoCard } from "@/app/(dashboard)/metricas/comparacao-card";
 import { PublicacoesCard } from "@/app/(dashboard)/metricas/publicacoes-card";
-import { ReputacaoCard } from "@/app/(dashboard)/metricas/reputacao-card";
 import { BarraComLimite } from "@/app/(dashboard)/metricas/metricas-primitives";
 import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/application/saude-loja.service";
 import type { DesempenhoPublicacoesResultado } from "@/modules/metricas/application/publicacoes.service";
@@ -131,29 +130,6 @@ describe("cards de Métricas", () => {
     // pilares só monta depois de a visão consolidada sair, então espera-se por
     // ela em vez de exigi-la no mesmo tick.
     expect(await screen.findByText("Nenhum anúncio avaliado ainda")).toBeInTheDocument();
-  });
-
-  it("não inventa reputação quando nenhuma conta está conectada", () => {
-    render(<ReputacaoCard dados={resultado({ reputacaoIndisponivel: true })} carregando={false} />);
-    expect(screen.getByText(/nenhuma conta do mercado livre conectada/i)).toBeInTheDocument();
-  });
-
-  it("explica quando uma conta caiu, em vez de a marca só sumir da lista", () => {
-    render(<ReputacaoCard dados={resultado({
-      reputacaoIndisponivel: true,
-      contasDesconectadas: [{
-        brandId: "22222222-2222-4222-8222-222222222222",
-        marcaLabel: "WUWU",
-        status: "desconectado",
-        ultimoErro: "Token OAuth expirado",
-        ultimaVerificacao: "2026-08-10T12:00:00.000Z",
-      }],
-    })} carregando={false} />);
-    expect(screen.getByText(/wuwu · conta desconectada/i)).toBeInTheDocument();
-    expect(screen.getByText("Token OAuth expirado")).toBeInTheDocument();
-    // Com um motivo concreto na tela, o convite genérico de "conecte uma
-    // conta" não deveria aparecer — seria redundante com o aviso específico.
-    expect(screen.queryByText(/nenhuma conta do mercado livre conectada/i)).not.toBeInTheDocument();
   });
 
   it("escreve indicador ausente como texto explicativo, nunca como zero", () => {

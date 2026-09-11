@@ -15,8 +15,6 @@ import { assertPerfil } from "@/shared/lib/crud-factory";
 import { db } from "@/shared/lib/db";
 import { obterSaudeLoja, type SaudeLojaResultado } from "@/modules/metricas/application/saude-loja.service";
 import { obterPosVenda, type PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
-import { consultarPedidosNoLimiteDoDia } from "@/modules/vendas/infrastructure/pedidos.repository";
-import type { CanalVenda } from "@/modules/vendas/domain/consulta-pedidos";
 import { obterSnapshotAnterior, type SnapshotMetricas } from "@/modules/metricas/application/snapshot-metricas.service";
 import {
   aprovarSugestao,
@@ -171,32 +169,6 @@ export async function actionObterSaudeLoja(filtros: MetricasFiltros = {}): Promi
   assertPerfil(ctx, [...PERFIS_LEITURA]);
   const filtrosValidos = FiltrosSchema.parse(filtros);
   return medirTempo("metricas/saude-loja", () => obterSaudeLoja(ctx, filtrosValidos));
-}
-
-/** Os pedidos que caem na hora de virada entre o calendário do Mercado Livre
- *  e o daqui, no MESMO recorte do card de Faturamento.
- *
- *  A conta já existia em Vendas; o que muda aqui é a pergunta. Lá se explica
- *  por que a CONTAGEM de pedidos não bate com o painel do ML, e aqui por que o
- *  VALOR não bate — o deslocamento é o mesmo, e por isso a consulta é a mesma.
- *
- *  Sem período escolhido não há fronteira de dia para desencontrar, e com o
- *  recorte de canal excluindo o Mercado Livre o desencontro não se aplica a
- *  nada do que está na tela: nos dois casos o repositório devolve as duas
- *  listas vazias, e a faixa some sozinha. */
-export async function actionObterLimiteDoDia(filtros: MetricasFiltros = {}) {
-  const ctx = await getCrudContext();
-  assertPerfil(ctx, [...PERFIS_LEITURA]);
-  const { inicio, fim, brandIds, canais } = FiltrosSchema.parse(filtros);
-  // Sem as duas pontas explícitas não dá para dizer onde o dia vira: a janela
-  // padrão de 30 dias é um intervalo relativo, e carimbá-la aqui apontaria
-  // pedidos de fronteira que a pessoa não escolheu ver.
-  if (!inicio || !fim) return { soNoMercadoLivre: [], soAqui: [] };
-  return consultarPedidosNoLimiteDoDia(ctx.orgId, {
-    ...resolverJanela(inicio, fim),
-    brandIds,
-    canais: canais as CanalVenda[] | undefined,
-  });
 }
 
 export async function actionObterPosVenda(filtros: MetricasFiltros = {}): Promise<PosVendaResultado> {

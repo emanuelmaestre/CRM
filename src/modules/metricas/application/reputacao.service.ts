@@ -108,7 +108,7 @@ export interface ReputacaoResultado {
  *  bem diferente de "nunca foi conectada": aqui já funcionou, e algo quebrou
  *  (token expirado, revogado pelo vendedor no próprio ML, etc.). Sem isto
  *  exposto, a marca simplesmente some da tela de Reputação sem explicação —
- *  achado real de auditoria (ver reputacao-card.tsx). */
+ *  achado real de auditoria. */
 export interface ContaDesconectada {
   brandId: string;
   marcaLabel: string;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { AlertTriangle, Check, ChevronRight, Clock, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, Check, Minus, Receipt, ShoppingBag, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { EmptyState } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalculoPopover } from "@/shared/design-system/primitives/CalculoPopover";
@@ -15,7 +15,6 @@ import { AcaoSlotFiltro } from "./listas-cards";
 import { inteiro, moeda } from "@/shared/design-system/format";
 import type { FaturamentoResumo } from "@/modules/metricas/application/dashboard.service";
 import { tint } from "@/shared/design-system/color";
-import { copyLimite, JanelaLimiteDoDia, pedidoEntraNoBruto, somarLimite, type LimiteDoDia } from "@/shared/components/limite-do-dia";
 
 const copy = dashboardConfig.cards.faturamento;
 
@@ -364,95 +363,10 @@ function EsqueletoFaturamento() {
   );
 }
 
-/* ── Ressalva de fuso ─────────────────────────────────────────────────────
-   A mesma hora de desencontro entre o calendário do Mercado Livre e o daqui
-   que Vendas já explica, medida em dinheiro: quanto deste total o ML conta em
-   outro dia. Mostra as duas medidas — quantos pedidos e quanto valor —, porque
-   aqui a pergunta que se faz olhando o número grande é "quanto falta para
-   bater", e a contagem sozinha não responde isso.
-
-   Isto já foi uma faixa de largura inteira em linha própria. A forma era
-   desproporcional ao peso do assunto: o conteúdo mede uns 370px e a faixa
-   esticava por toda a largura do card — num monitor, quase mil pixels de azul
-   vazio para anunciar dezenas de reais dentro de um total de milhares. Pior,
-   o pulso que chama atenção cobria `inset-0`: era meia tela piscando de quatro
-   em quatro segundos.
-
-   Agora é um item da linha de "pedidos" e "valor médio", que é o lugar certo
-   pela leitura — os três qualificam o número grande logo acima. O que o separa
-   dos outros dois não é mais o tamanho, é a cor e a moldura: ele é o único
-   clicável, e o único que fala de uma ressalva em vez de um componente da
-   conta. O pulso desceu para o ícone, onde chama a mesma atenção sem acender
-   um retângulo.
-
-   Some inteira quando não há pedido na virada, quando o recorte de canal exclui
-   o Mercado Livre ou quando não há período escolhido (a action devolve listas
-   vazias nos três casos). */
-function ChipFusoFaturamento({ dados, onClick }: { dados?: LimiteDoDia | null; onClick: () => void }) {
-  const reduzir = useReducedMotion();
-  if (!dados) return null;
-  const { soNoMercadoLivre, soAqui } = dados;
-  const quantidade = [...soNoMercadoLivre, ...soAqui].filter(pedidoEntraNoBruto).length;
-  if (quantidade === 0) return null;
-
-  // Mesma soma da janela e do card de Vendas. Cancelamento posterior ao
-  // pagamento recompõe o bruto; cancelamento sem pagamento fica fora.
-  const diferenca = Math.abs(somarLimite(soNoMercadoLivre) - somarLimite(soAqui));
-
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      title={copyLimite.faixaDica}
-      whileHover={reduzir ? undefined : { y: -1 }}
-      whileTap={reduzir ? undefined : { scale: 0.99 }}
-      transition={springs.momentum}
-      // `max-w-full` com `min-w-0` dentro: a linha que hospeda o chip tem
-      // `flex-wrap`, então em tela estreita ele desce inteiro para a linha
-      // seguinte em vez de espremer os outros dois itens. A altura mínima
-      // existe só no celular, onde ele é um alvo de toque de verdade — no
-      // desktop ela só engordaria a linha.
-      className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border py-1 pl-2 pr-1.5 text-left sm:min-h-0"
-      style={{
-        borderColor: "color-mix(in srgb, var(--info) 30%, transparent)",
-        background: "color-mix(in srgb, var(--info) 6%, transparent)",
-      }}
-    >
-      {/* Mesmo tique de relógio das outras duas portas de entrada (ver
-          SeloLimiteDoDia), agora contido no ícone: um halo de 20px em vez do
-          fundo inteiro do card. */}
-      <span className="relative inline-flex shrink-0 items-center justify-center">
-        {!reduzir && (
-          <motion.span
-            aria-hidden="true"
-            className="pointer-events-none absolute -inset-1 rounded-full"
-            style={{ background: "color-mix(in srgb, var(--info) 22%, transparent)" }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 1, 1, 0] }}
-            transition={{ duration: 2.4, times: [0, 0.35, 0.7, 1], repeat: Infinity, repeatDelay: 4.4, ease: "easeInOut" }}
-          />
-        )}
-        <Clock size={13} strokeWidth={2} className="relative" style={{ color: "var(--info)" }} />
-      </span>
-      <span className="min-w-0 truncate text-xs" style={{ color: "var(--info)" }}>
-        <span className="font-bold tabular-nums">
-          {(quantidade === 1 ? copyLimite.badgeContadorUm : copyLimite.badgeContadorMuitos).replace("{n}", String(quantidade))}
-        </span>
-        {" · "}
-        <span className="font-bold tabular-nums">{moeda.format(diferenca)}</span>
-        <span className="opacity-80"> {copyLimite.faixaSufixo}</span>
-      </span>
-      <ChevronRight size={13} className="shrink-0" style={{ color: "var(--info)" }} />
-    </motion.button>
-  );
-}
-
-export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope, acaoSlot, liquido, aoTrocarLiquido, limiteDoDia }: {
+export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scope, acaoSlot, liquido, aoTrocarLiquido }: {
   dados: FaturamentoResumo | null;
   carregando: boolean;
   semFiltro: boolean;
-  /** Pedidos na fronteira de dia do Mercado Livre, no mesmo recorte do card. */
-  limiteDoDia?: LimiteDoDia | null;
   /** Cor de cada marca ativa no filtro do card — vazio ("todas"), 1 ou várias. */
   cores?: string[];
   scope?: React.ReactNode;
@@ -466,15 +380,6 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
 }) {
   const reduzir = useReducedMotion();
   const [focado, setFocado] = useState<number | null>(null);
-  /* Guarda PARA QUAL conjunto de pedidos a janela foi aberta, em vez de um
-     booleano solto. Trocar o período ou o filtro troca os pedidos da
-     fronteira: com um booleano, a janela seguiria aberta exibindo uma lista
-     que ninguém pediu, e voltaria a aparecer sozinha assim que um recorte
-     seguinte tivesse pedidos na virada. Comparando a identidade do dado, ela
-     se fecha por dedução — sem efeito e sem estado a sincronizar. */
-  const [limiteAbertoPara, setLimiteAbertoPara] = useState<LimiteDoDia | null>(null);
-  const limiteAberto = limiteAbertoPara !== null && limiteAbertoPara === limiteDoDia;
-  const setLimiteAberto = (abrir: boolean) => setLimiteAbertoPara(abrir ? limiteDoDia ?? null : null);
   const valorAnimado = useContagem((liquido ? dados?.totalLiquidoNumerico : dados?.totalNumerico) ?? 0);
   const vazio = !dados || (dados.pedidos === 0 && dados.totalNumerico === 0);
   const variacao = (liquido ? dados?.variacaoPercentualLiquido : dados?.variacaoPercentual) ?? null;
@@ -624,13 +529,6 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                   <Receipt size={13} strokeWidth={2} className="shrink-0 opacity-70" />
                   <span className="font-semibold tabular-nums text-foreground">{liquido ? dados?.ticketMedioLiquido : dados?.ticketMedio}</span> {copy.ticketLabel}
                 </span>
-
-                {/* Terceiro item da mesma linha: o desencontro de fuso que
-                    Vendas explica, medido em dinheiro. Vem depois de "pedidos"
-                    e "valor médio" porque é da mesma natureza — os três
-                    qualificam o número grande acima. `gap-x-5` já separa os
-                    itens; a moldura e a cor é que dizem que só este é clicável. */}
-                <ChipFusoFaturamento dados={limiteDoDia} onClick={() => setLimiteAberto(true)} />
               </div>
 
               {!liquido && dados?.composicao && (
@@ -756,13 +654,6 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
           )}
         </AnimatePresence>
       </motion.div>
-
-      {/* A janela mora fora do corpo do card — é um Dialog em tela cheia, via
-          portal; a faixa acima é só a porta. É a MESMA explicação que o selo
-          de Vendas abre, importada do compartilhado em vez de recriada. */}
-      {limiteDoDia && (
-        <JanelaLimiteDoDia dados={limiteDoDia} aberto={limiteAberto} setAberto={setLimiteAberto} />
-      )}
     </Card>
   );
 }

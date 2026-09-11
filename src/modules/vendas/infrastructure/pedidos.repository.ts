@@ -265,32 +265,6 @@ export async function consultarResumoPedidos(orgId: string, opts: ConsultaPedido
   };
 }
 
-/** O offset escrito na API não define o calendário das vendas.
- * Os relatórios horários de 04/09 confirmaram aprovação em Brasília. */
-export const DESLOCAMENTO_DIA_MERCADOLIVRE_MS = 0;
-
-/** Contrato legado; os relatórios não sustentam o deslocamento de uma hora. */
-export async function consultarPedidosNoLimiteDoDia(
-  _orgId: string,
-  _opts: ConsultaPedidos,
-): Promise<{ soNoMercadoLivre: PedidoNoLimite[]; soAqui: PedidoNoLimite[] }> {
-  void _orgId;
-  void _opts;
-  // Compatibilidade com consumidores antigos; não atribuir valores a uma
-  // diferença de fuso que o relatório oficial não demonstra.
-  return { soNoMercadoLivre: [], soAqui: [] };
-}
-
-export interface PedidoNoLimite {
-  id: string;
-  providerOrderId: string | null;
-  clienteNome: string;
-  status: string;
-  total: number;
-  pagamentoAprovado: boolean;
-  createdAt: Date;
-}
-
 export function consultarPedidosPorMarca(orgId: string, canais?: string[]) {
   const filtros: SQL[] = [eq(pedido.orgId, orgId)];
   if (canais?.length) filtros.push(inArray(pedido.canal, canais));
