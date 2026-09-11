@@ -107,9 +107,11 @@ function Odometro({ valor }: { valor: number }) {
  *  respondeu acende com a borda verde e um salto curto; o que ainda está
  *  sendo aguardado fica apagado e respira — é o que separa "parado porque
  *  acabou" de "parado esperando o TikTok". */
-function FichasCanais({ canais, concluindo, reduzir }: {
+function FichasCanais({ canais, tudoPronto, reduzir }: {
   canais: ProgressoCanal[];
-  concluindo: boolean;
+  /** Só vale quando a confirmação deu certo. Numa saída por falha as fichas
+   *  continuam como estavam: acender o canal que não respondeu seria mentir. */
+  tudoPronto: boolean;
   reduzir: boolean;
 }) {
   if (canais.length === 0) return null;
@@ -117,7 +119,7 @@ function FichasCanais({ canais, concluindo, reduzir }: {
   return (
     <ul className="mt-6 flex items-center gap-3" aria-label="Canais">
       {canais.map((item) => {
-        const pronto = concluindo || item.progresso >= 100;
+        const pronto = tudoPronto || item.progresso >= 100;
         return (
           <motion.li
             key={item.canal}
@@ -180,10 +182,27 @@ function quemDemora(canais: ProgressoCanal[]): string | null {
   return `${faltando.slice(0, -1).join(", ")} e ${faltando.at(-1)} estão demorando`;
 }
 
-export function BloqueioAtualizacao({ progresso, canais = [], tela }: {
+/* Quanto o 100% com todas as fichas acesas fica parado antes de a tela abrir:
+   o bastante para ser lido, curto o bastante para não virar pedágio. O teto
+   é a rede de segurança — com a aba em segundo plano o requestAnimationFrame
+   para, a contagem não chega a 100 e a cobertura ficaria presa. */
+const MS_SEGURAR_CEM = 900;
+const MS_TETO_FINAL = 3_000;
+
+export function BloqueioAtualizacao({
+  progresso,
+  canais = [],
+  tela,
+  finalizar = false,
+  aoTerminar,
+}: {
   progresso: number;
   canais?: ProgressoCanal[];
   tela: TelaAtualizavel | null;
+  /** A confirmação deu certo: correr até 100, acender tudo e avisar quando
+   *  o final já foi visto. */
+  finalizar?: boolean;
+  aoTerminar?: () => void;
 }) {
   /* Enquanto o AnimatePresence toca a saída, o componente ainda está montado
      mas já não está "presente". É a deixa para a contagem correr até 100
@@ -191,14 +210,30 @@ export function BloqueioAtualizacao({ progresso, canais = [], tela }: {
      exatamente o salto que este componente existe para não dar. */
   const concluindo = !useIsPresent();
   const reduzir = useReducedMotion() ?? false;
-  const suave = useContagemCrescente(progresso, concluindo);
-  const valor = reduzir ? Math.round(Math.min(progresso, 100)) : suave;
+  const suave = useContagemCrescente(progresso, concluindo || finalizar);
+  const valor = reduzir ? Math.round(finalizar ? 100 : Math.min(progresso, 100)) : suave;
   const [demorou, setDemorou] = useState(false);
+  const chegouEmCem = finalizar && valor >= 99.999;
 
   useEffect(() => {
     const relogio = window.setTimeout(() => setDemorou(true), MS_PARA_TRANQUILIZAR);
     return () => window.clearTimeout(relogio);
   }, []);
+
+  const aoTerminarRef = useRef(aoTerminar);
+  useEffect(() => { aoTerminarRef.current = aoTerminar; }, [aoTerminar]);
+
+  useEffect(() => {
+    if (!finalizar) return;
+    const teto = window.setTimeout(() => aoTerminarRef.current?.(), MS_TETO_FINAL);
+    return () => window.clearTimeout(teto);
+  }, [finalizar]);
+
+  useEffect(() => {
+    if (!chegouEmCem) return;
+    const segurar = window.setTimeout(() => aoTerminarRef.current?.(), MS_SEGURAR_CEM);
+    return () => window.clearTimeout(segurar);
+  }, [chegouEmCem]);
 
   const demora = quemDemora(canais);
 
@@ -236,15 +271,22 @@ export function BloqueioAtualizacao({ progresso, canais = [], tela }: {
               ? <>{valor}<span className="ml-[0.06em] text-[0.34em] font-bold text-muted-foreground">%</span></>
               : <Odometro valor={valor} />}
           </span>
-          <FichasCanais canais={canais} concluindo={concluindo} reduzir={reduzir} />
+          <FichasCanais canais={canais} tudoPronto={chegouEmCem} reduzir={reduzir} />
         </motion.div>
 
-        <p className="mt-7 text-center text-sm font-semibold text-foreground">
-          Conferindo {(tela && ALVO_DA_TELA[tela]) ?? "os dados"} nos canais
+        <p className="mt-7 flex items-center gap-1.5 text-center text-sm font-semibold text-foreground">
+          {chegouEmCem ? (
+            <>
+              <Check className="size-4 text-emerald-600" strokeWidth={3} aria-hidden />
+              Tudo confirmado nos canais
+            </>
+          ) : (
+            <>Conferindo {(tela && ALVO_DA_TELA[tela]) ?? "os dados"} nos canais</>
+          )}
         </p>
 
         <div className="mt-1.5 h-8 max-w-[22rem] text-center">
-          {demorou && !concluindo && (
+          {demorou && !concluindo && !finalizar && (
             <motion.p
               initial={reduzir ? false : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}

@@ -555,9 +555,29 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
     };
   }, [consultar, pathname, router, tela, tentativa]);
 
+  const bloqueado = !entradaResolvida || refrescando;
+
+  /* O final da contagem é parte da resposta, não enfeite. Quando a cobertura
+     saía no instante da confirmação, a pessoa via "80% e só a Shopee" e, no
+     quadro seguinte, a tela aberta — sem nunca ver o 100 nem os outros canais
+     acenderem, e sem saber se tinha carregado tudo. Agora, se houve espera de
+     verdade e ela terminou em sucesso, a cobertura fica mais um instante:
+     corre até 100, acende todas as fichas e só então sai.
+     Ajustado durante o render (e não num efeito) para a cobertura não chegar a
+     desmontar por um quadro entre "bloqueado" e "finalizando". */
+  const [houveEspera, setHouveEspera] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
+  const [bloqueadoAntes, setBloqueadoAntes] = useState(bloqueado);
+  if (bloqueado && !houveEspera && estado && estado.progresso < 100) setHouveEspera(true);
+  if (bloqueado !== bloqueadoAntes) {
+    setBloqueadoAntes(bloqueado);
+    if (!bloqueado && houveEspera && !falhou) setFinalizando(true);
+    if (!bloqueado) setHouveEspera(false);
+  }
+  const coberto = bloqueado || finalizando;
+
   if (!tela) return children;
 
-  const bloqueado = !entradaResolvida || refrescando;
   /* "Ocupado" cobre os dois jeitos de estar trabalhando: o clique que ainda
      não voltou do servidor e a sincronização que o próprio servidor confirma
      estar rodando. Nos dois casos, oferecer "Tentar novamente" seria convidar
@@ -566,18 +586,20 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
 
   return (
     <>
-      <div className="contents" key={geracao} aria-hidden={bloqueado} inert={bloqueado ? true : undefined}>
+      <div className="contents" key={geracao} aria-hidden={coberto} inert={coberto ? true : undefined}>
         {children}
       </div>
       {/* AnimatePresence para que a cobertura saia levando a contagem até 100
           em vez de sumir no número em que estava. */}
       <AnimatePresence>
-        {bloqueado && (
+        {coberto && (
           <BloqueioAtualizacao
             key="bloqueio"
             progresso={estado?.progresso ?? 0}
             canais={estado?.progressoPorCanal ?? []}
             tela={tela}
+            finalizar={finalizando}
+            aoTerminar={() => setFinalizando(false)}
           />
         )}
       </AnimatePresence>

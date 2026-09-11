@@ -140,6 +140,9 @@ function resumirEstado(painel: PainelAtualizacao): EstadoAtualizacaoTela {
       versoes: painel.versoes,
       fontes: Object.keys(painel.versoes) as Array<keyof PainelAtualizacao["versoes"]>,
       podeSincronizar: painel.podeSincronizar,
+      /* Vai junto no "pronto" porque é nele que a cobertura mostra o final:
+         sem a lista, as fichas sumiriam justo no 100%. */
+      progressoPorCanal: progressoPorCanal(exigencias, vencidosPorConta),
     };
   }
 
