@@ -123,7 +123,7 @@ function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
            Ana · 10:00 Valor original R$ 100,00 Cancelado/devolvido R$ 100,00".
            Aqui o leitor de tela ouve a frase que a linha significa. */
         aria-label={`Pedido ${pedido.providerOrderId ? `#${pedido.providerOrderId}` : "sem número no canal"} de ${pedido.clienteNome} · ${rotuloDoEstado(pedido, parcial)} · ${dinheiro.format(impacto)}`}
-        className="group relative flex flex-col gap-3 px-4 py-3.5 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-selecionado sm:flex-row sm:items-center sm:gap-5"
+        className="group relative flex items-start gap-3 px-3.5 py-3 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-selecionado sm:items-center sm:gap-5 sm:px-4 sm:py-3.5"
       >
         {/* Marca de cor na borda esquerda: a lista inteira fala de dinheiro
             que voltou, e a fita diz de que tipo sem gastar uma linha. */}
@@ -135,23 +135,27 @@ function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
 
         {/* Sem quadrinho atrás: o logo do canal já tem forma e cor próprias, e
             a placa cinza só somava mais um retângulo à linha. */}
-        <span className="grid size-9 shrink-0 place-items-center transition-transform group-hover:scale-110" aria-hidden>
+        <span className="mt-0.5 grid size-7 shrink-0 place-items-center transition-transform group-hover:scale-110 sm:mt-0 sm:size-9" aria-hidden>
           <ChannelLogo canal={pedido.canal} size="xs" variant="logo" />
         </span>
 
+        {/* Celular: número e valor na mesma linha, como num extrato, e o
+            resto embaixo. Empilhar a versão de desktop virava sete blocos por
+            pedido e, nos pendentes, repetia o mesmo valor em "Valor original"
+            e em "Sem confirmação". */}
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="break-all font-semibold tabular-nums">
+            <span className="min-w-0 truncate text-sm font-semibold tabular-nums sm:whitespace-normal sm:break-all sm:text-base">
               {pedido.providerOrderId ? `#${pedido.providerOrderId}` : "Pedido sem número no canal"}
             </span>
             <Selo pedido={pedido} parcial={parcial} />
             <ArrowUpRight
               size={15}
               aria-hidden
-              className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground"
+              className="hidden shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-foreground sm:block"
             />
           </p>
-          <p className="mt-0.5 break-words text-sm text-muted-foreground">
+          <p className="mt-1 truncate text-xs text-muted-foreground sm:mt-0.5 sm:whitespace-normal sm:break-words sm:text-sm">
             {pedido.clienteNome} · {soHora.format(new Date(pedido.createdAt))}
           </p>
         </div>
@@ -160,21 +164,28 @@ function Linha({ pedido, parcial, fatia, atraso, reduzir }: {
             palavra ("…DEVOLVI / DO") lê como defeito e ainda desalinha o valor
             desta linha em relação à de cima. A coluna é dimensionada pelo
             rótulo mais longo, e o `nowrap` garante o resto. */}
-        <div className="flex shrink-0 items-end gap-6 sm:w-[19rem] sm:justify-end">
-          <div className="sm:text-right">
+        <div className="flex shrink-0 items-end gap-6 text-right sm:w-[19rem] sm:justify-end">
+          <div className="hidden sm:block">
             <p className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Valor original</p>
             <p className="mt-0.5 text-sm font-semibold tabular-nums">{dinheiro.format(pedido.total)}</p>
           </div>
-          <div className="min-w-[9.5rem] sm:text-right">
-            <p className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">
+          <div className="sm:min-w-[9.5rem]">
+            <p className="hidden whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground sm:block">
               {pendente ? pedido.aguardandoPagamentoShopee ? "Aguardando pagamento" : "Sem confirmação" : parcial ? "Reembolsado" : "Cancelado/devolvido"}
             </p>
-            <p className="mt-0.5 font-bold tabular-nums" style={{ color: `var(--${tom})` }}>
+            <p className="text-sm font-bold tabular-nums sm:mt-0.5 sm:text-base" style={{ color: `var(--${tom})` }}>
               {dinheiro.format(impacto)}
             </p>
+            {/* No celular o original só aparece quando difere do valor em
+                destaque — no reembolso parcial. */}
+            {impacto !== pedido.total && (
+              <span className="mt-0.5 block whitespace-nowrap text-[11px] tabular-nums text-muted-foreground sm:hidden">
+                de {dinheiro.format(pedido.total)}
+              </span>
+            )}
             {/* Trilho sempre presente: sem ele a barra apareceria só nas
                 linhas grandes e a comparação perderia a régua. */}
-            <span aria-hidden className="mt-1.5 block h-1 overflow-hidden rounded-full bg-muted">
+            <span aria-hidden className="mt-1.5 hidden h-1 overflow-hidden rounded-full bg-muted sm:block">
               <motion.span
                 className="block h-full rounded-full"
                 style={{ background: `var(--${tom})`, transformOrigin: "left" }}
@@ -313,10 +324,13 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
           style={{ background: `color-mix(in srgb, var(--${tom}) 18%, transparent)` }}
         />
 
-        <div className="relative flex flex-wrap items-center gap-x-8 gap-y-4">
-          <div className="flex items-center gap-3">
+        {/* Celular: o total em destaque ocupa a linha de cima e pedidos/média
+            ficam lado a lado embaixo. Os três blocos soltos quebravam cada um
+            num lugar e o número principal perdia o destaque. */}
+        <div className="relative grid grid-cols-2 gap-x-4 gap-y-3 sm:flex sm:flex-wrap sm:items-center sm:gap-x-8 sm:gap-y-4">
+          <div className="order-2 flex items-center gap-3 sm:order-none">
             <motion.span
-              className="grid size-11 shrink-0 place-items-center rounded-2xl"
+              className="hidden size-11 shrink-0 place-items-center rounded-2xl sm:grid"
               style={{ background: `color-mix(in srgb, var(--${tom}) 14%, transparent)`, color: `var(--${tom})` }}
               initial={reduzir ? false : { scale: 0.7, rotate: -12 }}
               animate={{ scale: 1, rotate: 0 }}
@@ -326,37 +340,38 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
               {pendente ? <Clock size={20} /> : parcial ? <Undo2 size={20} /> : <Ban size={20} />}
             </motion.span>
             <div>
-              <p className="text-2xl font-black leading-none tabular-nums">{quantidade.toLocaleString("pt-BR")}</p>
+              <p className="text-lg font-black leading-none tabular-nums sm:text-2xl">{quantidade.toLocaleString("pt-BR")}</p>
               <p className="mt-1 text-xs text-muted-foreground">{quantidade === 1 ? "pedido" : "pedidos"}</p>
             </div>
           </div>
 
           <span aria-hidden className="hidden h-10 w-px bg-border sm:block" />
 
-          <div>
+          <div className="order-1 col-span-2 border-b pb-3 sm:order-none sm:border-0 sm:pb-0" style={{ borderColor: `color-mix(in srgb, var(--${tom}) 22%, transparent)` }}>
             <p className="text-xs text-muted-foreground">{indicador === "cancelados-sem-pagamento" ? "Valor dos pedidos sem pagamento" : pendente ? "Total ainda sem confirmação" : parcial ? "Total reembolsado" : "Total cancelado/devolvido"}</p>
-            <strong className="mt-0.5 block text-2xl font-black leading-none tabular-nums" style={{ color: `var(--${tom})` }}>
+            <strong className="mt-1 block text-3xl font-black leading-none tabular-nums sm:mt-0.5 sm:text-2xl" style={{ color: `var(--${tom})` }}>
               {dinheiro.format(valor)}
             </strong>
           </div>
 
           <span aria-hidden className="hidden h-10 w-px bg-border sm:block" />
 
-          <div>
+          {/* No celular o valor vem em cima, como em "pedidos" ao lado. */}
+          <div className="order-3 flex flex-col-reverse gap-1 sm:order-none sm:flex-col sm:gap-0.5">
             <p className="text-xs text-muted-foreground">Média por pedido</p>
-            <p className="mt-0.5 text-2xl font-black leading-none tabular-nums text-foreground">{dinheiro.format(media)}</p>
+            <p className="text-lg font-black leading-none tabular-nums text-foreground sm:text-2xl">{dinheiro.format(media)}</p>
           </div>
         </div>
       </motion.section>
 
-      {canceladosShopee && <p className="mb-5 text-sm text-muted-foreground">
+      {canceladosShopee && <p className="mb-5 text-xs text-muted-foreground sm:text-sm">
         Dos {canceladosShopee.total} cancelados: <span className="font-semibold text-destructive">{canceladosShopee.pagos} após pagamento</span> · <span className="font-semibold text-warning">{canceladosShopee.semPagamento} sem pagamento</span>.
         {canceladosShopee.total > canceladosShopee.pagos + canceladosShopee.semPagamento && <> {canceladosShopee.total - canceladosShopee.pagos - canceladosShopee.semPagamento} com pagamento a verificar.</>}
         {" "}Os cancelados após pagamento também fazem parte dos pedidos pagos, conforme a data do pagamento. O valor cancelado não significa necessariamente dinheiro reembolsado.
       </p>}
 
-      {pendente && <p className="mb-5 text-sm text-muted-foreground">{filtros.canais?.length === 1 && filtros.canais[0] === "shopee" ? "Estes pedidos já estão em Pedidos Feitos, mas não em Produto Pago. Quando a Shopee informa UNPAID, a linha mostra aguardando pagamento. Sem esse status, o pagamento permanece a verificar. A situação acompanha as atualizações da Shopee." : "Estes pedidos da Shopee ou TikTok Shop já estão no Total bruto, mas ainda não possuem um status de pagamento confirmado. Podem estar aguardando pagamento ou confirmação do canal."}</p>}
-      {indicador === "cancelados-sem-pagamento" && <p className="mb-5 text-sm text-muted-foreground">Estes pedidos foram cancelados sem pagamento identificado pelo canal. O valor exibido é o dos pedidos, não dinheiro recebido ou reembolsado. No Mercado Livre, não compõem os totais financeiros de vendas e cancelamentos pagos.</p>}
+      {pendente && <p className="mb-5 text-xs text-muted-foreground sm:text-sm">{filtros.canais?.length === 1 && filtros.canais[0] === "shopee" ? "Estes pedidos já estão em Pedidos Feitos, mas não em Produto Pago. Quando a Shopee informa UNPAID, a linha mostra aguardando pagamento. Sem esse status, o pagamento permanece a verificar. A situação acompanha as atualizações da Shopee." : "Estes pedidos da Shopee ou TikTok Shop já estão no Total bruto, mas ainda não possuem um status de pagamento confirmado. Podem estar aguardando pagamento ou confirmação do canal."}</p>}
+      {indicador === "cancelados-sem-pagamento" && <p className="mb-5 text-xs text-muted-foreground sm:text-sm">Estes pedidos foram cancelados sem pagamento identificado pelo canal. O valor exibido é o dos pedidos, não dinheiro recebido ou reembolsado. No Mercado Livre, não compõem os totais financeiros de vendas e cancelamentos pagos.</p>}
 
       {primeiraCarga ? <Fantasma /> : (
         <div className="space-y-5">
