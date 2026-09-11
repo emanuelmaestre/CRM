@@ -836,7 +836,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             numero: resumo.canceladosSemPagamento,
             formatar: (v: number) => Math.round(v).toLocaleString("pt-BR"),
             icon: Ban,
-            cor: "var(--warning)",
+            cor: "var(--acento-3)",
             sub: <>Parte dos {resumo.canceladosOperacionais} cancelados identificados. Não somar ao total.{resumo.canceladosPagamentoDesconhecido > 0 && <span className="block">{resumo.canceladosPagamentoDesconhecido} cancelados com pagamento a verificar.</span>}</>,
             explicacao: explicacoes.quantidadeCancelados,
           },
@@ -848,7 +848,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             numero: resumo.pendentesValor,
             formatar: (v: number) => dinheiro.format(v),
             icon: Clock,
-            cor: resumo.pendentesQtd > 0 ? "var(--warning)" : "var(--muted-foreground)",
+            cor: resumo.pendentesQtd > 0 ? "var(--acento-1)" : "var(--muted-foreground)",
             sub: <>{resumo.pendentesQtd.toLocaleString("pt-BR")} {resumo.pendentesQtd === 1 ? "pedido" : "pedidos"} · {somenteShopee ? "não entram em Produto Pago" : somenteTikTok ? "não entram no GMV" : "não entram em Confirmado"}</>,
             explicacao: {
               titulo: "os pedidos aguardando confirmação",
