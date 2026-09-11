@@ -121,7 +121,13 @@ export function TintedStatCard({ label, valor, icon: Icon, cor, sub, onClick, at
         {label}
       </div>
       <p className={`relative whitespace-nowrap font-black tabular-nums tracking-tight ${denso ? "mt-1 text-[13px] sm:text-base xl:text-[17px] 2xl:text-xl" : compactoNoMobile ? "mt-1.5 text-lg sm:mt-2 sm:text-xl" : "mt-2 text-xl"}`} style={{ color: cor }}>{valor}</p>
-      {sub && <p className={`relative text-muted-foreground ${denso ? "mt-1 text-[9px] leading-tight sm:text-[10px] xl:text-[11px]" : "mt-1.5 text-[11px]"}`}>{sub}</p>}
+      {/* `line-clamp-2`: o texto varia muito de tamanho entre canais (uma
+          frase curta num card, três linhas de explicação financeira no
+          vizinho) — numa grade onde todo card estica pra mesma altura, essa
+          diferença de densidade é o que faz a fileira parecer desalinhada.
+          Cravar um teto de 2 linhas iguala o peso visual entre os cards; o
+          texto completo continua disponível no popover "i" de cada card. */}
+      {sub && <p className={`relative line-clamp-2 text-muted-foreground ${denso ? "mt-1 text-[9px] leading-tight sm:text-[10px] xl:text-[11px]" : "mt-1.5 text-[11px]"}`}>{sub}</p>}
     </Tag>
   );
 }
