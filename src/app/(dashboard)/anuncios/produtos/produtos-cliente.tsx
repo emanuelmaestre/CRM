@@ -13,7 +13,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterProdutosDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
 import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
-import { AvisoJanela, Card, CardHead, RotuloComInfo, rotuloDaJanela } from "../anuncios-primitives";
+import { AvisoJanela, Card, CardHead, RotuloComInfo, rotuloDaJanela, textosCanalAnuncios } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { AnuncioProduto, ProdutosResultado } from "@/modules/anuncios/application/produtos.service";
 import type { MarcaIndisponivel, VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
@@ -133,7 +133,8 @@ export function ProdutosClienteDetalhe() {
   // As explicações das colunas diziam "hoje" em texto fixo. Com a janela
   // variando por canal, dizer "hoje" sobre uma soma de sete dias seria
   // simplesmente falso.
-  const naJanela = (dados?.janela?.dias ?? 1) <= 1 ? "nos dados de hoje" : `nos últimos ${dados!.janela!.dias} dias`;
+  const textosCanal = textosCanalAnuncios(canal, dados?.janela?.dias);
+  const naJanela = textosCanal.naJanela;
 
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="flex flex-col gap-6">
@@ -268,7 +269,7 @@ export function ProdutosClienteDetalhe() {
                   {colunas.campanha && <th className="whitespace-nowrap px-3 py-2">{copy.colunas[1]}</th>}
                   {colunas.criadoEm && (
                     <th className="whitespace-nowrap px-3 py-2 text-right">
-                      <RotuloComInfo descricao="Data em que o anúncio (item) foi criado no Mercado Livre. Não é a data em que ele entrou nesta campanha, é a origem do anúncio em si.">{copy.colunas[2]}</RotuloComInfo>
+                      <RotuloComInfo descricao={`Data em que o anúncio (item) foi criado ${textosCanal.nome}. Não é a data em que ele entrou nesta campanha, é a origem do anúncio em si.`}>{copy.colunas[2]}</RotuloComInfo>
                     </th>
                   )}
                   <th className="whitespace-nowrap px-3 py-2 text-right">
@@ -284,7 +285,7 @@ export function ProdutosClienteDetalhe() {
                     <RotuloComInfo descricao={`Vezes que clicaram neste anúncio ${naJanela}.`}>{copy.colunas[6]}</RotuloComInfo>
                   </th>
                   <th className="whitespace-nowrap px-3 py-2 text-right">
-                    <RotuloComInfo descricao={`Vendas que vieram deste anúncio pago ${naJanela}. Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).`}>{copy.colunas[7]}</RotuloComInfo>
+                    <RotuloComInfo descricao={`Vendas que vieram deste anúncio pago ${naJanela}. ${textosCanal.vendas}`}>{copy.colunas[7]}</RotuloComInfo>
                   </th>
                 </tr>
               </thead>

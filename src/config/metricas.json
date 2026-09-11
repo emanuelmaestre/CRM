@@ -13,7 +13,7 @@
   "score": {
     "titulo": "Pontuação de Saúde da Loja",
     "subtitulo": "Quatro pilares, um número",
-    "explicacao": "A pontuação resume a saúde da loja em uma nota de 0 a 100. Ela combina reputação, pós-venda, satisfação e catálogo. Cada pilar tem um peso; quando um deles ainda não possui dados, ele não recebe nota zero: sai temporariamente do cálculo e seu peso é distribuído entre os pilares medidos.",
+    "explicacao": "A pontuação resume a saúde da loja em uma nota de 0 a 100. Ela combina quatro pilares: reputação (35), pós-venda (29), satisfação (24) e estoque (12). Quando um pilar não tem dado, ele não recebe nota zero: sai do cálculo e o peso dele é distribuído entre os pilares medidos. Atenção: reputação e pós-venda só existem no Mercado Livre e seguem a janela própria dele; satisfação usa todo o histórico de opiniões; estoque é o saldo de agora. Por isso trocar o período muda pouco esta nota.",
     "parcialPrefixo": "Leitura parcial:",
     "parcialSufixo": "de {total} pilares com dado",
     "semDado": "Ainda não há dado suficiente para calcular",
@@ -173,7 +173,7 @@
     "crescimentoColunas": [
       "Marca",
       "Cancelamento",
-      "5 produtos mais vendidos",
+      "5 maiores em receita",
       "Recorrência"
     ]
   },

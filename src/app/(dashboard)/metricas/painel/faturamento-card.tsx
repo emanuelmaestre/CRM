@@ -199,9 +199,10 @@ function EntendaFaturamentoBotao({
           </p>
           <ul className="mt-3 flex flex-col gap-2">
             <ItemRegra tipo="entra">
-              <strong className="font-semibold text-foreground">Quando o canal informa o repasse</strong> (Shopee),
-              é o número dele, não uma conta nossa: já vem com comissão, taxa de transação, tarifa de campanha e
-              ajustes que só o canal conhece.
+              <strong className="font-semibold text-foreground">Quando o canal informa o repasse</strong> (Shopee e
+              TikTok Shop), é o número dele, não uma conta nossa: já vem com comissão, taxa de transação, tarifa de
+              campanha e ajustes que só o canal conhece. Pedido recente pode ainda não ter repasse fechado pelo canal;
+              enquanto isso, ele entra pela estimativa abaixo.
             </ItemRegra>
             <ItemRegra tipo="atencao">
               <strong className="font-semibold text-foreground">Quando o canal não informa</strong> (Mercado Livre),

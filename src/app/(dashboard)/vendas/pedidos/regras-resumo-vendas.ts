@@ -91,9 +91,5 @@ export function explicacoesResumoVendas(
       inclui: ["Shopee e TikTok: cancelamentos com ou sem pagamento e devoluções.", ...(misto ? ["Mercado Livre: cancelamentos e devoluções com evidência de pagamento."] : [])],
       naoInclui: ["Pedidos aguardando confirmação.", "Reembolsos parciais de pedidos que continuam confirmados."],
     },
-    quantidadeCancelados: {
-      ...explicacoes.quantidadeCancelados,
-      naoInclui: ["Unidades e produtos dentro do pedido.", "Reembolsos parciais.", ...(misto ? ["Mercado Livre: cancelamentos sem pagamento."] : [])],
-    },
   };
 }

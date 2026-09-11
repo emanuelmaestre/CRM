@@ -30,6 +30,8 @@ const MODULOS = [
     erro: "catalogoErro",
     label: "Catálogo",
     descricao: "Produtos, SKUs, variações, preços e saldo que o canal informa.",
+    canais: ["mercadolivre", "shopee", "tiktokshop"],
+    foraDoCanal: "",
   },
   {
     chave: "pedidosStatus",
@@ -37,6 +39,8 @@ const MODULOS = [
     erro: "pedidosErro",
     label: "Pedidos",
     descricao: "Vendas recentes, clientes, itens e status para alimentar CRM e estoque.",
+    canais: ["mercadolivre", "shopee", "tiktokshop"],
+    foraDoCanal: "",
   },
   {
     chave: "anunciosStatus",
@@ -44,6 +48,8 @@ const MODULOS = [
     erro: "anunciosErro",
     label: "Anúncios patrocinados",
     descricao: "Campanhas, anúncios e métricas de mídia paga usadas no módulo Anúncios.",
+    canais: ["mercadolivre", "shopee"],
+    foraDoCanal: "A integração de publicidade ainda não existe para este canal.",
   },
   {
     chave: "avaliacoesStatus",
@@ -51,6 +57,8 @@ const MODULOS = [
     erro: "avaliacoesErro",
     label: "Avaliações",
     descricao: "Notas, opiniões e média dos anúncios ativos para satisfação e reputação.",
+    canais: ["mercadolivre", "shopee"],
+    foraDoCanal: "O canal não libera avaliações para integração.",
   },
   {
     chave: "reputacaoStatus",
@@ -58,6 +66,8 @@ const MODULOS = [
     erro: "reputacaoErro",
     label: "Termômetro",
     descricao: "Faixa de reputação, Mercado Líder e taxas que afetam a saúde da loja.",
+    canais: ["mercadolivre"],
+    foraDoCanal: "O termômetro é um conceito só do Mercado Livre.",
   },
 ] as const;
 
@@ -226,7 +236,7 @@ function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; exec
   const mercadoLivre = conta.canal === "mercadolivre";
   const descricaoCanal = mercadoLivre
     ? "No Mercado Livre, este clique atualiza catálogo, pedidos, anúncios patrocinados, avaliações e termômetro. Mensagens e reclamações foram removidas para evitar chamadas sem uso."
-    : `Para ${conta.canalLabel}, o botão executa os módulos que o conector já suporta e marca o restante como sem suporte, sem travar a tela.`;
+    : `Para ${conta.canalLabel}, o botão executa só os módulos que existem neste canal. Os que aparecem apagados abaixo ficam como "sem suporte", sem travar a tela.`;
 
   return (
     <DialogPrimitive.Root>
@@ -274,12 +284,18 @@ function SincronizacaoInfo({ conta, execucao }: { conta: CanalConfiguracao; exec
 
               <p className="mt-4 text-[11px] font-bold uppercase tracking-[.07em] text-muted-foreground">O que entra na fila</p>
               <div className="mt-2 grid gap-2">
-                {MODULOS.map((modulo) => (
-                  <div key={modulo.chave} className="rounded-lg border border-border bg-muted/35 px-3 py-2">
-                    <p className="text-[12px] font-bold text-foreground">{modulo.label}</p>
-                    <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{modulo.descricao}</p>
-                  </div>
-                ))}
+                {MODULOS.map((modulo) => {
+                  const suportado = (modulo.canais as readonly string[]).includes(conta.canal);
+                  return (
+                    <div key={modulo.chave} className={`rounded-lg border border-border px-3 py-2 ${suportado ? "bg-muted/35" : "opacity-60"}`}>
+                      <p className="text-[12px] font-bold text-foreground">
+                        {modulo.label}
+                        {!suportado && <span className="ml-1.5 text-[11px] font-semibold text-muted-foreground">· não existe neste canal</span>}
+                      </p>
+                      <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">{suportado ? modulo.descricao : modulo.foraDoCanal}</p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

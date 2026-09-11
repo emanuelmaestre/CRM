@@ -131,6 +131,8 @@ export interface ProdutoMaisVendido extends ProdutoBase {
   participacao: number;
   statusAnuncio: StatusAnuncioParado;
   motivoStatus: string | null;
+  /** Canal de onde veio o status do selo. Null quando nenhum canal tem status coletado. */
+  canalStatus: string | null;
 }
 
 export interface ProdutoGiroBaixo extends ProdutoBase {
@@ -139,9 +141,11 @@ export interface ProdutoGiroBaixo extends ProdutoBase {
   valorParado: string;
   statusAnuncio: StatusAnuncioParado;
   motivoStatus: string | null;
+  /** Canal de onde veio o status do selo. Null quando nenhum canal tem status coletado. */
+  canalStatus: string | null;
 }
 
-/** Status real do anúncio no Mercado Livre — sem isso, "parado" parecia
+/** Status real do anúncio no canal (Mercado Livre ou Shopee) — sem isso, "parado" parecia
  *  sempre "ninguém compra" quando às vezes é "o próprio vendedor pausou". */
 export type StatusAnuncioParado = "ativo" | "pausado" | "em_revisao" | "encerrado" | "sem_vinculo" | "nao_consultado";
 
@@ -153,6 +157,8 @@ export interface ProdutoParado extends ProdutoBase {
   statusAnuncio: StatusAnuncioParado;
   /** Razão específica dentro do status, já traduzida (ex.: "pausado por você"). */
   motivoStatus: string | null;
+  /** Canal de onde veio o status do selo. Null quando nenhum canal tem status coletado. */
+  canalStatus: string | null;
 }
 
 export interface ProdutoReposicao extends ProdutoBase {
@@ -164,6 +170,8 @@ export interface ProdutoReposicao extends ProdutoBase {
   urgencia: number;
   statusAnuncio: StatusAnuncioParado;
   motivoStatus: string | null;
+  /** Canal de onde veio o status do selo. Null quando nenhum canal tem status coletado. */
+  canalStatus: string | null;
 }
 
 export interface DashboardData {
@@ -328,8 +336,8 @@ const STATUS_SHOPEE: Record<string, StatusAnuncioParado> = {
 };
 
 const MOTIVO_STATUS_SHOPEE: Record<string, string> = {
-  UNLIST: "fora da vitrine na Shopee",
-  BANNED: "removido pela Shopee",
+  UNLIST: "tirado da vitrine",
+  BANNED: "removido pela própria Shopee por regra da plataforma",
   DELETED: "excluído",
 };
 
@@ -361,7 +369,7 @@ function traduzirStatusAnuncio(status: { status: string; subStatus: string | nul
  *  listas do mosaico para resolver tudo em uma única consulta local. */
 async function enriquecerComStatusAnuncio(
   ctx: CrudContext,
-  itens: Array<{ produtoId: string; statusAnuncio: StatusAnuncioParado; motivoStatus: string | null }>,
+  itens: Array<{ produtoId: string; statusAnuncio: StatusAnuncioParado; motivoStatus: string | null; canalStatus: string | null }>,
 ): Promise<void> {
   if (itens.length === 0) return;
 
@@ -406,6 +414,7 @@ async function enriquecerComStatusAnuncio(
     });
     item.statusAnuncio = statusAnuncio;
     item.motivoStatus = motivoStatus;
+    item.canalStatus = vinculo.canal;
   }
 }
 
@@ -716,6 +725,7 @@ export async function obterDashboardData(
     participacao: maiorQuantidade > 0 ? Math.round((venda.quantidade / maiorQuantidade) * 100) : 0,
     statusAnuncio: "nao_consultado" as StatusAnuncioParado,
     motivoStatus: null as string | null,
+    canalStatus: null as string | null,
   }));
 
   /* ── 2. Produtos que não vendem (giro baixo) ──
@@ -750,6 +760,7 @@ export async function obterDashboardData(
       valorParado: formatCurrency(valorParadoNumerico),
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
       motivoStatus: null as string | null,
+      canalStatus: null as string | null,
     }));
 
   /* ── 3. Produtos que não saem (estoque parado) ── */
@@ -776,6 +787,7 @@ export async function obterDashboardData(
       valorParado: formatCurrency(valorParadoNumerico),
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
       motivoStatus: null as string | null,
+      canalStatus: null as string | null,
     }));
 
   /* ── 4. Reposição (bateu o mínimo, repor em breve) ── */
@@ -802,6 +814,7 @@ export async function obterDashboardData(
         urgencia: minimo > 0 ? Math.round(((minimo - saldo) / minimo) * 100) : 100,
         statusAnuncio: "nao_consultado" as StatusAnuncioParado,
         motivoStatus: null as string | null,
+        canalStatus: null as string | null,
       };
     })
     // Quem tem menos dias de estoque primeiro; sem histórico, quem está mais perto do mínimo.

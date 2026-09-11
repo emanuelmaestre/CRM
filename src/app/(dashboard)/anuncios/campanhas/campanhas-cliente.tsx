@@ -12,7 +12,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterAnunciosDaCampanha, actionObterVisaoGeralAnuncios } from "../actions";
 import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
-import { BadgeStatusCampanha, Card, RotuloComInfo } from "../anuncios-primitives";
+import { BadgeStatusCampanha, Card, RotuloComInfo, textosCanalAnuncios } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { AnuncioDaCampanha } from "@/modules/anuncios/application/campanha-detalhe.service";
 import type { CampanhaVisaoGeral, VisaoGeralMarca, VisaoGeralResultado } from "@/modules/anuncios/application/visao-geral.service";
@@ -50,17 +50,18 @@ function LinhaDiagnostico({ diagnostico }: { diagnostico: Diagnostico }) {
  *  falta de sincronização, é ausência confirmada nesta superfície da API
  *  hoje. Mostrar "Sem dado" fixo pra sempre é pior do que não mostrar. */
 function PainelExposicao({ campanha }: { campanha: CampanhaVisaoGeral }) {
+  const textosCanal = textosCanalAnuncios(useCanalAnuncios().canal);
   const percentual = (valor: number | null) => valor === null ? "Sem dado" : `${(Math.abs(valor) <= 1 ? valor * 100 : valor).toFixed(1)}%`;
   const itens: [string, string, string][] = [
     [
       "ROAS objetivo",
       campanha.roasObjetivo === null ? "Sem dado" : `${campanha.roasObjetivo.toFixed(2)}x`,
-      "Meta de retorno configurada para a campanha no Mercado Livre (receita esperada por real investido). Não é o ROAS realizado, que fica na coluna Investido/Receita da lista de anúncios.",
+      `Meta de retorno configurada para a campanha ${textosCanal.nome} (receita esperada por real investido). Não é o ROAS realizado, que fica na coluna Investido/Receita da lista de anúncios.`,
     ],
     [
       "Participação de impressão",
       percentual(campanha.impressionShare ?? campanha.sov),
-      "De todas as vezes que os anúncios desta campanha poderiam ter aparecido nas buscas do Mercado Livre, em quantas eles realmente apareceram.",
+      `De todas as vezes que os anúncios desta campanha poderiam ter aparecido nas buscas ${textosCanal.nome}, em quantas eles realmente apareceram.`,
     ],
   ];
   return (
@@ -76,6 +77,7 @@ function PainelExposicao({ campanha }: { campanha: CampanhaVisaoGeral }) {
 }
 
 function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[] | null; carregando: boolean }) {
+  const textosCanal = textosCanalAnuncios(useCanalAnuncios().canal);
   if (carregando) return <p className="px-1 py-3 text-[12px] text-muted-foreground">{copy.anuncios.carregando}</p>;
   if (!anuncios || anuncios.length === 0) return <p className="px-1 py-3 text-[12px] text-muted-foreground">{copy.anuncios.vazio}</p>;
 
@@ -104,22 +106,22 @@ function TabelaAnuncios({ anuncios, carregando }: { anuncios: AnuncioDaCampanha[
           <tr className="border-b border-border text-left text-[10px] font-medium uppercase text-muted-foreground">
             <th className="whitespace-nowrap px-2 py-1.5">{copy.anuncios.colunas[0]}</th>
             <th className="whitespace-nowrap px-2 py-1.5 text-right">
-              <RotuloComInfo descricao="Data em que o anúncio (item) foi criado no Mercado Livre. Não é a data em que ele entrou nesta campanha, é a origem do anúncio em si.">{copy.anuncios.colunas[1]}</RotuloComInfo>
+              <RotuloComInfo descricao={`Data em que o anúncio (item) foi criado ${textosCanal.nome}. Não é a data em que ele entrou nesta campanha, é a origem do anúncio em si.`}>{copy.anuncios.colunas[1]}</RotuloComInfo>
             </th>
             <th className="whitespace-nowrap px-2 py-1.5 text-right">
-              <RotuloComInfo descricao="Quanto foi gasto em mídia com este anúncio, nos dados de hoje.">{copy.anuncios.colunas[2]}</RotuloComInfo>
+              <RotuloComInfo descricao={`Quanto foi gasto em mídia com este anúncio, ${textosCanal.naJanela}.`}>{copy.anuncios.colunas[2]}</RotuloComInfo>
             </th>
             <th className="whitespace-nowrap px-2 py-1.5 text-right">
-              <RotuloComInfo descricao="Faturamento atribuído a este anúncio hoje. Não é lucro, pois ainda não desconta investimento, custo do produto, frete, taxas ou impostos.">{copy.anuncios.colunas[3]}</RotuloComInfo>
+              <RotuloComInfo descricao={`Faturamento atribuído a este anúncio ${textosCanal.naJanela}. Não é lucro, pois ainda não desconta investimento, custo do produto, frete, taxas ou impostos.`}>{copy.anuncios.colunas[3]}</RotuloComInfo>
             </th>
             <th className="whitespace-nowrap px-2 py-1.5 text-right">
               <RotuloComInfo descricao="Receita deste anúncio dividida pelo investimento nele. Ajuda a comparar retorno entre anúncios, mas não é margem nem lucro.">{copy.anuncios.colunas[4]}</RotuloComInfo>
             </th>
             <th className="whitespace-nowrap px-2 py-1.5 text-right">
-              <RotuloComInfo descricao="Vezes que clicaram neste anúncio hoje.">{copy.anuncios.colunas[5]}</RotuloComInfo>
+              <RotuloComInfo descricao={`Vezes que clicaram neste anúncio ${textosCanal.naJanela}.`}>{copy.anuncios.colunas[5]}</RotuloComInfo>
             </th>
             <th className="whitespace-nowrap px-2 py-1.5 text-right">
-              <RotuloComInfo descricao="Vendas que vieram deste anúncio pago hoje. Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).">{copy.anuncios.colunas[6]}</RotuloComInfo>
+              <RotuloComInfo descricao={`Vendas atribuídas a este anúncio pago ${textosCanal.naJanela}. ${textosCanal.vendas}`}>{copy.anuncios.colunas[6]}</RotuloComInfo>
             </th>
           </tr>
         </thead>
@@ -252,6 +254,7 @@ function Esqueleto() {
 
 export function CampanhasClienteDetalhe() {
   const { canal } = useCanalAnuncios();
+  const textosCanal = textosCanalAnuncios(canal);
   const [dados, setDados] = useState<VisaoGeralResultado | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [marcaAtiva, setMarcaAtiva] = useState<string | null>(null);
@@ -330,10 +333,10 @@ export function CampanhasClienteDetalhe() {
               <span className="min-w-0 flex-1">{copy.lista.titulo}</span>
               <span className="hidden w-20 shrink-0 text-right sm:block">{copy.lista.criadaEm}</span>
               <span className="w-24 shrink-0 text-right">
-                <RotuloComInfo descricao="Quanto foi gasto em mídia com esta campanha, nos dados de hoje.">{copy.lista.investimento}</RotuloComInfo>
+                <RotuloComInfo descricao={`Quanto foi gasto em mídia com esta campanha, ${textosCanal.naJanela}.`}>{copy.lista.investimento}</RotuloComInfo>
               </span>
               <span className="hidden w-16 shrink-0 justify-end text-right sm:inline-flex">
-                <RotuloComInfo descricao="Receita atribuída dividida pelo investimento da campanha, nos dados de hoje. É o retorno realizado, diferente do ROAS objetivo (a meta configurada no Mercado Livre para esta campanha).">{copy.lista.roas}</RotuloComInfo>
+                <RotuloComInfo descricao={`Receita atribuída dividida pelo investimento da campanha, ${textosCanal.naJanela}. É o retorno realizado, diferente do ROAS objetivo (a meta configurada ${textosCanal.nome} para esta campanha).`}>{copy.lista.roas}</RotuloComInfo>
               </span>
             </div>
             {marca.campanhas.map((campanha) => (

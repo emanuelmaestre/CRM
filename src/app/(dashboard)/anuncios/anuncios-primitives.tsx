@@ -259,6 +259,23 @@ export function AvisoJanela({ janela, fim }: {
   );
 }
 
+/* ── Textos que mudam com o canal ──────────────────────────────────
+   Os infos das tabelas diziam "hoje" e "não conta venda orgânica" para
+   qualquer canal. Na Shopee a janela padrão é de 7 dias e a receita é o GMV
+   da loja inteira até 7 dias depois do clique — nenhum dos dois canais deixa
+   isso claro no próprio painel, então a explicação precisa dizer. */
+export function textosCanalAnuncios(canal: string, dias?: number | null) {
+  const shopee = canal === "shopee";
+  const diasJanela = dias ?? (shopee ? 7 : 1);
+  return {
+    nome: shopee ? "na Shopee" : "no Mercado Livre",
+    naJanela: diasJanela <= 1 ? "no dia mais recente sincronizado" : `nos últimos ${diasJanela} dias sincronizados`,
+    vendas: shopee
+      ? "Na Shopee entra toda venda da loja feita até 7 dias depois do clique, inclusive de outros produtos, e os dias mais recentes ainda podem subir."
+      : "Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).",
+  };
+}
+
 /** Rótulo curto da janela, pro cabeçalho de telas que não têm calendário
  *  (Produtos, Campanhas): sem ele, "37 anúncios" não diz de quando. */
 export function rotuloDaJanela(dias: number): string {

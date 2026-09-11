@@ -10,6 +10,7 @@ import { springs } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { BadgeStatusCampanha, Card, CardHead, MarcaBadge, RotuloComInfo } from "./anuncios-primitives";
 import { Roas } from "./roas";
+import { useCanalAnuncios } from "./canal-anuncios";
 
 const copy = anunciosConfig.campanhas;
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
@@ -152,7 +153,7 @@ function descricaoCriacao(campanhas: CampanhaVisaoGeral[]) {
 
   if (datas.length === 0) {
     return {
-      descricao: "Criada em mostra a data original de criação no Mercado Livre. Nesta lista, nenhuma campanha trouxe essa data na sincronização.",
+      descricao: "Criada em mostra a data original de criação da campanha na plataforma. Nesta lista, nenhuma campanha trouxe essa data na sincronização.",
       observacao: "Essa data não é a última atualização nem o período do relatório; é quando a campanha nasceu na plataforma.",
     };
   }
@@ -167,7 +168,7 @@ function descricaoCriacao(campanhas: CampanhaVisaoGeral[]) {
   };
 }
 
-function descricaoCabecalhos(campanhas: CampanhaVisaoGeral[]): Record<string, InfoCabecalho> {
+function descricaoCabecalhos(campanhas: CampanhaVisaoGeral[], canal: string): Record<string, InfoCabecalho> {
   const totalCampanhas = campanhas.length;
   const comOrcamento = campanhas.filter((campanha) => campanha.orcamento !== null);
   const orcamentoTotal = comOrcamento.reduce((total, campanha) => total + (campanha.orcamento ?? 0), 0);
@@ -192,7 +193,7 @@ function descricaoCabecalhos(campanhas: CampanhaVisaoGeral[]): Record<string, In
     },
     Receita: {
       descricao: `Receita é o faturamento atribuído aos anúncios no período. Nesta lista, as campanhas somam ${moeda.format(receitaTotal)} em receita atribuída.`,
-      observacao: "Receita aqui não é lucro. Ela ainda não desconta investimento, custo do produto, frete, taxas ou impostos.",
+      observacao: `Receita aqui não é lucro. Ela ainda não desconta investimento, custo do produto, frete, taxas ou impostos. ${canal === "shopee" ? anunciosConfig.receitaPorCanal.shopee : anunciosConfig.receitaPorCanal.mercadolivre}`,
     },
     "ROAS": {
       descricao: roasPonderado === null
@@ -204,7 +205,8 @@ function descricaoCabecalhos(campanhas: CampanhaVisaoGeral[]): Record<string, In
 }
 
 export function CampanhasCard({ campanhas, marca }: { campanhas: CampanhaVisaoGeral[]; marca: VisaoGeralMarca }) {
-  const infosCabecalho = descricaoCabecalhos(campanhas);
+  const { canal } = useCanalAnuncios();
+  const infosCabecalho = descricaoCabecalhos(campanhas, canal);
   const alertasPorCampanhaId = alertasPorCampanha(marca.alertasIndividuais, marca.alertasAgrupados);
   const reduzir = useReducedMotion();
 

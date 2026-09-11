@@ -631,11 +631,11 @@ export function Mosaico({
     },
     explicacao: {
       resumo: visaoLiquida
-        ? "Faturamento líquido: o valor bruto menos a taxa do canal de venda (por item, quando o canal informa) e o frete pago pelo vendedor. Não desconta desconto/acréscimo do pedido, custo do produto nem imposto."
-        : "Faturamento bruto: quanto entrou de dinheiro em pedidos válidos no período, sem descontar taxa do canal, frete, custo do produto ou imposto. É a soma que resta depois de excluir cancelamentos e devoluções.",
+        ? "Faturamento líquido: o que sobra da venda depois que o canal cobra a parte dele. Na Shopee e no TikTok Shop é o repasse que o próprio canal informa. No Mercado Livre, que não informa repasse, é uma estimativa: bruto menos as taxas conhecidas por item e o frete pago pelo vendedor, e tende a ficar um pouco acima do que cai na conta. Não desconta custo do produto nem imposto."
+        : "Faturamento bruto: o valor dos pedidos com pagamento confirmado no período, menos os reembolsos parciais que o canal informou. Não desconta taxa do canal, frete, custo do produto nem imposto.",
       pontos: [
-        { titulo: "O que entra na soma", texto: "Todo pedido aprovado dentro do período escolhido, somado pelo valor pago pelo cliente." },
-        { titulo: "O que fica de fora", texto: "Pedidos cancelados ou devolvidos não entram nesta soma. Eles são medidos separadamente em Cancelamento." },
+        { titulo: "O que entra na soma", texto: "Todo pedido com pagamento confirmado dentro do período, pelo valor informado pelo canal. No Mercado Livre o dia é o da aprovação do pagamento, em Brasília." },
+        { titulo: "O que fica de fora", texto: "Pedidos cancelados, devolvidos ou ainda aguardando pagamento. Em reembolso parcial, só a parte devolvida sai. O detalhe completo está em \"Entenda o faturamento\", dentro do card." },
         { titulo: "Valor médio por pedido", texto: "É o faturamento dividido pela quantidade de pedidos. O valor sobe quando poucos pedidos caros elevam a média." },
       ],
       dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
@@ -722,13 +722,14 @@ export function Mosaico({
         : null,
     },
     explicacao: {
-      resumo: "Uma nota de 0 a 100 que resume a saúde da operação: reputação, pós-venda, satisfação e catálogo, numa média ponderada.",
+      resumo: "Uma nota de 0 a 100 que resume a saúde da operação: reputação, pós-venda, satisfação e estoque, numa média ponderada.",
       pontos: [
-        { titulo: "Quatro pilares, pesos diferentes", texto: "Reputação e pós-venda pesam mais que catálogo. Um problema de entrega reduz a pontuação mais do que um item sem foto." },
-        { titulo: "Pilar sem dado sai da conta", texto: "Se um pilar não tiver informação suficiente no período, o peso será redistribuído entre os demais, em vez de virar zero." },
-        { titulo: "Consolidado pesa por faturamento", texto: "Ao visualizar todas as marcas juntas, as que faturam mais influenciam mais o resultado. Não se trata de uma média simples entre marcas." },
+        { titulo: "Quatro pilares, pesos diferentes", texto: "Reputação (35) e pós-venda (29) pesam mais que satisfação (24) e estoque (12). Uma reclamação ou um atraso no envio derruba a nota mais do que um produto sem saldo." },
+        { titulo: "Pilar sem dado sai da conta", texto: "Se um pilar não tem dado, o peso dele é redistribuído entre os demais, em vez de virar zero. Olhando só a Shopee ou o TikTok, reputação e pós-venda saem, porque só existem no Mercado Livre." },
+        { titulo: "Cada pilar tem a própria janela", texto: "Reputação e pós-venda seguem a janela do Mercado Livre, satisfação usa todo o histórico de opiniões e estoque é o saldo de agora. Por isso trocar o período quase não mexe nesta nota." },
+        { titulo: "Consolidado pesa por faturamento", texto: "Ao visualizar todas as marcas juntas, as que faturam mais no período influenciam mais o resultado. Não se trata de uma média simples entre marcas." },
       ],
-      dica: "Toque em \"Ver a conta\" dentro do anel para ver exatamente quais pilares entraram e com que peso na pontuação exibida.",
+      dica: "Toque em \"Ver a conta\", logo abaixo do anel, para ver exatamente quais pilares entraram e com que peso na pontuação exibida.",
     },
     preview: dadosSaude?.scoreGeral !== null && dadosSaude?.scoreGeral !== undefined
       // "PONTOS" no lugar da faixa ("EXCELENTE" etc.): a faixa não cabe
@@ -752,7 +753,6 @@ export function Mosaico({
     // vez de centralizar na altura toda da fileira.
     previewAlinhamento: "start",
     chips: chipsDoFiltro,
-    temLegendaStatus: true,
     render: (acaoSlot) => <ScoreCard dados={dadosSaude} carregando={carregandoSaude} acaoSlot={acaoSlot} />,
   }), [dadosSaude, carregandoSaude, faltaEscopo, snapshotComparavel, chipsDoFiltro]);
 
@@ -849,11 +849,11 @@ export function Mosaico({
       resumo: "Mostra os produtos cujo saldo já atingiu ou ficou abaixo do estoque mínimo cadastrado. O objetivo é avisar a reposição antes que o saldo chegue a zero.",
       pontos: [
         { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, ter saldo maior que zero, possuir estoque mínimo maior que zero e apresentar saldo igual ou inferior ao mínimo. Os filtros de marca e canal também são respeitados." },
-        { titulo: "Como ler o número", texto: "O número principal é a quantidade total de produtos que atendem à regra. Todos eles aparecem na lista. Produto sem mínimo cadastrado não entra, pois não existe uma referência para comparar o saldo." },
+        { titulo: "Como ler o número", texto: "O número principal é a quantidade total de produtos que atendem à regra. A lista mostra até os 50 mais urgentes; o restante abre em \"Ver todos no Estoque\". Produto sem mínimo cadastrado não entra, pois não existe uma referência para comparar o saldo." },
         { titulo: "Cobertura estimada", texto: "Quando houve venda no período, a cobertura é calculada dividindo o saldo pelo consumo médio diário. Exemplo: saldo 19 e três vendas em um dia resultam em aproximadamente seis dias de cobertura. Trata-se de uma estimativa, não de uma garantia." },
         { titulo: "Ordem e status", texto: "Produtos com menor cobertura aparecem primeiro. Quando não há venda suficiente para estimar a cobertura, a prioridade considera o quanto o saldo ficou abaixo do mínimo. O selo informa se o anúncio está ativo, pausado, em revisão ou encerrado." },
       ],
-      dica: "Saldo e status vêm dos dados confirmados pelo canal e das movimentações de pedidos. Este painel avisa sobre quantidade; ele não confirma prazo de compra, fornecedor ou mercadoria já encomendada.",
+      dica: "O saldo é o maior entre os canais (nunca a soma) e o status vem da coleta de hora em hora no Mercado Livre e na Shopee. Este painel avisa sobre quantidade; ele não confirma prazo de compra, fornecedor ou mercadoria já encomendada.",
     },
     /* Barra = dias de cobertura restantes (barra curta = acaba antes =
        mais urgente, que é a mesma ordem da lista). Produtos sem consumo
@@ -906,7 +906,7 @@ export function Mosaico({
       resumo: "Classifica os produtos ativos que tiveram vendas válidas no período selecionado. A ordem considera a quantidade de unidades vendidas, não o faturamento.",
       pontos: [
         { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM e ter vendido pelo menos uma unidade no período. Pedidos cancelados ou devolvidos não contam. Os filtros de marca, canal e período são respeitados." },
-        { titulo: "Como ler o número", texto: "O número principal é a quantidade vendida pelo produto líder. Ele não representa a quantidade de produtos da lista. Todos os produtos que tiveram venda válida aparecem ao abrir o painel." },
+        { titulo: "Como ler o número", texto: "O número principal é a quantidade vendida pelo produto líder. Ele não representa a quantidade de produtos da lista. Ao abrir o painel aparecem até os 50 primeiros do ranking." },
         { titulo: "Ordem e desempate", texto: "A maior quantidade vendida fica no topo. Se dois produtos venderam a mesma quantidade, aparece primeiro aquele que gerou maior faturamento no período." },
         { titulo: "Variação percentual", texto: "O percentual compara o produto líder atual com ele mesmo no período imediatamente anterior, usando uma janela de igual duração. Sem vendas anteriores para servir de base, nenhum percentual é mostrado." },
       ],
@@ -1089,10 +1089,11 @@ export function Mosaico({
             : blocosCopy.publicacoes.legenda,
       },
       explicacao: {
-        resumo: "Como cada anúncio patrocinado se saiu nos canais selecionados durante o período, sem misturar vendas orgânicas com resultados da publicidade.",
+        resumo: "Como cada anúncio patrocinado se saiu nos canais selecionados durante o período, pela medição de publicidade do próprio canal.",
         pontos: [
-          { titulo: "Impressões, cliques e vendas atribuídas", texto: "Cada número vem da medição de publicidade do próprio canal do anúncio. As vendas orgânicas ficam fora para não distorcer a conversão." },
-          { titulo: "Investimento, receita e retorno", texto: "O retorno compara a receita que o canal atribuiu ao anúncio com o valor investido exatamente no período selecionado." },
+          { titulo: "Impressões, cliques e vendas atribuídas", texto: "Cada número vem da medição de publicidade do próprio canal do anúncio. O CRM não recalcula nada, só soma por anúncio." },
+          { titulo: "Receita não é a mesma coisa nos dois canais", texto: "No Mercado Livre, receita é a venda atribuída ao anúncio, creditada no dia do clique. Na Shopee, é o GMV amplo: toda venda da loja feita até 7 dias depois do clique, inclusive de outros produtos. Por isso o ROAS da Shopee costuma parecer maior. Compare cada canal com ele mesmo." },
+          { titulo: "Investimento e retorno", texto: "O retorno compara a receita que o canal atribuiu com o valor investido no período selecionado. Na Shopee, os últimos 7 dias ainda sobem, porque a venda pode ser creditada depois." },
           { titulo: "Pontuação de qualidade", texto: "É a nota que o Mercado Livre atribui ao anúncio, considerando ficha técnica, fotos e atributos preenchidos. A Shopee não publica nota equivalente, e por isso os anúncios dela aparecem como \"não aplicável\". Isso não significa nota zero." },
           { titulo: "De quando é cada número", texto: "O Mercado Livre é consultado na hora. Os da Shopee vêm da sincronização diária de publicidade, e o card mostra a data e a hora dela." },
         ],

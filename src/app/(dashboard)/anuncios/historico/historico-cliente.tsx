@@ -12,7 +12,7 @@ import anunciosConfig from "@/config/anuncios.json";
 import { actionObterHistoricoDaMarca, actionObterVisaoGeralAnuncios } from "../actions";
 import { useCanalAnuncios } from "../canal-anuncios";
 import { SeletorCanalAnuncios, SeletorMarca } from "../anuncios-cliente";
-import { Card, CardHead, RotuloComInfo } from "../anuncios-primitives";
+import { Card, CardHead, RotuloComInfo, textosCanalAnuncios } from "../anuncios-primitives";
 import { Roas } from "../roas";
 import type { PontoHistorico } from "@/modules/anuncios/application/historico.service";
 import type { MarcaIndisponivel, VisaoGeralMarca } from "@/modules/anuncios/application/visao-geral.service";
@@ -238,7 +238,7 @@ export function HistoricoClienteDetalhe() {
                 <thead>
                   <tr className="border-b border-border text-left text-[11px] font-medium uppercase text-muted-foreground">
                     <th className="whitespace-nowrap px-3 py-2">
-                      <RotuloComInfo descricao="O dia a que os números desta linha se referem, dentro do período escolhido. Não é a data de criação de nada, é o dia da sincronização que gerou este ponto do histórico.">{copy.colunas[0]}</RotuloComInfo>
+                      <RotuloComInfo descricao="O dia em que as impressões, os cliques e o gasto aconteceram, dentro do período escolhido. Não é o dia em que o CRM sincronizou: na Shopee os últimos 7 dias são reescritos a cada sincronização, porque a venda pode ser creditada depois.">{copy.colunas[0]}</RotuloComInfo>
                     </th>
                     <th className="whitespace-nowrap px-3 py-2 text-right">
                       <RotuloComInfo descricao="Quanto a marca gastou em mídia paga nesse dia.">{copy.colunas[1]}</RotuloComInfo>
@@ -253,7 +253,7 @@ export function HistoricoClienteDetalhe() {
                       <RotuloComInfo descricao="Vezes que clicaram nos anúncios da marca nesse dia.">{copy.colunas[4]}</RotuloComInfo>
                     </th>
                     <th className="whitespace-nowrap px-3 py-2 text-right">
-                      <RotuloComInfo descricao="Vendas que vieram de anúncios pagos nesse dia. Não conta vendas orgânicas (as que teriam acontecido sem investimento em mídia).">{copy.colunas[5]}</RotuloComInfo>
+                      <RotuloComInfo descricao={`Vendas atribuídas a anúncios pagos nesse dia. ${textosCanalAnuncios(canal).vendas}`}>{copy.colunas[5]}</RotuloComInfo>
                     </th>
                   </tr>
                 </thead>

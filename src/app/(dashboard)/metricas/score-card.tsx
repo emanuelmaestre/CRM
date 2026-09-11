@@ -78,17 +78,26 @@ function explicacaoPilar(pilar: Pilar) {
   const resultado = semDado ? "Sem dado" : String(Math.round(pilar.nota as number));
 
   const SIGNIFICADO: Record<Pilar["chave"], string> = {
-    reputacao: "Reputação da marca como vendedora, direto do termômetro público do Mercado Livre (a cor que qualquer comprador vê na página do anúncio), somada ao selo de Mercado Líder quando a marca tem.",
-    posVenda: "Quantidade de taxas de problemas no pós-venda, como reclamações, cancelamentos e atrasos no envio, que ultrapassaram o limite considerado saudável no período.",
-    satisfacao: "Nota média (1 a 5 estrelas) que os clientes deixaram nos pedidos da marca no período.",
-    estoque: "Quantidade de produtos ativos do catálogo que possuem saldo disponível para venda e quantidade dos que já estão abaixo do mínimo configurado.",
+    reputacao: "Reputação da marca como vendedora, direto do termômetro público do Mercado Livre (a cor que qualquer comprador vê na página do anúncio). O selo Mercado Líder aparece ao lado quando a marca tem, mas não muda a nota.",
+    posVenda: "Como a marca está nas três taxas que o Mercado Livre usa para derrubar o termômetro: reclamações, cancelamentos e atrasos no envio. Só existe no Mercado Livre.",
+    satisfacao: "Nota média (1 a 5 estrelas) que os compradores deram aos anúncios da marca no Mercado Livre e na Shopee, somando todo o histórico de cada anúncio.",
+    estoque: "Quantos produtos ativos do catálogo têm saldo para vender, e quantos já estão no mínimo ou abaixo dele. O saldo é o maior entre os canais, nunca a soma.",
   };
 
   const FORMULA: Record<Pilar["chave"], string> = {
-    reputacao: "conversão direta do termômetro de reputação do Mercado Livre para uma escala de 0 a 100",
-    posVenda: "parte de 100 e desconta conforme as taxas de reclamação, cancelamento e atraso passam do limite saudável",
-    satisfacao: "nota média das avaliações recebidas no período, na mesma escala de 0 a 100",
-    estoque: "proporção de produtos ativos com saldo disponível, descontando quem está abaixo do mínimo configurado",
+    reputacao: "cor do termômetro convertida em 0 a 100: vermelho vale 0, verde vale 100, e as cores do meio ficam entre eles",
+    posVenda: "cada taxa vale 100 quando está em zero e cai até 0 quando chega no limite do Mercado Livre; a nota do pilar é a média das taxas que existem. Um caso já desconta, mesmo antes de estourar o limite",
+    satisfacao: "média das estrelas pesada pela quantidade de opiniões de cada anúncio, convertida com piso em 3: 3 estrelas ou menos vale 0, 4 estrelas vale 50, 5 estrelas vale 100",
+    estoque: "percentual de produtos ativos com saldo, menos o percentual dos que estão no mínimo ou abaixo",
+  };
+
+  /* O que os canais não explicam e mais confunde: a janela de cada pilar não
+     é a mesma. Sem isto, trocar o período e ver a nota parada parecia erro. */
+  const JANELA: Record<Pilar["chave"], string> = {
+    reputacao: "Janela própria do Mercado Livre: o período escolhido acima não muda este pilar.",
+    posVenda: "Janela própria do Mercado Livre (os últimos 60 dias ou o último ano, conforme o volume de vendas). O período escolhido acima não muda este pilar.",
+    satisfacao: "Todo o histórico de opiniões: os canais não permitem recortar avaliação por data, então o período acima não muda este pilar. TikTok Shop não entra, porque não libera avaliações para integração.",
+    estoque: "Saldo de agora, da última coleta dos canais. O período acima não muda este pilar.",
   };
 
   return {
@@ -98,8 +107,8 @@ function explicacaoPilar(pilar: Pilar) {
     resultado,
     itens: [{ label: "Nesta marca e período", valor: pilar.detalhe }],
     nota: semDado
-      ? "Não há dados neste período. Este pilar sai do cálculo da pontuação, e seu peso é redistribuído entre os pilares que possuem dados."
-      : `Peso ${pilar.peso} de 100 na composição da pontuação. Quanto maior o peso, maior a influência deste pilar no resultado final.`,
+      ? `Sem dado para este pilar agora. Ele sai do cálculo da pontuação e o peso dele é redistribuído entre os pilares que têm dado; nunca vira zero. ${JANELA[pilar.chave]}`
+      : `Peso ${pilar.peso} de 100 na composição da pontuação. ${JANELA[pilar.chave]}`,
   };
 }
 

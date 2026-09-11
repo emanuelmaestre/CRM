@@ -113,13 +113,42 @@ const COR_CANAL: Record<PlataformaAnuncios, string> = {
   shopee: "#EE4D2D",
 };
 
-/** Mesmo catálogo fixo usado nos outros cards (Estoque Parado, Repor em
- *  breve, Vendem mais, Giro baixo) — aqui são só 3 estados possíveis, os
- *  mesmos que a API de Product Ads do Mercado Livre devolve por publicação. */
+/* ── De qual canal fala cada explicação ─────────────────────────────
+   A grade mistura anúncios do Mercado Livre e da Shopee, e os dois medem
+   "receita" e "venda atribuída" de jeitos diferentes. Nenhum dos dois canais
+   explica isso no próprio painel; sem a diferença escrita aqui, o ROAS da
+   Shopee parece melhor do que é. */
+function textosCanalPublicacao(canal: string) {
+  if (canal === "shopee") {
+    return {
+      nome: "a Shopee",
+      fonteStatus: "tradução do status atual da campanha na Shopee: em andamento, pausada, encerrada ou fechada. Quando o mesmo anúncio está em mais de uma campanha, vale a situação mais ativa",
+      vendas: "Quantidade de unidades que a Shopee atribuiu à publicidade deste anúncio no período. A Shopee credita a venda até 7 dias depois do clique e conta a compra de qualquer produto da loja, não só deste.",
+      vendasNota: "É a regra de atribuição da própria Shopee. Os dias mais recentes ainda podem subir, porque a venda pode entrar depois. Não é o total de vendas do produto.",
+      receita: "Valor que a Shopee atribui à publicidade deste anúncio no período (GMV amplo): toda venda da loja feita até 7 dias depois do clique, inclusive de outros produtos.",
+      receitaNota: "Na Shopee, a receita pode incluir produtos diferentes do anunciado, por isso costuma parecer maior que a do Mercado Livre. Não é faturamento do produto, margem nem lucro.",
+      atualizacao: "Dados da sincronização diária de publicidade da Shopee, não de uma consulta na hora.",
+    };
+  }
+  return {
+    nome: "o Mercado Livre",
+    fonteStatus: "tradução do status atual enviado pelo Mercado Livre: active (Ativo), hold (Em espera) ou idle (Sem veiculação)",
+    vendas: "Quantidade de unidades que o Mercado Livre atribuiu à publicidade deste anúncio no período, creditadas no dia do clique. Vendas orgânicas não entram neste número.",
+    vendasNota: "A atribuição segue as regras do Mercado Livre. Este número não representa todas as vendas do produto e não mistura pedidos orgânicos.",
+    receita: "Valor que o Mercado Livre atribui a esta publicação por causa do anúncio patrocinado no período, somando venda direta e indireta, creditada no dia do clique.",
+    receitaNota: "É receita bruta atribuída pela plataforma, não faturamento total do produto, margem ou lucro. Vendas orgânicas ficam fora.",
+    atualizacao: "Consultado no Mercado Livre na hora em que o card abre.",
+  };
+}
+
+/** Catálogo fixo dos estados que os dois canais devolvem por publicação,
+ *  já traduzidos para as mesmas palavras. */
 const LEGENDA_STATUS_PUBLICACOES: Array<{ titulo: string; texto: string; cor: string }> = [
   { titulo: "Ativo", cor: "var(--success)", texto: "Elegível para veicular anúncios patrocinados agora. Não é garantia de impressões, só significa que nada está bloqueando a exibição." },
-  { titulo: "Em espera", cor: "var(--warning)", texto: "Alguma pausa ou restrição está impedindo a veiculação no momento, definida pelo Mercado Livre ou por você." },
-  { titulo: "Sem veiculação", cor: "var(--muted-foreground)", texto: "O anúncio não está entregando publicidade agora. Diferente de \"sem veiculação no período\": este é o status atual, não o resultado do intervalo escolhido no calendário." },
+  { titulo: "Em espera", cor: "var(--warning)", texto: "Alguma pausa ou restrição está impedindo a veiculação agora, feita por você ou pelo canal. Na Shopee, é a campanha pausada." },
+  { titulo: "Sem veiculação", cor: "var(--muted-foreground)", texto: "Só no Mercado Livre: o anúncio não está entregando publicidade agora. Diferente de \"sem veiculação no período\": este é o status atual, não o resultado do intervalo escolhido no calendário." },
+  { titulo: "Encerrado", cor: "var(--muted-foreground)", texto: "Só na Shopee: a campanha chegou à data de fim. Os números do período continuam valendo." },
+  { titulo: "Fechado", cor: "var(--muted-foreground)", texto: "Só na Shopee: a campanha foi fechada antes do fim previsto e não volta a veicular." },
 ];
 
 function EntendaStatusPublicacaoBotao() {
@@ -127,7 +156,7 @@ function EntendaStatusPublicacaoBotao() {
     <AnimatedInfoPopover
       trigger={(
         <AnimatedInfoTrigger
-          title="Entenda os status da publicação no Mercado Livre"
+          title="Entenda os status da publicação nos canais"
           iconSize={13}
           className="press-feedback inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
         >
@@ -503,6 +532,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                     : item.qualidadeStatus === "nao_consultada"
                       ? "Consultando"
                       : item.qualidadeStatus === "nao_aplicavel" ? "Não aplicável" : "Indisponível";
+                  const textosCanal = textosCanalPublicacao(item.canal);
                   return (
                     <motion.article
                       key={`${marca?.brandId ?? ""}:${item.canal}:${item.itemId}`}
@@ -569,8 +599,8 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                           <CalculoPopover
                             compacto
                             titulo="Situação da veiculação"
-                            significado="Estado atual que o Mercado Livre informa para este anúncio patrocinado. Ele é diferente do desempenho acumulado no período."
-                            formula="tradução do status atual enviado pelo Mercado Livre: active, hold ou idle"
+                            significado={`Estado atual que ${textosCanal.nome} informa para este anúncio patrocinado. Ele é diferente do desempenho acumulado no período.`}
+                            formula={textosCanal.fonteStatus}
                             resultado={rotuloStatus(item.status)}
                             itens={[
                               { label: "Status atual", valor: rotuloStatus(item.status) },
@@ -578,7 +608,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                               { label: "Investimento no período", valor: moeda.format(item.investimento) },
                             ]}
                             periodoLabel={periodo}
-                            nota="Ativo significa elegível para veicular, não garantia de impressões. Em espera indica alguma pausa ou restrição. Sem veiculação indica que o anúncio não está entregando publicidade agora."
+                            nota="Ativo significa elegível para veicular, não garantia de impressões. Um anúncio pode estar em espera hoje e ainda ter resultado no período escolhido."
                           />
                         </span>
                         <span
@@ -611,8 +641,8 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                             <CalculoPopover
                               compacto
                               titulo="Impressões patrocinadas"
-                              significado="Quantidade de vezes que o Mercado Livre exibiu este anúncio patrocinado durante o período selecionado."
-                              formula="total de impressões atribuídas à publicidade pelo Mercado Livre no período"
+                              significado={`Quantidade de vezes que ${textosCanal.nome} exibiu este anúncio patrocinado durante o período selecionado.`}
+                              formula={`total de impressões atribuídas à publicidade por ${textosCanal.nome} no período. ${textosCanal.atualizacao}`}
                               resultado={inteiro.format(item.impressoes)}
                               itens={[{ label: "Impressões", valor: inteiro.format(item.impressoes) }]}
                               periodoLabel={periodo}
@@ -627,7 +657,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                               compacto
                               titulo="Cliques no anúncio"
                               significado="Quantidade de acessos gerados diretamente pelas impressões deste anúncio patrocinado."
-                              formula="total de cliques atribuídos à publicidade pelo Mercado Livre no período"
+                              formula={`total de cliques atribuídos à publicidade por ${textosCanal.nome} no período`}
                               resultado={inteiro.format(item.cliques)}
                               itens={[
                                 { label: "Cliques", valor: inteiro.format(item.cliques) },
@@ -645,15 +675,15 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                             <CalculoPopover
                               compacto
                               titulo="Vendas atribuídas"
-                              significado="Quantidade de unidades que o Mercado Livre atribuiu à publicidade deste anúncio no período. Vendas orgânicas não entram neste número."
-                              formula="total de unidades atribuídas ao anúncio patrocinado pelo Mercado Livre"
+                              significado={textosCanal.vendas}
+                              formula={`total de unidades atribuídas ao anúncio patrocinado por ${textosCanal.nome}`}
                               resultado={inteiro.format(item.unidadesAtribuidas)}
                               itens={[
                                 { label: "Vendas atribuídas", valor: inteiro.format(item.unidadesAtribuidas) },
                                 { label: "Conversão dos cliques (CVR)", valor: item.cvr === null ? "Não calculável" : `${item.cvr.toFixed(2)}%` },
                               ]}
                               periodoLabel={periodo}
-                              nota="A atribuição segue as regras do Mercado Livre. Este número não representa todas as vendas do produto e não mistura pedidos orgânicos ou vendas locais."
+                              nota={textosCanal.vendasNota}
                             />
                           </dt>
                           <dd className="mt-1 font-semibold tabular-nums">{inteiro.format(item.unidadesAtribuidas)}</dd>
@@ -664,7 +694,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                               compacto
                               titulo="Investimento em publicidade"
                               significado="Valor consumido pela veiculação deste anúncio patrocinado no período selecionado."
-                              formula="soma do custo publicitário atribuído ao anúncio pelo Mercado Livre"
+                              formula={`soma do custo publicitário cobrado por ${textosCanal.nome} por este anúncio`}
                               resultado={moeda.format(item.investimento)}
                               itens={[
                                 { label: "Investimento realizado", valor: moeda.format(item.investimento) },
@@ -681,8 +711,8 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                             <CalculoPopover
                               compacto
                               titulo="Receita em anúncios"
-                              significado="Valor faturado que o Mercado Livre atribui a esta publicação em razão do investimento em anúncios patrocinados durante o período."
-                              formula="total de vendas que o Mercado Livre atribui a este anúncio patrocinado no período selecionado"
+                              significado={textosCanal.receita}
+                              formula={`total de vendas que ${textosCanal.nome} atribui a este anúncio patrocinado no período selecionado`}
                               resultado={moeda.format(item.receita)}
                               itens={[
                                 { label: "Receita atribuída", valor: moeda.format(item.receita) },
@@ -690,7 +720,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                                 { label: "Vendas atribuídas", valor: inteiro.format(item.unidadesAtribuidas) },
                               ]}
                               periodoLabel={periodo}
-                              nota="É receita bruta atribuída pela plataforma, não faturamento total do produto, margem ou lucro. Vendas orgânicas ficam fora."
+                              nota={textosCanal.receitaNota}
                             />
                           </dt>
                           <dd className="mt-1 font-semibold tabular-nums">{moeda.format(item.receita)}</dd>
@@ -708,7 +738,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                                 { label: "Investido em anúncio", valor: moeda.format(item.investimento) },
                               ]}
                               periodoLabel={periodo}
-                              nota={roas === null ? "Sem investimento no período, não existe retorno a calcular." : item.receita === 0 ? "Houve investimento, mas nenhuma receita foi atribuída. Por isso o retorno é 0,0x." : "Acima de 1x, a receita atribuída superou o valor investido; isso não representa lucro líquido."}
+                              nota={roas === null ? "Sem investimento no período, não existe retorno a calcular." : item.receita === 0 ? "Houve investimento, mas nenhuma receita foi atribuída. Por isso o retorno é 0,0x." : item.canal === "shopee" ? "Acima de 1x, a receita atribuída superou o valor investido. Na Shopee a receita inclui venda da loja inteira em até 7 dias, então este retorno não é comparável ao do Mercado Livre e não representa lucro." : "Acima de 1x, a receita atribuída superou o valor investido; isso não representa lucro líquido."}
                             />
                           </dt>
                           <dd className="mt-1 font-semibold tabular-nums">{roas === null ? "Não calculável" : `${roas.toFixed(1)}x`}</dd>
@@ -730,7 +760,7 @@ export function PublicacoesCard({ marcas, inicio, fim, brandIdsIniciais = [], ca
                           nota={item.qualidadeStatus === "nao_consultada"
                             ? "O nível de qualidade está sendo consultado. Impressões, cliques, vendas, investimento e receita já podem ser analisados normalmente."
                             : item.qualidadeStatus === "nao_aplicavel" || item.qualidadeStatus === "indisponivel"
-                            ? motivoQualidadeIndisponivel(item.status, item.qualidadeStatus)
+                            ? motivoQualidadeIndisponivel(item.status, item.qualidadeStatus, item.canal)
                             : "O nível resume a pontuação atual do cadastro. Ele não mede rentabilidade e não acompanha o intervalo escolhido no calendário."}
                         />
                       </div>
