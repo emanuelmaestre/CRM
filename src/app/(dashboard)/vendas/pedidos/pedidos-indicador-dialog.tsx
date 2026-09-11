@@ -367,7 +367,7 @@ export function PedidosIndicadorDialog({ indicador, titulo, filtros, quantidade,
                 {/* Cabeçalho grudento: numa lista longa, rolar até o meio e
                     não saber mais de que dia são as linhas era o jeito mais
                     fácil de ler um número errado. */}
-                <div className="sticky top-0 z-10 -mx-1 flex items-baseline justify-between gap-3 bg-card/90 px-1 py-2 backdrop-blur-sm">
+                <div className="sticky top-0 z-10 -mx-1 flex items-baseline justify-between gap-3 bg-card px-1 py-2">
                   <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     {grupo.rotulo}
                     <span className="ml-2 font-semibold normal-case tracking-normal opacity-70">

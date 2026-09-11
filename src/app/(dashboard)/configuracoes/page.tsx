@@ -212,7 +212,7 @@ export default function ConfiguracoesPage() {
           deixava a fileira torta; agora dividem o espaço em partes iguais. */}
       <nav
         aria-label="Ir para seção"
-        className="sticky top-[calc(3.5rem_+_env(safe-area-inset-top))] z-10 -mx-4 mb-4 flex justify-center gap-2 border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur sm:hidden"
+        className="sticky top-[calc(3.5rem_+_env(safe-area-inset-top))] z-10 -mx-4 mb-4 flex justify-center gap-2 border-b border-border bg-background px-4 py-2.5 sm:hidden"
       >
         {NAV_SECOES.map((secao) => (
           <a

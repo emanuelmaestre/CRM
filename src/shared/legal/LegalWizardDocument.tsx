@@ -105,7 +105,7 @@ export function LegalWizardDocument({ document }: { document: LegalDocument }) {
           em telas menores precisa de outra forma de "onde estou / para onde ir" */}
       <nav
         aria-label={copy.index}
-        className="sticky top-[2.5px] z-30 flex gap-1.5 overflow-x-auto border-b border-border bg-background/95 px-4 py-2.5 backdrop-blur-sm lg:hidden"
+        className="sticky top-[2.5px] z-30 flex gap-1.5 overflow-x-auto border-b border-border bg-background px-4 py-2.5 lg:hidden"
       >
         {document.sections.map((section, index) => {
           const selected = section.id === activeId;
