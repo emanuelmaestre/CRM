@@ -30,7 +30,6 @@ const categoriaCor: Record<string, string> = {
   "Pós-venda": "var(--acento-1)",
   Estoque: "var(--success)",
   Atendimento: "var(--primary)",
-  IA: "var(--acento-3)",
   CRM: "var(--foreground)",
   Operação: "var(--warning)",
   Anúncios: "var(--acento-2)",

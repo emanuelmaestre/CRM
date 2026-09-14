@@ -233,7 +233,6 @@ export default function ConfiguracoesPage() {
             icon={getIcon("UsersRound")}
             actions={<InfoBotao rotulo="Sobre os usuários">Acessos, perfis e senhas temporárias da organização.</InfoBotao>}
             colapsavel
-            abertoInicial
           >
             <UsuariosSection
               usuarios={usuarios}
@@ -261,7 +260,6 @@ export default function ConfiguracoesPage() {
             icon={getIcon("Wifi")}
             resumo={`${canaisConectados} de ${canais.length} conectados`}
             colapsavel
-            abertoInicial
           >
             {/* Faixas-resumo por marketplace acima do grid: status num relance, ação no card. */}
             <div className="mb-4 divide-y divide-border rounded-xl border border-border bg-background/60 [&>*]:px-4 [&>*]:py-3">

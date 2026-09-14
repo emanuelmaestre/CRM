@@ -108,14 +108,6 @@ const ROTINAS_AGENDADAS = [
     atrasoLimiteMinutos: 48 * 60,
   },
   {
-    nome: "A21-guarda-consumo-ia",
-    titulo: "Guarda de consumo IA",
-    categoria: "IA",
-    agenda: "a cada 6 horas",
-    cron: "0 */6 * * *",
-    atrasoLimiteMinutos: 540,
-  },
-  {
     nome: "A13-scores-cliente",
     titulo: "Pontuações de clientes",
     categoria: "CRM",
@@ -170,22 +162,6 @@ const ROTINAS_AGENDADAS = [
     agenda: "dias úteis às 10h",
     cron: "0 10 * * 1-5",
     atrasoLimiteMinutos: 5760,
-  },
-  {
-    nome: "A15-insights-funil",
-    titulo: "Análises executivas por IA",
-    categoria: "IA",
-    agenda: "segunda às 7h",
-    cron: "0 7 * * 1",
-    atrasoLimiteMinutos: 11520,
-  },
-  {
-    nome: "A16-sugestoes-campanha",
-    titulo: "Sugestões de campanha IA",
-    categoria: "IA",
-    agenda: "segunda às 8h",
-    cron: "0 8 * * 1",
-    atrasoLimiteMinutos: 11520,
   },
   {
     nome: "A22-lgpd-retencao",

@@ -9,12 +9,9 @@ import { A10_reguaReativacao } from "@/modules/jobs/A10-regua-reativacao";
 import { A11_cancelarOptout } from "@/modules/jobs/A11-cancelar-optout";
 import { A13_scoresCliente } from "@/modules/jobs/A13-scores-cliente";
 import { A20_backupVerificacao } from "@/modules/jobs/A20-backup-verificacao";
-import { A21_guardaConsumoIA } from "@/modules/jobs/A21-guarda-consumo-ia";
 import { A22_lgpdRetencao } from "@/modules/jobs/A22-lgpd-retencao";
 import { A23_refreshMLTokens } from "@/modules/jobs/A23-refresh-ml-tokens";
 import { A14_scoresProduto } from "@/modules/jobs/A14-scores-produto";
-import { A15_insightsFunil } from "@/modules/jobs/A15-insights-funil";
-import { A16_sugestoesCampanha } from "@/modules/jobs/A16-sugestoes-campanha";
 import { A18_saudeConectores } from "@/modules/jobs/A18-saude-conectores";
 import { A24_pollPedidos } from "@/modules/jobs/A24-poll-pedidos";
 import { A25_prepararImportacaoHistorica } from "@/modules/jobs/A25-importacao-historica";
@@ -54,11 +51,8 @@ export const { GET, POST, PUT } = serve({
     A11_cancelarOptout,
     A13_scoresCliente,
     A14_scoresProduto,
-    A15_insightsFunil,
-    A16_sugestoesCampanha,
     A18_saudeConectores,
     A20_backupVerificacao,
-    A21_guardaConsumoIA,
     A22_lgpdRetencao,
     A23_refreshMLTokens,
     A24_pollPedidos,
