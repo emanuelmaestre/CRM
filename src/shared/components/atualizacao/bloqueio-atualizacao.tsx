@@ -118,8 +118,12 @@ function FichasCanais({ canais, tudoPronto, reduzir }: {
 
   return (
     <ul className="mt-6 flex items-center gap-3" aria-label="Canais">
-      {canais.map((item) => {
-        const pronto = tudoPronto || item.progresso >= 100;
+      {canais.map((item, indice) => {
+        const jaEstava = item.progresso >= 100;
+        const pronto = tudoPronto || jaEstava;
+        /* No final, quem ainda estava apagado acende um de cada vez — ver os
+           selos chegando é o que diz "carregou tudo". */
+        const atraso = tudoPronto && !jaEstava && !reduzir ? MS_ENTRE_FICHAS / 1000 * (indice + 1) : 0;
         return (
           <motion.li
             key={item.canal}
@@ -134,7 +138,7 @@ function FichasCanais({ canais, tudoPronto, reduzir }: {
                 ? { opacity: 1, scale: [0.9, 1.14, 1] }
                 : { opacity: [0.35, 0.6, 0.35], scale: 0.9 }}
             transition={pronto || reduzir
-              ? { duration: 0.45, ease: [0.3, 1.6, 0.5, 1] }
+              ? { duration: 0.45, ease: [0.3, 1.6, 0.5, 1], delay: atraso }
               : { duration: 1.9, repeat: Infinity, ease: "easeInOut" }}
           >
             <ChannelLogo canal={item.canal} size="sm" variant="logo" />
@@ -143,7 +147,7 @@ function FichasCanais({ canais, tudoPronto, reduzir }: {
                 className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-emerald-500 text-white"
                 initial={reduzir ? false : { scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ duration: 0.3, ease: [0.3, 1.8, 0.5, 1] }}
+                transition={{ duration: 0.3, ease: [0.3, 1.8, 0.5, 1], delay: atraso + (atraso ? 0.15 : 0) }}
                 aria-hidden
               >
                 <Check className="size-2.5" strokeWidth={3.5} />
@@ -186,8 +190,9 @@ function quemDemora(canais: ProgressoCanal[]): string | null {
    o bastante para ser lido, curto o bastante para não virar pedágio. O teto
    é a rede de segurança — com a aba em segundo plano o requestAnimationFrame
    para, a contagem não chega a 100 e a cobertura ficaria presa. */
-const MS_SEGURAR_CEM = 900;
-const MS_TETO_FINAL = 3_000;
+const MS_ENTRE_FICHAS = 350;
+const MS_SEGURAR_CEM = 1_800;
+const MS_TETO_FINAL = 7_000;
 
 export function BloqueioAtualizacao({
   progresso,
@@ -222,6 +227,8 @@ export function BloqueioAtualizacao({
 
   const aoTerminarRef = useRef(aoTerminar);
   useEffect(() => { aoTerminarRef.current = aoTerminar; }, [aoTerminar]);
+  const canaisRef = useRef(canais);
+  useEffect(() => { canaisRef.current = canais; }, [canais]);
 
   useEffect(() => {
     if (!finalizar) return;
@@ -231,9 +238,11 @@ export function BloqueioAtualizacao({
 
   useEffect(() => {
     if (!chegouEmCem) return;
-    const segurar = window.setTimeout(() => aoTerminarRef.current?.(), MS_SEGURAR_CEM);
+    // Segura depois que a ÚLTIMA ficha acendeu, não a partir do 100.
+    const acendendo = reduzir ? 0 : (canaisRef.current.length + 1) * MS_ENTRE_FICHAS;
+    const segurar = window.setTimeout(() => aoTerminarRef.current?.(), acendendo + MS_SEGURAR_CEM);
     return () => window.clearTimeout(segurar);
-  }, [chegouEmCem]);
+  }, [chegouEmCem, reduzir]);
 
   const demora = quemDemora(canais);
 
