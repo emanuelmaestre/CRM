@@ -10,6 +10,8 @@ import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import { ChannelLogo, channelAccent } from "@/shared/design-system/primitives/ChannelLogo";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { CalendarioPopoverRange } from "@/shared/design-system/primitives/CalendarioPopoverRange";
+import { BotaoNotas } from "@/shared/components/notas/botao-notas";
+import { notasPublicidade } from "./notas-publicidade";
 import { compararMarcas, getBrandConfig, isBrandSlug } from "@/shared/config/brands";
 import { stagger } from "@/shared/design-system/motion-variants";
 import { tint } from "@/shared/design-system/color";
@@ -528,11 +530,15 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
             indisponiveis={dados.marcasIndisponiveis}
           />
         </div>
+        {/* Traço vertical entre empresas e canais, igual ao de Avaliações —
+            só a partir do md (tablet e desktop). */}
+        <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border md:block" />
         <div className="order-1 flex w-full justify-center gap-1.5 md:order-none md:contents">
           <SeletorCanalAnuncios />
         </div>
         <span className="hidden h-px flex-1 bg-border md:block" />
-        <div className="order-3 flex w-full justify-center md:order-none md:contents">
+        {/* Notas ao lado de Período, na mesma linha no celular e no desktop. */}
+        <div className="order-3 flex w-full justify-center gap-2 md:order-none md:contents">
           <CalendarioPopoverRange
             rotulo="Período"
             valor={periodoEfetivo}
@@ -540,6 +546,7 @@ export function AnunciosCliente({ periodoServidor, dadosIniciais }: {
             onChange={setPeriodo}
             accent={acentoMarca}
           />
+          <BotaoNotas titulo="Notas de Publicidade" assuntos={notasPublicidade()} />
         </div>
       </div>
 

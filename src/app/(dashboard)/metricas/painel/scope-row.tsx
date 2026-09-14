@@ -157,6 +157,10 @@ export function ScopeRow({ marcas, canais, filtro, onChange }: {
         })}
       </div>
 
+      {/* Traço vertical entre empresas e canais, igual ao de Avaliações e
+          Publicidade — só no tablet e desktop. */}
+      <span aria-hidden="true" className="mx-1 hidden h-5 w-px shrink-0 bg-border md:block" />
+
       <div className="order-1 flex flex-wrap items-center justify-center gap-2 sm:order-none sm:contents">
         {canais.map((canal) => (
           <Pilula

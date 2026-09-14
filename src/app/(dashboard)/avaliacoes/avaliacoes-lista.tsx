@@ -605,7 +605,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
         return true;
       });
 
-    // "Notas" (sem filtro) é o modo neutro — sem ordenar, a lista aparecia
+    // "Avaliações" (sem filtro) é o modo neutro — sem ordenar, a lista aparecia
     // numa ordem sem sentido nenhum pra quem está olhando. Opinião mais
     // recente primeiro dá pra tela um uso natural: "o que aconteceu agora".
     // Anúncio já vem com `opinioes[0]` sendo a mais nova (ver provider), então
@@ -717,7 +717,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
       </section>
 
       <section className="overflow-hidden rounded-[1.25rem] border border-border bg-card shadow-[0_2px_16px_rgba(14,15,19,.06)]">
-        {/* Busca e "Notas" dividem a mesma linha desde o celular. Empilhados,
+        {/* Busca e o filtro "Avaliações" dividem a mesma linha desde o celular. Empilhados,
             o seletor caía sozinho e centralizado numa faixa inteira só pra
             ele, empurrando a primeira avaliação pra fora da tela — dois
             controles do mesmo filtro pareciam dois blocos sem relação.
@@ -738,7 +738,7 @@ export function AvaliacoesLista({ marcasAtivas, canaisAtivos, onContagens, itens
               valor={nota}
               onChange={setNota}
               itens={[
-                { value: "todas", label: "Notas" },
+                { value: "todas", label: "Avaliações" },
                 { value: "com_avaliacao", label: "Com avaliações" },
                 { value: "sem_avaliacao", label: "Sem avaliações" },
               ]}

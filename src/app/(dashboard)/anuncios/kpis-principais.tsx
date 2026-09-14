@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import type { VisaoGeralResumo } from "@/modules/anuncios/application/visao-geral.service";
 import { EXPOE_VENDA_ORGANICA, type PlataformaAnuncios } from "@/modules/anuncios/domain/plataformas";
+import { TACOS_SHOPEE_SEM_ORGANICO } from "./notas-publicidade";
 import { springs, fadeUp } from "@/shared/design-system/motion-variants";
 import anunciosConfig from "@/config/anuncios.json";
 import { RotuloComInfo, useContagem } from "./anuncios-primitives";
@@ -98,7 +99,7 @@ function descricaoTacos(resumo: VisaoGeralResumo, plataforma: PlataformaAnuncios
   // pessoa procurar um problema que não existe.
   if (!EXPOE_VENDA_ORGANICA[plataforma]) {
     return {
-      descricao: "A Shopee não informa venda orgânica no relatório de Publicidade. Ela devolve apenas o que veio de anúncio. Sem a receita orgânica falta metade da conta do TACOS, que compara o investimento com a receita TOTAL do canal. Por isso ele fica sem dado aqui, e não por falta de vendas. No Mercado Livre o número aparece normalmente.",
+      descricao: TACOS_SHOPEE_SEM_ORGANICO,
       observacao,
     };
   }
