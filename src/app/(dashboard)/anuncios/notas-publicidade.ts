@@ -1,3 +1,4 @@
+import { CalendarClock, Coins, Gauge, PieChart, ShoppingCart } from "lucide-react";
 import anunciosConfig from "@/config/anuncios.json";
 import type { AssuntoNota, NotaNaoSeAplica } from "@/shared/components/notas/tipos";
 
@@ -23,7 +24,9 @@ export function notasPublicidade(): AssuntoNota[] {
   return [
     {
       id: "receita",
+      grupo: "Resultado",
       titulo: "Receita atribuída",
+      icone: Coins,
       resumo: "É a métrica que mais muda entre os canais: o Mercado Livre credita só a venda do anúncio, a Shopee credita a loja inteira por 7 dias.",
       canais: {
         mercadolivre: {
@@ -45,7 +48,9 @@ export function notasPublicidade(): AssuntoNota[] {
     },
     {
       id: "vendas",
+      grupo: "Resultado",
       titulo: "Vendas atribuídas",
+      icone: ShoppingCart,
       resumo: "Quantas vendas o canal colocou na conta do anúncio. A regra de atribuição é a de cada canal.",
       canais: {
         mercadolivre: {
@@ -66,7 +71,9 @@ export function notasPublicidade(): AssuntoNota[] {
     },
     {
       id: "roas",
+      grupo: "Eficiência",
       titulo: "ROAS e ACOS",
+      icone: Gauge,
       resumo: "Os dois dependem da receita atribuída. Como a receita é medida diferente em cada canal, o ROAS de um canal não se compara com o do outro.",
       canais: {
         mercadolivre: {
@@ -86,7 +93,9 @@ export function notasPublicidade(): AssuntoNota[] {
     },
     {
       id: "tacos",
+      grupo: "Eficiência",
       titulo: "TACOS",
+      icone: PieChart,
       resumo: "Precisa da venda orgânica do canal. O Mercado Livre informa; a Shopee não.",
       canais: {
         mercadolivre: {
@@ -106,7 +115,9 @@ export function notasPublicidade(): AssuntoNota[] {
     },
     {
       id: "atualizacao",
+      grupo: "Atualização",
       titulo: "De quando é cada número",
+      icone: CalendarClock,
       resumo: "O Mercado Livre é consultado na hora. A Shopee chega por sincronização diária e ainda credita vendas por 7 dias.",
       canais: {
         mercadolivre: {

@@ -33,11 +33,11 @@ describe("cadastro de notas", () => {
     expect(tiktok.significado).toContain(explicacoesResumoVendas(["tiktokshop"], EXPLICACOES_CARDS).faturamento.descricao);
   });
 
-  it("o botão Notas abre o wizard e navega entre assuntos", () => {
+  it("o botão Notas abre o wizard e navega entre assuntos", async () => {
     render(<BotaoNotas titulo="Notas de Vendas" assuntos={notasVendas()} />);
     fireEvent.click(screen.getByRole("button", { name: "Notas" }));
     expect(screen.getByText("Assunto 1 de 10")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Próximo/ }));
-    expect(screen.getByText("Assunto 2 de 10")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Próximo assunto" }));
+    expect(await screen.findByText("Assunto 2 de 10")).toBeInTheDocument();
   });
 });

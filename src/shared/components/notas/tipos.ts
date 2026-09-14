@@ -6,6 +6,8 @@
    Os textos do ⓘ dos cards e o wizard leem das mesmas fontes: uma regra nova
    escrita aqui aparece nos dois lugares, e os dois nunca se contradizem. */
 
+import type { LucideIcon } from "lucide-react";
+
 export type CanalNota = "mercadolivre" | "shopee" | "tiktokshop";
 
 export const CANAIS_NOTA: readonly CanalNota[] = ["mercadolivre", "shopee", "tiktokshop"];
@@ -39,6 +41,10 @@ export interface ItemLegenda {
 export interface AssuntoNota {
   id: string;
   titulo: string;
+  /** Grupo do índice, para o operador achar o assunto por tema. */
+  grupo: string;
+  /** Ilustração do assunto no índice e no cabeçalho do wizard. */
+  icone: LucideIcon;
   /** Uma frase: por que este assunto muda de um canal para outro. */
   resumo: string;
   /** Legenda comum aos canais, como os status do pedido. */

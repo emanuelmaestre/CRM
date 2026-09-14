@@ -1,3 +1,4 @@
+import { Ban, BadgeDollarSign, CalendarClock, CircleDollarSign, Clock, ListChecks, RotateCcw, ShoppingBag, Wallet, XCircle } from "lucide-react";
 import type { AssuntoNota, CanalNota, NotaDoCanal } from "@/shared/components/notas/tipos";
 import type { ExplicacaoCardVendas } from "./card-resumo-vendas";
 import {
@@ -42,7 +43,9 @@ export function notasVendas(): AssuntoNota[] {
   return [
     {
       id: "status",
+      grupo: "Pedidos",
       titulo: "Status dos pedidos",
+      icone: ListChecks,
       resumo: "O filtro de status é o mesmo para os três canais, mas cada canal marca pagamento e cancelamento de um jeito.",
       legenda: LEGENDA_STATUS_PEDIDOS,
       canais: {
@@ -70,7 +73,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "datas",
+      grupo: "Pedidos",
       titulo: "Datas, horário e centavos",
+      icone: CalendarClock,
       resumo: "Cada canal escolhe uma data diferente para dizer em que dia a venda aconteceu. É a causa mais comum de o número não bater com o painel.",
       canais: {
         mercadolivre: {
@@ -97,7 +102,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "total-bruto",
+      grupo: "Valores",
       titulo: "Total bruto",
+      icone: BadgeDollarSign,
       resumo: "No Mercado Livre é o valor das vendas pagas; na Shopee e no TikTok é o valor de todos os pedidos criados, pagos ou não.",
       canais: {
         mercadolivre: doCard("mercadolivre", "totalBruto", "Total bruto comparável", {
@@ -119,7 +126,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "faturamento",
+      grupo: "Valores",
       titulo: "Faturamento e receita",
+      icone: CircleDollarSign,
       resumo: "O card verde muda de nome e de regra: faturamento confirmado no Mercado Livre, produto pago na Shopee e GMV no TikTok.",
       canais: {
         mercadolivre: doCard("mercadolivre", "faturamento", "Faturamento confirmado", {
@@ -141,7 +150,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "pedidos",
+      grupo: "Valores",
       titulo: "Quantidade de pedidos",
+      icone: ShoppingBag,
       resumo: "Conta pedidos, não itens nem unidades. Na Shopee e no TikTok segue a mesma data do card verde.",
       canais: {
         mercadolivre: doCard("mercadolivre", "pedidos", "Pedidos faturados", {
@@ -161,7 +172,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "cancelados",
+      grupo: "Cancelamentos e devoluções",
       titulo: "Cancelamentos",
+      icone: Ban,
       resumo: "No Mercado Livre só conta cancelado que tinha sido pago. Na Shopee e no TikTok conta com ou sem pagamento.",
       canais: {
         mercadolivre: doCard("mercadolivre", "cancelados", "Cancelados e devolvidos", {
@@ -182,7 +195,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "devolucoes",
+      grupo: "Cancelamentos e devoluções",
       titulo: "Devoluções e reembolsos",
+      icone: RotateCcw,
       resumo: "Mercado Livre e TikTok mostram reembolso parcial informado pela API. Na Shopee o card mostra devoluções conhecidas, com cobertura parcial.",
       canais: {
         mercadolivre: doCard("mercadolivre", "reembolsos", "Reembolsos parciais", {
@@ -204,7 +219,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "cancelados-sem-pagamento",
+      grupo: "Cancelamentos e devoluções",
       titulo: "Cancelados sem pagamento",
+      icone: XCircle,
       resumo: "Pedidos que o comprador abandonou antes de pagar. Já estão dentro dos cancelamentos e não devem ser somados de novo.",
       canais: {
         mercadolivre: doCard("mercadolivre", "quantidadeCancelados", "Cancelados sem pagamento", {
@@ -224,7 +241,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "pendentes",
+      grupo: "Cancelamentos e devoluções",
       titulo: "Aguardando pagamento",
+      icone: Clock,
       resumo: "Só existe na Shopee e no TikTok, porque o Mercado Livre só entrega o pedido depois de pago.",
       canais: {
         mercadolivre: {
@@ -252,7 +271,9 @@ export function notasVendas(): AssuntoNota[] {
     },
     {
       id: "liquido",
+      grupo: "Dinheiro",
       titulo: "Líquido e repasse",
+      icone: Wallet,
       resumo: "Shopee e TikTok informam quanto repassam ao vendedor. O Mercado Livre não informa, e o CRM estima.",
       canais: {
         mercadolivre: {

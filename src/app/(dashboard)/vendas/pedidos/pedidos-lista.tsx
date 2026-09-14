@@ -483,7 +483,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
   return (
     <div>
       {/* Barra de escopo — empresa e canal. No desktop tudo numa linha,
-          centralizado, com o botão Notas alinhado à direita; no
+          centralizado; no
           mobile empilha e cada fileira rola por dentro se precisar (mesmo
           padrão já usado em Inbox e Clientes). */}
       <div className="mb-4 flex flex-col items-center gap-2 lg:relative lg:flex-row lg:justify-center">
@@ -525,9 +525,6 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           </motion.div>
         </motion.div>
 
-        <div className="hidden lg:absolute lg:right-0 lg:top-0 lg:block">
-          <BotaoNotas titulo="Notas de Vendas" assuntos={notasVendas()} />
-        </div>
       </div>
 
       {/* Filtros — no desktop, uma linha só como sempre foi (busca cresce,
@@ -573,11 +570,8 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             onChange={({ inicio, fim }) => { setDataInicial(inicio); setDataFinal(fim); }}
           />
           <span aria-hidden="true" className="h-6 w-px justify-self-center bg-border md:hidden" />
-          {/* Mobile: o botão Notas sai
-              da própria fileira acima e entra nesta linha, junto de
-              Todos/Período — o desktop mantém a versão de sempre, ancorada
-              no canto direito da barra de escopo (ver acima). */}
-          <div className="min-w-0 lg:hidden">
+          {/* Notas fica nesta linha em todos os tamanhos, junto de busca, Todos e Período. */}
+          <div className="min-w-0">
             <BotaoNotas titulo="Notas de Vendas" assuntos={notasVendas()} larguraTotal />
           </div>
         </div>
