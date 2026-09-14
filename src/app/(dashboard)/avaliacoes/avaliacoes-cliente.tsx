@@ -56,13 +56,14 @@ export function AvaliacoesCliente({ itensIniciais }: {
           de abas (Conversas/Perguntas/Avaliações); com só Avaliações
           sobrando, não há mais abas pra caber ao lado, então ela ocupa a
           linha inteira e centraliza sozinha. No mobile, canal em cima e
-          empresa embaixo; uma linha só no desktop. */}
+          empresa embaixo; uma linha só no desktop, com empresa à esquerda e
+          canal à direita. */}
       <div className="flex flex-col items-center gap-2 lg:flex-row lg:justify-center lg:gap-2">
-        <div className="flex w-full justify-center overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none lg:w-auto lg:justify-start">
+        <div className="flex w-full justify-center overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none lg:order-3 lg:w-auto lg:justify-start">
           <CanaisRow canaisAtivos={canaisAtivos} onToggleCanal={alternarCanal} />
         </div>
-        <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border lg:block" />
-        <div className="flex w-full justify-center overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none lg:w-auto lg:justify-start">
+        <span aria-hidden="true" className="hidden h-5 w-px shrink-0 bg-border lg:order-2 lg:block" />
+        <div className="flex w-full justify-center overflow-x-auto overscroll-x-contain px-0.5 py-2 scrollbar-none lg:order-1 lg:w-auto lg:justify-start">
           <EmpresasRow marcasAtivas={marcasAtivas} canaisAtivos={canaisAtivos} onToggleMarca={alternarMarca} contagemMarca={contagens.marcas} />
         </div>
       </div>
