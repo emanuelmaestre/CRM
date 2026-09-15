@@ -566,15 +566,19 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
      Ajustado durante o render (e não num efeito) para a cobertura não chegar a
      desmontar por um quadro entre "bloqueado" e "finalizando". */
   const [houveEspera, setHouveEspera] = useState(false);
-  const [finalizando, setFinalizando] = useState(false);
+  /* A saída por falha (o teto de 20s, em geral) também ganha o seu final.
+     Antes ela sumia no mesmo quadro e, dentro do fade, a contagem corria até
+     100 — um "carregou tudo" falso, rápido demais para ser lido. Agora o
+     número para onde estava e a frase diz quem ficou para trás. */
+  const [finalizando, setFinalizando] = useState<"sucesso" | "falha" | null>(null);
   const [bloqueadoAntes, setBloqueadoAntes] = useState(bloqueado);
   if (bloqueado && !houveEspera && estado && estado.progresso < 100) setHouveEspera(true);
   if (bloqueado !== bloqueadoAntes) {
     setBloqueadoAntes(bloqueado);
-    if (!bloqueado && houveEspera && !falhou) setFinalizando(true);
+    if (!bloqueado && houveEspera) setFinalizando(falhou ? "falha" : "sucesso");
     if (!bloqueado) setHouveEspera(false);
   }
-  const coberto = bloqueado || finalizando;
+  const coberto = bloqueado || finalizando !== null;
 
   if (!tela) return children;
 
@@ -599,7 +603,7 @@ export function AtualizacaoProvider({ children }: { children: React.ReactNode })
             canais={estado?.progressoPorCanal ?? []}
             tela={tela}
             finalizar={finalizando}
-            aoTerminar={() => setFinalizando(false)}
+            aoTerminar={() => setFinalizando(null)}
           />
         )}
       </AnimatePresence>

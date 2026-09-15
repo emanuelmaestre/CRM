@@ -23,7 +23,7 @@ import type { ProgressoCanal } from "@/modules/canais/application/atualizacao-in
  *  E nunca anda para trás: o servidor pode reportar 40 depois de 55 quando
  *  uma conta nova entra na conta do progresso, e regredir na tela leria como
  *  defeito. */
-function useContagemCrescente(alvo: number, concluindo: boolean): number {
+function useContagemCrescente(alvo: number, concluindo: boolean, congelar = false): number {
   const [valor, setValor] = useState(0);
   const valorRef = useRef(0);
   const alvoRef = useRef(0);
@@ -34,9 +34,12 @@ function useContagemCrescente(alvo: number, concluindo: boolean): number {
      regredir na tela leria como defeito. O laço de quadros lê estes refs, e
      um quadro de atraso até a próxima leitura não se percebe. */
   useEffect(() => {
-    alvoRef.current = Math.max(alvoRef.current, concluindo ? 100 : alvo);
+    // Congelado (saída por falha): o número para onde está, sem fechar a conta.
+    alvoRef.current = congelar
+      ? Math.min(Math.ceil(valorRef.current), alvoRef.current)
+      : Math.max(alvoRef.current, concluindo ? 100 : alvo);
     concluindoRef.current = concluindo;
-  }, [alvo, concluindo]);
+  }, [alvo, concluindo, congelar]);
 
   useEffect(() => {
     let quadro = 0;
@@ -107,8 +110,11 @@ function Odometro({ valor }: { valor: number }) {
  *  respondeu acende com a borda verde e um salto curto; o que ainda está
  *  sendo aguardado fica apagado e respira — é o que separa "parado porque
  *  acabou" de "parado esperando o TikTok". */
-function FichasCanais({ canais, tudoPronto, reduzir }: {
+function FichasCanais({ canais, atrasados, emFinal, tudoPronto, reduzir }: {
   canais: ProgressoCanal[];
+  emFinal: boolean;
+  /** Quem ainda não tinha respondido quando o final começou, em ordem. */
+  atrasados: string[];
   /** Só vale quando a confirmação deu certo. Numa saída por falha as fichas
    *  continuam como estavam: acender o canal que não respondeu seria mentir. */
   tudoPronto: boolean;
@@ -118,12 +124,17 @@ function FichasCanais({ canais, tudoPronto, reduzir }: {
 
   return (
     <ul className="mt-6 flex items-center gap-3" aria-label="Canais">
-      {canais.map((item, indice) => {
-        const jaEstava = item.progresso >= 100;
-        const pronto = tudoPronto || jaEstava;
+      {canais.map((item) => {
+        const jaEstava = !atrasados.includes(item.label);
+        /* No final a lista que chega do servidor já vem toda em 100 e
+           acenderia tudo de uma vez, antes do número chegar. Quem manda a
+           partir daí é a foto de quem faltava. */
+        const pronto = emFinal ? tudoPronto || jaEstava : item.progresso >= 100;
         /* No final, quem ainda estava apagado acende um de cada vez — ver os
-           selos chegando é o que diz "carregou tudo". */
-        const atraso = tudoPronto && !jaEstava && !reduzir ? MS_ENTRE_FICHAS / 1000 * (indice + 1) : 0;
+           selos chegando é o que diz "carregou tudo". A vez conta só entre os
+           atrasados: sem isso o primeiro já aceso abria um buraco na fila. */
+        const vez = atrasados.indexOf(item.label);
+        const atraso = tudoPronto && !jaEstava && !reduzir ? MS_ENTRE_FICHAS / 1000 * (vez + 1) : 0;
         return (
           <motion.li
             key={item.canal}
@@ -186,39 +197,65 @@ function quemDemora(canais: ProgressoCanal[]): string | null {
   return `${faltando.slice(0, -1).join(", ")} e ${faltando.at(-1)} estão demorando`;
 }
 
-/* Quanto o 100% com todas as fichas acesas fica parado antes de a tela abrir:
-   o bastante para ser lido, curto o bastante para não virar pedágio. O teto
-   é a rede de segurança — com a aba em segundo plano o requestAnimationFrame
-   para, a contagem não chega a 100 e a cobertura ficaria presa. */
+
+/** "Shopee", "Shopee e TikTok Shop", "Mercado Livre, Shopee e TikTok Shop". */
+function listaDeNomes(nomes: string[]): string {
+  if (nomes.length <= 1) return nomes[0] ?? "";
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes.at(-1)}`;
+}
+
+/* O final tem três tempos, e cada um precisa ser VISTO:
+   1. o número fecha em 100 e ganha destaque;
+   2. quem faltava acende, um de cada vez;
+   3. uma pausa curta com tudo verde — o bastante para ser notada, curta o
+      bastante para não virar pedágio.
+   O teto é a rede de segurança — com a aba em segundo plano o
+   requestAnimationFrame para, a contagem não chega a 100 e a cobertura
+   ficaria presa. */
 const MS_ENTRE_FICHAS = 350;
-const MS_SEGURAR_CEM = 1_800;
+const MS_SEGURAR_CEM = 1_300;
+const MS_SEGURAR_FALHA = 2_200;
 const MS_TETO_FINAL = 7_000;
 
 export function BloqueioAtualizacao({
   progresso,
   canais = [],
   tela,
-  finalizar = false,
+  finalizar = null,
   aoTerminar,
 }: {
   progresso: number;
   canais?: ProgressoCanal[];
   tela: TelaAtualizavel | null;
-  /** A confirmação deu certo: correr até 100, acender tudo e avisar quando
-   *  o final já foi visto. */
-  finalizar?: boolean;
+  /** "sucesso": correr até 100, acender tudo e segurar. "falha": parar onde
+   *  está e dizer quem não respondeu. Nos dois, avisar quando o final já foi
+   *  visto. */
+  finalizar?: "sucesso" | "falha" | null;
   aoTerminar?: () => void;
 }) {
   /* Enquanto o AnimatePresence toca a saída, o componente ainda está montado
-     mas já não está "presente". É a deixa para a contagem correr até 100
-     dentro do fade — sem isso o número sumiria da tela em 63, que é
-     exatamente o salto que este componente existe para não dar. */
+     mas já não está "presente". Numa saída sem espera, é a deixa para a
+     contagem fechar dentro do fade. Depois de uma falha, não: correr até 100
+     ali seria dizer "carregou tudo" justo quando não carregou. */
   const concluindo = !useIsPresent();
   const reduzir = useReducedMotion() ?? false;
-  const suave = useContagemCrescente(progresso, concluindo || finalizar);
-  const valor = reduzir ? Math.round(finalizar ? 100 : Math.min(progresso, 100)) : suave;
+  const [houveFalha, setHouveFalha] = useState(false);
+  if (finalizar === "falha" && !houveFalha) setHouveFalha(true);
+  const sucesso = finalizar === "sucesso";
+  const correrAteCem = sucesso || (concluindo && !houveFalha);
+  const suave = useContagemCrescente(progresso, correrAteCem, houveFalha);
+  const valor = reduzir ? Math.round(sucesso ? 100 : Math.min(progresso, 100)) : suave;
   const [demorou, setDemorou] = useState(false);
-  const chegouEmCem = finalizar && valor >= 99.999;
+  const chegouEmCem = sucesso && valor >= 99.999;
+
+  /* Foto de quem ainda falta. O "pronto" chega do servidor com todos os
+     canais em 100 — muitas vezes segundos antes de a cobertura sair — e, lido
+     cru, acenderia os selos de uma vez, sem o número. A foto guarda a última
+     lista de atrasados para o final acender cada um na sua vez. */
+  const vivos = canais.filter((item) => item.progresso < 100).map((item) => item.label);
+  const [atrasados, setAtrasados] = useState<string[]>([]);
+  if (!finalizar && vivos.length > 0 && vivos.join("|") !== atrasados.join("|")) setAtrasados(vivos);
+  const emFinal = finalizar !== null || (canais.length > 0 && vivos.length === 0 && atrasados.length > 0);
 
   useEffect(() => {
     const relogio = window.setTimeout(() => setDemorou(true), MS_PARA_TRANQUILIZAR);
@@ -227,24 +264,27 @@ export function BloqueioAtualizacao({
 
   const aoTerminarRef = useRef(aoTerminar);
   useEffect(() => { aoTerminarRef.current = aoTerminar; }, [aoTerminar]);
-  const canaisRef = useRef(canais);
-  useEffect(() => { canaisRef.current = canais; }, [canais]);
+  const quantosAcendem = atrasados.length;
 
   useEffect(() => {
     if (!finalizar) return;
-    const teto = window.setTimeout(() => aoTerminarRef.current?.(), MS_TETO_FINAL);
+    const teto = window.setTimeout(
+      () => aoTerminarRef.current?.(),
+      finalizar === "falha" ? MS_SEGURAR_FALHA : MS_TETO_FINAL,
+    );
     return () => window.clearTimeout(teto);
   }, [finalizar]);
 
   useEffect(() => {
     if (!chegouEmCem) return;
     // Segura depois que a ÚLTIMA ficha acendeu, não a partir do 100.
-    const acendendo = reduzir ? 0 : (canaisRef.current.length + 1) * MS_ENTRE_FICHAS;
+    const acendendo = reduzir ? 0 : (quantosAcendem + 1) * MS_ENTRE_FICHAS;
     const segurar = window.setTimeout(() => aoTerminarRef.current?.(), acendendo + MS_SEGURAR_CEM);
     return () => window.clearTimeout(segurar);
-  }, [chegouEmCem, reduzir]);
+  }, [chegouEmCem, reduzir, quantosAcendem]);
 
   const demora = quemDemora(canais);
+  const nomesAtrasados = listaDeNomes(atrasados);
 
   return (
     <motion.div
@@ -259,8 +299,6 @@ export function BloqueioAtualizacao({
       initial={reduzir ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      /* A saída é mais longa que a entrada de propósito: é dentro dela que a
-         contagem fecha os últimos números. */
       transition={{ duration: reduzir ? 0 : 0.5, ease: [0.22, 1, 0.36, 1] }}
       role="progressbar"
       aria-valuenow={Math.round(Math.min(valor, 100))}
@@ -275,28 +313,86 @@ export function BloqueioAtualizacao({
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: reduzir ? 0 : 0.45, ease: [0.22, 1, 0.36, 1] }}
         >
-          <span className="text-[clamp(4rem,16vw,6rem)] font-black leading-none tracking-[-0.055em] tabular-nums text-foreground">
-            {reduzir
-              ? <>{valor}<span className="ml-[0.06em] text-[0.34em] font-bold text-muted-foreground">%</span></>
-              : <Odometro valor={valor} />}
+          <span className="relative">
+            {/* O destaque do 100: uma onda verde que abre por trás do número
+                e o próprio número dando um salto curto, já em verde. É o
+                "chegou" que antes passava sem ser visto. */}
+            {chegouEmCem && !reduzir && (
+              <motion.span
+                aria-hidden
+                className="pointer-events-none absolute -inset-6 rounded-full bg-emerald-400/25"
+                initial={{ scale: 0.4, opacity: 0.9 }}
+                animate={{ scale: 1.5, opacity: 0 }}
+                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              />
+            )}
+            <motion.span
+              className={`relative block text-[clamp(4rem,16vw,6rem)] font-black leading-none tracking-[-0.055em] tabular-nums transition-colors duration-300 ${
+                chegouEmCem ? "text-emerald-600" : "text-foreground"
+              }`}
+              initial={false}
+              animate={chegouEmCem && !reduzir ? { scale: [1, 1.12, 1] } : { scale: 1 }}
+              transition={{ duration: 0.5, ease: [0.3, 1.6, 0.5, 1] }}
+            >
+              {reduzir
+                ? <>{valor}<span className="ml-[0.06em] text-[0.34em] font-bold text-muted-foreground">%</span></>
+                : <Odometro valor={valor} />}
+            </motion.span>
           </span>
-          <FichasCanais canais={canais} tudoPronto={chegouEmCem} reduzir={reduzir} />
+          <FichasCanais
+            canais={canais}
+            atrasados={atrasados}
+            emFinal={emFinal}
+            tudoPronto={chegouEmCem}
+            reduzir={reduzir}
+          />
         </motion.div>
 
         <p className="mt-7 flex items-center gap-1.5 text-center text-sm font-semibold text-foreground">
           {chegouEmCem ? (
-            <>
+            <motion.span
+              key="ok"
+              className="flex items-center gap-1.5"
+              initial={reduzir ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
               <Check className="size-4 text-emerald-600" strokeWidth={3} aria-hidden />
               Tudo confirmado nos canais
-            </>
+            </motion.span>
+          ) : houveFalha ? (
+            <>Abrindo com o último dado confirmado</>
           ) : (
             <>Conferindo {(tela && ALVO_DA_TELA[tela]) ?? "os dados"} nos canais</>
           )}
         </p>
 
         <div className="mt-1.5 h-8 max-w-[22rem] text-center">
-          {demorou && !concluindo && !finalizar && (
+          {chegouEmCem && atrasados.length > 0 ? (
             <motion.p
+              key="carregou"
+              initial={reduzir ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: reduzir ? 0 : 0.35, delay: reduzir ? 0 : atrasados.length * MS_ENTRE_FICHAS / 1000 }}
+              className="text-xs leading-relaxed text-muted-foreground"
+            >
+              {nomesAtrasados} {atrasados.length === 1 ? "carregou" : "carregaram"} com sucesso.
+            </motion.p>
+          ) : houveFalha ? (
+            <motion.p
+              key="falhou"
+              initial={reduzir ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: reduzir ? 0 : 0.35 }}
+              className="text-xs leading-relaxed text-muted-foreground"
+            >
+              {atrasados.length > 0
+                ? `${nomesAtrasados} ${atrasados.length === 1 ? "ainda não respondeu" : "ainda não responderam"}. `
+                : ""}
+              A confirmação continua por trás e a tela avisa quando chegar.
+            </motion.p>
+          ) : demorou && !concluindo && !finalizar && (vivos.length > 0 || canais.length === 0) ? (
+            <motion.p
+              key="demora"
               initial={reduzir ? false : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: reduzir ? 0 : 0.35 }}
@@ -305,7 +401,7 @@ export function BloqueioAtualizacao({
               {demora ?? "Um canal está demorando"} mais que o normal. A tela
               abre em instantes com o último dado confirmado.
             </motion.p>
-          )}
+          ) : null}
         </div>
       </div>
     </motion.div>
