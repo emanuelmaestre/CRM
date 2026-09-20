@@ -1,5 +1,27 @@
 import type { NextConfig } from "next";
 
+/* Aviso de build. As NEXT_PUBLIC_* são substituídas por literais aqui, no
+   build — se chegarem vazias, o app sobe quebrado e só descobrimos em
+   produção. Imprime apenas NOMES, nunca valores, e apenas no log de build,
+   que é privado. Não derruba o build: só torna visível o que antes era mudo. */
+const ENV_ESPERADAS_NO_BUILD = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "DEFAULT_ORG_ID",
+  "DATABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+];
+
+const ausentesNoBuild = ENV_ESPERADAS_NO_BUILD.filter(
+  (nome) => !process.env[nome]?.trim(),
+);
+
+console.log(
+  `[build] variáveis visíveis no ambiente: ${Object.keys(process.env).length}` +
+    ` | VERCEL_ENV=${process.env.VERCEL_ENV ?? "(ausente)"}` +
+    ` | esperadas ausentes: ${ausentesNoBuild.length ? ausentesNoBuild.join(", ") : "nenhuma"}`,
+);
+
 const securityHeaders = [
   { key: "X-DNS-Prefetch-Control", value: "on" },
   { key: "X-Content-Type-Options", value: "nosniff" },
