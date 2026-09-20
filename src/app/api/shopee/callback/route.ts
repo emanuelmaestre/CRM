@@ -3,13 +3,8 @@ import { createHmac } from "crypto";
 import { obterAppUrl } from "@/shared/config/app-url";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
 import { obterShopeeBaseUrl, obterShopeeAppCredenciais, canalTokenShopee, ehShopeeApp, type ShopeeApp } from "@/shared/config/shopee-env";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseServico as supabase } from "@/shared/lib/supabase/service";
 import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface ShopeeTokenResponse {
   access_token?: string;

@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseServico as supabase } from "@/shared/lib/supabase/service";
 import { authorizeRoute } from "@/shared/lib/auth/session";
 import { isBrandSlug } from "@/shared/config/brands";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 /**
  * Remove o token do Mercado Livre da marca. Existe porque o OAuth reaproveita a

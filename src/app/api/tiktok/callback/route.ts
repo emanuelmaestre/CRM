@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { obterAppUrl } from "@/shared/config/app-url";
 import { shopeeFetch } from "@/shared/lib/shopee-proxy";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseServico as supabase } from "@/shared/lib/supabase/service";
 import { getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
 import { expiracaoTikTokISO } from "@/modules/canais/application/tiktok-token.service";
 import { criarTikTokShopProvider } from "@/modules/canais/infrastructure/tiktokshop.provider";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface TikTokTokenResponse {
   code?: number;

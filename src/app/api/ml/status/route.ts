@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseServico as supabase } from "@/shared/lib/supabase/service";
 import { authorizeRoute } from "@/shared/lib/auth/session";
 import { BRAND_SLUGS, brandEnvSuffix, type BrandSlug } from "@/shared/config/brands";
 import { credencialConfigurada } from "@/shared/config/env-credentials";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 type DetalheMarca = {
   conectado: boolean;

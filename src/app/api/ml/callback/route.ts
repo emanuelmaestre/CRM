@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { obterAppUrl, obterUrlCallbackMercadoLivre } from "@/shared/config/app-url";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseServico as supabase } from "@/shared/lib/supabase/service";
 import { brandEnvSuffix, getBrandConfig, isBrandSlug, type BrandSlug } from "@/shared/config/brands";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 interface MLTokenResponse {
   access_token: string;
