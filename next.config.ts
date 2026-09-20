@@ -62,6 +62,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /* Quantas variáveis o BUILD enxergou. É só um número — nenhum nome, nenhum
+     valor — e serve para distinguir duas causas que dão o mesmo sintoma:
+     ambiente chegar vazio ao build, ou chegar cheio mas sem as que o app usa.
+     Remover junto com o aviso [build] acima quando a produção estabilizar. */
+  env: {
+    BUILD_ENV_COUNT: String(Object.keys(process.env).length),
+  },
   experimental: {
     serverActions: { allowedOrigins: ["localhost:3000"] },
   },
