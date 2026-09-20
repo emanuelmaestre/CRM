@@ -53,7 +53,12 @@ export async function updateSession(request: NextRequest) {
       `[proxy] configuração ausente no build: ${ausentes.join(", ")}`,
     );
     return NextResponse.json(
-      { error: "Aplicação sem configuração.", ausentes, envNoBuild: process.env.BUILD_ENV_COUNT ?? "?" },
+      {
+        error: "Aplicação sem configuração.",
+        ausentes,
+        envNoBuild: process.env.BUILD_ENV_COUNT ?? "?",
+        faltaramNoBuild: process.env.BUILD_ENV_FALTANTES ?? "?",
+      },
       { status: 503 },
     );
   }

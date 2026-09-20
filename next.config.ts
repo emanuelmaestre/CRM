@@ -10,6 +10,12 @@ const ENV_ESPERADAS_NO_BUILD = [
   "DEFAULT_ORG_ID",
   "DATABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
+  "PROVISION_SECRET",
+  "ML_CLIENT_ID",
+  "INNGEST_EVENT_KEY",
+  "UPSTASH_REDIS_REST_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "SYNTHETIC_SEED_ORG_ID",
 ];
 
 const ausentesNoBuild = ENV_ESPERADAS_NO_BUILD.filter(
@@ -68,6 +74,7 @@ const nextConfig: NextConfig = {
      Remover junto com o aviso [build] acima quando a produção estabilizar. */
   env: {
     BUILD_ENV_COUNT: String(Object.keys(process.env).length),
+    BUILD_ENV_FALTANTES: `${ausentesNoBuild.length}/${ENV_ESPERADAS_NO_BUILD.length}`,
   },
   experimental: {
     serverActions: { allowedOrigins: ["localhost:3000"] },
