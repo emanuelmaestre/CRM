@@ -36,11 +36,33 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   if (isPublicApi(pathname)) return NextResponse.next({ request });
 
+  /* Sem estas duas, createServerClient lançava e o proxy derrubava TODAS as
+     rotas com um 500 vazio — sem log útil, sem dizer o que faltava. O sintoma
+     era indistinguível de um bug de código. Falha explícita e fechada: nega o
+     acesso e nomeia a variável ausente, sem revelar nenhum valor.
+     São NEXT_PUBLIC_*, ou seja, embutidas em tempo de build: se faltarem aqui,
+     faltavam no build, não no runtime. */
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const ausentes = [
+      supabaseUrl ? null : "NEXT_PUBLIC_SUPABASE_URL",
+      supabaseAnonKey ? null : "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    ].filter(Boolean);
+    console.error(
+      `[proxy] configuração ausente no build: ${ausentes.join(", ")}`,
+    );
+    return NextResponse.json(
+      { error: "Aplicação sem configuração.", ausentes },
+      { status: 503 },
+    );
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
