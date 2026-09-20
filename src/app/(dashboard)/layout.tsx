@@ -4,6 +4,13 @@ import { BottomNav } from "@/shared/components/BottomNav";
 import { MobileHeader } from "@/shared/components/MobileHeader";
 import { AtualizacaoProvider } from "@/shared/components/atualizacao/atualizacao-contexto";
 
+/* Toda tela sob (dashboard) é por usuário e por sessão — o layout chama
+   requirePageAuth(). Ainda assim o Next tentava prerenderizar algumas delas:
+   carregarAuthContext() valida DEFAULT_ORG_ID antes de tocar em cookies(),
+   então nada marcava a rota como dinâmica e o build inteiro caía por causa de
+   uma env var. Nenhuma dessas páginas pode ser estática. */
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const contexto = await requirePageAuth();
 
