@@ -1,9 +1,15 @@
 import type { NextConfig } from "next";
 
 /* Aviso de build. As NEXT_PUBLIC_* são substituídas por literais aqui, no
-   build — se chegarem vazias, o app sobe quebrado e só descobrimos em
-   produção. Imprime apenas NOMES, nunca valores, e apenas no log de build,
-   que é privado. Não derruba o build: só torna visível o que antes era mudo. */
+   build — se chegarem vazias, o app sobe quebrado e só se descobre em
+   produção. Foi exatamente o que aconteceu na migração para a conta Vercel
+   nova: as variáveis estavam no painel, com valor certo, mas gravadas como
+   "Sensitive", tipo que a Vercel não entrega ao build. Todas chegaram vazias
+   e o site inteiro respondia 503. Esta linha no log teria mostrado isso em
+   segundos, em vez das horas que custou.
+   Imprime apenas NOMES, nunca valores, e só no log de build, que é privado.
+   Não derruba o build de propósito: um ambiente incompleto pode ser legítimo
+   (preview, fork), e falhar aqui seria pior que avisar. */
 const ENV_ESPERADAS_NO_BUILD = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -68,14 +74,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  /* Quantas variáveis o BUILD enxergou. É só um número — nenhum nome, nenhum
-     valor — e serve para distinguir duas causas que dão o mesmo sintoma:
-     ambiente chegar vazio ao build, ou chegar cheio mas sem as que o app usa.
-     Remover junto com o aviso [build] acima quando a produção estabilizar. */
-  env: {
-    BUILD_ENV_COUNT: String(Object.keys(process.env).length),
-    BUILD_ENV_FALTANTES: `${ausentesNoBuild.length}/${ENV_ESPERADAS_NO_BUILD.length}`,
-  },
   experimental: {
     serverActions: { allowedOrigins: ["localhost:3000"] },
   },
