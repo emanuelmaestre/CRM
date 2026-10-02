@@ -15,27 +15,13 @@ import type { SaudeLojaResultado, SaudeMarca } from "@/modules/metricas/applicat
 import { BarraComLimite, Card, CardHead, NumeroAnimado } from "./metricas-primitives";
 import { ScopeRow, type CardFiltro, type ScopeCanal } from "./painel/scope-row";
 import { tint } from "@/shared/design-system/color";
-import { inteiro, moeda, moedaCompacta } from "@/shared/design-system/format";
+import { inteiro, moeda } from "@/shared/design-system/format";
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
+
+import { CRITERIO_MENOR_VENCE, ordenarComparacao, valorComparacao as valorDe, type CriterioComparacao as Criterio } from "@/modules/metricas/domain/comparacao-marcas";
 
 const copy = metricasConfig.comparacaoCard;
 const ACENTO = "var(--acento-3)";
-
-type Criterio = "ticketMedio" | "cancelamento" | "recorrencia";
-
-/** Cancelamento é o único critério onde "menor" vence — os outros ranqueiam
- *  do maior pro menor. Sem essa distinção, ordenar por Cancelamento colocaria
- *  a marca com MAIS cancelamento no topo, coroada "Líder". */
-const CRITERIO_MENOR_VENCE: Partial<Record<Criterio, true>> = { cancelamento: true };
-
-/** Valor bruto do critério — é o que ordena e o que dimensiona a barra. */
-function valorDe(marca: SaudeMarca, criterio: Criterio): number | null {
-  switch (criterio) {
-    case "ticketMedio": return marca.ticketMedio;
-    case "cancelamento": return marca.taxaCancelamento;
-    case "recorrencia": return marca.taxaRecorrencia;
-  }
-}
 
 /** Mesmo valor, escrito como a pessoa espera ver aquele indicador. */
 function rotuloDe(marca: SaudeMarca, criterio: Criterio): string {
@@ -114,13 +100,13 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       calculo: {
         titulo: "Valor médio por pedido",
         significado: "Quanto cada pedido rendeu, em média, para a marca no período.",
-        formula: "faturamento total dividido pelo número de pedidos",
+        formula: "faturamento bruto de referência do canal dividido pelos pedidos da mesma base",
         resultado: marca.ticketMedioLabel,
         itens: [
-          { label: "Faturamento", valor: marca.faturamentoLabel },
+          { label: "Faturamento bruto", valor: marca.faturamentoLabel },
           { label: "Pedidos", valor: inteiro.format(marca.pedidos) },
         ],
-        nota: "O valor sobe quando poucos pedidos caros elevam a média. Analise-o junto com o volume de Pedidos, e não isoladamente.",
+        nota: "Mesma base do card Faturamento: Produto Pago na Shopee, GMV no TikTok e Total bruto comparável no Mercado Livre.",
       },
     },
     {
@@ -160,7 +146,7 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
       calculo: marca.concentracaoTop5 === null ? {
         titulo: "Concentração nos 5 maiores em receita",
         significado: "Mostra quanto da receita depende dos cinco produtos que mais faturaram (por valor, não por unidades; por isso a lista pode ser diferente da de Vendem mais). Uma concentração alta aumenta o impacto caso um desses itens pare de vender ou fique indisponível.",
-        formula: "receita dos 5 produtos que mais faturaram, dividida pela receita total (sem contar cancelados)",
+        formula: "receita dos 5 produtos que mais faturaram, dividida pela receita após reembolsos (sem cancelados ou devolvidos)",
         resultado: "Sem dado",
         itens: [],
         nota: "Não há dados neste período porque a marca não teve receita na janela selecionada.",
@@ -170,8 +156,8 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
         formula: "receita dos 5 produtos que mais faturaram, dividida pela receita total (sem contar cancelados)",
         resultado: `${marca.concentracaoTop5}%`,
         itens: [
-          { label: "Receita dos 5 maiores", valor: moedaCompacta.format(marca.receitaTop5), fracao: marca.concentracaoTop5 / 100 },
-          { label: "Receita total da marca", valor: moedaCompacta.format(marca.receitaTotalConcentracao) },
+          { label: "Receita dos 5 maiores", valor: moeda.format(marca.receitaTop5), fracao: marca.concentracaoTop5 / 100 },
+          { label: "Receita total da marca", valor: moeda.format(marca.receitaTotalConcentracao) },
         ],
         nota: "Quanto mais alto, mais a marca depende de poucos itens: um risco se um deles faltar.",
       },
@@ -193,8 +179,8 @@ function TiraNumeros({ marca, periodoLabel, criterio }: { marca: SaudeMarca; per
         formula: "receita de clientes que já tinham comprado antes, dividida pela receita total (sem contar cancelados)",
         resultado: `${marca.taxaRecorrencia}%`,
         itens: [
-          { label: "Receita de clientes recorrentes", valor: moedaCompacta.format(marca.receitaRecorrente), fracao: marca.taxaRecorrencia / 100 },
-          { label: "Receita total da marca", valor: moedaCompacta.format(marca.receitaTotalConcentracao) },
+          { label: "Receita de clientes recorrentes", valor: moeda.format(marca.receitaRecorrente), fracao: marca.taxaRecorrencia / 100 },
+          { label: "Receita total da marca", valor: moeda.format(marca.receitaTotalRecorrencia) },
         ],
         nota: "\"Recorrente\" é por marca: comprar da KARZI antes não conta como recorrência na primeira compra da WUWU.",
       },
@@ -412,7 +398,9 @@ function SeloLider({ reduzir }: { reduzir: boolean | null }) {
 
 type PosVendaMarcaComTaxa = PosVendaResultado["marcas"][number];
 
-export function ComparacaoCard({ dados, carregando, acaoSlot, posVenda, canais, filtro, onChangeFiltro }: {
+export function ComparacaoCard({ dados, carregando, acaoSlot, posVenda, canais, filtro, onChangeFiltro, criterio: criterioControlado, onChangeCriterio }: {
+  criterio?: Criterio;
+  onChangeCriterio?: (criterio: Criterio) => void;
   dados: SaudeLojaResultado | null;
   carregando: boolean;
   acaoSlot?: HTMLElement | null;
@@ -426,23 +414,12 @@ export function ComparacaoCard({ dados, carregando, acaoSlot, posVenda, canais, 
   filtro?: CardFiltro;
   onChangeFiltro?: (filtro: CardFiltro) => void;
 }) {
-  const [criterio, setCriterio] = useState<Criterio>("ticketMedio");
+  const [criterioLocal, setCriterioLocal] = useState<Criterio>("ticketMedio");
+  const criterio = criterioControlado ?? criterioLocal;
+  const setCriterio = onChangeCriterio ?? setCriterioLocal;
   const reduzir = useReducedMotion();
 
-  const ordenadas = useMemo(() => {
-    const marcas = [...(dados?.marcas ?? [])];
-    const menorVence = CRITERIO_MENOR_VENCE[criterio] === true;
-    // Marca sem o indicador escolhido cai para o fim em vez de virar zero e
-    // fingir que é a pior — "não medido" e "medido em zero" não são a mesma coisa.
-    return marcas.sort((a, b) => {
-      const va = valorDe(a, criterio);
-      const vb = valorDe(b, criterio);
-      if (va === null && vb === null) return a.marcaLabel.localeCompare(b.marcaLabel);
-      if (va === null) return 1;
-      if (vb === null) return -1;
-      return menorVence ? va - vb : vb - va;
-    });
-  }, [dados, criterio]);
+  const ordenadas = useMemo(() => ordenarComparacao(dados?.marcas ?? [], criterio), [dados, criterio]);
 
   const maximo = useMemo(
     () => ordenadas.reduce((maior, marca) => Math.max(maior, valorDe(marca, criterio) ?? 0), 0),

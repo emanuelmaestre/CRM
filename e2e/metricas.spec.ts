@@ -18,6 +18,9 @@ test.describe("Métricas", () => {
     await page.addInitScript(() => {
       window.localStorage.setItem("crm-leo:coachmarks:mosaico:v1", "seen");
     });
+    // A confirmação dos canais tem teto de 20s, seguido da animação de saída.
+    // As asserções precisam permitir esse caminho com dados já confirmados.
+    test.setTimeout(90_000);
   });
 
   test("página carrega sem erro 500", async ({ page }) => {
@@ -25,7 +28,7 @@ test.describe("Métricas", () => {
     await expect(page).not.toHaveTitle(/500|Error/i);
     // A página não tem PageHeader/heading próprio — é só o mosaico direto.
     // Um bloco de leitura visível é a prova de que carregou de verdade.
-    await expect(page.getByRole("button", { name: /abrir pontuação da loja/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: /abrir pontuação da loja/i })).toBeVisible({ timeout: 35_000 });
   });
 
   test("o mosaico mostra os blocos de leitura", async ({ page }) => {
@@ -34,14 +37,14 @@ test.describe("Métricas", () => {
     // marca conectada ao ML, por isso fica fora desta checagem.
     for (const bloco of [/pontuação da loja/i, /marca/i, /repor em breve/i]) {
       await expect(page.getByRole("button", { name: new RegExp(`abrir .*${bloco.source}`, "i") }))
-        .toBeVisible({ timeout: 15_000 });
+        .toBeVisible({ timeout: 35_000 });
     }
   });
 
   test("abrir um bloco monta o card completo e Esc devolve ao mosaico", async ({ page }) => {
     await page.goto("/metricas");
     const bloco = page.getByRole("button", { name: /abrir pontuação da loja/i });
-    await expect(bloco).toBeVisible({ timeout: 15_000 });
+    await expect(bloco).toBeVisible({ timeout: 35_000 });
 
     // Abrir um card é interação local. Uma navegação RSC para a própria página
     // repetiria todas as consultas do mosaico antes de o diálogo aparecer.
@@ -72,7 +75,7 @@ test.describe("Métricas", () => {
   test("o card aberto sobrevive ao recarregamento", async ({ page }) => {
     await page.goto("/metricas?card=comparacao");
     const painel = page.getByRole("dialog");
-    await expect(painel).toBeVisible({ timeout: 15_000 });
+    await expect(painel).toBeVisible({ timeout: 35_000 });
 
     const criterio = painel.getByRole("tab", { name: "Valor médio por pedido" });
     await expect(criterio).toBeVisible({ timeout: 15_000 });

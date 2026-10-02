@@ -49,7 +49,7 @@ describe("Métricas — status de anúncio vem da coleta local", () => {
   it("não mantém placares fictícios no mosaico", () => {
     expect(mosaico).not.toMatch(/FICTICI|VARIACAO_FICTICIA/);
     expect(mosaico).not.toContain("dados={[9, 8, 8, 7, 7, 6");
-    expect(mosaico).toContain("calcularVantagemPercentualDaLider");
+    expect(mosaico).toContain("vantagemComparacao");
     expect(mosaico).toContain("Vantagem sobre a 2ª colocada");
   });
 

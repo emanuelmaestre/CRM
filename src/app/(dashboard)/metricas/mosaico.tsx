@@ -34,7 +34,7 @@ import type { SaudeLojaResultado } from "@/modules/metricas/application/saude-lo
 import type { PosVendaResultado } from "@/modules/metricas/application/pos-venda.service";
 import { useAtualizacaoLocal } from "@/shared/lib/atualizacao-local";
 import { ESCOPO_SNAPSHOT_METRICAS } from "@/modules/metricas/domain/snapshot-scope";
-import { calcularVantagemPercentualDaLider } from "@/modules/metricas/domain/comparacao-marcas";
+import { ordenarComparacao, valorComparacao, vantagemComparacao, type CriterioComparacao } from "@/modules/metricas/domain/comparacao-marcas";
 
 const copy = metricasConfig.mosaico;
 const blocosCopy = copy.blocos;
@@ -257,6 +257,7 @@ export function Mosaico({
   const cardAberto = params.get("card");
   const ehDesktop = useEhDesktop();
 
+  const [criterioComparacao, setCriterioComparacao] = useState<CriterioComparacao>("ticketMedio");
   const [periodo, setPeriodo] = useState<Periodo>({ inicio: hoje, fim: hoje });
   const [marcas, setMarcas] = useState<ScopeMarca[]>(marcasIniciais);
   const [canais, setCanais] = useState<ScopeCanal[]>(canaisIniciais);
@@ -571,21 +572,6 @@ export function Mosaico({
     marcas.filter((marca) => filtroGlobal.brandId.includes(marca.brandId)).map((marca) => ({ slug: marca.slug, label: marca.nome })),
   [marcas, filtroGlobal.brandId]);
 
-  /* O escopo que o "Ver todos no Estoque" leva junto.
-   *
-   *  Antes o link saía só com `?filtro=`, e recorte sozinho não abre lista
-   *  nenhuma lá: o Estoque exige empresa escolhida antes de mostrar produto.
-   *  Quem clica aqui já tem empresa e canal marcados — o card nem desenha
-   *  lista sem isso —, então o link carrega os dois e a pessoa reencontra a
-   *  mesma lista que estava olhando, completa. Marca vai por slug: link
-   *  legível, sem identificador interno espalhado. */
-  const escopoDoLinkEstoque = useMemo(() => ({
-    marcas: marcas
-      .filter((marca) => filtroGlobal.brandId.includes(marca.brandId))
-      .map((marca) => marca.slug),
-    canais: canaisEscolhidos,
-  }), [marcas, filtroGlobal.brandId, canaisEscolhidos]);
-
   const dadosFaturamento = faturamento.dados?.faturamento ?? null;
   const blocoFaturamento = useMemo<BlocoDef>(() => ({
     id: "faturamento",
@@ -597,22 +583,22 @@ export function Mosaico({
     carregando: faturamento.carregando,
     semFiltro: faturamento.semFiltro,
     resumo: {
-      valor: dadosFaturamento?.total ?? null,
-      variacao: dadosFaturamento?.variacaoPercentual ?? null,
+      valor: (visaoLiquida ? dadosFaturamento?.totalLiquido : dadosFaturamento?.total) ?? null,
+      variacao: (visaoLiquida ? dadosFaturamento?.variacaoPercentualLiquido : dadosFaturamento?.variacaoPercentual) ?? null,
       legenda: dadosFaturamento
         ? blocosCopy.faturamento.legenda
             .replace("{pedidos}", String(dadosFaturamento.pedidos))
-            .replace("{ticket}", dadosFaturamento.ticketMedio)
+            .replace("{ticket}", visaoLiquida ? dadosFaturamento.ticketMedioLiquido : dadosFaturamento.ticketMedio)
         : blocosCopy.faturamento.legenda,
     },
     explicacao: {
       resumo: visaoLiquida
-        ? "Faturamento líquido: o que sobra da venda depois que o canal cobra a parte dele. Na Shopee e no TikTok Shop é o repasse que o próprio canal informa. No Mercado Livre, que não informa repasse, é uma estimativa: bruto menos as taxas conhecidas por item e o frete pago pelo vendedor, e tende a ficar um pouco acima do que cai na conta. Não desconta custo do produto nem imposto."
-        : "Faturamento bruto: o valor dos pedidos com pagamento confirmado no período, menos os reembolsos parciais que o canal informou. Não desconta taxa do canal, frete, custo do produto nem imposto.",
+        ? "Faturamento líquido: o que sobra da venda depois que o canal cobra a parte dele. Na Shopee e no TikTok Shop é o repasse que o próprio canal informa. No Mercado Livre, que não informa repasse, é uma estimativa: receita após reembolsos menos as taxas conhecidas por item e o frete pago pelo vendedor, e tende a ficar um pouco acima do que cai na conta. Não desconta custo do produto nem imposto."
+        : "Faturamento bruto: Produto Pago da Shopee, GMV do TikTok e Total bruto comparável do Mercado Livre, antes de cancelamentos e reembolsos posteriores.",
       pontos: [
-        { titulo: "O que entra na soma", texto: "Todo pedido com pagamento confirmado dentro do período, pelo valor informado pelo canal. No Mercado Livre o dia é o da aprovação do pagamento, em Brasília." },
-        { titulo: "O que fica de fora", texto: "Pedidos cancelados, devolvidos ou ainda aguardando pagamento. Em reembolso parcial, só a parte devolvida sai. O detalhe completo está em \"Entenda o faturamento\", dentro do card." },
-        { titulo: "Valor médio por pedido", texto: "É o faturamento dividido pela quantidade de pedidos. O valor sobe quando poucos pedidos caros elevam a média." },
+        { titulo: "O que entra na soma", texto: "O bruto segue a data do pagamento na Shopee e no TikTok e a aprovação no Mercado Livre, em Brasília. O líquido acompanha essas mesmas vendas." },
+        { titulo: "O que fica de fora", texto: "Pedidos sem pagamento e amostras grátis do TikTok ficam fora do bruto. Cancelamentos e devoluções posteriores afetam a receita preservada e o líquido." },
+        { titulo: "Valor médio por pedido", texto: "É o valor bruto ou líquido dividido pela quantidade de pedidos na base do bruto. Cancelados incluídos nessa base têm líquido zero." },
       ],
       dica: "A variação compara o período selecionado com a janela imediatamente anterior, de mesma duração, e não com o mesmo período do ano passado.",
     },
@@ -630,10 +616,13 @@ export function Mosaico({
        semântica do Delta. */
     preview: dadosFaturamento
       ? (() => {
-          const pontos = dadosFaturamento.serie.length > 1
-            ? dadosFaturamento.serie.map((ponto) => ponto.valor)
-            : [dadosFaturamento.totalAnteriorNumerico, dadosFaturamento.totalNumerico];
-          const variacaoTraco = dadosFaturamento.variacaoPercentual;
+          const serie = visaoLiquida ? dadosFaturamento.serieLiquido : dadosFaturamento.serie;
+          const pontos = serie.length > 1
+            ? serie.map((ponto) => ponto.valor)
+            : visaoLiquida
+              ? [dadosFaturamento.totalAnteriorLiquidoNumerico, dadosFaturamento.totalLiquidoNumerico]
+              : [dadosFaturamento.totalAnteriorNumerico, dadosFaturamento.totalNumerico];
+          const variacaoTraco = visaoLiquida ? dadosFaturamento.variacaoPercentualLiquido : dadosFaturamento.variacaoPercentual;
           const cor = variacaoTraco === null || Math.abs(variacaoTraco) < 0.5
             ? "var(--muted-foreground)"
             : variacaoTraco < 0 ? "var(--destructive)" : "var(--success)";
@@ -701,8 +690,8 @@ export function Mosaico({
       pontos: [
         { titulo: "Quatro pilares, pesos diferentes", texto: "Reputação (35) e pós-venda (29) pesam mais que satisfação (24) e estoque (12). Uma reclamação ou um atraso no envio derruba a nota mais do que um produto sem saldo." },
         { titulo: "Pilar sem dado sai da conta", texto: "Se um pilar não tem dado, o peso dele é redistribuído entre os demais, em vez de virar zero. Olhando só a Shopee ou o TikTok, reputação e pós-venda saem, porque só existem no Mercado Livre." },
-        { titulo: "Cada pilar tem a própria janela", texto: "Reputação e pós-venda seguem a janela do Mercado Livre, satisfação usa todo o histórico de opiniões e estoque é o saldo de agora. Por isso trocar o período quase não mexe nesta nota." },
-        { titulo: "Consolidado pesa por faturamento", texto: "Ao visualizar todas as marcas juntas, as que faturam mais no período influenciam mais o resultado. Não se trata de uma média simples entre marcas." },
+        { titulo: "Cada pilar tem a própria janela", texto: "Reputação e pós-venda seguem a janela do Mercado Livre, satisfação usa o histórico de opiniões e estoque usa leituras atuais dos canais selecionados. O período pode mudar o peso de cada marca no consolidado." },
+        { titulo: "Consolidado pesa por faturamento", texto: "Ao visualizar todas as marcas juntas, as que têm maior faturamento bruto no período influenciam mais o resultado. Não se trata de uma média simples entre marcas." },
       ],
       dica: "Toque em \"Ver a conta\", logo abaixo do anel, para ver exatamente quais pilares entraram e com que peso na pontuação exibida.",
     },
@@ -732,12 +721,13 @@ export function Mosaico({
   }), [dadosSaude, carregandoSaude, faltaEscopo, snapshotComparavel, chipsDoFiltro]);
 
   const blocoComparacao = useMemo<BlocoDef>(() => {
-    const marcasPorFaturamento = [...(dadosSaude?.marcas ?? [])]
-      .sort((a, b) => b.faturamento - a.faturamento);
-    const lider = marcasPorFaturamento[0];
-    const vantagemDaLider = calcularVantagemPercentualDaLider(
-      marcasPorFaturamento.map((marca) => marca.faturamento),
-    );
+    const ordenadas = ordenarComparacao(dadosSaude?.marcas ?? [], criterioComparacao);
+    const medidas = ordenadas.filter((marca) => valorComparacao(marca, criterioComparacao) !== null);
+    const lider = medidas[0];
+    const empatadas = lider ? medidas.filter((marca) => valorComparacao(marca, criterioComparacao) === valorComparacao(lider, criterioComparacao)).length : 0;
+    const vantagemDaLider = vantagemComparacao(ordenadas, criterioComparacao);
+    const criterioLabel = criterioComparacao === "ticketMedio" ? "valor médio por pedido"
+      : criterioComparacao === "cancelamento" ? "menor cancelamento" : "recorrência";
 
     return ({
     id: "comparacao",
@@ -752,13 +742,13 @@ export function Mosaico({
       valor: dadosSaude ? String(dadosSaude.marcas.length) : null,
       // Quem está na frente por faturamento vira parte da legenda — a
       // resposta que o card dá antes de ser aberto.
-      legenda: lider ? `${lider.marcaLabel} lidera em faturamento` : blocosCopy.comparacao.legenda,
+      legenda: lider ? empatadas > 1 ? `Empate entre ${empatadas} marcas em ${criterioLabel}` : `${lider.marcaLabel} lidera em ${criterioLabel}` : blocosCopy.comparacao.legenda,
       // Não é variação da quantidade de marcas: mede a distância real da
       // líder para a segunda colocada dentro do mesmo período/filtro.
       variacao: vantagemDaLider,
       rodape: vantagemDaLider === null
-        ? "Compare ao menos duas marcas com faturamento"
-        : "Vantagem sobre a 2ª colocada",
+        ? "Compare ao menos duas marcas com dados"
+        : criterioComparacao === "cancelamento" ? "Cancelamento menor que a 2ª colocada" : "Vantagem sobre a 2ª colocada",
     },
     explicacao: {
       resumo: "Coloca as marcas ativas lado a lado e utiliza os mesmos critérios de medição. A liderança muda conforme o critério escolhido nas abas.",
@@ -771,7 +761,7 @@ export function Mosaico({
       dica: "Cancelamento é o único critério em que o menor valor lidera. Por isso, 0% aparece no topo da classificação, e não no fim.",
     },
     preview: dadosSaude && dadosSaude.marcas.length > 0
-      ? <BarrasMarca dados={dadosSaude.marcas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel, valor: marca.faturamento }))} />
+      ? <BarrasMarca dados={medidas.map((marca) => ({ slug: marca.marca, label: marca.marcaLabel, valor: valorComparacao(marca, criterioComparacao) ?? 0 }))} />
       : undefined,
     previewAlinhamento: "start",
     // As marcas que ESTE card compara já respeitam o filtro global.
@@ -781,6 +771,8 @@ export function Mosaico({
         dados={dadosSaude}
         carregando={carregandoSaude}
         acaoSlot={acaoSlot}
+        criterio={criterioComparacao}
+        onChangeCriterio={setCriterioComparacao}
         posVenda={posVendaAtual}
         canais={canais}
         filtro={filtroGlobal}
@@ -788,7 +780,7 @@ export function Mosaico({
       />
     ),
     });
-  }, [dadosSaude, carregandoSaude, faltaEscopo, posVendaAtual, canais, filtroGlobal]);
+  }, [dadosSaude, carregandoSaude, faltaEscopo, posVendaAtual, canais, filtroGlobal, criterioComparacao]);
 
   const blocoReposicao = useMemo<BlocoDef>(() => ({
     id: "reposicao",
@@ -824,11 +816,11 @@ export function Mosaico({
       resumo: "Mostra os produtos cujo saldo já atingiu ou ficou abaixo do estoque mínimo cadastrado. O objetivo é avisar a reposição antes que o saldo chegue a zero.",
       pontos: [
         { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, ter saldo maior que zero, possuir estoque mínimo maior que zero e apresentar saldo igual ou inferior ao mínimo. Os filtros de marca e canal também são respeitados." },
-        { titulo: "Como ler o número", texto: "O número principal é a quantidade total de produtos que atendem à regra. A lista mostra até os 50 mais urgentes; o restante abre em \"Ver todos no Estoque\". Produto sem mínimo cadastrado não entra, pois não existe uma referência para comparar o saldo." },
+        { titulo: "Como ler o número", texto: "O número principal é a quantidade total de produtos que atendem à regra. A lista mostra 50 itens por vez; use Mostrar mais para continuar dentro desta mesma classificação. Produto sem mínimo cadastrado não entra, pois não existe uma referência para comparar o saldo." },
         { titulo: "Cobertura estimada", texto: "Quando houve venda no período, a cobertura é calculada dividindo o saldo pelo consumo médio diário. Exemplo: saldo 19 e três vendas em um dia resultam em aproximadamente seis dias de cobertura. Trata-se de uma estimativa, não de uma garantia." },
         { titulo: "Ordem e status", texto: "Produtos com menor cobertura aparecem primeiro. Quando não há venda suficiente para estimar a cobertura, a prioridade considera o quanto o saldo ficou abaixo do mínimo. O selo informa se o anúncio está ativo, pausado, em revisão ou encerrado." },
       ],
-      dica: "O saldo é o maior entre os canais (nunca a soma) e o status vem da coleta de hora em hora no Mercado Livre e na Shopee. Este painel avisa sobre quantidade; ele não confirma prazo de compra, fornecedor ou mercadoria já encomendada.",
+      dica: "O saldo é o maior entre os canais (nunca a soma) e o status vem da última coleta do Mercado Livre e da Shopee. Este painel avisa sobre quantidade; ele não confirma prazo de compra, fornecedor ou mercadoria já encomendada.",
     },
     /* Barra = dias de cobertura restantes (barra curta = acaba antes =
        mais urgente, que é a mesma ordem da lista). Produtos sem consumo
@@ -853,12 +845,11 @@ export function Mosaico({
         carregando={reposicao.carregando}
         semFiltro={reposicao.semFiltro}
         scope={escopo}
-        escopoLink={escopoDoLinkEstoque}
         acaoSlot={acaoSlot}
         acaoTopoSlot={acaoTopoSlot}
       />
     ),
-  }), [reposicao, escopo, escopoDoLinkEstoque, chipsDoFiltro, snapshotComparavel]);
+  }), [reposicao, escopo, chipsDoFiltro, snapshotComparavel]);
 
   const blocoMaisVendidos = useMemo<BlocoDef>(() => ({
     id: "maisVendidos",
@@ -881,8 +872,8 @@ export function Mosaico({
       resumo: "Classifica os produtos ativos que tiveram vendas válidas no período selecionado. A ordem considera a quantidade de unidades vendidas, não o faturamento.",
       pontos: [
         { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM e ter vendido pelo menos uma unidade no período. Pedidos cancelados ou devolvidos não contam. Os filtros de marca, canal e período são respeitados." },
-        { titulo: "Como ler o número", texto: "O número principal é a quantidade vendida pelo produto líder. Ele não representa a quantidade de produtos da lista. Ao abrir o painel aparecem até os 50 primeiros do ranking." },
-        { titulo: "Ordem e desempate", texto: "A maior quantidade vendida fica no topo. Se dois produtos venderam a mesma quantidade, aparece primeiro aquele que gerou maior faturamento no período." },
+        { titulo: "Como ler o número", texto: "O número principal é a quantidade vendida pelo produto líder. Ele não representa a quantidade de produtos da lista. Ao abrir o painel aparecem 50 itens por vez; Mostrar mais permite consultar o restante do ranking." },
+        { titulo: "Ordem e desempate", texto: "A maior quantidade vendida fica no topo. Se dois produtos venderam a mesma quantidade, aparece primeiro aquele que gerou maior receita após reembolsos. As datas seguem o pagamento do canal; cancelados e devolvidos ficam fora." },
         { titulo: "Variação percentual", texto: "O percentual compara o produto líder atual com ele mesmo no período imediatamente anterior, usando uma janela de igual duração. Sem vendas anteriores para servir de base, nenhum percentual é mostrado." },
       ],
       dica: "O selo de status ajuda a identificar um risco operacional. Um produto líder com anúncio pausado, em revisão ou encerrado pode perder vendas mesmo tendo boa procura.",
@@ -937,7 +928,7 @@ export function Mosaico({
     explicacao: {
       resumo: "Mostra produtos ativos, com saldo positivo, que ainda venderam no período, mas ficaram abaixo da régua proporcional de 10 unidades por semana.",
       pontos: [
-        { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, ter saldo maior que zero, registrar pelo menos uma venda válida no período e ter vendido abaixo do limite proporcional. Também precisa ter uma venda nos últimos 15 dias; caso contrário, pertence a Estoque parado." },
+        { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, ter saldo maior que zero, registrar pelo menos uma venda válida no período e ter vendido abaixo do limite proporcional. Também precisa ter uma venda nos canais selecionados nos últimos 15 dias; caso contrário, pertence a Estoque parado." },
         { titulo: "Régua proporcional", texto: "O limite é calculado por 10 ÷ 7 × quantidade de dias. Em Hoje, uma venda entra e duas não entram. Em sete dias, entram quantidades de uma a nove. Pedidos cancelados ou devolvidos ficam fora da conta." },
         { titulo: "Como ler os valores", texto: "O número principal é a quantidade total de produtos classificados. O valor em reais soma preço de venda multiplicado pelo saldo. Portanto, representa valor bruto potencial do estoque, não custo de aquisição nem lucro." },
         { titulo: "Ordem e status", texto: "Quem vendeu menos aparece primeiro. Em caso de empate, o maior valor bruto em estoque define a ordem. Um anúncio pausado ou em revisão pode indicar problema operacional, não falta de procura." },
@@ -995,7 +986,7 @@ export function Mosaico({
     explicacao: {
       resumo: "Mostra produtos ativos, com saldo positivo, que não registraram nenhuma venda válida nos últimos 15 dias ou que nunca tiveram venda associada no histórico disponível do CRM.",
       pontos: [
-        { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, não estar excluído e possuir saldo maior que zero. A última venda válida deve ter ocorrido há 15 dias ou mais. Pedidos cancelados ou devolvidos não contam como venda." },
+        { titulo: "Regra para entrar", texto: "O produto precisa estar ativo no CRM, não estar excluído e possuir saldo maior que zero. A última venda válida nos canais selecionados deve ter ocorrido há 15 dias ou mais. Pedidos cancelados ou devolvidos não contam como venda." },
         { titulo: "Quem nunca vendeu", texto: "Produto sem nenhuma venda associada também entra. Isso significa sem venda registrada no histórico disponível do CRM; não prova que o produto nunca tenha vendido antes da implantação ou fora dos dados importados." },
         { titulo: "Como ler os valores", texto: "O número da legenda é a quantidade total de produtos parados. O valor principal soma preço de venda multiplicado pelo saldo. Ele representa valor bruto potencial do estoque, não custo de aquisição nem lucro." },
         { titulo: "Período, ordem e status", texto: "O corte de 15 dias é fixo e não muda com o período dos outros cards. A lista começa pelo maior valor bruto em estoque. O selo informa se o anúncio está ativo, pausado, em revisão ou encerrado." },
@@ -1034,12 +1025,11 @@ export function Mosaico({
         carregando={parados.carregando}
         semFiltro={parados.semFiltro}
         scope={escopo}
-        escopoLink={escopoDoLinkEstoque}
         acaoSlot={acaoSlot}
         acaoTopoSlot={acaoTopoSlot}
       />
     ),
-  }), [parados, escopo, escopoDoLinkEstoque, chipsDoFiltro, snapshotComparavel]);
+  }), [parados, escopo, chipsDoFiltro, snapshotComparavel]);
 
   // Só existe com marca conectada — um bloco que abriria vazio não vira bloco.
   const blocoPublicacoes = useMemo<BlocoDef | null>(() => {
@@ -1056,9 +1046,9 @@ export function Mosaico({
         // Receita atribuída pelo próprio Product Ads, comparada com a janela
         // anterior de mesmo tamanho. Nenhum número nasce no cliente.
         valor: resumoPublicacoesAtual ? formatarReaisCompacto(resumoPublicacoesAtual.receita) : null,
-        variacao: resumoPublicacoesAtual?.variacaoReceitaPercentual ?? null,
+        variacao: resumoPublicacoesAtual?.parcial ? null : resumoPublicacoesAtual?.variacaoReceitaPercentual ?? null,
         legenda: resumoPublicacoesAtual
-          ? `${resumoPublicacoesAtual.totalPublicacoes} publicações · ${resumoPublicacoesAtual.comVeiculacao} com veiculação`
+          ? `${resumoPublicacoesAtual.totalPublicacoes} publicações · ${resumoPublicacoesAtual.comVeiculacao} com veiculação${resumoPublicacoesAtual.parcial ? " · dados parciais" : ""}`
           : resumoPublicacoes.falhou && resumoPublicacoes.chave === chavePublicacoes
             ? "Não foi possível consultar"
             : blocosCopy.publicacoes.legenda,

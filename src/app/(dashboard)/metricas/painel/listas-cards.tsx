@@ -2,17 +2,13 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
-import Link from "next/link";
+import { Children, useState } from "react";
 import { EmptyState, type IllustrationType } from "@/shared/design-system/primitives/EmptyState";
 import { Skeleton } from "@/shared/design-system/primitives/Skeleton";
 import { listItem, springs, stagger } from "@/shared/design-system/motion-variants";
 import dashboardConfig from "@/config/dashboard.json";
 import { Card, CardHead, useContagem } from "../metricas-primitives";
 import { getBrandConfig, isBrandSlug } from "@/shared/config/brands";
-/* O endereço do "Ver todos" é montado pelo mesmo módulo que o Estoque usa
-   para lê-lo — assim as duas pontas não podem divergir no nome dos
-   parâmetros, que foi como o recorte se perdeu da primeira vez. */
-import { linkParaEstoque } from "@/app/(dashboard)/estoque/filtro-estoque";
 import { AnimatedInfoPopover, AnimatedInfoTrigger } from "@/shared/design-system/primitives/AnimatedInfoPopover";
 import { BrandLogo } from "@/shared/design-system/primitives/BrandLogo";
 import type {
@@ -127,7 +123,7 @@ function EsqueletoLista() {
 }
 
 /* ── Casca de card de lista ───────────────────────────────────── */
-function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazioDescricao, scope, total, exibidos, verTudo, children }: {
+function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazioDescricao, scope, total, children }: {
   vazio: boolean;
   carregando: boolean;
   semFiltro: boolean;
@@ -143,9 +139,14 @@ function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazi
    *  recorte mais relevante; a lista inteira mora no módulo dono do dado, e
    *  sem este caminho os itens além do corte simplesmente não tinham como ser
    *  vistos. */
-  verTudo?: { href: string; rotulo: string };
+
   children: React.ReactNode;
 }) {
+  const linhas = Children.toArray(children);
+  const chave = linhas.map((linha) => typeof linha === "object" && linha !== null && "key" in linha ? linha.key : "").join("|");
+  const [paginacao, setPaginacao] = useState({ chave, limite: 50 });
+  const limite = paginacao.chave === chave ? paginacao.limite : 50;
+  const exibidos = Math.min(limite, linhas.length);
   // Troca de conteúdo é feita por crossfade (AnimatePresence), nunca por
   // desmontar o Card inteiro — é isso que evita o "piscar" ao trocar de
   // filtro. Enquanto uma busca nova está em voo mas já existe conteúdo
@@ -177,16 +178,17 @@ function ListaCard({ vazio, carregando, semFiltro, ilustracao, vazioTitulo, vazi
                   <span>
                     Exibindo os {exibidos} mais relevantes de <strong className="font-semibold text-foreground">{total} itens no total</strong>.
                   </span>
-                  {verTudo && (
-                    <Link href={verTudo.href} className="font-semibold text-foreground underline underline-offset-2">
-                      {verTudo.rotulo}
-                    </Link>
-                  )}
                 </p>
               )}
               <motion.ul variants={stagger} initial="hidden" animate="show" className="mt-4">
-                {children}
+                {linhas.slice(0, limite)}
               </motion.ul>
+              {exibidos < linhas.length && (
+                <button type="button" className="mx-5 my-4 rounded-full border border-border px-4 py-2 text-xs font-semibold"
+                  onClick={() => setPaginacao({ chave, limite: limite + 50 })}>
+                  Mostrar mais · {linhas.length - exibidos} restantes
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -293,7 +295,6 @@ export function MaisVendidosCard({ itens, total, carregando, semFiltro, scope, a
         vazioDescricao={copyVendidos.emptyDescription}
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
         total={total}
-        exibidos={lista.length}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -334,16 +335,12 @@ function statusAnuncioInfoReposicao(item: ProdutoReposicao): { label: string; cl
   });
 }
 
-export function ReposicaoCard({ itens, total, carregando, semFiltro, scope, escopoLink, acaoSlot, acaoTopoSlot }: {
+export function ReposicaoCard({ itens, total, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
   itens: ProdutoReposicao[] | null;
   total: number;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
-  /** Empresa e canal marcados agora. Viajam no "Ver todos": recorte sozinho
-   *  nao abre lista no Estoque, la quem define escopo e empresa/canal. Sem
-   *  isto o link caia no convite "escolha uma empresa", de maos vazias. */
-  escopoLink?: { marcas: string[]; canais: string[] };
   /** Nó do cabeçalho do Foco (desktop) onde o botão Status é portado, junto
    *  do filtro de marca/canal — ver `AcaoSlotFiltro`, que já é `hidden
    *  sm:flex` por conta própria. */
@@ -368,8 +365,6 @@ export function ReposicaoCard({ itens, total, carregando, semFiltro, scope, esco
         vazioDescricao={copyReposicao.emptyDescription}
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
         total={total}
-        exibidos={lista.length}
-        verTudo={{ href: linkParaEstoque({ filtro: "abaixo_minimo", ...escopoLink }), rotulo: "Ver todos no Estoque" }}
       >
         {lista.map((item) => (
           <LinhaProduto
@@ -434,7 +429,6 @@ export function GiroBaixoCard({ itens, total, carregando, semFiltro, scope, acao
       vazioDescricao={copyGiro.emptyDescription}
       scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
       total={total}
-      exibidos={lista.length}
     >
       {lista.map((item) => (
         <LinhaProduto
@@ -471,7 +465,7 @@ const copyParados = dashboardConfig.cards.parados;
    ativos e sem venda). O texto do popover é montado com os dados reais do
    item (dias, saldo, motivo do ML), nunca uma frase fixa igual pra todos. */
 function statusAnuncioInfo(item: ProdutoParado): { label: string; className: string; hint: string } {
-  const tempo = item.diasParado !== null ? `há ${item.diasParado} dias` : "desde que entrou no catálogo";
+  const tempo = item.diasParado !== null ? `há ${item.diasParado} dias` : "no histórico disponível dos canais selecionados";
   return seloBase(item, {
     ativo: `Mesmo assim, não registrou venda ${tempo}: está no ar, mas não vende.`,
     pausado: `Isso explica a falta de venda ${tempo}.`,
@@ -607,16 +601,12 @@ function EntendaStatusBotao() {
   );
 }
 
-export function ParadosCard({ itens, total, carregando, semFiltro, scope, escopoLink, acaoSlot, acaoTopoSlot }: {
+export function ParadosCard({ itens, total, carregando, semFiltro, scope, acaoSlot, acaoTopoSlot }: {
   itens: ProdutoParado[] | null;
   total: number;
   carregando: boolean;
   semFiltro: boolean;
   scope?: React.ReactNode;
-  /** Empresa e canal marcados agora. Viajam no "Ver todos": recorte sozinho
-   *  nao abre lista no Estoque, la quem define escopo e empresa/canal. Sem
-   *  isto o link caia no convite "escolha uma empresa", de maos vazias. */
-  escopoLink?: { marcas: string[]; canais: string[] };
   /** Nó do cabeçalho do Foco (desktop) onde o botão "Entenda os status" é
    *  portado, junto do filtro de marca/canal — ver `AcaoSlotFiltro`, que já
    *  é `hidden sm:flex` por conta própria. */
@@ -651,8 +641,6 @@ export function ParadosCard({ itens, total, carregando, semFiltro, scope, escopo
         // mobile pra isso, então lá elas continuam aqui embaixo, como sempre.
         scope={<div className="flex w-full flex-wrap justify-center gap-2 sm:hidden">{scope}</div>}
         total={total}
-        exibidos={lista.length}
-        verTudo={{ href: linkParaEstoque({ filtro: "parados", ...escopoLink }), rotulo: "Ver todos no Estoque" }}
       >
       {lista.map((item) => {
         const status = statusAnuncioInfo(item);

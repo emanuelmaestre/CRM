@@ -1,15 +1,10 @@
 import { saldoPublicadoAtual } from "@/modules/estoque/infrastructure/saldo-canais";
 import { and, eq, gte, inArray, isNull, lte, max, sql } from "drizzle-orm";
-import { differenceInCalendarDays, startOfDay, startOfHour, startOfMonth, startOfWeek, subDays, subMonths, subWeeks } from "date-fns";
+import { differenceInCalendarDays } from "date-fns";
 import type { CrudContext } from "@/shared/lib/crud-factory";
-import { liquidoDoPedido } from "@/modules/vendas/domain/liquido-pedido";
-import { calcularComposicaoFaturamento } from "@/modules/metricas/domain/composicao-faturamento";
-import {
-  reembolsoParcialInformado,
-  STATUS_PEDIDO_FATURAVEL,
-  valorFaturavelPedido,
-} from "@/modules/vendas/domain/status-faturamento";
-import { pagamentoAprovadoPedidoSql, dataVendaPedidoSql, pedidoComercialSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+import { valoresFaturamento } from "@/modules/metricas/domain/valores-faturamento";
+import { referenciaFaturamentoSql } from "@/modules/metricas/infrastructure/faturamento.sql";
+import { pedidoComercialSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
 import {
   brand,
   channelAccount,
@@ -33,8 +28,6 @@ const LIMITE_GIRO_BAIXO_POR_SEMANA = 10;
 /** Dias sem nenhuma saída de estoque para o item ser considerado parado. */
 const DIAS_PARA_PARADO = 15;
 
-/** Quantos itens cada lista traz. Lista curta é lista que se lê. */
-const LIMITE_ITENS_LISTA = 50;
 
 export type Granularidade = "dia" | "semana" | "mes";
 
@@ -84,12 +77,8 @@ export interface FaturamentoResumo {
   ticketMedio: string;
   serie: SeriePonto[];
   janelaLabel: string;
-  /** Faturamento líquido. Quando o canal informa o repasse real (`valor_liquido`
-   *  — hoje a Shopee, via escrow), é ele que vale: já vem com tarifas, subsídios
-   *  e ajustes que a estimativa não tem como enxergar. Sem esse dado (Mercado
-   *  Livre e canais manuais), cai na estimativa `total - taxas conhecidas -
-   *  frete`, que não desconta desconto/acréscimo nem custo do produto. Mesmo
-   *  critério do detalhe do pedido — os dois precisam bater na mesma janela. */
+  /** Repasse preservado quando informado; sem ele, receita após reembolsos
+   * menos taxas conhecidas e frete. Mesma referência de data do bruto. */
   totalLiquidoNumerico: number;
   totalLiquido: string;
   totalAnteriorLiquidoNumerico: number;
@@ -99,7 +88,13 @@ export interface FaturamentoResumo {
   serieLiquido: SeriePonto[];
   /** Decomposição aditiva e reversível entre receita confirmada e o bruto
    * comparável ao canal. `pedido.total` permanece intacto no banco. */
+  liquidoEstimadosQtd?: number;
+  totalLiquidoApurado?: string;
+  totalLiquidoEstimado?: string;
   composicao?: {
+    receitaPreservada?: string;
+    ajustesBase?: string;
+    ajustesBaseNumerico?: number;
     pedidosBrutosNumerico: number;
     pedidosBrutos: string;
     pedidosBrutosQtd: number;
@@ -209,22 +204,31 @@ function brandLabel(slug: string): string {
   return getBrandConfig(slug)?.label ?? slug;
 }
 
-const diaMes = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" });
-const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-const mesAno = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" });
+const diaMes = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
+const diaMesAno = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Sao_Paulo" });
+const mesAno = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit", timeZone: "America/Sao_Paulo" });
+const OFFSET_BRASILIA = 3 * 60 * 60 * 1000;
+const DIA_MS = 86_400_000;
+const subDays = (data: Date, dias: number) => new Date(data.getTime() - dias * DIA_MS);
+const startOfHour = (data: Date) => new Date(Math.floor(data.getTime() / 3_600_000) * 3_600_000);
 
 /* ── Séries temporais ─────────────────────────────────────────── */
 
 /** Início do balde a que uma data pertence, na granularidade pedida. */
 function inicioDoBalde(data: Date, granularidade: Granularidade): Date {
-  if (granularidade === "mes") return startOfMonth(data);
-  if (granularidade === "semana") return startOfWeek(data, { weekStartsOn: 1 });
-  return startOfDay(data);
+  const local = new Date(data.getTime() - OFFSET_BRASILIA);
+  const dia = granularidade === "mes" ? 1 : local.getUTCDate();
+  let inicio = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), dia) + OFFSET_BRASILIA;
+  if (granularidade === "semana") inicio -= ((local.getUTCDay() + 6) % 7) * DIA_MS;
+  return new Date(inicio);
 }
 
 function recuarBaldes(referencia: Date, granularidade: Granularidade, quantidade: number): Date {
-  if (granularidade === "mes") return subMonths(referencia, quantidade);
-  if (granularidade === "semana") return subWeeks(referencia, quantidade);
+  if (granularidade === "mes") {
+    const local = new Date(referencia.getTime() - OFFSET_BRASILIA);
+    return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth() - quantidade, 1) + OFFSET_BRASILIA);
+  }
+  if (granularidade === "semana") return subDays(referencia, quantidade * 7);
   return subDays(referencia, quantidade);
 }
 
@@ -370,6 +374,7 @@ function traduzirStatusAnuncio(status: { status: string; subStatus: string | nul
 async function enriquecerComStatusAnuncio(
   ctx: CrudContext,
   itens: Array<{ produtoId: string; statusAnuncio: StatusAnuncioParado; motivoStatus: string | null; canalStatus: string | null }>,
+  canais: string[],
 ): Promise<void> {
   if (itens.length === 0) return;
 
@@ -389,7 +394,9 @@ async function enriquecerComStatusAnuncio(
     .where(and(
       eq(produtoCanal.orgId, ctx.orgId),
       eq(produtoCanal.ativo, true),
-      inArray(produtoCanal.produtoId, itens.map((item) => item.produtoId)),
+      eq(channelAccount.status, "conectado"),
+      inArray(produtoCanal.produtoId, [...new Set(itens.map((item) => item.produtoId))]),
+      ...(canais.length > 0 ? [inArray(channelAccount.tipo, canais as ("mercadolivre" | "shopee" | "tiktokshop")[])] : []),
     ));
 
   /* Produto anunciado nos dois canais tem duas linhas. Fica com a que tem
@@ -448,7 +455,7 @@ export async function obterDashboardData(
   // fino que o normal, mas ainda dado real, nunca inventado.
   const serieHoraria = personalizado && janelaDias === 1;
   const granularidadeSerie: Granularidade = personalizado ? "dia" : granularidade;
-  const pontosSerie = personalizado ? Math.min(janelaDias, 60) : PONTOS_SERIE[granularidade];
+  const pontosSerie = personalizado ? janelaDias : PONTOS_SERIE[granularidade];
   const inicioSerie = serieHoraria
     ? inicioJanela
     : inicioDoBalde(recuarBaldes(fimJanela, granularidadeSerie, pontosSerie - 1), granularidadeSerie);
@@ -459,30 +466,15 @@ export async function obterDashboardData(
 
   const limiteParado = subDays(agora, DIAS_PARA_PARADO);
 
-  const condicoesPedido = [
-    eq(pedido.orgId, ctx.orgId),
-    gte(dataVendaPedidoSql(), inicioBusca.toISOString()),
-    pedidoComercialSql(),
-    // Cancelado e devolvido não são faturamento nem venda de produto.
-    inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]),
+  const referencia = referenciaFaturamentoSql();
+  const condicoesFinanceiras = [
+    eq(pedido.orgId, ctx.orgId), pedidoComercialSql(), referencia.incluido,
+    gte(referencia.data, inicioBusca.toISOString()),
+    lte(referencia.data, fimBusca.toISOString()),
   ];
-  if (personalizado) condicoesPedido.push(lte(dataVendaPedidoSql(), fimBusca.toISOString()));
-  if (brandFiltro.length > 0) condicoesPedido.push(inArray(pedido.brandId, brandFiltro));
-  if (canalFiltro.length > 0) condicoesPedido.push(inArray(pedido.canal, canalFiltro));
-
-  // Trilha independente da consulta de faturamento. Ela não afrouxa o filtro
-  // usado pelo número legado, pelo líquido nem pelas listas de produtos; só
-  // mede a parcela excluída para explicar a diferença para o total bruto.
-  const condicoesPedidosExcluidos = [
-    eq(pedido.orgId, ctx.orgId),
-    gte(dataVendaPedidoSql(), inicioJanela.toISOString()),
-    pedidoComercialSql(),
-    inArray(pedido.status, ["cancelado", "devolvido"]),
-    pagamentoAprovadoPedidoSql(),
-  ];
-  if (personalizado) condicoesPedidosExcluidos.push(lte(dataVendaPedidoSql(), fimBusca.toISOString()));
-  if (brandFiltro.length > 0) condicoesPedidosExcluidos.push(inArray(pedido.brandId, brandFiltro));
-  if (canalFiltro.length > 0) condicoesPedidosExcluidos.push(inArray(pedido.canal, canalFiltro));
+  if (brandFiltro.length > 0) condicoesFinanceiras.push(inArray(pedido.brandId, brandFiltro));
+  if (canalFiltro.length > 0) condicoesFinanceiras.push(inArray(pedido.canal, canalFiltro));
+  const condicoesPedido = [...condicoesFinanceiras, referencia.faturavel];
 
   const condicoesProduto = [
     eq(produto.orgId, ctx.orgId),
@@ -492,18 +484,21 @@ export async function obterDashboardData(
   if (brandFiltro.length > 0) condicoesProduto.push(inArray(produto.brandId, brandFiltro));
   if (canalFiltro.length > 0) condicoesProduto.push(condicaoCanalProduto(ctx.orgId, canalFiltro));
 
-  const [pedidosJanela, taxasPorPedido, itensVendidos, produtosAtivos, ultimasSaidas, [pedidosExcluidos]] = await Promise.all([
+  const [pedidosJanela, taxasPorPedido, itensVendidos, produtosAtivos, ultimasSaidas] = await Promise.all([
     ctx.db
       .select({
         id: pedido.id,
-        total: pedido.total,
+        total: referencia.bruto,
+        original: referencia.original,
+        confirmado: referencia.confirmado,
+        faturavel: referencia.faturavel,
         frete: pedido.frete,
         valorLiquido: pedido.valorLiquido,
         dadosOrigem: pedido.dadosOrigem,
-        createdAt: dataVendaPedidoSql(),
+        createdAt: referencia.data,
       })
       .from(pedido)
-      .where(and(...condicoesPedido)),
+      .where(and(...condicoesFinanceiras)),
     // Soma da taxa de marketplace por pedido, na mesma janela de busca dos
     // pedidos acima. Só entra em cena no fallback: pedido cujo canal informou
     // o repasse real usa `valor_liquido` e ignora esta soma.
@@ -514,21 +509,23 @@ export async function obterDashboardData(
       })
       .from(pedidoItem)
       .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
-      .where(and(...condicoesPedido))
+      .where(and(...condicoesFinanceiras))
       .groupBy(pedidoItem.pedidoId),
     ctx.db
       .select({
         produtoId: pedidoItem.produtoId,
         quantidade: pedidoItem.quantidade,
         precoUnitario: pedidoItem.precoUnitario,
-        pedidoEm: dataVendaPedidoSql(),
+        pedidoEm: referencia.data,
+        receitaPedido: referencia.confirmado,
+        totalItens: sql<string>`coalesce((select sum(i.quantidade * i.preco_unitario) from pedido_item i where i.pedido_id = ${pedido.id}), 0)`,
       })
       .from(pedidoItem)
       .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
       // Traz também a janela anterior: o ranking continua sendo montado com
       // a janela atual, mas a quantidade anterior permite que o card mostre
       // uma variação real do mesmo produto em vez do antigo +11% fictício.
-      .where(and(...condicoesPedido, gte(dataVendaPedidoSql(), inicioJanelaAnterior.toISOString()))),
+      .where(and(...condicoesPedido, gte(referencia.data, inicioJanelaAnterior.toISOString()))),
     ctx.db
       .select({
         id: produto.id,
@@ -545,20 +542,13 @@ export async function obterDashboardData(
       .innerJoin(brand, eq(brand.id, produto.brandId))
       .where(and(...condicoesProduto)),
     ctx.db
-      .select({ produtoId: pedidoItem.produtoId, ultima: max(pedido.createdAt) })
+      .select({ produtoId: pedidoItem.produtoId, ultima: max(referencia.data) })
       .from(pedidoItem)
       .innerJoin(pedido, eq(pedido.id, pedidoItem.pedidoId))
-      .where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL])))
+      .where(and(eq(pedido.orgId, ctx.orgId), pedidoComercialSql(), referencia.incluido, referencia.faturavel,
+        ...(brandFiltro.length > 0 ? [inArray(pedido.brandId, brandFiltro)] : []),
+        ...(canalFiltro.length > 0 ? [inArray(pedido.canal, canalFiltro)] : [])))
       .groupBy(pedidoItem.produtoId),
-    ctx.db
-      .select({
-        cancelados: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'cancelado'), 0)`,
-        devolvidos: sql<string>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} = 'devolvido'), 0)`,
-        canceladosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'cancelado')`,
-        devolvidosQtd: sql<number>`count(*) filter (where ${pedido.status} = 'devolvido')`,
-      })
-      .from(pedido)
-      .where(and(...condicoesPedidosExcluidos)),
   ]);
 
   /* ── Faturamento ── */
@@ -577,18 +567,28 @@ export async function obterDashboardData(
   let totalJanelaAnterior = 0;
   let totalJanelaLiquido = 0;
   let totalJanelaAnteriorLiquido = 0;
+  let receitaPreservada = 0;
+  let canceladosDevolvidos = 0;
+  let canceladosDevolvidosQtd = 0;
+  let ajustesBase = 0;
+  let liquidoApurado = 0;
+  let liquidoEstimado = 0;
+  let liquidoEstimadosQtd = 0;
   let reembolsosParciaisJanela = 0;
   let pedidosComReembolsoParcialQtd = 0;
 
   for (const item of pedidosJanela) {
-    const reembolsoParcial = reembolsoParcialInformado(item.dadosOrigem);
-    const valor = valorFaturavelPedido(item.total, item.dadosOrigem);
-    const liquido = liquidoDoPedido({
-      total: valor,
+    const valores = valoresFaturamento({
+      bruto: Number(item.total),
+      original: Number(item.original),
+      confirmado: Number(item.confirmado),
+      faturavel: item.faturavel,
       frete: parseMoney(item.frete),
       valorLiquido: item.valorLiquido,
+      dadosOrigem: item.dadosOrigem,
       taxasConhecidas: taxaPorPedido.get(item.id) ?? 0,
     });
+    const { bruto: valor, receita: confirmado, reembolso: reembolsoParcial, liquido } = valores;
     const chave = (serieHoraria ? startOfHour(item.createdAt) : inicioDoBalde(item.createdAt, granularidadeSerie)).getTime();
     if (baldes.has(chave)) baldes.set(chave, (baldes.get(chave) ?? 0) + valor);
     if (baldesLiquido.has(chave)) baldesLiquido.set(chave, (baldesLiquido.get(chave) ?? 0) + liquido);
@@ -597,6 +597,17 @@ export async function obterDashboardData(
       totalJanela += valor;
       totalJanelaLiquido += liquido;
       pedidosNaJanela += 1;
+      receitaPreservada += confirmado;
+      if (!item.faturavel) {
+        canceladosDevolvidos += valor;
+        canceladosDevolvidosQtd += 1;
+      } else {
+        ajustesBase += valores.ajusteBase;
+        if (item.valorLiquido == null) {
+          liquidoEstimado += liquido;
+          liquidoEstimadosQtd += 1;
+        } else liquidoApurado += liquido;
+      }
       reembolsosParciaisJanela += reembolsoParcial;
       if (reembolsoParcial > 0) pedidosComReembolsoParcialQtd += 1;
     }
@@ -624,12 +635,6 @@ export async function obterDashboardData(
     altura: maiorValorLiquido > 0 ? Math.max(2, Math.round((valor / maiorValorLiquido) * 100)) : 0,
   }));
 
-  const composicaoCalculada = calcularComposicaoFaturamento(
-    totalJanela,
-    parseMoney(pedidosExcluidos?.cancelados),
-    parseMoney(pedidosExcluidos?.devolvidos),
-    reembolsosParciaisJanela,
-  );
   // Kill switch exclusivamente no servidor. `false` restaura o contrato
   // visual anterior sem desfazer deploy nem tocar em dados persistidos.
   const composicaoAtiva = process.env.METRICAS_FINANCEIRAS_V2 !== "false";
@@ -650,6 +655,9 @@ export async function obterDashboardData(
     janelaLabel: personalizado
       ? `${diaMesAno.format(inicioJanela)} a ${diaMesAno.format(fimJanela)}`
       : GRANULARIDADE_LABEL[granularidade],
+    liquidoEstimadosQtd,
+    totalLiquidoApurado: formatCurrency(liquidoApurado),
+    totalLiquidoEstimado: formatCurrency(liquidoEstimado),
     totalLiquidoNumerico: totalJanelaLiquido,
     totalLiquido: formatCurrency(totalJanelaLiquido),
     totalAnteriorLiquidoNumerico: totalJanelaAnteriorLiquido,
@@ -661,17 +669,17 @@ export async function obterDashboardData(
     serieLiquido,
     ...(composicaoAtiva ? {
       composicao: {
-        pedidosBrutosNumerico: composicaoCalculada.pedidosBrutosNumerico,
-        pedidosBrutos: formatCurrency(composicaoCalculada.pedidosBrutosNumerico),
-        pedidosBrutosQtd: pedidosNaJanela
-          + Number(pedidosExcluidos?.canceladosQtd ?? 0)
-          + Number(pedidosExcluidos?.devolvidosQtd ?? 0),
-        canceladosDevolvidosNumerico: composicaoCalculada.canceladosDevolvidosNumerico,
-        canceladosDevolvidos: formatCurrency(composicaoCalculada.canceladosDevolvidosNumerico),
-        canceladosDevolvidosQtd: Number(pedidosExcluidos?.canceladosQtd ?? 0)
-          + Number(pedidosExcluidos?.devolvidosQtd ?? 0),
-        reembolsosParciaisNumerico: composicaoCalculada.reembolsosParciaisNumerico,
-        reembolsosParciais: formatCurrency(composicaoCalculada.reembolsosParciaisNumerico),
+        receitaPreservada: formatCurrency(receitaPreservada),
+        ajustesBase: formatCurrency(ajustesBase),
+        ajustesBaseNumerico: Math.round(ajustesBase * 100) / 100,
+        pedidosBrutosNumerico: totalJanela,
+        pedidosBrutos: formatCurrency(totalJanela),
+        pedidosBrutosQtd: pedidosNaJanela,
+        canceladosDevolvidosNumerico: canceladosDevolvidos,
+        canceladosDevolvidos: formatCurrency(canceladosDevolvidos),
+        canceladosDevolvidosQtd,
+        reembolsosParciaisNumerico: reembolsosParciaisJanela,
+        reembolsosParciais: formatCurrency(reembolsosParciaisJanela),
         pedidosComReembolsoParcialQtd,
       },
     } : {}),
@@ -685,13 +693,16 @@ export async function obterDashboardData(
     const alvo = pertenceAoAtual ? vendasPorProduto : vendasAnterioresPorProduto;
     const atual = alvo.get(item.produtoId) ?? { quantidade: 0, receita: 0 };
     atual.quantidade += item.quantidade;
-    atual.receita += item.quantidade * parseMoney(item.precoUnitario);
+    const totalItens = parseMoney(item.totalItens);
+    atual.receita += totalItens > 0
+      ? Number(item.receitaPedido) * item.quantidade * parseMoney(item.precoUnitario) / totalItens
+      : 0;
     alvo.set(item.produtoId, atual);
   }
 
   const ultimaSaidaPorProduto = new Map<string, Date>();
   for (const item of ultimasSaidas) {
-    if (item.ultima) ultimaSaidaPorProduto.set(item.produtoId, item.ultima);
+    if (item.ultima) ultimaSaidaPorProduto.set(item.produtoId, new Date(item.ultima));
   }
 
   const base = (item: typeof produtosAtivos[number]): ProdutoBase => ({
@@ -713,7 +724,7 @@ export async function obterDashboardData(
     .sort((a, b) => b.venda.quantidade - a.venda.quantidade || b.venda.receita - a.venda.receita);
 
   const maiorQuantidade = rankingVendasCompleto[0]?.venda.quantidade ?? 0;
-  const maisVendidos: ProdutoMaisVendido[] = rankingVendasCompleto.slice(0, LIMITE_ITENS_LISTA).map(({ item, venda }) => ({
+  const maisVendidos: ProdutoMaisVendido[] = rankingVendasCompleto.map(({ item, venda }) => ({
     ...base(item),
     quantidade: venda.quantidade,
     quantidadeAnterior: vendasAnterioresPorProduto.get(item.id)?.quantidade ?? 0,
@@ -755,7 +766,7 @@ export async function obterDashboardData(
     // Menor giro primeiro; empate desempata por dinheiro parado — o que dói mais.
     .sort((a, b) => a.quantidade - b.quantidade || b.valorParadoNumerico - a.valorParadoNumerico);
   const giroBaixoValorParadoNumerico = giroBaixoCompleto.reduce((soma, item) => soma + item.valorParadoNumerico, 0);
-  const giroBaixo: ProdutoGiroBaixo[] = giroBaixoCompleto.slice(0, LIMITE_ITENS_LISTA).map(({ valorParadoNumerico, ...resto }) => ({
+  const giroBaixo: ProdutoGiroBaixo[] = giroBaixoCompleto.map(({ valorParadoNumerico, ...resto }) => ({
       ...resto,
       valorParado: formatCurrency(valorParadoNumerico),
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
@@ -782,7 +793,7 @@ export async function obterDashboardData(
     // Maior capital imobilizado primeiro — é o que justifica liquidar.
     .sort((a, b) => b.valorParadoNumerico - a.valorParadoNumerico);
   const paradosValorParadoNumerico = paradosCompletos.reduce((soma, item) => soma + item.valorParadoNumerico, 0);
-  const parados: ProdutoParado[] = paradosCompletos.slice(0, LIMITE_ITENS_LISTA).map(({ valorParadoNumerico, ...resto }) => ({
+  const parados: ProdutoParado[] = paradosCompletos.map(({ valorParadoNumerico, ...resto }) => ({
       ...resto,
       valorParado: formatCurrency(valorParadoNumerico),
       statusAnuncio: "nao_consultado" as StatusAnuncioParado,
@@ -824,7 +835,7 @@ export async function obterDashboardData(
       if (b.coberturaDias !== null) return 1;
       return b.urgencia - a.urgencia;
     });
-  const reposicao = reposicaoCompleta.slice(0, LIMITE_ITENS_LISTA);
+  const reposicao = reposicaoCompleta;
 
   // Uma leitura local para as quatro listas. Produtos repetidos entre cards
   // não geram trabalho extra relevante e cada objeto recebe o mesmo snapshot.
@@ -833,7 +844,7 @@ export async function obterDashboardData(
     ...giroBaixo,
     ...parados,
     ...reposicao,
-  ]);
+  ], canalFiltro);
 
   return {
     faturamento,

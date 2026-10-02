@@ -144,7 +144,7 @@ export async function actionObterResumoPublicacoes(
         brandId, canal, inicio: inicioAnterior, fim: fimAnterior,
       }),
     ]);
-    return { atual: atual.resumo, anterior: anterior.resumo };
+    return { atual: atual.resumo, anterior: anterior.resumo, parcial: atual.parcial || anterior.parcial };
   }));
 
   const sucessos = resultados.flatMap((resultado) => resultado.status === "fulfilled" ? [resultado.value] : []);
@@ -160,7 +160,7 @@ export async function actionObterResumoPublicacoes(
     variacaoReceitaPercentual: receitaAnterior > 0
       ? Math.round(((receita - receitaAnterior) / receitaAnterior) * 100)
       : null,
-    parcial: sucessos.length !== resultados.length,
+    parcial: sucessos.length !== resultados.length || sucessos.some((item) => item.parcial),
   };
 }
 

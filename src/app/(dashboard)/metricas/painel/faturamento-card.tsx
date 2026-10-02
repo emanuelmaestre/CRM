@@ -175,13 +175,13 @@ function EntendaFaturamentoBotao({
             <p className="text-sm font-bold text-foreground">Bruto</p>
           </div>
           <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">
-            É a soma do valor bruto informado pelo canal para cada pedido com pagamento confirmado, menos reembolsos parciais já informados.
+            É o valor de referência de Vendas para cada canal, antes dos abatimentos: Produto Pago na Shopee, GMV no TikTok e Total bruto comparável no Mercado Livre.
           </p>
           <ul className="mt-3 flex flex-col gap-2">
             <ItemRegra tipo="entra">Valor bruto do pedido informado pelo canal</ItemRegra>
-            <ItemRegra tipo="fora">Parcela que já foi reembolsada ao comprador</ItemRegra>
-            <ItemRegra tipo="fora">Pedidos cancelados</ItemRegra>
-            <ItemRegra tipo="fora">Pedidos devolvidos</ItemRegra>
+            <ItemRegra tipo="entra">Pagamentos posteriormente cancelados ou reembolsados</ItemRegra>
+            <ItemRegra tipo="fora">Pedidos sem pagamento confirmado e amostras grátis do TikTok</ItemRegra>
+            <ItemRegra tipo="entra">Shopee e TikTok pela data do pagamento; Mercado Livre pela aprovação</ItemRegra>
           </ul>
         </div>
 
@@ -205,18 +205,18 @@ function EntendaFaturamentoBotao({
             </ItemRegra>
             <ItemRegra tipo="atencao">
               <strong className="font-semibold text-foreground">Quando o canal não informa</strong> (Mercado Livre),
-              o valor é estimado: bruto menos as taxas que conhecemos por item, menos o frete. Como nem toda tarifa
+              o valor é estimado: receita após reembolsos menos as taxas que conhecemos por item, menos o frete. Como nem toda tarifa
               aparece, a estimativa tende a ficar <strong className="font-semibold text-foreground">acima</strong> do
               que cai de fato na conta.
             </ItemRegra>
-            <ItemRegra tipo="fora">Não desconta desconto ou acréscimo aplicado ao pedido</ItemRegra>
+            <ItemRegra tipo="fora">Não desconta novamente descontos já incorporados ao valor do pedido</ItemRegra>
             <ItemRegra tipo="fora">Não desconta o custo do produto, por isso líquido não é lucro</ItemRegra>
           </ul>
         </div>
       </div>
 
       <p className="mt-4 rounded-[0.85rem] px-3 py-2.5 text-[12px] font-medium leading-relaxed" style={{ background: tint("var(--selecionado)", 8), color: "var(--foreground)" }}>
-        Cancelamentos e devoluções integrais ficam fora; em reembolso parcial, somente a parcela devolvida é abatida.
+        No líquido, cancelamentos e devoluções integrais ficam fora. Reembolsos e taxas já incluídos no repasse informado não são descontados novamente.
       </p>
 
       {dados?.composicao && (
@@ -225,7 +225,7 @@ function EntendaFaturamentoBotao({
             Composição no período selecionado
           </p>
           <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-[12px]">
-            <dt className="text-muted-foreground">Total comparável ao painel do canal ({inteiro.format(dados.composicao.pedidosBrutosQtd)} pedidos)</dt>
+            <dt className="text-muted-foreground">Bruto de referência do canal ({inteiro.format(dados.composicao.pedidosBrutosQtd)} pedidos)</dt>
             <dd className="font-semibold tabular-nums text-foreground">{dados.composicao.pedidosBrutos}</dd>
             <dt className="text-muted-foreground">Cancelados e devolvidos</dt>
             <dd className="font-semibold tabular-nums text-destructive">− {dados.composicao.canceladosDevolvidos}</dd>
@@ -235,14 +235,18 @@ function EntendaFaturamentoBotao({
                   Reembolsos parciais ({inteiro.format(dados.composicao.pedidosComReembolsoParcialQtd)} pedidos)
                 </dt>
                 <dd className="font-semibold tabular-nums text-destructive">
-− {dados.composicao.reembolsosParciais}</dd>
+                  − {dados.composicao.reembolsosParciais}</dd>
               </>
             )}
-            <dt className="border-t border-border pt-1.5 font-semibold text-foreground">Faturamento exibido</dt>
-            <dd className="border-t border-border pt-1.5 font-bold tabular-nums text-foreground">{dados.total}</dd>
+            {Boolean(dados.composicao.ajustesBaseNumerico) && <>
+              <dt className="text-muted-foreground">Ajuste entre a base do canal e o valor do pedido</dt>
+              <dd className="font-semibold tabular-nums text-foreground">{dados.composicao.ajustesBase}</dd>
+            </>}
+            <dt className="border-t border-border pt-1.5 font-semibold text-foreground">Receita após cancelamentos e reembolsos</dt>
+            <dd className="border-t border-border pt-1.5 font-bold tabular-nums text-foreground">{dados.composicao.receitaPreservada ?? dados.total}</dd>
           </dl>
           <p className="mt-2 text-[11.5px] leading-relaxed text-muted-foreground">
-            Alguns painéis de canal chamam o primeiro valor de total bruto. Compare a mesma regra e o mesmo período antes de tratar a diferença como pedido ausente.
+            O bruto segue o card de referência de Vendas de cada canal. No TikTok, GMV e valor financeiro do pedido podem ter bases diferentes; o ajuste é mostrado separadamente.
           </p>
           <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">
             No Mercado Livre, vendas são consideradas pela aprovação do pagamento em Brasília. Os atalhos incluem os dias anteriores e hoje. Registros técnicos de divisão de pacote são excluídos; os valores preservam centavos.
@@ -414,7 +418,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
     { text: `${dados.pedidos} pedido${dados.pedidos === 1 ? "" : "s"}`, bold: true },
     { text: " no período, com valor médio por pedido de " },
     { text: ticketResumoLabel, bold: true },
-    { text: "." },
+    { text: liquido ? ". Média líquida por pedido da base do bruto, incluindo cancelados com líquido zero." : "." },
   ] : [];
 
   const obsChunks: Chunk[] = temResumo
@@ -423,13 +427,13 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
         { text: "OBS: ", bold: true },
         { text: "faturamento " },
         { text: "líquido", bold: true },
-        { text: " é o valor bruto do pedido menos a taxa do canal de venda por item (quando o canal informa esse valor) e o frete pago por você como vendedor. Não desconta desconto ou acréscimo aplicado ao pedido, nem o custo do produto." },
+        { text: " usa o repasse informado pelo canal. Sem repasse, estima a receita após reembolsos menos taxas conhecidas e frete. Cancelamentos e devoluções integrais ficam fora. Não desconta novamente ajustes já incluídos no repasse, nem custo do produto ou imposto." },
       ]
       : [
         { text: "OBS: ", bold: true },
         { text: "faturamento " },
         { text: "bruto", bold: true },
-        { text: " é a soma do valor bruto informado pelo canal para pedidos com pagamento confirmado. Cancelamentos e devoluções integrais ficam fora; reembolsos parciais são abatidos apenas na parcela devolvida." },
+        { text: " segue Produto Pago da Shopee e GMV do TikTok pela data do pagamento, e Total bruto comparável do Mercado Livre pela aprovação. Inclui cancelamentos e reembolsos posteriores, antes dos abatimentos." },
       ]
     : [];
 
@@ -512,7 +516,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                       ]}
                       nota={
                         liquido
-                          ? "Líquido descontando a taxa do canal de venda (por item, quando o canal informa) e o frete pago pelo vendedor. Não desconta desconto/acréscimo nem custo do produto. O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
+                          ? "Líquido pelo repasse informado; sem repasse, estimativa após reembolsos, taxas conhecidas e frete. Não desconta custo do produto ou imposto. O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
                           : "O período anterior possui o mesmo número de dias do período atual e termina antes do início dele, sem sobreposição."
                       }
                     />
@@ -523,7 +527,7 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
               <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5">
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <ShoppingBag size={13} strokeWidth={2} className="shrink-0 opacity-70" />
-                  <span className="font-semibold tabular-nums text-foreground">{dados?.pedidos}</span> {copy.ordersLabel}
+                  <span className="font-semibold tabular-nums text-foreground">{dados?.pedidos}</span> pedidos na base do bruto
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Receipt size={13} strokeWidth={2} className="shrink-0 opacity-70" />
@@ -531,9 +535,16 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                 </span>
               </div>
 
+              {liquido && dados?.totalLiquidoApurado && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Repasse informado: {dados.totalLiquidoApurado} · Estimativa: {dados.totalLiquidoEstimado}
+                  {Boolean(dados.liquidoEstimadosQtd) && <> · {dados.liquidoEstimadosQtd} pedidos sem repasse informado</>}
+                </p>
+              )}
               {!liquido && dados?.composicao && (
                 dados.composicao.canceladosDevolvidosQtd > 0
                 || dados.composicao.pedidosComReembolsoParcialQtd > 0
+                || Boolean(dados.composicao.ajustesBaseNumerico)
               ) && (
                 <div
                   className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-[0.8rem] border px-3 py-2 text-xs"
@@ -543,10 +554,10 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                   }}
                 >
                   <span className="text-muted-foreground">
-                    Para comparar com o painel do canal, antes de cancelamentos e reembolsos
+                    Receita após cancelamentos e reembolsos
                   </span>
                   <span className="font-bold tabular-nums text-foreground">
-                    {dados.composicao.pedidosBrutos} · {inteiro.format(dados.composicao.pedidosBrutosQtd)} pedidos
+                    {dados.composicao.receitaPreservada ?? dados.total}
                   </span>
                 </div>
               )}
@@ -603,9 +614,9 @@ export function FaturamentoCard({ dados, carregando, semFiltro, cores = [], scop
                         um par "de → para" que se lê de relance, em vez de uma
                         frase longa cheia de data no meio. */}
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
-                      <span>{dados.janelaLabel}</span>
-                      <span className="text-muted-foreground/60">vs.</span>
                       <span>{dados.janelaAnteriorLabel}</span>
+                      <span className="text-muted-foreground/60">vs.</span>
+                      <span>{dados.janelaLabel}</span>
                     </p>
 
                     {/* Grade dos 3 números que sustentam a manchete. Fora do

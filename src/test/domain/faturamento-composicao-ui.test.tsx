@@ -13,13 +13,13 @@ globalThis.ResizeObserver ??= ResizeObserverMock;
 
 const dados: FaturamentoResumo = {
   granularidade: "dia",
-  total: "R$ 75.120,44",
-  totalNumerico: 75_120.44,
+  total: "R$ 78.802,98",
+  totalNumerico: 78_802.98,
   variacaoPercentual: 2,
   totalAnteriorNumerico: 73_000,
   totalAnterior: "R$ 73.000,00",
   janelaAnteriorLabel: "01/07 a 30/07",
-  pedidos: 1_674,
+  pedidos: 1_750,
   ticketMedio: "R$ 44,87",
   serie: [
     { label: "01/08", valor: 30_000, altura: 40 },
@@ -37,6 +37,7 @@ const dados: FaturamentoResumo = {
     { label: "02/08", valor: 40_000, altura: 100 },
   ],
   composicao: {
+    receitaPreservada: "R$ 75.120,44",
     pedidosBrutosNumerico: 78_802.98,
     pedidosBrutos: "R$ 78.802,98",
     pedidosBrutosQtd: 1_750,
@@ -50,7 +51,7 @@ const dados: FaturamentoResumo = {
 };
 
 describe("detalhamento aditivo do faturamento", () => {
-  it("mantém o faturamento confirmado e deixa visível o total comparável ao painel", async () => {
+  it("mostra o bruto oficial e explica a receita após os abatimentos", async () => {
     const acaoSlot = document.createElement("div");
     document.body.appendChild(acaoSlot);
     const aoTrocarLiquido = vi.fn();
@@ -66,10 +67,14 @@ describe("detalhamento aditivo do faturamento", () => {
       />,
     );
 
-    expect(screen.getAllByText("R$ 75.120,44").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Para comparar com o painel do canal/)).toBeInTheDocument();
-    expect(screen.getByText("R$ 78.802,98 · 1.750 pedidos")).toBeInTheDocument();
+    expect(screen.getAllByText("R$ 78.802,98").length).toBeGreaterThan(0);
+    expect(screen.getByText("Receita após cancelamentos e reembolsos")).toBeInTheDocument();
+    expect(screen.getByText("R$ 75.120,44")).toBeInTheDocument();
     expect(screen.queryByText("Composição no período selecionado")).not.toBeInTheDocument();
+    const anterior = screen.getByText(dados.janelaAnteriorLabel);
+    const atual = screen.getByText(dados.janelaLabel);
+    expect(anterior.parentElement).toBe(atual.parentElement);
+    expect(anterior.compareDocumentPosition(atual) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Entenda como o faturamento é calculado" })[0]);
     expect(await screen.findByText("Composição no período selecionado")).toBeInTheDocument();

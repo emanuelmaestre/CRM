@@ -2,22 +2,18 @@ import { and, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import type { CrudContext } from "@/shared/lib/crud-factory";
 import { pedido } from "@/shared/lib/db/schema";
 import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
-import { valorFaturavelPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+import { pedidoComercialSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+import { composicaoResumoPedidosSql } from "@/modules/vendas/infrastructure/composicao-resumo.sql";
+import { referenciaFaturamentoSql } from "@/modules/metricas/infrastructure/faturamento.sql";
 
-const STATUS_FATURAVEL_SQL = sql.join(STATUS_PEDIDO_FATURAVEL.map((status) => sql`${status}`), sql`, `);
 const STATUS_PEDIDO_COM_DESFECHO_SQL = sql.join(
   [...STATUS_PEDIDO_FATURAVEL, "cancelado", "devolvido"].map((status) => sql`${status}`),
   sql`, `,
 );
-const VALOR_FATURAVEL_P = valorFaturavelPedidoSql(sql.raw("p.total"), sql.raw("p.dados_origem"));
 
-/* ── Três indicadores que já moravam no banco ─────────────────────
-   Nenhum dos três pede chamada nova a canal nenhum. Toda métrica de
-   faturamento do módulo já filtra `cancelado`/`devolvido` para fora —
-   esse descarte nunca virou número próprio. O Painel já sabe quais
-   produtos mais vendem, mas nunca perguntou "quanto da receita depende
-   só deles". E o Scoring já classifica cliente novo vs. recorrente,
-   só que só o módulo de Scoring lê essa tabela. */
+
+/* Indicadores locais: cancelamentos operacionais por criação e receita
+   preservada por referência financeira para concentração e recorrência. */
 
 export interface CrescimentoMarca {
   brandId: string;
@@ -35,7 +31,7 @@ export interface CrescimentoMarca {
   receitaTotalConcentracao: number;
   receitaTop5: number;
   /** 0–100: quanto da receita paga veio de cliente que já tinha
-   *  comprado dessa marca antes do período. Null sem receita no período. */
+   *  comprado dessa marca antes desta compra. Null sem receita no período. */
   taxaRecorrencia: number | null;
   /** Receita total paga e a fatia dela vinda de clientes
    *  recorrentes — o numerador e o denominador de `taxaRecorrencia`. */
@@ -52,14 +48,17 @@ function percentual(parte: number, total: number): number | null {
   return total > 0 ? Math.round((parte / total) * 1000) / 10 : null;
 }
 
-/** Recorte de canal para as consultas em SQL cru. Lista vazia = sem recorte
- *  (todos os canais), mesma convenção do resto do módulo. Recebe o apelido da
- *  tabela porque a recorrência precisa aplicar o mesmo recorte duas vezes: no
- *  pedido do período e no pedido anterior que o torna recorrente. */
-function filtroCanal(canais: string[], apelido = "p") {
-  if (canais.length === 0) return sql``;
-  const coluna = sql.raw(`${apelido}.canal`);
-  return sql` and ${coluna} in (${sql.join(canais.map((canal) => sql`${canal}`), sql`, `)})`;
+/** Base financeira comum: pagamento na Shopee/TikTok e aprovação no ML. */
+function baseFinanceira(ctx: CrudContext, brandIds: string[], canais: string[]) {
+  const r = referenciaFaturamentoSql();
+  return sql`select ${pedido.id} as id, ${pedido.brandId} as brand_id,
+    ${pedido.clienteId} as cliente_id, ${r.data} as data_venda,
+    ${r.confirmado} as receita
+    from ${pedido}
+    where ${pedido.orgId} = ${ctx.orgId} and ${pedidoComercialSql()}
+      and ${r.incluido} and ${r.faturavel}
+      and ${pedido.brandId} in (${sql.join(brandIds.map((id) => sql`${id}::uuid`), sql`, `)})
+      ${canais.length > 0 ? sql`and ${pedido.canal} in (${sql.join(canais.map((c) => sql`${c}`), sql`, `)})` : sql``}`;
 }
 
 /** Cancelamento e devolução contam sobre TODOS os pedidos do período — ao
@@ -72,15 +71,17 @@ async function taxasCancelamento(
   brandIds: string[],
   canais: string[],
 ): Promise<Map<string, { taxa: number | null; total: number; cancelados: number }>> {
+  const status = composicaoResumoPedidosSql().status;
   const linhas = await ctx.db
     .select({
       brandId: pedido.brandId,
-      total: sql<number>`count(*) filter (where ${pedido.status} in (${STATUS_PEDIDO_COM_DESFECHO_SQL}))`,
-      cancelados: sql<number>`count(*) filter (where ${pedido.status} in ('cancelado', 'devolvido'))`,
+      total: sql<number>`count(*) filter (where ${status} in (${STATUS_PEDIDO_COM_DESFECHO_SQL}))`,
+      cancelados: sql<number>`count(*) filter (where ${status} in ('cancelado', 'devolvido'))`,
     })
     .from(pedido)
     .where(and(
       eq(pedido.orgId, ctx.orgId),
+      pedidoComercialSql(),
       inArray(pedido.brandId, brandIds),
       gte(pedido.createdAt, inicio),
       lte(pedido.createdAt, fim),
@@ -105,31 +106,33 @@ async function concentracaoTop5PorMarca(
   canais: string[],
 ): Promise<Map<string, { taxa: number | null; total: number; top5: number }>> {
   const resultado = await ctx.db.execute(sql`
-    with vendas_produto as (
+    with financeiro as (${baseFinanceira(ctx, brandIds, canais)}),
+    pedidos_do_periodo as (
+      select * from financeiro where data_venda >= ${inicio.toISOString()}::timestamptz
+        and data_venda <= ${fim.toISOString()}::timestamptz
+    ),
+    totais_itens as (
+      select pi.pedido_id, sum(pi.quantidade * pi.preco_unitario) as valor
+      from pedido_item pi inner join pedidos_do_periodo p on p.id = pi.pedido_id
+      group by pi.pedido_id
+    ),
+    vendas_produto as (
       select p.brand_id, pi.produto_id,
-        sum(
-          pi.quantidade * pi.preco_unitario
-          * case when p.total > 0 then ${VALOR_FATURAVEL_P} / p.total else 0 end
-        ) as receita
-      from pedido_item pi
-      inner join pedido p on p.id = pi.pedido_id
-      where p.org_id = ${ctx.orgId}
-        and p.brand_id in (${sql.join(brandIds.map((id) => sql`${id}::uuid`), sql`, `)})
-        and p.criado_em >= ${inicio.toISOString()}::timestamptz
-        and p.criado_em <= ${fim.toISOString()}::timestamptz
-        and p.status in (${STATUS_FATURAVEL_SQL})${filtroCanal(canais)}
+        sum(case when t.valor > 0 then p.receita * pi.quantidade * pi.preco_unitario / t.valor else 0 end) as receita
+      from pedido_item pi inner join pedidos_do_periodo p on p.id = pi.pedido_id
+      inner join totais_itens t on t.pedido_id = p.id
+      where pi.produto_id is not null
       group by p.brand_id, pi.produto_id
     ),
     ranqueado as (
-      select *, row_number() over (partition by brand_id order by receita desc) as posicao
+      select *, row_number() over (partition by brand_id order by receita desc, produto_id) as posicao
       from vendas_produto
-    )
-    select
-      brand_id,
-      sum(receita) as receita_total,
-      sum(receita) filter (where posicao <= 5) as receita_top5
-    from ranqueado
-    group by brand_id
+    ),
+    totais as (select brand_id, sum(receita) as receita_total from pedidos_do_periodo group by brand_id)
+    select t.brand_id, t.receita_total,
+      coalesce(sum(r.receita) filter (where r.posicao <= 5), 0) as receita_top5
+    from totais t left join ranqueado r on r.brand_id = t.brand_id
+    group by t.brand_id, t.receita_total
   `);
 
   const linhas = (Array.isArray(resultado) ? resultado : (resultado as { rows?: unknown[] }).rows) ?? [];
@@ -159,31 +162,22 @@ async function taxaRecorrenciaPorMarca(
   canais: string[],
 ): Promise<Map<string, { taxa: number | null; total: number; recorrente: number }>> {
   const resultado = await ctx.db.execute(sql`
-    with pedidos_do_periodo as (
-      select
-        p.brand_id,
-        ${VALOR_FATURAVEL_P} as total,
+    with financeiro as (${baseFinanceira(ctx, brandIds, canais)}),
+    pedidos_do_periodo as (
+      select p.brand_id, p.receita as total,
         exists (
-          select 1 from pedido anterior
+          select 1 from financeiro anterior
           where anterior.cliente_id = p.cliente_id
             and anterior.brand_id = p.brand_id
-            and anterior.org_id = p.org_id
-            and anterior.criado_em < p.criado_em
-            and anterior.status in (${STATUS_FATURAVEL_SQL})${filtroCanal(canais, "anterior")}
+            and anterior.data_venda < p.data_venda
         ) as recorrente
-      from pedido p
-      where p.org_id = ${ctx.orgId}
-        and p.brand_id in (${sql.join(brandIds.map((id) => sql`${id}::uuid`), sql`, `)})
-        and p.criado_em >= ${inicio.toISOString()}::timestamptz
-        and p.criado_em <= ${fim.toISOString()}::timestamptz
-        and p.status in (${STATUS_FATURAVEL_SQL})${filtroCanal(canais)}
+      from financeiro p
+      where p.data_venda >= ${inicio.toISOString()}::timestamptz
+        and p.data_venda <= ${fim.toISOString()}::timestamptz
     )
-    select
-      brand_id,
-      sum(total) as receita_total,
+    select brand_id, sum(total) as receita_total,
       sum(total) filter (where recorrente) as receita_recorrente
-    from pedidos_do_periodo
-    group by brand_id
+    from pedidos_do_periodo group by brand_id
   `);
 
   const linhas = (Array.isArray(resultado) ? resultado : (resultado as { rows?: unknown[] }).rows) ?? [];

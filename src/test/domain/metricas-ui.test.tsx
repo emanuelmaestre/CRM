@@ -80,6 +80,14 @@ function resultado(parcial: Partial<SaudeLojaResultado> = {}): SaudeLojaResultad
 }
 
 describe("cards de Métricas", () => {
+  it("mostra o denominador da própria recorrência, com valores exatos", async () => {
+    render(<ComparacaoCard dados={resultado({ marcas: [marca({ taxaRecorrencia: 50,
+      receitaRecorrente: 50, receitaTotalRecorrencia: 100, receitaTotalConcentracao: 200 })] })} carregando={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Entenda o indicador Recorrência" }));
+    expect(await screen.findByText("R$ 100,00")).toBeInTheDocument();
+    expect(screen.getByText("R$ 50,00")).toBeInTheDocument();
+    expect(screen.queryByText("R$ 200,00")).not.toBeInTheDocument();
+  });
   it("explica cada indicador em linguagem de negócio e mostra a origem do cálculo", async () => {
     render(
       <CalculoPopover

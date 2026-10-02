@@ -3,6 +3,9 @@ import type { CrudContext } from "@/shared/lib/crud-factory";
 import { brand, pedido } from "@/shared/lib/db/schema";
 import { getBrandConfig, compararPorOrdemDeMarca } from "@/shared/config/brands";
 
+import { composicaoResumoPedidosSql } from "@/modules/vendas/infrastructure/composicao-resumo.sql";
+import { pedidoComercialSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+
 export interface PosVendaMarca {
   brandId: string;
   marcaSlug: string;
@@ -37,24 +40,25 @@ export async function obterPosVenda(ctx: CrudContext, filtros: {
   if (marcas.length === 0) return { marcas: [], parcial: true };
 
   const ids = marcas.map((item) => item.id);
+  const status = composicaoResumoPedidosSql().status;
   const recorteCanal = filtros.canais?.length ? [inArray(pedido.canal, filtros.canais)] : [];
   const [resumos, motivos] = await Promise.all([
     ctx.db.select({
       brandId: pedido.brandId,
       total: sql<number>`count(*)`,
-      cancelados: sql<number>`count(*) filter (where ${pedido.status} = 'cancelado')`,
+      cancelados: sql<number>`count(*) filter (where ${status} = 'cancelado')`,
       devolvidos: sql<number>`count(*) filter (where ${pedido.status} = 'devolvido')`,
       entregues: sql<number>`count(*) filter (where ${pedido.status} in ('entregue','concluido','avaliacao_solicitada'))`,
       emTransito: sql<number>`count(*) filter (where ${pedido.status} in ('pago','separado','enviado'))`,
       impacto: sql<number>`coalesce(sum(${pedido.total}) filter (where ${pedido.status} in ('cancelado','devolvido')), 0)`,
-    }).from(pedido).where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.brandId, ids),
+    }).from(pedido).where(and(eq(pedido.orgId, ctx.orgId), pedidoComercialSql(), inArray(pedido.brandId, ids),
       gte(pedido.createdAt, filtros.inicio), lte(pedido.createdAt, filtros.fim),
       ...recorteCanal)).groupBy(pedido.brandId),
     ctx.db.select({ brandId: pedido.brandId, motivo: pedido.canceladoMotivo, quantidade: sql<number>`count(*)` })
       .from(pedido).where(and(eq(pedido.orgId, ctx.orgId), inArray(pedido.brandId, ids),
         gte(pedido.createdAt, filtros.inicio), lte(pedido.createdAt, filtros.fim),
         ...recorteCanal,
-        inArray(pedido.status, ["cancelado", "devolvido"])))
+        inArray(status, ["cancelado", "devolvido"])))
       .groupBy(pedido.brandId, pedido.canceladoMotivo),
   ]);
   const porMarca = new Map(resumos.map((item) => [item.brandId, item]));

@@ -3,7 +3,6 @@ import type { CrudContext } from "@/shared/lib/crud-factory";
 import {
   brand,
   channelAccount,
-  estoqueCanalSaldo,
   mlAvaliacaoAnuncio,
   shopeeAvaliacaoAnuncio,
   pedido,
@@ -21,8 +20,9 @@ import {
   type ReputacaoResultado,
 } from "./reputacao.service";
 import { obterCrescimentoPorMarca } from "./crescimento.service";
-import { STATUS_PEDIDO_FATURAVEL } from "@/modules/vendas/domain/status-faturamento";
-import { valorFaturavelPedidoSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+import { referenciaFaturamentoSql } from "@/modules/metricas/infrastructure/faturamento.sql";
+import { pedidoComercialSql } from "@/modules/vendas/infrastructure/valor-faturamento.sql";
+import { saldoPublicadoAtual } from "@/modules/estoque/infrastructure/saldo-canais";
 import type { ReclamacoesResultado } from "./reclamacoes.service";
 
 /* ── Score de Saúde da Loja ──────────────────────────────────────
@@ -338,6 +338,8 @@ export async function obterSaudeLoja(
 
   const idsVisiveis = marcas.map((item) => item.id);
   const leve = filtros?.leve ?? false;
+  const referencia = referenciaFaturamentoSql();
+  const saldo = saldoPublicadoAtual(ctx.orgId, canais);
 
   // Tudo em paralelo: nenhuma dessas consultas depende do resultado da outra.
   // A reputação é a única chamada externa ao Mercado Livre e fica fora do modo
@@ -355,16 +357,17 @@ export async function obterSaudeLoja(
     ctx.db
       .select({
         brandId: pedido.brandId,
-        receita: sql<string>`sum(${valorFaturavelPedidoSql()})`,
+        receita: sql<string>`sum(${referencia.bruto})`,
         pedidos: count(),
       })
       .from(pedido)
       .where(and(
         eq(pedido.orgId, ctx.orgId),
         inArray(pedido.brandId, idsVisiveis),
-        gte(pedido.createdAt, inicio),
-        lte(pedido.createdAt, fim),
-        inArray(pedido.status, [...STATUS_PEDIDO_FATURAVEL]),
+        gte(referencia.data, inicio.toISOString()),
+        lte(referencia.data, fim.toISOString()),
+        referencia.incluido,
+        pedidoComercialSql(),
         ...recorteCanal,
       ))
       .groupBy(pedido.brandId),
@@ -410,8 +413,8 @@ export async function obterSaudeLoja(
       .select({
         brandId: produto.brandId,
         ativos: count(),
-        comSaldo: sql<number>`count(*) filter (where ${saldoDoProduto(ctx.orgId)} > 0)`,
-        abaixoDoMinimo: sql<number>`count(*) filter (where ${produto.estoqueMinimo} > 0 and ${saldoDoProduto(ctx.orgId)} <= ${produto.estoqueMinimo})`,
+        comSaldo: sql<number>`count(*) filter (where ${saldo} > 0)`,
+        abaixoDoMinimo: sql<number>`count(*) filter (where ${produto.estoqueMinimo} > 0 and ${saldo} <= ${produto.estoqueMinimo})`,
       })
       .from(produto)
       .where(and(
@@ -419,6 +422,7 @@ export async function obterSaudeLoja(
         inArray(produto.brandId, idsVisiveis),
         eq(produto.ativo, true),
         isNull(produto.deletedAt),
+        sql`${saldo} is not null`,
         ...(canais.length > 0 ? [condicaoCanalProduto(ctx.orgId, canais)] : []),
       ))
       .groupBy(produto.brandId),
@@ -597,14 +601,4 @@ function condicaoCanalProduto(orgId: string, canais: string[]) {
       and ${produtoCanal.ativo} = true
       and ${channelAccount.tipo} in ${canais}
   )`;
-}
-
-/** Mesmo saldo que o Estoque e o Painel usam: o MAIOR entre os canais, nunca a
- *  soma — o mesmo item anunciado em dois canais não vira estoque em dobro. */
-function saldoDoProduto(orgId: string) {
-  return sql`coalesce((
-    select max(${estoqueCanalSaldo.saldo}) from ${estoqueCanalSaldo}
-    where ${estoqueCanalSaldo.produtoId} = ${produto.id}
-      and ${estoqueCanalSaldo.orgId} = ${orgId}
-  ), 0)`;
 }

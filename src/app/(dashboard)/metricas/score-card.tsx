@@ -81,7 +81,7 @@ function explicacaoPilar(pilar: Pilar) {
     reputacao: "Reputação da marca como vendedora, direto do termômetro público do Mercado Livre (a cor que qualquer comprador vê na página do anúncio). O selo Mercado Líder aparece ao lado quando a marca tem, mas não muda a nota.",
     posVenda: "Como a marca está nas três taxas que o Mercado Livre usa para derrubar o termômetro: reclamações, cancelamentos e atrasos no envio. Só existe no Mercado Livre.",
     satisfacao: "Nota média (1 a 5 estrelas) que os compradores deram aos anúncios da marca no Mercado Livre e na Shopee, somando todo o histórico de cada anúncio.",
-    estoque: "Quantos produtos ativos do catálogo têm saldo para vender, e quantos já estão no mínimo ou abaixo dele. O saldo é o maior entre os canais, nunca a soma.",
+    estoque: "Dos produtos com leitura atual nos canais selecionados, quantos têm saldo para vender e quantos estão no mínimo ou abaixo. O saldo é o maior entre esses canais, nunca a soma.",
   };
 
   const FORMULA: Record<Pilar["chave"], string> = {
@@ -187,7 +187,7 @@ function PopoverScore({ consolidado, marcas, marcaSelecionada, score }: {
         titulo="Pontuação consolidada"
         significado="Resume a saúde de todas as marcas em uma nota única de 0 a 100. Marcas com maior faturamento influenciam mais o resultado consolidado."
         formula={porFaturamento
-          ? "média das pontuações de cada marca, ponderada pelo faturamento do período"
+          ? "média das pontuações de cada marca, ponderada pelo faturamento bruto do período"
           : "média simples das pontuações de cada marca (nenhuma faturou no período)"}
         resultado={String(score)}
         itens={medidas.map((marca) => ({
