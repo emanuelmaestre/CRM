@@ -544,15 +544,17 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
             "Todos" crescia (flex-1) e empurrava os outros dois pra direita,
             com espaçamento desigual. Do md em diante volta a ser a fileira
             de sempre, auto-ajustada ao conteúdo. */}
-        <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2 md:flex md:items-center">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5 md:flex md:items-center md:gap-2">
           {/* buttonClassName força 44px de altura — o padrão do componente é
               36px, que ficava desalinhado ao lado dos calendários e do Hoje
               (todos 44px) nesta linha. */}
           <div className="min-w-0 md:flex-initial">
             <SelectPopover
+              className="relative flex w-full md:inline-flex md:w-auto"
+              labelClassName="min-w-0 truncate"
               valor={statusGrupo}
               onChange={setStatusGrupo}
-              buttonClassName="press-feedback inline-flex h-11 w-full min-w-[7rem] items-center justify-center gap-2 rounded-full border border-border bg-card px-3.5 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado disabled:opacity-60 md:w-auto md:justify-between"
+              buttonClassName="press-feedback inline-flex h-11 w-full min-w-0 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-2 text-xs font-semibold text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-selecionado disabled:opacity-60 max-[380px]:gap-1 max-[380px]:px-1 max-[380px]:text-[13px]! md:w-auto md:min-w-[7rem] md:justify-between md:gap-2 md:px-3.5"
               itens={GRUPOS_STATUS.map((grupo) => ({
                 value: grupo.chave,
                 label: grupo.chave === "" ? copy.statusFilter.all : grupo.label,
@@ -566,6 +568,7 @@ export function PedidosLista({ marcasIniciais = [], canaisIniciais = [] }: {
           <CalendarioPopoverRange
             incluirHojeAlemDoPeriodo={canaisSel.length === 1 && canaisSel[0] === "mercadolivre"}
             rotulo="Período"
+            buttonClassName="w-full min-w-0 justify-center gap-1.5 px-2 max-[380px]:gap-1 max-[380px]:px-1 max-[380px]:text-[13px]! md:w-auto md:gap-2 md:px-3.5"
             valor={{ inicio: dataInicial, fim: dataFinal }}
             onChange={({ inicio, fim }) => { setDataInicial(inicio); setDataFinal(fim); }}
           />

@@ -40,14 +40,14 @@ export function BotaoNotas({ titulo, assuntos, larguraTotal }: {
         whileTap={reduzir ? undefined : { scale: 0.95 }}
         className={cn(
           "group press-feedback inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-[0.75rem] border border-border bg-muted px-3.5 text-xs font-semibold text-muted-foreground transition-all duration-200 hover:bg-card hover:text-foreground",
-          larguraTotal && "w-full md:w-auto",
+          larguraTotal && "w-full max-[380px]:gap-1 max-[380px]:px-1 max-[380px]:text-[13px]! md:w-auto",
         )}
       >
         {/* Mesmo visual do botão Período ao lado; o caderno balança ao passar o mouse. */}
         <motion.span
           variants={reduzir ? undefined : { parado: { rotate: 0, y: 0 }, foco: { rotate: [0, -12, 8, 0], y: -1 } }}
           transition={{ duration: 0.5 }}
-          className="inline-flex text-muted-foreground transition-colors group-hover:text-foreground"
+          className="inline-flex shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
         >
           <NotebookText size={15} aria-hidden="true" />
         </motion.span>

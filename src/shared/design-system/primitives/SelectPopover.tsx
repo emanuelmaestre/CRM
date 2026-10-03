@@ -61,12 +61,13 @@ function calcularPosicao(gatilho: HTMLElement): Posicao {
   return { top, left, paraCima, alinhadoDireita };
 }
 
-export function SelectPopover<T extends string>({ itens, valor, onChange, className, buttonClassName, buttonStyle, disabled }: {
+export function SelectPopover<T extends string>({ itens, valor, onChange, className, buttonClassName, labelClassName, buttonStyle, disabled }: {
   itens: SelectPopoverItem<T>[];
   valor: T;
   onChange: (valor: T) => void;
   className?: string;
   buttonClassName?: string;
+  labelClassName?: string;
   /** Estilo do gatilho — usado quando a cor precisa vir de um valor dinâmico (ex.: cor do perfil), não dá pra fazer só com classe. */
   buttonStyle?: CSSProperties;
   disabled?: boolean;
@@ -191,7 +192,7 @@ export function SelectPopover<T extends string>({ itens, valor, onChange, classN
         {/* Só o rótulo: a contagem já aparece ao lado de cada opção quando a
             lista abre, e repeti-la entre parênteses no gatilho engordava o
             botão sem dizer nada de novo. */}
-        {atual?.label}
+        {labelClassName ? <span className={labelClassName}>{atual?.label}</span> : atual?.label}
         <ChevronDown size={13} className={`shrink-0 text-muted-foreground transition-transform ${aberto ? "rotate-180" : ""}`} />
       </button>
       {montado && createPortal(<AnimatePresence>{painel}</AnimatePresence>, document.body)}

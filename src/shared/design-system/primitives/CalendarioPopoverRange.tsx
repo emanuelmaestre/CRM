@@ -325,6 +325,8 @@ interface CalendarioPopoverRangeProps {
   onChange: (valor: RangeDatas) => void;
   disabled?: boolean;
   atraso?: number;
+  /** Ajusta o gatilho quando ele ocupa uma coluna de filtros. */
+  buttonClassName?: string;
   /** Cor de identidade de quem chamou o calendário — o mesmo acento do
    *  ícone do card aberto, no Métricas, ou a cor da marca ativa, em
    *  Anúncios. Sem isso, cai num cinza-chumbo neutro (var(--foreground)) —
@@ -333,7 +335,7 @@ interface CalendarioPopoverRangeProps {
   accent?: string;
 }
 
-export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disabled, atraso = 0, accent = "var(--foreground)", incluirHojeAlemDoPeriodo = false }: CalendarioPopoverRangeProps) {
+export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disabled, atraso = 0, accent = "var(--foreground)", incluirHojeAlemDoPeriodo = false, buttonClassName }: CalendarioPopoverRangeProps) {
   const [aberto, setAberto] = useState(false);
   const [posicao, setPosicao] = useState<Posicao | null>(null);
   const [pulsando, setPulsando] = useState(false);
@@ -797,6 +799,7 @@ export function CalendarioPopoverRange({ rotulo, valor, min, max, onChange, disa
             ? "border-2 font-extrabold shadow-[0_2px_6px_rgba(14,15,19,.14)]"
             : "border border-border bg-muted font-semibold text-muted-foreground hover:bg-card hover:text-foreground",
           aberto && "border border-foreground/60 bg-card shadow-[0_0_0_3px_rgba(14,15,19,.08)]",
+          buttonClassName,
         )}
       >
         {inicioSelecionado && fimSelecionado && !aberto && <HaloSelecao reduzir={reduzir} accent={accent} />}
